@@ -1,0 +1,6 @@
+.page { padding: 24px; }
+.title { font-size: 1.5rem; font-weight: 600; margin-bottom: 24px; }
+.searchForm { display: flex; gap: 8px; margin-bottom: 24px; max-width: 600px; }
+.searchInput { flex: 1; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem; }
+.searchBtn { padding: 10px 20px; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 0.875rem; font-weight: 500; cursor: pointer; }
+.searchBtn:hover { background: #1d4ed8; }

@@ -1,0 +1,87 @@
+.tableWrapper {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.table thead tr {
+  background-color: var(--color-surface);
+  border-bottom: 2px solid var(--color-border);
+}
+
+.table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.row:hover td { background-color: var(--color-surface-hover); }
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.sortable:hover { color: var(--color-text-primary); }
+
+.sortIcon { font-size: 0.75rem; }
+
+.checkboxCol, .checkboxCell { width: 40px; text-align: center; }
+
+.expandCol, .actionsCol { width: 40px; }
+
+.expandCell, .actionsCell {
+  text-align: center;
+}
+
+.expandBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  transition: transform 0.15s;
+  padding: 0.125rem 0.25rem;
+}
+.expandBtn.expanded { transform: rotate(90deg); }
+
+.expandedRow td {
+  background-color: var(--color-surface);
+  padding: 1rem 1.5rem;
+}
+
+.emptyState {
+  text-align: center;
+  color: var(--color-text-secondary);
+  padding: 2rem 1rem !important;
+}
+
+/* Skeleton loading */
+.skeletonRow td { padding: 0.875rem 1rem; }
+
+.skeleton {
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--color-border) 25%, var(--color-surface-hover) 50%, var(--color-border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}

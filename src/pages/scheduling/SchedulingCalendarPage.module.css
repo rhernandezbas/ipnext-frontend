@@ -1,0 +1,10 @@
+.page { padding: 24px; }
+.title { font-size: 1.5rem; font-weight: 600; margin-bottom: 24px; }
+.calendarGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.dayHeader { text-align: center; padding: 8px; font-size: 0.75rem; font-weight: 600; color: #6b7280; background: #f9fafb; }
+.cell { min-height: 80px; padding: 8px; background: #fff; border: 1px solid #e5e7eb; }
+.active { cursor: pointer; }
+.active:hover { background: #f9fafb; }
+.today { background: #eff6ff; border-color: #2563eb; }
+.dayNum { font-size: 0.875rem; font-weight: 600; color: #111827; }
+.taskCount { display: block; margin-top: 4px; font-size: 0.75rem; background: #dbeafe; color: #1d4ed8; border-radius: 4px; padding: 2px 4px; }

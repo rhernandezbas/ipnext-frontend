@@ -1,0 +1,9 @@
+.page { padding: 24px; }
+.title { font-size: 1.5rem; font-weight: 600; margin-bottom: 24px; }
+.form { max-width: 600px; display: flex; flex-direction: column; gap: 16px; }
+.formGroup { display: flex; flex-direction: column; gap: 6px; }
+.label { font-size: 0.875rem; font-weight: 500; color: #374151; }
+.select, .input { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem; }
+.textarea { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem; resize: vertical; }
+.sendBtn { padding: 10px 24px; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 0.875rem; font-weight: 500; cursor: pointer; align-self: flex-start; }
+.sendBtn:hover { background: #1d4ed8; }

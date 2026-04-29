@@ -1,0 +1,12 @@
+.page { padding: 1.5rem; }
+.title { font-size: 1.5rem; font-weight: 600; color: var(--color-text-primary); margin: 0 0 1.25rem; }
+.dateFilters { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+.label { font-size: 0.8125rem; color: var(--color-text-secondary); }
+.dateInput {
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+}

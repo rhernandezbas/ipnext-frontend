@@ -1,0 +1,12 @@
+.page { padding: 24px; }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.title { font-size: 1.5rem; font-weight: 600; }
+.generateBtn { padding: 8px 16px; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 0.875rem; cursor: pointer; }
+.table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.table th { text-align: left; padding: 10px 12px; background: #f9fafb; font-weight: 500; color: #374151; border-bottom: 1px solid #e5e7eb; }
+.table td { padding: 10px 12px; border-bottom: 1px solid #f3f4f6; }
+.code { font-family: monospace; font-weight: 600; }
+.badge { padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; }
+.available { background: #dcfce7; color: #166534; }
+.used { background: #f3f4f6; color: #6b7280; }
+.expired { background: #fee2e2; color: #991b1b; }

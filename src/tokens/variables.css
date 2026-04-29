@@ -1,0 +1,111 @@
+:root {
+  /* ------------------------------------------------------------------ */
+  /* Colors — Semantic aliases                                            */
+  /* ------------------------------------------------------------------ */
+  --color-accent: #6f42c1;
+  --color-primary: #0d6efd;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f0f0f5;
+  --color-text-primary: #212529;
+  --color-text-secondary: #6c757d;
+  --color-border: #dee2e6;
+
+  /* ------------------------------------------------------------------ */
+  /* Colors — Brand                                                       */
+  /* ------------------------------------------------------------------ */
+  --color-sidebar-bg: #2c2c3e;
+  --color-crm-purple: #6f42c1;
+  --color-company-green: #28a745;
+
+  /* ------------------------------------------------------------------ */
+  /* Colors — Status                                                      */
+  /* ------------------------------------------------------------------ */
+  --color-status-active: #0d6efd;
+  --color-status-late: #dc3545;
+  --color-status-blocked: #fd7e14;
+  --color-status-inactive: #6c757d;
+
+  /* ------------------------------------------------------------------ */
+  /* Colors — Neutrals                                                    */
+  /* ------------------------------------------------------------------ */
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-gray-50: #f8f9fa;
+  --color-gray-100: #e9ecef;
+  --color-gray-200: #dee2e6;
+  --color-gray-300: #ced4da;
+  --color-gray-400: #adb5bd;
+  --color-gray-500: #6c757d;
+  --color-gray-600: #495057;
+  --color-gray-700: #343a40;
+  --color-gray-800: #212529;
+  --color-gray-900: #111214;
+
+  /* ------------------------------------------------------------------ */
+  /* Spacing — 4px base scale                                             */
+  /* ------------------------------------------------------------------ */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 36px;
+  --space-10: 40px;
+  --space-11: 44px;
+  --space-12: 48px;
+
+  /* ------------------------------------------------------------------ */
+  /* Typography                                                           */
+  /* ------------------------------------------------------------------ */
+  --font-family: 'Inter', sans-serif;
+
+  --font-size-xs: 0.75rem;   /* 12px */
+  --font-size-sm: 0.875rem;  /* 14px */
+  --font-size-md: 1rem;      /* 16px */
+  --font-size-lg: 1.125rem;  /* 18px */
+  --font-size-xl: 1.25rem;   /* 20px */
+  --font-size-2xl: 1.5rem;   /* 24px */
+  --font-size-3xl: 1.875rem; /* 30px */
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* ------------------------------------------------------------------ */
+  /* Layout                                                               */
+  /* ------------------------------------------------------------------ */
+  --sidebar-width: 240px;
+  --navbar-height: 60px;
+
+  /* ------------------------------------------------------------------ */
+  /* Shadows                                                              */
+  /* ------------------------------------------------------------------ */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  /* ------------------------------------------------------------------ */
+  /* Border Radius                                                        */
+  /* ------------------------------------------------------------------ */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ------------------------------------------------------------------ */
+  /* Transitions                                                          */
+  /* ------------------------------------------------------------------ */
+  --transition-fast: 100ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+}

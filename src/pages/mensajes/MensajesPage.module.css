@@ -1,0 +1,216 @@
+.page {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 1rem;
+  min-height: 600px;
+}
+
+/* Left panel */
+.leftPanel {
+  background: #fff;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.newMsgBtn {
+  margin: 1rem;
+  padding: 0.5rem 1rem;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tab {
+  flex: 1;
+  padding: 0.625rem;
+  background: none;
+  border: none;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.tabActive {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+.messageList {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.messageItem {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid #f3f4f6;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.messageItem:hover {
+  background: #f9fafb;
+}
+
+.messageItemSelected {
+  background: #eff6ff;
+}
+
+.messageFrom {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.messageSubject {
+  font-size: 0.75rem;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.messageDate {
+  font-size: 0.6875rem;
+  color: #9ca3af;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.unreadBadge {
+  width: 8px;
+  height: 8px;
+  background: #2563eb;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+/* Right panel */
+.rightPanel {
+  background: #fff;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  padding: 1.5rem;
+}
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #9ca3af;
+  font-size: 0.875rem;
+}
+
+.messageDetail {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.messageDetailSubject {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.messageDetailMeta {
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
+.messageDetailBody {
+  font-size: 0.875rem;
+  color: #374151;
+  line-height: 1.6;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1rem;
+}
+
+/* Compose form */
+.composeForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.composeTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.formGroup label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.formGroup input,
+.formGroup select,
+.formGroup textarea {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.formGroup input:focus,
+.formGroup select:focus,
+.formGroup textarea:focus {
+  border-color: #2563eb;
+}
+
+.formGroup textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.sendBtn {
+  padding: 0.5rem 1.25rem;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-end;
+}

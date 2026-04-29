@@ -1,0 +1,205 @@
+.page {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.greeting {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+/* KPI grid */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.kpiCard {
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  border-top: 4px solid var(--kpi-color, #2563eb);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.kpiValue {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.kpiLabel {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+/* Main row */
+.mainRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+}
+
+.card {
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.cardTitle {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+}
+
+/* Activity feed */
+.activityList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.activityItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.activityIcon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.activityBody {
+  flex: 1;
+}
+
+.activityDesc {
+  font-size: 0.8125rem;
+  color: #111827;
+}
+
+.activityTime {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin-top: 0.125rem;
+}
+
+/* System resources */
+.resourceList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.resourceItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.resourceHeader {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8125rem;
+}
+
+.resourceLabel {
+  font-weight: 500;
+}
+
+.resourceValue {
+  color: #6b7280;
+}
+
+.progressBar {
+  width: 100%;
+  height: 8px;
+  background: #f3f4f6;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--progress-color, #10b981);
+  transition: width 0.3s;
+}
+
+.uptime {
+  margin-top: 1rem;
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
+.uptimeValue {
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Shortcuts */
+.shortcutsGrid {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.shortcutBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--shortcut-color, #2563eb);
+  background: transparent;
+  color: var(--shortcut-color, #2563eb);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.shortcutBtn:hover {
+  background: var(--shortcut-color, #2563eb);
+  color: #fff;
+}
+
+.shortcutIcon {
+  font-size: 1.125rem;
+}
+
+/* Skeleton */
+.skeleton {
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 0.5rem;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeletonCard {
+  height: 100px;
+}

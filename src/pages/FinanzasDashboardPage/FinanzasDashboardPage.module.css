@@ -1,0 +1,30 @@
+.page { padding: 1.5rem; }
+.title { font-size: 1.5rem; font-weight: 600; color: var(--color-text-primary); margin: 0 0 1.5rem; }
+.loading { color: var(--color-text-secondary); }
+.cards { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 1.25rem 1.5rem;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  border-left: 4px solid var(--color-border);
+}
+.cardLabel { font-size: 0.8125rem; color: var(--color-text-secondary); font-weight: 500; }
+.cardValue { font-size: 1.75rem; font-weight: 700; color: var(--color-text-primary); }
+.green { border-left-color: #28a745; }
+.green .cardValue { color: #28a745; }
+.yellow { border-left-color: var(--color-status-blocked); }
+.yellow .cardValue { color: var(--color-status-blocked); }
+.red { border-left-color: var(--color-status-late); }
+.red .cardValue { color: var(--color-status-late); }
+.quickLinks { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.monthlySection { margin-bottom: 2rem; }
+.sectionTitle { font-size: 1.125rem; font-weight: 600; color: var(--color-text-primary); margin: 0 0 1rem; }
+.monthlyTable { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; font-size: 0.875rem; }
+.monthlyTable th, .monthlyTable td { padding: 0.5rem 1rem; border: 1px solid var(--color-border); text-align: right; }
+.monthlyTable th:first-child, .monthlyTable td:first-child { text-align: left; font-weight: 600; color: var(--color-text-secondary); }
+.chartContainer { width: 100%; height: 280px; }

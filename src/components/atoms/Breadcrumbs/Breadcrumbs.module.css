@@ -1,0 +1,32 @@
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-500);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.link {
+  color: var(--color-crm-purple);
+  transition: color var(--transition-fast);
+}
+
+.link:hover {
+  color: var(--color-gray-800);
+}
+
+.current {
+  color: var(--color-gray-600);
+  font-weight: var(--font-weight-medium);
+}
+
+.separator {
+  color: var(--color-gray-400);
+  user-select: none;
+}

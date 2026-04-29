@@ -1,0 +1,6 @@
+.page { padding: 24px; }
+.title { font-size: 1.5rem; font-weight: 600; margin-bottom: 24px; }
+.kpiGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+.kpiCard { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.1); border-left: 4px solid var(--kpi-color, #2563eb); }
+.kpiValue { font-size: 2rem; font-weight: 700; color: var(--kpi-color, #2563eb); margin: 0; }
+.kpiLabel { font-size: 0.875rem; color: #6b7280; margin: 4px 0 0; }
