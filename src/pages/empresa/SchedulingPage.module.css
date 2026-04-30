@@ -84,6 +84,30 @@
   margin: 0;
 }
 
+.projectFilter {
+  font-size: 12px;
+  color: var(--text-2);
+  margin: 4px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.clearFilter {
+  color: var(--text-3);
+  text-decoration: none;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  transition: background 120ms;
+}
+
+.clearFilter:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
 .headerRight {
   display: flex;
   gap: 8px;

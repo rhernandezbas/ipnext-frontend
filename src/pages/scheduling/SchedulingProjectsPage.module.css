@@ -190,12 +190,20 @@
 
 .titleCell {
   padding: 12px 14px;
-  font-weight: 600;
-  color: var(--color-primary);
-  cursor: pointer;
 }
 
-.titleCell:hover { text-decoration: underline; }
+.titleLink {
+  background: none;
+  border: none;
+  padding: 0;
+  font-weight: 600;
+  font-size: inherit;
+  color: var(--color-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.titleLink:hover { text-decoration: underline; }
 
 .countCell {
   padding: 12px 14px;

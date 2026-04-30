@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from '@/hooks/useProjects';
 import type { Project } from '@/types/project';
 import styles from './SchedulingProjectsPage.module.css';
@@ -119,6 +120,7 @@ function ConfirmDialog({ title, onConfirm, onCancel }: { title: string; onConfir
 type SortCol = 'id' | 'title' | 'nuevo' | 'enProgreso' | 'hecho' | 'description';
 
 export default function SchedulingProjectsPage() {
+  const navigate = useNavigate();
   const { data: projects = [], isLoading, refetch } = useProjects();
   const createMutation = useCreateProject();
   const updateMutation = useUpdateProject();
@@ -268,7 +270,14 @@ export default function SchedulingProjectsPage() {
                   paginated.map((p, i) => (
                     <tr key={p.id} className={styles.row}>
                       <td className={styles.idCell}>{(page - 1) * pageSize + i + 1}</td>
-                      <td className={styles.titleCell}>{p.title}</td>
+                      <td className={styles.titleCell}>
+                        <button
+                          className={styles.titleLink}
+                          onClick={() => navigate(`/admin/scheduling?projectId=${p.id}`)}
+                        >
+                          {p.title}
+                        </button>
+                      </td>
                       <td className={styles.countCell} data-color="blue">{p.taskCounts?.nuevo ?? 0}</td>
                       <td className={styles.countCell} data-color="gray">{p.taskCounts?.enProgreso ?? 0}</td>
                       <td className={styles.countCell} data-color="blue">{p.taskCounts?.hecho ?? 0}</td>
@@ -277,7 +286,11 @@ export default function SchedulingProjectsPage() {
                         <button className={styles.actionBtn} title="Editar" onClick={() => setEditing(p)}>
                           <IconPencil />
                         </button>
-                        <button className={styles.actionBtn} title="Ver detalle">
+                        <button
+                          className={styles.actionBtn}
+                          title="Ver tareas"
+                          onClick={() => navigate(`/admin/scheduling?projectId=${p.id}`)}
+                        >
                           <IconExternalLink />
                         </button>
                         <button className={`${styles.actionBtn} ${styles.actionBtnDanger}`} title="Eliminar" onClick={() => setDeleting(p)}>

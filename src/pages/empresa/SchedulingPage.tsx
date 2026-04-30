@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTasks, useCreateTask, useUpdateTask, useUpdateTaskStatus, useDeleteTask } from '@/hooks/useScheduling';
 import type { ScheduledTask, TaskStatus, TaskPriority } from '@/types/scheduling';
 import { KebabMenu } from '@/components/atoms/KebabMenu/KebabMenu';
@@ -448,6 +449,9 @@ function CalendarView({ tasks }: { tasks: ScheduledTask[] }) {
 type View = 'list' | 'kanban' | 'calendar';
 
 export default function SchedulingPage() {
+  const [searchParams] = useSearchParams();
+  const projectIdParam = searchParams.get('projectId') ?? '';
+
   const { data: tasks = [] } = useTasks();
   const { mutate: createTask }   = useCreateTask();
   const { mutate: updateTask }   = useUpdateTask();
@@ -464,6 +468,7 @@ export default function SchedulingPage() {
   const [filterAssigned, setFilterAssigned] = useState('');
 
   const filtered = tasks.filter(t => {
+    if (projectIdParam && t.projectId !== projectIdParam) return false;
     if (filterStatus   && t.status !== filterStatus)     return false;
     if (filterPriority && t.priority !== filterPriority) return false;
     if (filterCategory && t.category !== filterCategory) return false;
@@ -490,6 +495,13 @@ export default function SchedulingPage() {
           <p className={styles.subtitle}>
             {tasks.length} registradas · {pending} pendientes · {inProgress} en progreso
           </p>
+          {projectIdParam && (
+            <p className={styles.projectFilter}>
+              Proyecto: <strong>{tasks.find(t => t.projectId === projectIdParam)?.projectName ?? projectIdParam}</strong>
+              {' '}
+              <a href="/admin/scheduling" className={styles.clearFilter}>✕ ver todas</a>
+            </p>
+          )}
         </div>
         <div className={styles.headerRight}>
           <div className={styles.viewSwitcher}>
