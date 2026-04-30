@@ -16,10 +16,12 @@ jobs:
 
       - name: Deploy container
         run: |
+          docker network create ipnext-net 2>/dev/null || true
           docker stop ipnext-new-frontend 2>/dev/null || true
           docker rm ipnext-new-frontend 2>/dev/null || true
           docker run -d \
             --name ipnext-new-frontend \
+            --network ipnext-net \
             --restart unless-stopped \
             -p 7778:80 \
             ipnext-frontend:latest
