@@ -11,13 +11,19 @@
   overflow-y: auto;
   z-index: 100;
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
+  transition: transform 0.25s ease;
+}
+
+.sidebarClosed {
+  transform: translateX(-100%);
 }
 
 .brand {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   height: var(--navbar-height);
-  padding: 0 var(--space-6);
+  padding: 0 var(--space-4) 0 var(--space-6);
   border-bottom: 1px solid #e5e7eb;
   flex-shrink: 0;
 }
@@ -27,6 +33,25 @@
   font-weight: var(--font-weight-bold);
   color: #111827;
   letter-spacing: -0.02em;
+}
+
+.collapseBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  color: #9ca3af;
+  padding: 4px 6px;
+  border-radius: 6px;
+  line-height: 1;
+  transition: background 0.12s, color 0.12s;
+  display: flex;
+  align-items: center;
+}
+
+.collapseBtn:hover {
+  background: #f3f4f6;
+  color: #374151;
 }
 
 .nav {

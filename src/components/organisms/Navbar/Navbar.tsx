@@ -53,7 +53,12 @@ const TYPE_LABELS: Record<string, string> = {
   admin: 'Administradores',
 };
 
-export function Navbar() {
+interface NavbarProps {
+  onMenuClick?: () => void;
+  sidebarOpen?: boolean;
+}
+
+export function Navbar({ onMenuClick, sidebarOpen = true }: NavbarProps) {
   const { user, logout } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -125,7 +130,19 @@ export function Navbar() {
   }, [closeResults]);
 
   return (
-    <header className={styles.navbar}>
+    <header className={`${styles.navbar} ${!sidebarOpen ? styles.navbarExpanded : ''}`}>
+      <button
+        type="button"
+        className={styles.menuBtn}
+        onClick={onMenuClick}
+        aria-label="Toggle menú"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
       <span className={styles.sectionTitle}>{sectionTitle}</span>
 
       {/* Search */}

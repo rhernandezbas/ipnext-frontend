@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from '@/components/organisms/Sidebar/Sidebar';
 import { Navbar } from '@/components/organisms/Navbar/Navbar';
@@ -98,12 +99,14 @@ function useBreadcrumbs(): CrumbItem[] {
 
 export function AdminLayout() {
   const crumbs = useBreadcrumbs();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const toggleSidebar = () => setSidebarOpen(v => !v);
 
   return (
     <div className={styles.layout}>
-      <Sidebar />
-      <div className={styles.main}>
-        <Navbar />
+      <Sidebar open={sidebarOpen} onToggle={toggleSidebar} />
+      <div className={`${styles.main} ${!sidebarOpen ? styles.mainExpanded : ''}`}>
+        <Navbar onMenuClick={toggleSidebar} sidebarOpen={sidebarOpen} />
         <main className={styles.content}>
           {crumbs.length > 0 && (
             <div className={styles.breadcrumbsWrapper}>
