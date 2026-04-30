@@ -8,7 +8,7 @@
 /* Header */
 .header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
@@ -22,11 +22,12 @@
 
 .breadcrumb {
   font-size: 12px;
-  color: #6b7280;
+  color: #6366f1;
+  font-weight: 500;
 }
 
 .title {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: #111827;
   margin: 0;
@@ -35,29 +36,88 @@
 .headerRight {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
-.searchInput {
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 14px;
-  outline: none;
-  width: 200px;
-  transition: border-color 0.15s;
+/* Body layout (table + filter panel side by side) */
+.body {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
 }
 
-.searchInput:focus {
-  border-color: #6366f1;
-}
-
-/* Table */
-.tableWrapper {
+.tableSection {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   overflow: hidden;
+}
+
+/* Table controls */
+.tableControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pageSizeControl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.pageSizeSelect {
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+.searchControl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 6px 10px;
+  background: #fff;
+  transition: border-color 0.15s;
+}
+
+.searchControl:focus-within {
+  border-color: #6366f1;
+}
+
+.searchIcon {
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+}
+
+.searchInput {
+  border: none;
+  outline: none;
+  font-size: 13px;
+  width: 180px;
+  background: transparent;
+}
+
+/* Table */
+.tableWrapper {
+  overflow-x: auto;
 }
 
 .table {
@@ -72,13 +132,44 @@
 }
 
 .table th {
-  padding: 12px 16px;
+  padding: 10px 14px;
   text-align: left;
   font-size: 12px;
   font-weight: 600;
   color: #6b7280;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.thSortable {
+  cursor: pointer;
+  user-select: none;
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  transition: color 0.12s;
+}
+
+.thSortable:hover {
+  color: #374151;
+}
+
+.sortNeutral {
+  color: #d1d5db;
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+.sortActive {
+  color: #6366f1;
+  font-size: 11px;
+  margin-left: 4px;
 }
 
 .row {
@@ -86,125 +177,254 @@
   transition: background 0.1s;
 }
 
-.row:last-child {
-  border-bottom: none;
-}
-
-.row:hover {
-  background: #f9fafb;
-}
+.row:last-child { border-bottom: none; }
+.row:hover { background: #f9fafb; }
 
 .idCell {
-  padding: 14px 16px;
+  padding: 12px 14px;
   color: #6b7280;
   font-weight: 500;
+  font-size: 13px;
   width: 50px;
 }
 
 .titleCell {
-  padding: 14px 16px;
+  padding: 12px 14px;
   font-weight: 600;
   color: #2563eb;
+  cursor: pointer;
 }
 
+.titleCell:hover { text-decoration: underline; }
+
 .countCell {
-  padding: 14px 16px;
+  padding: 12px 14px;
   font-weight: 700;
   text-align: center;
+  font-size: 14px;
 }
 
 .countCell[data-color="blue"] { color: #2563eb; }
-.countCell[data-color="orange"] { color: #f59e0b; }
+.countCell[data-color="gray"] { color: #6b7280; }
 .countCell[data-color="green"] { color: #10b981; }
 
 .descCell {
-  padding: 14px 16px;
+  padding: 12px 14px;
   color: #6b7280;
-  max-width: 240px;
+  max-width: 220px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 13px;
 }
 
 .actionsCell {
-  padding: 14px 16px;
+  padding: 10px 14px;
   display: flex;
-  gap: 8px;
+  gap: 4px;
   align-items: center;
+}
+
+.actionBtn {
+  background: none;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  padding: 5px 7px;
+  border-radius: 6px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  transition: all 0.1s;
+  line-height: 1;
+}
+
+.actionBtn:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #374151;
+}
+
+.actionBtnDanger:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #ef4444;
 }
 
 .empty {
   padding: 48px;
   text-align: center;
   color: #9ca3af;
+  font-size: 14px;
 }
 
-.footer {
-  padding: 8px 0;
+/* Pagination */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid #f3f4f6;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.footerText {
+.paginationInfo {
   font-size: 13px;
   color: #6b7280;
 }
 
+.paginationBtns {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pageBtn {
+  background: #fff;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.pageBtn:hover:not(:disabled) { background: #f3f4f6; }
+.pageBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.pageCurrent {
+  background: #6366f1;
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 32px;
+  text-align: center;
+}
+
+/* Filter panel */
+.filterPanel {
+  width: 260px;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.filterTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filterLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.filterInput {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.filterInput:focus { border-color: #6366f1; }
+
+.filterActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 /* Buttons */
 .btnPrimary {
-  padding: 8px 16px;
+  padding: 7px 16px;
   background: #6366f1;
   color: #fff;
   border: none;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .btnPrimary:hover:not(:disabled) { background: #4f46e5; }
 .btnPrimary:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .btnSecondary {
-  padding: 8px 16px;
+  padding: 7px 14px;
   background: #fff;
   color: #374151;
   border: 1px solid #d1d5db;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .btnSecondary:hover:not(:disabled) { background: #f9fafb; }
 .btnSecondary:disabled { opacity: 0.6; cursor: not-allowed; }
 
+.btnSecondaryActive {
+  background: #eef2ff;
+  border-color: #6366f1;
+  color: #6366f1;
+}
+
+.btnIcon {
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 7px 10px;
+  cursor: pointer;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  transition: all 0.12s;
+}
+
+.btnIcon:hover { background: #f3f4f6; color: #374151; }
+
 .btnDanger {
-  padding: 8px 16px;
+  padding: 7px 16px;
   background: #ef4444;
   color: #fff;
   border: none;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .btnDanger:hover { background: #dc2626; }
-
-.iconBtn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 4px;
-  font-size: 15px;
-  transition: background 0.1s;
-  line-height: 1;
-}
-
-.iconBtn:hover { background: #f3f4f6; }
 
 /* Modal */
 .overlay {
