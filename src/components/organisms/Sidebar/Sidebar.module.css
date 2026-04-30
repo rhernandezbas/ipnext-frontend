@@ -4,11 +4,13 @@
   left: 0;
   width: var(--sidebar-width);
   height: 100vh;
-  background-color: var(--color-sidebar-bg);
+  background-color: #ffffff;
+  border-right: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   z-index: 100;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
 }
 
 .brand {
@@ -16,58 +18,63 @@
   align-items: center;
   height: var(--navbar-height);
   padding: 0 var(--space-6);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid #e5e7eb;
   flex-shrink: 0;
 }
 
 .brandName {
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
-  color: var(--color-white);
+  color: #111827;
   letter-spacing: -0.02em;
 }
 
 .nav {
   flex: 1;
-  padding: var(--space-4) 0;
+  padding: var(--space-3) 0;
 }
 
 .navSection {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-1);
 }
 
 .navSectionTitle {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+  font-size: 10px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-crm-purple);
-  padding: 0 var(--space-6);
-  margin-bottom: var(--space-2);
+  letter-spacing: 0.1em;
+  color: #6366f1;
+  padding: var(--space-3) var(--space-4) var(--space-1);
+  margin: 0;
 }
 
 .navLink {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-6);
-  color: rgba(255, 255, 255, 0.65);
+  padding: 7px var(--space-4);
+  color: #374151;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  transition: color var(--transition-fast), background-color var(--transition-fast);
-  border-left: 3px solid transparent;
+  transition: background-color 0.12s, color 0.12s;
   text-decoration: none;
+  border-radius: 6px;
+  margin: 1px var(--space-2);
 }
 
 .navLink:hover {
-  color: var(--color-white);
-  background-color: rgba(255, 255, 255, 0.05);
+  color: #111827;
+  background-color: #f3f4f6;
 }
 
 .navLinkActive {
-  color: var(--color-white);
-  border-left-color: var(--color-crm-purple);
-  background-color: rgba(111, 66, 193, 0.15);
+  color: #fff;
+  background-color: #6366f1;
+}
+
+.navLinkActive:hover {
+  background-color: #4f46e5;
+  color: #fff;
 }
 
 .navLinkDisabled {
@@ -85,33 +92,36 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-2) var(--space-6);
-  color: rgba(255, 255, 255, 0.65);
+  padding: 7px var(--space-4);
+  color: #374151;
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: 500;
   background: none;
   border: none;
-  border-left: 3px solid transparent;
-  width: 100%;
+  border-radius: 6px;
+  margin: 1px var(--space-2);
+  width: calc(100% - var(--space-2) * 2);
   text-align: left;
   cursor: pointer;
-  transition: color var(--transition-fast), background-color var(--transition-fast);
+  transition: background-color 0.12s, color 0.12s;
 }
 
 .navParent:hover {
-  color: var(--color-white);
-  background-color: rgba(255, 255, 255, 0.05);
+  color: #111827;
+  background-color: #f3f4f6;
 }
 
 .navParentActive {
-  color: var(--color-white);
+  color: #6366f1;
+  font-weight: 600;
 }
 
 .chevron {
-  font-size: 1rem;
-  transition: transform var(--transition-fast);
+  font-size: 12px;
+  transition: transform 0.2s;
   display: inline-block;
   transform: rotate(0deg);
+  color: #9ca3af;
 }
 
 .chevronOpen {
@@ -121,27 +131,30 @@
 .navChildren {
   display: flex;
   flex-direction: column;
+  padding-left: var(--space-2);
+  margin-bottom: var(--space-1);
 }
 
 .navChild {
   display: flex;
   align-items: center;
-  padding: var(--space-1) var(--space-6) var(--space-1) calc(var(--space-6) + 1rem);
-  color: rgba(255, 255, 255, 0.5);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
+  padding: 5px var(--space-4) 5px calc(var(--space-4) + 12px);
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 400;
   text-decoration: none;
-  transition: color var(--transition-fast), background-color var(--transition-fast);
-  border-left: 3px solid transparent;
+  transition: background-color 0.12s, color 0.12s;
+  border-radius: 6px;
+  margin: 1px var(--space-1);
 }
 
 .navChild:hover {
-  color: var(--color-white);
-  background-color: rgba(255, 255, 255, 0.05);
+  color: #111827;
+  background-color: #f3f4f6;
 }
 
 .navChildActive {
-  color: var(--color-white);
-  border-left-color: var(--color-crm-purple);
-  background-color: rgba(111, 66, 193, 0.1);
+  color: #6366f1;
+  background-color: #eef2ff;
+  font-weight: 600;
 }
