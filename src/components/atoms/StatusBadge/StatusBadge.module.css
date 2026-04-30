@@ -1,15 +1,14 @@
 .badge {
   display: inline-block;
-  padding: 0.25em 0.6em;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 4px;
-  color: #fff;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 9999px;
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
 
-.active   { background-color: var(--color-status-active); }
-.late     { background-color: var(--color-status-late); }
-.blocked  { background-color: var(--color-status-blocked); }
-.inactive { background-color: var(--color-status-inactive); }
+.active   { background-color: var(--badge-active-bg);   color: var(--badge-active-fg); }
+.late     { background-color: var(--badge-late-bg);     color: var(--badge-late-fg); }
+.blocked  { background-color: var(--badge-blocked-bg);  color: var(--badge-blocked-fg); }
+.inactive { background-color: var(--badge-inactive-bg); color: var(--badge-inactive-fg); }

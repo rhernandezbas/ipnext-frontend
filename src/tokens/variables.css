@@ -108,4 +108,19 @@
   --transition-fast: 100ms ease;
   --transition-normal: 200ms ease;
   --transition-slow: 300ms ease;
+
+  /* ------------------------------------------------------------------ */
+  /* Component tokens                                                     */
+  /* ------------------------------------------------------------------ */
+  --radius-button: 8px;
+
+  /* Badge tokens */
+  --badge-active-bg: #dbeafe;
+  --badge-active-fg: #1e40af;
+  --badge-late-bg: #fee2e2;
+  --badge-late-fg: #991b1b;
+  --badge-blocked-bg: #ffedd5;
+  --badge-blocked-fg: #9a3412;
+  --badge-inactive-bg: #f3f4f6;
+  --badge-inactive-fg: #6b7280;
 }
