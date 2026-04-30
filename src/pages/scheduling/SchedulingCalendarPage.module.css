@@ -1,10 +1,92 @@
-.page { padding: 24px; }
-.title { font-size: 1.5rem; font-weight: 600; margin-bottom: 24px; }
-.calendarGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.dayHeader { text-align: center; padding: 8px; font-size: 0.75rem; font-weight: 600; color: #6b7280; background: #f9fafb; }
-.cell { min-height: 80px; padding: 8px; background: #fff; border: 1px solid #e5e7eb; }
+/* Rosi — Scheduling Calendar (monthly) */
+.page {
+  --brand:        oklch(56% 0.2 25);
+  --brand-subtle: oklch(97% 0.025 25);
+  --bg-page:      oklch(97.5% 0.006 60);
+  --bg-card:      oklch(100% 0 0);
+  --bg-surface:   oklch(98.5% 0.005 60);
+  --border:       oklch(90% 0.008 60);
+  --text-1:       oklch(17% 0.015 25);
+  --text-2:       oklch(42% 0.015 25);
+  --text-3:       oklch(62% 0.01 25);
+
+  padding: 32px;
+  background: var(--bg-page);
+  min-height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin: 0 0 24px;
+  letter-spacing: -0.3px;
+}
+
+.calendarGrid {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.dayHeader {
+  text-align: center;
+  padding: 10px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cell {
+  min-height: 88px;
+  padding: 8px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  transition: background 100ms;
+}
+.cell:nth-child(7n) { border-right: none; }
+
 .active { cursor: pointer; }
-.active:hover { background: #f9fafb; }
-.today { background: #eff6ff; border-color: #2563eb; }
-.dayNum { font-size: 0.875rem; font-weight: 600; color: #111827; }
-.taskCount { display: block; margin-top: 4px; font-size: 0.75rem; background: #dbeafe; color: #1d4ed8; border-radius: 4px; padding: 2px 4px; }
+.active:hover { background: var(--bg-surface); }
+
+.today { background: var(--brand-subtle); }
+.today .dayNum {
+  background: var(--brand);
+  color: #fff;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dayNum {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  display: inline-block;
+  line-height: 24px;
+  min-width: 24px;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.taskCount {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--brand-subtle);
+  color: var(--brand);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
