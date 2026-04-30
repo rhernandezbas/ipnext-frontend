@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import styles from './KebabMenu.module.css';
 
 interface MenuItem {
@@ -12,12 +13,19 @@ interface KebabMenuProps {
 
 export function KebabMenu({ items }: KebabMenuProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const trigger = triggerRef.current;
+      const menu = document.getElementById('kebab-portal-menu');
+      if (
+        trigger && !trigger.contains(target) &&
+        menu && !menu.contains(target)
+      ) {
         setOpen(false);
       }
     };
@@ -25,19 +33,40 @@ export function KebabMenu({ items }: KebabMenuProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
+  function handleTrigger() {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setPos({
+      top: rect.bottom + window.scrollY + 4,
+      left: rect.right + window.scrollX,
+    });
+    setOpen((o) => !o);
+  }
+
   return (
-    <div className={styles.wrapper} ref={ref}>
+    <div className={styles.wrapper}>
       <button
+        ref={triggerRef}
         className={styles.trigger}
-        onClick={() => setOpen((o) => !o)}
+        onClick={handleTrigger}
         aria-label="Acciones"
         aria-haspopup="true"
         aria-expanded={open}
       >
         &#8942;
       </button>
-      {open && (
-        <ul className={styles.menu} role="menu">
+      {open && createPortal(
+        <ul
+          id="kebab-portal-menu"
+          className={styles.menu}
+          role="menu"
+          style={{
+            position: 'absolute',
+            top: pos.top,
+            left: pos.left,
+            transform: 'translateX(-100%)',
+          }}
+        >
           {items.map((item) => (
             <li key={item.label}>
               <button
@@ -49,7 +78,8 @@ export function KebabMenu({ items }: KebabMenuProps) {
               </button>
             </li>
           ))}
-        </ul>
+        </ul>,
+        document.body
       )}
     </div>
   );

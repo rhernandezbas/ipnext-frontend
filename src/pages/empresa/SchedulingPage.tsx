@@ -76,7 +76,8 @@ const EMPTY: Omit<ScheduledTask, 'id'> = {
   title: '', description: '', assignedTo: '', assignedToId: '',
   clientId: null, clientName: null, status: 'pending', priority: 'normal',
   scheduledDate: '', scheduledTime: '', estimatedHours: 1,
-  address: '', coordinates: null, category: 'other', completedAt: null, notes: '',
+  address: '', coordinates: null, category: 'other',
+  projectId: null, projectName: null, completedAt: null, notes: '',
 };
 
 interface TaskFormProps {
