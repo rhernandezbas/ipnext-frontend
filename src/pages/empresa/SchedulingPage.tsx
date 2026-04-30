@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTasks, useCreateTask, useUpdateTask, useUpdateTaskStatus, useDeleteTask } from '@/hooks/useScheduling';
+import { useProjects } from '@/hooks/useProjects';
 import type { ScheduledTask, TaskStatus, TaskPriority } from '@/types/scheduling';
 import styles from './SchedulingPage.module.css';
 
@@ -53,6 +54,7 @@ interface TaskFormProps {
   onSubmit: (data: Omit<ScheduledTask, 'id'>) => void;
   initialData?: Omit<ScheduledTask, 'id'>;
   title?: string;
+  projects: { id: string; title: string }[];
 }
 
 const EMPTY_TASK: Omit<ScheduledTask, 'id'> = {
@@ -70,11 +72,13 @@ const EMPTY_TASK: Omit<ScheduledTask, 'id'> = {
   address: '',
   coordinates: null,
   category: 'other',
+  projectId: null,
+  projectName: null,
   completedAt: null,
   notes: '',
 };
 
-function TaskFormModal({ onClose, onSubmit, initialData, title: modalTitle }: TaskFormProps) {
+function TaskFormModal({ onClose, onSubmit, initialData, title: modalTitle, projects }: TaskFormProps) {
   const [form, setForm] = useState<Omit<ScheduledTask, 'id'>>(initialData ?? EMPTY_TASK);
 
   function handleChange<K extends keyof typeof form>(field: K, value: (typeof form)[K]) {
@@ -132,17 +136,16 @@ function TaskFormModal({ onClose, onSubmit, initialData, title: modalTitle }: Ta
           </div>
           <div className={styles.formRow}>
             <div className={styles.formGroup}>
-              <label htmlFor="task-category">Categoría</label>
+              <label htmlFor="task-project">Proyecto</label>
               <select
-                id="task-category"
-                value={form.category}
-                onChange={e => handleChange('category', e.target.value as ScheduledTask['category'])}
+                id="task-project"
+                value={form.projectId ?? ''}
+                onChange={e => handleChange('projectId', e.target.value || null)}
               >
-                <option value="installation">Instalación</option>
-                <option value="repair">Reparación</option>
-                <option value="maintenance">Mantenimiento</option>
-                <option value="inspection">Inspección</option>
-                <option value="other">Otro</option>
+                <option value="">Sin proyecto</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.title}</option>
+                ))}
               </select>
             </div>
             <div className={styles.formGroup}>
@@ -267,6 +270,7 @@ function CalendarView({ tasks }: { tasks: ScheduledTask[] }) {
 
 export default function SchedulingPage() {
   const { data: tasks = [] } = useTasks();
+  const { data: projects = [] } = useProjects();
   const { mutate: createTask } = useCreateTask();
   const { mutate: updateTask } = useUpdateTask();
   const { mutate: updateStatus } = useUpdateTaskStatus();
@@ -317,6 +321,7 @@ export default function SchedulingPage() {
         <TaskFormModal
           onClose={() => setShowForm(false)}
           onSubmit={data => createTask(data)}
+          projects={projects}
         />
       )}
 
@@ -329,6 +334,7 @@ export default function SchedulingPage() {
             updateTask({ id: editingTask.id, data });
             setEditingTask(null);
           }}
+          projects={projects}
         />
       )}
 
@@ -375,7 +381,7 @@ export default function SchedulingPage() {
                   <th>Título</th>
                   <th>Asignado a</th>
                   <th>Cliente</th>
-                  <th>Categoría</th>
+                  <th>Proyecto</th>
                   <th>Prioridad</th>
                   <th>Estado</th>
                   <th>Fecha</th>
@@ -391,7 +397,7 @@ export default function SchedulingPage() {
                     <td>{task.clientName ?? '—'}</td>
                     <td>
                       <span className={styles.categoryBadge}>
-                        {categoryLabel(task.category)}
+                        {task.projectName ?? '—'}
                       </span>
                     </td>
                     <td>
