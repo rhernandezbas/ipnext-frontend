@@ -1,41 +1,50 @@
 import { useSchedulingArchive } from '@/hooks/useSchedulingArchive';
+import styles from './SchedulingArchivePage.module.css';
 
 export default function SchedulingArchivePage() {
   const { data: tasks, isLoading } = useSchedulingArchive();
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold text-gray-800 mb-4">Archivo de Scheduling</h1>
-      {isLoading ? (
-        <div>Cargando archivo...</div>
-      ) : (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+    <div className={styles.page}>
+      <div className={styles.header}>
+        <div className={styles.headerLeft}>
+          <span className={styles.breadcrumb}>Scheduling /</span>
+          <h1 className={styles.title}>Archivo</h1>
+        </div>
+      </div>
+
+      <div className={styles.tableSection}>
+        <div className={styles.tableWrapper}>
+          <table className={styles.table}>
+            <thead>
               <tr>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Proyecto</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Técnico</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Fecha</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Estado</th>
+                <th>Proyecto</th>
+                <th>Técnico</th>
+                <th>Fecha</th>
+                <th>Estado</th>
               </tr>
             </thead>
             <tbody>
-              {(tasks ?? []).map(task => (
-                <tr key={task.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-800">{task.proyecto}</td>
-                  <td className="px-4 py-3 text-gray-600">{task.tecnico}</td>
-                  <td className="px-4 py-3 text-gray-600">{task.fecha}</td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                      {task.estado}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {isLoading ? (
+                <tr><td colSpan={4} className={styles.loading}>Cargando archivo...</td></tr>
+              ) : (tasks ?? []).length === 0 ? (
+                <tr><td colSpan={4} className={styles.empty}>No hay tareas archivadas.</td></tr>
+              ) : (
+                (tasks ?? []).map(task => (
+                  <tr key={task.id} className={styles.row}>
+                    <td className={styles.cell}>{task.proyecto}</td>
+                    <td className={styles.cellMuted}>{task.tecnico}</td>
+                    <td className={styles.cellMuted}>{task.fecha}</td>
+                    <td className={styles.cell}>
+                      <span className={styles.statusPill}>{task.estado}</span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-      )}
+      </div>
     </div>
   );
 }
