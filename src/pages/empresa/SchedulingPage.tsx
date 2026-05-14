@@ -184,12 +184,12 @@ function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFo
             <div className={styles.formRow}>
               <div className={styles.formGroup}>
                 <label htmlFor="f-date">Fecha</label>
-                <input id="f-date" className={styles.formControl} type="date"
+                <input id="f-date" className={styles.formControl} type="date" required
                   value={form.scheduledDate} onChange={e => set('scheduledDate', e.target.value)} />
               </div>
               <div className={styles.formGroup}>
                 <label htmlFor="f-time">Hora</label>
-                <input id="f-time" className={styles.formControl} type="time"
+                <input id="f-time" className={styles.formControl} type="time" required
                   value={form.scheduledTime} onChange={e => set('scheduledTime', e.target.value)} />
               </div>
             </div>
