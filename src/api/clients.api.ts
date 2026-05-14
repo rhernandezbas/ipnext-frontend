@@ -18,14 +18,14 @@ export interface LogsQuery { page?: number; limit?: number; }
 export async function getClients(
   params: GetClientsParams = {}
 ): Promise<PaginatedResponse<CustomerSummary>> {
-  const response = await axiosClient.get<PaginatedResponse<CustomerSummary>>('/customers', {
+  const response = await axiosClient.get<PaginatedResponse<CustomerSummary>>('/clients', {
     params,
   });
   return response.data;
 }
 
 export async function getClientById(id: number): Promise<Customer> {
-  const response = await axiosClient.get<Customer>(`/customers/${id}`);
+  const response = await axiosClient.get<Customer>(`/clients/${id}`);
   return response.data;
 }
 
@@ -33,19 +33,19 @@ export async function updateClient(
   id: number,
   data: Partial<Customer>
 ): Promise<Customer> {
-  const response = await axiosClient.patch<Customer>(`/customers/${id}`, data);
+  const response = await axiosClient.patch<Customer>(`/clients/${id}`, data);
   return response.data;
 }
 
 export async function createClient(
   data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt' | 'services' | 'logs'>
 ): Promise<Customer> {
-  const response = await axiosClient.post<Customer>('/customers', data);
+  const response = await axiosClient.post<Customer>('/clients', data);
   return response.data;
 }
 
 export async function deleteClient(id: number): Promise<void> {
-  await axiosClient.delete(`/customers/${id}`);
+  await axiosClient.delete(`/clients/${id}`);
 }
 
 // Alias for hook compatibility (accepts string id)
@@ -54,17 +54,17 @@ export async function getClient(id: string): Promise<Customer> {
 }
 
 export async function getClientServices(id: string): Promise<Service[]> {
-  const response = await axiosClient.get<Service[]>(`/customers/${id}/services`);
+  const response = await axiosClient.get<Service[]>(`/clients/${id}/services`);
   return response.data;
 }
 
 export async function getClientInvoices(id: string): Promise<Invoice[]> {
-  const response = await axiosClient.get<Invoice[]>(`/customers/${id}/invoices`);
+  const response = await axiosClient.get<Invoice[]>(`/clients/${id}/invoices`);
   return response.data;
 }
 
 export async function getClientLogs(id: string, query: LogsQuery): Promise<PaginatedResponse<LogEntry>> {
-  const response = await axiosClient.get<PaginatedResponse<LogEntry>>(`/customers/${id}/logs`, {
+  const response = await axiosClient.get<PaginatedResponse<LogEntry>>(`/clients/${id}/logs`, {
     params: query,
   });
   return response.data;
