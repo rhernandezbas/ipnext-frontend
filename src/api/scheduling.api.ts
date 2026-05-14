@@ -9,7 +9,7 @@ export const listTasks = () =>
 export const getTask = (id: string) =>
   axiosClient.get<ScheduledTask>(`${BASE}/${id}`).then(r => r.data);
 
-export const createTask = (data: Omit<ScheduledTask, 'id'>) =>
+export const createTask = (data: Omit<ScheduledTask, 'id' | 'sequenceNumber'>) =>
   axiosClient.post<ScheduledTask>(BASE, data).then(r => r.data);
 
 export const updateTask = (id: string, data: Partial<ScheduledTask>) =>

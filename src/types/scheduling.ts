@@ -5,6 +5,7 @@ export type TaskCategory = 'installation' | 'repair' | 'maintenance' | 'inspecti
 
 export interface ScheduledTask {
   id: string;
+  sequenceNumber: number;
   title: string;
   description: string | null;
   assignedTo: string | null;

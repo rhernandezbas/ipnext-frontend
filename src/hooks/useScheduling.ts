@@ -9,7 +9,7 @@ export function useTasks() {
 export function useCreateTask() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Omit<ScheduledTask, 'id'>) => api.createTask(data),
+    mutationFn: (data: Omit<ScheduledTask, 'id' | 'sequenceNumber'>) => api.createTask(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['scheduling-tasks'] }),
   });
 }

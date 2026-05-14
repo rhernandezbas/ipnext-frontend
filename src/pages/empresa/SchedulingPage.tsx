@@ -77,7 +77,7 @@ function fmtDate(d: string | null): string {
 
 // ── Form modal ────────────────────────────────────────────────
 
-const EMPTY: Omit<ScheduledTask, 'id'> = {
+const EMPTY: Omit<ScheduledTask, 'id' | 'sequenceNumber'> = {
   title: '', description: null, assignedTo: null, assignedToId: null,
   clientId: null, clientName: null, status: 'pending', priority: 'normal',
   scheduledDate: null, scheduledTime: null, estimatedHours: 1,
@@ -87,9 +87,9 @@ const EMPTY: Omit<ScheduledTask, 'id'> = {
 
 interface TaskFormProps {
   title?: string;
-  initial?: Omit<ScheduledTask, 'id'>;
+  initial?: Omit<ScheduledTask, 'id' | 'sequenceNumber'>;
   onClose: () => void;
-  onSubmit: (data: Omit<ScheduledTask, 'id'>) => Promise<void>;
+  onSubmit: (data: Omit<ScheduledTask, 'id' | 'sequenceNumber'>) => Promise<void>;
 }
 
 // Normalize empty strings coming from text inputs into null so the API stores
@@ -100,7 +100,7 @@ function emptyToNull(v: string): string | null {
 }
 
 function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFormProps) {
-  const [form, setForm] = useState<Omit<ScheduledTask, 'id'>>(initial ?? EMPTY);
+  const [form, setForm] = useState<Omit<ScheduledTask, 'id' | 'sequenceNumber'>>(initial ?? EMPTY);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -120,6 +120,7 @@ function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFo
     if (!tpl) return;
     setForm(prev => ({
       ...prev,
+      title: tpl.name,
       description: tpl.description,
       category: tpl.category,
     }));
@@ -154,7 +155,7 @@ function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFo
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError(null);
-    const payload: Omit<ScheduledTask, 'id'> = {
+    const payload: Omit<ScheduledTask, 'id' | 'sequenceNumber'> = {
       ...form,
       scheduledDate: form.scheduledDate ? emptyToNull(form.scheduledDate) : null,
       scheduledTime: form.scheduledTime ? emptyToNull(form.scheduledTime) : null,
@@ -377,9 +378,9 @@ function ListView({
           </tr>
         </thead>
         <tbody>
-          {tasks.map((t, i) => (
+          {tasks.map(t => (
             <tr key={t.id}>
-              <td className={styles.idCell} title={t.id}>{i + 1}</td>
+              <td className={styles.idCell} title={t.id}>{t.sequenceNumber}</td>
               <td>
                 <div className={styles.taskTitle}>{t.title}</div>
                 {t.address && <div className={styles.taskAddress}>📍 {t.address}</div>}
@@ -736,7 +737,7 @@ export default function SchedulingPage() {
       {editingTask && (
         <TaskModal
           title="Editar tarea"
-          initial={(() => { const { id: _id, ...rest } = editingTask; return rest; })()}
+          initial={(() => { const { id: _id, sequenceNumber: _seq, ...rest } = editingTask; return rest; })()}
           onClose={() => setEditingTask(null)}
           onSubmit={async data => { await updateTask({ id: editingTask.id, data }); }}
         />
