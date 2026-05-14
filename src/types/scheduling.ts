@@ -1,24 +1,26 @@
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
 
+export type TaskCategory = 'installation' | 'repair' | 'maintenance' | 'inspection' | 'other';
+
 export interface ScheduledTask {
   id: string;
   title: string;
-  description: string;
-  assignedTo: string;
-  assignedToId: string;
+  description: string | null;
+  assignedTo: string | null;
+  assignedToId: string | null;
   clientId: string | null;
   clientName: string | null;
   status: TaskStatus;
   priority: TaskPriority;
-  scheduledDate: string;
-  scheduledTime: string;
+  scheduledDate: string | null;
+  scheduledTime: string | null;
   estimatedHours: number;
-  address: string;
+  address: string | null;
   coordinates: { lat: number; lng: number } | null;
-  category: 'installation' | 'repair' | 'maintenance' | 'inspection' | 'other';
+  category: TaskCategory;
   projectId: string | null;
   projectName: string | null;
   completedAt: string | null;
-  notes: string;
+  notes: string | null;
 }
