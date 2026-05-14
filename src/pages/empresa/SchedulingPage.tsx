@@ -377,9 +377,9 @@ function ListView({
           </tr>
         </thead>
         <tbody>
-          {tasks.map(t => (
+          {tasks.map((t, i) => (
             <tr key={t.id}>
-              <td className={styles.idCell} title={t.id}>#{t.id.slice(0, 8)}</td>
+              <td className={styles.idCell} title={t.id}>{i + 1}</td>
               <td>
                 <div className={styles.taskTitle}>{t.title}</div>
                 {t.address && <div className={styles.taskAddress}>📍 {t.address}</div>}
