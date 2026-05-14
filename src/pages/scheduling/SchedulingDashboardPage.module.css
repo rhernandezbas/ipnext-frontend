@@ -1,76 +1,103 @@
-/* Rosi — Scheduling Dashboard */
 .page {
-  --brand:        oklch(56% 0.2 25);
-  --bg-page:      oklch(97.5% 0.006 60);
-  --bg-card:      oklch(100% 0 0);
-  --bg-surface:   oklch(98.5% 0.005 60);
-  --border:       oklch(90% 0.008 60);
-  --text-1:       oklch(17% 0.015 25);
-  --text-2:       oklch(42% 0.015 25);
-  --text-3:       oklch(62% 0.01 25);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
-  padding: 32px;
-  background: var(--bg-page);
-  min-height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.breadcrumb {
+  font-size: 12px;
+  color: var(--color-accent);
+  font-weight: 500;
 }
 
 .title {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-1);
-  margin: 0 0 24px;
-  letter-spacing: -0.3px;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0;
 }
 
-/* KPI grid */
+/* KPI grid — no side stripes (anti-pattern). Color lives in the value, not a stripe. */
 .kpiGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 32px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
 }
 
 .kpiCard {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 20px 20px 16px;
-  position: relative;
-  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.12s, box-shadow 0.12s;
 }
 
-.kpiCard::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  background: var(--kpi-color, var(--brand));
-  border-radius: 12px 0 0 12px;
+.kpiCard:hover {
+  border-color: var(--color-gray-300);
+  box-shadow: var(--shadow-sm);
 }
 
-.kpiValue {
-  font-size: 2.25rem;
-  font-weight: 700;
-  color: var(--kpi-color, var(--brand));
-  letter-spacing: -1px;
-  line-height: 1;
-  margin-bottom: 6px;
+.kpiHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .kpiLabel {
   font-size: 12px;
-  color: var(--text-3);
-  font-weight: 500;
+  color: var(--color-text-secondary);
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .kpiIcon {
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
+  font-size: 16px;
+  opacity: 0.6;
+}
+
+.kpiValue {
   font-size: 32px;
-  opacity: 0.08;
+  font-weight: 700;
+  color: var(--kpi-color, var(--color-text-primary));
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* Table section wrapper */
+.tableSection {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-gray-100);
+  margin: 0;
 }

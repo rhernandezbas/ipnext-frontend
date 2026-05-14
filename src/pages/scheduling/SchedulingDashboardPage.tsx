@@ -5,11 +5,11 @@ import styles from './SchedulingDashboardPage.module.css';
 
 const COLUMNS = [
   { label: 'Título',     key: 'title' as keyof ScheduledTask },
-  { label: 'Categoría', key: 'category' as keyof ScheduledTask },
-  { label: 'Estado',    key: 'status' as keyof ScheduledTask },
-  { label: 'Prioridad', key: 'priority' as keyof ScheduledTask },
-  { label: 'Técnico',   key: 'assignedTo' as keyof ScheduledTask },
-  { label: 'Fecha',     key: 'scheduledDate' as keyof ScheduledTask },
+  { label: 'Categoría',  key: 'category' as keyof ScheduledTask },
+  { label: 'Estado',     key: 'status' as keyof ScheduledTask },
+  { label: 'Prioridad',  key: 'priority' as keyof ScheduledTask },
+  { label: 'Técnico',    key: 'assignedTo' as keyof ScheduledTask },
+  { label: 'Fecha',      key: 'scheduledDate' as keyof ScheduledTask },
 ];
 
 interface KpiCardProps {
@@ -22,9 +22,11 @@ interface KpiCardProps {
 function KpiCard({ value, label, color, icon }: KpiCardProps) {
   return (
     <div className={styles.kpiCard} style={{ '--kpi-color': color } as React.CSSProperties}>
-      <span className={styles.kpiIcon}>{icon}</span>
+      <div className={styles.kpiHeader}>
+        <span className={styles.kpiLabel}>{label}</span>
+        <span className={styles.kpiIcon} aria-hidden>{icon}</span>
+      </div>
       <div className={styles.kpiValue}>{value}</div>
-      <div className={styles.kpiLabel}>{label}</div>
     </div>
   );
 }
@@ -43,21 +45,29 @@ export default function SchedulingDashboardPage() {
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>Dashboard de Scheduling</h1>
-
-      <div className={styles.kpiGrid} aria-label="KPI cards">
-        <KpiCard value={total}     label="Tareas totales"  color="oklch(56% 0.2 25)"   icon="📋" />
-        <KpiCard value={progress}  label="En progreso"     color="oklch(38% 0.18 230)"  icon="⚙️" />
-        <KpiCard value={completed} label="Completadas"     color="oklch(34% 0.15 148)"  icon="✅" />
-        <KpiCard value={urgent}    label="Urgentes activas" color="oklch(40% 0.22 25)"  icon="🔴" />
+      <div className={styles.header}>
+        <div className={styles.headerLeft}>
+          <span className={styles.breadcrumb}>Scheduling /</span>
+          <h1 className={styles.title}>Dashboard</h1>
+        </div>
       </div>
 
-      <DataTable<ScheduledTask>
-        columns={COLUMNS}
-        data={recent}
-        loading={isLoading}
-        emptyMessage="No hay tareas registradas."
-      />
+      <div className={styles.kpiGrid} aria-label="KPI cards">
+        <KpiCard value={total}     label="Tareas totales"   color="var(--color-text-primary)" icon="📋" />
+        <KpiCard value={progress}  label="En progreso"      color="#1e40af"                   icon="⚙️" />
+        <KpiCard value={completed} label="Completadas"      color="#166534"                   icon="✅" />
+        <KpiCard value={urgent}    label="Urgentes activas" color="#991b1b"                   icon="🔴" />
+      </div>
+
+      <div className={styles.tableSection}>
+        <h2 className={styles.sectionTitle}>Tareas recientes</h2>
+        <DataTable<ScheduledTask>
+          columns={COLUMNS}
+          data={recent}
+          loading={isLoading}
+          emptyMessage="No hay tareas registradas."
+        />
+      </div>
     </div>
   );
 }
