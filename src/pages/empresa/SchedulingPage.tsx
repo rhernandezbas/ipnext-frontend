@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTasks, useCreateTask, useUpdateTask, useUpdateTaskStatus, useDeleteTask } from '@/hooks/useScheduling';
+import { useTechnicians } from '@/hooks/useAdmins';
+import { useClientList } from '@/hooks/useClients';
+import { useTaskTemplates } from '@/hooks/useTaskTemplates';
 import type { ScheduledTask, TaskStatus, TaskPriority } from '@/types/scheduling';
 import { KebabMenu } from '@/components/atoms/KebabMenu/KebabMenu';
 import styles from './SchedulingPage.module.css';
@@ -61,11 +64,12 @@ function chipClass(c: ScheduledTask['category']): string {
   }[c] ?? '';
 }
 
-function initials(name: string): string {
+function initials(name: string | null): string {
+  if (!name) return '—';
   return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 }
 
-function fmtDate(d: string): string {
+function fmtDate(d: string | null): string {
   if (!d) return '—';
   const [y, m, day] = d.split('-');
   return `${day}/${m}/${y}`;
@@ -74,31 +78,109 @@ function fmtDate(d: string): string {
 // ── Form modal ────────────────────────────────────────────────
 
 const EMPTY: Omit<ScheduledTask, 'id'> = {
-  title: '', description: '', assignedTo: '', assignedToId: '',
+  title: '', description: null, assignedTo: null, assignedToId: null,
   clientId: null, clientName: null, status: 'pending', priority: 'normal',
-  scheduledDate: '', scheduledTime: '', estimatedHours: 1,
-  address: '', coordinates: null, category: 'other',
-  projectId: null, projectName: null, completedAt: null, notes: '',
+  scheduledDate: null, scheduledTime: null, estimatedHours: 1,
+  address: null, coordinates: null, category: 'other',
+  projectId: null, projectName: null, completedAt: null, notes: null,
 };
 
 interface TaskFormProps {
   title?: string;
   initial?: Omit<ScheduledTask, 'id'>;
   onClose: () => void;
-  onSubmit: (data: Omit<ScheduledTask, 'id'>) => void;
+  onSubmit: (data: Omit<ScheduledTask, 'id'>) => Promise<void>;
+}
+
+// Normalize empty strings coming from text inputs into null so the API stores
+// real absence of value instead of "". Date/time/description/etc. are
+// nullable in the backend.
+function emptyToNull(v: string): string | null {
+  return v.trim() === '' ? null : v;
 }
 
 function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFormProps) {
   const [form, setForm] = useState<Omit<ScheduledTask, 'id'>>(initial ?? EMPTY);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const { data: technicians = [] } = useTechnicians();
+  const { data: clientsPage } = useClientList({ limit: 1000 });
+  const clients = clientsPage?.data ?? [];
+  const { data: templates = [] } = useTaskTemplates();
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm(prev => ({ ...prev, [k]: v }));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function applyTemplate(id: string) {
+    setSelectedTemplateId(id);
+    if (!id) return;
+    const tpl = templates.find(t => t.id === id);
+    if (!tpl) return;
+    setForm(prev => ({
+      ...prev,
+      description: tpl.description,
+      category: tpl.category,
+    }));
+  }
+
+  function handleTechnicianChange(adminId: string) {
+    if (!adminId) {
+      setForm(prev => ({ ...prev, assignedTo: null, assignedToId: null }));
+      return;
+    }
+    const tech = technicians.find(t => t.id === adminId);
+    setForm(prev => ({
+      ...prev,
+      assignedToId: adminId,
+      assignedTo: tech?.name ?? null,
+    }));
+  }
+
+  function handleClientChange(clientId: string) {
+    if (!clientId) {
+      setForm(prev => ({ ...prev, clientId: null, clientName: null }));
+      return;
+    }
+    const client = clients.find(c => String(c.id) === clientId);
+    setForm(prev => ({
+      ...prev,
+      clientId,
+      clientName: client?.name ?? null,
+    }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSubmit(form);
-    onClose();
+    setSubmitError(null);
+    const payload: Omit<ScheduledTask, 'id'> = {
+      ...form,
+      scheduledDate: form.scheduledDate ? emptyToNull(form.scheduledDate) : null,
+      scheduledTime: form.scheduledTime ? emptyToNull(form.scheduledTime) : null,
+      description: form.description ? emptyToNull(form.description) : null,
+      address: form.address ? emptyToNull(form.address) : null,
+      notes: form.notes ? emptyToNull(form.notes) : null,
+    };
+    try {
+      await onSubmit(payload);
+      onClose();
+    } catch (err) {
+      // Backend Zod returns { error, code, details: [{ path, message, ... }] }
+      const resp = (err as { response?: { data?: { error?: string; details?: Array<{ path?: string[]; message?: string }> } } }).response?.data;
+      if (resp?.details && resp.details.length > 0) {
+        const fields = resp.details
+          .map(d => `${(d.path ?? []).join('.')}: ${d.message ?? 'inválido'}`)
+          .join('; ');
+        setSubmitError(`Validación: ${fields}`);
+      } else if (resp?.error) {
+        setSubmitError(resp.error);
+      } else if (err instanceof Error) {
+        setSubmitError(err.message);
+      } else {
+        setSubmitError('Error al guardar la tarea');
+      }
+    }
   }
 
   return (
@@ -110,6 +192,22 @@ function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFo
         </div>
         <div className={styles.modalBody}>
           <form className={styles.form} onSubmit={handleSubmit}>
+            {templates.length > 0 && (
+              <div className={styles.formGroup}>
+                <label htmlFor="f-template">Aplicar plantilla</label>
+                <select
+                  id="f-template" className={styles.formControl}
+                  value={selectedTemplateId}
+                  onChange={e => applyTemplate(e.target.value)}
+                >
+                  <option value="">— Sin plantilla —</option>
+                  {templates.map(tpl => (
+                    <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className={styles.formGroup}>
               <label htmlFor="f-title">Título</label>
               <input
@@ -123,7 +221,8 @@ function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFo
               <label htmlFor="f-desc">Descripción</label>
               <textarea
                 id="f-desc" className={styles.formControl}
-                value={form.description} onChange={e => set('description', e.target.value)}
+                value={form.description ?? ''}
+                onChange={e => set('description', e.target.value || null)}
                 placeholder="Detalles de la tarea..."
               />
             </div>
@@ -134,20 +233,29 @@ function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFo
             <div className={styles.formRow}>
               <div className={styles.formGroup}>
                 <label htmlFor="f-assigned">Asignado a</label>
-                <input
-                  id="f-assigned" className={styles.formControl} type="text"
-                  value={form.assignedTo} onChange={e => set('assignedTo', e.target.value)}
-                  placeholder="Nombre del técnico"
-                />
+                <select
+                  id="f-assigned" className={styles.formControl}
+                  value={form.assignedToId ?? ''}
+                  onChange={e => handleTechnicianChange(e.target.value)}
+                >
+                  <option value="">— Sin asignar —</option>
+                  {technicians.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
               </div>
               <div className={styles.formGroup}>
                 <label htmlFor="f-client">Cliente</label>
-                <input
-                  id="f-client" className={styles.formControl} type="text"
-                  value={form.clientName ?? ''}
-                  onChange={e => set('clientName', e.target.value || null)}
-                  placeholder="Nombre del cliente (opcional)"
-                />
+                <select
+                  id="f-client" className={styles.formControl}
+                  value={form.clientId ?? ''}
+                  onChange={e => handleClientChange(e.target.value)}
+                >
+                  <option value="">— Sin cliente —</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={String(c.id)}>{c.name}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -183,14 +291,16 @@ function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFo
 
             <div className={styles.formRow}>
               <div className={styles.formGroup}>
-                <label htmlFor="f-date">Fecha</label>
+                <label htmlFor="f-date">Fecha <small style={{ color: 'var(--text-3)' }}>(opcional)</small></label>
                 <input id="f-date" className={styles.formControl} type="date"
-                  value={form.scheduledDate} onChange={e => set('scheduledDate', e.target.value)} />
+                  value={form.scheduledDate ?? ''}
+                  onChange={e => set('scheduledDate', e.target.value || null)} />
               </div>
               <div className={styles.formGroup}>
-                <label htmlFor="f-time">Hora</label>
+                <label htmlFor="f-time">Hora <small style={{ color: 'var(--text-3)' }}>(opcional)</small></label>
                 <input id="f-time" className={styles.formControl} type="time"
-                  value={form.scheduledTime} onChange={e => set('scheduledTime', e.target.value)} />
+                  value={form.scheduledTime ?? ''}
+                  onChange={e => set('scheduledTime', e.target.value || null)} />
               </div>
             </div>
 
@@ -203,7 +313,8 @@ function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFo
               <div className={styles.formGroup}>
                 <label htmlFor="f-address">Dirección</label>
                 <input id="f-address" className={styles.formControl} type="text"
-                  value={form.address} onChange={e => set('address', e.target.value)}
+                  value={form.address ?? ''}
+                  onChange={e => set('address', e.target.value || null)}
                   placeholder="Dirección del trabajo" />
               </div>
             </div>
@@ -211,9 +322,16 @@ function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFo
             <div className={styles.formGroup}>
               <label htmlFor="f-notes">Notas</label>
               <textarea id="f-notes" className={styles.formControl}
-                value={form.notes} onChange={e => set('notes', e.target.value)}
+                value={form.notes ?? ''}
+                onChange={e => set('notes', e.target.value || null)}
                 placeholder="Instrucciones adicionales, materiales necesarios..." />
             </div>
+
+            {submitError && (
+              <div className={styles.formError} role="alert" style={{ color: 'var(--danger)', padding: '8px 0' }}>
+                {submitError}
+              </div>
+            )}
 
             <div className={styles.formActions}>
               <button type="button" className={styles.btnSecondary} onClick={onClose}>
@@ -267,7 +385,7 @@ function ListView({
               <td>
                 <div className={styles.assignee}>
                   <span className={styles.assigneeAvatar}>{initials(t.assignedTo)}</span>
-                  {t.assignedTo}
+                  {t.assignedTo ?? 'Sin asignar'}
                 </div>
               </td>
               <td>
@@ -286,7 +404,7 @@ function ListView({
                   {STATUS_LABEL[t.status]}
                 </span>
               </td>
-              <td>{fmtDate(t.scheduledDate)}<br /><small style={{ color: 'var(--text-3)' }}>{t.scheduledTime}</small></td>
+              <td>{fmtDate(t.scheduledDate)}<br /><small style={{ color: 'var(--text-3)' }}>{t.scheduledTime ?? ''}</small></td>
               <td>
                 <KebabMenu items={[
                   ...(t.status !== 'completed' && t.status !== 'cancelled' ? [{
@@ -365,7 +483,7 @@ function KanbanView({
                       <span className={styles.assigneeAvatar} style={{ fontSize: 9, width: 22, height: 22, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
                         {initials(t.assignedTo)}
                       </span>{' '}
-                      {t.assignedTo}
+                      {t.assignedTo ?? 'Sin asignar'}
                     </span>
                     <div style={{ display: 'flex', gap: 4 }}>
                       {t.status !== 'completed' && t.status !== 'cancelled' && (
@@ -374,9 +492,13 @@ function KanbanView({
                       <button className={styles.btnGhost} onClick={() => onEdit(t)} aria-label="Editar">✎</button>
                     </div>
                   </div>
-                  {t.scheduledDate && (
+                  {t.scheduledDate ? (
                     <div className={styles.kanbanCardDate} style={{ marginTop: 6, fontSize: 11, color: 'var(--text-3)' }}>
-                      📅 {fmtDate(t.scheduledDate)} {t.scheduledTime}
+                      📅 {fmtDate(t.scheduledDate)} {t.scheduledTime ?? ''}
+                    </div>
+                  ) : (
+                    <div className={styles.kanbanCardDate} style={{ marginTop: 6, fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>
+                      📋 Sin agendar
                     </div>
                   )}
                 </div>
@@ -432,8 +554,8 @@ function CalendarView({ tasks }: { tasks: ScheduledTask[] }) {
             <div key={i} className={styles.calendarCell}>
               {dayTasks.map(t => (
                 <span key={t.id} className={`${styles.calendarTaskChip} ${chipClass(t.category)}`}
-                  title={`${t.scheduledTime} — ${t.title} (${t.assignedTo})`}>
-                  {t.scheduledTime} {t.title}
+                  title={`${t.scheduledTime ?? ''} — ${t.title} (${t.assignedTo ?? 'Sin asignar'})`}>
+                  {t.scheduledTime ?? ''} {t.title}
                 </span>
               ))}
             </div>
@@ -453,8 +575,8 @@ export default function SchedulingPage() {
   const projectIdParam = searchParams.get('projectId') ?? '';
 
   const { data: tasks = [] } = useTasks();
-  const { mutate: createTask }   = useCreateTask();
-  const { mutate: updateTask }   = useUpdateTask();
+  const { mutateAsync: createTask }   = useCreateTask();
+  const { mutateAsync: updateTask }   = useUpdateTask();
   const { mutate: updateStatus } = useUpdateTaskStatus();
   const { mutate: deleteTask }   = useDeleteTask();
 
@@ -472,7 +594,7 @@ export default function SchedulingPage() {
     if (filterStatus   && t.status !== filterStatus)     return false;
     if (filterPriority && t.priority !== filterPriority) return false;
     if (filterCategory && t.category !== filterCategory) return false;
-    if (filterAssigned && !t.assignedTo.toLowerCase().includes(filterAssigned.toLowerCase())) return false;
+    if (filterAssigned && !(t.assignedTo ?? '').toLowerCase().includes(filterAssigned.toLowerCase())) return false;
     return true;
   });
 
@@ -605,7 +727,10 @@ export default function SchedulingPage() {
 
       {/* Modals */}
       {showForm && (
-        <TaskModal onClose={() => setShowForm(false)} onSubmit={data => createTask(data)} />
+        <TaskModal
+          onClose={() => setShowForm(false)}
+          onSubmit={async data => { await createTask(data); }}
+        />
       )}
 
       {editingTask && (
@@ -613,7 +738,7 @@ export default function SchedulingPage() {
           title="Editar tarea"
           initial={(() => { const { id: _id, ...rest } = editingTask; return rest; })()}
           onClose={() => setEditingTask(null)}
-          onSubmit={data => { updateTask({ id: editingTask.id, data }); setEditingTask(null); }}
+          onSubmit={async data => { await updateTask({ id: editingTask.id, data }); }}
         />
       )}
     </div>
