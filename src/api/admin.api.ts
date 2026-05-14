@@ -3,7 +3,8 @@ import type { Admin, AdminActivityLog, Admin2FA } from '../types/admin';
 
 const BASE = '/admins';
 
-export const getAdmins = () => axiosClient.get<Admin[]>(BASE).then(r => r.data);
+export const getAdmins = (params?: { role?: string }) =>
+  axiosClient.get<Admin[]>(BASE, { params }).then(r => r.data);
 export const getAdmin = (id: string) => axiosClient.get<Admin>(`${BASE}/${id}`).then(r => r.data);
 export const createAdmin = (data: Omit<Admin, 'id' | 'createdAt' | 'lastLogin'>) =>
   axiosClient.post<Admin>(BASE, data).then(r => r.data);

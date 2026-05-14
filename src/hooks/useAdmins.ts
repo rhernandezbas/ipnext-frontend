@@ -4,8 +4,15 @@ import type { AdminRole_Definition } from '@/types/role';
 import * as api from '@/api/admin.api';
 import * as roleApi from '@/api/role.api';
 
-export function useAdmins() {
-  return useQuery({ queryKey: ['admins'], queryFn: api.getAdmins });
+export function useAdmins(params?: { role?: string }) {
+  return useQuery({
+    queryKey: ['admins', params ?? null],
+    queryFn: () => api.getAdmins(params),
+  });
+}
+
+export function useTechnicians() {
+  return useAdmins({ role: 'technician' });
 }
 
 export function useAdminActivityLog() {
