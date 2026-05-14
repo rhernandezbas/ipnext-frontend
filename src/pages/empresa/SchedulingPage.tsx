@@ -366,6 +366,7 @@ function ListView({
       <table className={styles.table}>
         <thead>
           <tr>
+            <th>ID</th>
             <th>Tarea</th>
             <th>Técnico</th>
             <th>Categoría</th>
@@ -378,6 +379,7 @@ function ListView({
         <tbody>
           {tasks.map(t => (
             <tr key={t.id}>
+              <td className={styles.idCell} title={t.id}>#{t.id.slice(0, 8)}</td>
               <td>
                 <div className={styles.taskTitle}>{t.title}</div>
                 {t.address && <div className={styles.taskAddress}>📍 {t.address}</div>}
@@ -613,10 +615,8 @@ export default function SchedulingPage() {
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerLeft}>
-          <h1 className={styles.title}>Scheduling</h1>
-          <p className={styles.subtitle}>
-            {tasks.length} registradas · {pending} pendientes · {inProgress} en progreso
-          </p>
+          <span className={styles.breadcrumb}>Scheduling /</span>
+          <h1 className={styles.title}>Tareas</h1>
           {projectIdParam && (
             <p className={styles.projectFilter}>
               Proyecto: <strong>{tasks.find(t => t.projectId === projectIdParam)?.projectName ?? projectIdParam}</strong>
@@ -635,7 +635,7 @@ export default function SchedulingPage() {
             ))}
           </div>
           <button className={styles.btnPrimary} onClick={() => setShowForm(true)}>
-            + Nueva tarea
+            Añadir
           </button>
         </div>
       </div>
