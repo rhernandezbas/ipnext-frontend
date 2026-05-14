@@ -38,7 +38,7 @@ export default function SchedulingDashboardPage() {
   const urgent    = tasks.filter(t => t.priority === 'urgent' && t.status !== 'completed' && t.status !== 'cancelled').length;
 
   const recent = [...tasks]
-    .sort((a, b) => b.scheduledDate.localeCompare(a.scheduledDate))
+    .sort((a, b) => (b.scheduledDate ?? '').localeCompare(a.scheduledDate ?? ''))
     .slice(0, 10);
 
   return (
