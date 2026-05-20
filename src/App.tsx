@@ -51,7 +51,9 @@ const NotFoundPage = lazy(() =>
 );
 
 const GestionRedPage = lazy(() => import('@/pages/empresa/GestionRedPage'));
-const SchedulingPage = lazy(() => import('@/pages/empresa/SchedulingPage'));
+// Legacy pre-change-6 tasks page — kept on disk for reference but no longer routed.
+// `/admin/scheduling` now redirects to /admin/scheduling/tasks (SchedulingTasksPage).
+// const SchedulingPage = lazy(() => import('@/pages/empresa/SchedulingPage'));
 const InventarioPage = lazy(() => import('@/pages/empresa/InventarioPage'));
 const VozPage = lazy(() => import('@/pages/empresa/VozPage'));
 const TarifasPage = lazy(() => import('@/pages/empresa/TarifasPage'));
@@ -171,7 +173,13 @@ export function App() {
             <Route path="/admin/networking/cpe" element={<CpePage />} />
             <Route path="/admin/networking/tr069" element={<Tr069Page />} />
             <Route path="/admin/networking/hardware" element={<HardwarePage />} />
-            <Route path="/admin/scheduling" element={<SchedulingPage />} />
+            {/*
+             * /admin/scheduling was the legacy pre-change-6 tasks page
+             * (empresa/SchedulingPage). It's now superseded by the change-6
+             * SchedulingTasksPage at /admin/scheduling/tasks. Redirect any
+             * bookmark / sidebar entry that still hits the old URL.
+             */}
+            <Route path="/admin/scheduling" element={<Navigate to="/admin/scheduling/tasks" replace />} />
             <Route path="/admin/inventory/list" element={<InventarioPage />} />
             <Route path="/admin/voice" element={<VozPage />} />
             <Route path="/admin/tariffs" element={<TarifasPage />} />
