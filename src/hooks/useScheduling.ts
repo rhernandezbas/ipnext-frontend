@@ -30,7 +30,7 @@ export function useTask(id: string | undefined) {
 export function useCreateTask() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Omit<ScheduledTask, 'id' | 'sequenceNumber'>) => api.createTask(data),
+    mutationFn: (data: Omit<ScheduledTask, 'id' | 'sequenceNumber' | 'createdAt' | 'updatedAt'>) => api.createTask(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['scheduling-tasks'] }),
   });
 }

@@ -24,7 +24,7 @@ export const listTasks = (filter?: TaskListFilter) =>
 export const getTask = (id: string) =>
   axiosClient.get<ScheduledTask>(`${BASE}/${id}`).then(r => r.data);
 
-export const createTask = (data: Omit<ScheduledTask, 'id' | 'sequenceNumber'>) =>
+export const createTask = (data: Omit<ScheduledTask, 'id' | 'sequenceNumber' | 'createdAt' | 'updatedAt'>) =>
   axiosClient.post<ScheduledTask>(BASE, data).then(r => r.data);
 
 export const updateTask = (id: string, data: Partial<ScheduledTask>) =>

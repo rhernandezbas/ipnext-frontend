@@ -77,26 +77,27 @@ function fmtDate(d: string | null): string {
 
 // ── Form modal ────────────────────────────────────────────────
 
-const EMPTY: Omit<ScheduledTask, 'id' | 'sequenceNumber'> = {
+const EMPTY: Omit<ScheduledTask, 'id' | 'sequenceNumber' | 'createdAt' | 'updatedAt'> = {
   title: '', description: null, assignedTo: null, assignedToId: null,
   clientId: null, clientName: null, status: 'pending', priority: 'normal',
   scheduledDate: null, scheduledTime: null, estimatedHours: 1,
   address: null, coordinates: null, category: 'other',
   projectId: null, projectName: null, completedAt: null, notes: null,
   // post-change-3 fields
-  stageId: null, stageCategory: null,
+  stageId: '', stageCategory: 'nuevo',
   startDate: null, endDate: null,
   customerId: null, customerName: null, serviceId: null, partnerId: null,
   reporterId: null, assigneeId: null, assigneeName: null,
   watcherIds: [],
   travelTimeTo: null, travelTimeFrom: null,
+  checklist: [],
 };
 
 interface TaskFormProps {
   title?: string;
-  initial?: Omit<ScheduledTask, 'id' | 'sequenceNumber'>;
+  initial?: Omit<ScheduledTask, 'id' | 'sequenceNumber' | 'createdAt' | 'updatedAt'>;
   onClose: () => void;
-  onSubmit: (data: Omit<ScheduledTask, 'id' | 'sequenceNumber'>) => Promise<void>;
+  onSubmit: (data: Omit<ScheduledTask, 'id' | 'sequenceNumber' | 'createdAt' | 'updatedAt'>) => Promise<void>;
 }
 
 // Normalize empty strings coming from text inputs into null so the API stores
@@ -107,7 +108,7 @@ function emptyToNull(v: string): string | null {
 }
 
 function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFormProps) {
-  const [form, setForm] = useState<Omit<ScheduledTask, 'id' | 'sequenceNumber'>>(initial ?? EMPTY);
+  const [form, setForm] = useState<Omit<ScheduledTask, 'id' | 'sequenceNumber' | 'createdAt' | 'updatedAt'>>(initial ?? EMPTY);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -162,7 +163,7 @@ function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFo
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError(null);
-    const payload: Omit<ScheduledTask, 'id' | 'sequenceNumber'> = {
+    const payload: Omit<ScheduledTask, 'id' | 'sequenceNumber' | 'createdAt' | 'updatedAt'> = {
       ...form,
       scheduledDate: form.scheduledDate ? emptyToNull(form.scheduledDate) : null,
       scheduledTime: form.scheduledTime ? emptyToNull(form.scheduledTime) : null,

@@ -173,14 +173,15 @@ export function TaskFilterBar({ filter, view, onFilterChange, onViewChange }: Ta
             aria-pressed={view === 'kanban'}
             aria-label="Flujo de Trabajo"
           >
-            <span aria-hidden>☰</span> Kanban
+            <span aria-hidden>☰</span> Flujo de Trabajo
           </button>
         </div>
 
-        {/* Add button */}
+        {/* Add button — moved to the page header (consistent with SchedulingProjectsPage) */}
         <button
           type="button"
           className={styles.addBtn}
+          style={{ display: 'none' }}
           onClick={() => navigate('/admin/scheduling/tasks/new')}
         >
           + Añadir
