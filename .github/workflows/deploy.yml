@@ -12,7 +12,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build image
-        run: docker build -t ipnext-frontend:latest .
+        # --no-cache: the self-hosted runner has been caching layers too
+        # aggressively, including the COPY . . layer, which has left
+        # latest pointing at a stale image despite source changes. Forcing
+        # no-cache adds ~30s but guarantees the image matches the commit.
+        run: docker build --no-cache --pull -t ipnext-frontend:latest .
 
       - name: Deploy container
         run: |
