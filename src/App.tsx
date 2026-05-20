@@ -104,7 +104,12 @@ const SchedulingTemplatesPage = lazy(() => import('@/pages/scheduling/Scheduling
 const SchedulingTaskDetailPage = lazy(() => import('@/pages/scheduling/SchedulingTaskDetailPage'));
 // NOTE: SchedulingTasksPage MUST be registered BEFORE SchedulingTaskDetailPage (/tasks/:id)
 // in the Routes tree to prevent the index route from being shadowed.
-const SchedulingTasksPage = lazy(() => import('@/pages/scheduling/SchedulingTasksPage'));
+// IMPORTANT: explicit '/index' suffix is mandatory here because the page lives
+// in a directory (SchedulingTasksPage/index.tsx) with NO sibling `.tsx` file.
+// Other lazy imports above (e.g. SchedulingTaskDetailPage) resolve to a sibling
+// `.tsx` even though a same-named directory exists. Vite production builds
+// silently drop the chunk when the path is ambiguous and unresolvable.
+const SchedulingTasksPage = lazy(() => import('@/pages/scheduling/SchedulingTasksPage/index'));
 const InventoryDashboardPage = lazy(() => import('@/pages/inventory/InventoryDashboardPage'));
 const InventoryItemsPage = lazy(() => import('@/pages/inventory/InventoryItemsPage'));
 const InventoryProductsPage = lazy(() => import('@/pages/inventory/InventoryProductsPage'));
