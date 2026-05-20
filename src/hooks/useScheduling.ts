@@ -6,6 +6,14 @@ export function useTasks() {
   return useQuery({ queryKey: ['scheduling-tasks'], queryFn: api.listTasks });
 }
 
+export function useTask(id: string | undefined) {
+  return useQuery({
+    queryKey: ['scheduling-task', id],
+    queryFn: () => api.getTask(id!),
+    enabled: !!id,
+  });
+}
+
 export function useCreateTask() {
   const qc = useQueryClient();
   return useMutation({
@@ -19,7 +27,10 @@ export function useUpdateTask() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<ScheduledTask> }) =>
       api.updateTask(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['scheduling-tasks'] }),
+    onSuccess: (_result, { id }) => {
+      void qc.invalidateQueries({ queryKey: ['scheduling-tasks'] });
+      void qc.invalidateQueries({ queryKey: ['scheduling-task', id] });
+    },
   });
 }
 
@@ -37,5 +48,17 @@ export function useUpdateTaskStatus() {
     mutationFn: ({ id, status }: { id: string; status: TaskStatus }) =>
       api.updateTaskStatus(id, status),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['scheduling-tasks'] }),
+  });
+}
+
+export function useMoveTaskToStage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, stageId }: { id: string; stageId: string }) =>
+      api.moveTaskToStage(id, stageId),
+    onSuccess: (_result, { id }) => {
+      void qc.invalidateQueries({ queryKey: ['scheduling-task', id] });
+      void qc.invalidateQueries({ queryKey: ['scheduling-tasks'] });
+    },
   });
 }

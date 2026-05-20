@@ -83,6 +83,13 @@ const EMPTY: Omit<ScheduledTask, 'id' | 'sequenceNumber'> = {
   scheduledDate: null, scheduledTime: null, estimatedHours: 1,
   address: null, coordinates: null, category: 'other',
   projectId: null, projectName: null, completedAt: null, notes: null,
+  // post-change-3 fields
+  stageId: null, stageCategory: null,
+  startDate: null, endDate: null,
+  customerId: null, customerName: null, serviceId: null, partnerId: null,
+  reporterId: null, assigneeId: null, assigneeName: null,
+  watcherIds: [],
+  travelTimeTo: null, travelTimeFrom: null,
 };
 
 interface TaskFormProps {

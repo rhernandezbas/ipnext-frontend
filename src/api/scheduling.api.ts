@@ -18,5 +18,9 @@ export const updateTask = (id: string, data: Partial<ScheduledTask>) =>
 export const deleteTask = (id: string) =>
   axiosClient.delete(`${BASE}/${id}`);
 
+/** @deprecated use stageCategory flow; kept for legacy compatibility */
 export const updateTaskStatus = (id: string, status: TaskStatus) =>
   axiosClient.patch<ScheduledTask>(`${BASE}/${id}/status`, { status }).then(r => r.data);
+
+export const moveTaskToStage = (id: string, stageId: string) =>
+  axiosClient.patch<ScheduledTask>(`${BASE}/${id}/stage`, { stageId }).then(r => r.data);

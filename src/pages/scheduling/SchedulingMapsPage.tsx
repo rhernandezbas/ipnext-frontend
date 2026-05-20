@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from 'react-leaflet';
 import styles from './SchedulingMapsPage.module.css';
 
@@ -8,18 +9,20 @@ const ZONES = [
 ];
 
 const TASKS = [
-  { id: 1, name: 'Instalación fibra',   technician: 'Carlos López',     position: [-34.54, -58.46] as [number, number] },
-  { id: 2, name: 'Reparación enlace',   technician: 'María García',     position: [-34.57, -58.43] as [number, number] },
-  { id: 3, name: 'Visita técnica',      technician: 'Juan Pérez',       position: [-34.60, -58.40] as [number, number] },
-  { id: 4, name: 'Instalación router',  technician: 'Ana Martínez',     position: [-34.63, -58.37] as [number, number] },
-  { id: 5, name: 'Soporte remoto',      technician: 'Luis Fernández',   position: [-34.66, -58.35] as [number, number] },
-  { id: 6, name: 'Revisión nodo',       technician: 'Carlos López',     position: [-34.59, -58.42] as [number, number] },
-  { id: 7, name: 'Alta cliente',        technician: 'María García',     position: [-34.61, -58.39] as [number, number] },
+  { id: 'static-1', name: 'Instalación fibra',   technician: 'Carlos López',     position: [-34.54, -58.46] as [number, number], taskId: null as string | null },
+  { id: 'static-2', name: 'Reparación enlace',   technician: 'María García',     position: [-34.57, -58.43] as [number, number], taskId: null as string | null },
+  { id: 'static-3', name: 'Visita técnica',      technician: 'Juan Pérez',       position: [-34.60, -58.40] as [number, number], taskId: null as string | null },
+  { id: 'static-4', name: 'Instalación router',  technician: 'Ana Martínez',     position: [-34.63, -58.37] as [number, number], taskId: null as string | null },
+  { id: 'static-5', name: 'Soporte remoto',      technician: 'Luis Fernández',   position: [-34.66, -58.35] as [number, number], taskId: null as string | null },
+  { id: 'static-6', name: 'Revisión nodo',       technician: 'Carlos López',     position: [-34.59, -58.42] as [number, number], taskId: null as string | null },
+  { id: 'static-7', name: 'Alta cliente',        technician: 'María García',     position: [-34.61, -58.39] as [number, number], taskId: null as string | null },
 ];
 
 const CENTER: [number, number] = [-34.6037, -58.3816];
 
 export default function SchedulingMapsPage() {
+  const navigate = useNavigate();
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -54,6 +57,14 @@ export default function SchedulingMapsPage() {
               <Popup>
                 <p className={styles.popupTitle}>{task.name}</p>
                 <p className={styles.popupLine}>Técnico: {task.technician}</p>
+                {task.taskId && (
+                  <button
+                    className={styles.popupLink}
+                    onClick={() => navigate(`/admin/scheduling/tasks/${task.taskId!}`)}
+                  >
+                    Ver detalle →
+                  </button>
+                )}
               </Popup>
             </Marker>
           ))}

@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useTasks } from '@/hooks/useScheduling';
 import type { ScheduledTask } from '@/types/scheduling';
@@ -32,6 +33,7 @@ function KpiCard({ value, label, color, icon }: KpiCardProps) {
 }
 
 export default function SchedulingDashboardPage() {
+  const navigate = useNavigate();
   const { data: tasks = [], isLoading } = useTasks();
 
   const total     = tasks.length;
@@ -66,6 +68,9 @@ export default function SchedulingDashboardPage() {
           data={recent}
           loading={isLoading}
           emptyMessage="No hay tareas registradas."
+          actions={[
+            { label: 'Ver detalle', onClick: (t) => navigate(`/admin/scheduling/tasks/${t.id}`) },
+          ]}
         />
       </div>
     </div>

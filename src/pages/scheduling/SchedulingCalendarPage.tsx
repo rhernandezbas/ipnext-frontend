@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTasks } from '@/hooks/useScheduling';
 import styles from './SchedulingCalendarPage.module.css';
 
@@ -6,6 +7,7 @@ const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 export default function SchedulingCalendarPage() {
+  const navigate = useNavigate();
   const { data: tasks = [] } = useTasks();
   const now = new Date();
   const year = now.getFullYear();
@@ -15,10 +17,13 @@ export default function SchedulingCalendarPage() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   const tasksByDay = useMemo(() => {
-    const map: Record<string, number> = {};
+    const map: Record<string, { count: number; firstId: string | null }> = {};
     tasks.forEach(t => {
-      const d = t.scheduledDate?.slice(0, 10);
-      if (d) map[d] = (map[d] ?? 0) + 1;
+      const d = (t.startDate ?? t.scheduledDate)?.slice(0, 10);
+      if (d) {
+        if (!map[d]) map[d] = { count: 0, firstId: t.id };
+        map[d].count += 1;
+      }
     });
     return map;
   }, [tasks]);
@@ -43,7 +48,9 @@ export default function SchedulingCalendarPage() {
           const dateKey = day
             ? `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
             : '';
-          const count = day ? (tasksByDay[dateKey] ?? 0) : 0;
+          const dayData = day ? tasksByDay[dateKey] : null;
+          const count = dayData?.count ?? 0;
+          const firstId = dayData?.firstId ?? null;
           const isToday = day === now.getDate();
           return (
             <div
@@ -51,10 +58,14 @@ export default function SchedulingCalendarPage() {
               className={`${styles.cell} ${day ? styles.active : ''} ${isToday ? styles.today : ''}`}
             >
               {day && <span className={styles.dayNum}>{day}</span>}
-              {count > 0 && (
-                <span className={styles.taskCount}>
+              {count > 0 && firstId && (
+                <button
+                  className={styles.taskCount}
+                  onClick={() => navigate(`/admin/scheduling/tasks/${firstId}`)}
+                  aria-label={`Ver ${count} tarea${count !== 1 ? 's' : ''} del día ${day}`}
+                >
                   {count} tarea{count !== 1 ? 's' : ''}
-                </span>
+                </button>
               )}
             </div>
           );
