@@ -1,10 +1,25 @@
 import axiosClient from './axios-client';
-import type { ScheduledTask, TaskStatus, TaskChecklistItem } from '@/types/scheduling';
+import type { ScheduledTask, TaskStatus, TaskChecklistItem, TaskListFilter } from '@/types/scheduling';
 
 const BASE = '/scheduling';
 
-export const listTasks = () =>
-  axiosClient.get<ScheduledTask[]>(BASE).then(r => r.data);
+/**
+ * Build query params from a TaskListFilter.
+ * stageIds are serialised as repeated ?stageIds[]=a&stageIds[]=b so Express 4
+ * parses them to req.query.stageIds = ['a', 'b'] (qs bracket notation).
+ */
+function buildFilterParams(filter?: TaskListFilter): Record<string, string | string[]> {
+  const params: Record<string, string | string[]> = {};
+  if (filter?.projectId)  params['projectId']    = filter.projectId;
+  if (filter?.stageIds?.length) params['stageIds[]'] = filter.stageIds;
+  if (filter?.partnerId)  params['partnerId']    = filter.partnerId;
+  if (filter?.assigneeId) params['assigneeId']   = filter.assigneeId;
+  if (filter?.q)          params['q']            = filter.q;
+  return params;
+}
+
+export const listTasks = (filter?: TaskListFilter) =>
+  axiosClient.get<ScheduledTask[]>(BASE, { params: buildFilterParams(filter) }).then(r => r.data);
 
 export const getTask = (id: string) =>
   axiosClient.get<ScheduledTask>(`${BASE}/${id}`).then(r => r.data);

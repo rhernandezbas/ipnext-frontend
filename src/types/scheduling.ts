@@ -1,6 +1,17 @@
 /** @deprecated use stageCategory; will be removed next change */
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
 
+// ── Filter types ─────────────────────────────────────────────────────────────
+export interface TaskListFilter {
+  projectId?:  string;
+  stageIds?:   string[];
+  partnerId?:  string;
+  assigneeId?: string;
+  q?:          string;
+}
+
+export type TasksView = 'table' | 'kanban';
+
 export interface TaskChecklistItem {
   id: string;
   taskId: string;
@@ -75,4 +86,8 @@ export interface ScheduledTask {
   // Checklist (change 5) — backend always returns this field, never omits.
   // Defaults to [] when the task has no items. Type is non-nullable.
   checklist: TaskChecklistItem[];
+
+  // Timestamps — backend always returns ISO strings (post-change-1)
+  createdAt: string;
+  updatedAt: string;
 }

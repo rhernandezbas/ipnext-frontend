@@ -102,6 +102,9 @@ const SchedulingMapsPage = lazy(() => import('@/pages/scheduling/SchedulingMapsP
 const SchedulingArchivePage = lazy(() => import('@/pages/scheduling/SchedulingArchivePage'));
 const SchedulingTemplatesPage = lazy(() => import('@/pages/scheduling/SchedulingTemplatesPage'));
 const SchedulingTaskDetailPage = lazy(() => import('@/pages/scheduling/SchedulingTaskDetailPage'));
+// NOTE: SchedulingTasksPage MUST be registered BEFORE SchedulingTaskDetailPage (/tasks/:id)
+// in the Routes tree to prevent the index route from being shadowed.
+const SchedulingTasksPage = lazy(() => import('@/pages/scheduling/SchedulingTasksPage'));
 const InventoryDashboardPage = lazy(() => import('@/pages/inventory/InventoryDashboardPage'));
 const InventoryItemsPage = lazy(() => import('@/pages/inventory/InventoryItemsPage'));
 const InventoryProductsPage = lazy(() => import('@/pages/inventory/InventoryProductsPage'));
@@ -207,6 +210,8 @@ export function App() {
             <Route path="/admin/scheduling/maps" element={<SchedulingMapsPage />} />
             <Route path="/admin/scheduling/archive" element={<SchedulingArchivePage />} />
             <Route path="/admin/scheduling/templates" element={<SchedulingTemplatesPage />} />
+            {/* CRITICAL: /admin/scheduling/tasks (index) MUST come before /admin/scheduling/tasks/:id */}
+            <Route path="/admin/scheduling/tasks" element={<SchedulingTasksPage />} />
             <Route path="/admin/scheduling/tasks/:id" element={<SchedulingTaskDetailPage />} />
             <Route path="/admin/inventory/dashboard" element={<InventoryDashboardPage />} />
             <Route path="/admin/inventory/items" element={<InventoryItemsPage />} />

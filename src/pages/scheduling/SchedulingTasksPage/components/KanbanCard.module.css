@@ -1,0 +1,96 @@
+/* ── Design tokens (AD-8) ───────────────────────────────────────────────────── */
+:root {
+  --pill-low-bg:     #f3f4f6;
+  --pill-low-fg:     #374151;
+  --pill-normal-bg:  #dbeafe;
+  --pill-normal-fg:  #1e40af;
+  --pill-high-bg:    #fef3c7;
+  --pill-high-fg:    #92400e;
+  --pill-urgent-bg:  #fee2e2;
+  --pill-urgent-fg:  #991b1b;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: grab;
+  transition: box-shadow 120ms ease, transform 120ms ease;
+  user-select: none;
+}
+.card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+}
+.card:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+.card[data-dragging="true"] {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.cardSeq {
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.cardTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin: 4px 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cardCustomer {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.cardAge {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+/* Assignee avatar */
+.assigneeAvatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e0e7ff;
+  color: #3730a3;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  flex: 0 0 22px;
+}
+
+.noAssignee {
+  width: 22px;
+  text-align: center;
+  color: #d1d5db;
+}

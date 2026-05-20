@@ -1,0 +1,191 @@
+.filterBar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.select,
+.searchInput {
+  height: 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 13px;
+  background: #fff;
+  color: #111827;
+  outline: none;
+}
+.select:focus,
+.searchInput:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.searchInput {
+  min-width: 180px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* View toggle */
+.viewToggle {
+  display: flex;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.viewBtn {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+  background: #fff;
+  color: #374151;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 100ms;
+}
+.viewBtn:hover { background: #f3f4f6; }
+.viewBtnActive {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+/* Add button */
+.addBtn {
+  height: 36px;
+  padding: 0 16px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 100ms;
+}
+.addBtn:hover { background: #1d4ed8; }
+
+/* Stage multi-select */
+.stageMultiSelect {
+  position: relative;
+}
+.stageButton {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  background: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.stageButton:hover { background: #f9fafb; }
+.stageDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  padding: 8px 0;
+  z-index: 100;
+}
+.stageGroup {
+  padding: 4px 0;
+}
+.stageGroupLabel {
+  display: block;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #9ca3af;
+  letter-spacing: 0.05em;
+}
+.stageOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.stageOption:hover { background: #f9fafb; }
+.stageEmpty {
+  display: block;
+  padding: 12px;
+  font-size: 13px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* Filter chips */
+.chipList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+  border-radius: 9999px;
+  padding: 2px 10px 2px 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.chipRemove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #3b82f6;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.chipRemove:hover { color: #1e40af; }
+.clearAll {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #6b7280;
+  text-decoration: underline;
+  padding: 0 4px;
+}
+.clearAll:hover { color: #374151; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .controls { gap: 6px; }
+  .spacer { display: none; }
+}

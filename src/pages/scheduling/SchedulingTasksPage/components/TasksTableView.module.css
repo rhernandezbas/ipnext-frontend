@@ -1,0 +1,202 @@
+/* ── Priority pills (AD-8) ─────────────────────────────────────────────────── */
+:root {
+  --pill-low-bg:     #f3f4f6;
+  --pill-low-fg:     #374151;
+  --pill-normal-bg:  #dbeafe;
+  --pill-normal-fg:  #1e40af;
+  --pill-high-bg:    #fef3c7;
+  --pill-high-fg:    #92400e;
+  --pill-urgent-bg:  #fee2e2;
+  --pill-urgent-fg:  #991b1b;
+}
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.priorityPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.priorityPill[data-priority="low"]    { background: var(--pill-low-bg);    color: var(--pill-low-fg); }
+.priorityPill[data-priority="normal"] { background: var(--pill-normal-bg); color: var(--pill-normal-fg); }
+.priorityPill[data-priority="high"]   { background: var(--pill-high-bg);   color: var(--pill-high-fg); }
+.priorityPill[data-priority="urgent"] { background: var(--pill-urgent-bg); color: var(--pill-urgent-fg); }
+
+/* Stage badge */
+.stageBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  background: #f3f4f6;
+  color: #374151;
+}
+.stageBadge[data-category="enProgreso"] { background: #fef3c7; color: #92400e; }
+.stageBadge[data-category="hecho"]      { background: #dcfce7; color: #166534; }
+.stageBadge[data-category="cancelado"]  { background: #fee2e2; color: #991b1b; }
+
+/* Pagination */
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 13px;
+  color: #6b7280;
+}
+.paginationInfo { flex: 1; }
+.paginationControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.paginationControls button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+.paginationControls button:disabled { opacity: 0.4; cursor: default; }
+.pageSizeSelect {
+  height: 28px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 12px;
+  padding: 0 6px;
+}
+
+/* Bulk action bar (fixed bottom) */
+.bulkActionBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background: #1e293b;
+  color: #fff;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
+}
+.bulkCount { flex: 1; font-size: 14px; font-weight: 500; }
+.bulkDeleteBtn {
+  padding: 6px 16px;
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bulkDeleteBtn:hover { background: #dc2626; }
+.bulkClearBtn {
+  padding: 6px 16px;
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.bulkClearBtn:hover { color: #fff; border-color: #94a3b8; }
+
+/* Mover etapa button — primary action in the bulk bar */
+.bulkMoveBtn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bulkMoveBtn:hover:not(:disabled) { background: #1d4ed8; }
+.bulkMoveBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Move-stage dialog */
+.dialogOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.dialog {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 360px;
+  max-width: 480px;
+  color: #e2e8f0;
+}
+.dialogTitle {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.dialogLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: #cbd5e1;
+}
+.dialogSelect {
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.btnPrimary {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btnPrimary:hover:not(:disabled) { background: #1d4ed8; }
+.btnPrimary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btnSecondary {
+  background: transparent;
+  color: #cbd5e1;
+  border: 1px solid #475569;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btnSecondary:hover:not(:disabled) { color: #fff; border-color: #94a3b8; }

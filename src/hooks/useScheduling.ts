@@ -1,9 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { ScheduledTask, TaskStatus, TaskChecklistItem } from '@/types/scheduling';
+import type { ScheduledTask, TaskStatus, TaskChecklistItem, TaskListFilter } from '@/types/scheduling';
 import * as api from '@/api/scheduling.api';
 
 export function useTasks() {
-  return useQuery({ queryKey: ['scheduling-tasks'], queryFn: api.listTasks });
+  return useQuery({ queryKey: ['scheduling-tasks'], queryFn: () => api.listTasks() });
+}
+
+/**
+ * Like useTasks but accepts a filter and uses a filter-keyed queryKey.
+ * Used by SchedulingTasksPage — does NOT affect other pages using useTasks().
+ */
+export function useFilteredTasks(filter: TaskListFilter = {}) {
+  return useQuery({
+    queryKey: ['scheduling-tasks', filter],
+    queryFn: () => api.listTasks(filter),
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  });
 }
 
 export function useTask(id: string | undefined) {

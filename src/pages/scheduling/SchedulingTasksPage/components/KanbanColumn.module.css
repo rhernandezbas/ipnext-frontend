@@ -1,0 +1,91 @@
+/* ── Design tokens (AD-8) ───────────────────────────────────────────────────── */
+:root {
+  --kanban-nuevo-stripe:       #93aec8;
+  --kanban-nuevo-bg:           #edf2f7;
+  --kanban-en-progreso-stripe: #d97706;
+  --kanban-en-progreso-bg:     #fffbeb;
+  --kanban-hecho-stripe:       #16a34a;
+  --kanban-hecho-bg:           #f0fdf4;
+  --kanban-cancelado-stripe:   #9ca3af;
+  --kanban-cancelado-bg:       #f9fafb;
+}
+
+.column {
+  flex: 0 0 280px;
+  min-width: 240px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Column header — 4px left border stripe by category */
+.columnHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(0,0,0,0.07);
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  border-radius: 8px 8px 0 0;
+}
+.columnHeader[data-category="nuevo"] {
+  background: var(--kanban-nuevo-bg);
+  border-left: 4px solid var(--kanban-nuevo-stripe);
+}
+.columnHeader[data-category="enProgreso"] {
+  background: var(--kanban-en-progreso-bg);
+  border-left: 4px solid var(--kanban-en-progreso-stripe);
+}
+.columnHeader[data-category="hecho"] {
+  background: var(--kanban-hecho-bg);
+  border-left: 4px solid var(--kanban-hecho-stripe);
+}
+.columnHeader[data-category="cancelado"] {
+  background: var(--kanban-cancelado-bg);
+  border-left: 4px solid var(--kanban-cancelado-stripe);
+}
+
+.columnName {
+  flex: 1;
+}
+
+.columnCount {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 400;
+  color: #6b7280;
+  background: rgba(0,0,0,0.06);
+  border-radius: 9999px;
+  padding: 1px 7px;
+}
+
+/* Column body */
+.columnBody {
+  padding: 8px;
+  flex: 1;
+  overflow-y: auto;
+  max-height: calc(100vh - 280px);
+  border-radius: 0 0 8px 8px;
+  transition: background 100ms, outline 100ms;
+}
+
+/* Drag-over state (AD-8) */
+.columnBody[data-drag-over="true"] {
+  background: #f0f9ff;
+  outline: 2px dashed #0ea5e9;
+  outline-offset: -2px;
+  border-radius: 0 0 8px 8px;
+}
+
+.columnEmpty {
+  padding: 24px 12px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 13px;
+  font-style: italic;
+  margin: 0;
+}
