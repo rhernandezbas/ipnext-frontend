@@ -1,0 +1,64 @@
+.dayWrapper {
+  display: flex;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+.gridArea {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.hourHeaderRow {
+  display: grid;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-gray-50);
+  border-bottom: 1px solid var(--color-border);
+  height: 32px;
+}
+
+.hourHeader {
+  padding: 6px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-align: center;
+  border-right: 1px solid var(--color-gray-100);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hourHeader:last-child { border-right: none; }
+
+.resourceRow {
+  display: grid;
+  border-bottom: 1px solid var(--color-gray-100);
+  min-height: 48px;
+}
+
+.hourSlot {
+  border-right: 1px solid var(--color-gray-100);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+  transition: background 0.1s;
+  min-height: 48px;
+}
+
+.hourSlot:last-child { border-right: none; }
+.hourSlot:hover { background: var(--color-gray-50); }
+
+@media (max-width: 768px) {
+  .dayWrapper { flex-direction: column; }
+  .gridArea { overflow-x: auto; }
+}

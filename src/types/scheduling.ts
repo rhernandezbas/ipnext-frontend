@@ -8,6 +8,8 @@ export interface TaskListFilter {
   partnerId?:  string;
   assigneeId?: string;
   q?:          string;
+  from?:       string;  // ISO datetime — filter tasks where startDate >= from
+  to?:         string;  // ISO datetime — filter tasks where startDate <= to
 }
 
 export type TasksView = 'table' | 'kanban';

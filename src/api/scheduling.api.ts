@@ -15,6 +15,8 @@ function buildFilterParams(filter?: TaskListFilter): Record<string, string | str
   if (filter?.partnerId)  params['partnerId']    = filter.partnerId;
   if (filter?.assigneeId) params['assigneeId']   = filter.assigneeId;
   if (filter?.q)          params['q']            = filter.q;
+  if (filter?.from)       params['from']         = filter.from;
+  if (filter?.to)         params['to']           = filter.to;
   return params;
 }
 
