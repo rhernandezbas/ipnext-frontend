@@ -6,11 +6,19 @@ import type { ScheduledTask } from '@/types/scheduling';
 import type { Admin } from '@/types/admin';
 
 // Mock all API and hook dependencies
+const noopMutationFactory = () => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue({}), isPending: false, isError: false, error: null, reset: vi.fn() });
 vi.mock('@/hooks/useScheduling', () => ({
   useTask: vi.fn(),
   useUpdateTask: vi.fn(),
   useMoveTaskToStage: vi.fn(),
   useDeleteTask: vi.fn(),
+  useAddChecklistItem: vi.fn(() => noopMutationFactory()),
+  useToggleChecklistItem: vi.fn(() => noopMutationFactory()),
+  useUpdateChecklistItem: vi.fn(() => noopMutationFactory()),
+  useRemoveChecklistItem: vi.fn(() => noopMutationFactory()),
+  useReorderChecklist: vi.fn(() => noopMutationFactory()),
+  useAssignTemplateToTask: vi.fn(() => noopMutationFactory()),
+  useClearChecklist: vi.fn(() => noopMutationFactory()),
 }));
 
 vi.mock('@/hooks/useWorkflows', () => ({
@@ -23,6 +31,36 @@ vi.mock('@/hooks/useAdmins', () => ({
 
 vi.mock('@/hooks/usePartners', () => ({
   usePartners: vi.fn(),
+}));
+
+vi.mock('@/hooks/useTaskTemplates', () => ({
+  useTaskTemplates: vi.fn(() => ({ data: [], isLoading: false })),
+  useCreateTaskTemplate: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useUpdateTaskTemplate: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useDeleteTaskTemplate: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useReplaceTemplateItems: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+}));
+
+// Mock dnd-kit to avoid jsdom issues
+vi.mock('@dnd-kit/core', () => ({
+  DndContext: ({ children }: { children: React.ReactNode }) => children,
+  closestCenter: vi.fn(),
+  KeyboardSensor: vi.fn(),
+  PointerSensor: vi.fn(),
+  useSensor: vi.fn(),
+  useSensors: vi.fn(() => []),
+}));
+
+vi.mock('@dnd-kit/sortable', () => ({
+  SortableContext: ({ children }: { children: React.ReactNode }) => children,
+  sortableKeyboardCoordinates: vi.fn(),
+  useSortable: vi.fn(() => ({ attributes: {}, listeners: {}, setNodeRef: vi.fn(), transform: null, transition: undefined })),
+  verticalListSortingStrategy: vi.fn(),
+  arrayMove: vi.fn((arr: unknown[]) => arr),
+}));
+
+vi.mock('@dnd-kit/utilities', () => ({
+  CSS: { Transform: { toString: vi.fn(() => '') } },
 }));
 
 vi.mock('@tiptap/react', () => ({
@@ -77,6 +115,7 @@ const mockTask: ScheduledTask = {
   watcherIds: ['admin-2'],
   travelTimeTo: 30,
   travelTimeFrom: 30,
+  checklist: [],
 };
 
 const mockAdmins: Admin[] = [

@@ -364,3 +364,86 @@
   color: var(--color-text-secondary);
   margin: 0;
 }
+
+/* Item editor in modal */
+.itemsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.itemsLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-gray-600);
+}
+
+.itemsEmpty {
+  font-size: 13px;
+  color: var(--color-gray-400);
+  font-style: italic;
+  margin: 0;
+  padding: 8px 0;
+}
+
+.itemRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-gray-50);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  padding: 6px 8px;
+}
+
+.dragHandle {
+  cursor: grab;
+  color: var(--color-gray-400);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  touch-action: none;
+}
+
+.dragHandle:active { cursor: grabbing; }
+
+.itemInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  outline: none;
+  color: var(--color-text-primary);
+  font-family: inherit;
+}
+
+.itemDeleteBtn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-gray-400);
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+}
+
+.itemDeleteBtn:hover { color: #ef4444; background: #fef2f2; }
+
+.btnAddItem {
+  background: transparent;
+  border: 1px dashed var(--color-gray-300);
+  border-radius: var(--radius-md);
+  padding: 7px 12px;
+  font-size: 13px;
+  color: var(--color-gray-500);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.btnAddItem:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: #f0f0ff;
+}

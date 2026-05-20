@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { ScheduledTask, TaskStatus } from '@/types/scheduling';
+import type { ScheduledTask, TaskStatus, TaskChecklistItem } from '@/types/scheduling';
 import * as api from '@/api/scheduling.api';
 
 export function useTasks() {
@@ -62,3 +62,87 @@ export function useMoveTaskToStage() {
     },
   });
 }
+
+// ── Checklist hooks ──────────────────────────────────────────────────────────
+
+export function useAddChecklistItem(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (text: string) => api.addChecklistItem(taskId, text),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['scheduling-task', taskId] }),
+  });
+}
+
+export function useToggleChecklistItem(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (itemId: string) => api.toggleChecklistItem(taskId, itemId),
+    onMutate: async (itemId: string) => {
+      await qc.cancelQueries({ queryKey: ['scheduling-task', taskId] });
+      const snapshot = qc.getQueryData<ScheduledTask>(['scheduling-task', taskId]);
+      if (snapshot) {
+        qc.setQueryData<ScheduledTask>(['scheduling-task', taskId], {
+          ...snapshot,
+          checklist: snapshot.checklist.map(item =>
+            item.id === itemId ? { ...item, done: !item.done } : item
+          ),
+        });
+      }
+      return { snapshot };
+    },
+    onError: (_err, _itemId, context) => {
+      if (context?.snapshot) {
+        qc.setQueryData(['scheduling-task', taskId], context.snapshot);
+      }
+    },
+    onSettled: (_data, err) => {
+      if (err) {
+        void qc.invalidateQueries({ queryKey: ['scheduling-task', taskId] });
+      }
+    },
+  });
+}
+
+export function useUpdateChecklistItem(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ itemId, text }: { itemId: string; text: string }) =>
+      api.updateChecklistItem(taskId, itemId, text),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['scheduling-task', taskId] }),
+  });
+}
+
+export function useRemoveChecklistItem(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (itemId: string) => api.removeChecklistItem(taskId, itemId),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['scheduling-task', taskId] }),
+  });
+}
+
+export function useReorderChecklist(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (orderedIds: string[]) => api.reorderChecklist(taskId, orderedIds),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['scheduling-task', taskId] }),
+  });
+}
+
+export function useAssignTemplateToTask(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (templateId: string) => api.assignTemplateToTask(taskId, templateId),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['scheduling-task', taskId] }),
+  });
+}
+
+export function useClearChecklist(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.clearChecklist(taskId),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['scheduling-task', taskId] }),
+  });
+}
+
+// Type alias exported for convenience in components
+export type { TaskChecklistItem };

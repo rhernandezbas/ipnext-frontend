@@ -1,5 +1,5 @@
 import axiosClient from './axios-client';
-import type { TaskTemplate } from '@/types/taskTemplate';
+import type { TaskTemplate, TaskTemplateItem } from '@/types/taskTemplate';
 
 const BASE = '/task-templates';
 
@@ -17,3 +17,6 @@ export const updateTaskTemplate = (id: string, data: Partial<Omit<TaskTemplate, 
 
 export const deleteTaskTemplate = (id: string) =>
   axiosClient.delete(`${BASE}/${id}`);
+
+export const replaceTemplateItems = (id: string, items: { text: string }[]) =>
+  axiosClient.put<TaskTemplateItem[]>(`${BASE}/${id}/items`, { items }).then(r => r.data);

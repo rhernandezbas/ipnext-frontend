@@ -1,5 +1,16 @@
 /** @deprecated use stageCategory; will be removed next change */
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+
+export interface TaskChecklistItem {
+  id: string;
+  taskId: string;
+  text: string;
+  done: boolean;
+  order: number;
+  fromTemplateItemId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
 export type TaskCategory = 'installation' | 'repair' | 'maintenance' | 'inspection' | 'other';
 export type TaskStageCategory = 'nuevo' | 'enProgreso' | 'hecho' | 'cancelado';
@@ -60,4 +71,8 @@ export interface ScheduledTask {
   // Travel time in minutes (post-change-3)
   travelTimeTo: number | null;
   travelTimeFrom: number | null;
+
+  // Checklist (change 5) — backend always returns this field, never omits.
+  // Defaults to [] when the task has no items. Type is non-nullable.
+  checklist: TaskChecklistItem[];
 }

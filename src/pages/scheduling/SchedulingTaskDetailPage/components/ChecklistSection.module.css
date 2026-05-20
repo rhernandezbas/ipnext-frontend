@@ -1,0 +1,233 @@
+.section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progress {
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--color-gray-100);
+  color: var(--color-text-secondary);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.sectionActions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.emptyState {
+  padding: 16px 0 8px;
+  color: var(--color-gray-400);
+  font-size: 13px;
+}
+
+.emptyState p { margin: 0; }
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.itemRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-gray-100);
+  background: var(--color-gray-50);
+  transition: background 0.1s;
+}
+
+.itemRow:hover { background: var(--color-surface); border-color: var(--color-gray-200); }
+
+.itemDone .itemText {
+  text-decoration: line-through;
+  color: var(--color-gray-400);
+}
+
+.dragHandle {
+  cursor: grab;
+  color: var(--color-gray-300);
+  font-size: 16px;
+  padding: 0 2px;
+  touch-action: none;
+  flex-shrink: 0;
+}
+
+.dragHandle:active { cursor: grabbing; }
+
+.checkLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  cursor: pointer;
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+  accent-color: var(--color-accent);
+}
+
+.itemText {
+  font-size: 13px;
+  color: var(--color-text-primary);
+  flex: 1;
+  line-height: 1.4;
+}
+
+.editInput {
+  flex: 1;
+  border: 1px solid var(--color-accent);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+  background: var(--color-surface);
+}
+
+.deleteBtn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-gray-300);
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: color 0.1s;
+}
+
+.deleteBtn:hover { color: #ef4444; background: #fef2f2; }
+.deleteBtn:focus-visible { outline: 2px solid var(--color-accent); }
+
+/* Add row */
+.addRow {
+  display: flex;
+  gap: 8px;
+}
+
+.addInput {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.addInput:focus { border-color: var(--color-accent); }
+
+.btnAdd {
+  padding: 8px 14px;
+  background: var(--color-accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.15s;
+  line-height: 1;
+}
+
+.btnAdd:hover:not(:disabled) { background: #4f46e5; }
+.btnAdd:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Buttons */
+.btnSecondary {
+  padding: 6px 12px;
+  background: var(--color-surface);
+  color: var(--color-gray-600);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-button);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btnSecondary:hover:not(:disabled) { background: var(--color-gray-50); }
+.btnSecondary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btnDanger {
+  color: #dc3545;
+  border-color: #fecaca;
+}
+
+.btnDanger:hover:not(:disabled) { background: #fff0f1; }
+
+/* Modal for clear confirm */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  width: 380px;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.modal p {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.modalActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}

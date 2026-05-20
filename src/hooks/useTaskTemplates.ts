@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { TaskTemplate } from '@/types/taskTemplate';
+import type { TaskTemplate, TaskTemplateItem } from '@/types/taskTemplate';
 import * as api from '@/api/taskTemplate.api';
 
 export function useTaskTemplates() {
@@ -28,5 +28,17 @@ export function useDeleteTaskTemplate() {
   return useMutation({
     mutationFn: (id: string) => api.deleteTaskTemplate(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['task-templates'] }),
+  });
+}
+
+export function useReplaceTemplateItems() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, items }: { id: string; items: { text: string }[] }) =>
+      api.replaceTemplateItems(id, items),
+    onSuccess: (_result: TaskTemplateItem[], { id }: { id: string; items: { text: string }[] }) => {
+      void qc.invalidateQueries({ queryKey: ['task-templates'] });
+      void qc.invalidateQueries({ queryKey: ['task-template', id] });
+    },
   });
 }

@@ -1,11 +1,29 @@
 import { useMemo, useState } from 'react';
 import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   useTaskTemplates,
   useCreateTaskTemplate,
   useUpdateTaskTemplate,
   useDeleteTaskTemplate,
+  useReplaceTemplateItems,
 } from '@/hooks/useTaskTemplates';
-import type { TaskTemplate, TaskTemplateCategory } from '@/types/taskTemplate';
+import type { TaskTemplate, TaskTemplateCategory, TaskTemplateItem } from '@/types/taskTemplate';
 import styles from './SchedulingTemplatesPage.module.css';
 
 const CATEGORY_OPTIONS: { value: TaskTemplateCategory; label: string }[] = [
@@ -60,7 +78,43 @@ function IconSearch() {
   );
 }
 
+// ── Sortable item for drag-reorder in modal ─────────────────────────────────
+interface SortableItemProps {
+  id: string;
+  text: string;
+  onTextChange: (text: string) => void;
+  onDelete: () => void;
+}
+
+function SortableItem({ id, text, onTextChange, onDelete }: SortableItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className={styles.itemRow}>
+      <span className={styles.dragHandle} {...attributes} {...listeners} aria-label="Arrastrar">⠿</span>
+      <input
+        className={styles.itemInput}
+        value={text}
+        onChange={e => onTextChange(e.target.value)}
+        placeholder="Texto del paso..."
+      />
+      <button className={styles.itemDeleteBtn} onClick={onDelete} title="Eliminar paso" type="button">
+        <IconTrash />
+      </button>
+    </div>
+  );
+}
+
 // ── Modal ──────────────────────────────────────────────────────────────────
+interface LocalItem {
+  localId: string;
+  text: string;
+  serverId?: string;
+}
+
 interface FormState {
   name: string;
   description: string;
@@ -71,23 +125,54 @@ const EMPTY: FormState = { name: '', description: '', category: 'other' };
 
 interface TemplateModalProps {
   initial?: FormState;
+  initialItems?: TaskTemplateItem[];
+  templateId?: string;
   onClose: () => void;
-  onSave: (data: Omit<TaskTemplate, 'id'>) => Promise<void>;
+  onSave: (data: Omit<TaskTemplate, 'id'>, items: { text: string }[]) => Promise<void>;
   loading: boolean;
 }
 
-function TemplateModal({ initial, onClose, onSave, loading }: TemplateModalProps) {
+let localIdCounter = 0;
+function newLocalId() { return `local-${++localIdCounter}`; }
+
+function TemplateModal({ initial, initialItems, onClose, onSave, loading }: TemplateModalProps) {
   const [form, setForm] = useState<FormState>(initial ?? EMPTY);
+  const [items, setItems] = useState<LocalItem[]>(
+    (initialItems ?? []).map(i => ({ localId: newLocalId(), text: i.text, serverId: i.id }))
+  );
   const [error, setError] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setItems(prev => {
+        const oldIdx = prev.findIndex(i => i.localId === active.id);
+        const newIdx = prev.findIndex(i => i.localId === over.id);
+        return arrayMove(prev, oldIdx, newIdx);
+      });
+    }
+  }
+
+  function addItem() {
+    setItems(prev => [...prev, { localId: newLocalId(), text: '' }]);
+  }
 
   async function handleSubmit() {
     setError(null);
     try {
-      await onSave({
-        name: form.name.trim(),
-        description: form.description.trim() === '' ? null : form.description,
-        category: form.category,
-      });
+      await onSave(
+        {
+          name: form.name.trim(),
+          description: form.description.trim() === '' ? null : form.description,
+          category: form.category,
+        },
+        items.filter(i => i.text.trim() !== '').map(i => ({ text: i.text.trim() }))
+      );
     } catch (err) {
       const resp = (err as { response?: { data?: { error?: string; details?: Array<{ path?: string[]; message?: string }> } } }).response?.data;
       if (resp?.details && resp.details.length > 0) {
@@ -140,6 +225,31 @@ function TemplateModal({ initial, onClose, onSave, loading }: TemplateModalProps
           />
         </label>
 
+        {/* Items section */}
+        <div className={styles.itemsSection}>
+          <span className={styles.itemsLabel}>Pasos de verificación</span>
+          {items.length === 0 ? (
+            <p className={styles.itemsEmpty}>Sin elementos. Agregá el primero abajo.</p>
+          ) : (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={items.map(i => i.localId)} strategy={verticalListSortingStrategy}>
+                {items.map(item => (
+                  <SortableItem
+                    key={item.localId}
+                    id={item.localId}
+                    text={item.text}
+                    onTextChange={text => setItems(prev => prev.map(i => i.localId === item.localId ? { ...i, text } : i))}
+                    onDelete={() => setItems(prev => prev.filter(i => i.localId !== item.localId))}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          )}
+          <button className={styles.btnAddItem} type="button" onClick={addItem}>
+            + Agregar paso
+          </button>
+        </div>
+
         {error && <div className={styles.errorBox}>{error}</div>}
 
         <div className={styles.modalActions}>
@@ -174,6 +284,7 @@ export default function SchedulingTemplatesPage() {
   const createMutation = useCreateTaskTemplate();
   const updateMutation = useUpdateTaskTemplate();
   const deleteMutation = useDeleteTaskTemplate();
+  const replaceItemsMutation = useReplaceTemplateItems();
 
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
@@ -187,14 +298,18 @@ export default function SchedulingTemplatesPage() {
     );
   }, [templates, search]);
 
-  async function handleCreate(data: Omit<TaskTemplate, 'id'>) {
-    await createMutation.mutateAsync(data);
+  async function handleCreate(data: Omit<TaskTemplate, 'id'>, items: { text: string }[]) {
+    const created = await createMutation.mutateAsync(data);
+    if (items.length > 0) {
+      await replaceItemsMutation.mutateAsync({ id: created.id, items });
+    }
     setShowCreate(false);
   }
 
-  async function handleEdit(data: Omit<TaskTemplate, 'id'>) {
+  async function handleEdit(data: Omit<TaskTemplate, 'id'>, items: { text: string }[]) {
     if (!editing) return;
     await updateMutation.mutateAsync({ id: editing.id, data });
+    await replaceItemsMutation.mutateAsync({ id: editing.id, items });
     setEditing(null);
   }
 
@@ -292,15 +407,17 @@ export default function SchedulingTemplatesPage() {
         <TemplateModal
           onClose={() => setShowCreate(false)}
           onSave={handleCreate}
-          loading={createMutation.isPending}
+          loading={createMutation.isPending || replaceItemsMutation.isPending}
         />
       )}
       {editing && (
         <TemplateModal
           initial={{ name: editing.name, description: editing.description ?? '', category: editing.category }}
+          initialItems={editing.items ?? []}
+          templateId={editing.id}
           onClose={() => setEditing(null)}
           onSave={handleEdit}
-          loading={updateMutation.isPending}
+          loading={updateMutation.isPending || replaceItemsMutation.isPending}
         />
       )}
       {deleting && (

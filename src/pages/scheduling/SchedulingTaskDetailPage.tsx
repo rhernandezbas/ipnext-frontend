@@ -8,6 +8,7 @@ import { usePartners } from '@/hooks/usePartners';
 import { TaskHeader } from './SchedulingTaskDetailPage/components/TaskHeader';
 import { DescriptionEditor } from './SchedulingTaskDetailPage/components/DescriptionEditor';
 import { DatosForm } from './SchedulingTaskDetailPage/components/DatosForm';
+import { ChecklistSection } from './SchedulingTaskDetailPage/components/ChecklistSection';
 import type { DatosFormValues } from './SchedulingTaskDetailPage/components/DatosForm';
 import { UbicacionMap } from './SchedulingTaskDetailPage/components/UbicacionMap';
 import { WatchersChips } from './SchedulingTaskDetailPage/components/WatchersChips';
@@ -229,10 +230,11 @@ export default function SchedulingTaskDetailPage() {
             isSaving={updateTask.isPending}
           />
 
-          <section className={styles.checklistPlaceholder} aria-labelledby="checklist-heading">
-            <h2 id="checklist-heading" className={styles.sectionTitle}>▣ Lista de verificación</h2>
-            <p className={styles.comingSoon}>Próximamente — change 5</p>
-          </section>
+          <ChecklistSection
+            taskId={id!}
+            checklist={task.checklist ?? []}
+            onError={msg => showToast(msg, 'error')}
+          />
         </main>
 
         <aside className={styles.sidebar}>
