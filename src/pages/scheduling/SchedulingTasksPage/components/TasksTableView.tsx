@@ -168,11 +168,27 @@ interface TasksTableViewProps {
   loading?: boolean;
   /** Stages available for the bulk "Mover etapa" action (typically the workflow of the selected project) */
   availableStages?: WorkflowStage[];
+  /** Column keys that should be rendered. When undefined, all columns are shown. */
+  visibleColumnKeys?: string[];
 }
+
+/** Full list of columns the table knows how to render — used both by the
+ *  table itself and by the parent's <ColumnSelector /> dropdown. */
+export const ALL_TASK_COLUMNS: { key: string; label: string }[] = [
+  { key: 'sequenceNumber', label: '#' },
+  { key: 'stageCategory',  label: 'Etapa' },
+  { key: 'projectName',    label: 'Proyecto' },
+  { key: 'address',        label: 'Dirección' },
+  { key: 'customerName',   label: 'Cliente' },
+  { key: 'startDate',      label: 'Inicio' },
+  { key: 'assigneeName',   label: 'Asignado' },
+  { key: 'priority',       label: 'Prioridad' },
+  { key: 'createdAt',      label: 'Edad' },
+];
 
 const PAGE_SIZES = [10, 25, 50, 100];
 
-export function TasksTableView({ tasks, loading = false, availableStages = [] }: TasksTableViewProps) {
+export function TasksTableView({ tasks, loading = false, availableStages = [], visibleColumnKeys }: TasksTableViewProps) {
   const navigate = useNavigate();
   const moveToStage = useMoveTaskToStage();
   const deleteTask = useDeleteTask();
@@ -183,7 +199,7 @@ export function TasksTableView({ tasks, loading = false, availableStages = [] }:
   const totalPages = Math.ceil(tasks.length / pageSize);
   const pageData = tasks.slice((page - 1) * pageSize, page * pageSize);
 
-  const COLUMNS = [
+  const ALL_COLUMNS = [
     { label: '#',         key: 'sequenceNumber', sortable: true },
     { label: 'Etapa',     key: 'stageCategory',  sortable: false,
       render: (t: ScheduledTask) => <StageBadge stageCategory={t.stageCategory} /> },
@@ -198,6 +214,12 @@ export function TasksTableView({ tasks, loading = false, availableStages = [] }:
     { label: 'Edad',      key: 'createdAt',      sortable: true,
       render: (t: ScheduledTask) => formatAge(t.createdAt) },
   ];
+
+  // Filter to only the columns whose key is in visibleColumnKeys. When the
+  // prop is undefined (legacy callers without the column selector), show all.
+  const COLUMNS = visibleColumnKeys
+    ? ALL_COLUMNS.filter(c => visibleColumnKeys.includes(c.key))
+    : ALL_COLUMNS;
 
   const ACTIONS = [
     { label: 'Ver detalle', onClick: (t: ScheduledTask) => navigate(`/admin/scheduling/tasks/${t.id}`) },

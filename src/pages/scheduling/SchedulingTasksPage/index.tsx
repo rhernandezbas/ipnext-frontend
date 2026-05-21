@@ -2,10 +2,14 @@ import { useFilteredTasks } from '@/hooks/useScheduling';
 import { useProjects } from '@/hooks/useProjects';
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { TaskFilterBar } from './components/TaskFilterBar';
-import { TasksTableView } from './components/TasksTableView';
+import { TasksTableView, ALL_TASK_COLUMNS } from './components/TasksTableView';
 import { TasksKanbanView } from './components/TasksKanbanView';
+import { ColumnSelector } from './components/ColumnSelector';
 import { useTasksFilterUrl } from './hooks/useTasksFilterUrl';
+import { useVisibleColumns } from './hooks/useVisibleColumns';
 import styles from './SchedulingTasksPage.module.css';
+
+const DEFAULT_VISIBLE_COLUMNS = ALL_TASK_COLUMNS.map(c => c.key);
 
 // ── SVG Icons (mirror of SchedulingProjectsPage for design consistency) ───────
 function IconRefresh() {
@@ -43,6 +47,9 @@ export default function SchedulingTasksPage() {
     ? workflows.find(w => w.id === selectedProject.workflowId)?.stages ?? []
     : [];
 
+  // Column visibility — persisted in localStorage, only meaningful in table view
+  const { visible: visibleColumns, toggle: toggleColumn, reset: resetColumns } = useVisibleColumns(DEFAULT_VISIBLE_COLUMNS);
+
   return (
     <div className={styles.page}>
       {/* Header — mirror of SchedulingProjectsPage for visual consistency */}
@@ -52,6 +59,14 @@ export default function SchedulingTasksPage() {
           <h1 className={styles.title}>Tareas</h1>
         </div>
         <div className={styles.headerRight}>
+          {view === 'table' && (
+            <ColumnSelector
+              columns={ALL_TASK_COLUMNS}
+              visible={visibleColumns}
+              onToggle={toggleColumn}
+              onReset={resetColumns}
+            />
+          )}
           <button className={styles.btnIcon} title="Recargar" onClick={() => void refetch()}>
             <IconRefresh />
           </button>
@@ -73,7 +88,12 @@ export default function SchedulingTasksPage() {
       <div className={styles.body}>
         <div className={styles.tableSection}>
           {view === 'table' ? (
-            <TasksTableView tasks={tasks} loading={isLoading} availableStages={availableStages} />
+            <TasksTableView
+              tasks={tasks}
+              loading={isLoading}
+              availableStages={availableStages}
+              visibleColumnKeys={visibleColumns}
+            />
           ) : (
             <TasksKanbanView tasks={tasks} filter={filter} />
           )}
