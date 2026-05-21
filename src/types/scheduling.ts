@@ -7,6 +7,7 @@ export interface TaskListFilter {
   stageIds?:   string[];
   partnerId?:  string;
   assigneeId?: string;
+  priority?:   TaskPriority;
   q?:          string;
   from?:       string;  // ISO datetime — filter tasks where startDate >= from
   to?:         string;  // ISO datetime — filter tasks where startDate <= to

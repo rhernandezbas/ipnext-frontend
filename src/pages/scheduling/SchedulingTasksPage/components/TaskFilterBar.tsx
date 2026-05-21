@@ -2,9 +2,18 @@ import { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProjects } from '@/hooks/useProjects';
 import { useWorkflow } from '@/hooks/useWorkflows';
-import type { TaskListFilter, TasksView } from '@/types/scheduling';
+import { usePartners } from '@/hooks/usePartners';
+import { useAdmins } from '@/hooks/useAdmins';
+import type { TaskListFilter, TasksView, TaskPriority } from '@/types/scheduling';
 import type { Project } from '@/types/project';
 import styles from './TaskFilterBar.module.css';
+
+const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
+  { value: 'low',    label: 'Baja' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'high',   label: 'Alta' },
+  { value: 'urgent', label: 'Urgente' },
+];
 
 interface TaskFilterBarProps {
   filter: TaskListFilter;
@@ -101,6 +110,8 @@ function StageMultiSelect({
 export function TaskFilterBar({ filter, view, onFilterChange, onViewChange }: TaskFilterBarProps) {
   const navigate = useNavigate();
   const { data: projects = [] } = useProjects();
+  const { data: partners = [] } = usePartners();
+  const { data: admins = [] } = useAdmins();
   const selectedProject: Project | undefined = projects.find(p => p.id === filter.projectId);
 
   // Debounced q value
@@ -141,6 +152,45 @@ export function TaskFilterBar({ filter, view, onFilterChange, onViewChange }: Ta
           selectedIds={filter.stageIds ?? []}
           onChange={ids => onFilterChange({ stageIds: ids })}
         />
+
+        {/* Partner select */}
+        <select
+          value={filter.partnerId ?? ''}
+          onChange={e => onFilterChange({ partnerId: e.target.value || undefined })}
+          className={styles.select}
+          aria-label="Socio"
+        >
+          <option value="">Todos los socios</option>
+          {partners.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+
+        {/* Assignee select */}
+        <select
+          value={filter.assigneeId ?? ''}
+          onChange={e => onFilterChange({ assigneeId: e.target.value || undefined })}
+          className={styles.select}
+          aria-label="Asignado"
+        >
+          <option value="">Cualquier asignado</option>
+          {admins.map(a => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </select>
+
+        {/* Priority select */}
+        <select
+          value={filter.priority ?? ''}
+          onChange={e => onFilterChange({ priority: (e.target.value || undefined) as TaskPriority | undefined })}
+          className={styles.select}
+          aria-label="Prioridad"
+        >
+          <option value="">Cualquier prioridad</option>
+          {PRIORITY_OPTIONS.map(p => (
+            <option key={p.value} value={p.value}>{p.label}</option>
+          ))}
+        </select>
 
         {/* Search input */}
         <input
@@ -192,6 +242,8 @@ export function TaskFilterBar({ filter, view, onFilterChange, onViewChange }: Ta
       <ActiveFilterChips
         filter={filter}
         projects={projects}
+        partners={partners}
+        admins={admins}
         onFilterChange={onFilterChange}
       />
     </div>
@@ -201,10 +253,12 @@ export function TaskFilterBar({ filter, view, onFilterChange, onViewChange }: Ta
 interface ActiveFilterChipsProps {
   filter: TaskListFilter;
   projects: Project[];
+  partners: Array<{ id: string; name: string }>;
+  admins: Array<{ id: string; name: string }>;
   onFilterChange: (patch: Partial<TaskListFilter>) => void;
 }
 
-function ActiveFilterChips({ filter, projects, onFilterChange }: ActiveFilterChipsProps) {
+function ActiveFilterChips({ filter, projects, partners, admins, onFilterChange }: ActiveFilterChipsProps) {
   const chips: Array<{ label: string; onRemove: () => void }> = [];
 
   if (filter.projectId) {
@@ -212,6 +266,30 @@ function ActiveFilterChips({ filter, projects, onFilterChange }: ActiveFilterChi
     chips.push({
       label: project?.title ?? filter.projectId,
       onRemove: () => onFilterChange({ projectId: undefined, stageIds: [] }),
+    });
+  }
+
+  if (filter.partnerId) {
+    const partner = partners.find(p => p.id === filter.partnerId);
+    chips.push({
+      label: `Socio: ${partner?.name ?? filter.partnerId}`,
+      onRemove: () => onFilterChange({ partnerId: undefined }),
+    });
+  }
+
+  if (filter.assigneeId) {
+    const admin = admins.find(a => a.id === filter.assigneeId);
+    chips.push({
+      label: `Asignado: ${admin?.name ?? filter.assigneeId}`,
+      onRemove: () => onFilterChange({ assigneeId: undefined }),
+    });
+  }
+
+  if (filter.priority) {
+    const priorityLabel = PRIORITY_OPTIONS.find(p => p.value === filter.priority)?.label ?? filter.priority;
+    chips.push({
+      label: `Prioridad: ${priorityLabel}`,
+      onRemove: () => onFilterChange({ priority: undefined }),
     });
   }
 
@@ -240,7 +318,7 @@ function ActiveFilterChips({ filter, projects, onFilterChange }: ActiveFilterChi
         <button
           type="button"
           className={styles.clearAll}
-          onClick={() => onFilterChange({ projectId: undefined, stageIds: [], q: undefined, partnerId: undefined, assigneeId: undefined })}
+          onClick={() => onFilterChange({ projectId: undefined, stageIds: [], q: undefined, partnerId: undefined, assigneeId: undefined, priority: undefined })}
         >
           Limpiar todo
         </button>
