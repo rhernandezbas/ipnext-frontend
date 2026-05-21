@@ -11,7 +11,13 @@
  */
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import type { TaskListFilter, TasksView } from '@/types/scheduling';
+import type { TaskListFilter, TasksView, TaskPriority } from '@/types/scheduling';
+
+const VALID_PRIORITIES: TaskPriority[] = ['low', 'normal', 'high', 'urgent'];
+function parsePriority(raw: string | null): TaskPriority | undefined {
+  if (!raw) return undefined;
+  return (VALID_PRIORITIES as string[]).includes(raw) ? (raw as TaskPriority) : undefined;
+}
 
 export interface TasksFilterUrlResult {
   filter: TaskListFilter;
@@ -29,6 +35,7 @@ export function useTasksFilterUrl(): TasksFilterUrlResult {
     stageIds:   searchParams.getAll('stageIds[]').filter(Boolean),
     partnerId:  searchParams.get('partnerId') ?? undefined,
     assigneeId: searchParams.get('assigneeId') ?? undefined,
+    priority:   parsePriority(searchParams.get('priority')),
     q:          searchParams.get('q') ?? undefined,
   };
 
@@ -50,6 +57,7 @@ export function useTasksFilterUrl(): TasksFilterUrlResult {
             stageIds:   patch.stageIds   !== undefined ? patch.stageIds   : prev.getAll('stageIds[]').filter(Boolean),
             partnerId:  patch.partnerId  !== undefined ? patch.partnerId  : (prev.get('partnerId') ?? undefined),
             assigneeId: patch.assigneeId !== undefined ? patch.assigneeId : (prev.get('assigneeId') ?? undefined),
+            priority:   patch.priority   !== undefined ? patch.priority   : parsePriority(prev.get('priority')),
             q:          patch.q          !== undefined ? patch.q          : (prev.get('q') ?? undefined),
           };
 
@@ -59,6 +67,7 @@ export function useTasksFilterUrl(): TasksFilterUrlResult {
           }
           if (merged.partnerId)  next.set('partnerId', merged.partnerId);
           if (merged.assigneeId) next.set('assigneeId', merged.assigneeId);
+          if (merged.priority)   next.set('priority', merged.priority);
           if (merged.q)          next.set('q', merged.q);
 
           return next;
