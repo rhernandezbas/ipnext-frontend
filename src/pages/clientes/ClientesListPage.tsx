@@ -69,8 +69,8 @@ function exportToCSV(rows: CustomerSummary[], filename: string) {
   URL.revokeObjectURL(url);
 }
 
-const CLIENT_TABS = ['Todos los clientes', 'Clientes online', 'GPON Online'] as const;
-type ClientTab = (typeof CLIENT_TABS)[number];
+// Tab bar removed — the page now lists all customers; "Clientes online" and
+// "GPON Online" subviews were deprecated per user request 2026-05-22.
 
 export default function ClientesListPage() {
   const navigate = useNavigate();
@@ -79,7 +79,6 @@ export default function ClientesListPage() {
   const [search, setSearch] = useState(searchParams.get('search') ?? '');
   const [status, setStatus] = useState(searchParams.get('status') ?? '');
   const [page, setPage] = useState(Number(searchParams.get('page') ?? '1'));
-  const [activeClientTab, setActiveClientTab] = useState<ClientTab>('Todos los clientes');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showActionsDropdown, setShowActionsDropdown] = useState(false);
 
@@ -128,17 +127,6 @@ export default function ClientesListPage() {
         >
           Nuevo cliente
         </button>
-      </div>
-      <div className={styles.tabBar}>
-        {CLIENT_TABS.map((tab) => (
-          <button
-            key={tab}
-            className={`${styles.tab} ${activeClientTab === tab ? styles.tabActive : ''}`}
-            onClick={() => setActiveClientTab(tab)}
-          >
-            {tab}
-          </button>
-        ))}
       </div>
       <ClientStatsCards
         activeStatus={status}

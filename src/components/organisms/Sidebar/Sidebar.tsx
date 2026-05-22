@@ -22,7 +22,6 @@ const CRM_ITEMS: NavParentItem[] = [
       { to: '/admin/customers/add', label: 'Añadir' },
       { to: '/admin/customers/search', label: 'Búsqueda' },
       { to: '/admin/customers/list', label: 'Lista' },
-      { to: '/admin/customers/online', label: 'Online' },
       { to: '/admin/customers/vouchers', label: 'Vouchers' },
       { to: '/admin/customers/map', label: 'Mapas' },
     ],

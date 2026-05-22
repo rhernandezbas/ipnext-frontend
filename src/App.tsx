@@ -86,7 +86,7 @@ const NotificationsPage = lazy(() => import('@/pages/notifications/Notifications
 const ApiDocsPage = lazy(() => import('@/pages/api-docs/ApiDocsPage'));
 const GponPage = lazy(() => import('@/pages/gpon/GponPage'));
 const RadiusSessionsPage = lazy(() => import('@/pages/radius/RadiusSessionsPage'));
-const ClientesOnlinePage = lazy(() => import('@/pages/clientes/ClientesOnlinePage'));
+// Removed: ClientesOnlinePage — /admin/customers/online deprecated per user request 2026-05-22.
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'));
 
 const CrmDashboardPage = lazy(() => import('@/pages/crm/CrmDashboardPage'));
@@ -149,7 +149,6 @@ export function App() {
             <Route path="/admin/crm/leads" element={<LeadsPage />} />
             <Route path="/admin/leads" element={<Navigate to="/admin/crm/leads" replace />} />
             <Route path="/admin/messages" element={<Navigate to="/admin/support/inbox" replace />} />
-            <Route path="/admin/customers/online" element={<ClientesOnlinePage />} />
             <Route path="/admin/customers/view/:id" element={<ClienteDetailPage />} />
             <Route path="/admin/customers/view/:id/edit" element={<EditClientePage />} />
             <Route path="/admin/tickets/dashboard" element={<Navigate to="/admin/tickets" replace />} />
