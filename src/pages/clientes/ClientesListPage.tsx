@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FilterBar } from '../../components/molecules/FilterBar/FilterBar';
 import { Pagination } from '../../components/molecules/Pagination/Pagination';
 import { DataTable } from '../../components/organisms/DataTable/DataTable';
@@ -38,7 +38,16 @@ function getColumns(): Column[] {
     },
     { label: 'ID', key: 'id', sortable: false },
     { label: 'Login del portal', key: 'login', sortable: false },
-    { label: 'Nombre completo', key: 'name', sortable: true },
+    {
+      label: 'Nombre completo',
+      key: 'name',
+      sortable: true,
+      render: (row: CustomerSummary) => (
+        <Link to={`/admin/customers/view/${row.id}`} className={styles.customerLink}>
+          {row.name}
+        </Link>
+      ),
+    },
     { label: 'Número de teléfono', key: 'phone', sortable: false },
     { label: 'Tarifas de Internet', key: 'tariffPlan', sortable: false },
     { label: 'Rangos IP', key: 'ipRanges', sortable: false },

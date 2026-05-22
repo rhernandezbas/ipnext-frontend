@@ -1,5 +1,11 @@
 import { lazy, Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
+
+/** Redirect from the natural /admin/customers/:id path to the canonical /view/:id route. */
+function CustomerIdRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/admin/customers/view/${id}`} replace />;
+}
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { AdminLayout } from '@/components/templates/AdminLayout/AdminLayout';
 import { LoginPage } from '@/pages/LoginPage/LoginPage';
@@ -206,6 +212,10 @@ export function App() {
             <Route path="/admin/customers/search" element={<CustomerSearchPage />} />
             <Route path="/admin/customers/vouchers" element={<CustomerVouchersPage />} />
             <Route path="/admin/customers/map" element={<CustomerMapPage />} />
+            {/* CATCH-ALL — natural URL /admin/customers/:id redirects to canonical
+                /view/:id. MUST stay at the end so the specific routes above match first
+                (otherwise /admin/customers/search would be interpreted as id="search"). */}
+            <Route path="/admin/customers/:id" element={<CustomerIdRedirect />} />
             <Route path="/admin/tickets/requesters" element={<TicketRequestersPage />} />
             <Route path="/admin/support/inbox" element={<SupportInboxPage />} />
             <Route path="/admin/support/mass-send" element={<MassSendPage />} />
