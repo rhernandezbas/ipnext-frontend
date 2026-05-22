@@ -221,10 +221,13 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], v
       render: (t: ScheduledTask) => new Date(t.updatedAt).toLocaleDateString('es-AR') },
   ];
 
-  // Filter to only the columns whose key is in visibleColumnKeys. When the
-  // prop is undefined (legacy callers without the column selector), show all.
+  // Build COLUMNS in the EXACT order of visibleColumnKeys (drag-to-reorder).
+  // When the prop is undefined (legacy callers), fall back to the canonical
+  // ALL_COLUMNS order.
   const COLUMNS = visibleColumnKeys
-    ? ALL_COLUMNS.filter(c => visibleColumnKeys.includes(c.key))
+    ? visibleColumnKeys
+        .map(k => ALL_COLUMNS.find(c => c.key === k))
+        .filter((c): c is typeof ALL_COLUMNS[number] => !!c)
     : ALL_COLUMNS;
 
   const ACTIONS = [

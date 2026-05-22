@@ -39,15 +39,61 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 10px;
+  padding: 5px 8px;
   border-radius: var(--radius-sm);
   font-size: 13px;
   color: var(--color-text-primary);
-  cursor: pointer;
   user-select: none;
+  background: var(--color-surface);
 }
 .item:hover { background: var(--color-gray-50); }
 .item input { cursor: pointer; }
+
+.itemHidden {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.dragHandle {
+  width: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: grab;
+  font-size: 14px;
+  letter-spacing: -2px;
+  padding: 0;
+}
+.dragHandle:hover { color: var(--color-accent); }
+.dragHandle:active { cursor: grabbing; }
+
+.dragHandlePlaceholder {
+  width: 18px;
+  display: inline-block;
+}
+
+.menuHint {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  padding: 4px 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 500;
+}
+
+.menuSubheader {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  padding: 8px 10px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 500;
+  border-top: 1px solid var(--color-border);
+  margin-top: 4px;
+}
 
 .resetBtn {
   margin-top: 4px;

@@ -64,6 +64,7 @@ export default function SchedulingTasksPage() {
               columns={ALL_TASK_COLUMNS}
               visible={visibleColumns}
               onToggle={toggleColumn}
+              onReorder={reorderColumns}
               onReset={resetColumns}
             />
           )}

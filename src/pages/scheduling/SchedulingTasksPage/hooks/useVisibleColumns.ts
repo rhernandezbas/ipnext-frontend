@@ -40,9 +40,13 @@ export function useVisibleColumns(defaultKeys: string[]) {
     setVisible(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));
   }, []);
 
+  const reorder = useCallback((newOrder: string[]) => {
+    setVisible(newOrder);
+  }, []);
+
   const reset = useCallback(() => {
     setVisible(defaultKeys);
   }, [defaultKeys]);
 
-  return { visible, toggle, reset, setVisible };
+  return { visible, toggle, reorder, reset, setVisible };
 }
