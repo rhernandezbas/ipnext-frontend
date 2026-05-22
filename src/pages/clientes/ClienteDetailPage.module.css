@@ -1,5 +1,69 @@
 .page { padding: 1.5rem; }
 .loading, .error { padding: 2rem; text-align: center; color: var(--color-text-secondary); }
+
+/* ── Splynx-style page header: name (email - splynxId) + breadcrumb ── */
+.pageHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.pageHeaderIcon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  border-radius: var(--radius-md);
+  color: var(--color-accent);
+  flex: 0 0 auto;
+}
+.pageHeaderText {
+  flex: 1;
+  min-width: 0;
+}
+.breadcrumb { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 2px; }
+.breadcrumb a { color: var(--color-accent); text-decoration: none; }
+.breadcrumb a:hover { text-decoration: underline; }
+.pageTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pageTitleMeta { font-weight: 400; color: var(--color-text-secondary); font-size: 16px; }
+
+/* ── Sub-header bar: name + saldo + actions ───────────────────────────── */
+.subHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.subHeaderLeft { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0; }
+.subHeaderName { font-size: 14px; font-weight: 500; color: var(--color-text-primary); }
+.subHeaderEmail { color: var(--color-text-secondary); }
+.subHeaderBalance {
+  font-size: 14px;
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+.subHeaderBalanceValue {
+  font-weight: 700;
+  color: #16a34a;
+  margin-left: 4px;
+}
+
+/* ── Legacy classes (kept for compat with older sections) ────────────── */
 .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
 .headerLeft { display: flex; flex-direction: column; gap: 0.25rem; }
 .name { font-size: 1.5rem; font-weight: 600; color: var(--color-text-primary); margin: 0; }

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, Navigate, useNavigate } from 'react-router-dom';
+import { useParams, Navigate, useNavigate, Link } from 'react-router-dom';
 import { Tabs } from '../../components/molecules/Tabs/Tabs';
-import { StatusBadge } from '../../components/atoms/StatusBadge/StatusBadge';
 import { Button } from '../../components/atoms/Button/Button';
 import { useClientDetail, useToggleClientStatus, useDeleteCustomer } from '../../hooks/useClients';
 import { InformacionTab } from './tabs/InformacionTab';
@@ -17,12 +16,9 @@ import styles from './ClienteDetailPage.module.css';
 
 const TAB_IDS = ['information', 'services', 'billing', 'statistics', 'documents', 'files', 'logs', 'actividad', 'comentarios'];
 
-function toStatusBadge(status: string): 'active' | 'late' | 'blocked' | 'inactive' {
-  if (status === 'new') return 'inactive';
-  if (status === 'late') return 'late';
-  if (status === 'blocked') return 'blocked';
-  if (status === 'inactive') return 'inactive';
-  return 'active';
+function formatBalance(b: number | undefined | null) {
+  if (b === undefined || b === null) return '$ 0,00';
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(b);
 }
 
 export default function ClienteDetailPage() {
@@ -130,24 +126,49 @@ export default function ClienteDetailPage() {
     },
   ];
 
+  const splynxId = (customer as { splynxId?: string | null }).splynxId ?? null;
+  const balance = (customer as { balance?: number }).balance;
+
   return (
     <div className={styles.page}>
-      <div className={styles.header}>
-        <div className={styles.headerLeft}>
-          <h1 className={styles.name}>{customer.name}</h1>
-          <span className={styles.id}>ID: {customer.id}</span>
+      {/* Splynx-style top heading: icon + breadcrumb + "NAME (email - splynxId)" */}
+      <div className={styles.pageHeader}>
+        <div className={styles.pageHeaderIcon} aria-hidden>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>
+          </svg>
         </div>
-        <div className={styles.headerRight}>
-          <StatusBadge status={toStatusBadge(customer.status)} />
-          <div className={styles.contactInfo}>
-            <span>{customer.email}</span>
-            <span>{customer.phone}</span>
+        <div className={styles.pageHeaderText}>
+          <div className={styles.breadcrumb}>
+            <Link to="/admin/customers/list">Customers</Link> / <Link to="/admin/customers/list">List</Link> /
           </div>
+          <h1 className={styles.pageTitle}>
+            {customer.name}{' '}
+            <span className={styles.pageTitleMeta}>
+              ({customer.email}{splynxId ? ` - ${splynxId}` : ''})
+            </span>
+          </h1>
+        </div>
+      </div>
+
+      <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {/* Sub-header with Saldo + action buttons (Splynx layout) */}
+      <div className={styles.subHeader}>
+        <div className={styles.subHeaderLeft}>
+          <span className={styles.subHeaderName}>
+            {customer.name} <span className={styles.subHeaderEmail}>({customer.email})</span>
+          </span>
+          <span className={styles.subHeaderBalance}>
+            Saldo de la cuenta:
+            <span className={styles.subHeaderBalanceValue}>{formatBalance(balance)}</span>
+          </span>
         </div>
         <div className={styles.headerActions}>
           <div ref={accionesRef} style={{ position: 'relative' }}>
             <Button variant="secondary" size="sm" onClick={() => setAccionesOpen(o => !o)}>
-              Acciones
+              Acciones ▾
             </Button>
             {accionesOpen && (
               <div className={styles.dropdown}>
@@ -188,12 +209,11 @@ export default function ClienteDetailPage() {
               </div>
             )}
           </div>
-          <Button variant="secondary" size="sm" onClick={() => navigate('/admin/scheduling')}>Tareas</Button>
-          <Button variant="secondary" size="sm" onClick={() => navigate('/admin/tickets/opened')}>Tickets</Button>
+          <Button variant="secondary" size="sm" onClick={() => navigate('/admin/scheduling/tasks')}>Tareas ▾</Button>
+          <Button variant="secondary" size="sm" onClick={() => navigate('/admin/tickets/opened')}>Tickets ▾</Button>
           <Button variant="primary" size="sm" onClick={() => navigate(`/admin/customers/view/${id}/edit`)}>Guardar</Button>
         </div>
       </div>
-      <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );
 }

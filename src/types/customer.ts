@@ -35,6 +35,12 @@ export interface Customer {
   updatedAt: string;
   services: Service[];
   logs: LogEntry[];
+  // Optional fields surfaced by the Postgres adapter (Splynx Customer module)
+  city?: string;
+  country?: string;
+  login?: string;
+  splynxId?: string | null;
+  customAttributes?: Record<string, unknown> | null;
 }
 
 export interface CustomerSummary {
