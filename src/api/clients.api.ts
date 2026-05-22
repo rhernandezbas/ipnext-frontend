@@ -30,6 +30,19 @@ export async function getClientById(id: number | string): Promise<Customer> {
   return response.data;
 }
 
+export interface ClientStats {
+  total: number;
+  active: number;
+  inactive: number;
+  blocked: number;
+  late: number;
+}
+
+export async function getClientStats(): Promise<ClientStats> {
+  const response = await axiosClient.get<ClientStats>('/clients/stats');
+  return response.data;
+}
+
 export async function updateClient(
   id: number,
   data: Partial<Customer>

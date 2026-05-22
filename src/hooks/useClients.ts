@@ -7,6 +7,7 @@ import {
   getClientLogs,
   getClientComments,
   createClientComment,
+  getClientStats,
 } from '../api/clients.api';
 import axiosClient from '../api/axios-client';
 import type { ClientsQuery, LogsQuery, ClientComment, CreateCommentPayload } from '../api/clients.api';
@@ -19,6 +20,14 @@ export function useClientList(query: ClientsQuery) {
     queryKey: ['clients', query],
     queryFn: () => getClients(query),
     staleTime: 30_000,
+  });
+}
+
+export function useClientStats() {
+  return useQuery({
+    queryKey: ['client-stats'],
+    queryFn: getClientStats,
+    staleTime: 60_000,
   });
 }
 

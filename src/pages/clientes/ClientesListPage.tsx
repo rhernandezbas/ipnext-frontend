@@ -6,6 +6,7 @@ import { DataTable } from '../../components/organisms/DataTable/DataTable';
 import { StatusBadge } from '../../components/atoms/StatusBadge/StatusBadge';
 import { useClientList, useToggleClientStatus } from '../../hooks/useClients';
 import type { CustomerSummary } from '../../types/customer';
+import { ClientStatsCards } from './ClientStatsCards';
 import styles from './ClientesListPage.module.css';
 
 const STATUS_FILTERS = [
@@ -139,6 +140,10 @@ export default function ClientesListPage() {
           </button>
         ))}
       </div>
+      <ClientStatsCards
+        activeStatus={status}
+        onStatusClick={(s) => { setStatus(s === status ? '' : s); setPage(1); }}
+      />
       <FilterBar
         onSearch={(v) => { setSearch(v); setPage(1); }}
         searchPlaceholder="Buscar cliente..."
