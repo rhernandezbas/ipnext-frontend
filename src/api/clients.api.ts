@@ -24,7 +24,8 @@ export async function getClients(
   return response.data;
 }
 
-export async function getClientById(id: number): Promise<Customer> {
+// Accepts either a numeric legacy ID or a Prisma UUID — backend route just uses the string.
+export async function getClientById(id: number | string): Promise<Customer> {
   const response = await axiosClient.get<Customer>(`/clients/${id}`);
   return response.data;
 }
@@ -48,9 +49,11 @@ export async function deleteClient(id: number): Promise<void> {
   await axiosClient.delete(`/clients/${id}`);
 }
 
-// Alias for hook compatibility (accepts string id)
+// Alias for hook compatibility (accepts string id — UUID or legacy numeric).
+// IMPORTANT: do NOT do Number(id) — Prisma UUIDs become NaN and the GET 404s,
+// rendering "Cliente no encontrado" in the detail page.
 export async function getClient(id: string): Promise<Customer> {
-  return getClientById(Number(id));
+  return getClientById(id);
 }
 
 export async function getClientServices(id: string): Promise<Service[]> {
