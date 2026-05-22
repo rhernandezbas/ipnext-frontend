@@ -73,6 +73,7 @@ export interface ScheduledTask {
   // FK relations (post-change-3)
   customerId: string | null;
   customerName: string | null;
+  customerCity: string | null;
   serviceId: string | null;
   partnerId: string | null;
   reporterId: string | null;

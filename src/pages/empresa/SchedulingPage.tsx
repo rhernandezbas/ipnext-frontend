@@ -86,7 +86,7 @@ const EMPTY: Omit<ScheduledTask, 'id' | 'sequenceNumber' | 'createdAt' | 'update
   // post-change-3 fields
   stageId: '', stageCategory: 'nuevo',
   startDate: null, endDate: null,
-  customerId: null, customerName: null, serviceId: null, partnerId: null,
+  customerId: null, customerName: null, customerCity: null, serviceId: null, partnerId: null,
   reporterId: null, assigneeId: null, assigneeName: null,
   watcherIds: [],
   travelTimeTo: null, travelTimeFrom: null,

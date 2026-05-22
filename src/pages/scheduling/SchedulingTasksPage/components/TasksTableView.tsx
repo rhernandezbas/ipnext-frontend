@@ -180,10 +180,12 @@ export const ALL_TASK_COLUMNS: { key: string; label: string }[] = [
   { key: 'projectName',    label: 'Proyecto' },
   { key: 'address',        label: 'Dirección' },
   { key: 'customerName',   label: 'Cliente' },
+  { key: 'customerCity',   label: 'Localidad' },
   { key: 'startDate',      label: 'Inicio' },
   { key: 'assigneeName',   label: 'Asignado' },
   { key: 'priority',       label: 'Prioridad' },
-  { key: 'createdAt',      label: 'Edad' },
+  { key: 'createdAt',      label: 'Fecha creación' },
+  { key: 'updatedAt',      label: 'Fecha actualización' },
 ];
 
 const PAGE_SIZES = [10, 25, 50, 100];
@@ -206,13 +208,17 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], v
     { label: 'Proyecto',  key: 'projectName',    sortable: true },
     { label: 'Dirección', key: 'address',        sortable: true },
     { label: 'Cliente',   key: 'customerName',   sortable: true },
+    { label: 'Localidad', key: 'customerCity',   sortable: true,
+      render: (t: ScheduledTask) => t.customerCity || '—' },
     { label: 'Inicio',    key: 'startDate',      sortable: true,
       render: (t: ScheduledTask) => t.startDate ? new Date(t.startDate).toLocaleDateString('es-AR') : '—' },
     { label: 'Asignado',  key: 'assigneeName',   sortable: true },
     { label: 'Prioridad', key: 'priority',       sortable: true,
       render: (t: ScheduledTask) => <PriorityPill priority={t.priority} /> },
-    { label: 'Edad',      key: 'createdAt',      sortable: true,
-      render: (t: ScheduledTask) => formatAge(t.createdAt) },
+    { label: 'Fecha creación',      key: 'createdAt', sortable: true,
+      render: (t: ScheduledTask) => new Date(t.createdAt).toLocaleDateString('es-AR') },
+    { label: 'Fecha actualización', key: 'updatedAt', sortable: true,
+      render: (t: ScheduledTask) => new Date(t.updatedAt).toLocaleDateString('es-AR') },
   ];
 
   // Filter to only the columns whose key is in visibleColumnKeys. When the
