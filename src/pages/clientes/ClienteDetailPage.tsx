@@ -152,9 +152,8 @@ export default function ClienteDetailPage() {
         </div>
       </div>
 
-      <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
-
-      {/* Sub-header with Saldo + action buttons (Splynx layout) */}
+      {/* Sub-header with Saldo + action buttons (Splynx layout) — between
+          the page heading and the tabs, NOT after. */}
       <div className={styles.subHeader}>
         <div className={styles.subHeaderLeft}>
           <span className={styles.subHeaderName}>
@@ -214,6 +213,8 @@ export default function ClienteDetailPage() {
           <Button variant="primary" size="sm" onClick={() => navigate(`/admin/customers/view/${id}/edit`)}>Guardar</Button>
         </div>
       </div>
+
+      <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );
 }
