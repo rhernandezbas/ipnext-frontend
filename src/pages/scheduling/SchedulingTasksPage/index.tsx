@@ -48,7 +48,7 @@ export default function SchedulingTasksPage() {
     : [];
 
   // Column visibility — persisted in localStorage, only meaningful in table view
-  const { visible: visibleColumns, toggle: toggleColumn, reset: resetColumns } = useVisibleColumns(DEFAULT_VISIBLE_COLUMNS);
+  const { visible: visibleColumns, toggle: toggleColumn, reorder: reorderColumns, reset: resetColumns } = useVisibleColumns(DEFAULT_VISIBLE_COLUMNS);
 
   return (
     <div className={styles.page}>
