@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, Navigate, useNavigate, Link } from 'react-router-dom';
 import { Tabs } from '../../components/molecules/Tabs/Tabs';
+import { ConfirmModal } from '../../components/molecules/ConfirmModal/ConfirmModal';
 import { Button } from '../../components/atoms/Button/Button';
 import { useClientDetail, useToggleClientStatus, useDeleteCustomer } from '../../hooks/useClients';
 import { InformacionTab } from './tabs/InformacionTab';
@@ -31,6 +32,8 @@ export default function ClienteDetailPage() {
   });
 
   const [accionesOpen, setAccionesOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const accionesRef = useRef<HTMLDivElement>(null);
 
   const activatedTabs = useRef<Set<string>>(new Set([activeTab]));
@@ -195,11 +198,8 @@ export default function ClienteDetailPage() {
                 <button
                   className={styles.dropdownItem}
                   onClick={() => {
-                    if (window.confirm('¿Estás seguro de que querés eliminar este cliente?')) {
-                      deleteCustomer.mutate(id, {
-                        onSuccess: () => navigate('/admin/customers/list'),
-                      });
-                    }
+                    setDeleteError(null);
+                    setDeleteOpen(true);
                     setAccionesOpen(false);
                   }}
                 >
@@ -215,6 +215,42 @@ export default function ClienteDetailPage() {
       </div>
 
       <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+
+      <ConfirmModal
+        open={deleteOpen}
+        title="Eliminar cliente"
+        message={
+          deleteError
+            ? deleteError
+            : `¿Eliminar a "${customer.name}"? Esta acción no se puede deshacer.`
+        }
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        tone="danger"
+        busy={deleteCustomer.isPending}
+        onCancel={() => { setDeleteOpen(false); setDeleteError(null); }}
+        onConfirm={() => {
+          setDeleteError(null);
+          deleteCustomer.mutate(id, {
+            onSuccess: () => {
+              setDeleteOpen(false);
+              navigate('/admin/customers/list');
+            },
+            onError: (err: unknown) => {
+              const e = err as { response?: { data?: { error?: string; code?: string } } };
+              const code = e?.response?.data?.code;
+              const msg = e?.response?.data?.error;
+              if (code === 'CLIENT_HAS_REFERENCES') {
+                setDeleteError(
+                  'No se puede eliminar: el cliente tiene tareas, servicios o facturas asociadas. Desvinculalas primero.',
+                );
+              } else {
+                setDeleteError(msg ?? 'No se pudo eliminar el cliente. Intentalo de nuevo.');
+              }
+            },
+          });
+        }}
+      />
     </div>
   );
 }
