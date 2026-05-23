@@ -168,6 +168,7 @@ interface TasksTableViewProps {
  *  table itself and by the parent's <ColumnSelector /> dropdown. */
 export const ALL_TASK_COLUMNS: { key: string; label: string }[] = [
   { key: 'sequenceNumber', label: '#' },
+  { key: 'title',          label: 'Título' },
   { key: 'stageCategory',  label: 'Etapa' },
   { key: 'projectName',    label: 'Proyecto' },
   { key: 'address',        label: 'Dirección' },
@@ -198,6 +199,12 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], v
       render: (t: ScheduledTask) => (
         <Link to={`/admin/scheduling/tasks/${t.id}`} className={styles.idLink}>
           #{t.sequenceNumber}
+        </Link>
+      ) },
+    { label: 'Título',    key: 'title',          sortable: true,
+      render: (t: ScheduledTask) => (
+        <Link to={`/admin/scheduling/tasks/${t.id}`} className={styles.titleLink} title={t.title}>
+          {t.title}
         </Link>
       ) },
     { label: 'Etapa',     key: 'stageCategory',  sortable: false,

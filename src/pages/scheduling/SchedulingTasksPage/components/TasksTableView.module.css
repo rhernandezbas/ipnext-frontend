@@ -25,6 +25,18 @@
 }
 .idLink:hover { text-decoration: underline; }
 
+.titleLink {
+  color: var(--color-text-primary, #111827);
+  text-decoration: none;
+  display: inline-block;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.titleLink:hover { color: var(--color-accent, #2563eb); text-decoration: underline; }
+
 .priorityPill {
   display: inline-flex;
   align-items: center;
