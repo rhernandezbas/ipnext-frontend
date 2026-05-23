@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import type { ScheduledTask, TaskPriority, TaskStageCategory } from '@/types/scheduling';
 import type { WorkflowStage } from '@/types/workflow';
@@ -194,7 +194,12 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], v
   const pageData = tasks.slice((page - 1) * pageSize, page * pageSize);
 
   const ALL_COLUMNS = [
-    { label: '#',         key: 'sequenceNumber', sortable: true },
+    { label: '#',         key: 'sequenceNumber', sortable: true,
+      render: (t: ScheduledTask) => (
+        <Link to={`/admin/scheduling/tasks/${t.id}`} className={styles.idLink}>
+          #{t.sequenceNumber}
+        </Link>
+      ) },
     { label: 'Etapa',     key: 'stageCategory',  sortable: false,
       render: (t: ScheduledTask) => <StageBadge stageCategory={t.stageCategory} /> },
     { label: 'Proyecto',  key: 'projectName',    sortable: true },

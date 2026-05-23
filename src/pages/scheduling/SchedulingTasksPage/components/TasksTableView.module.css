@@ -18,6 +18,13 @@
   overflow: auto;
 }
 
+.idLink {
+  color: var(--color-accent, #2563eb);
+  font-weight: 600;
+  text-decoration: none;
+}
+.idLink:hover { text-decoration: underline; }
+
 .priorityPill {
   display: inline-flex;
   align-items: center;
