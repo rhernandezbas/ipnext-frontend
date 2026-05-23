@@ -5,6 +5,8 @@ export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
 export interface TaskListFilter {
   projectId?:  string;
   stageIds?:   string[];
+  /** Client-side filter by stage category (nuevo / enProgreso / hecho / cancelado). Not sent to backend. */
+  stageCategory?: TaskStageCategory;
   partnerId?:  string;
   assigneeId?: string;
   priority?:   TaskPriority;

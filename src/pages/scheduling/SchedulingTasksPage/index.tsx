@@ -33,7 +33,12 @@ function IconPlus() {
 
 export default function SchedulingTasksPage() {
   const { filter, view, setFilter, setView } = useTasksFilterUrl();
-  const { data: tasks = [], isLoading, refetch } = useFilteredTasks(filter);
+  // stageCategory is a CLIENT-side filter — the backend doesn't know about it.
+  const { stageCategory, ...backendFilter } = filter;
+  const { data: tasksRaw = [], isLoading, refetch } = useFilteredTasks(backendFilter);
+  const tasks = stageCategory
+    ? tasksRaw.filter(t => t.stageCategory === stageCategory)
+    : tasksRaw;
   const { data: projects = [] } = useProjects();
   const { data: workflows = [] } = useWorkflows();
 

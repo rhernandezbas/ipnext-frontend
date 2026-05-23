@@ -11,12 +11,18 @@
  */
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import type { TaskListFilter, TasksView, TaskPriority } from '@/types/scheduling';
+import type { TaskListFilter, TasksView, TaskPriority, TaskStageCategory } from '@/types/scheduling';
 
 const VALID_PRIORITIES: TaskPriority[] = ['low', 'normal', 'high', 'urgent'];
 function parsePriority(raw: string | null): TaskPriority | undefined {
   if (!raw) return undefined;
   return (VALID_PRIORITIES as string[]).includes(raw) ? (raw as TaskPriority) : undefined;
+}
+
+const VALID_CATEGORIES: TaskStageCategory[] = ['nuevo', 'enProgreso', 'hecho', 'cancelado'];
+function parseCategory(raw: string | null): TaskStageCategory | undefined {
+  if (!raw) return undefined;
+  return (VALID_CATEGORIES as string[]).includes(raw) ? (raw as TaskStageCategory) : undefined;
 }
 
 export interface TasksFilterUrlResult {
@@ -31,12 +37,13 @@ export function useTasksFilterUrl(): TasksFilterUrlResult {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const filter: TaskListFilter = {
-    projectId:  searchParams.get('projectId') ?? undefined,
-    stageIds:   searchParams.getAll('stageIds[]').filter(Boolean),
-    partnerId:  searchParams.get('partnerId') ?? undefined,
-    assigneeId: searchParams.get('assigneeId') ?? undefined,
-    priority:   parsePriority(searchParams.get('priority')),
-    q:          searchParams.get('q') ?? undefined,
+    projectId:     searchParams.get('projectId') ?? undefined,
+    stageIds:      searchParams.getAll('stageIds[]').filter(Boolean),
+    stageCategory: parseCategory(searchParams.get('stageCategory')),
+    partnerId:     searchParams.get('partnerId') ?? undefined,
+    assigneeId:    searchParams.get('assigneeId') ?? undefined,
+    priority:      parsePriority(searchParams.get('priority')),
+    q:             searchParams.get('q') ?? undefined,
   };
 
   const view = (searchParams.get('view') ?? 'table') as TasksView;
@@ -53,22 +60,24 @@ export function useTasksFilterUrl(): TasksFilterUrlResult {
 
           // Merge current filter with patch
           const merged: TaskListFilter = {
-            projectId:  patch.projectId  !== undefined ? patch.projectId  : (prev.get('projectId') ?? undefined),
-            stageIds:   patch.stageIds   !== undefined ? patch.stageIds   : prev.getAll('stageIds[]').filter(Boolean),
-            partnerId:  patch.partnerId  !== undefined ? patch.partnerId  : (prev.get('partnerId') ?? undefined),
-            assigneeId: patch.assigneeId !== undefined ? patch.assigneeId : (prev.get('assigneeId') ?? undefined),
-            priority:   patch.priority   !== undefined ? patch.priority   : parsePriority(prev.get('priority')),
-            q:          patch.q          !== undefined ? patch.q          : (prev.get('q') ?? undefined),
+            projectId:     patch.projectId     !== undefined ? patch.projectId     : (prev.get('projectId') ?? undefined),
+            stageIds:      patch.stageIds      !== undefined ? patch.stageIds      : prev.getAll('stageIds[]').filter(Boolean),
+            stageCategory: patch.stageCategory !== undefined ? patch.stageCategory : parseCategory(prev.get('stageCategory')),
+            partnerId:     patch.partnerId     !== undefined ? patch.partnerId     : (prev.get('partnerId') ?? undefined),
+            assigneeId:    patch.assigneeId    !== undefined ? patch.assigneeId    : (prev.get('assigneeId') ?? undefined),
+            priority:      patch.priority      !== undefined ? patch.priority      : parsePriority(prev.get('priority')),
+            q:             patch.q             !== undefined ? patch.q             : (prev.get('q') ?? undefined),
           };
 
-          if (merged.projectId)  next.set('projectId', merged.projectId);
+          if (merged.projectId)     next.set('projectId', merged.projectId);
           if (merged.stageIds?.length) {
             merged.stageIds.forEach(id => next.append('stageIds[]', id));
           }
-          if (merged.partnerId)  next.set('partnerId', merged.partnerId);
-          if (merged.assigneeId) next.set('assigneeId', merged.assigneeId);
-          if (merged.priority)   next.set('priority', merged.priority);
-          if (merged.q)          next.set('q', merged.q);
+          if (merged.stageCategory) next.set('stageCategory', merged.stageCategory);
+          if (merged.partnerId)     next.set('partnerId', merged.partnerId);
+          if (merged.assigneeId)    next.set('assigneeId', merged.assigneeId);
+          if (merged.priority)      next.set('priority', merged.priority);
+          if (merged.q)             next.set('q', merged.q);
 
           return next;
         },

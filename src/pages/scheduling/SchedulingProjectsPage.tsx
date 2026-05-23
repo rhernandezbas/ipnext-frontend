@@ -278,9 +278,33 @@ export default function SchedulingProjectsPage() {
                           {p.title}
                         </button>
                       </td>
-                      <td className={styles.countCell} data-color="blue">{p.taskCounts?.nuevo ?? 0}</td>
-                      <td className={styles.countCell} data-color="gray">{p.taskCounts?.enProgreso ?? 0}</td>
-                      <td className={styles.countCell} data-color="blue">{p.taskCounts?.hecho ?? 0}</td>
+                      <td className={styles.countCell} data-color="blue">
+                        <button
+                          className={styles.countLink}
+                          title="Ver tareas nuevas de este proyecto"
+                          onClick={() => navigate(`/admin/scheduling/tasks?projectId=${p.id}&stageCategory=nuevo`)}
+                        >
+                          {p.taskCounts?.nuevo ?? 0}
+                        </button>
+                      </td>
+                      <td className={styles.countCell} data-color="gray">
+                        <button
+                          className={styles.countLink}
+                          title="Ver tareas en progreso de este proyecto"
+                          onClick={() => navigate(`/admin/scheduling/tasks?projectId=${p.id}&stageCategory=enProgreso`)}
+                        >
+                          {p.taskCounts?.enProgreso ?? 0}
+                        </button>
+                      </td>
+                      <td className={styles.countCell} data-color="blue">
+                        <button
+                          className={styles.countLink}
+                          title="Ver tareas terminadas de este proyecto"
+                          onClick={() => navigate(`/admin/scheduling/tasks?projectId=${p.id}&stageCategory=hecho`)}
+                        >
+                          {p.taskCounts?.hecho ?? 0}
+                        </button>
+                      </td>
                       <td className={styles.descCell}>{p.description ?? '—'}</td>
                       <td className={styles.actionsCell}>
                         <button className={styles.actionBtn} title="Editar" onClick={() => setEditing(p)}>
