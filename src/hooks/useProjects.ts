@@ -1,10 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { projectsApi } from '@/api/projects.api';
+import { projectsApi, type ProjectVisibilityFilter } from '@/api/projects.api';
 
 const KEY = ['projects'] as const;
 
-export function useProjects() {
-  return useQuery({ queryKey: KEY, queryFn: projectsApi.list });
+export function useProjects(visibility?: ProjectVisibilityFilter) {
+  return useQuery({
+    queryKey: [...KEY, visibility ?? 'default'],
+    queryFn: () => projectsApi.list(visibility),
+  });
 }
 
 export function useCreateProject() {
@@ -18,8 +21,10 @@ export function useCreateProject() {
 export function useUpdateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { title?: string; description?: string } }) =>
-      projectsApi.update(id, data),
+    mutationFn: ({ id, data }: {
+      id: string;
+      data: { title?: string; description?: string; visible?: boolean };
+    }) => projectsApi.update(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 }

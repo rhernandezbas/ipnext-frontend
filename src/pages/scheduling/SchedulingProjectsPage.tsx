@@ -105,11 +105,18 @@ function ConfirmDialog({ title, onConfirm, onCancel }: { title: string; onConfir
   return (
     <div className={styles.overlay} onClick={onCancel}>
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
-        <h2 className={styles.modalTitle}>¿Eliminar proyecto?</h2>
-        <p className={styles.confirmText}>Se eliminará <strong>{title}</strong>. Esta acción no se puede deshacer.</p>
+        <h2 className={styles.modalTitle}>¿Deshabilitar proyecto?</h2>
+        <p className={styles.confirmText}>
+          <strong>{title}</strong> quedará oculto de la lista pero sus tareas históricas
+          conservarán la referencia. Podés volver a habilitarlo desde el toggle
+          "Mostrar deshabilitados".
+        </p>
+        <p className={styles.confirmText}>
+          <em>No se puede deshabilitar si quedan tareas en estado Nuevo o En progreso.</em>
+        </p>
         <div className={styles.modalActions}>
           <button className={styles.btnSecondary} onClick={onCancel}>Cancelar</button>
-          <button className={styles.btnDanger} onClick={onConfirm}>Eliminar</button>
+          <button className={styles.btnDanger} onClick={onConfirm}>Deshabilitar</button>
         </div>
       </div>
     </div>
@@ -121,7 +128,9 @@ type SortCol = 'id' | 'title' | 'nuevo' | 'enProgreso' | 'hecho' | 'description'
 
 export default function SchedulingProjectsPage() {
   const navigate = useNavigate();
-  const { data: projects = [], isLoading, refetch } = useProjects();
+  const [showDisabled, setShowDisabled] = useState(false);
+  // visibility = 'all' to also fetch disabled rows; default behaviour (omitted) is enabled-only.
+  const { data: projects = [], isLoading, refetch } = useProjects(showDisabled ? 'all' : undefined);
   const createMutation = useCreateProject();
   const updateMutation = useUpdateProject();
   const deleteMutation = useDeleteProject();
@@ -181,8 +190,28 @@ export default function SchedulingProjectsPage() {
 
   const handleDelete = async () => {
     if (!deleting) return;
-    await deleteMutation.mutateAsync(deleting.id);
-    setDeleting(null);
+    try {
+      await deleteMutation.mutateAsync(deleting.id);
+      setDeleting(null);
+    } catch (err: unknown) {
+      // 409 PROJECT_HAS_ACTIVE_TASKS: server refuses because there are active tasks.
+      // Show a clear message and keep the dialog open so the user can cancel.
+      const e = err as { response?: { status?: number; data?: { code?: string; details?: { nuevo?: number; enProgreso?: number } } } };
+      if (e.response?.status === 409 && e.response.data?.code === 'PROJECT_HAS_ACTIVE_TASKS') {
+        const d = e.response.data.details ?? {};
+        alert(
+          `No se puede deshabilitar el proyecto: tiene tareas activas (` +
+          `Nuevo: ${d.nuevo ?? 0}, En progreso: ${d.enProgreso ?? 0}). ` +
+          `Cerrá o cancelá esas tareas primero.`
+        );
+        return;
+      }
+      throw err;
+    }
+  };
+
+  const handleRestore = async (p: Project) => {
+    await updateMutation.mutateAsync({ id: p.id, data: { visible: true } });
   };
 
   return (
@@ -233,6 +262,14 @@ export default function SchedulingProjectsPage() {
                 onChange={e => { setSearch(e.target.value); setPage(1); }}
               />
             </div>
+            <label className={styles.toggleControl} title="Mostrar proyectos deshabilitados">
+              <input
+                type="checkbox"
+                checked={showDisabled}
+                onChange={e => { setShowDisabled(e.target.checked); setPage(1); }}
+              />
+              Mostrar deshabilitados
+            </label>
           </div>
 
           {/* Table */}
@@ -268,15 +305,16 @@ export default function SchedulingProjectsPage() {
                   <tr><td colSpan={7} className={styles.empty}>No hay proyectos.</td></tr>
                 ) : (
                   paginated.map((p, i) => (
-                    <tr key={p.id} className={styles.row}>
+                    <tr key={p.id} className={`${styles.row} ${!p.visible ? styles.rowDisabled : ''}`}>
                       <td className={styles.idCell}>{(page - 1) * pageSize + i + 1}</td>
                       <td className={styles.titleCell}>
                         <button
                           className={styles.titleLink}
-                          onClick={() => navigate(`/admin/scheduling?projectId=${p.id}`)}
+                          onClick={() => navigate(`/admin/scheduling/tasks?projectId=${p.id}`)}
                         >
                           {p.title}
                         </button>
+                        {!p.visible && <span className={styles.disabledBadge}>Deshabilitado</span>}
                       </td>
                       <td className={styles.countCell} data-color="blue">
                         <button
@@ -307,19 +345,35 @@ export default function SchedulingProjectsPage() {
                       </td>
                       <td className={styles.descCell}>{p.description ?? '—'}</td>
                       <td className={styles.actionsCell}>
-                        <button className={styles.actionBtn} title="Editar" onClick={() => setEditing(p)}>
-                          <IconPencil />
-                        </button>
-                        <button
-                          className={styles.actionBtn}
-                          title="Ver tareas"
-                          onClick={() => navigate(`/admin/scheduling?projectId=${p.id}`)}
-                        >
-                          <IconExternalLink />
-                        </button>
-                        <button className={`${styles.actionBtn} ${styles.actionBtnDanger}`} title="Eliminar" onClick={() => setDeleting(p)}>
-                          <IconTrash />
-                        </button>
+                        {p.visible ? (
+                          <>
+                            <button className={styles.actionBtn} title="Editar" onClick={() => setEditing(p)}>
+                              <IconPencil />
+                            </button>
+                            <button
+                              className={styles.actionBtn}
+                              title="Ver tareas"
+                              onClick={() => navigate(`/admin/scheduling/tasks?projectId=${p.id}`)}
+                            >
+                              <IconExternalLink />
+                            </button>
+                            <button
+                              className={`${styles.actionBtn} ${styles.actionBtnDanger}`}
+                              title="Deshabilitar"
+                              onClick={() => setDeleting(p)}
+                            >
+                              <IconTrash />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            className={`${styles.actionBtn} ${styles.actionBtnRestore}`}
+                            title="Habilitar proyecto"
+                            onClick={() => void handleRestore(p)}
+                          >
+                            Habilitar
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))
