@@ -8,14 +8,6 @@ import styles from './TasksTableView.module.css';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-export function formatAge(createdAt: string): string {
-  const ms = Date.now() - new Date(createdAt).getTime();
-  const hours = Math.floor(ms / (1000 * 60 * 60));
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  return `${days} día${days !== 1 ? 's' : ''}`;
-}
-
 const PRIORITY_LABELS: Record<TaskPriority, string> = {
   low:    'Baja',
   normal: 'Normal',

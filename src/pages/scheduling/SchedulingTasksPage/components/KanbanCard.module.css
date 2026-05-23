@@ -67,12 +67,6 @@
   color: #6b7280;
 }
 
-.cardAge {
-  margin-left: auto;
-  white-space: nowrap;
-  font-size: 11px;
-}
-
 /* Assignee avatar */
 .assigneeAvatar {
   width: 22px;
