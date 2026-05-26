@@ -3,6 +3,7 @@ export interface Project {
   title: string;
   description: string | null;
   workflowId: string | null;
+  visible?: boolean;
   createdAt: string;
   updatedAt: string;
   taskCounts?: {

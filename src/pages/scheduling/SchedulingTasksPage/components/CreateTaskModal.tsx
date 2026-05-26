@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useClientDetail } from '@/hooks/useClients';
+import { useTaskCategories } from '@/hooks/useTaskCategories';
 import type { Project } from '@/types/project';
 import type { Workflow } from '@/types/workflow';
 import type { Admin } from '@/types/admin';
 import type { TaskTemplate } from '@/types/taskTemplate';
-import type { CreateTaskPayload, TaskPriority, TaskCategory } from '@/types/scheduling';
+import type { CreateTaskPayload, TaskPriority } from '@/types/scheduling';
 import { CustomerPicker } from './CustomerPicker';
 import styles from './CreateTaskModal.module.css';
 
@@ -15,13 +16,16 @@ const PRIORITIES: { value: TaskPriority; label: string }[] = [
   { value: 'urgent', label: 'Urgente' },
 ];
 
-const CATEGORIES: { value: TaskCategory; label: string }[] = [
-  { value: 'installation', label: 'Instalación' },
-  { value: 'repair', label: 'Reparación' },
-  { value: 'maintenance', label: 'Mantenimiento' },
-  { value: 'inspection', label: 'Inspección' },
-  { value: 'other', label: 'Otro' },
-];
+// Maps legacy template category codes (TaskTemplate still uses the old enum) to
+// the seeded catalog names, so applying a template selects a real catalog option.
+const LEGACY_CATEGORY_LABEL: Record<string, string> = {
+  installation: 'Instalación',
+  repair: 'Reparación',
+  maintenance: 'Mantenimiento',
+  inspection: 'Inspección',
+  other: 'Otro',
+};
+const DEFAULT_CATEGORY = 'Otro';
 
 interface Props {
   projects: Project[];
@@ -70,7 +74,8 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   const [description, setDescription] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('normal');
-  const [category, setCategory] = useState<TaskCategory>('other');
+  const [category, setCategory] = useState<string>(DEFAULT_CATEGORY);
+  const { data: categories = [] } = useTaskCategories();
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [estimatedHours, setEstimatedHours] = useState(1);
@@ -111,7 +116,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     setTitle(prev => (prev.trim() ? prev : tpl.name));
     setDescription(prev => (prev.trim() ? prev : (tpl.description ?? '')));
     // Category always has a value; treat the default 'other' as "empty".
-    setCategory(prev => (prev !== 'other' ? prev : tpl.category));
+    setCategory(prev => (prev !== DEFAULT_CATEGORY ? prev : (LEGACY_CATEGORY_LABEL[tpl.category] ?? tpl.category)));
   }
 
   async function handleSave() {
@@ -232,9 +237,10 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
 
           <label className={styles.label}>
             Categoría
-            <select className={styles.select} value={category} onChange={e => setCategory(e.target.value as TaskCategory)}>
-              {CATEGORIES.map(c => (
-                <option key={c.value} value={c.value}>{c.label}</option>
+            <select className={styles.select} value={category} onChange={e => setCategory(e.target.value)}>
+              {categories.length === 0 && <option value={category}>{category}</option>}
+              {categories.map(c => (
+                <option key={c.id} value={c.name}>{c.name}</option>
               ))}
             </select>
           </label>

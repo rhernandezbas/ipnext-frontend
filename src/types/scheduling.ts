@@ -26,7 +26,7 @@ export type TasksView = 'table' | 'kanban';
 export interface CreateTaskPayload {
   title: string;
   priority: TaskPriority;
-  category: TaskCategory;
+  category: string;   // free text backed by the TaskCategory catalog
   estimatedHours: number;
   stageId?: string;
   projectId?: string | null;

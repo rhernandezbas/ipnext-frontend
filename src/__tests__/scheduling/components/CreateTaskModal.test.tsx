@@ -9,6 +9,12 @@ vi.mock('@/hooks/useClients', () => ({
   useClientList: () => useClientListMock(),
   useClientDetail: () => useClientDetailMock(),
 }));
+vi.mock('@/hooks/useTaskCategories', () => ({
+  useTaskCategories: () => ({ data: [
+    { id: 'c1', name: 'Instalación', description: null },
+    { id: 'c5', name: 'Otro', description: null },
+  ] }),
+}));
 
 import { CreateTaskModal } from '@/pages/scheduling/SchedulingTasksPage/components/CreateTaskModal';
 import type { Project } from '@/types/project';
@@ -110,7 +116,7 @@ describe('CreateTaskModal', () => {
         projectId: 'proj-1',
         stageId: 'stage-new',
         priority: 'normal',
-        category: 'other',
+        category: 'Otro',
         estimatedHours: 1,
       }),
     );

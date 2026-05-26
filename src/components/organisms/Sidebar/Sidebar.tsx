@@ -102,6 +102,7 @@ const EMPRESA_ITEMS: NavParentItem[] = [
       { to: '/admin/scheduling/calendars', label: 'Calendar' },
       { to: '/admin/scheduling/maps', label: 'Mapas' },
       { to: '/admin/scheduling/archive', label: 'Archivar' },
+      { to: '/admin/scheduling/task-categories', label: 'Categorías' },
     ],
   },
   {
