@@ -13,11 +13,19 @@ function RoleBadge({ role }: { role: Admin['role'] }) {
     superadmin: styles.roleSuperadmin,
     admin: styles.roleAdmin,
     viewer: styles.roleViewer,
+    engineer: styles.roleAdmin,
+    financial_manager: styles.roleAdmin,
+    support_agent: styles.roleViewer,
+    technician: styles.roleViewer,
   };
   const labelMap: Record<Admin['role'], string> = {
     superadmin: 'Superadmin',
     admin: 'Admin',
     viewer: 'Viewer',
+    engineer: 'Ingeniero',
+    financial_manager: 'Gerente financiero',
+    support_agent: 'Soporte',
+    technician: 'Técnico',
   };
   return <span className={`${styles.roleBadge} ${classMap[role]}`}>{labelMap[role]}</span>;
 }
@@ -222,6 +230,10 @@ function AdminFormModal({ initialData, title, onClose, onSubmit }: AdminFormProp
               <option value="superadmin">Superadmin</option>
               <option value="admin">Admin</option>
               <option value="viewer">Viewer</option>
+              <option value="engineer">Ingeniero</option>
+              <option value="financial_manager">Gerente financiero</option>
+              <option value="support_agent">Soporte</option>
+              <option value="technician">Técnico</option>
             </select>
           </div>
           <div className={styles.modalActions}>
