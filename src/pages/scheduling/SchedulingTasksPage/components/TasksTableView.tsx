@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import type { ScheduledTask, TaskStageCategory } from '@/types/scheduling';
@@ -42,10 +42,22 @@ function StageBadge({ stageCategory }: { stageCategory: TaskStageCategory }) {
   );
 }
 
+// Fallback colour per category when a stage has no custom colour set.
+const CATEGORY_COLOR: Record<TaskStageCategory, string> = {
+  nuevo:      '#3b82f6',
+  enProgreso: '#f59e0b',
+  hecho:      '#22c55e',
+  cancelado:  '#ef4444',
+};
+function stageColor(s: WorkflowStage): string {
+  return s.color || CATEGORY_COLOR[s.category] || '#6b7280';
+}
+
 /**
- * Inline editable estado. Shows the REAL stage name (e.g. "Confirmado"), not the
- * broad category, and lets the user move the task to any stage of its project's
- * workflow without opening the task. Colour follows the current stage category.
+ * Inline editable estado. A custom colour-coded dropdown (native <option>s can't
+ * show background colours): the trigger is a pill tinted with the current stage's
+ * colour, and the popover lists every stage with its own colour swatch so you can
+ * see which colour each estado is when choosing. Moves the task without opening it.
  */
 function StageSelect({
   task,
@@ -57,16 +69,22 @@ function StageSelect({
   onMove: (stageId: string) => Promise<unknown>;
 }) {
   const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   const current = stages.find(s => s.id === task.stageId);
-  const category = current?.category ?? task.stageCategory;
-  // Per-stage editable colour overrides the category default when set.
-  const customColor = current?.color ?? undefined;
+
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [open]);
 
   // No workflow stages resolved → fall back to the read-only category badge.
   if (stages.length === 0) return <StageBadge stageCategory={task.stageCategory} />;
 
-  async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const stageId = e.target.value;
+  async function pick(stageId: string) {
+    setOpen(false);
     if (stageId === task.stageId) return;
     setBusy(true);
     try {
@@ -77,20 +95,38 @@ function StageSelect({
   }
 
   return (
-    <select
-      className={styles.stageSelect}
-      data-category={category}
-      style={customColor ? { backgroundColor: customColor, color: '#fff' } : undefined}
-      value={task.stageId}
-      onChange={handleChange}
-      disabled={busy}
-      aria-label="Cambiar estado"
-      onClick={e => e.stopPropagation()}
-    >
-      {stages.map(s => (
-        <option key={s.id} value={s.id}>{s.name}</option>
-      ))}
-    </select>
+    <div className={styles.stagePicker} ref={ref} onClick={e => e.stopPropagation()}>
+      <button
+        type="button"
+        className={styles.stagePickerBtn}
+        style={{ backgroundColor: current ? stageColor(current) : '#6b7280' }}
+        disabled={busy}
+        onClick={() => setOpen(o => !o)}
+        aria-label="Cambiar estado"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        {current?.name ?? '—'} <span className={styles.caret}>▾</span>
+      </button>
+      {open && (
+        <ul className={styles.stageMenu} role="listbox">
+          {stages.map(s => (
+            <li key={s.id}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={s.id === task.stageId}
+                className={styles.stageOption}
+                onClick={() => pick(s.id)}
+              >
+                <span className={styles.swatch} style={{ backgroundColor: stageColor(s) }} />
+                {s.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

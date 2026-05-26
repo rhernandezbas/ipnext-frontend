@@ -40,18 +40,19 @@ function setup(columns: string[] = ['sequenceNumber', 'stageCategory']) {
 describe('TasksTableView — inline estado selector', () => {
   beforeEach(() => { vi.clearAllMocks(); moveAsync.mockResolvedValue(undefined); });
 
-  it('renders the real stage name (not the category) as an editable select', () => {
+  it('shows the real stage name on the trigger and lists colour-coded options when opened', () => {
     setup();
-    const select = screen.getByLabelText('Cambiar estado') as HTMLSelectElement;
-    expect(select).toBeInTheDocument();
-    expect(select.value).toBe('s1');
-    expect(screen.getByRole('option', { name: 'Nuevo' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Confirmado' })).toBeInTheDocument();
+    const trigger = screen.getByLabelText('Cambiar estado');
+    expect(trigger).toHaveTextContent('Nuevo'); // current stage name, not the category
+    fireEvent.click(trigger);
+    expect(screen.getByRole('option', { name: /Nuevo/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Confirmado/ })).toBeInTheDocument();
   });
 
-  it('moves the task to the chosen stage on change', async () => {
+  it('moves the task to the chosen stage when an option is picked', async () => {
     setup();
-    fireEvent.change(screen.getByLabelText('Cambiar estado'), { target: { value: 's2' } });
+    fireEvent.click(screen.getByLabelText('Cambiar estado'));
+    fireEvent.click(screen.getByRole('option', { name: /Confirmado/ }));
     await waitFor(() => expect(moveAsync).toHaveBeenCalledWith({ id: 't1', stageId: 's2' }));
   });
 
