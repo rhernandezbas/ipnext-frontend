@@ -23,7 +23,7 @@ export function useUpdateProject() {
   return useMutation({
     mutationFn: ({ id, data }: {
       id: string;
-      data: { title?: string; description?: string; visible?: boolean };
+      data: { title?: string; description?: string; visible?: boolean; workflowId?: string | null };
     }) => projectsApi.update(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });

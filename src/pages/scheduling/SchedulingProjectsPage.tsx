@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from '@/hooks/useProjects';
+import { useWorkflows } from '@/hooks/useWorkflows';
 import type { Project } from '@/types/project';
 import styles from './SchedulingProjectsPage.module.css';
 
@@ -69,14 +70,16 @@ function SortIcon({ col, sortCol, sortDir }: { col: string; sortCol: string; sor
 // ── Modal ──────────────────────────────────────────────────────────────────────
 interface ModalProps {
   initial?: Project;
+  workflows: { id: string; name: string }[];
   onClose: () => void;
-  onSave: (data: { title: string; description: string }) => void;
+  onSave: (data: { title: string; description: string; workflowId: string | null }) => void;
   loading: boolean;
 }
 
-function ProjectModal({ initial, onClose, onSave, loading }: ModalProps) {
+export function ProjectModal({ initial, workflows, onClose, onSave, loading }: ModalProps) {
   const [title, setTitle] = useState(initial?.title ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
+  const [workflowId, setWorkflowId] = useState(initial?.workflowId ?? '');
 
   return (
     <div className={styles.overlay} onClick={onClose}>
@@ -90,9 +93,18 @@ function ProjectModal({ initial, onClose, onSave, loading }: ModalProps) {
           Descripción
           <textarea className={styles.textarea} value={description} onChange={e => setDescription(e.target.value)} placeholder="Descripción opcional" rows={3} />
         </label>
+        <label className={styles.label}>
+          Workflow
+          <select className={styles.input} value={workflowId} onChange={e => setWorkflowId(e.target.value)}>
+            <option value="">Sin workflow</option>
+            {workflows.map(w => (
+              <option key={w.id} value={w.id}>{w.name}</option>
+            ))}
+          </select>
+        </label>
         <div className={styles.modalActions}>
           <button className={styles.btnSecondary} onClick={onClose} disabled={loading}>Cancelar</button>
-          <button className={styles.btnPrimary} onClick={() => onSave({ title, description })} disabled={!title.trim() || loading}>
+          <button className={styles.btnPrimary} onClick={() => onSave({ title, description, workflowId: workflowId || null })} disabled={!title.trim() || loading}>
             {loading ? 'Guardando...' : 'Guardar'}
           </button>
         </div>
@@ -131,6 +143,7 @@ export default function SchedulingProjectsPage() {
   const [showDisabled, setShowDisabled] = useState(false);
   // visibility = 'all' to also fetch disabled rows; default behaviour (omitted) is enabled-only.
   const { data: projects = [], isLoading, refetch } = useProjects(showDisabled ? 'all' : undefined);
+  const { data: workflows = [] } = useWorkflows();
   const createMutation = useCreateProject();
   const updateMutation = useUpdateProject();
   const deleteMutation = useDeleteProject();
@@ -177,12 +190,12 @@ export default function SchedulingProjectsPage() {
   const totalPages = Math.ceil(sorted.length / pageSize) || 1;
   const paginated = sorted.slice((page - 1) * pageSize, page * pageSize);
 
-  const handleCreate = async (data: { title: string; description: string }) => {
+  const handleCreate = async (data: { title: string; description: string; workflowId: string | null }) => {
     await createMutation.mutateAsync(data);
     setShowCreate(false);
   };
 
-  const handleEdit = async (data: { title: string; description: string }) => {
+  const handleEdit = async (data: { title: string; description: string; workflowId: string | null }) => {
     if (!editing) return;
     await updateMutation.mutateAsync({ id: editing.id, data });
     setEditing(null);
@@ -416,8 +429,8 @@ export default function SchedulingProjectsPage() {
       </div>
 
       {/* Modals */}
-      {showCreate && <ProjectModal onClose={() => setShowCreate(false)} onSave={handleCreate} loading={createMutation.isPending} />}
-      {editing && <ProjectModal initial={editing} onClose={() => setEditing(null)} onSave={handleEdit} loading={updateMutation.isPending} />}
+      {showCreate && <ProjectModal workflows={workflows} onClose={() => setShowCreate(false)} onSave={handleCreate} loading={createMutation.isPending} />}
+      {editing && <ProjectModal initial={editing} workflows={workflows} onClose={() => setEditing(null)} onSave={handleEdit} loading={updateMutation.isPending} />}
       {deleting && <ConfirmDialog title={deleting.title} onConfirm={handleDelete} onCancel={() => setDeleting(null)} />}
     </div>
   );
