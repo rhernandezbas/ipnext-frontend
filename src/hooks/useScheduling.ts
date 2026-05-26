@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { ScheduledTask, TaskStatus, TaskChecklistItem, TaskListFilter } from '@/types/scheduling';
+import type { ScheduledTask, TaskStatus, TaskChecklistItem, TaskListFilter, CreateTaskPayload } from '@/types/scheduling';
 import * as api from '@/api/scheduling.api';
 
 export function useTasks() {
@@ -30,7 +30,7 @@ export function useTask(id: string | undefined) {
 export function useCreateTask() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Omit<ScheduledTask, 'id' | 'sequenceNumber' | 'createdAt' | 'updatedAt'>) => api.createTask(data),
+    mutationFn: (data: CreateTaskPayload) => api.createTask(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['scheduling-tasks'] }),
   });
 }

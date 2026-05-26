@@ -1,5 +1,5 @@
 import axiosClient from './axios-client';
-import type { ScheduledTask, TaskStatus, TaskChecklistItem, TaskListFilter } from '@/types/scheduling';
+import type { ScheduledTask, TaskStatus, TaskChecklistItem, TaskListFilter, CreateTaskPayload } from '@/types/scheduling';
 
 const BASE = '/scheduling';
 
@@ -27,7 +27,7 @@ export const listTasks = (filter?: TaskListFilter) =>
 export const getTask = (id: string) =>
   axiosClient.get<ScheduledTask>(`${BASE}/${id}`).then(r => r.data);
 
-export const createTask = (data: Omit<ScheduledTask, 'id' | 'sequenceNumber' | 'createdAt' | 'updatedAt'>) =>
+export const createTask = (data: CreateTaskPayload) =>
   axiosClient.post<ScheduledTask>(BASE, data).then(r => r.data);
 
 export const updateTask = (id: string, data: Partial<ScheduledTask>) =>

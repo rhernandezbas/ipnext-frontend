@@ -17,6 +17,26 @@ export interface TaskListFilter {
 
 export type TasksView = 'table' | 'kanban';
 
+/**
+ * Payload for creating a task. Mirrors the backend CreateTaskSchema: only
+ * title / priority / category / estimatedHours are required. stageId is
+ * technically optional in the DTO but the persistence layer requires a valid
+ * stage, so the UI always resolves one from the chosen project's workflow.
+ */
+export interface CreateTaskPayload {
+  title: string;
+  priority: TaskPriority;
+  category: TaskCategory;
+  estimatedHours: number;
+  stageId?: string;
+  projectId?: string | null;
+  description?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  customerId?: string | null;
+  assigneeId?: string | null;
+}
+
 export interface TaskChecklistItem {
   id: string;
   taskId: string;

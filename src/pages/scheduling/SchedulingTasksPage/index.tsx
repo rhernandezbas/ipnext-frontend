@@ -1,10 +1,12 @@
-import { useFilteredTasks } from '@/hooks/useScheduling';
+import { useState } from 'react';
+import { useFilteredTasks, useCreateTask } from '@/hooks/useScheduling';
 import { useProjects } from '@/hooks/useProjects';
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { TaskFilterBar } from './components/TaskFilterBar';
 import { TasksTableView, ALL_TASK_COLUMNS } from './components/TasksTableView';
 import { TasksKanbanView } from './components/TasksKanbanView';
 import { ColumnSelector } from './components/ColumnSelector';
+import { CreateTaskModal } from './components/CreateTaskModal';
 import { useTasksFilterUrl } from './hooks/useTasksFilterUrl';
 import { useVisibleColumns } from './hooks/useVisibleColumns';
 import styles from './SchedulingTasksPage.module.css';
@@ -41,6 +43,8 @@ export default function SchedulingTasksPage() {
     : tasksRaw;
   const { data: projects = [] } = useProjects();
   const { data: workflows = [] } = useWorkflows();
+  const createTask = useCreateTask();
+  const [showCreate, setShowCreate] = useState(false);
 
   // Resolve the available stages for the bulk "Mover etapa" action: the workflow
   // of the project currently filtered. When no project filter is set the bulk
@@ -76,7 +80,7 @@ export default function SchedulingTasksPage() {
           <button className={styles.btnIcon} title="Recargar" onClick={() => void refetch()}>
             <IconRefresh />
           </button>
-          <button className={styles.btnPrimary} onClick={() => { /* TODO: create-task modal */ }}>
+          <button className={styles.btnPrimary} onClick={() => setShowCreate(true)} disabled={projects.length === 0}>
             <IconPlus /> Añadir
           </button>
         </div>
@@ -105,6 +109,16 @@ export default function SchedulingTasksPage() {
           )}
         </div>
       </div>
+
+      {showCreate && (
+        <CreateTaskModal
+          projects={projects}
+          workflows={workflows}
+          onClose={() => setShowCreate(false)}
+          onCreate={data => createTask.mutateAsync(data)}
+          loading={createTask.isPending}
+        />
+      )}
     </div>
   );
 }
