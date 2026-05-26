@@ -110,6 +110,7 @@ const SchedulingMapsPage = lazy(() => import('@/pages/scheduling/SchedulingMapsP
 const SchedulingArchivePage = lazy(() => import('@/pages/scheduling/SchedulingArchivePage'));
 const SchedulingTemplatesPage = lazy(() => import('@/pages/scheduling/SchedulingTemplatesPage'));
 const SchedulingTaskCategoriesPage = lazy(() => import('@/pages/scheduling/SchedulingTaskCategoriesPage'));
+const SchedulingTaskPrioritiesPage = lazy(() => import('@/pages/scheduling/SchedulingTaskPrioritiesPage'));
 const SchedulingTaskDetailPage = lazy(() => import('@/pages/scheduling/SchedulingTaskDetailPage'));
 // NOTE: SchedulingTasksPage MUST be registered BEFORE SchedulingTaskDetailPage (/tasks/:id)
 // in the Routes tree to prevent the index route from being shadowed. The page
@@ -231,6 +232,7 @@ export function App() {
             <Route path="/admin/scheduling/archive" element={<SchedulingArchivePage />} />
             <Route path="/admin/scheduling/templates" element={<SchedulingTemplatesPage />} />
             <Route path="/admin/scheduling/task-categories" element={<SchedulingTaskCategoriesPage />} />
+            <Route path="/admin/scheduling/task-priorities" element={<SchedulingTaskPrioritiesPage />} />
             {/* CRITICAL: /admin/scheduling/tasks (index) MUST come before /admin/scheduling/tasks/:id */}
             <Route path="/admin/scheduling/tasks" element={<SchedulingTasksPage />} />
             <Route path="/admin/scheduling/tasks/:id" element={<SchedulingTaskDetailPage />} />

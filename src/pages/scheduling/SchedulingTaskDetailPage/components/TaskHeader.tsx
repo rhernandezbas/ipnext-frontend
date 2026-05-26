@@ -1,25 +1,21 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ScheduledTask, TaskPriority, TaskStageCategory } from '@/types/scheduling';
+import type { ScheduledTask, TaskStageCategory } from '@/types/scheduling';
 import type { WorkflowStage } from '@/types/workflow';
+import type { TaskPriority } from '@/types/taskPriority';
 import styles from './TaskHeader.module.css';
 
 interface TaskHeaderProps {
   task: ScheduledTask;
   stages: WorkflowStage[];
+  /** Editable priority catalog — drives the priority dropdown options. */
+  priorities?: TaskPriority[];
   onTitleSave: (title: string) => Promise<void>;
   onStageMove: (stageId: string) => Promise<void>;
-  onPriorityChange: (priority: TaskPriority) => Promise<void>;
+  onPriorityChange: (priority: string) => Promise<void>;
   onDelete: () => void;
   isSaving: boolean;
 }
-
-const PRIORITY_LABELS: Record<TaskPriority, string> = {
-  low: 'Baja',
-  normal: 'Normal',
-  high: 'Alta',
-  urgent: 'Urgente',
-};
 
 const STAGE_CATEGORY_CLASS: Record<TaskStageCategory, string> = {
   nuevo: 'categoryNuevo',
@@ -31,6 +27,7 @@ const STAGE_CATEGORY_CLASS: Record<TaskStageCategory, string> = {
 export function TaskHeader({
   task,
   stages,
+  priorities = [],
   onTitleSave,
   onStageMove,
   onPriorityChange,
@@ -109,7 +106,7 @@ export function TaskHeader({
   };
 
   const handlePriorityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    void onPriorityChange(e.target.value as TaskPriority);
+    void onPriorityChange(e.target.value);
   };
 
   const currentStage = stages.find(s => s.id === task.stageId);
@@ -185,8 +182,9 @@ export function TaskHeader({
           disabled={isSaving}
           aria-label="Cambiar prioridad"
         >
-          {(Object.entries(PRIORITY_LABELS) as [TaskPriority, string][]).map(([val, label]) => (
-            <option key={val} value={val}>{label}</option>
+          {priorities.length === 0 && <option value={task.priority}>{task.priority}</option>}
+          {priorities.map(p => (
+            <option key={p.id} value={p.name}>{p.name}</option>
           ))}
         </select>
 

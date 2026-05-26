@@ -1,20 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
-import type { ScheduledTask, TaskPriority, TaskStageCategory } from '@/types/scheduling';
+import type { ScheduledTask, TaskStageCategory } from '@/types/scheduling';
 import type { Workflow, WorkflowStage } from '@/types/workflow';
 import type { Project } from '@/types/project';
+import type { TaskPriority } from '@/types/taskPriority';
 import { useMoveTaskToStage, useDeleteTask } from '@/hooks/useScheduling';
 import styles from './TasksTableView.module.css';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-const PRIORITY_LABELS: Record<TaskPriority, string> = {
-  low:    'Baja',
-  normal: 'Normal',
-  high:   'Alta',
-  urgent: 'Urgente',
-};
 
 const CATEGORY_LABEL: Record<TaskStageCategory, string> = {
   nuevo:      'Nuevo',
@@ -25,14 +19,17 @@ const CATEGORY_LABEL: Record<TaskStageCategory, string> = {
 
 // ── Atoms ────────────────────────────────────────────────────────────────────
 
-export function PriorityPill({ priority }: { priority: TaskPriority }) {
+/** Priority pill — colour comes from the editable TaskPriority catalog. Falls
+ *  back to a neutral grey when the priority isn't found in the catalog. */
+export function PriorityPill({ priority, color }: { priority: string; color?: string }) {
+  const bg = color ?? '#e5e7eb';
   return (
     <span
       className={styles.priorityPill}
-      data-priority={priority}
-      aria-label={`Prioridad: ${PRIORITY_LABELS[priority]}`}
+      style={{ backgroundColor: bg, color: '#fff' }}
+      aria-label={`Prioridad: ${priority}`}
     >
-      {PRIORITY_LABELS[priority]}
+      {priority}
     </span>
   );
 }
@@ -214,6 +211,8 @@ interface TasksTableViewProps {
   projects?: Project[];
   /** All workflows (with stages) — used to map stageId → name and to populate the inline selector. */
   workflows?: Workflow[];
+  /** Priority catalog — used to colour the priority pill from its editable colour. */
+  priorities?: TaskPriority[];
   /** Column keys that should be rendered. When undefined, all columns are shown. */
   visibleColumnKeys?: string[];
 }
@@ -237,7 +236,7 @@ export const ALL_TASK_COLUMNS: { key: string; label: string }[] = [
 
 const PAGE_SIZES = [10, 25, 50, 100];
 
-export function TasksTableView({ tasks, loading = false, availableStages = [], projects = [], workflows = [], visibleColumnKeys }: TasksTableViewProps) {
+export function TasksTableView({ tasks, loading = false, availableStages = [], projects = [], workflows = [], priorities = [], visibleColumnKeys }: TasksTableViewProps) {
   const navigate = useNavigate();
   const moveToStage = useMoveTaskToStage();
   const deleteTask = useDeleteTask();
@@ -268,6 +267,12 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
     const wfId = project?.workflowId ?? workflowByStageId.get(t.stageId);
     return wfId ? stagesByWorkflow.get(wfId) ?? [] : [];
   }
+
+  // priority name → colour, from the editable catalog.
+  const priorityColor = useMemo(
+    () => new Map(priorities.map(p => [p.name, p.color])),
+    [priorities],
+  );
 
   const ALL_COLUMNS = [
     { label: '#',         key: 'sequenceNumber', sortable: true,
@@ -309,7 +314,7 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
       render: (t: ScheduledTask) => t.startDate ? new Date(t.startDate).toLocaleDateString('es-AR') : '—' },
     { label: 'Asignado',  key: 'assigneeName',   sortable: true },
     { label: 'Prioridad', key: 'priority',       sortable: true,
-      render: (t: ScheduledTask) => <PriorityPill priority={t.priority} /> },
+      render: (t: ScheduledTask) => <PriorityPill priority={t.priority} color={priorityColor.get(t.priority)} /> },
     { label: 'Fecha creación',      key: 'createdAt', sortable: true,
       render: (t: ScheduledTask) => new Date(t.createdAt).toLocaleDateString('es-AR') },
     { label: 'Fecha actualización', key: 'updatedAt', sortable: true,

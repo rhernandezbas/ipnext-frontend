@@ -5,16 +5,12 @@ import type { Project } from '@/types/project';
 import type { Workflow } from '@/types/workflow';
 import type { Admin } from '@/types/admin';
 import type { TaskTemplate } from '@/types/taskTemplate';
-import type { CreateTaskPayload, TaskPriority } from '@/types/scheduling';
+import type { CreateTaskPayload } from '@/types/scheduling';
+import { useTaskPriorities } from '@/hooks/useTaskPriorities';
 import { CustomerPicker } from './CustomerPicker';
 import styles from './CreateTaskModal.module.css';
 
-const PRIORITIES: { value: TaskPriority; label: string }[] = [
-  { value: 'low', label: 'Baja' },
-  { value: 'normal', label: 'Normal' },
-  { value: 'high', label: 'Alta' },
-  { value: 'urgent', label: 'Urgente' },
-];
+const DEFAULT_PRIORITY = 'Normal';
 
 // Maps legacy template category codes (TaskTemplate still uses the old enum) to
 // the seeded catalog names, so applying a template selects a real catalog option.
@@ -73,7 +69,8 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
-  const [priority, setPriority] = useState<TaskPriority>('normal');
+  const [priority, setPriority] = useState<string>(DEFAULT_PRIORITY);
+  const { data: priorities = [] } = useTaskPriorities();
   const [category, setCategory] = useState<string>(DEFAULT_CATEGORY);
   const { data: categories = [] } = useTaskCategories();
   const [date, setDate] = useState('');
@@ -228,9 +225,10 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
         <div className={styles.row}>
           <label className={styles.label}>
             Prioridad
-            <select className={styles.select} value={priority} onChange={e => setPriority(e.target.value as TaskPriority)}>
-              {PRIORITIES.map(p => (
-                <option key={p.value} value={p.value}>{p.label}</option>
+            <select className={styles.select} value={priority} onChange={e => setPriority(e.target.value)}>
+              {priorities.length === 0 && <option value={priority}>{priority}</option>}
+              {priorities.map(p => (
+                <option key={p.id} value={p.name}>{p.name}</option>
               ))}
             </select>
           </label>

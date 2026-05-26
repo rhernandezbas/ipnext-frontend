@@ -4,16 +4,10 @@ import { useProjects } from '@/hooks/useProjects';
 import { useWorkflow } from '@/hooks/useWorkflows';
 import { usePartners } from '@/hooks/usePartners';
 import { useAdmins } from '@/hooks/useAdmins';
-import type { TaskListFilter, TasksView, TaskPriority } from '@/types/scheduling';
+import { useTaskPriorities } from '@/hooks/useTaskPriorities';
+import type { TaskListFilter, TasksView } from '@/types/scheduling';
 import type { Project } from '@/types/project';
 import styles from './TaskFilterBar.module.css';
-
-const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
-  { value: 'low',    label: 'Baja' },
-  { value: 'normal', label: 'Normal' },
-  { value: 'high',   label: 'Alta' },
-  { value: 'urgent', label: 'Urgente' },
-];
 
 interface TaskFilterBarProps {
   filter: TaskListFilter;
@@ -112,6 +106,7 @@ export function TaskFilterBar({ filter, view, onFilterChange, onViewChange }: Ta
   const { data: projects = [] } = useProjects();
   const { data: partners = [] } = usePartners();
   const { data: admins = [] } = useAdmins();
+  const { data: priorities = [] } = useTaskPriorities();
   const selectedProject: Project | undefined = projects.find(p => p.id === filter.projectId);
 
   // Debounced q value
@@ -182,13 +177,13 @@ export function TaskFilterBar({ filter, view, onFilterChange, onViewChange }: Ta
         {/* Priority select */}
         <select
           value={filter.priority ?? ''}
-          onChange={e => onFilterChange({ priority: (e.target.value || undefined) as TaskPriority | undefined })}
+          onChange={e => onFilterChange({ priority: e.target.value || undefined })}
           className={styles.select}
           aria-label="Prioridad"
         >
           <option value="">Cualquier prioridad</option>
-          {PRIORITY_OPTIONS.map(p => (
-            <option key={p.value} value={p.value}>{p.label}</option>
+          {priorities.map(p => (
+            <option key={p.id} value={p.name}>{p.name}</option>
           ))}
         </select>
 
@@ -286,9 +281,8 @@ function ActiveFilterChips({ filter, projects, partners, admins, onFilterChange 
   }
 
   if (filter.priority) {
-    const priorityLabel = PRIORITY_OPTIONS.find(p => p.value === filter.priority)?.label ?? filter.priority;
     chips.push({
-      label: `Prioridad: ${priorityLabel}`,
+      label: `Prioridad: ${filter.priority}`,
       onRemove: () => onFilterChange({ priority: undefined }),
     });
   }

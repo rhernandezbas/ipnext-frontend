@@ -4,6 +4,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { useTechnicians } from '@/hooks/useAdmins';
 import { useTaskTemplates } from '@/hooks/useTaskTemplates';
+import { useTaskPriorities } from '@/hooks/useTaskPriorities';
 import { TaskFilterBar } from './components/TaskFilterBar';
 import { TasksTableView, ALL_TASK_COLUMNS } from './components/TasksTableView';
 import { TasksKanbanView } from './components/TasksKanbanView';
@@ -47,6 +48,7 @@ export default function SchedulingTasksPage() {
   const { data: workflows = [] } = useWorkflows();
   const { data: technicians = [] } = useTechnicians();
   const { data: templates = [] } = useTaskTemplates();
+  const { data: priorities = [] } = useTaskPriorities();
   const createTask = useCreateTask();
   const [showCreate, setShowCreate] = useState(false);
 
@@ -108,6 +110,7 @@ export default function SchedulingTasksPage() {
               availableStages={availableStages}
               projects={projects}
               workflows={workflows}
+              priorities={priorities}
               visibleColumnKeys={visibleColumns}
             />
           ) : (

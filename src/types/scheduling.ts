@@ -9,7 +9,7 @@ export interface TaskListFilter {
   stageCategory?: TaskStageCategory;
   partnerId?:  string;
   assigneeId?: string;
-  priority?:   TaskPriority;
+  priority?:   string;   // catalog priority name
   q?:          string;
   from?:       string;  // ISO datetime — filter tasks where startDate >= from
   to?:         string;  // ISO datetime — filter tasks where startDate <= to
@@ -25,7 +25,7 @@ export type TasksView = 'table' | 'kanban';
  */
 export interface CreateTaskPayload {
   title: string;
-  priority: TaskPriority;
+  priority: string;   // free text backed by the TaskPriority catalog
   category: string;   // free text backed by the TaskCategory catalog
   estimatedHours: number;
   stageId?: string;
@@ -71,7 +71,7 @@ export interface ScheduledTask {
 
   /** @deprecated use stageCategory; will be removed next change */
   status: TaskStatus;
-  priority: TaskPriority;
+  priority: string;   // catalog priority name (free text)
 
   /** @deprecated use startDate; will be removed in cleanup change */
   scheduledDate: string | null;

@@ -15,7 +15,7 @@ import { WatchersChips } from './SchedulingTaskDetailPage/components/WatchersChi
 import { CustomerCard } from './SchedulingTaskDetailPage/components/CustomerCard';
 import { ServiceCard } from './SchedulingTaskDetailPage/components/ServiceCard';
 import { ReporterCard } from './SchedulingTaskDetailPage/components/ReporterCard';
-import type { TaskPriority } from '@/types/scheduling';
+import { useTaskPriorities } from '@/hooks/useTaskPriorities';
 import type { WorkflowStage } from '@/types/workflow';
 import styles from './SchedulingTaskDetailPage.module.css';
 
@@ -43,6 +43,7 @@ export default function SchedulingTaskDetailPage() {
   const { data: workflows = [] } = useWorkflows();
   const { data: admins = [] } = useAdmins();
   const { data: partners = [] } = usePartners();
+  const { data: priorities = [] } = useTaskPriorities();
 
   const updateTask = useUpdateTask();
   const moveToStage = useMoveTaskToStage();
@@ -100,7 +101,7 @@ export default function SchedulingTaskDetailPage() {
     showToast('Estado actualizado');
   }, [task, moveToStage]);
 
-  const handlePriorityChange = useCallback(async (priority: TaskPriority) => {
+  const handlePriorityChange = useCallback(async (priority: string) => {
     if (!task) return;
     await updateTask.mutateAsync({ id: task.id, data: { priority } });
     showToast('Prioridad actualizada');
@@ -200,6 +201,7 @@ export default function SchedulingTaskDetailPage() {
       <TaskHeader
         task={task}
         stages={allStages}
+        priorities={priorities}
         onTitleSave={handleTitleSave}
         onStageMove={handleStageMove}
         onPriorityChange={handlePriorityChange}

@@ -15,6 +15,12 @@ vi.mock('@/hooks/useTaskCategories', () => ({
     { id: 'c5', name: 'Otro', description: null },
   ] }),
 }));
+vi.mock('@/hooks/useTaskPriorities', () => ({
+  useTaskPriorities: () => ({ data: [
+    { id: 'p2', name: 'Normal', color: '#3b82f6', weight: 2 },
+    { id: 'p3', name: 'Alta', color: '#f59e0b', weight: 3 },
+  ] }),
+}));
 
 import { CreateTaskModal } from '@/pages/scheduling/SchedulingTasksPage/components/CreateTaskModal';
 import type { Project } from '@/types/project';
@@ -115,7 +121,7 @@ describe('CreateTaskModal', () => {
         title: 'Cambiar router',
         projectId: 'proj-1',
         stageId: 'stage-new',
-        priority: 'normal',
+        priority: 'Normal',
         category: 'Otro',
         estimatedHours: 1,
       }),
