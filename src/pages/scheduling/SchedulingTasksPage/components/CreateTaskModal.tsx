@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useClientDetail } from '@/hooks/useClients';
 import type { Project } from '@/types/project';
 import type { Workflow } from '@/types/workflow';
 import type { Admin } from '@/types/admin';
@@ -76,6 +77,23 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // When a customer is picked, pull its detail and auto-fill the address with the
+  // customer's address. Fill once per customer (ref guard) so we don't clobber a
+  // manual edit on re-render / background refetch.
+  const { data: customerDetail } = useClientDetail(customerId ?? '');
+  const filledForCustomer = useRef<string | null>(null);
+  useEffect(() => {
+    if (!customerId) { filledForCustomer.current = null; return; }
+    if (
+      customerDetail &&
+      String(customerDetail.id) === String(customerId) &&
+      filledForCustomer.current !== String(customerId)
+    ) {
+      filledForCustomer.current = String(customerId);
+      if (customerDetail.address) setAddress(customerDetail.address);
+    }
+  }, [customerId, customerDetail]);
 
   const selectedProject = projects.find(p => p.id === projectId);
   const firstStageId = useMemo(

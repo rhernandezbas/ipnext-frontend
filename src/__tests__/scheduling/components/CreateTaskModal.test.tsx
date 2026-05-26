@@ -3,8 +3,11 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 // CustomerPicker (embedded in the modal) uses useClientList — stub it so the
 // modal renders without a QueryClientProvider.
+const useClientListMock = vi.fn(() => ({ data: { data: [] as unknown[], total: 0, page: 1, pageSize: 20, totalPages: 0 }, isFetching: false }));
+const useClientDetailMock = vi.fn(() => ({ data: undefined as unknown }));
 vi.mock('@/hooks/useClients', () => ({
-  useClientList: vi.fn(() => ({ data: { data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }, isFetching: false })),
+  useClientList: () => useClientListMock(),
+  useClientDetail: () => useClientDetailMock(),
 }));
 
 import { CreateTaskModal } from '@/pages/scheduling/SchedulingTasksPage/components/CreateTaskModal';
@@ -37,6 +40,8 @@ describe('CreateTaskModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     onCreate.mockResolvedValue(undefined);
+    useClientListMock.mockReturnValue({ data: { data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }, isFetching: false });
+    useClientDetailMock.mockReturnValue({ data: undefined });
   });
 
   function setup() {
@@ -129,5 +134,19 @@ describe('CreateTaskModal', () => {
 
     expect(await screen.findByText(/no se pudo crear la tarea/i)).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('auto-fills the address with the selected customer address', async () => {
+    const customer = { id: 'c-9', name: 'ACOSTA JUAN PABLO', email: 'acosta@test.com' };
+    useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
+    useClientDetailMock.mockReturnValue({ data: { id: 'c-9', name: 'ACOSTA JUAN PABLO', address: 'LOTE 10', city: 'Open Door' } });
+    setup();
+
+    fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Acosta' } });
+    fireEvent.click(await screen.findByText('ACOSTA JUAN PABLO'));
+
+    await waitFor(() =>
+      expect((screen.getByPlaceholderText('Dirección del trabajo') as HTMLInputElement).value).toBe('LOTE 10'),
+    );
   });
 });
