@@ -84,7 +84,12 @@ function StageSelect({
     };
     document.addEventListener('mousedown', close);
     // Close on scroll/resize since the fixed-position menu would otherwise float away.
-    const onScroll = () => setOpen(false);
+    // But ignore scroll events originating INSIDE the menu — otherwise scrolling
+    // the options list closes it before the user can pick anything.
+    const onScroll = (e: Event) => {
+      if (menuRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
     window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onScroll);
     return () => {
