@@ -107,9 +107,11 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     setTemplateId(id);
     const tpl = templates.find(t => t.id === id);
     if (!tpl) return;
-    setTitle(tpl.name);
-    setDescription(tpl.description ?? '');
-    setCategory(tpl.category);
+    // Only fill fields the user hasn't touched — never clobber typed text.
+    setTitle(prev => (prev.trim() ? prev : tpl.name));
+    setDescription(prev => (prev.trim() ? prev : (tpl.description ?? '')));
+    // Category always has a value; treat the default 'other' as "empty".
+    setCategory(prev => (prev !== 'other' ? prev : tpl.category));
   }
 
   async function handleSave() {

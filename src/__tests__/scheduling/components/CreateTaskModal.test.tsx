@@ -82,6 +82,22 @@ describe('CreateTaskModal', () => {
     expect(screen.queryByLabelText(/aplicar plantilla/i)).not.toBeInTheDocument();
   });
 
+  it('does NOT overwrite a description the user already typed when applying a template', () => {
+    const templates = [
+      { id: 'tpl-1', name: 'Instalación FTTH', description: 'Tirar fibra', category: 'installation' as const },
+    ];
+    render(
+      <CreateTaskModal projects={projects} workflows={workflows} templates={templates} onClose={onClose} onCreate={onCreate} loading={false} />,
+    );
+    // User types their own description first…
+    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'test' } });
+    // …then applies a template.
+    fireEvent.change(screen.getByLabelText(/aplicar plantilla/i), { target: { value: 'tpl-1' } });
+    // Their text survives; only the empty title gets filled.
+    expect((screen.getByPlaceholderText('Detalles de la tarea…') as HTMLTextAreaElement).value).toBe('test');
+    expect((screen.getByPlaceholderText('Título de la tarea') as HTMLInputElement).value).toBe('Instalación FTTH');
+  });
+
   it('creates a task on the FIRST stage (lowest order) of the project workflow', async () => {
     setup();
     fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Cambiar router' } });
