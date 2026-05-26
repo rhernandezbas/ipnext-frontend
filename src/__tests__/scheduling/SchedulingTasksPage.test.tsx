@@ -46,6 +46,7 @@ vi.mock('@dnd-kit/utilities', () => ({
 vi.mock('@/hooks/useScheduling', () => ({
   useFilteredTasks:   vi.fn(),
   useTasks:           vi.fn(),
+  useCreateTask:      vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
   useMoveTaskToStage: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
   useDeleteTask:      vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
 }));
@@ -260,8 +261,8 @@ describe('SchedulingTasksPage', () => {
         <SchedulingTasksPage />
       </Wrapper>
     );
-    // DataTable renders sequenceNumber and projectName columns (no title column per spec REQ-TABLE-1)
-    expect(screen.getByText('1')).toBeInTheDocument(); // seq# of baseTask
+    // DataTable renders sequenceNumber (as a "#N" link to the task) and projectName columns
+    expect(screen.getByText('#1')).toBeInTheDocument(); // seq# of baseTask, linkified
     expect(screen.getAllByText('Proyecto Test').length).toBeGreaterThanOrEqual(1); // projectName
   });
 
