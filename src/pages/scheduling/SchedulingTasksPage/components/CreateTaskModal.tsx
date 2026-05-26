@@ -114,7 +114,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
 
   async function handleSave() {
     if (!firstStageId) {
-      setError('El proyecto seleccionado no tiene etapas configuradas.');
+      setError('El proyecto seleccionado no tiene estados configurados.');
       return;
     }
     setError(null);

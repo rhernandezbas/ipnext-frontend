@@ -97,7 +97,7 @@ export default function SchedulingTaskDetailPage() {
   const handleStageMove = useCallback(async (stageId: string) => {
     if (!task) return;
     await moveToStage.mutateAsync({ id: task.id, stageId });
-    showToast('Etapa actualizada');
+    showToast('Estado actualizado');
   }, [task, moveToStage]);
 
   const handlePriorityChange = useCallback(async (priority: TaskPriority) => {

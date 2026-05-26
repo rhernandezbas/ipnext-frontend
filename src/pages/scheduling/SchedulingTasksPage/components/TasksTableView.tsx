@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import type { ScheduledTask, TaskPriority, TaskStageCategory } from '@/types/scheduling';
-import type { WorkflowStage } from '@/types/workflow';
+import type { Workflow, WorkflowStage } from '@/types/workflow';
+import type { Project } from '@/types/project';
 import { useMoveTaskToStage, useDeleteTask } from '@/hooks/useScheduling';
 import styles from './TasksTableView.module.css';
 
@@ -41,6 +42,55 @@ function StageBadge({ stageCategory }: { stageCategory: TaskStageCategory }) {
     <span className={styles.stageBadge} data-category={stageCategory}>
       {CATEGORY_LABEL[stageCategory]}
     </span>
+  );
+}
+
+/**
+ * Inline editable estado. Shows the REAL stage name (e.g. "Confirmado"), not the
+ * broad category, and lets the user move the task to any stage of its project's
+ * workflow without opening the task. Colour follows the current stage category.
+ */
+function StageSelect({
+  task,
+  stages,
+  onMove,
+}: {
+  task: ScheduledTask;
+  stages: WorkflowStage[];
+  onMove: (stageId: string) => Promise<unknown>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const current = stages.find(s => s.id === task.stageId);
+  const category = current?.category ?? task.stageCategory;
+
+  // No workflow stages resolved → fall back to the read-only category badge.
+  if (stages.length === 0) return <StageBadge stageCategory={task.stageCategory} />;
+
+  async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const stageId = e.target.value;
+    if (stageId === task.stageId) return;
+    setBusy(true);
+    try {
+      await onMove(stageId);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <select
+      className={styles.stageSelect}
+      data-category={category}
+      value={task.stageId}
+      onChange={handleChange}
+      disabled={busy}
+      aria-label="Cambiar estado"
+      onClick={e => e.stopPropagation()}
+    >
+      {stages.map(s => (
+        <option key={s.id} value={s.id}>{s.name}</option>
+      ))}
+    </select>
   );
 }
 
@@ -96,9 +146,9 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
           className={styles.bulkMoveBtn}
           onClick={() => setShowMoveDialog(true)}
           disabled={busy || availableStages.length === 0}
-          aria-label="Mover etapa"
+          aria-label="Mover estado"
         >
-          Mover etapa
+          Mover estado
         </button>
         <button type="button" className={styles.bulkDeleteBtn} onClick={handleDelete} disabled={busy}>
           Eliminar
@@ -112,10 +162,10 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
         <div className={styles.dialogOverlay} role="dialog" aria-modal="true" aria-labelledby="move-stage-title">
           <div className={styles.dialog}>
             <h2 id="move-stage-title" className={styles.dialogTitle}>
-              Mover {selectedIds.length} tarea{selectedIds.length !== 1 ? 's' : ''} a otra etapa
+              Mover {selectedIds.length} tarea{selectedIds.length !== 1 ? 's' : ''} a otro estado
             </h2>
             <label className={styles.dialogLabel}>
-              Nueva etapa
+              Nuevo estado
               <select
                 value={targetStageId}
                 onChange={e => setTargetStageId(e.target.value)}
@@ -158,8 +208,12 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
 interface TasksTableViewProps {
   tasks: ScheduledTask[];
   loading?: boolean;
-  /** Stages available for the bulk "Mover etapa" action (typically the workflow of the selected project) */
+  /** Stages available for the bulk "Mover estado" action (typically the workflow of the selected project) */
   availableStages?: WorkflowStage[];
+  /** All projects — used to resolve each task's workflow for the inline estado selector. */
+  projects?: Project[];
+  /** All workflows (with stages) — used to map stageId → name and to populate the inline selector. */
+  workflows?: Workflow[];
   /** Column keys that should be rendered. When undefined, all columns are shown. */
   visibleColumnKeys?: string[];
 }
@@ -169,7 +223,7 @@ interface TasksTableViewProps {
 export const ALL_TASK_COLUMNS: { key: string; label: string }[] = [
   { key: 'sequenceNumber', label: '#' },
   { key: 'title',          label: 'Título' },
-  { key: 'stageCategory',  label: 'Etapa' },
+  { key: 'stageCategory',  label: 'Estado' },
   { key: 'projectName',    label: 'Proyecto' },
   { key: 'address',        label: 'Dirección' },
   { key: 'customerName',   label: 'Cliente' },
@@ -183,7 +237,7 @@ export const ALL_TASK_COLUMNS: { key: string; label: string }[] = [
 
 const PAGE_SIZES = [10, 25, 50, 100];
 
-export function TasksTableView({ tasks, loading = false, availableStages = [], visibleColumnKeys }: TasksTableViewProps) {
+export function TasksTableView({ tasks, loading = false, availableStages = [], projects = [], workflows = [], visibleColumnKeys }: TasksTableViewProps) {
   const navigate = useNavigate();
   const moveToStage = useMoveTaskToStage();
   const deleteTask = useDeleteTask();
@@ -193,6 +247,27 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], v
 
   const totalPages = Math.ceil(tasks.length / pageSize);
   const pageData = tasks.slice((page - 1) * pageSize, page * pageSize);
+
+  // stageId → its workflow's stages, so each row's estado selector lists the
+  // right options. All stages are unique across workflows, so a flat index works.
+  const { stagesByWorkflow, workflowByStageId } = useMemo(() => {
+    const byWf = new Map<string, WorkflowStage[]>();
+    const wfByStage = new Map<string, string>();
+    for (const w of workflows) {
+      const sorted = [...w.stages].sort((a, b) => a.order - b.order);
+      byWf.set(w.id, sorted);
+      for (const s of sorted) wfByStage.set(s.id, w.id);
+    }
+    return { stagesByWorkflow: byWf, workflowByStageId: wfByStage };
+  }, [workflows]);
+
+  /** Stages of a task's project workflow (falls back to the workflow that owns
+   *  the task's current stage when the project isn't resolvable). */
+  function stagesForTask(t: ScheduledTask): WorkflowStage[] {
+    const project = projects.find(p => p.id === t.projectId);
+    const wfId = project?.workflowId ?? workflowByStageId.get(t.stageId);
+    return wfId ? stagesByWorkflow.get(wfId) ?? [] : [];
+  }
 
   const ALL_COLUMNS = [
     { label: '#',         key: 'sequenceNumber', sortable: true,
@@ -207,8 +282,14 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], v
           {t.title}
         </Link>
       ) },
-    { label: 'Etapa',     key: 'stageCategory',  sortable: false,
-      render: (t: ScheduledTask) => <StageBadge stageCategory={t.stageCategory} /> },
+    { label: 'Estado',    key: 'stageCategory',  sortable: false,
+      render: (t: ScheduledTask) => (
+        <StageSelect
+          task={t}
+          stages={stagesForTask(t)}
+          onMove={stageId => moveToStage.mutateAsync({ id: t.id, stageId })}
+        />
+      ) },
     { label: 'Proyecto',  key: 'projectName',    sortable: true },
     { label: 'Dirección', key: 'address',        sortable: true },
     { label: 'Cliente',   key: 'customerName',   sortable: true },

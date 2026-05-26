@@ -106,6 +106,8 @@ export default function SchedulingTasksPage() {
               tasks={tasks}
               loading={isLoading}
               availableStages={availableStages}
+              projects={projects}
+              workflows={workflows}
               visibleColumnKeys={visibleColumns}
             />
           ) : (

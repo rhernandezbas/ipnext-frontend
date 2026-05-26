@@ -162,7 +162,7 @@ export function TaskHeader({
             className={`${styles.stagePill} ${categoryClass ?? ''}`}
             data-testid="stage-pill"
           >
-            {currentStage?.name ?? 'Sin etapa'}
+            {currentStage?.name ?? 'Sin estado'}
           </span>
           <select
             data-testid="stage-selector"
@@ -170,7 +170,7 @@ export function TaskHeader({
             value={task.stageId ?? ''}
             onChange={handleStageChange}
             disabled={isSaving}
-            aria-label="Cambiar etapa"
+            aria-label="Cambiar estado"
           >
             {stages.map(s => (
               <option key={s.id} value={s.id}>{s.name}</option>

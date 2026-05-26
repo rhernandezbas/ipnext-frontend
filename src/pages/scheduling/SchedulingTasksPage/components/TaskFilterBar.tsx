@@ -57,10 +57,10 @@ function StageMultiSelect({
   const totalSelected = selectedIds.length;
   const total = stages.length;
   const label = total === 0
-    ? 'Etapas'
+    ? 'Estados'
     : totalSelected === 0
-      ? 'Todas las etapas'
-      : `${totalSelected} de ${total} seleccionadas`;
+      ? 'Todos los estados'
+      : `${totalSelected} de ${total} seleccionados`;
 
   function toggle(id: string) {
     if (selectedIds.includes(id)) {
@@ -99,7 +99,7 @@ function StageMultiSelect({
             </div>
           ))}
           {stages.length === 0 && (
-            <span className={styles.stageEmpty}>Seleccioná un proyecto para ver etapas</span>
+            <span className={styles.stageEmpty}>Seleccioná un proyecto para ver estados</span>
           )}
         </div>
       )}
