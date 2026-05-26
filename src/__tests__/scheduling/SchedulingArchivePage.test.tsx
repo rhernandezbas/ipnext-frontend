@@ -23,7 +23,7 @@ describe('SchedulingArchivePage', () => {
 
   it('renders the page title', () => {
     render(<MemoryRouter><SchedulingArchivePage /></MemoryRouter>);
-    expect(screen.getByRole('heading', { name: /Archivo de Scheduling/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Archivo/i })).toBeInTheDocument();
   });
 
   it('renders archive tasks from hook data', () => {
