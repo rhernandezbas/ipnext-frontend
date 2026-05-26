@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useFilteredTasks, useCreateTask } from '@/hooks/useScheduling';
 import { useProjects } from '@/hooks/useProjects';
 import { useWorkflows } from '@/hooks/useWorkflows';
+import { useTechnicians } from '@/hooks/useAdmins';
 import { TaskFilterBar } from './components/TaskFilterBar';
 import { TasksTableView, ALL_TASK_COLUMNS } from './components/TasksTableView';
 import { TasksKanbanView } from './components/TasksKanbanView';
@@ -43,6 +44,7 @@ export default function SchedulingTasksPage() {
     : tasksRaw;
   const { data: projects = [] } = useProjects();
   const { data: workflows = [] } = useWorkflows();
+  const { data: technicians = [] } = useTechnicians();
   const createTask = useCreateTask();
   const [showCreate, setShowCreate] = useState(false);
 
@@ -114,6 +116,7 @@ export default function SchedulingTasksPage() {
         <CreateTaskModal
           projects={projects}
           workflows={workflows}
+          technicians={technicians}
           onClose={() => setShowCreate(false)}
           onCreate={data => createTask.mutateAsync(data)}
           loading={createTask.isPending}

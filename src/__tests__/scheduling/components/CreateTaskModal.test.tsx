@@ -1,5 +1,12 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+
+// CustomerPicker (embedded in the modal) uses useClientList — stub it so the
+// modal renders without a QueryClientProvider.
+vi.mock('@/hooks/useClients', () => ({
+  useClientList: vi.fn(() => ({ data: { data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }, isFetching: false })),
+}));
+
 import { CreateTaskModal } from '@/pages/scheduling/SchedulingTasksPage/components/CreateTaskModal';
 import type { Project } from '@/types/project';
 import type { Workflow } from '@/types/workflow';

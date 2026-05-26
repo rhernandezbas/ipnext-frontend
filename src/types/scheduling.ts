@@ -34,7 +34,10 @@ export interface CreateTaskPayload {
   startDate?: string | null;
   endDate?: string | null;
   customerId?: string | null;
+  customerName?: string | null;
   assigneeId?: string | null;
+  address?: string | null;
+  notes?: string | null;
 }
 
 export interface TaskChecklistItem {
