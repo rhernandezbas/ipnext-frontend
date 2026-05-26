@@ -71,6 +71,31 @@ describe('CreateTaskModal', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
+  it('defaults to the first project WITH a workflow, skipping workflow-less ones', () => {
+    const mixed: Project[] = [
+      { id: 'no-wf', title: 'Sin workflow', description: null, workflowId: null, createdAt: '', updatedAt: '' },
+      ...projects,
+    ];
+    render(
+      <CreateTaskModal projects={mixed} workflows={workflows} onClose={onClose} onCreate={onCreate} loading={false} />,
+    );
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea' } });
+    // Button enabled because the default selection landed on 'proj-1' (has workflow), not 'no-wf'.
+    expect(screen.getByRole('button', { name: /crear tarea/i })).toBeEnabled();
+  });
+
+  it('warns and keeps the button disabled when the chosen project has no workflow', () => {
+    const noWf: Project[] = [
+      { id: 'no-wf', title: 'Sin workflow', description: null, workflowId: null, createdAt: '', updatedAt: '' },
+    ];
+    render(
+      <CreateTaskModal projects={noWf} workflows={workflows} onClose={onClose} onCreate={onCreate} loading={false} />,
+    );
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea' } });
+    expect(screen.getByText(/no tiene un workflow asignado/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /crear tarea/i })).toBeDisabled();
+  });
+
   it('shows an error and does not close when creation fails', async () => {
     onCreate.mockRejectedValueOnce(new Error('boom'));
     setup();

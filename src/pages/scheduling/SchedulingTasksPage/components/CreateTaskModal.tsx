@@ -33,20 +33,32 @@ interface Props {
  * requires a valid stageId, so we resolve one here instead of relying on a
  * server-side default that doesn't exist.
  */
+/** First stage (lowest order) of the project's workflow, or undefined if the
+ *  project has no workflow / the workflow has no stages. */
+function resolveFirstStageId(project: Project | undefined, workflows: Workflow[]): string | undefined {
+  const wf = workflows.find(w => w.id === project?.workflowId);
+  if (!wf || wf.stages.length === 0) return undefined;
+  return [...wf.stages].sort((a, b) => a.order - b.order)[0].id;
+}
+
 export function CreateTaskModal({ projects, workflows, onClose, onCreate, loading }: Props) {
+  // Default to the first project that actually has a usable workflow — selecting
+  // a workflow-less project would leave the form unsubmittable for no visible reason.
+  const defaultProjectId =
+    projects.find(p => resolveFirstStageId(p, workflows))?.id ?? projects[0]?.id ?? '';
+
   const [title, setTitle] = useState('');
-  const [projectId, setProjectId] = useState(projects[0]?.id ?? '');
+  const [projectId, setProjectId] = useState(defaultProjectId);
   const [priority, setPriority] = useState<TaskPriority>('normal');
   const [category, setCategory] = useState<TaskCategory>('other');
   const [estimatedHours, setEstimatedHours] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
   const selectedProject = projects.find(p => p.id === projectId);
-  const firstStageId = useMemo(() => {
-    const wf = workflows.find(w => w.id === selectedProject?.workflowId);
-    if (!wf || wf.stages.length === 0) return undefined;
-    return [...wf.stages].sort((a, b) => a.order - b.order)[0].id;
-  }, [workflows, selectedProject]);
+  const firstStageId = useMemo(
+    () => resolveFirstStageId(selectedProject, workflows),
+    [workflows, selectedProject],
+  );
 
   const canSave = title.trim().length > 0 && !!firstStageId && !loading;
 
@@ -97,6 +109,13 @@ export function CreateTaskModal({ projects, workflows, onClose, onCreate, loadin
             ))}
           </select>
         </label>
+
+        {selectedProject && !firstStageId && (
+          <p className={styles.warning}>
+            El proyecto "{selectedProject.title}" no tiene un workflow asignado, así que no se
+            pueden crear tareas en él. Elegí otro proyecto o asignale un workflow primero.
+          </p>
+        )}
 
         <div className={styles.row}>
           <label className={styles.label}>
