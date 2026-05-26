@@ -292,7 +292,17 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
       ) },
     { label: 'Proyecto',  key: 'projectName',    sortable: true },
     { label: 'Dirección', key: 'address',        sortable: true },
-    { label: 'Cliente',   key: 'customerName',   sortable: true },
+    { label: 'Cliente',   key: 'customerName',   sortable: true,
+      render: (t: ScheduledTask) => (
+        t.customerId && t.customerName
+          ? <Link
+              to={`/admin/customers/view/${t.customerId}`}
+              className={styles.customerLink}
+              title={t.customerName}
+              onClick={e => e.stopPropagation()}
+            >{t.customerName}</Link>
+          : (t.customerName || '—')
+      ) },
     { label: 'Localidad', key: 'customerCity',   sortable: true,
       render: (t: ScheduledTask) => t.customerCity || '—' },
     { label: 'Inicio',    key: 'startDate',      sortable: true,

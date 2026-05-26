@@ -26,12 +26,13 @@ const task = {
   id: 't1', sequenceNumber: 1, title: 'Tarea', stageId: 's1', stageCategory: 'nuevo',
   projectId: 'p1', priority: 'normal', createdAt: '2026-01-01', updatedAt: '2026-01-01',
   description: null, watcherIds: [], checklist: [],
+  customerId: 'cust-9', customerName: 'ACOSTA JUAN PABLO',
 } as unknown as ScheduledTask;
 
-function setup() {
+function setup(columns: string[] = ['sequenceNumber', 'stageCategory']) {
   return render(
     <MemoryRouter>
-      <TasksTableView tasks={[task]} projects={projects} workflows={workflows} visibleColumnKeys={['sequenceNumber', 'stageCategory']} />
+      <TasksTableView tasks={[task]} projects={projects} workflows={workflows} visibleColumnKeys={columns} />
     </MemoryRouter>,
   );
 }
@@ -52,5 +53,11 @@ describe('TasksTableView — inline estado selector', () => {
     setup();
     fireEvent.change(screen.getByLabelText('Cambiar estado'), { target: { value: 's2' } });
     await waitFor(() => expect(moveAsync).toHaveBeenCalledWith({ id: 't1', stageId: 's2' }));
+  });
+
+  it('renders the customer name as a link to the customer detail page', () => {
+    setup(['sequenceNumber', 'customerName']);
+    const link = screen.getByRole('link', { name: 'ACOSTA JUAN PABLO' });
+    expect(link).toHaveAttribute('href', '/admin/customers/view/cust-9');
   });
 });

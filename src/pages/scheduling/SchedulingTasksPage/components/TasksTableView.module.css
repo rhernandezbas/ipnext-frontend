@@ -37,6 +37,12 @@
 }
 .titleLink:hover { color: var(--color-accent, #2563eb); text-decoration: underline; }
 
+.customerLink {
+  color: var(--color-accent, #2563eb);
+  text-decoration: none;
+}
+.customerLink:hover { text-decoration: underline; }
+
 .priorityPill {
   display: inline-flex;
   align-items: center;
