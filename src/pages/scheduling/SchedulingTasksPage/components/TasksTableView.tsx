@@ -59,6 +59,8 @@ function StageSelect({
   const [busy, setBusy] = useState(false);
   const current = stages.find(s => s.id === task.stageId);
   const category = current?.category ?? task.stageCategory;
+  // Per-stage editable colour overrides the category default when set.
+  const customColor = current?.color ?? undefined;
 
   // No workflow stages resolved → fall back to the read-only category badge.
   if (stages.length === 0) return <StageBadge stageCategory={task.stageCategory} />;
@@ -78,6 +80,7 @@ function StageSelect({
     <select
       className={styles.stageSelect}
       data-category={category}
+      style={customColor ? { backgroundColor: customColor, color: '#fff' } : undefined}
       value={task.stageId}
       onChange={handleChange}
       disabled={busy}

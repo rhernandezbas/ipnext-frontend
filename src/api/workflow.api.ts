@@ -6,3 +6,8 @@ export const getWorkflow = (id: string) =>
 
 export const listWorkflows = () =>
   axiosClient.get<Workflow[]>('/scheduling/workflows').then(r => r.data);
+
+export const updateStageColor = (workflowId: string, stageId: string, color: string) =>
+  axiosClient
+    .patch(`/scheduling/workflows/${workflowId}/stages/${stageId}/color`, { color })
+    .then(r => r.data);
