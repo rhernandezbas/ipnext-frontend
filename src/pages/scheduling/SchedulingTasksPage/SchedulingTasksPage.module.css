@@ -7,6 +7,7 @@
   flex-direction: column;
   gap: 16px;
   min-height: 0;
+  min-width: 0;
 }
 
 /* Header */
@@ -48,6 +49,7 @@
   display: flex;
   flex: 1;
   min-height: 0;
+  min-width: 0;
 }
 
 .tableSection {
