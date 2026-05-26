@@ -3,6 +3,7 @@ import { useFilteredTasks, useCreateTask } from '@/hooks/useScheduling';
 import { useProjects } from '@/hooks/useProjects';
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { useTechnicians } from '@/hooks/useAdmins';
+import { useTaskTemplates } from '@/hooks/useTaskTemplates';
 import { TaskFilterBar } from './components/TaskFilterBar';
 import { TasksTableView, ALL_TASK_COLUMNS } from './components/TasksTableView';
 import { TasksKanbanView } from './components/TasksKanbanView';
@@ -45,6 +46,7 @@ export default function SchedulingTasksPage() {
   const { data: projects = [] } = useProjects();
   const { data: workflows = [] } = useWorkflows();
   const { data: technicians = [] } = useTechnicians();
+  const { data: templates = [] } = useTaskTemplates();
   const createTask = useCreateTask();
   const [showCreate, setShowCreate] = useState(false);
 
@@ -117,6 +119,7 @@ export default function SchedulingTasksPage() {
           projects={projects}
           workflows={workflows}
           technicians={technicians}
+          templates={templates}
           onClose={() => setShowCreate(false)}
           onCreate={data => createTask.mutateAsync(data)}
           loading={createTask.isPending}

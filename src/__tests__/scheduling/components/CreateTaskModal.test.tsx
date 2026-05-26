@@ -59,6 +59,24 @@ describe('CreateTaskModal', () => {
     expect(btn).toBeEnabled();
   });
 
+  it('applies a template — fills title, description and category', () => {
+    const templates = [
+      { id: 'tpl-1', name: 'Instalación FTTH', description: 'Tirar fibra', category: 'installation' as const },
+    ];
+    render(
+      <CreateTaskModal projects={projects} workflows={workflows} templates={templates} onClose={onClose} onCreate={onCreate} loading={false} />,
+    );
+    fireEvent.change(screen.getByLabelText(/aplicar plantilla/i), { target: { value: 'tpl-1' } });
+    expect((screen.getByPlaceholderText('Título de la tarea') as HTMLInputElement).value).toBe('Instalación FTTH');
+    expect((screen.getByPlaceholderText('Detalles de la tarea…') as HTMLTextAreaElement).value).toBe('Tirar fibra');
+    expect(screen.getByRole('button', { name: /crear tarea/i })).toBeEnabled();
+  });
+
+  it('does not render the template selector when there are no templates', () => {
+    setup();
+    expect(screen.queryByLabelText(/aplicar plantilla/i)).not.toBeInTheDocument();
+  });
+
   it('creates a task on the FIRST stage (lowest order) of the project workflow', async () => {
     setup();
     fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Cambiar router' } });

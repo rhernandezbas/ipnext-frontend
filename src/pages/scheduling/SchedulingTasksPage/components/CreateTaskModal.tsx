@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Project } from '@/types/project';
 import type { Workflow } from '@/types/workflow';
 import type { Admin } from '@/types/admin';
+import type { TaskTemplate } from '@/types/taskTemplate';
 import type { CreateTaskPayload, TaskPriority, TaskCategory } from '@/types/scheduling';
 import { CustomerPicker } from './CustomerPicker';
 import styles from './CreateTaskModal.module.css';
@@ -25,6 +26,7 @@ interface Props {
   projects: Project[];
   workflows: Workflow[];
   technicians?: Admin[];
+  templates?: TaskTemplate[];
   onClose: () => void;
   onCreate: (data: CreateTaskPayload) => Promise<unknown>;
   loading: boolean;
@@ -53,12 +55,13 @@ function toStartDate(date: string, time: string): string | null {
  * valid stageId, so we resolve one here instead of relying on a server-side
  * default that doesn't exist.
  */
-export function CreateTaskModal({ projects, workflows, technicians = [], onClose, onCreate, loading }: Props) {
+export function CreateTaskModal({ projects, workflows, technicians = [], templates = [], onClose, onCreate, loading }: Props) {
   // Default to the first project that actually has a usable workflow — selecting
   // a workflow-less project would leave the form unsubmittable for no visible reason.
   const defaultProjectId =
     projects.find(p => resolveFirstStageId(p, workflows))?.id ?? projects[0]?.id ?? '';
 
+  const [templateId, setTemplateId] = useState('');
   const [title, setTitle] = useState('');
   const [projectId, setProjectId] = useState(defaultProjectId);
   const [customerId, setCustomerId] = useState<string | null>(null);
@@ -81,6 +84,15 @@ export function CreateTaskModal({ projects, workflows, technicians = [], onClose
   );
 
   const canSave = title.trim().length > 0 && !!firstStageId && !loading;
+
+  function applyTemplate(id: string) {
+    setTemplateId(id);
+    const tpl = templates.find(t => t.id === id);
+    if (!tpl) return;
+    setTitle(tpl.name);
+    setDescription(tpl.description ?? '');
+    setCategory(tpl.category);
+  }
 
   async function handleSave() {
     if (!firstStageId) {
@@ -116,6 +128,18 @@ export function CreateTaskModal({ projects, workflows, technicians = [], onClose
         <h2 className={styles.title}>Nueva tarea</h2>
 
         {error && <p className={styles.error}>{error}</p>}
+
+        {templates.length > 0 && (
+          <label className={styles.label}>
+            Aplicar plantilla
+            <select className={styles.select} value={templateId} onChange={e => applyTemplate(e.target.value)}>
+              <option value="">— Sin plantilla —</option>
+              {templates.map(t => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <label className={styles.label}>
           Título *
