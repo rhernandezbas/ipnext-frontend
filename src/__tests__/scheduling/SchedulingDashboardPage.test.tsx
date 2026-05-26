@@ -23,9 +23,9 @@ describe('SchedulingDashboardPage', () => {
     } as ReturnType<typeof useTasks>);
   });
 
-  it('renders heading "Dashboard de Tareas"', () => {
+  it('renders heading "Dashboard"', () => {
     render(<MemoryRouter><SchedulingDashboardPage /></MemoryRouter>);
-    expect(screen.getByRole('heading', { name: /Dashboard de Tareas/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Dashboard/i })).toBeInTheDocument();
   });
 
   it('shows loading state', () => {
@@ -34,7 +34,7 @@ describe('SchedulingDashboardPage', () => {
       isLoading: true,
     } as unknown as ReturnType<typeof useTasks>);
     render(<MemoryRouter><SchedulingDashboardPage /></MemoryRouter>);
-    expect(screen.getByRole('heading', { name: /Dashboard de Tareas/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Dashboard/i })).toBeInTheDocument();
   });
 
   it('KPI values are correct', () => {
