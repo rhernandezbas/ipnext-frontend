@@ -8,26 +8,28 @@ import styles from './AdministracionPage.module.css';
 
 type Tab = 'admins' | 'activity' | 'roles' | 'seguridad' | 'sesiones';
 
-function RoleBadge({ role }: { role: Admin['role'] }) {
-  const classMap: Record<Admin['role'], string> = {
-    superadmin: styles.roleSuperadmin,
-    admin: styles.roleAdmin,
-    viewer: styles.roleViewer,
-    engineer: styles.roleAdmin,
-    financial_manager: styles.roleAdmin,
-    support_agent: styles.roleViewer,
-    technician: styles.roleViewer,
-  };
-  const labelMap: Record<Admin['role'], string> = {
-    superadmin: 'Superadmin',
-    admin: 'Admin',
-    viewer: 'Viewer',
-    engineer: 'Ingeniero',
-    financial_manager: 'Gerente financiero',
-    support_agent: 'Soporte',
-    technician: 'Técnico',
-  };
-  return <span className={`${styles.roleBadge} ${classMap[role]}`}>{labelMap[role]}</span>;
+// role is now free text (a role-definition name), so these maps are best-effort
+// styling/labels with sensible fallbacks for any custom role.
+const ROLE_CLASS: Record<string, string> = {
+  superadmin: styles.roleSuperadmin,
+  admin: styles.roleAdmin,
+  viewer: styles.roleViewer,
+  engineer: styles.roleAdmin,
+  financial_manager: styles.roleAdmin,
+  support_agent: styles.roleViewer,
+  technician: styles.roleViewer,
+};
+const ROLE_LABEL: Record<string, string> = {
+  superadmin: 'Superadmin',
+  admin: 'Admin',
+  viewer: 'Viewer',
+  engineer: 'Ingeniero',
+  financial_manager: 'Gerente financiero',
+  support_agent: 'Soporte',
+  technician: 'Técnico',
+};
+function RoleBadge({ role }: { role: string }) {
+  return <span className={`${styles.roleBadge} ${ROLE_CLASS[role] ?? styles.roleViewer}`}>{ROLE_LABEL[role] ?? role}</span>;
 }
 
 function StatusBadge({ status }: { status: Admin['status'] }) {
@@ -185,9 +187,10 @@ interface AdminFormProps {
 }
 
 function AdminFormModal({ initialData, title, onClose, onSubmit }: AdminFormProps) {
+  const { data: roles = [] } = useRoles();
   const [name, setName] = useState(initialData?.name ?? '');
   const [email, setEmail] = useState(initialData?.email ?? '');
-  const [role, setRole] = useState<Admin['role']>(initialData?.role ?? 'admin');
+  const [role, setRole] = useState<string>(initialData?.role ?? 'admin');
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -225,15 +228,14 @@ function AdminFormModal({ initialData, title, onClose, onSubmit }: AdminFormProp
             <select
               id="admin-role"
               value={role}
-              onChange={e => setRole(e.target.value as Admin['role'])}
+              onChange={e => setRole(e.target.value)}
             >
-              <option value="superadmin">Superadmin</option>
-              <option value="admin">Admin</option>
-              <option value="viewer">Viewer</option>
-              <option value="engineer">Ingeniero</option>
-              <option value="financial_manager">Gerente financiero</option>
-              <option value="support_agent">Soporte</option>
-              <option value="technician">Técnico</option>
+              {/* Editable: options come from the AdminRoleDefinition catalog
+                  (manage them in the "Roles y Permisos" tab). */}
+              {roles.length === 0 && <option value={role}>{ROLE_LABEL[role] ?? role}</option>}
+              {roles.map(r => (
+                <option key={r.id} value={r.name}>{ROLE_LABEL[r.name] ?? r.name}</option>
+              ))}
             </select>
           </div>
           <div className={styles.modalActions}>
