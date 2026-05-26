@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import type { ScheduledTask, TaskStageCategory } from '@/types/scheduling';
@@ -70,18 +71,43 @@ function StageSelect({
 }) {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
   const current = stages.find(s => s.id === task.stageId);
 
   useEffect(() => {
     if (!open) return;
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
+    const close = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!triggerRef.current?.contains(t) && !menuRef.current?.contains(t)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    // Close on scroll/resize since the fixed-position menu would otherwise float away.
+    const onScroll = () => setOpen(false);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
   }, [open]);
 
   // No workflow stages resolved → fall back to the read-only category badge.
   if (stages.length === 0) return <StageBadge stageCategory={task.stageCategory} />;
+
+  function toggle() {
+    if (open) { setOpen(false); return; }
+    const r = triggerRef.current?.getBoundingClientRect();
+    if (r) {
+      // Open upward if there isn't room below (menu max-height ~280).
+      const below = window.innerHeight - r.bottom;
+      const top = below < 290 && r.top > 290 ? r.top - Math.min(280, r.top - 8) : r.bottom + 4;
+      setPos({ top, left: r.left });
+    }
+    setOpen(true);
+  }
 
   async function pick(stageId: string) {
     setOpen(false);
@@ -95,21 +121,28 @@ function StageSelect({
   }
 
   return (
-    <div className={styles.stagePicker} ref={ref} onClick={e => e.stopPropagation()}>
+    <div className={styles.stagePicker} onClick={e => e.stopPropagation()}>
       <button
+        ref={triggerRef}
         type="button"
         className={styles.stagePickerBtn}
         style={{ backgroundColor: current ? stageColor(current) : '#6b7280' }}
         disabled={busy}
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
         aria-label="Cambiar estado"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
         {current?.name ?? '—'} <span className={styles.caret}>▾</span>
       </button>
-      {open && (
-        <ul className={styles.stageMenu} role="listbox">
+      {open && pos && createPortal(
+        <ul
+          ref={menuRef}
+          className={styles.stageMenu}
+          style={{ position: 'fixed', top: pos.top, left: pos.left }}
+          role="listbox"
+          onClick={e => e.stopPropagation()}
+        >
           {stages.map(s => (
             <li key={s.id}>
               <button
@@ -124,7 +157,8 @@ function StageSelect({
               </button>
             </li>
           ))}
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   );
