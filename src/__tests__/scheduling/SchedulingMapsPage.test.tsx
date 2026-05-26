@@ -5,7 +5,7 @@ import SchedulingMapsPage from '@/pages/scheduling/SchedulingMapsPage';
 describe('SchedulingMapsPage', () => {
   it('renders the page title', () => {
     render(<MemoryRouter><SchedulingMapsPage /></MemoryRouter>);
-    expect(screen.getByRole('heading', { name: /Mapas de Scheduling/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Mapa de operaciones/i })).toBeInTheDocument();
   });
 
   it('renders a map container', () => {
