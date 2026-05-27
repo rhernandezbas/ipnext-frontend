@@ -8,6 +8,8 @@ import type { Project } from '@/types/project';
 import type { TaskPriority } from '@/types/taskPriority';
 import { useMoveTaskToStage, useDeleteTask, useCloseTask, useSetTaskInventoryReview } from '@/hooks/useScheduling';
 import { useAuth } from '@/hooks/useAuth';
+import { useIClassSendFeedback } from '@/hooks/useIClassSendFeedback';
+import { IClassSendResultModal } from '@/components/molecules/IClassSendResultModal/IClassSendResultModal';
 import styles from './TasksTableView.module.css';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -387,6 +389,9 @@ const PAGE_SIZES = [10, 25, 50, 100];
 export function TasksTableView({ tasks, loading = false, availableStages = [], projects = [], workflows = [], priorities = [], visibleColumnKeys }: TasksTableViewProps) {
   const navigate = useNavigate();
   const moveToStage = useMoveTaskToStage();
+  const iclass = useIClassSendFeedback();
+  // Remember the last IClass move so "Reintentar" / "Editar tarea" know the task.
+  const lastMove = useRef<{ id: string; stageId: string } | null>(null);
   const deleteTask = useDeleteTask();
   const closeTask = useCloseTask();
   const setInventoryReview = useSetTaskInventoryReview();
@@ -420,6 +425,35 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
     return wfId ? stagesByWorkflow.get(wfId) ?? [] : [];
   }
 
+  /**
+   * Move a task to a stage with IClass feedback. On error, if it is an IClass
+   * send error we open the result modal and swallow it (the StageSelect just
+   * reverts its busy state); otherwise we re-throw so existing error handling
+   * still applies. On success we surface the OS code via toast.
+   */
+  async function handleMove(id: string, stageId: string) {
+    lastMove.current = { id, stageId };
+    try {
+      const updated = await moveToStage.mutateAsync({ id, stageId });
+      iclass.handleSuccess((updated as ScheduledTask | undefined)?.iclassOrderCode);
+    } catch (err) {
+      // IClass errors open the result modal; other errors have no table UI, so
+      // we log them (the StageSelect just reverts its busy state) instead of
+      // leaking an unhandled rejection.
+      if (!iclass.handleError(err)) console.error('Failed to move task to stage', err);
+    }
+  }
+
+  function handleRetry() {
+    iclass.closeModal();
+    if (lastMove.current) void handleMove(lastMove.current.id, lastMove.current.stageId);
+  }
+
+  function handleEditTask() {
+    iclass.closeModal();
+    if (lastMove.current) navigate(`/admin/scheduling/tasks/${lastMove.current.id}`);
+  }
+
   // priority name → colour, from the editable catalog.
   const priorityColor = useMemo(
     () => new Map(priorities.map(p => [p.name, p.color])),
@@ -451,7 +485,7 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
         <StageSelect
           task={t}
           stages={stagesForTask(t)}
-          onMove={stageId => moveToStage.mutateAsync({ id: t.id, stageId })}
+          onMove={stageId => handleMove(t.id, stageId)}
         />
       ) },
     { label: 'Proyecto',  key: 'projectName',    sortable: true },
@@ -557,6 +591,19 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
         </div>
       )}
 
+      <IClassSendResultModal
+        open={!!iclass.error}
+        error={iclass.error}
+        onClose={iclass.closeModal}
+        onRetry={handleRetry}
+        onEditTask={handleEditTask}
+      />
+
+      {iclass.toast && (
+        <div className={styles.iclassToast} role="status" aria-live="polite" aria-atomic="true">
+          {iclass.toast}
+        </div>
+      )}
     </div>
   );
 }

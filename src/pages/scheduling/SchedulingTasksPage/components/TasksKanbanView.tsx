@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -11,8 +11,11 @@ import {
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { useProjects } from '@/hooks/useProjects';
 import { useWorkflow } from '@/hooks/useWorkflows';
+import { useIClassSendFeedback } from '@/hooks/useIClassSendFeedback';
+import { IClassSendResultModal } from '@/components/molecules/IClassSendResultModal/IClassSendResultModal';
 import * as api from '@/api/scheduling.api';
 import type { ScheduledTask } from '@/types/scheduling';
 import type { TaskListFilter } from '@/types/scheduling';
@@ -38,6 +41,10 @@ function groupBy<T>(arr: T[], key: (item: T) => string): Record<string, T[]> {
 export function TasksKanbanView({ tasks, filter }: TasksKanbanViewProps) {
   const [activeTask, setActiveTask] = useState<ScheduledTask | null>(null);
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const iclass = useIClassSendFeedback();
+  // Remember the last move so "Reintentar" can re-dispatch it.
+  const lastMove = useRef<{ id: string; stageId: string } | null>(null);
 
   const { data: projects = [] } = useProjects();
   const selectedProject = projects.find(p => p.id === filter.projectId);
@@ -63,10 +70,18 @@ export function TasksKanbanView({ tasks, filter }: TasksKanbanViewProps) {
       return { snapshot };
     },
 
-    onError: (_err, _vars, context) => {
+    onError: (err, _vars, context) => {
+      // Rollback the optimistic move (existing behaviour).
       if (context?.snapshot) {
         qc.setQueryData(['scheduling-tasks', filter], context.snapshot);
       }
+      // If this is an IClass send error, open the result modal.
+      iclass.handleError(err);
+    },
+
+    onSuccess: (data) => {
+      // When the move created an IClass OS, surface its code via toast.
+      iclass.handleSuccess(data?.iclassOrderCode);
     },
 
     onSettled: () => {
@@ -83,7 +98,19 @@ export function TasksKanbanView({ tasks, filter }: TasksKanbanViewProps) {
     const { active, over } = event;
     setActiveTask(null);
     if (!over || active.id === over.id) return;
-    moveMutation.mutate({ id: String(active.id), stageId: String(over.id) });
+    const move = { id: String(active.id), stageId: String(over.id) };
+    lastMove.current = move;
+    moveMutation.mutate(move);
+  }
+
+  function handleRetry() {
+    iclass.closeModal();
+    if (lastMove.current) moveMutation.mutate(lastMove.current);
+  }
+
+  function handleEditTask() {
+    iclass.closeModal();
+    if (lastMove.current) navigate(`/admin/scheduling/tasks/${lastMove.current.id}`);
   }
 
   // Empty state: no project selected (REQ-KANBAN-1, AD-2)
@@ -111,19 +138,35 @@ export function TasksKanbanView({ tasks, filter }: TasksKanbanViewProps) {
   const tasksByStage = groupBy(tasks, t => t.stageId);
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className={styles.board} role="region" aria-label="Flujo de Trabajo">
-        {stages.map(stage => (
-          <KanbanColumn
-            key={stage.id}
-            stage={stage}
-            tasks={tasksByStage[stage.id] ?? []}
-          />
-        ))}
-      </div>
-      <DragOverlay>
-        {activeTask && <KanbanCard task={activeTask} isDragging />}
-      </DragOverlay>
-    </DndContext>
+    <>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className={styles.board} role="region" aria-label="Flujo de Trabajo">
+          {stages.map(stage => (
+            <KanbanColumn
+              key={stage.id}
+              stage={stage}
+              tasks={tasksByStage[stage.id] ?? []}
+            />
+          ))}
+        </div>
+        <DragOverlay>
+          {activeTask && <KanbanCard task={activeTask} isDragging />}
+        </DragOverlay>
+      </DndContext>
+
+      <IClassSendResultModal
+        open={!!iclass.error}
+        error={iclass.error}
+        onClose={iclass.closeModal}
+        onRetry={handleRetry}
+        onEditTask={handleEditTask}
+      />
+
+      {iclass.toast && (
+        <div className={styles.iclassToast} role="status" aria-live="polite" aria-atomic="true">
+          {iclass.toast}
+        </div>
+      )}
+    </>
   );
 }

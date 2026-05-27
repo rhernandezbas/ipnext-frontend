@@ -341,3 +341,18 @@
 }
 .rvDot[data-reviewed="true"]  { background: #22c55e; }   /* green — matches hecho category color */
 .rvDot[data-reviewed="false"] { background: #ef4444; }   /* red — matches cancelado category color */
+
+/* IClass send success toast — fixed bottom-right, auto-dismissed by the hook. */
+.iclassToast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1100;
+  background: #16a34a;
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: var(--radius-button);
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.24);
+}

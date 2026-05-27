@@ -108,6 +108,11 @@ export interface ScheduledTask {
    *  Indicates that the inventory team has reviewed the task (RV). */
   reviewedByInventory: boolean;
 
+  /** IClass Service Order code — populated by the backend when a task is moved
+   *  to the "Enviar a IClass" stage and the OS is created successfully.
+   *  Null when the task has never been sent to IClass. */
+  iclassOrderCode: string | null;
+
   // Timestamps — backend always returns ISO strings (post-change-1)
   createdAt: string;
   updatedAt: string;
