@@ -9,7 +9,7 @@ export interface GetTicketsParams {
   status?: string;
   priority?: string;
   assignedTo?: number;
-  customerId?: number;
+  customerId?: string;
 }
 
 // Aliases used by useTickets hooks
@@ -19,7 +19,7 @@ export interface TicketsQuery {
   search?: string;
   status?: string;
   priority?: string;
-  customerId?: number;
+  customerId?: string;
 }
 
 export interface CreateTicketInput {
@@ -71,7 +71,7 @@ export async function createTicket(data: CreateTicketData | CreateTicketInput): 
       subject: data.subject,
       message: data.description,
       priority: (data.priority === 'alta' ? 'high' : data.priority === 'media' ? 'medium' : 'low') as CreateTicketData['priority'],
-      customerId: Number(data.clientId),
+      customerId: data.clientId,
       assignedTo: data.assignedTo ? Number(data.assignedTo) : undefined,
     };
     const response = await axiosClient.post<Ticket>('/tickets', payload);

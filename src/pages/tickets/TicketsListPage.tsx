@@ -62,7 +62,7 @@ export default function TicketsListPage({ statusFilter }: Props) {
     search: search || undefined,
     status: status || undefined,
     priority: priority || undefined,
-    customerId: customerIdParam ? Number(customerIdParam) : undefined,
+    customerId: customerIdParam,
   });
 
   const totalPages = data ? Math.ceil(data.total / 25) : 1;
