@@ -182,13 +182,28 @@ export function App() {
               <Route path="networking/cpe" element={<CpePage />} />
               <Route path="networking/tr069" element={<Tr069Page />} />
               <Route path="networking/hardware" element={<HardwarePage />} />
-              {/*
-               * /admin/scheduling was the legacy pre-change-6 tasks page
-               * (empresa/SchedulingPage). It's now superseded by the change-6
-               * SchedulingTasksPage at /admin/scheduling/tasks. Redirect any
-               * bookmark / sidebar entry that still hits the old URL.
-               */}
-              <Route path="scheduling" element={<Navigate to="/admin/scheduling/tasks" replace />} />
+              {/* ── Scheduling ─────────────────────────────────────────────── */}
+              <Route path="scheduling">
+                {/*
+                 * /admin/scheduling was the legacy pre-change-6 tasks page
+                 * (empresa/SchedulingPage). It's now superseded by the change-6
+                 * SchedulingTasksPage at /admin/scheduling/tasks. Redirect any
+                 * bookmark / sidebar entry that still hits the old URL.
+                 */}
+                <Route index element={<Navigate to="/admin/scheduling/tasks" replace />} />
+                <Route path="dashboard" element={<SchedulingDashboardPage />} />
+                <Route path="projects" element={<SchedulingProjectsPage />} />
+                <Route path="calendars" element={<SchedulingCalendarPage />} />
+                <Route path="maps" element={<SchedulingMapsPage />} />
+                <Route path="archive" element={<SchedulingArchivePage />} />
+                <Route path="templates" element={<SchedulingTemplatesPage />} />
+                <Route path="task-categories" element={<SchedulingTaskCategoriesPage />} />
+                <Route path="task-priorities" element={<SchedulingTaskPrioritiesPage />} />
+                <Route path="stage-colors" element={<SchedulingStageColorsPage />} />
+                {/* CRITICAL: tasks (index) MUST come before tasks/:id — nesting eliminates ordering dependency */}
+                <Route path="tasks" element={<SchedulingTasksPage />} />
+                <Route path="tasks/:id" element={<SchedulingTaskDetailPage />} />
+              </Route>
               <Route path="inventory/list" element={<InventarioPage />} />
               <Route path="voice" element={<VozPage />} />
               <Route path="tariffs" element={<TarifasPage />} />
@@ -227,18 +242,6 @@ export function App() {
               <Route path="networking/ipv4-networks" element={<Ipv4NetworksPage />} />
               <Route path="networking/ipv6-networks" element={<Ipv6NetworksPage />} />
               <Route path="networking/map" element={<NetworkMapPage />} />
-              <Route path="scheduling/dashboard" element={<SchedulingDashboardPage />} />
-              <Route path="scheduling/projects" element={<SchedulingProjectsPage />} />
-              <Route path="scheduling/calendars" element={<SchedulingCalendarPage />} />
-              <Route path="scheduling/maps" element={<SchedulingMapsPage />} />
-              <Route path="scheduling/archive" element={<SchedulingArchivePage />} />
-              <Route path="scheduling/templates" element={<SchedulingTemplatesPage />} />
-              <Route path="scheduling/task-categories" element={<SchedulingTaskCategoriesPage />} />
-              <Route path="scheduling/task-priorities" element={<SchedulingTaskPrioritiesPage />} />
-              <Route path="scheduling/stage-colors" element={<SchedulingStageColorsPage />} />
-              {/* CRITICAL: /admin/scheduling/tasks (index) MUST come before /admin/scheduling/tasks/:id */}
-              <Route path="scheduling/tasks" element={<SchedulingTasksPage />} />
-              <Route path="scheduling/tasks/:id" element={<SchedulingTaskDetailPage />} />
               <Route path="inventory/dashboard" element={<InventoryDashboardPage />} />
               <Route path="inventory/items" element={<InventoryItemsPage />} />
               <Route path="inventory/products" element={<InventoryProductsPage />} />
