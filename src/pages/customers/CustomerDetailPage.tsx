@@ -136,7 +136,11 @@ export default function CustomerDetailPage() {
   ];
 
   const splynxId = (customer as { splynxId?: string | null }).splynxId ?? null;
-  const balance = (customer as { balance?: number }).balance;
+  // Account balance from the GR-synced debt (balanceDue). A debtor owes money,
+  // so the account saldo is shown NEGATIVE — consistent with the "Saldo deudor"
+  // card on the Info tab. Non-debtors have no debt → $ 0,00.
+  const balanceDue = (customer as { balanceDue?: number | null }).balanceDue ?? null;
+  const balance = balanceDue && balanceDue > 0 ? -balanceDue : balanceDue;
 
   return (
     <div className={styles.page}>
