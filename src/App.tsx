@@ -148,13 +148,24 @@ export function App() {
           <Route element={<AdminLayout />}>
             <Route path="admin">
               <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="customers/list" element={<ClientesListPage />} />
-              <Route path="customers/add" element={<AddClientePage />} />
+
+              {/* ── Customers ──────────────────────────────────────────────── */}
+              <Route path="customers">
+                <Route path="list" element={<ClientesListPage />} />
+                <Route path="add" element={<AddClientePage />} />
+                <Route path="search" element={<CustomerSearchPage />} />
+                <Route path="vouchers" element={<CustomerVouchersPage />} />
+                <Route path="map" element={<CustomerMapPage />} />
+                <Route path="view/:id" element={<ClienteDetailPage />} />
+                <Route path="view/:id/edit" element={<EditClientePage />} />
+                {/* CATCH-ALL — RR6 ranking ensures specific paths above win over :id.
+                    Natural /admin/customers/:id redirects to canonical /view/:id. */}
+                <Route path=":id" element={<CustomerIdRedirect />} />
+              </Route>
+
               <Route path="crm/leads" element={<LeadsPage />} />
               <Route path="leads" element={<Navigate to="/admin/crm/leads" replace />} />
               <Route path="messages" element={<Navigate to="/admin/support/inbox" replace />} />
-              <Route path="customers/view/:id" element={<ClienteDetailPage />} />
-              <Route path="customers/view/:id/edit" element={<EditClientePage />} />
               <Route path="tickets/dashboard" element={<Navigate to="/admin/tickets" replace />} />
               <Route path="tickets" element={<TicketsDashboardPage />} />
               <Route path="tickets/opened" element={<TicketsListPage />} />
@@ -227,13 +238,6 @@ export function App() {
               <Route path="crm/dashboard" element={<CrmDashboardPage />} />
               <Route path="crm/quotes" element={<CrmQuotesPage />} />
               <Route path="crm/map" element={<CrmMapPage />} />
-              <Route path="customers/search" element={<CustomerSearchPage />} />
-              <Route path="customers/vouchers" element={<CustomerVouchersPage />} />
-              <Route path="customers/map" element={<CustomerMapPage />} />
-              {/* CATCH-ALL — natural URL /admin/customers/:id redirects to canonical
-                  /view/:id. MUST stay at the end so the specific routes above match first
-                  (otherwise /admin/customers/search would be interpreted as id="search"). */}
-              <Route path="customers/:id" element={<CustomerIdRedirect />} />
               <Route path="tickets/requesters" element={<TicketRequestersPage />} />
               <Route path="support/inbox" element={<SupportInboxPage />} />
               <Route path="support/mass-send" element={<MassSendPage />} />
