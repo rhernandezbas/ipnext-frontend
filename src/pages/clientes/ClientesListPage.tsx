@@ -5,6 +5,8 @@ import { Pagination } from '../../components/molecules/Pagination/Pagination';
 import { DataTable } from '../../components/organisms/DataTable/DataTable';
 import { StatusBadge } from '../../components/atoms/StatusBadge/StatusBadge';
 import { useClientList, useToggleClientStatus } from '../../hooks/useClients';
+import { useGestionRealSyncStatus } from '../../hooks/useGestionRealSync';
+import { GestionRealSyncBadge } from '../../components/gestionReal/GestionRealSyncBadge';
 import type { CustomerSummary } from '../../types/customer';
 import { ClientStatsCards } from './ClientStatsCards';
 import styles from './ClientesListPage.module.css';
@@ -96,6 +98,7 @@ export default function ClientesListPage() {
     search: search || undefined,
     status: status || undefined,
   });
+  const grSync = useGestionRealSyncStatus();
 
   const totalPages = data ? data.totalPages : 1;
 
@@ -120,7 +123,10 @@ export default function ClientesListPage() {
   return (
     <div className={styles.page}>
       <div className={styles.pageHeader}>
-        <h1 className={styles.title}>Clientes</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <h1 className={styles.title}>Clientes</h1>
+          <GestionRealSyncBadge status={grSync.data} isError={grSync.isError} />
+        </div>
         <button
           className={styles.newClientBtn}
           onClick={() => navigate('/admin/customers/add')}

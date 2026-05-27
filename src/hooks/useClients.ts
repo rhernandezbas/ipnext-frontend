@@ -20,6 +20,8 @@ export function useClientList(query: ClientsQuery) {
     queryKey: ['clients', query],
     queryFn: () => getClients(query),
     staleTime: 30_000,
+    // Live-mirror feel: poll the local DB so GR-synced changes surface on their own.
+    refetchInterval: 30_000,
   });
 }
 
