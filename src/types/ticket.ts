@@ -35,7 +35,7 @@ export interface CreateTicketData {
   subject: string;
   message: string;
   priority: TicketPriority;
-  customerId: number;
+  customerId: string;
   assignedTo?: number;
   tags?: string[];
 }
