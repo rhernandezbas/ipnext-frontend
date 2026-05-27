@@ -146,116 +146,118 @@ export function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AdminLayout />}>
-            <Route path="/admin/dashboard" element={<DashboardPage />} />
-            <Route path="/admin/customers/list" element={<ClientesListPage />} />
-            <Route path="/admin/customers/add" element={<AddClientePage />} />
-            <Route path="/admin/crm/leads" element={<LeadsPage />} />
-            <Route path="/admin/leads" element={<Navigate to="/admin/crm/leads" replace />} />
-            <Route path="/admin/messages" element={<Navigate to="/admin/support/inbox" replace />} />
-            <Route path="/admin/customers/view/:id" element={<ClienteDetailPage />} />
-            <Route path="/admin/customers/view/:id/edit" element={<EditClientePage />} />
-            <Route path="/admin/tickets/dashboard" element={<Navigate to="/admin/tickets" replace />} />
-            <Route path="/admin/tickets" element={<TicketsDashboardPage />} />
-            <Route path="/admin/tickets/opened" element={<TicketsListPage />} />
-            <Route path="/admin/tickets/list" element={<Navigate to="/admin/tickets/opened" replace />} />
-            <Route path="/admin/tickets/trash" element={<TicketsArchivePage />} />
-            <Route path="/admin/tickets/archive" element={<Navigate to="/admin/tickets/trash" replace />} />
-            <Route path="/admin/tickets/new" element={<TicketCreatePage />} />
-            <Route path="/admin/tickets/:id" element={<TicketDetailPage />} />
-            <Route path="/admin/finance/dashboard" element={<Navigate to="/admin/finance" replace />} />
-            <Route path="/admin/finance" element={<FinanzasDashboardPage />} />
-            <Route path="/admin/finance/invoices" element={<FacturasPage />} />
-            <Route path="/admin/finance/payments" element={<PagosPage />} />
-            <Route
-              path="/admin/finance/transactions"
-              element={<TransaccionesPage />}
-            />
-            <Route path="/admin/finance/credit-notes" element={<NotasCreditoPage />} />
-            <Route path="/admin/finance/proforma-invoices" element={<ProformasPage />} />
-            <Route path="/admin/finance/proformas" element={<Navigate to="/admin/finance/proforma-invoices" replace />} />
-            <Route path="/admin/finance/history" element={<HistorialFinancieroPage />} />
-            <Route path="/admin/finance/payment-statements" element={<PaymentStatementsPage />} />
-            <Route path="/admin/networking/routers/list" element={<GestionRedPage />} />
-            <Route path="/admin/networking/network-sites" element={<NetworkSitesPage />} />
-            <Route path="/admin/networking/sites" element={<Navigate to="/admin/networking/network-sites" replace />} />
-            <Route path="/admin/networking/cpe" element={<CpePage />} />
-            <Route path="/admin/networking/tr069" element={<Tr069Page />} />
-            <Route path="/admin/networking/hardware" element={<HardwarePage />} />
-            {/*
-             * /admin/scheduling was the legacy pre-change-6 tasks page
-             * (empresa/SchedulingPage). It's now superseded by the change-6
-             * SchedulingTasksPage at /admin/scheduling/tasks. Redirect any
-             * bookmark / sidebar entry that still hits the old URL.
-             */}
-            <Route path="/admin/scheduling" element={<Navigate to="/admin/scheduling/tasks" replace />} />
-            <Route path="/admin/inventory/list" element={<InventarioPage />} />
-            <Route path="/admin/voice" element={<VozPage />} />
-            <Route path="/admin/tariffs" element={<TarifasPage />} />
-            <Route path="/admin/tariffs/internet" element={<TarifasInternetPage />} />
-            <Route path="/admin/tariffs/voice" element={<TarifasVozPage />} />
-            <Route path="/admin/tariffs/recurring" element={<TarifasRecurrentePage />} />
-            <Route path="/admin/tariffs/one-time" element={<TarifasUnicoPage />} />
-            <Route path="/admin/tariffs/bundles" element={<TarifasPaquetesPage />} />
-            <Route path="/admin/tariffs/huawei-groups" element={<TarifasHuaweiGroupsPage />} />
-            <Route path="/admin/administration/administrators" element={<AdministracionPage />} />
-            <Route path="/admin/config/main" element={<ConfiguracionPage />} />
-            <Route path="/admin/partners" element={<PartnersPage />} />
-            <Route path="/admin/locations" element={<UbicacionesPage />} />
-            <Route path="/admin/reports" element={<InformesPage />} />
-            <Route path="/admin/monitoring" element={<MonitoringPage />} />
-            <Route path="/admin/notifications" element={<NotificationsPage />} />
-            <Route path="/admin/api-docs" element={<ApiDocsPage />} />
-            <Route path="/admin/networking/gpon" element={<GponPage />} />
-            <Route path="/admin/networking/radius-sessions" element={<RadiusSessionsPage />} />
-            <Route path="/admin/profile" element={<ProfilePage />} />
-            <Route path="/admin/crm/dashboard" element={<CrmDashboardPage />} />
-            <Route path="/admin/crm/quotes" element={<CrmQuotesPage />} />
-            <Route path="/admin/crm/map" element={<CrmMapPage />} />
-            <Route path="/admin/customers/search" element={<CustomerSearchPage />} />
-            <Route path="/admin/customers/vouchers" element={<CustomerVouchersPage />} />
-            <Route path="/admin/customers/map" element={<CustomerMapPage />} />
-            {/* CATCH-ALL — natural URL /admin/customers/:id redirects to canonical
-                /view/:id. MUST stay at the end so the specific routes above match first
-                (otherwise /admin/customers/search would be interpreted as id="search"). */}
-            <Route path="/admin/customers/:id" element={<CustomerIdRedirect />} />
-            <Route path="/admin/tickets/requesters" element={<TicketRequestersPage />} />
-            <Route path="/admin/support/inbox" element={<SupportInboxPage />} />
-            <Route path="/admin/support/mass-send" element={<MassSendPage />} />
-            <Route path="/admin/support/messengers" element={<MessengersPage />} />
-            <Route path="/admin/support/news" element={<NewsPage />} />
-            <Route path="/admin/networking/ipv4-networks" element={<Ipv4NetworksPage />} />
-            <Route path="/admin/networking/ipv6-networks" element={<Ipv6NetworksPage />} />
-            <Route path="/admin/networking/map" element={<NetworkMapPage />} />
-            <Route path="/admin/scheduling/dashboard" element={<SchedulingDashboardPage />} />
-            <Route path="/admin/scheduling/projects" element={<SchedulingProjectsPage />} />
-            <Route path="/admin/scheduling/calendars" element={<SchedulingCalendarPage />} />
-            <Route path="/admin/scheduling/maps" element={<SchedulingMapsPage />} />
-            <Route path="/admin/scheduling/archive" element={<SchedulingArchivePage />} />
-            <Route path="/admin/scheduling/templates" element={<SchedulingTemplatesPage />} />
-            <Route path="/admin/scheduling/task-categories" element={<SchedulingTaskCategoriesPage />} />
-            <Route path="/admin/scheduling/task-priorities" element={<SchedulingTaskPrioritiesPage />} />
-            <Route path="/admin/scheduling/stage-colors" element={<SchedulingStageColorsPage />} />
-            {/* CRITICAL: /admin/scheduling/tasks (index) MUST come before /admin/scheduling/tasks/:id */}
-            <Route path="/admin/scheduling/tasks" element={<SchedulingTasksPage />} />
-            <Route path="/admin/scheduling/tasks/:id" element={<SchedulingTaskDetailPage />} />
-            <Route path="/admin/inventory/dashboard" element={<InventoryDashboardPage />} />
-            <Route path="/admin/inventory/items" element={<InventoryItemsPage />} />
-            <Route path="/admin/inventory/products" element={<InventoryProductsPage />} />
-            <Route path="/admin/inventory/supply" element={<InventorySupplyPage />} />
-            <Route path="/admin/voice/categories" element={<VoiceCategoriesPage />} />
-            <Route path="/admin/voice/processing" element={<VoiceProcessingPage />} />
-            <Route path="/admin/voice/rate-tables" element={<VoiceRateTablesPage />} />
-            <Route path="/admin/voice/prefixes" element={<VoicePrefixesPage />} />
-            <Route path="/admin/sla" element={<SLADashboardPage />} />
-            <Route path="/admin/sla/list" element={<SLAListPage />} />
-            <Route path="/admin/resellers" element={<ResellersListPage />} />
-            <Route path="/admin/resellers/:id" element={<ResellerDetailPage />} />
-            <Route path="/admin/finance/dunning" element={<DunningPage />} />
-            <Route path="/admin/finance/payment-plans" element={<PaymentPlansPage />} />
-            <Route path="/admin/voice/cdr" element={<CDRPage />} />
-            <Route path="/admin/portal" element={<PortalConfigPage />} />
-            <Route path="/admin/portal/users" element={<PortalUsersPage />} />
-            <Route path="/admin/networking/topology" element={<NetworkTopologyPage />} />
+            <Route path="admin">
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="customers/list" element={<ClientesListPage />} />
+              <Route path="customers/add" element={<AddClientePage />} />
+              <Route path="crm/leads" element={<LeadsPage />} />
+              <Route path="leads" element={<Navigate to="/admin/crm/leads" replace />} />
+              <Route path="messages" element={<Navigate to="/admin/support/inbox" replace />} />
+              <Route path="customers/view/:id" element={<ClienteDetailPage />} />
+              <Route path="customers/view/:id/edit" element={<EditClientePage />} />
+              <Route path="tickets/dashboard" element={<Navigate to="/admin/tickets" replace />} />
+              <Route path="tickets" element={<TicketsDashboardPage />} />
+              <Route path="tickets/opened" element={<TicketsListPage />} />
+              <Route path="tickets/list" element={<Navigate to="/admin/tickets/opened" replace />} />
+              <Route path="tickets/trash" element={<TicketsArchivePage />} />
+              <Route path="tickets/archive" element={<Navigate to="/admin/tickets/trash" replace />} />
+              <Route path="tickets/new" element={<TicketCreatePage />} />
+              <Route path="tickets/:id" element={<TicketDetailPage />} />
+              <Route path="finance/dashboard" element={<Navigate to="/admin/finance" replace />} />
+              <Route path="finance" element={<FinanzasDashboardPage />} />
+              <Route path="finance/invoices" element={<FacturasPage />} />
+              <Route path="finance/payments" element={<PagosPage />} />
+              <Route
+                path="finance/transactions"
+                element={<TransaccionesPage />}
+              />
+              <Route path="finance/credit-notes" element={<NotasCreditoPage />} />
+              <Route path="finance/proforma-invoices" element={<ProformasPage />} />
+              <Route path="finance/proformas" element={<Navigate to="/admin/finance/proforma-invoices" replace />} />
+              <Route path="finance/history" element={<HistorialFinancieroPage />} />
+              <Route path="finance/payment-statements" element={<PaymentStatementsPage />} />
+              <Route path="networking/routers/list" element={<GestionRedPage />} />
+              <Route path="networking/network-sites" element={<NetworkSitesPage />} />
+              <Route path="networking/sites" element={<Navigate to="/admin/networking/network-sites" replace />} />
+              <Route path="networking/cpe" element={<CpePage />} />
+              <Route path="networking/tr069" element={<Tr069Page />} />
+              <Route path="networking/hardware" element={<HardwarePage />} />
+              {/*
+               * /admin/scheduling was the legacy pre-change-6 tasks page
+               * (empresa/SchedulingPage). It's now superseded by the change-6
+               * SchedulingTasksPage at /admin/scheduling/tasks. Redirect any
+               * bookmark / sidebar entry that still hits the old URL.
+               */}
+              <Route path="scheduling" element={<Navigate to="/admin/scheduling/tasks" replace />} />
+              <Route path="inventory/list" element={<InventarioPage />} />
+              <Route path="voice" element={<VozPage />} />
+              <Route path="tariffs" element={<TarifasPage />} />
+              <Route path="tariffs/internet" element={<TarifasInternetPage />} />
+              <Route path="tariffs/voice" element={<TarifasVozPage />} />
+              <Route path="tariffs/recurring" element={<TarifasRecurrentePage />} />
+              <Route path="tariffs/one-time" element={<TarifasUnicoPage />} />
+              <Route path="tariffs/bundles" element={<TarifasPaquetesPage />} />
+              <Route path="tariffs/huawei-groups" element={<TarifasHuaweiGroupsPage />} />
+              <Route path="administration/administrators" element={<AdministracionPage />} />
+              <Route path="config/main" element={<ConfiguracionPage />} />
+              <Route path="partners" element={<PartnersPage />} />
+              <Route path="locations" element={<UbicacionesPage />} />
+              <Route path="reports" element={<InformesPage />} />
+              <Route path="monitoring" element={<MonitoringPage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
+              <Route path="api-docs" element={<ApiDocsPage />} />
+              <Route path="networking/gpon" element={<GponPage />} />
+              <Route path="networking/radius-sessions" element={<RadiusSessionsPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="crm/dashboard" element={<CrmDashboardPage />} />
+              <Route path="crm/quotes" element={<CrmQuotesPage />} />
+              <Route path="crm/map" element={<CrmMapPage />} />
+              <Route path="customers/search" element={<CustomerSearchPage />} />
+              <Route path="customers/vouchers" element={<CustomerVouchersPage />} />
+              <Route path="customers/map" element={<CustomerMapPage />} />
+              {/* CATCH-ALL — natural URL /admin/customers/:id redirects to canonical
+                  /view/:id. MUST stay at the end so the specific routes above match first
+                  (otherwise /admin/customers/search would be interpreted as id="search"). */}
+              <Route path="customers/:id" element={<CustomerIdRedirect />} />
+              <Route path="tickets/requesters" element={<TicketRequestersPage />} />
+              <Route path="support/inbox" element={<SupportInboxPage />} />
+              <Route path="support/mass-send" element={<MassSendPage />} />
+              <Route path="support/messengers" element={<MessengersPage />} />
+              <Route path="support/news" element={<NewsPage />} />
+              <Route path="networking/ipv4-networks" element={<Ipv4NetworksPage />} />
+              <Route path="networking/ipv6-networks" element={<Ipv6NetworksPage />} />
+              <Route path="networking/map" element={<NetworkMapPage />} />
+              <Route path="scheduling/dashboard" element={<SchedulingDashboardPage />} />
+              <Route path="scheduling/projects" element={<SchedulingProjectsPage />} />
+              <Route path="scheduling/calendars" element={<SchedulingCalendarPage />} />
+              <Route path="scheduling/maps" element={<SchedulingMapsPage />} />
+              <Route path="scheduling/archive" element={<SchedulingArchivePage />} />
+              <Route path="scheduling/templates" element={<SchedulingTemplatesPage />} />
+              <Route path="scheduling/task-categories" element={<SchedulingTaskCategoriesPage />} />
+              <Route path="scheduling/task-priorities" element={<SchedulingTaskPrioritiesPage />} />
+              <Route path="scheduling/stage-colors" element={<SchedulingStageColorsPage />} />
+              {/* CRITICAL: /admin/scheduling/tasks (index) MUST come before /admin/scheduling/tasks/:id */}
+              <Route path="scheduling/tasks" element={<SchedulingTasksPage />} />
+              <Route path="scheduling/tasks/:id" element={<SchedulingTaskDetailPage />} />
+              <Route path="inventory/dashboard" element={<InventoryDashboardPage />} />
+              <Route path="inventory/items" element={<InventoryItemsPage />} />
+              <Route path="inventory/products" element={<InventoryProductsPage />} />
+              <Route path="inventory/supply" element={<InventorySupplyPage />} />
+              <Route path="voice/categories" element={<VoiceCategoriesPage />} />
+              <Route path="voice/processing" element={<VoiceProcessingPage />} />
+              <Route path="voice/rate-tables" element={<VoiceRateTablesPage />} />
+              <Route path="voice/prefixes" element={<VoicePrefixesPage />} />
+              <Route path="sla" element={<SLADashboardPage />} />
+              <Route path="sla/list" element={<SLAListPage />} />
+              <Route path="resellers" element={<ResellersListPage />} />
+              <Route path="resellers/:id" element={<ResellerDetailPage />} />
+              <Route path="finance/dunning" element={<DunningPage />} />
+              <Route path="finance/payment-plans" element={<PaymentPlansPage />} />
+              <Route path="voice/cdr" element={<CDRPage />} />
+              <Route path="portal" element={<PortalConfigPage />} />
+              <Route path="portal/users" element={<PortalUsersPage />} />
+              <Route path="networking/topology" element={<NetworkTopologyPage />} />
+            </Route>
           </Route>
         </Route>
 
