@@ -6,6 +6,7 @@ export interface TaskListFilter {
   stageCategory?: TaskStageCategory;
   partnerId?:  string;
   assigneeId?: string;
+  customerId?: string;
   priority?:   string;   // catalog priority name
   q?:          string;
   from?:       string;  // ISO datetime — filter tasks where startDate >= from
@@ -32,6 +33,7 @@ export interface CreateTaskPayload {
   endDate?: string | null;
   customerId?: string | null;
   customerName?: string | null;
+  serviceId?: string | null;
   assigneeId?: string | null;
   address?: string | null;
   notes?: string | null;

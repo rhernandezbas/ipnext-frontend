@@ -42,6 +42,7 @@ export function useTasksFilterUrl(): TasksFilterUrlResult {
     stageCategory: parseCategory(searchParams.get('stageCategory')),
     partnerId:     searchParams.get('partnerId') ?? undefined,
     assigneeId:    searchParams.get('assigneeId') ?? undefined,
+    customerId:    searchParams.get('customerId') ?? undefined,
     priority:      parsePriority(searchParams.get('priority')),
     q:             searchParams.get('q') ?? undefined,
   };
@@ -65,6 +66,7 @@ export function useTasksFilterUrl(): TasksFilterUrlResult {
             stageCategory: patch.stageCategory !== undefined ? patch.stageCategory : parseCategory(prev.get('stageCategory')),
             partnerId:     patch.partnerId     !== undefined ? patch.partnerId     : (prev.get('partnerId') ?? undefined),
             assigneeId:    patch.assigneeId    !== undefined ? patch.assigneeId    : (prev.get('assigneeId') ?? undefined),
+            customerId:    patch.customerId    !== undefined ? patch.customerId    : (prev.get('customerId') ?? undefined),
             priority:      patch.priority      !== undefined ? patch.priority      : parsePriority(prev.get('priority')),
             q:             patch.q             !== undefined ? patch.q             : (prev.get('q') ?? undefined),
           };
@@ -76,6 +78,7 @@ export function useTasksFilterUrl(): TasksFilterUrlResult {
           if (merged.stageCategory) next.set('stageCategory', merged.stageCategory);
           if (merged.partnerId)     next.set('partnerId', merged.partnerId);
           if (merged.assigneeId)    next.set('assigneeId', merged.assigneeId);
+          if (merged.customerId)    next.set('customerId', merged.customerId);
           if (merged.priority)      next.set('priority', merged.priority);
           if (merged.q)             next.set('q', merged.q);
 

@@ -6,6 +6,16 @@ export function useTasks() {
   return useQuery({ queryKey: ['scheduling-tasks'], queryFn: () => api.listTasks() });
 }
 
+/** Fetch tasks filtered by a specific customer. Used for the count badge in CustomerDetailPage. */
+export function useTasksByCustomer(customerId: string | undefined) {
+  return useQuery({
+    queryKey: ['scheduling-tasks', { customerId }],
+    queryFn: () => api.listTasks({ customerId }),
+    enabled: !!customerId,
+    staleTime: 30_000,
+  });
+}
+
 /**
  * Like useTasks but accepts a filter and uses a filter-keyed queryKey.
  * Used by SchedulingTasksPage — does NOT affect other pages using useTasks().
