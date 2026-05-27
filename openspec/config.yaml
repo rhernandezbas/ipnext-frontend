@@ -1,0 +1,77 @@
+schema: spec-driven
+
+context: |
+  Tech stack: React 18 + Vite 5 + TypeScript 5.3 (strict) + React Router 6.21 (BrowserRouter + <Routes>, NOT a data router) + TanStack Query 5.
+  Architecture: Atomic Design (atoms / molecules / organisms / templates / pages) + Container-Presentational pattern. CSS Modules for styling.
+  Routing: single flat <Routes> in src/App.tsx wrapped by <BrowserRouter> in src/main.tsx. Two layout routes exist already: <ProtectedRoute> (auth gate, renders <Outlet>) and <AdminLayout> (chrome + breadcrumbs, renders <Outlet>). All feature routes are flat children — order is load-bearing.
+  Lazy loading: every page is React.lazy() + a single top-level <Suspense fall={<Spinner fullPage />}>.
+  Path alias: @/* -> src/* (Vite + tsconfig).
+  Testing: Vitest 4 + @testing-library/react + jsdom. Command: npx vitest run. Coverage via @vitest/coverage-v8 (not enforced).
+  Style: No ESLint/Prettier config tracked. PascalCase components, kebab-case URL segments. Spanish UI copy.
+  Source of truth: backend API at /api (sibling repo ipnext-backend). Frontend consumes endpoints; does NOT own data shape.
+
+strict_tdd: false
+
+testing:
+  strict_tdd: false
+  detected: "2026-05-27"
+  runner:
+    command: "npx vitest run"
+    framework: "vitest"
+    config: "vite.config.ts"
+  layers:
+    unit: { available: true, tool: "vitest + @testing-library/react" }
+    integration: { available: true, tool: "vitest + jsdom (router render)" }
+    e2e: { available: false, note: "Playwright available via MCP for manual smoke; no committed e2e suite yet" }
+  coverage:
+    available: true
+    command: "npx vitest run --coverage"
+    threshold_enforced: false
+  quality:
+    linter: { available: false }
+    type_checker: { available: true, command: "tsc --noEmit" }
+    formatter: { available: false }
+
+rules:
+  proposal:
+    - Quantify route counts and grouping when touching App.tsx
+    - Flag any change that reorders flat routes (navigation is order-sensitive)
+    - Preserve deep links / bookmarks — every existing URL must keep resolving
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Document architecture decisions with rationale and at least 2 compared approaches
+    - Respect atomic design + container-presentational boundaries
+    - Preserve lazy() + Suspense behaviour across any routing refactor
+  tasks:
+    - Group tasks by phase; refactors MUST be incremental (feature by feature, no big-bang)
+    - Each phase MUST leave the app running and all URLs resolving
+    - Include verification points (URLs to test, routing tests, Playwright smoke)
+  apply:
+    - Follow atomic design and existing CSS-module conventions
+    - Keep the app working after every phase (no broken intermediate state)
+    test_command: "npx vitest run"
+  verify:
+    test_command: "npx vitest run"
+    build_command: "tsc --noEmit"
+    coverage_threshold: 0
+  archive:
+    - Warn before removing routes or redirects (deep-link breakage risk)
+
+known_debt:
+  - id: flat-routes-order-sensitive
+    severity: HIGH
+    description: >
+      src/App.tsx declares 94 flat feature routes in a single <Routes> tree where
+      declaration ORDER is load-bearing. /admin/customers/:id (catch-all) must follow
+      the specific /customers/* routes; /admin/scheduling/tasks (index) must precede
+      /tasks/:id. A reorder silently breaks navigation.
+    files: "src/App.tsx"
+  - id: reexport-shim
+    severity: LOW
+    description: >
+      SchedulingTasksPage.tsx and SchedulingTaskDetailPage are re-export shims pointing
+      at directory index.tsx to dodge a Vite production-build empty-chunk edge case with
+      directory-only lazy imports.
+    files: "src/pages/scheduling/SchedulingTasksPage.tsx"
