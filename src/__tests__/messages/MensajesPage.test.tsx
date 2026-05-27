@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import MensajesPage from '@/pages/mensajes/MensajesPage';
+import MessagesPage from '@/pages/messages/MessagesPage';
 import * as useMessagesModule from '@/hooks/useMessages';
 import type { Message } from '@/types/message';
 
@@ -52,13 +52,13 @@ function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
       <MemoryRouter>
-        <MensajesPage />
+        <MessagesPage />
       </MemoryRouter>
     </QueryClientProvider>
   );
 }
 
-describe('MensajesPage', () => {
+describe('MessagesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 

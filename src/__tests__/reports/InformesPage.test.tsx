@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import InformesPage from '@/pages/informes/InformesPage';
+import ReportsPage from '@/pages/reports/ReportsPage';
 import * as useReportsModule from '@/hooks/useReports';
 import type { ReportDefinition } from '@/types/report';
 
@@ -60,13 +60,13 @@ function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
       <MemoryRouter>
-        <InformesPage />
+        <ReportsPage />
       </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
-describe('InformesPage', () => {
+describe('ReportsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 

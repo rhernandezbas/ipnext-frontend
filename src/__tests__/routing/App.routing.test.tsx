@@ -331,7 +331,7 @@ vi.mock('@/pages/system/PartnersPage', () => ({
 }));
 
 // Miscellaneous
-vi.mock('@/pages/informes/InformesPage', () => ({
+vi.mock('@/pages/reports/ReportsPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:Informes]'),
 }));
 vi.mock('@/pages/monitoring/MonitoringPage', () => ({

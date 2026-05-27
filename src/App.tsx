@@ -80,7 +80,7 @@ const PaymentStatementsPage = lazy(() => import('@/pages/finanzas/PaymentStateme
 const AdminPage = lazy(() => import('@/pages/system/AdminPage'));
 const SettingsPage = lazy(() => import('@/pages/system/SettingsPage'));
 const PartnersPage = lazy(() => import('@/pages/system/PartnersPage'));
-const InformesPage = lazy(() => import('@/pages/informes/InformesPage'));
+const ReportsPage = lazy(() => import('@/pages/reports/ReportsPage'));
 const MonitoringPage = lazy(() => import('@/pages/monitoring/MonitoringPage'));
 const NotificationsPage = lazy(() => import('@/pages/notifications/NotificationsPage'));
 const ApiDocsPage = lazy(() => import('@/pages/api-docs/ApiDocsPage'));
@@ -303,7 +303,7 @@ export function App() {
               {/* ── Singletons ─────────────────────────────────────────────── */}
               <Route path="partners" element={<PartnersPage />} />
               <Route path="locations" element={<LocationsPage />} />
-              <Route path="reports" element={<InformesPage />} />
+              <Route path="reports" element={<ReportsPage />} />
               <Route path="monitoring" element={<MonitoringPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="api-docs" element={<ApiDocsPage />} />

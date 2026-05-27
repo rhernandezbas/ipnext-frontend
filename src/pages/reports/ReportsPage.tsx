@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useReportDefinitions, useGenerateReport, useExportReport } from '@/hooks/useReports';
 import type { ReportDefinition, ReportCategory, ReportResult } from '@/types/report';
-import styles from './InformesPage.module.css';
+import styles from './ReportsPage.module.css';
 
 const CATEGORY_LABELS: Record<ReportCategory, string> = {
   clients: 'Clientes',
@@ -207,7 +207,7 @@ function InformesContent() {
 
 const qc = new QueryClient();
 
-export default function InformesPage() {
+export default function ReportsPage() {
   return (
     <QueryClientProvider client={qc}>
       <InformesContent />

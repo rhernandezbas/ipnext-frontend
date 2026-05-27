@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMessages, useCreateMessage } from '@/hooks/useMessages';
 import type { Message, MessageChannel } from '@/types/message';
-import styles from './MensajesPage.module.css';
+import styles from './MessagesPage.module.css';
 
 type Tab = 'inbox' | 'sent' | 'draft';
 
@@ -93,7 +93,7 @@ function ComposeForm({ onClose }: ComposeFormProps) {
   );
 }
 
-export default function MensajesPage() {
+export default function MessagesPage() {
   const [activeTab, setActiveTab] = useState<Tab>('inbox');
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [showCompose, setShowCompose] = useState(false);
