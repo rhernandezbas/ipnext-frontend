@@ -10,6 +10,7 @@ import { TaskHeader } from './SchedulingTaskDetailPage/components/TaskHeader';
 import { DescriptionEditor } from './SchedulingTaskDetailPage/components/DescriptionEditor';
 import { DatosForm } from './SchedulingTaskDetailPage/components/DatosForm';
 import { ChecklistSection } from './SchedulingTaskDetailPage/components/ChecklistSection';
+import { TaskCommentsTimeline } from './SchedulingTaskDetailPage/components/TaskCommentsTimeline';
 import type { DatosFormValues } from './SchedulingTaskDetailPage/components/DatosForm';
 import { UbicacionMap } from './SchedulingTaskDetailPage/components/UbicacionMap';
 import { WatchersChips } from './SchedulingTaskDetailPage/components/WatchersChips';
@@ -255,6 +256,8 @@ export default function SchedulingTaskDetailPage() {
             checklist={task.checklist ?? []}
             onError={msg => showToast(msg, 'error')}
           />
+
+          <TaskCommentsTimeline taskId={id!} />
         </main>
 
         <aside className={styles.sidebar}>
