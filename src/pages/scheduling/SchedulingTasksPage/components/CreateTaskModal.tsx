@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useClientDetail } from '@/hooks/useCustomers';
+import { useClientDetail, useClientServices } from '@/hooks/useCustomers';
 import { useTaskCategories } from '@/hooks/useTaskCategories';
 import type { Project } from '@/types/project';
 import type { Workflow } from '@/types/workflow';
@@ -67,6 +67,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   const [projectId, setProjectId] = useState(defaultProjectId);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState<string | null>(null);
+  const [serviceId, setServiceId] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
   const [priority, setPriority] = useState<string>(DEFAULT_PRIORITY);
@@ -84,6 +85,8 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   // customer's address. Fill once per customer (ref guard) so we don't clobber a
   // manual edit on re-render / background refetch.
   const { data: customerDetail } = useClientDetail(customerId ?? '');
+  // Services of the selected customer
+  const { data: customerServices = [] } = useClientServices(customerId ?? '', !!customerId);
   const filledForCustomer = useRef<string | null>(null);
   useEffect(() => {
     if (!customerId) { filledForCustomer.current = null; return; }
@@ -96,6 +99,11 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
       if (customerDetail.address) setAddress(customerDetail.address);
     }
   }, [customerId, customerDetail]);
+
+  // Reset service when customer changes
+  useEffect(() => {
+    setServiceId(null);
+  }, [customerId]);
 
   const selectedProject = projects.find(p => p.id === projectId);
   const firstStageId = useMemo(
@@ -132,6 +140,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
         estimatedHours,
         customerId: customerId || null,
         customerName: customerName || null,
+        serviceId: serviceId || null,
         assigneeId: assigneeId || null,
         description: description.trim() || null,
         startDate: toStartDate(date, time),
@@ -182,6 +191,27 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
             onChange={(id, name) => { setCustomerId(id); setCustomerName(name); }}
           />
         </div>
+
+        {customerId && (
+          <label className={styles.label}>
+            Servicio
+            <select
+              className={styles.select}
+              value={serviceId ?? ''}
+              onChange={e => setServiceId(e.target.value || null)}
+              disabled={customerServices.length === 0}
+            >
+              <option value="">
+                {customerServices.length === 0 ? '— Sin servicios —' : '— Sin servicio —'}
+              </option>
+              {customerServices.map(s => (
+                <option key={s.id} value={String(s.id)}>
+                  {s.plan} ({s.type})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <label className={styles.label}>
           Descripción

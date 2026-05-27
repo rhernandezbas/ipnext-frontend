@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import type { Admin } from '@/types/admin';
 import type { Partner } from '@/types/partner';
+import { useClientServices } from '@/hooks/useCustomers';
 import styles from './DatosForm.module.css';
 
 export interface DatosFormValues {
@@ -51,6 +52,12 @@ function toIso(local: string): string | null {
 }
 
 export function DatosForm({ initial, onSubmit, isSaving, admins, partners, onDirtyChange }: DatosFormProps) {
+  // Fetch services for the customer assigned to the task (if any)
+  const { data: customerServices = [] } = useClientServices(
+    initial.customerId ?? '',
+    !!initial.customerId,
+  );
+
   const {
     register,
     handleSubmit,
@@ -121,13 +128,25 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, onDir
           {/* Servicio */}
           <div className={styles.field}>
             <label htmlFor="serviceId" className={styles.label}>Servicio</label>
-            <input
+            <select
               id="serviceId"
-              className={styles.input}
-              type="text"
-              placeholder="ID del servicio"
+              className={styles.select}
+              disabled={!initial.customerId || customerServices.length === 0}
               {...register('serviceId')}
-            />
+            >
+              <option value="">
+                {!initial.customerId
+                  ? 'Sin cliente asignado'
+                  : customerServices.length === 0
+                    ? 'Sin servicios'
+                    : 'Sin servicio'}
+              </option>
+              {customerServices.map(s => (
+                <option key={s.id} value={String(s.id)}>
+                  {s.plan} ({s.type})
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Inicia */}
