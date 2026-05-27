@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useServicePlans, useCreateServicePlan } from '@/hooks/useServicePlans';
 import type { ServicePlan, PlanSubtype } from '@/types/service-plans';
-import styles from '../TarifasPage.module.css';
+import styles from './TariffsPage.module.css';
 
 export interface TarifasBaseProps {
   subtype: PlanSubtype;
