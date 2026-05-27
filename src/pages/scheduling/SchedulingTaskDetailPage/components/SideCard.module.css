@@ -98,3 +98,59 @@
   outline: 2px solid #2563EB;
   outline-offset: 2px;
 }
+
+/* ── Contact rows (CustomerCard) ── */
+.contactRows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.contactRow {
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: #334155;
+}
+
+.contactLabel {
+  font-weight: 600;
+  color: #64748B;
+  min-width: 3.5rem;
+  flex-shrink: 0;
+}
+
+.contactValue {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contactLink {
+  color: #2563EB;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contactLink:hover {
+  text-decoration: underline;
+}
+
+.contactPlaceholder {
+  color: #94A3B8;
+}
+
+/* ── Service type / loading (ServiceCard) ── */
+.serviceType {
+  font-size: 0.8125rem;
+  color: #64748B;
+}
+
+.servicePlaceholder {
+  font-size: 0.9375rem;
+  color: #94A3B8;
+}

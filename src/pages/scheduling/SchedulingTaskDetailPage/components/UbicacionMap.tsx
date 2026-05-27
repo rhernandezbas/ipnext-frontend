@@ -1,8 +1,22 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import type { LeafletMouseEvent } from 'leaflet';
 import { geocodeAddress, reverseGeocode } from '../lib/geocode';
 import styles from './UbicacionMap.module.css';
+
+/** Inner component — runs inside MapContainer context.
+ *  Calls invalidateSize() once on mount so Leaflet re-measures
+ *  correctly when the panel becomes visible (e.g. after a tab switch).
+ *  Guards against test environments where the mock map lacks the method. */
+function MapResizer() {
+  const map = useMap();
+  useEffect(() => {
+    if (typeof map.invalidateSize === 'function') {
+      map.invalidateSize();
+    }
+  }, [map]);
+  return null;
+}
 
 interface Coordinates {
   lat: number;
@@ -99,6 +113,7 @@ export function UbicacionMap({ address, coordinates, onChange }: UbicacionMapPro
             style={{ height: '360px', width: '100%', borderRadius: '6px' }}
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <MapResizer />
           </MapContainer>
           <p className={styles.emptyText}>
             Sin ubicación. Introduce una dirección o pincha en el mapa.
@@ -112,6 +127,7 @@ export function UbicacionMap({ address, coordinates, onChange }: UbicacionMapPro
           data-testid="map-container"
         >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <MapResizer />
           <Marker
             position={[localCoords.lat, localCoords.lng]}
             draggable

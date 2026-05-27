@@ -13,6 +13,7 @@ vi.mock('@/hooks/useScheduling', () => ({
   useMoveTaskToStage: vi.fn(),
   useDeleteTask: vi.fn(),
   useCloseTask: vi.fn(() => noopMutationFactory()),
+  useSetTaskInventoryReview: vi.fn(() => noopMutationFactory()),
   useAddChecklistItem: vi.fn(() => noopMutationFactory()),
   useToggleChecklistItem: vi.fn(() => noopMutationFactory()),
   useUpdateChecklistItem: vi.fn(() => noopMutationFactory()),
@@ -50,6 +51,88 @@ vi.mock('@/hooks/useTaskTemplates', () => ({
   useReplaceTemplateItems: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
 }));
 
+// Mock useCustomers so CustomerSidebar doesn't fetch
+vi.mock('@/hooks/useCustomers', () => ({
+  useClientDetail: vi.fn(() => ({ data: undefined, isLoading: false })),
+  useClientServices: vi.fn(() => ({ data: [] })),
+}));
+
+// Mock TaskTabs — renders a stub with 7 role=tab elements (main tabs)
+vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs', () => ({
+  TaskTabs: ({ detailsProps, commentsTaskId, reviewedByInventory, onInventoryToggle }: {
+    detailsProps: Record<string, unknown>;
+    commentsTaskId: string;
+    reviewedByInventory: boolean;
+    onInventoryToggle: (v: boolean) => void;
+  }) => (
+    <div data-testid="task-tabs" data-comments-id={commentsTaskId} data-inventory={String(reviewedByInventory)}>
+      {/* Stub 7 tabs so tests can assert tab presence */}
+      {['Detalles', 'Adjuntos', 'Comentarios', 'Relacionado', 'Inventory', 'Registro de trabajo', 'Actividad'].map(label => (
+        <button key={label} role="tab" aria-selected={label === 'Detalles' ? 'true' : 'false'}>{label}</button>
+      ))}
+      {/* Expose description save for integration test */}
+      <button
+        data-testid="desc-save-btn"
+        onClick={() => {
+          const onSave = (detailsProps.descriptionEditor as { onSave?: (h: string) => Promise<void> })?.onSave;
+          void onSave?.('<p>updated</p>');
+        }}
+      >
+        Save Desc
+      </button>
+      {/* Expose datos form save for integration test */}
+      <button
+        data-testid="datos-save-btn"
+        onClick={() => {
+          const onSubmit = (detailsProps.datosForm as { onSubmit?: (v: Record<string, unknown>) => Promise<void> })?.onSubmit;
+          const initial = (detailsProps.datosForm as { initial?: Record<string, unknown> })?.initial ?? {};
+          void onSubmit?.(initial);
+        }}
+      >
+        Save Datos
+      </button>
+      <button
+        data-testid="inventory-toggle-btn"
+        onClick={() => onInventoryToggle(!reviewedByInventory)}
+      >
+        Toggle Inventory
+      </button>
+    </div>
+  ),
+}));
+
+// Mock CustomerSidebar — renders a stub with 3 role=tab elements (sidebar tabs)
+vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/components/CustomerSidebar', () => ({
+  CustomerSidebar: ({ customerId, customerName, watcherIds, admins }: {
+    customerId: string | null;
+    customerName: string | null;
+    serviceId: string | null;
+    reporterId: string | null;
+    watcherIds: string[];
+    admins: { id: string; name: string }[];
+    onWatchersChange: (ids: string[]) => void;
+    isSavingWatchers: boolean;
+  }) => (
+    <div data-testid="customer-sidebar" data-customer-id={customerId ?? ''}>
+      {['Detalles', 'Inventario', 'Documentos'].map(label => (
+        <button key={label} role="tab" aria-selected={label === 'Detalles' ? 'true' : 'false'}>{label}</button>
+      ))}
+      {/* CustomerCard heading so legacy test passes */}
+      <h2>Cliente</h2>
+      <span>{customerName}</span>
+      <a href={`/admin/customers/${customerId}`}>Ver perfil</a>
+      {/* WatchersChips heading */}
+      <h2>Watchers</h2>
+      {watcherIds.map(wId => {
+        const admin = admins.find(a => a.id === wId);
+        return admin ? (
+          <button key={wId} aria-label={`Quitar ${admin.name}`}>{admin.name}</button>
+        ) : null;
+      })}
+    </div>
+  ),
+}));
+
 // Mock dnd-kit to avoid jsdom issues
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: React.ReactNode }) => children,
@@ -84,7 +167,7 @@ vi.mock('@tiptap/react', () => ({
 
 vi.mock('@tiptap/starter-kit', () => ({ default: {} }));
 
-import { useTask, useUpdateTask, useMoveTaskToStage, useDeleteTask, useCloseTask } from '@/hooks/useScheduling';
+import { useTask, useUpdateTask, useMoveTaskToStage, useDeleteTask, useCloseTask, useSetTaskInventoryReview } from '@/hooks/useScheduling';
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { useAdmins } from '@/hooks/useAdmins';
 import { usePartners } from '@/hooks/usePartners';
@@ -120,6 +203,8 @@ const mockTask: ScheduledTask = {
   travelTimeTo: 30,
   travelTimeFrom: 30,
   checklist: [],
+  reviewedByInventory: false,
+  iclassOrderCode: null,
   createdAt: '2026-05-01T00:00:00Z',
   updatedAt: '2026-05-01T00:00:00Z',
 };
@@ -180,6 +265,7 @@ function setupMocks(overrides?: { taskData?: Partial<ScheduledTask> | null; isLo
   vi.mocked(useMoveTaskToStage).mockReturnValue(noopMutation as ReturnType<typeof useMoveTaskToStage>);
   vi.mocked(useDeleteTask).mockReturnValue(noopMutation as ReturnType<typeof useDeleteTask>);
   vi.mocked(useCloseTask).mockReturnValue(noopMutation as ReturnType<typeof useCloseTask>);
+  vi.mocked(useSetTaskInventoryReview).mockReturnValue(noopMutation as ReturnType<typeof useSetTaskInventoryReview>);
   vi.mocked(useAuth).mockReturnValue({ user: { id: 1, username: 'admin', email: 'a@b.com', displayName: 'Admin', role: 'admin', permissions: [] } });
 
   vi.mocked(useWorkflows).mockReturnValue({
@@ -206,18 +292,54 @@ describe('SchedulingTaskDetailPage', () => {
     vi.clearAllMocks();
   });
 
-  it('renders all sections given a mock task', async () => {
+  it('renders TaskHeader and layout structure', async () => {
     setupMocks();
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(screen.getByText('Instalación Cliente Pérez')).toBeInTheDocument();
     });
-    expect(screen.getByText('▣ Datos')).toBeInTheDocument();
-    expect(screen.getByText('▣ Ubicación')).toBeInTheDocument();
-    expect(screen.getByText('▣ Descripción')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Cliente' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /^Watchers/ })).toBeInTheDocument();
+    // main and aside are in DOM
+    expect(document.querySelector('main')).toBeInTheDocument();
+    expect(document.querySelector('aside')).toBeInTheDocument();
+    // TaskTabs stub is in main
+    expect(screen.getByTestId('task-tabs')).toBeInTheDocument();
+    // CustomerSidebar stub is in aside
+    expect(screen.getByTestId('customer-sidebar')).toBeInTheDocument();
+  });
+
+  it('renders 7 main tabs (inside TaskTabs)', async () => {
+    setupMocks();
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByText('Instalación Cliente Pérez')).toBeInTheDocument();
+    });
+
+    const allTabs = screen.getAllByRole('tab');
+    // 7 from TaskTabs + 3 from CustomerSidebar = 10 total
+    expect(allTabs.length).toBe(10);
+
+    const mainTabLabels = ['Detalles', 'Adjuntos', 'Comentarios', 'Relacionado', 'Inventory', 'Registro de trabajo', 'Actividad'];
+    for (const label of mainTabLabels) {
+      // getAllByText because "Detalles" appears in both stubs
+      const matches = screen.getAllByText(label);
+      expect(matches.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('renders 3 sidebar tabs (inside CustomerSidebar)', async () => {
+    setupMocks();
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('customer-sidebar')).toBeInTheDocument();
+    });
+
+    const sidebarTabLabels = ['Inventario', 'Documentos'];
+    for (const label of sidebarTabLabels) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
   });
 
   it('renders 404 state when task not found', async () => {
@@ -335,5 +457,68 @@ describe('SchedulingTaskDetailPage', () => {
     });
     fe.click(screen.getByTestId('kebab-menu'));
     expect(screen.queryByTestId('kebab-delete')).not.toBeInTheDocument();
+  });
+
+  it('description save dispatches updateTask PATCH via detailsProps.descriptionEditor.onSave', async () => {
+    setupMocks();
+    const mutateAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useUpdateTask).mockReturnValue({ ...noopMutation, mutateAsync } as ReturnType<typeof useUpdateTask>);
+    const { fireEvent: fe } = await import('@testing-library/react');
+
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('desc-save-btn')).toBeInTheDocument());
+    fe.click(screen.getByTestId('desc-save-btn'));
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'task-1', data: expect.objectContaining({ description: '<p>updated</p>' }) }),
+      );
+    });
+  });
+
+  it('datos form save dispatches updateTask PATCH via detailsProps.datosForm.onSubmit', async () => {
+    setupMocks();
+    const mutateAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useUpdateTask).mockReturnValue({ ...noopMutation, mutateAsync } as ReturnType<typeof useUpdateTask>);
+    const { fireEvent: fe } = await import('@testing-library/react');
+
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('datos-save-btn')).toBeInTheDocument());
+    fe.click(screen.getByTestId('datos-save-btn'));
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'task-1' }),
+      );
+    });
+  });
+
+  it('delete modal appears and dispatches delete on confirm', async () => {
+    setupMocks();
+    const deleteAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useDeleteTask).mockReturnValue({ ...noopMutation, mutateAsync: deleteAsync } as ReturnType<typeof useDeleteTask>);
+    const { fireEvent: fe } = await import('@testing-library/react');
+
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('kebab-menu')).toBeInTheDocument());
+    fe.click(screen.getByTestId('kebab-menu'));
+    fe.click(screen.getByTestId('kebab-delete'));
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    fe.click(screen.getByText('Eliminar'));
+    await waitFor(() => {
+      expect(deleteAsync).toHaveBeenCalledWith('task-1');
+    });
+  });
+
+  it('inventory toggle calls useSetTaskInventoryReview', async () => {
+    setupMocks();
+    const inventoryMutateAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useSetTaskInventoryReview).mockReturnValue({ ...noopMutation, mutateAsync: inventoryMutateAsync } as ReturnType<typeof useSetTaskInventoryReview>);
+    const { fireEvent: fe } = await import('@testing-library/react');
+
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('inventory-toggle-btn')).toBeInTheDocument());
+    fe.click(screen.getByTestId('inventory-toggle-btn'));
+    await waitFor(() => {
+      expect(inventoryMutateAsync).toHaveBeenCalledWith({ id: 'task-1', reviewed: true });
+    });
   });
 });

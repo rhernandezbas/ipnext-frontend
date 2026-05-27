@@ -1,0 +1,6 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4, 1rem);
+  min-width: 0;
+}

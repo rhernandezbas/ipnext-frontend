@@ -32,23 +32,152 @@ describe('CustomerCard', () => {
     );
     expect(screen.getByText(/sin cliente asignado/i)).toBeInTheDocument();
   });
+
+  it('renders email as a mailto link', () => {
+    render(
+      <MemoryRouter>
+        <CustomerCard
+          customerId="cust-1"
+          customerName="Pérez, Juan"
+          email="juan@example.com"
+        />
+      </MemoryRouter>
+    );
+    const link = screen.getByRole('link', { name: /juan@example\.com/i });
+    expect(link).toHaveAttribute('href', 'mailto:juan@example.com');
+  });
+
+  it('renders phone as a tel link', () => {
+    render(
+      <MemoryRouter>
+        <CustomerCard
+          customerId="cust-1"
+          customerName="Pérez, Juan"
+          phone="+5491155551234"
+        />
+      </MemoryRouter>
+    );
+    const link = screen.getByRole('link', { name: /\+5491155551234/i });
+    expect(link).toHaveAttribute('href', 'tel:+5491155551234');
+  });
+
+  it('renders city as plain text', () => {
+    render(
+      <MemoryRouter>
+        <CustomerCard
+          customerId="cust-1"
+          customerName="Pérez, Juan"
+          customerCity="Buenos Aires"
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Buenos Aires')).toBeInTheDocument();
+  });
+
+  it('shows placeholder "—" for contact rows when isLoadingContact is true', () => {
+    render(
+      <MemoryRouter>
+        <CustomerCard
+          customerId="cust-1"
+          customerName="Pérez, Juan"
+          isLoadingContact
+        />
+      </MemoryRouter>
+    );
+    // Three rows (email, phone, city) each show "—" while loading
+    const placeholders = screen.getAllByText('—');
+    expect(placeholders.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('shows "Sin dato" for null contact fields after load', () => {
+    render(
+      <MemoryRouter>
+        <CustomerCard
+          customerId="cust-1"
+          customerName="Pérez, Juan"
+          email={null}
+          phone={null}
+          customerCity={null}
+          isLoadingContact={false}
+        />
+      </MemoryRouter>
+    );
+    const sinDato = screen.getAllByText('Sin dato');
+    expect(sinDato.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('does not crash when customerId is null and contact props are omitted', () => {
+    render(
+      <MemoryRouter>
+        <CustomerCard customerId={null} customerName={null} />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(/sin cliente asignado/i)).toBeInTheDocument();
+  });
 });
 
 describe('ServiceCard', () => {
-  it('shows service link when serviceId and customerId present', () => {
+  it('shows service link when serviceId and customerId present (no service detail)', () => {
     render(
       <MemoryRouter>
-        <ServiceCard serviceId="srv-1" customerId="cust-1" />
+        <ServiceCard serviceId="srv-1" customerId="cust-1" service={null} />
       </MemoryRouter>
     );
-    expect(screen.getByText('srv-1')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /ver servicio/i })).toBeInTheDocument();
   });
 
   it('shows empty state when serviceId is null', () => {
     render(
       <MemoryRouter>
-        <ServiceCard serviceId={null} customerId={null} />
+        <ServiceCard serviceId={null} customerId={null} service={null} />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(/sin servicio/i)).toBeInTheDocument();
+  });
+
+  it('renders plan as primary text and type as muted secondary when service is resolved', () => {
+    render(
+      <MemoryRouter>
+        <ServiceCard
+          serviceId="srv-1"
+          customerId="cust-1"
+          service={{ plan: '300MB', type: 'internet' }}
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('300MB')).toBeInTheDocument();
+    expect(screen.getByText('internet')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /ver servicio/i })).toBeInTheDocument();
+  });
+
+  it('shows "—" placeholder when isLoading is true', () => {
+    render(
+      <MemoryRouter>
+        <ServiceCard
+          serviceId="srv-1"
+          customerId="cust-1"
+          service={null}
+          isLoading
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('—')).toBeInTheDocument();
+  });
+
+  it('shows graceful fallback "Servicio #<id>" when service is null but serviceId is set', () => {
+    render(
+      <MemoryRouter>
+        <ServiceCard serviceId="42" customerId="cust-1" service={null} isLoading={false} />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(/servicio #42/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /ver servicio/i })).toBeInTheDocument();
+  });
+
+  it('shows graceful empty state when both service and serviceId are null', () => {
+    render(
+      <MemoryRouter>
+        <ServiceCard serviceId={null} customerId={null} service={null} isLoading={false} />
       </MemoryRouter>
     );
     expect(screen.getByText(/sin servicio/i)).toBeInTheDocument();

@@ -1,22 +1,22 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Spinner } from '@/components/atoms/Spinner/Spinner';
-import { useTask, useUpdateTask, useMoveTaskToStage, useDeleteTask, useCloseTask } from '@/hooks/useScheduling';
+import {
+  useTask,
+  useUpdateTask,
+  useMoveTaskToStage,
+  useDeleteTask,
+  useCloseTask,
+  useSetTaskInventoryReview,
+} from '@/hooks/useScheduling';
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { useAdmins } from '@/hooks/useAdmins';
 import { usePartners } from '@/hooks/usePartners';
 import { useAuth } from '@/hooks/useAuth';
 import { TaskHeader } from './SchedulingTaskDetailPage/components/TaskHeader';
-import { DescriptionEditor } from './SchedulingTaskDetailPage/components/DescriptionEditor';
-import { DatosForm } from './SchedulingTaskDetailPage/components/DatosForm';
-import { ChecklistSection } from './SchedulingTaskDetailPage/components/ChecklistSection';
-import { TaskCommentsTimeline } from './SchedulingTaskDetailPage/components/TaskCommentsTimeline';
+import { TaskTabs } from './SchedulingTaskDetailPage/components/TaskTabs';
+import { CustomerSidebar } from './SchedulingTaskDetailPage/components/CustomerSidebar';
 import type { DatosFormValues } from './SchedulingTaskDetailPage/components/DatosForm';
-import { UbicacionMap } from './SchedulingTaskDetailPage/components/UbicacionMap';
-import { WatchersChips } from './SchedulingTaskDetailPage/components/WatchersChips';
-import { CustomerCard } from './SchedulingTaskDetailPage/components/CustomerCard';
-import { ServiceCard } from './SchedulingTaskDetailPage/components/ServiceCard';
-import { ReporterCard } from './SchedulingTaskDetailPage/components/ReporterCard';
 import { useTaskPriorities } from '@/hooks/useTaskPriorities';
 import type { WorkflowStage } from '@/types/workflow';
 import styles from './SchedulingTaskDetailPage.module.css';
@@ -54,6 +54,7 @@ export default function SchedulingTaskDetailPage() {
   const moveToStage = useMoveTaskToStage();
   const deleteTask = useDeleteTask();
   const closeTask = useCloseTask();
+  const setInventoryReview = useSetTaskInventoryReview();
 
   const [formDirty, setFormDirty] = useState(false);
   const [descDirty, setDescDirty] = useState(false);
@@ -175,6 +176,16 @@ export default function SchedulingTaskDetailPage() {
     []
   );
 
+  const handleInventoryToggle = useCallback(async (next: boolean) => {
+    if (!task) return;
+    try {
+      await setInventoryReview.mutateAsync({ id: task.id, reviewed: next });
+      showToast(next ? 'Marcado como revisado por inventario' : 'Desmarcado de revisado por inventario');
+    } catch (err) {
+      showToast(mapError(err), 'error');
+    }
+  }, [task, setInventoryReview]);
+
   // Collect all stages from all workflows
   const allStages: WorkflowStage[] = workflows.flatMap(w => w.stages);
 
@@ -230,45 +241,48 @@ export default function SchedulingTaskDetailPage() {
 
       <div className={styles.layout}>
         <main className={styles.main}>
-          <DatosForm
-            initial={formInitial}
-            onSubmit={handleFormSubmit}
-            isSaving={updateTask.isPending}
-            admins={admins}
-            partners={partners}
-            onDirtyChange={setFormDirty}
+          <TaskTabs
+            detailsProps={{
+              datosForm: {
+                initial: formInitial,
+                onSubmit: handleFormSubmit,
+                isSaving: updateTask.isPending,
+                admins,
+                partners,
+                onDirtyChange: setFormDirty,
+              },
+              ubicacionMap: {
+                address: currentLocation.address,
+                coordinates: currentLocation.coordinates,
+                onChange: handleLocationChange,
+              },
+              descriptionEditor: {
+                initialHtml: task.description,
+                onSave: handleDescSave,
+                isSaving: updateTask.isPending,
+              },
+              checklistSection: {
+                taskId: id!,
+                checklist: task.checklist ?? [],
+                onError: (msg) => showToast(msg, 'error'),
+              },
+            }}
+            commentsTaskId={id!}
+            reviewedByInventory={task.reviewedByInventory}
+            onInventoryToggle={handleInventoryToggle}
           />
-
-          <UbicacionMap
-            address={currentLocation.address}
-            coordinates={currentLocation.coordinates}
-            onChange={handleLocationChange}
-          />
-
-          <DescriptionEditor
-            initialHtml={task.description}
-            onSave={handleDescSave}
-            isSaving={updateTask.isPending}
-          />
-
-          <ChecklistSection
-            taskId={id!}
-            checklist={task.checklist ?? []}
-            onError={msg => showToast(msg, 'error')}
-          />
-
-          <TaskCommentsTimeline taskId={id!} />
         </main>
 
         <aside className={styles.sidebar}>
-          <CustomerCard customerId={task.customerId} customerName={task.customerName} />
-          <ServiceCard serviceId={task.serviceId} customerId={task.customerId} />
-          <ReporterCard reporterId={task.reporterId} allAdmins={admins} />
-          <WatchersChips
+          <CustomerSidebar
+            customerId={task.customerId}
+            customerName={task.customerName}
+            serviceId={task.serviceId}
+            reporterId={task.reporterId}
             watcherIds={task.watcherIds}
-            allAdmins={admins}
-            onChange={handleWatcherChange}
-            isSaving={updateTask.isPending}
+            admins={admins}
+            onWatchersChange={handleWatcherChange}
+            isSavingWatchers={updateTask.isPending}
           />
         </aside>
       </div>
