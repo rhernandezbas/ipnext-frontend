@@ -8,7 +8,7 @@ import * as useTicketsModule from '@/hooks/useTickets';
 import * as clientsApi from '@/api/customers.api';
 
 vi.mock('@/hooks/useTickets');
-vi.mock('@/api/clients.api');
+vi.mock('@/api/customers.api');
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });

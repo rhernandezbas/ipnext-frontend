@@ -22,18 +22,13 @@ const mockCustomer: Customer = {
 describe('InfoTab', () => {
   it('renders customer fields', () => {
     render(<InfoTab customer={mockCustomer} active={true} />);
-    expect(screen.getByText('Alice García')).toBeInTheDocument();
-    expect(screen.getByText('alice@example.com')).toBeInTheDocument();
-    expect(screen.getByText('Av. Corrientes 1234, CABA')).toBeInTheDocument();
+    // Fields are rendered as read-only inputs — assert via displayValue
+    expect(screen.getByDisplayValue('Alice García')).toBeInTheDocument();
+    expect(screen.getAllByDisplayValue('alice@example.com').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByDisplayValue('Av. Corrientes 1234, CABA')).toBeInTheDocument();
   });
 
-  // M1: OpenStreetMap iframe
-  it('renders map iframe with title "Mapa de ubicación"', () => {
-    render(<InfoTab customer={mockCustomer} active={true} />);
-    const iframe = screen.getByTitle('Mapa de ubicación');
-    expect(iframe).toBeInTheDocument();
-    expect(iframe.tagName.toLowerCase()).toBe('iframe');
-  });
+  // M1: OpenStreetMap iframe was removed from this component — test removed
 });
 
 describe('InfoTab — BalanceCard (gr-client-balance-sync)', () => {

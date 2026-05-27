@@ -37,11 +37,11 @@ describe('Sidebar', () => {
     expect(screen.queryByRole('button', { name: /^soporte$/i })).not.toBeInTheDocument();
   });
 
-  it('Clientes has "Online" sub-item linking to /admin/customers/online and has Vouchers', () => {
+  it('Clientes has "Lista" sub-item linking to /admin/customers/list and has Vouchers', () => {
     renderSidebar('/admin/customers/list');
-    const onlineLink = screen.getByRole('link', { name: /^online$/i });
-    expect(onlineLink).toBeInTheDocument();
-    expect(onlineLink).toHaveAttribute('href', '/admin/customers/online');
+    const listaLink = screen.getByRole('link', { name: /^lista$/i });
+    expect(listaLink).toBeInTheDocument();
+    expect(listaLink).toHaveAttribute('href', '/admin/customers/list');
     expect(screen.getByRole('link', { name: /vouchers/i })).toBeInTheDocument();
   });
 
