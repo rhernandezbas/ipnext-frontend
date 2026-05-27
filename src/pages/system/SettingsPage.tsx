@@ -23,7 +23,7 @@ import {
   useUpdateClientPortalSettings,
 } from '@/hooks/useSettings';
 import type { SystemSettings, EmailSettings, MessageTemplate, PaymentMethod, TemplateVariable, Webhook, WebhookEvent, ClientPortalSettings } from '@/types/settings';
-import styles from './ConfiguracionPage.module.css';
+import styles from './SettingsPage.module.css';
 
 type Tab = 'sistema' | 'correo' | 'plantillas' | 'tokens' | 'finanzas' | 'webhooks' | 'respaldo' | 'portal-cliente' | 'notificaciones' | 'politicas-red' | 'addons' | 'system-logs' | 'scheduled-tasks' | 'integraciones';
 
@@ -2329,7 +2329,7 @@ function IntegracionesTab() {
 
 // ── Main Page ──────────────────────────────────────────────────────────────
 
-export default function ConfiguracionPage() {
+export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('sistema');
 
   return (

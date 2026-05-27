@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { default as PartnersPage } from '@/pages/sistema/PartnersPage';
+import { default as PartnersPage } from '@/pages/system/PartnersPage';
 import * as usePartnersModule from '@/hooks/usePartners';
 import type { Partner } from '@/types/partner';
 

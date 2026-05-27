@@ -8,7 +8,7 @@ import {
   useDeleteUbicacion,
 } from '@/hooks/useLocations';
 import type { Ubicacion } from '@/types/location';
-import styles from './UbicacionesPage.module.css';
+import styles from './LocationsPage.module.css';
 
 function StatusBadge({ status }: { status: Ubicacion['status'] }) {
   return (
@@ -121,7 +121,7 @@ function UbicacionFormModal({ initial = {}, onClose, onSubmit, title }: Ubicacio
   );
 }
 
-export default function UbicacionesPage() {
+export default function LocationsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingUbicacion, setEditingUbicacion] = useState<Ubicacion | null>(null);
   const [ubicSearch, setUbicSearch] = useState('');

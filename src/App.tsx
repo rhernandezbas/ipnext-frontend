@@ -13,7 +13,7 @@ import { Spinner } from '@/components/atoms/Spinner/Spinner';
 
 const DashboardPage = lazy(() => import('@/pages/DashboardPage/DashboardPage'));
 const LeadsPage = lazy(() => import('@/pages/clientes/LeadsPage'));
-const UbicacionesPage = lazy(() => import('@/pages/sistema/UbicacionesPage'));
+const LocationsPage = lazy(() => import('@/pages/system/LocationsPage'));
 const ClientesListPage = lazy(() => import('@/pages/clientes/ClientesListPage'));
 
 const ClienteDetailPage = lazy(() => import('@/pages/clientes/ClienteDetailPage'));
@@ -77,9 +77,9 @@ const NotasCreditoPage = lazy(() => import('@/pages/finanzas/NotasCreditoPage'))
 const ProformasPage = lazy(() => import('@/pages/finanzas/ProformasPage'));
 const HistorialFinancieroPage = lazy(() => import('@/pages/finanzas/HistorialFinancieroPage'));
 const PaymentStatementsPage = lazy(() => import('@/pages/finanzas/PaymentStatementsPage'));
-const AdministracionPage = lazy(() => import('@/pages/sistema/AdministracionPage'));
-const ConfiguracionPage = lazy(() => import('@/pages/sistema/ConfiguracionPage'));
-const PartnersPage = lazy(() => import('@/pages/sistema/PartnersPage'));
+const AdminPage = lazy(() => import('@/pages/system/AdminPage'));
+const SettingsPage = lazy(() => import('@/pages/system/SettingsPage'));
+const PartnersPage = lazy(() => import('@/pages/system/PartnersPage'));
 const InformesPage = lazy(() => import('@/pages/informes/InformesPage'));
 const MonitoringPage = lazy(() => import('@/pages/monitoring/MonitoringPage'));
 const NotificationsPage = lazy(() => import('@/pages/notifications/NotificationsPage'));
@@ -292,17 +292,17 @@ export function App() {
 
               {/* ── Administration ─────────────────────────────────────────── */}
               <Route path="administration">
-                <Route path="administrators" element={<AdministracionPage />} />
+                <Route path="administrators" element={<AdminPage />} />
               </Route>
 
               {/* ── Config ─────────────────────────────────────────────────── */}
               <Route path="config">
-                <Route path="main" element={<ConfiguracionPage />} />
+                <Route path="main" element={<SettingsPage />} />
               </Route>
 
               {/* ── Singletons ─────────────────────────────────────────────── */}
               <Route path="partners" element={<PartnersPage />} />
-              <Route path="locations" element={<UbicacionesPage />} />
+              <Route path="locations" element={<LocationsPage />} />
               <Route path="reports" element={<InformesPage />} />
               <Route path="monitoring" element={<MonitoringPage />} />
               <Route path="notifications" element={<NotificationsPage />} />

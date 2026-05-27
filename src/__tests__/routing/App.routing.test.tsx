@@ -317,16 +317,16 @@ vi.mock('@/pages/portal/PortalUsersPage', () => ({
 }));
 
 // Sistema / Administration
-vi.mock('@/pages/sistema/UbicacionesPage', () => ({
+vi.mock('@/pages/system/LocationsPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:Ubicaciones]'),
 }));
-vi.mock('@/pages/sistema/AdministracionPage', () => ({
+vi.mock('@/pages/system/AdminPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:Administracion]'),
 }));
-vi.mock('@/pages/sistema/ConfiguracionPage', () => ({
+vi.mock('@/pages/system/SettingsPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:Configuracion]'),
 }));
-vi.mock('@/pages/sistema/PartnersPage', () => ({
+vi.mock('@/pages/system/PartnersPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:Partners]'),
 }));
 

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { default as ConfiguracionPage } from '@/pages/sistema/ConfiguracionPage';
+import { default as SettingsPage } from '@/pages/system/SettingsPage';
 import * as useSettingsModule from '@/hooks/useSettings';
 import type { SystemSettings, EmailSettings, MessageTemplate, ApiToken, FinanceSettings, PaymentMethod, Webhook, BackupRecord, ClientPortalSettings } from '@/types/settings';
 
@@ -132,13 +132,13 @@ function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
       <MemoryRouter>
-        <ConfiguracionPage />
+        <SettingsPage />
       </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
-describe('ConfiguracionPage', () => {
+describe('SettingsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 

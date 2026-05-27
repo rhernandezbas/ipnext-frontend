@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { default as AdministracionPage } from '@/pages/sistema/AdministracionPage';
+import { default as AdminPage } from '@/pages/system/AdminPage';
 import * as useAdminsModule from '@/hooks/useAdmins';
 import type { Admin, AdminActivityLog, Admin2FA } from '@/types/admin';
 import type { AdminRole_Definition } from '@/types/role';
@@ -84,13 +84,13 @@ function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
       <MemoryRouter>
-        <AdministracionPage />
+        <AdminPage />
       </MemoryRouter>
     </QueryClientProvider>
   );
 }
 
-describe('AdministracionPage', () => {
+describe('AdminPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 

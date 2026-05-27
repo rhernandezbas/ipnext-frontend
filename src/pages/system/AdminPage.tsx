@@ -4,7 +4,7 @@ import { FilterBar } from '@/components/molecules/FilterBar/FilterBar';
 import { useAdmins, useAdminActivityLog, useCreateAdmin, useUpdateAdmin, useDeleteAdmin, useRoles, useCreateRole, useUpdateRole, useEnable2FA, useDisable2FA, useAdmin2FAStatus } from '@/hooks/useAdmins';
 import type { Admin, AdminActivityLog, ActivityCategory } from '@/types/admin';
 import type { AdminRole_Definition } from '@/types/role';
-import styles from './AdministracionPage.module.css';
+import styles from './AdminPage.module.css';
 
 type Tab = 'admins' | 'activity' | 'roles' | 'seguridad' | 'sesiones';
 
@@ -798,7 +798,7 @@ const activityColumns = [
 
 // ── Main Page ───────────────────────────────────────────────────────────────
 
-export default function AdministracionPage() {
+export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('admins');
   const [showModal, setShowModal] = useState(false);
   const [editingAdmin, setEditingAdmin] = useState<Admin | null>(null);

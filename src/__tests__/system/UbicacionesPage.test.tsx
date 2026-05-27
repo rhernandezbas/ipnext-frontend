@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import UbicacionesPage from '@/pages/sistema/UbicacionesPage';
+import LocationsPage from '@/pages/system/LocationsPage';
 import * as useUbicacionesModule from '@/hooks/useLocations';
 import type { Ubicacion } from '@/types/location';
 
@@ -67,13 +67,13 @@ function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
       <MemoryRouter>
-        <UbicacionesPage />
+        <LocationsPage />
       </MemoryRouter>
     </QueryClientProvider>
   );
 }
 
-describe('UbicacionesPage', () => {
+describe('LocationsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
