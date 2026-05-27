@@ -1,5 +1,5 @@
 import axiosClient from './axios-client';
-import type { Customer, CustomerSummary, Service, LogEntry } from '@/types/customer';
+import type { Customer, CustomerSummary, Service, LogEntry, CreateCustomerData, UpdateCustomerData, AddServiceData, UpdateServiceData } from '@/types/customer';
 import type { Invoice } from '@/types/billing';
 import type { PaginatedResponse } from '@/types/api';
 
@@ -108,4 +108,104 @@ export async function createClientComment(payload: CreateCommentPayload): Promis
   const { clientId, ...body } = payload;
   const response = await axiosClient.post<ClientComment>(`/customers/${clientId}/comments`, body);
   return response.data;
+}
+
+export async function createCustomer(data: CreateCustomerData): Promise<Customer> {
+  const response = await axiosClient.post<Customer>('/clients', data);
+  return response.data;
+}
+
+export async function patchClient(id: string, data: UpdateCustomerData): Promise<Customer> {
+  const response = await axiosClient.patch<Customer>(`/clients/${id}`, data);
+  return response.data;
+}
+
+export async function updateClientStatus(id: string, status: string): Promise<Customer> {
+  const response = await axiosClient.patch<Customer>(`/clients/${id}/status`, { status });
+  return response.data;
+}
+
+export interface ClientDocument {
+  id: number;
+  name: string;
+  size: number;
+  uploadedAt: string;
+  url: string;
+}
+
+export async function getClientDocuments(clientId: string): Promise<ClientDocument[]> {
+  const response = await axiosClient.get<ClientDocument[]>(`/clients/${clientId}/documents`);
+  return response.data;
+}
+
+export async function uploadClientDocument(
+  clientId: string,
+  name: string,
+  size: number
+): Promise<ClientDocument> {
+  const response = await axiosClient.post<ClientDocument>(`/clients/${clientId}/documents`, { name, size });
+  return response.data;
+}
+
+export async function addClientService(clientId: string, data: AddServiceData): Promise<Service> {
+  const response = await axiosClient.post<Service>(`/clients/${clientId}/services`, data);
+  return response.data;
+}
+
+export async function updateClientService(
+  clientId: string,
+  serviceId: number,
+  data: UpdateServiceData
+): Promise<Service> {
+  const response = await axiosClient.patch<Service>(`/clients/${clientId}/services/${serviceId}`, data);
+  return response.data;
+}
+
+export async function deleteClientService(clientId: string, serviceId: number): Promise<void> {
+  await axiosClient.delete(`/clients/${clientId}/services/${serviceId}`);
+}
+
+export interface ClientFile {
+  id: number;
+  name: string;
+  size: number;
+  uploadedAt: string;
+}
+
+export async function getClientFiles(clientId: string): Promise<ClientFile[]> {
+  const response = await axiosClient.get<ClientFile[]>(`/clients/${clientId}/files`);
+  return response.data;
+}
+
+export async function uploadClientFile(
+  clientId: string,
+  name: string,
+  size: number
+): Promise<ClientFile> {
+  const response = await axiosClient.post<ClientFile>(`/clients/${clientId}/files`, { name, size });
+  return response.data;
+}
+
+export interface OnlineSession {
+  id: number;
+  clientId: number;
+  clientName: string;
+  ip: string;
+  mac: string;
+  connectedSince: string;
+  downloadMbps: number;
+  uploadMbps: number;
+}
+
+export async function getOnlineSessions(): Promise<OnlineSession[]> {
+  const response = await axiosClient.get<OnlineSession[]>('/clients/online');
+  return response.data;
+}
+
+export async function disconnectSession(sessionId: number): Promise<void> {
+  await axiosClient.delete(`/clients/online/${sessionId}`);
+}
+
+export async function deleteCustomer(id: string): Promise<void> {
+  await axiosClient.delete(`/clients/${id}`);
 }

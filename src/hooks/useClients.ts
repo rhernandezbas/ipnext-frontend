@@ -8,12 +8,32 @@ import {
   getClientComments,
   createClientComment,
   getClientStats,
+  createCustomer,
+  patchClient,
+  updateClientStatus,
+  getClientDocuments,
+  uploadClientDocument,
+  addClientService,
+  updateClientService,
+  deleteClientService,
+  getClientFiles,
+  uploadClientFile,
+  getOnlineSessions,
+  disconnectSession,
+  deleteCustomer,
 } from '../api/clients.api';
-import axiosClient from '../api/axios-client';
-import type { ClientsQuery, LogsQuery, ClientComment, CreateCommentPayload } from '../api/clients.api';
+import type {
+  ClientsQuery,
+  LogsQuery,
+  ClientComment,
+  CreateCommentPayload,
+  ClientDocument,
+  ClientFile,
+  OnlineSession,
+} from '../api/clients.api';
 import type { CreateCustomerData, UpdateCustomerData, AddServiceData, UpdateServiceData } from '../types/customer';
 
-export type { ClientsQuery, LogsQuery, ClientComment };
+export type { ClientsQuery, LogsQuery, ClientComment, ClientDocument, ClientFile, OnlineSession };
 
 export function useClientList(query: ClientsQuery) {
   return useQuery({
@@ -91,8 +111,7 @@ export function useCreateComment() {
 export function useCreateCustomer() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: CreateCustomerData) =>
-      axiosClient.post('/clients', data).then(r => r.data),
+    mutationFn: (data: CreateCustomerData) => createCustomer(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['clients'] });
     },
@@ -102,8 +121,7 @@ export function useCreateCustomer() {
 export function useUpdateCustomer() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateCustomerData }) =>
-      axiosClient.patch(`/clients/${id}`, data).then(r => r.data),
+    mutationFn: ({ id, data }: { id: string; data: UpdateCustomerData }) => patchClient(id, data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['clients'] });
       qc.invalidateQueries({ queryKey: ['client', id] });
@@ -114,8 +132,7 @@ export function useUpdateCustomer() {
 export function useToggleClientStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      axiosClient.patch(`/clients/${id}/status`, { status }).then(r => r.data),
+    mutationFn: ({ id, status }: { id: string; status: string }) => updateClientStatus(id, status),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['clients'] });
       qc.invalidateQueries({ queryKey: ['client', id] });
@@ -123,18 +140,10 @@ export function useToggleClientStatus() {
   });
 }
 
-export interface ClientDocument {
-  id: number;
-  name: string;
-  size: number;
-  uploadedAt: string;
-  url: string;
-}
-
 export function useClientDocuments(clientId: string) {
   return useQuery<ClientDocument[]>({
     queryKey: ['client-docs', clientId],
-    queryFn: () => axiosClient.get(`/clients/${clientId}/documents`).then(r => r.data),
+    queryFn: () => getClientDocuments(clientId),
   });
 }
 
@@ -142,7 +151,7 @@ export function useUploadDocument() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ clientId, name, size }: { clientId: string; name: string; size: number }) =>
-      axiosClient.post(`/clients/${clientId}/documents`, { name, size }).then(r => r.data),
+      uploadClientDocument(clientId, name, size),
     onSuccess: (_, { clientId }) => {
       qc.invalidateQueries({ queryKey: ['client-docs', clientId] });
     },
@@ -153,7 +162,7 @@ export function useAddService() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ clientId, data }: { clientId: string; data: AddServiceData }) =>
-      axiosClient.post(`/clients/${clientId}/services`, data).then(r => r.data),
+      addClientService(clientId, data),
     onSuccess: (_, { clientId }) => {
       qc.invalidateQueries({ queryKey: ['client-services', clientId] });
     },
@@ -164,7 +173,7 @@ export function useUpdateService() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ clientId, serviceId, data }: { clientId: string; serviceId: number; data: UpdateServiceData }) =>
-      axiosClient.patch(`/clients/${clientId}/services/${serviceId}`, data).then(r => r.data),
+      updateClientService(clientId, serviceId, data),
     onSuccess: (_, { clientId }) => {
       qc.invalidateQueries({ queryKey: ['client-services', clientId] });
     },
@@ -175,24 +184,17 @@ export function useDeleteService() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ clientId, serviceId }: { clientId: string; serviceId: number }) =>
-      axiosClient.delete(`/clients/${clientId}/services/${serviceId}`).then(r => r.data),
+      deleteClientService(clientId, serviceId),
     onSuccess: (_, { clientId }) => {
       qc.invalidateQueries({ queryKey: ['client-services', clientId] });
     },
   });
 }
 
-export interface ClientFile {
-  id: number;
-  name: string;
-  size: number;
-  uploadedAt: string;
-}
-
 export function useClientFiles(clientId: string) {
   return useQuery<ClientFile[]>({
     queryKey: ['client-files', clientId],
-    queryFn: () => axiosClient.get(`/clients/${clientId}/files`).then(r => r.data),
+    queryFn: () => getClientFiles(clientId),
   });
 }
 
@@ -200,28 +202,17 @@ export function useUploadFile() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ clientId, name, size }: { clientId: string; name: string; size: number }) =>
-      axiosClient.post(`/clients/${clientId}/files`, { name, size }).then(r => r.data),
+      uploadClientFile(clientId, name, size),
     onSuccess: (_, { clientId }) => {
       qc.invalidateQueries({ queryKey: ['client-files', clientId] });
     },
   });
 }
 
-export interface OnlineSession {
-  id: number;
-  clientId: number;
-  clientName: string;
-  ip: string;
-  mac: string;
-  connectedSince: string;
-  downloadMbps: number;
-  uploadMbps: number;
-}
-
 export function useOnlineSessions() {
   return useQuery<OnlineSession[]>({
     queryKey: ['online-sessions'],
-    queryFn: () => axiosClient.get('/clients/online').then(r => r.data),
+    queryFn: () => getOnlineSessions(),
     refetchInterval: 30000,
   });
 }
@@ -229,8 +220,7 @@ export function useOnlineSessions() {
 export function useDisconnectSession() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (sessionId: number) =>
-      axiosClient.delete(`/clients/online/${sessionId}`).then(r => r.data),
+    mutationFn: (sessionId: number) => disconnectSession(sessionId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['online-sessions'] });
     },
@@ -240,7 +230,7 @@ export function useDisconnectSession() {
 export function useDeleteCustomer() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => axiosClient.delete(`/clients/${id}`).then(r => r.data),
+    mutationFn: (id: string) => deleteCustomer(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['clients'] });
     },
