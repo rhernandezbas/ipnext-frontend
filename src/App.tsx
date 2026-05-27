@@ -189,12 +189,21 @@ export function App() {
                 <Route path="dunning" element={<DunningPage />} />
                 <Route path="payment-plans" element={<PaymentPlansPage />} />
               </Route>
-              <Route path="networking/routers/list" element={<GestionRedPage />} />
-              <Route path="networking/network-sites" element={<NetworkSitesPage />} />
-              <Route path="networking/sites" element={<Navigate to="/admin/networking/network-sites" replace />} />
-              <Route path="networking/cpe" element={<CpePage />} />
-              <Route path="networking/tr069" element={<Tr069Page />} />
-              <Route path="networking/hardware" element={<HardwarePage />} />
+              {/* ── Networking ─────────────────────────────────────────────── */}
+              <Route path="networking">
+                <Route path="routers/list" element={<GestionRedPage />} />
+                <Route path="network-sites" element={<NetworkSitesPage />} />
+                <Route path="sites" element={<Navigate to="/admin/networking/network-sites" replace />} />
+                <Route path="cpe" element={<CpePage />} />
+                <Route path="tr069" element={<Tr069Page />} />
+                <Route path="hardware" element={<HardwarePage />} />
+                <Route path="gpon" element={<GponPage />} />
+                <Route path="radius-sessions" element={<RadiusSessionsPage />} />
+                <Route path="ipv4-networks" element={<Ipv4NetworksPage />} />
+                <Route path="ipv6-networks" element={<Ipv6NetworksPage />} />
+                <Route path="map" element={<NetworkMapPage />} />
+                <Route path="topology" element={<NetworkTopologyPage />} />
+              </Route>
               {/* ── Scheduling ─────────────────────────────────────────────── */}
               <Route path="scheduling">
                 {/*
@@ -234,8 +243,6 @@ export function App() {
               <Route path="monitoring" element={<MonitoringPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="api-docs" element={<ApiDocsPage />} />
-              <Route path="networking/gpon" element={<GponPage />} />
-              <Route path="networking/radius-sessions" element={<RadiusSessionsPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="crm/dashboard" element={<CrmDashboardPage />} />
               <Route path="crm/quotes" element={<CrmQuotesPage />} />
@@ -245,9 +252,6 @@ export function App() {
               <Route path="support/mass-send" element={<MassSendPage />} />
               <Route path="support/messengers" element={<MessengersPage />} />
               <Route path="support/news" element={<NewsPage />} />
-              <Route path="networking/ipv4-networks" element={<Ipv4NetworksPage />} />
-              <Route path="networking/ipv6-networks" element={<Ipv6NetworksPage />} />
-              <Route path="networking/map" element={<NetworkMapPage />} />
               <Route path="inventory/dashboard" element={<InventoryDashboardPage />} />
               <Route path="inventory/items" element={<InventoryItemsPage />} />
               <Route path="inventory/products" element={<InventoryProductsPage />} />
@@ -263,7 +267,6 @@ export function App() {
               <Route path="voice/cdr" element={<CDRPage />} />
               <Route path="portal" element={<PortalConfigPage />} />
               <Route path="portal/users" element={<PortalUsersPage />} />
-              <Route path="networking/topology" element={<NetworkTopologyPage />} />
             </Route>
           </Route>
         </Route>
