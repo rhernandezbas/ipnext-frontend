@@ -1,5 +1,7 @@
 import axiosClient from './axios-client';
-import type { ServicePlan, NetworkDevice, InventoryItem, InventoryProduct, InventoryUnit, SupplyOrder } from '../types/empresa';
+import type { ServicePlan } from '../types/service-plans';
+import type { NetworkDevice } from '../types/network-devices';
+import type { InventoryItem, InventoryProduct, InventoryUnit, SupplyOrder } from '../types/inventory';
 
 // Service Plans
 export const getServicePlans = () =>

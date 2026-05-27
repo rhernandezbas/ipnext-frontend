@@ -1,6 +1,6 @@
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useInventoryItems } from '@/hooks/useEmpresa';
-import type { InventoryItem } from '@/types/empresa';
+import type { InventoryItem } from '@/types/inventory';
 import styles from './InventoryDashboardPage.module.css';
 
 const COLUMNS = [

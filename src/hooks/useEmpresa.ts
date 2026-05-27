@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { ServicePlan, NetworkDevice, InventoryItem, InventoryProduct, InventoryUnit, SupplyOrder } from '@/types/empresa';
+import type { ServicePlan } from '@/types/service-plans';
+import type { NetworkDevice } from '@/types/network-devices';
+import type { InventoryItem, InventoryProduct, InventoryUnit, SupplyOrder } from '@/types/inventory';
 import * as api from '@/api/empresa.api';
 
 // Service Plans

@@ -1,31 +1,3 @@
-export type PlanSubtype = 'internet' | 'voice' | 'recurring' | 'onetime' | 'bundle';
-
-export interface ServicePlan {
-  id: string;
-  name: string;
-  type: 'internet' | 'voip' | 'tv' | 'other';
-  planSubtype: PlanSubtype;
-  downloadSpeed: number;
-  uploadSpeed: number;
-  price: number;
-  billingCycle: 'monthly' | 'quarterly' | 'yearly';
-  status: 'active' | 'inactive';
-  description: string;
-  subscriberCount: number;
-}
-
-export interface NetworkDevice {
-  id: string;
-  name: string;
-  type: 'router' | 'switch' | 'onu' | 'olt' | 'access_point' | 'other';
-  ipAddress: string;
-  macAddress: string;
-  location: string;
-  status: 'online' | 'offline' | 'warning';
-  model: string;
-  lastSeen: string;
-}
-
 export interface InventoryItem {
   id: string;
   name: string;
@@ -54,9 +26,9 @@ export interface InventoryProduct {
 
 export interface SupplyOrder {
   id: string;
-  proveedor: string;
-  estado: 'pendiente' | 'recibido' | 'cancelado';
-  fecha: string;
+  supplier: string;
+  status: 'pending' | 'received' | 'cancelled';
+  date: string;
   total: number;
 }
 

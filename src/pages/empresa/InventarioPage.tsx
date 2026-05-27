@@ -9,7 +9,7 @@ import {
   useDeleteInventoryUnit,
   useUpdateInventoryUnit,
 } from '@/hooks/useEmpresa';
-import type { InventoryProduct, InventoryUnit } from '@/types/empresa';
+import type { InventoryProduct, InventoryUnit } from '@/types/inventory';
 import styles from './InventarioPage.module.css';
 
 type Tab = 'productos' | 'items';

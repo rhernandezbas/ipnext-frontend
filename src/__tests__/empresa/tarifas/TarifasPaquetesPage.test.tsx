@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import TarifasPaquetesPage from '@/pages/empresa/tarifas/TarifasPaquetesPage';
 import * as useEmpresaModule from '@/hooks/useEmpresa';
-import type { ServicePlan } from '@/types/empresa';
+import type { ServicePlan } from '@/types/service-plans';
 
 vi.mock('@/hooks/useEmpresa');
 

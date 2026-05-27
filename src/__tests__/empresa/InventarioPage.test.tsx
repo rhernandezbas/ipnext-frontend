@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { default as InventarioPage } from '@/pages/empresa/InventarioPage';
 import * as useEmpresaModule from '@/hooks/useEmpresa';
-import type { InventoryProduct, InventoryUnit } from '@/types/empresa';
+import type { InventoryProduct, InventoryUnit } from '@/types/inventory';
 
 vi.mock('@/hooks/useEmpresa');
 

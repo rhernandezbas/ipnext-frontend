@@ -3,7 +3,7 @@ import { FilterBar } from '@/components/molecules/FilterBar/FilterBar';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useInventoryItems } from '@/hooks/useEmpresa';
-import type { InventoryItem } from '@/types/empresa';
+import type { InventoryItem } from '@/types/inventory';
 import styles from './InventoryItemsPage.module.css';
 
 const PAGE_SIZE = 20;

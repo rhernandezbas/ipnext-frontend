@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useServicePlans, useCreateServicePlan, useUpdateServicePlan, useDeleteServicePlan } from '@/hooks/useEmpresa';
-import type { ServicePlan } from '@/types/empresa';
+import type { ServicePlan } from '@/types/service-plans';
 import styles from './TarifasPage.module.css';
 
 type TypeFilter = '' | 'internet' | 'voip' | 'tv' | 'other';
