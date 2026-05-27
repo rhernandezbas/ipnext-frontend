@@ -60,30 +60,30 @@ vi.mock('@/pages/DashboardPage/DashboardPage', () => ({
 }));
 
 // Customers
-vi.mock('@/pages/clientes/ClientesListPage', () => ({
+vi.mock('@/pages/customers/CustomersListPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:CustomersList]'),
 }));
-vi.mock('@/pages/clientes/AddClientePage', () => ({
+vi.mock('@/pages/customers/AddCustomerPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:AddCliente]'),
 }));
-vi.mock('@/pages/clientes/ClienteDetailPage', () => ({
+vi.mock('@/pages/customers/CustomerDetailPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:ClienteDetail]'),
 }));
-vi.mock('@/pages/clientes/EditClientePage', () => ({
+vi.mock('@/pages/customers/EditCustomerPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:EditCliente]'),
 }));
-vi.mock('@/pages/clientes/CustomerSearchPage', () => ({
+vi.mock('@/pages/customers/CustomerSearchPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:CustomerSearch]'),
 }));
-vi.mock('@/pages/clientes/CustomerVouchersPage', () => ({
+vi.mock('@/pages/customers/CustomerVouchersPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:CustomerVouchers]'),
 }));
-vi.mock('@/pages/clientes/CustomerMapPage', () => ({
+vi.mock('@/pages/customers/CustomerMapPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:CustomerMap]'),
 }));
 
 // CRM
-vi.mock('@/pages/clientes/LeadsPage', () => ({
+vi.mock('@/pages/customers/LeadsPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:Leads]'),
 }));
 vi.mock('@/pages/crm/CrmDashboardPage', () => ({

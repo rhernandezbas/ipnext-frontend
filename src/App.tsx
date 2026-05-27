@@ -12,19 +12,19 @@ import { LoginPage } from '@/pages/LoginPage/LoginPage';
 import { Spinner } from '@/components/atoms/Spinner/Spinner';
 
 const DashboardPage = lazy(() => import('@/pages/DashboardPage/DashboardPage'));
-const LeadsPage = lazy(() => import('@/pages/clientes/LeadsPage'));
+const LeadsPage = lazy(() => import('@/pages/customers/LeadsPage'));
 const LocationsPage = lazy(() => import('@/pages/system/LocationsPage'));
-const ClientesListPage = lazy(() => import('@/pages/clientes/ClientesListPage'));
+const CustomersListPage = lazy(() => import('@/pages/customers/CustomersListPage'));
 
-const ClienteDetailPage = lazy(() => import('@/pages/clientes/ClienteDetailPage'));
+const CustomerDetailPage = lazy(() => import('@/pages/customers/CustomerDetailPage'));
 
 const TicketsDashboardPage = lazy(() => import('@/pages/tickets/TicketsDashboardPage'));
 const TicketsListPage = lazy(() => import('@/pages/tickets/TicketsListPage'));
 const TicketsArchivePage = lazy(() => import('@/pages/tickets/TicketsArchivePage'));
 const TicketCreatePage = lazy(() => import('@/pages/tickets/CreateTicketPage'));
 const TicketDetailPage = lazy(() => import('@/pages/tickets/TicketDetailPage'));
-const AddClientePage = lazy(() => import('@/pages/clientes/AddClientePage'));
-const EditClientePage = lazy(() => import('@/pages/clientes/EditClientePage'));
+const AddCustomerPage = lazy(() => import('@/pages/customers/AddCustomerPage'));
+const EditCustomerPage = lazy(() => import('@/pages/customers/EditCustomerPage'));
 
 const FinanzasDashboardPage = lazy(() =>
   import('@/pages/FinanzasDashboardPage/FinanzasDashboardPage').then((m) => ({
@@ -92,9 +92,9 @@ const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'));
 const CrmDashboardPage = lazy(() => import('@/pages/crm/CrmDashboardPage'));
 const CrmQuotesPage = lazy(() => import('@/pages/crm/CrmQuotesPage'));
 const CrmMapPage = lazy(() => import('@/pages/crm/CrmMapPage'));
-const CustomerSearchPage = lazy(() => import('@/pages/clientes/CustomerSearchPage'));
-const CustomerVouchersPage = lazy(() => import('@/pages/clientes/CustomerVouchersPage'));
-const CustomerMapPage = lazy(() => import('@/pages/clientes/CustomerMapPage'));
+const CustomerSearchPage = lazy(() => import('@/pages/customers/CustomerSearchPage'));
+const CustomerVouchersPage = lazy(() => import('@/pages/customers/CustomerVouchersPage'));
+const CustomerMapPage = lazy(() => import('@/pages/customers/CustomerMapPage'));
 const TicketRequestersPage = lazy(() => import('@/pages/tickets/TicketRequestersPage'));
 const SupportInboxPage = lazy(() => import('@/pages/support/SupportInboxPage'));
 const MassSendPage = lazy(() => import('@/pages/support/MassSendPage'));
@@ -149,13 +149,13 @@ export function App() {
 
               {/* ── Customers ──────────────────────────────────────────────── */}
               <Route path="customers">
-                <Route path="list" element={<ClientesListPage />} />
-                <Route path="add" element={<AddClientePage />} />
+                <Route path="list" element={<CustomersListPage />} />
+                <Route path="add" element={<AddCustomerPage />} />
                 <Route path="search" element={<CustomerSearchPage />} />
                 <Route path="vouchers" element={<CustomerVouchersPage />} />
                 <Route path="map" element={<CustomerMapPage />} />
-                <Route path="view/:id" element={<ClienteDetailPage />} />
-                <Route path="view/:id/edit" element={<EditClientePage />} />
+                <Route path="view/:id" element={<CustomerDetailPage />} />
+                <Route path="view/:id/edit" element={<EditCustomerPage />} />
                 {/* CATCH-ALL — RR6 ranking ensures specific paths above win over :id.
                     Natural /admin/customers/:id redirects to canonical /view/:id. */}
                 <Route path=":id" element={<CustomerIdRedirect />} />
