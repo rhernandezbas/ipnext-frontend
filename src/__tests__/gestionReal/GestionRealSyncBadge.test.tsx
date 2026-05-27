@@ -25,6 +25,24 @@ describe('GestionRealSyncBadge', () => {
     expect(screen.getByText(/5090/)).toBeInTheDocument();
   });
 
+  it('prefers clientCount from status over totalClients prop', () => {
+    render(<GestionRealSyncBadge status={{ ...base, clientCount: 6000, itemsSynced: 0 }} isError={false} totalClients={5257} />);
+    // clientCount (6000) should win over both totalClients (5257) and itemsSynced (0)
+    expect(screen.getByText(/6000/)).toBeInTheDocument();
+    expect(screen.queryByText(/5257/)).not.toBeInTheDocument();
+  });
+
+  it('shows contract count when contractCount is present', () => {
+    const { container } = render(<GestionRealSyncBadge status={{ ...base, clientCount: 6000, contractCount: 4200 }} isError={false} />);
+    expect(container.textContent).toMatch(/6000 clientes/);
+    expect(container.textContent).toMatch(/4200 contratos/);
+  });
+
+  it('omits contract count when contractCount is undefined', () => {
+    const { container } = render(<GestionRealSyncBadge status={{ ...base, clientCount: 6000 }} isError={false} />);
+    expect(container.textContent).not.toMatch(/contratos/);
+  });
+
   it('shows "sin sincronizar" before the first run', () => {
     render(<GestionRealSyncBadge status={{ ...base, hasRun: false, lastRunAt: null, lastResult: null }} isError={false} />);
     expect(screen.getByText(/sin sincronizar/i)).toBeInTheDocument();

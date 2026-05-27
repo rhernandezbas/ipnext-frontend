@@ -7,6 +7,10 @@ export interface GestionRealSyncStatus {
   lastResult: string | null;
   itemsSynced: number;
   hasRun: boolean;
+  /** Total mirrored clients — populated by the backend when available. */
+  clientCount?: number;
+  /** Total mirrored contracts — populated by the backend when available. */
+  contractCount?: number;
 }
 
 export async function getGestionRealSyncStatus(): Promise<GestionRealSyncStatus> {

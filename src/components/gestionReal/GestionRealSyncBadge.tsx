@@ -46,13 +46,14 @@ export function GestionRealSyncBadge({ status, isError, totalClients }: Props) {
     );
   }
 
-  const count = totalClients ?? status.itemsSynced;
+  const count = status.clientCount ?? totalClients ?? status.itemsSynced;
+  const contractCount = status.contractCount;
   return (
     <span
       className={`${styles.badge} ${styles.live}`}
       title={`Cursor: ${status.cursor ?? '—'} · última corrida: ${status.itemsSynced} cambios`}
     >
-      <span className={styles.dot} /> Réplica viva · {count} clientes · {relativeTime(status.lastRunAt)}
+      <span className={styles.dot} /> Réplica viva · {count} clientes{contractCount !== undefined ? ` · ${contractCount} contratos` : ''} · {relativeTime(status.lastRunAt)}
     </span>
   );
 }
