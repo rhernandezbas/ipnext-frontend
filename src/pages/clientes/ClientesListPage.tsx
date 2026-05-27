@@ -39,7 +39,14 @@ function getColumns(): Column[] {
       sortable: false,
       render: (row: CustomerSummary) => <StatusBadge status={toStatusBadge(row.status)} />,
     },
-    { label: 'ID', key: 'id', sortable: false },
+    {
+      label: 'ID',
+      key: 'id',
+      sortable: false,
+      // Show the Gestión Real business id when this client comes from the mirror;
+      // fall back to the internal id for any non-GR rows.
+      render: (row: CustomerSummary) => <>{row.grClienteId ?? row.id}</>,
+    },
     { label: 'Login del portal', key: 'login', sortable: false },
     {
       label: 'Nombre completo',

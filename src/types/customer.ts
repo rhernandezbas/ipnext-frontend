@@ -40,11 +40,14 @@ export interface Customer {
   country?: string;
   login?: string;
   splynxId?: string | null;
+  grClienteId?: string | null;
   customAttributes?: Record<string, unknown> | null;
 }
 
 export interface CustomerSummary {
   id: number;
+  /** Gestión Real client id — shown as the business id when present. */
+  grClienteId?: string | null;
   name: string;
   email: string;
   phone: string;
