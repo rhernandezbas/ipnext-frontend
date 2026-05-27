@@ -44,3 +44,87 @@ describe('Tabs', () => {
     expect(onChange).toHaveBeenCalledWith('services');
   });
 });
+
+describe('Tabs mountMode lazy', () => {
+  it('non-active tab panel wrapper is in the DOM but its content is not', () => {
+    render(
+      <Tabs
+        tabs={tabs}
+        activeTab="info"
+        onTabChange={vi.fn()}
+        mountMode="lazy"
+        mountedIds={new Set(['info'])}
+      />,
+    );
+    // Panel wrapper always present for ARIA
+    expect(document.getElementById('panel-services')).toBeInTheDocument();
+    // But content must NOT be rendered yet
+    expect(screen.queryByText('Services content')).not.toBeInTheDocument();
+  });
+
+  it('active tab content renders immediately', () => {
+    render(
+      <Tabs
+        tabs={tabs}
+        activeTab="info"
+        onTabChange={vi.fn()}
+        mountMode="lazy"
+        mountedIds={new Set(['info'])}
+      />,
+    );
+    expect(screen.getByText('Info content')).toBeInTheDocument();
+  });
+
+  it('content appears after switching to a tab (mountedIds updated)', () => {
+    const { rerender } = render(
+      <Tabs
+        tabs={tabs}
+        activeTab="info"
+        onTabChange={vi.fn()}
+        mountMode="lazy"
+        mountedIds={new Set(['info'])}
+      />,
+    );
+    // Switch to services: update activeTab and add 'services' to mountedIds
+    rerender(
+      <Tabs
+        tabs={tabs}
+        activeTab="services"
+        onTabChange={vi.fn()}
+        mountMode="lazy"
+        mountedIds={new Set(['info', 'services'])}
+      />,
+    );
+    expect(screen.getByText('Services content')).toBeInTheDocument();
+  });
+
+  it('previously-activated content remains in the DOM after switching away (keep-alive)', () => {
+    const { rerender } = render(
+      <Tabs
+        tabs={tabs}
+        activeTab="services"
+        onTabChange={vi.fn()}
+        mountMode="lazy"
+        mountedIds={new Set(['info', 'services'])}
+      />,
+    );
+    // Switch back to info — mountedIds still contains 'services'
+    rerender(
+      <Tabs
+        tabs={tabs}
+        activeTab="info"
+        onTabChange={vi.fn()}
+        mountMode="lazy"
+        mountedIds={new Set(['info', 'services'])}
+      />,
+    );
+    expect(screen.getByText('Services content')).toBeInTheDocument();
+  });
+
+  it('backward compat: mountMode omitted renders all panel contents', () => {
+    render(<Tabs tabs={tabs} activeTab="info" onTabChange={vi.fn()} />);
+    expect(screen.getByText('Info content')).toBeInTheDocument();
+    expect(screen.getByText('Services content')).toBeInTheDocument();
+    expect(screen.getByText('Billing content')).toBeInTheDocument();
+  });
+});

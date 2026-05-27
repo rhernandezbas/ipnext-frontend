@@ -11,9 +11,11 @@ interface TabsProps {
   tabs: TabDef[];
   activeTab: string;
   onTabChange: (id: string) => void;
+  mountMode?: 'all' | 'lazy';
+  mountedIds?: Set<string>;
 }
 
-export function Tabs({ tabs, activeTab, onTabChange }: TabsProps) {
+export function Tabs({ tabs, activeTab, onTabChange, mountMode = 'all', mountedIds }: TabsProps) {
   return (
     <div className={styles.container}>
       <div className={styles.tabList} role="tablist">
@@ -31,18 +33,21 @@ export function Tabs({ tabs, activeTab, onTabChange }: TabsProps) {
           </button>
         ))}
       </div>
-      {tabs.map((tab) => (
-        <div
-          key={tab.id}
-          id={`panel-${tab.id}`}
-          role="tabpanel"
-          aria-labelledby={tab.id}
-          style={{ display: tab.id === activeTab ? 'block' : 'none' }}
-          className={styles.panel}
-        >
-          {tab.content}
-        </div>
-      ))}
+      {tabs.map((tab) => {
+        const shouldRenderContent = mountMode === 'all' || tab.id === activeTab || mountedIds?.has(tab.id);
+        return (
+          <div
+            key={tab.id}
+            id={`panel-${tab.id}`}
+            role="tabpanel"
+            aria-labelledby={tab.id}
+            style={{ display: tab.id === activeTab ? 'block' : 'none' }}
+            className={styles.panel}
+          >
+            {shouldRenderContent ? tab.content : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
