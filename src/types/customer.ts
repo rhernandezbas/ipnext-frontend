@@ -10,6 +10,12 @@ export interface Service {
   endDate: string | null;
   ipAddress: string | null;
   description: string;
+  /** Installation address from GR (available after task-service-location change). */
+  address?: string | null;
+  /** Latitude from GR. Null when GR does not have it. */
+  lat?: number | null;
+  /** Longitude from GR. Null when GR does not have it. */
+  lng?: number | null;
 }
 
 export interface LogEntry {

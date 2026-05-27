@@ -6,6 +6,12 @@ import { DatosForm } from '@/pages/scheduling/SchedulingTaskDetailPage/component
 import type { Admin } from '@/types/admin';
 import type { Partner } from '@/types/partner';
 
+// Stub useClientServices so DatosForm can be rendered without a real API.
+const useClientServicesMock = vi.fn(() => ({ data: [] as unknown[] }));
+vi.mock('@/hooks/useCustomers', () => ({
+  useClientServices: () => useClientServicesMock(),
+}));
+
 const mockAdmins: Admin[] = [
   { id: 'admin-1', name: 'Juan Pérez', email: 'juan@example.com', role: 'admin', status: 'active', createdAt: '', lastLogin: null },
   { id: 'admin-2', name: 'Ana García', email: 'ana@example.com', role: 'admin', status: 'active', createdAt: '', lastLogin: null },
@@ -35,6 +41,7 @@ describe('DatosForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     onSubmit.mockResolvedValue(undefined);
+    useClientServicesMock.mockReturnValue({ data: [] });
   });
 
   it('renders all form fields', () => {
@@ -126,5 +133,43 @@ describe('DatosForm', () => {
       </MemoryRouter>
     );
     expect(screen.getByRole('button', { name: /guardando/i })).toBeDisabled();
+  });
+
+  it('autofills address from selected service when service has address', async () => {
+    useClientServicesMock.mockReturnValue({
+      data: [
+        { id: 77, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: 'Av. Servicio 2000' },
+        { id: 88, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: 'Calle Otra 50' },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <DatosForm
+          initial={{ ...initialValues, customerId: 'c-5', address: 'Dirección Original' }}
+          onSubmit={onSubmit}
+          isSaving={false}
+          admins={mockAdmins}
+          partners={mockPartners}
+        />
+      </MemoryRouter>
+    );
+
+    // Select the first service (has address 'Av. Servicio 2000')
+    const serviceSelect = screen.getByLabelText(/servicio/i);
+    fireEvent.change(serviceSelect, { target: { value: '77' } });
+
+    // The form's address field (in the submit payload) should be updated.
+    // We verify by submitting and checking the payload.
+    await waitFor(async () => {
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('button', { name: /guardar cambios/i }));
+    });
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ address: 'Av. Servicio 2000' }),
+      );
+    });
   });
 });

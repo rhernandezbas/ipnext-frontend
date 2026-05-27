@@ -5,9 +5,11 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 // modal renders without a QueryClientProvider.
 const useClientListMock = vi.fn(() => ({ data: { data: [] as unknown[], total: 0, page: 1, pageSize: 20, totalPages: 0 }, isFetching: false }));
 const useClientDetailMock = vi.fn(() => ({ data: undefined as unknown }));
+const useClientServicesMock = vi.fn(() => ({ data: [] as unknown[] }));
 vi.mock('@/hooks/useCustomers', () => ({
   useClientList: () => useClientListMock(),
   useClientDetail: () => useClientDetailMock(),
+  useClientServices: () => useClientServicesMock(),
 }));
 vi.mock('@/hooks/useTaskCategories', () => ({
   useTaskCategories: () => ({ data: [
@@ -54,6 +56,7 @@ describe('CreateTaskModal', () => {
     onCreate.mockResolvedValue(undefined);
     useClientListMock.mockReturnValue({ data: { data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }, isFetching: false });
     useClientDetailMock.mockReturnValue({ data: undefined });
+    useClientServicesMock.mockReturnValue({ data: [] });
   });
 
   function setup() {
@@ -175,6 +178,58 @@ describe('CreateTaskModal', () => {
 
     await waitFor(() =>
       expect((screen.getByPlaceholderText('Dirección del trabajo') as HTMLInputElement).value).toBe('LOTE 10'),
+    );
+  });
+
+  it('auto-fills address from the selected service (service > customer precedence)', async () => {
+    const customer = { id: 'c-10', name: 'PEREZ MARIO', email: 'perez@test.com' };
+    useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
+    useClientDetailMock.mockReturnValue({ data: { id: 'c-10', name: 'PEREZ MARIO', address: 'Calle Cliente 100' } });
+    useClientServicesMock.mockReturnValue({
+      data: [
+        { id: 55, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: 'Av. Servicio 999' },
+      ],
+    });
+
+    setup();
+
+    // Pick the customer
+    fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Perez' } });
+    fireEvent.click(await screen.findByText('PEREZ MARIO'));
+
+    // The service dropdown should now be visible — pick the service
+    const serviceSelect = await screen.findByRole('combobox', { name: /servicio/i });
+    fireEvent.change(serviceSelect, { target: { value: '55' } });
+
+    // Address should be the SERVICE address, overriding the customer address
+    await waitFor(() =>
+      expect((screen.getByPlaceholderText('Dirección del trabajo') as HTMLInputElement).value).toBe('Av. Servicio 999'),
+    );
+  });
+
+  it('falls back to customer address when selected service has no address', async () => {
+    const customer = { id: 'c-11', name: 'GOMEZ ANA', email: 'gomez@test.com' };
+    useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
+    useClientDetailMock.mockReturnValue({ data: { id: 'c-11', name: 'GOMEZ ANA', address: 'Calle Fallback 50' } });
+    useClientServicesMock.mockReturnValue({
+      data: [
+        { id: 66, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null },
+      ],
+    });
+
+    setup();
+
+    // Pick the customer
+    fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Gomez' } });
+    fireEvent.click(await screen.findByText('GOMEZ ANA'));
+
+    // Pick the service (no address)
+    const serviceSelect = await screen.findByRole('combobox', { name: /servicio/i });
+    fireEvent.change(serviceSelect, { target: { value: '66' } });
+
+    // Address should fall back to the customer address
+    await waitFor(() =>
+      expect((screen.getByPlaceholderText('Dirección del trabajo') as HTMLInputElement).value).toBe('Calle Fallback 50'),
     );
   });
 });

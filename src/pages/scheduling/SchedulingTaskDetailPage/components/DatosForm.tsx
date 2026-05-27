@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import type { Admin } from '@/types/admin';
 import type { Partner } from '@/types/partner';
 import { useClientServices } from '@/hooks/useCustomers';
@@ -63,6 +63,8 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, onDir
     handleSubmit,
     formState: { errors, isDirty },
     setError,
+    setValue,
+    control,
   } = useForm<DatosFormValues>({
     defaultValues: {
       ...initial,
@@ -70,6 +72,26 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, onDir
       endDate: toLocalInput(initial.endDate),
     },
   });
+
+  // Watch serviceId to autofill address when the technician changes the service.
+  // Precedence: service address > task initial address (customer address fallback).
+  const watchedServiceId = useWatch({ control, name: 'serviceId' });
+  useEffect(() => {
+    if (!watchedServiceId) return;
+    const svc = customerServices.find(s => String(s.id) === String(watchedServiceId));
+    if (!svc) return;
+    if (svc.address) {
+      setValue('address', svc.address, { shouldDirty: true });
+      if (svc.lat != null && svc.lng != null) {
+        setValue('coordinates', { lat: svc.lat, lng: svc.lng }, { shouldDirty: true });
+      }
+    } else if (initial.address) {
+      // Service has no address — fall back to the customer/task address
+      setValue('address', initial.address, { shouldDirty: true });
+    }
+  // Only re-run when the service selection changes, not on every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedServiceId, customerServices]);
 
   // Bubble react-hook-form's dirty state up to the parent so confirm-on-leave covers
   // every Datos field (assignee/dates/partner/travel) — not just the map override.

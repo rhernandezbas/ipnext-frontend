@@ -96,9 +96,33 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
       filledForCustomer.current !== String(customerId)
     ) {
       filledForCustomer.current = String(customerId);
-      if (customerDetail.address) setAddress(customerDetail.address);
+      // Only use customer address as fallback when no service is selected yet
+      if (!serviceId && customerDetail.address) setAddress(customerDetail.address);
     }
-  }, [customerId, customerDetail]);
+  }, [customerId, customerDetail, serviceId]);
+
+  // When a service is explicitly chosen, autofill address from the service
+  // (service > customer precedence). If the service has no address, fall back
+  // to the customer address.
+  useEffect(() => {
+    if (!serviceId) {
+      // Service deselected — restore customer address if available
+      if (customerDetail?.address) setAddress(customerDetail.address);
+      else setAddress('');
+      return;
+    }
+    const svc = customerServices.find(s => String(s.id) === serviceId);
+    if (svc) {
+      // Service has an address → use it (overrides whatever was there)
+      if (svc.address) {
+        setAddress(svc.address);
+      } else {
+        // Service has no address → fallback to customer address
+        if (customerDetail?.address) setAddress(customerDetail.address);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serviceId]);
 
   // Reset service when customer changes
   useEffect(() => {
