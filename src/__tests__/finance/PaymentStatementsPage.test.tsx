@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import PaymentStatementsPage from '@/pages/finanzas/PaymentStatementsPage';
+import PaymentStatementsPage from '@/pages/finance/PaymentStatementsPage';
 import * as usePaymentStatementsModule from '@/hooks/usePaymentStatements';
 import type { PaymentStatement } from '@/types/paymentStatement';
 

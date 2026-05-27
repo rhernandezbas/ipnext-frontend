@@ -129,22 +129,22 @@ vi.mock('@/pages/PagosPage/PagosPage', () => ({
 vi.mock('@/pages/TransaccionesPage/TransaccionesPage', () => ({
   TransaccionesPage: () => React.createElement('div', null, '[PAGE:Transacciones]'),
 }));
-vi.mock('@/pages/finanzas/NotasCreditoPage', () => ({
+vi.mock('@/pages/finance/NotasCreditoPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:NotasCredito]'),
 }));
-vi.mock('@/pages/finanzas/ProformasPage', () => ({
+vi.mock('@/pages/finance/ProformasPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:Proformas]'),
 }));
-vi.mock('@/pages/finanzas/HistorialFinancieroPage', () => ({
+vi.mock('@/pages/finance/HistorialFinancieroPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:HistorialFinanciero]'),
 }));
-vi.mock('@/pages/finanzas/PaymentStatementsPage', () => ({
+vi.mock('@/pages/finance/PaymentStatementsPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:PaymentStatements]'),
 }));
-vi.mock('@/pages/finanzas/DunningPage', () => ({
+vi.mock('@/pages/finance/DunningPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:Dunning]'),
 }));
-vi.mock('@/pages/finanzas/PaymentPlansPage', () => ({
+vi.mock('@/pages/finance/PaymentPlansPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:PaymentPlans]'),
 }));
 

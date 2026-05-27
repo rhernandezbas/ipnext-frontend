@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
-import DunningPage from '@/pages/finanzas/DunningPage';
+import DunningPage from '@/pages/finance/DunningPage';
 
 vi.mock('@/hooks/useDunning', () => ({
   useDunningEntries: vi.fn(),
