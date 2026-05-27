@@ -129,6 +129,30 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     setServiceId(null);
   }, [customerId]);
 
+  // Any meaningful field the user has touched (defaults like project/priority/
+  // category don't count). Used to guard against discarding work on an
+  // accidental backdrop click.
+  const hasData =
+    title.trim().length > 0 ||
+    description.trim().length > 0 ||
+    !!customerId ||
+    !!serviceId ||
+    assigneeId.length > 0 ||
+    date.length > 0 ||
+    time.length > 0 ||
+    address.trim().length > 0 ||
+    notes.trim().length > 0;
+
+  // Backdrop click: only discard silently when the form is empty. With data,
+  // confirm first so a stray click outside the modal doesn't wipe the work.
+  // The explicit Cancel button bypasses this (it's a deliberate action).
+  function handleBackdropClick() {
+    if (hasData && !window.confirm('Tenés datos sin guardar. ¿Cerrar y descartar la tarea?')) {
+      return;
+    }
+    onClose();
+  }
+
   const selectedProject = projects.find(p => p.id === projectId);
   const firstStageId = useMemo(
     () => resolveFirstStageId(selectedProject, workflows),
@@ -178,7 +202,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   }
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
+    <div className={styles.overlay} data-testid="create-task-overlay" onClick={handleBackdropClick}>
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
         <h2 className={styles.title}>Nueva tarea</h2>
 

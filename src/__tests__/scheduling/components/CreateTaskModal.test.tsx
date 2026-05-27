@@ -167,6 +167,45 @@ describe('CreateTaskModal', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('closes immediately on backdrop click when the form is empty', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    setup();
+    fireEvent.click(screen.getByTestId('create-task-overlay'));
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    confirmSpy.mockRestore();
+  });
+
+  it('asks for confirmation on backdrop click when the form has data, and closes if confirmed', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    setup();
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Algo cargado' } });
+    fireEvent.click(screen.getByTestId('create-task-overlay'));
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    confirmSpy.mockRestore();
+  });
+
+  it('does NOT close on backdrop click when there is data and the user cancels the confirm', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    setup();
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'No quiero perder esto' } });
+    fireEvent.click(screen.getByTestId('create-task-overlay'));
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('Cancel button always closes without confirmation, even with data', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    setup();
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Datos' } });
+    fireEvent.click(screen.getByRole('button', { name: /cancelar/i }));
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    confirmSpy.mockRestore();
+  });
+
   it('auto-fills the address with the selected customer address', async () => {
     const customer = { id: 'c-9', name: 'ACOSTA JUAN PABLO', email: 'acosta@test.com' };
     useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
