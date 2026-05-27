@@ -280,3 +280,38 @@
   cursor: pointer;
 }
 .btnSecondary:hover:not(:disabled) { color: #fff; border-color: #94a3b8; }
+
+/* Bulk "Cerrar" button */
+.bulkCloseBtn {
+  padding: 5px 14px;
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bulkCloseBtn:hover:not(:disabled) { background: #4f46e5; }
+.bulkCloseBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Closed task badge (inline in title cell) */
+.closedBadge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 700;
+  background: #e5e7eb;
+  color: #6b7280;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Closed row — muted title link */
+.closedRow .titleLink {
+  opacity: 0.5;
+  text-decoration: line-through;
+}

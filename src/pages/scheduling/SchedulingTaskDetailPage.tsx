@@ -1,10 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Spinner } from '@/components/atoms/Spinner/Spinner';
-import { useTask, useUpdateTask, useMoveTaskToStage, useDeleteTask } from '@/hooks/useScheduling';
+import { useTask, useUpdateTask, useMoveTaskToStage, useDeleteTask, useCloseTask } from '@/hooks/useScheduling';
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { useAdmins } from '@/hooks/useAdmins';
 import { usePartners } from '@/hooks/usePartners';
+import { useAuth } from '@/hooks/useAuth';
 import { TaskHeader } from './SchedulingTaskDetailPage/components/TaskHeader';
 import { DescriptionEditor } from './SchedulingTaskDetailPage/components/DescriptionEditor';
 import { DatosForm } from './SchedulingTaskDetailPage/components/DatosForm';
@@ -45,9 +46,13 @@ export default function SchedulingTaskDetailPage() {
   const { data: partners = [] } = usePartners();
   const { data: priorities = [] } = useTaskPriorities();
 
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+
   const updateTask = useUpdateTask();
   const moveToStage = useMoveTaskToStage();
   const deleteTask = useDeleteTask();
+  const closeTask = useCloseTask();
 
   const [formDirty, setFormDirty] = useState(false);
   const [descDirty, setDescDirty] = useState(false);
@@ -150,6 +155,17 @@ export default function SchedulingTaskDetailPage() {
     navigate('/admin/scheduling/projects');
   }, [task, deleteTask, navigate]);
 
+  const handleClose = useCallback(async () => {
+    if (!task) return;
+    const nextClosed = !task.isClosed;
+    try {
+      await closeTask.mutateAsync({ id: task.id, isClosed: nextClosed });
+      showToast(nextClosed ? 'Tarea cerrada' : 'Tarea reabierta');
+    } catch (err) {
+      showToast(mapError(err), 'error');
+    }
+  }, [task, closeTask]);
+
   const handleLocationChange = useCallback(
     (next: { address: string | null; coordinates: { lat: number; lng: number } | null }) => {
       setLocationOverride(next);
@@ -194,7 +210,7 @@ export default function SchedulingTaskDetailPage() {
     coordinates: task.coordinates,
   };
 
-  const isSaving = updateTask.isPending || moveToStage.isPending || deleteTask.isPending;
+  const isSaving = updateTask.isPending || moveToStage.isPending || deleteTask.isPending || closeTask.isPending;
 
   return (
     <div className={styles.page}>
@@ -206,6 +222,8 @@ export default function SchedulingTaskDetailPage() {
         onStageMove={handleStageMove}
         onPriorityChange={handlePriorityChange}
         onDelete={() => setDeleteConfirm(true)}
+        onClose={() => void handleClose()}
+        isAdmin={isAdmin}
         isSaving={isSaving}
       />
 

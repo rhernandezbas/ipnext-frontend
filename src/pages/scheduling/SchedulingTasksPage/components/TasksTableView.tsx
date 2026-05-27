@@ -6,7 +6,8 @@ import type { ScheduledTask, TaskStageCategory } from '@/types/scheduling';
 import type { Workflow, WorkflowStage } from '@/types/workflow';
 import type { Project } from '@/types/project';
 import type { TaskPriority } from '@/types/taskPriority';
-import { useMoveTaskToStage, useDeleteTask } from '@/hooks/useScheduling';
+import { useMoveTaskToStage, useDeleteTask, useCloseTask } from '@/hooks/useScheduling';
+import { useAuth } from '@/hooks/useAuth';
 import styles from './TasksTableView.module.css';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -177,9 +178,11 @@ interface BulkActionBarProps {
   onClear: () => void;
   onMoveStage: (ids: string[], stageId: string) => Promise<void>;
   onDelete: (ids: string[]) => Promise<void>;
+  onClose: (ids: string[]) => Promise<void>;
+  isAdmin: boolean;
 }
 
-function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onDelete }: BulkActionBarProps) {
+function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onDelete, onClose, isAdmin }: BulkActionBarProps) {
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [targetStageId, setTargetStageId] = useState<string>('');
   const [busy, setBusy] = useState(false);
@@ -191,6 +194,17 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
     setBusy(true);
     try {
       await onDelete(selectedIds);
+      onClear();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleClose() {
+    if (!window.confirm(`¿Cerrar ${selectedIds.length} tarea(s)?`)) return;
+    setBusy(true);
+    try {
+      await onClose(selectedIds);
       onClear();
     } finally {
       setBusy(false);
@@ -226,9 +240,26 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
         >
           Mover estado
         </button>
-        <button type="button" className={styles.bulkDeleteBtn} onClick={handleDelete} disabled={busy}>
-          Eliminar
+        <button
+          type="button"
+          className={styles.bulkCloseBtn}
+          onClick={() => void handleClose()}
+          disabled={busy}
+          data-testid="bulk-close-btn"
+        >
+          Cerrar
         </button>
+        {isAdmin && (
+          <button
+            type="button"
+            className={styles.bulkDeleteBtn}
+            onClick={() => void handleDelete()}
+            disabled={busy}
+            data-testid="bulk-delete-btn"
+          >
+            Eliminar
+          </button>
+        )}
         <button type="button" className={styles.bulkClearBtn} onClick={onClear} disabled={busy}>
           ✕ Limpiar
         </button>
@@ -319,6 +350,9 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
   const navigate = useNavigate();
   const moveToStage = useMoveTaskToStage();
   const deleteTask = useDeleteTask();
+  const closeTask = useCloseTask();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -362,9 +396,16 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
       ) },
     { label: 'Título',    key: 'title',          sortable: true,
       render: (t: ScheduledTask) => (
-        <Link to={`/admin/scheduling/tasks/${t.id}`} className={styles.titleLink} title={t.title}>
-          {t.title}
-        </Link>
+        <span className={t.isClosed ? styles.closedRow : undefined}>
+          <Link to={`/admin/scheduling/tasks/${t.id}`} className={styles.titleLink} title={t.title}>
+            {t.title}
+          </Link>
+          {t.isClosed && (
+            <span className={styles.closedBadge} data-testid="closed-badge" aria-label="Tarea cerrada">
+              Cerrada
+            </span>
+          )}
+        </span>
       ) },
     { label: 'Estado',    key: 'stageCategory',  sortable: false,
       render: (t: ScheduledTask) => (
@@ -425,11 +466,17 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
             await moveToStage.mutateAsync({ id, stageId });
           }
         }}
+        onClose={async (ids) => {
+          for (const id of ids) {
+            await closeTask.mutateAsync({ id, isClosed: true });
+          }
+        }}
         onDelete={async (ids) => {
           for (const id of ids) {
             await deleteTask.mutateAsync(id);
           }
         }}
+        isAdmin={isAdmin}
       />
       <DataTable
         columns={COLUMNS}

@@ -99,6 +99,11 @@ export interface ScheduledTask {
   // Defaults to [] when the task has no items. Type is non-nullable.
   checklist: TaskChecklistItem[];
 
+  /** Closed flag — set via PUT /scheduling/:id with { isClosed: true }.
+   *  A closed task is NOT deleted; it is hidden from active views.
+   *  Only admins / superadmins can physically delete tasks. */
+  isClosed?: boolean;
+
   // Timestamps — backend always returns ISO strings (post-change-1)
   createdAt: string;
   updatedAt: string;

@@ -65,6 +65,23 @@ export function useDeleteTask() {
   });
 }
 
+/**
+ * Close (or re-open) a task by setting the `isClosed` flag.
+ * Uses the same PUT /scheduling/:id endpoint as useUpdateTask —
+ * it is a separate hook so callers can track its pending state independently.
+ */
+export function useCloseTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, isClosed }: { id: string; isClosed: boolean }) =>
+      api.updateTask(id, { isClosed }),
+    onSuccess: (_result, { id }) => {
+      void qc.invalidateQueries({ queryKey: ['scheduling-tasks'] });
+      void qc.invalidateQueries({ queryKey: ['scheduling-task', id] });
+    },
+  });
+}
+
 export function useUpdateTaskStatus() {
   const qc = useQueryClient();
   return useMutation({

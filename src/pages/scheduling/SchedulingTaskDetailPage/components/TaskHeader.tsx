@@ -14,6 +14,10 @@ interface TaskHeaderProps {
   onStageMove: (stageId: string) => Promise<void>;
   onPriorityChange: (priority: string) => Promise<void>;
   onDelete: () => void;
+  /** Called when the user requests closing (or re-opening) the task. */
+  onClose: () => void;
+  /** When true the "Eliminar" action is shown in the kebab menu. */
+  isAdmin: boolean;
   isSaving: boolean;
 }
 
@@ -32,6 +36,8 @@ export function TaskHeader({
   onStageMove,
   onPriorityChange,
   onDelete,
+  onClose,
+  isAdmin,
   isSaving,
 }: TaskHeaderProps) {
   const navigate = useNavigate();
@@ -150,6 +156,11 @@ export function TaskHeader({
             {task.title}
           </h1>
         )}
+        {task.isClosed && (
+          <span className={styles.closedBadge} data-testid="task-closed-badge" aria-label="Tarea cerrada">
+            Cerrada
+          </span>
+        )}
         {titleError && <span className={styles.titleError} role="alert">{titleError}</span>}
       </div>
 
@@ -205,12 +216,25 @@ export function TaskHeader({
               <li>
                 <button
                   role="menuitem"
-                  className={`${styles.kebabItem} ${styles.kebabItemDanger}`}
-                  onClick={() => { setKebabOpen(false); onDelete(); }}
+                  className={styles.kebabItem}
+                  onClick={() => { setKebabOpen(false); onClose(); }}
+                  data-testid="kebab-close"
                 >
-                  Eliminar tarea
+                  {task.isClosed ? 'Reabrir tarea' : 'Cerrar tarea'}
                 </button>
               </li>
+              {isAdmin && (
+                <li>
+                  <button
+                    role="menuitem"
+                    className={`${styles.kebabItem} ${styles.kebabItemDanger}`}
+                    onClick={() => { setKebabOpen(false); onDelete(); }}
+                    data-testid="kebab-delete"
+                  >
+                    Eliminar tarea
+                  </button>
+                </li>
+              )}
               <li>
                 <button
                   role="menuitem"
