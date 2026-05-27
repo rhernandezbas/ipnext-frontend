@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import type { Admin } from '@/types/admin';
 import type { Partner } from '@/types/partner';
@@ -72,6 +72,22 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, onDir
       endDate: toLocalInput(initial.endDate),
     },
   });
+
+  // Hydrate the service <select> with the task's initial serviceId ONCE the
+  // services finish loading. On mount customerServices is empty (async query),
+  // so the matching <option> doesn't exist yet and react-hook-form's
+  // defaultValue silently falls back to "Sin servicio". Re-apply the value when
+  // the options arrive. Ref-guarded so it runs only once and never clobbers a
+  // selection the technician makes afterwards.
+  const hydratedServiceRef = useRef(false);
+  useEffect(() => {
+    if (hydratedServiceRef.current) return;
+    if (!initial.serviceId) return;
+    if (customerServices.some(s => String(s.id) === String(initial.serviceId))) {
+      setValue('serviceId', String(initial.serviceId));
+      hydratedServiceRef.current = true;
+    }
+  }, [customerServices, initial.serviceId, setValue]);
 
   // Watch serviceId to autofill address when the technician changes the service.
   // Precedence: service address > task initial address (customer address fallback).

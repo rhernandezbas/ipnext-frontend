@@ -135,6 +135,44 @@ describe('DatosForm', () => {
     expect(screen.getByRole('button', { name: /guardando/i })).toBeDisabled();
   });
 
+  it('hydrates the service select with initial.serviceId once services load async', async () => {
+    // Real-world sequence: on mount the services query is still loading (empty),
+    // so the matching <option> does not exist yet. The select must re-sync to
+    // initial.serviceId once the services arrive — otherwise it sticks on
+    // "Sin servicio" and the task appears serviceless after a refresh.
+    useClientServicesMock.mockReturnValue({ data: [] });
+    const props = {
+      initial: { ...initialValues, customerId: 'c-5', serviceId: '77' },
+      onSubmit,
+      isSaving: false,
+      admins: mockAdmins,
+      partners: mockPartners,
+    };
+    const { rerender } = render(
+      <MemoryRouter>
+        <DatosForm {...props} />
+      </MemoryRouter>
+    );
+
+    // Services arrive from the API after mount
+    useClientServicesMock.mockReturnValue({
+      data: [
+        { id: 77, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: '' },
+        { id: 88, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: '' },
+      ],
+    });
+    rerender(
+      <MemoryRouter>
+        <DatosForm {...props} />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      const serviceSelect = screen.getByLabelText(/servicio/i) as HTMLSelectElement;
+      expect(serviceSelect.value).toBe('77');
+    });
+  });
+
   it('autofills address from selected service when service has address', async () => {
     useClientServicesMock.mockReturnValue({
       data: [
