@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useVoipCategories, useCreateVoipCategory, useVoipCdrs, useVoipPlans, useCreateVoipPlan } from '@/hooks/useVoz';
+import { useVoipCategories, useCreateVoipCategory, useVoipCdrs, useVoipPlans, useCreateVoipPlan } from '@/hooks/useVoice';
 import type { VoipCategory, VoipCdr, VoipPlan } from '@/types/voice';
 import styles from './VozPage.module.css';
 

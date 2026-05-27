@@ -3,11 +3,11 @@ import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import VoiceCategoriesPage from '@/pages/voice/VoiceCategoriesPage';
 
-vi.mock('@/hooks/useVoz', () => ({
+vi.mock('@/hooks/useVoice', () => ({
   useVoipCategories: vi.fn(),
 }));
 
-import { useVoipCategories } from '@/hooks/useVoz';
+import { useVoipCategories } from '@/hooks/useVoice';
 
 const mockCategories = [
   { id: '1', name: 'Local', prefix: 'LCL', pricePerMinute: 0.01, freeMinutes: 60, status: 'active' },

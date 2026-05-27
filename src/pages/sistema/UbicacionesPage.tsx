@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { FilterBar } from '@/components/molecules/FilterBar/FilterBar';
 import {
-  useUbicaciones,
+  useLocations,
   useCreateUbicacion,
   useUpdateUbicacion,
   useDeleteUbicacion,
-} from '@/hooks/useUbicaciones';
+} from '@/hooks/useLocations';
 import type { Ubicacion } from '@/types/location';
 import styles from './UbicacionesPage.module.css';
 
@@ -127,7 +127,7 @@ export default function UbicacionesPage() {
   const [ubicSearch, setUbicSearch] = useState('');
   const [ubicStatus, setUbicStatus] = useState('');
 
-  const { data: ubicaciones = [], isLoading } = useUbicaciones();
+  const { data: ubicaciones = [], isLoading } = useLocations();
   const { mutate: createUbicacion } = useCreateUbicacion();
   const { mutate: updateUbicacion } = useUpdateUbicacion();
   const { mutate: deleteUbicacion } = useDeleteUbicacion();

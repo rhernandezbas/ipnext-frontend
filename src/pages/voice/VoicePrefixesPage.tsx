@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { FilterBar } from '@/components/molecules/FilterBar/FilterBar';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
-import { useVoipPrefixes } from '@/hooks/useVoz';
+import { useVoipPrefixes } from '@/hooks/useVoice';
 import type { VoipPrefix } from '@/types/voice';
 import styles from './VoicePrefixesPage.module.css';
 

@@ -1,6 +1,6 @@
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { Button } from '@/components/atoms/Button/Button';
-import { useVoipCategories } from '@/hooks/useVoz';
+import { useVoipCategories } from '@/hooks/useVoice';
 import type { VoipCategory } from '@/types/voice';
 import styles from './VoiceCategoriesPage.module.css';
 

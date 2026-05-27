@@ -4,10 +4,10 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import UbicacionesPage from '@/pages/sistema/UbicacionesPage';
-import * as useUbicacionesModule from '@/hooks/useUbicaciones';
+import * as useUbicacionesModule from '@/hooks/useLocations';
 import type { Ubicacion } from '@/types/location';
 
-vi.mock('@/hooks/useUbicaciones');
+vi.mock('@/hooks/useLocations');
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -77,10 +77,10 @@ describe('UbicacionesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    vi.mocked(useUbicacionesModule.useUbicaciones).mockReturnValue({
+    vi.mocked(useUbicacionesModule.useLocations).mockReturnValue({
       data: mockUbicaciones,
       isLoading: false,
-    } as ReturnType<typeof useUbicacionesModule.useUbicaciones>);
+    } as ReturnType<typeof useUbicacionesModule.useLocations>);
 
     vi.mocked(useUbicacionesModule.useCreateUbicacion).mockReturnValue({
       mutate: mockMutate,

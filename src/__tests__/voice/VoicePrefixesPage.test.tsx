@@ -4,11 +4,11 @@ import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import VoicePrefixesPage from '@/pages/voice/VoicePrefixesPage';
 
-vi.mock('@/hooks/useVoz', () => ({
+vi.mock('@/hooks/useVoice', () => ({
   useVoipPrefixes: vi.fn(),
 }));
 
-import { useVoipPrefixes } from '@/hooks/useVoz';
+import { useVoipPrefixes } from '@/hooks/useVoice';
 
 const mockPrefixes = [
   { id: '1', name: 'Argentina', prefix: '+54', country: 'Argentina', categoryId: 'c1', categoryName: 'Local', ratePerMinute: 0.005, status: 'active' },
