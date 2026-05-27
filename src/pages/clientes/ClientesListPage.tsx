@@ -47,7 +47,6 @@ function getColumns(): Column[] {
       // fall back to the internal id for any non-GR rows.
       render: (row: CustomerSummary) => <>{row.grClienteId ?? row.id}</>,
     },
-    { label: 'Login del portal', key: 'login', sortable: false },
     {
       label: 'Nombre completo',
       key: 'name',
