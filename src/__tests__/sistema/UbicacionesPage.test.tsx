@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import UbicacionesPage from '@/pages/sistema/UbicacionesPage';
 import * as useUbicacionesModule from '@/hooks/useUbicaciones';
-import type { Ubicacion } from '@/types/ubicacion';
+import type { Ubicacion } from '@/types/location';
 
 vi.mock('@/hooks/useUbicaciones');
 

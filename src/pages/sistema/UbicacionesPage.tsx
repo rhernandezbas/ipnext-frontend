@@ -7,7 +7,7 @@ import {
   useUpdateUbicacion,
   useDeleteUbicacion,
 } from '@/hooks/useUbicaciones';
-import type { Ubicacion } from '@/types/ubicacion';
+import type { Ubicacion } from '@/types/location';
 import styles from './UbicacionesPage.module.css';
 
 function StatusBadge({ status }: { status: Ubicacion['status'] }) {

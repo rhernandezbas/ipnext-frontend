@@ -1,5 +1,5 @@
 import axiosClient from './axios-client';
-import type { Ubicacion } from '@/types/ubicacion';
+import type { Ubicacion } from '@/types/location';
 
 const BASE = '/locations';
 

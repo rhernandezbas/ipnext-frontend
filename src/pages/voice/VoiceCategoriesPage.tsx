@@ -1,7 +1,7 @@
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { Button } from '@/components/atoms/Button/Button';
 import { useVoipCategories } from '@/hooks/useVoz';
-import type { VoipCategory } from '@/types/voz';
+import type { VoipCategory } from '@/types/voice';
 import styles from './VoiceCategoriesPage.module.css';
 
 const COLUMNS = [

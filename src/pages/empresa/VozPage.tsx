@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useVoipCategories, useCreateVoipCategory, useVoipCdrs, useVoipPlans, useCreateVoipPlan } from '@/hooks/useVoz';
-import type { VoipCategory, VoipCdr, VoipPlan } from '@/types/voz';
+import type { VoipCategory, VoipCdr, VoipPlan } from '@/types/voice';
 import styles from './VozPage.module.css';
 
 type Tab = 'categorias' | 'planes' | 'cdr';

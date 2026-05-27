@@ -1,5 +1,5 @@
 import axiosClient from './axios-client';
-import type { VoipCategory, VoipCdr, VoipPlan, VoipPrefix } from '@/types/voz';
+import type { VoipCategory, VoipCdr, VoipPlan, VoipPrefix } from '@/types/voice';
 
 const BASE = '/voip';
 

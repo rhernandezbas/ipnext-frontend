@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { FilterBar } from '@/components/molecules/FilterBar/FilterBar';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useVoipPrefixes } from '@/hooks/useVoz';
-import type { VoipPrefix } from '@/types/voz';
+import type { VoipPrefix } from '@/types/voice';
 import styles from './VoicePrefixesPage.module.css';
 
 const COLUMNS = [
