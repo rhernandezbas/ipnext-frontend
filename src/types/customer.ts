@@ -48,6 +48,11 @@ export interface Customer {
   splynxId?: string | null;
   grClienteId?: string | null;
   customAttributes?: Record<string, unknown> | null;
+  /** Gestión Real balance sync fields (gr-client-balance-sync change). */
+  balanceDue?: number | null;
+  balanceOverdue?: number | null;
+  invoicesQty?: number | null;
+  lastBalanceAt?: string | null;
 }
 
 export interface CustomerSummary {

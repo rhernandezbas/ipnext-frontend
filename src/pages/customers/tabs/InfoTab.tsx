@@ -68,8 +68,10 @@ export function InfoTab({ customer }: Props) {
         </div>
       </section>
 
-      {/* RIGHT COLUMN: Comments + Información adicional */}
+      {/* RIGHT COLUMN: Balance card + Comments + Información adicional */}
       <div className={styles.rightColumn}>
+        <BalanceCard customer={customer} />
+
         <section className={styles.card}>
           <header className={styles.cardHeader}>
             <h2 className={styles.cardTitle}>Comments / To-Dos</h2>
@@ -216,6 +218,72 @@ function FieldRowAction({ label, value, actionLabel }: { label: string; value: s
         <button type="button" className={styles.linkBtn}>{actionLabel}</button>
       </div>
     </div>
+  );
+}
+
+/* ── Balance card ────────────────────────────────────────────────────────── */
+
+const arsFormatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
+
+function formatARS(amount: number): string {
+  return arsFormatter.format(amount);
+}
+
+function formatRelativeTime(isoDate: string): string {
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return 'hace un momento';
+  if (mins < 60) return `hace ${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  const days = Math.floor(hours / 24);
+  return `hace ${days} d`;
+}
+
+function BalanceCard({ customer }: { customer: Customer }) {
+  const { balanceDue, balanceOverdue, invoicesQty, lastBalanceAt } = customer;
+  const hasDebt = typeof balanceDue === 'number' && balanceDue > 0;
+
+  return (
+    <section className={styles.card}>
+      <header className={styles.cardHeader}>
+        <h2 className={styles.cardTitle}>Saldo deudor</h2>
+        {lastBalanceAt && (
+          <span className={styles.balanceTimestamp} title={lastBalanceAt}>
+            Actualizado {formatRelativeTime(lastBalanceAt)}
+          </span>
+        )}
+      </header>
+      <div className={`${styles.cardBody} ${styles.balanceBody}`}>
+        {hasDebt ? (
+          <>
+            <div className={styles.balanceAmountWrap}>
+              <span className={styles.balanceDebtorBadge} aria-label="Estado deudor">Deudor</span>
+              <span className={styles.balanceAmount} data-testid="balance-amount">
+                {formatARS(balanceDue!)}
+              </span>
+            </div>
+            {typeof balanceOverdue === 'number' && balanceOverdue > 0 && (
+              <div className={styles.balanceRow}>
+                <span className={styles.balanceRowLabel}>Vencido</span>
+                <span className={styles.balanceOverdue} data-testid="balance-overdue">{formatARS(balanceOverdue)}</span>
+              </div>
+            )}
+            {typeof invoicesQty === 'number' && invoicesQty > 0 && (
+              <div className={styles.balanceRow}>
+                <span className={styles.balanceRowLabel}>Facturas impagas</span>
+                <span data-testid="balance-invoices-qty">{invoicesQty}</span>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className={styles.balanceNeutral} data-testid="balance-no-debt">
+            <span className={styles.balanceCheckIcon} aria-hidden>✓</span>
+            Sin deuda
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
