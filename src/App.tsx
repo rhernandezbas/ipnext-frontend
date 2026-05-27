@@ -166,14 +166,19 @@ export function App() {
               <Route path="crm/leads" element={<LeadsPage />} />
               <Route path="leads" element={<Navigate to="/admin/crm/leads" replace />} />
               <Route path="messages" element={<Navigate to="/admin/support/inbox" replace />} />
-              <Route path="tickets/dashboard" element={<Navigate to="/admin/tickets" replace />} />
-              <Route path="tickets" element={<TicketsDashboardPage />} />
-              <Route path="tickets/opened" element={<TicketsListPage />} />
-              <Route path="tickets/list" element={<Navigate to="/admin/tickets/opened" replace />} />
-              <Route path="tickets/trash" element={<TicketsArchivePage />} />
-              <Route path="tickets/archive" element={<Navigate to="/admin/tickets/trash" replace />} />
-              <Route path="tickets/new" element={<TicketCreatePage />} />
-              <Route path="tickets/:id" element={<TicketDetailPage />} />
+              {/* ── Tickets ────────────────────────────────────────────────── */}
+              <Route path="tickets">
+                <Route index element={<TicketsDashboardPage />} />
+                <Route path="dashboard" element={<Navigate to="/admin/tickets" replace />} />
+                <Route path="opened" element={<TicketsListPage />} />
+                <Route path="list" element={<Navigate to="/admin/tickets/opened" replace />} />
+                <Route path="trash" element={<TicketsArchivePage />} />
+                <Route path="archive" element={<Navigate to="/admin/tickets/trash" replace />} />
+                <Route path="new" element={<TicketCreatePage />} />
+                <Route path="requesters" element={<TicketRequestersPage />} />
+                {/* RR6 ranking: specific paths above win over :id automatically */}
+                <Route path=":id" element={<TicketDetailPage />} />
+              </Route>
               {/* ── Finance ────────────────────────────────────────────────── */}
               <Route path="finance">
                 <Route index element={<FinanzasDashboardPage />} />
@@ -247,7 +252,6 @@ export function App() {
               <Route path="crm/dashboard" element={<CrmDashboardPage />} />
               <Route path="crm/quotes" element={<CrmQuotesPage />} />
               <Route path="crm/map" element={<CrmMapPage />} />
-              <Route path="tickets/requesters" element={<TicketRequestersPage />} />
               <Route path="support/inbox" element={<SupportInboxPage />} />
               <Route path="support/mass-send" element={<MassSendPage />} />
               <Route path="support/messengers" element={<MessengersPage />} />
