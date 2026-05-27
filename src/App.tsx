@@ -113,10 +113,8 @@ const SchedulingTaskCategoriesPage = lazy(() => import('@/pages/scheduling/Sched
 const SchedulingTaskPrioritiesPage = lazy(() => import('@/pages/scheduling/SchedulingTaskPrioritiesPage'));
 const SchedulingStageColorsPage = lazy(() => import('@/pages/scheduling/SchedulingStageColorsPage'));
 const SchedulingTaskDetailPage = lazy(() => import('@/pages/scheduling/SchedulingTaskDetailPage'));
-// NOTE: SchedulingTasksPage MUST be registered BEFORE SchedulingTaskDetailPage (/tasks/:id)
-// in the Routes tree to prevent the index route from being shadowed. The page
-// has a re-export shim at SchedulingTasksPage.tsx that points at the directory's
-// index, mirroring the layout of SchedulingTaskDetailPage.
+// SchedulingTasksPage is a re-export shim pointing at the directory index (SchedulingTasksPage/index.tsx).
+// Route ordering is no longer load-bearing — RR6 ranking handles tasks vs tasks/:id automatically.
 const SchedulingTasksPage = lazy(() => import('@/pages/scheduling/SchedulingTasksPage'));
 const InventoryDashboardPage = lazy(() => import('@/pages/inventory/InventoryDashboardPage'));
 const InventoryItemsPage = lazy(() => import('@/pages/inventory/InventoryItemsPage'));
@@ -175,7 +173,6 @@ export function App() {
                 <Route path="archive" element={<Navigate to="/admin/tickets/trash" replace />} />
                 <Route path="new" element={<TicketCreatePage />} />
                 <Route path="requesters" element={<TicketRequestersPage />} />
-                {/* RR6 ranking: specific paths above win over :id automatically */}
                 <Route path=":id" element={<TicketDetailPage />} />
               </Route>
               {/* ── Finance ────────────────────────────────────────────────── */}
@@ -226,7 +223,6 @@ export function App() {
                 <Route path="task-categories" element={<SchedulingTaskCategoriesPage />} />
                 <Route path="task-priorities" element={<SchedulingTaskPrioritiesPage />} />
                 <Route path="stage-colors" element={<SchedulingStageColorsPage />} />
-                {/* CRITICAL: tasks (index) MUST come before tasks/:id — nesting eliminates ordering dependency */}
                 <Route path="tasks" element={<SchedulingTasksPage />} />
                 <Route path="tasks/:id" element={<SchedulingTaskDetailPage />} />
               </Route>
