@@ -59,16 +59,21 @@ export function useTasksFilterUrl(): TasksFilterUrlResult {
           const currentView = prev.get('view');
           if (currentView) next.set('view', currentView);
 
-          // Merge current filter with patch
+          // Merge current filter with patch.
+          // Use KEY PRESENCE ('x' in patch), not value !== undefined: passing
+          // { projectId: undefined } MUST mean "clear it", while a key absent
+          // from the patch means "leave it untouched". The old `!== undefined`
+          // check made those two cases indistinguishable, so "Limpiar todo" and
+          // the chip's × (which pass undefined) never cleared anything.
           const merged: TaskListFilter = {
-            projectId:     patch.projectId     !== undefined ? patch.projectId     : (prev.get('projectId') ?? undefined),
-            stageIds:      patch.stageIds      !== undefined ? patch.stageIds      : prev.getAll('stageIds[]').filter(Boolean),
-            stageCategory: patch.stageCategory !== undefined ? patch.stageCategory : parseCategory(prev.get('stageCategory')),
-            partnerId:     patch.partnerId     !== undefined ? patch.partnerId     : (prev.get('partnerId') ?? undefined),
-            assigneeId:    patch.assigneeId    !== undefined ? patch.assigneeId    : (prev.get('assigneeId') ?? undefined),
-            customerId:    patch.customerId    !== undefined ? patch.customerId    : (prev.get('customerId') ?? undefined),
-            priority:      patch.priority      !== undefined ? patch.priority      : parsePriority(prev.get('priority')),
-            q:             patch.q             !== undefined ? patch.q             : (prev.get('q') ?? undefined),
+            projectId:     'projectId'     in patch ? patch.projectId     : (prev.get('projectId') ?? undefined),
+            stageIds:      'stageIds'      in patch ? patch.stageIds      : prev.getAll('stageIds[]').filter(Boolean),
+            stageCategory: 'stageCategory' in patch ? patch.stageCategory : parseCategory(prev.get('stageCategory')),
+            partnerId:     'partnerId'     in patch ? patch.partnerId     : (prev.get('partnerId') ?? undefined),
+            assigneeId:    'assigneeId'    in patch ? patch.assigneeId    : (prev.get('assigneeId') ?? undefined),
+            customerId:    'customerId'    in patch ? patch.customerId    : (prev.get('customerId') ?? undefined),
+            priority:      'priority'      in patch ? patch.priority      : parsePriority(prev.get('priority')),
+            q:             'q'             in patch ? patch.q             : (prev.get('q') ?? undefined),
           };
 
           if (merged.projectId)     next.set('projectId', merged.projectId);
