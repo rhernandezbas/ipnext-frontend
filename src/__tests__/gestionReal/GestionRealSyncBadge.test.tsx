@@ -13,9 +13,15 @@ const base: GestionRealSyncStatus = {
 };
 
 describe('GestionRealSyncBadge', () => {
-  it('shows a live badge with the synced count when the last run was ok', () => {
-    render(<GestionRealSyncBadge status={base} isError={false} />);
+  it('shows a live badge with the total client count when provided', () => {
+    render(<GestionRealSyncBadge status={{ ...base, itemsSynced: 0 }} isError={false} totalClients={5257} />);
     expect(screen.getByText(/réplica viva/i)).toBeInTheDocument();
+    // total (5257) wins over the last-run delta count (0)
+    expect(screen.getByText(/5257/)).toBeInTheDocument();
+  });
+
+  it('falls back to itemsSynced when no total is given', () => {
+    render(<GestionRealSyncBadge status={base} isError={false} />);
     expect(screen.getByText(/5090/)).toBeInTheDocument();
   });
 

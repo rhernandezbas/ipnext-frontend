@@ -132,7 +132,7 @@ export default function ClientesListPage() {
       <div className={styles.pageHeader}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <h1 className={styles.title}>Clientes</h1>
-          <GestionRealSyncBadge status={grSync.data} isError={grSync.isError} />
+          <GestionRealSyncBadge status={grSync.data} isError={grSync.isError} totalClients={data?.total} />
         </div>
         <button
           className={styles.newClientBtn}

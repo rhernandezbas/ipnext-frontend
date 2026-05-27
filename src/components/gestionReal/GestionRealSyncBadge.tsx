@@ -4,6 +4,8 @@ import styles from './GestionRealSyncBadge.module.css';
 interface Props {
   status: GestionRealSyncStatus | undefined;
   isError: boolean;
+  /** Total mirrored clients (from the list query). Shown instead of the last-run delta count. */
+  totalClients?: number;
 }
 
 /** Relative "hace X" label from an ISO timestamp. */
@@ -23,7 +25,7 @@ function relativeTime(iso: string | null): string {
  * the hook and passes status/isError down. When the feature is off the status
  * endpoint is unreachable (isError) and the badge renders nothing.
  */
-export function GestionRealSyncBadge({ status, isError }: Props) {
+export function GestionRealSyncBadge({ status, isError, totalClients }: Props) {
   if (isError || !status) return null;
 
   const failed = status.lastResult?.startsWith('error');
@@ -44,9 +46,13 @@ export function GestionRealSyncBadge({ status, isError }: Props) {
     );
   }
 
+  const count = totalClients ?? status.itemsSynced;
   return (
-    <span className={`${styles.badge} ${styles.live}`} title={`Cursor: ${status.cursor ?? '—'}`}>
-      <span className={styles.dot} /> Réplica viva · {status.itemsSynced} clientes · {relativeTime(status.lastRunAt)}
+    <span
+      className={`${styles.badge} ${styles.live}`}
+      title={`Cursor: ${status.cursor ?? '—'} · última corrida: ${status.itemsSynced} cambios`}
+    >
+      <span className={styles.dot} /> Réplica viva · {count} clientes · {relativeTime(status.lastRunAt)}
     </span>
   );
 }
