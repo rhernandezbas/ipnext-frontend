@@ -34,7 +34,6 @@ export interface Customer {
   phone: string;
   address: string;
   status: CustomerStatus;
-  balance: number;
   category: string;
   tariffPlan: string | null;
   createdAt: string;
@@ -63,7 +62,6 @@ export interface CustomerSummary {
   email: string;
   phone: string;
   status: CustomerStatus;
-  balance: number;
   category: string;
   tariffPlan: string | null;
   login: string | null;
