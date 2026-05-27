@@ -13,6 +13,16 @@ describe('parseIClassError', () => {
     expect(parseIClassError(err)).toEqual({ code: 'ICLASS_NODE_NOT_FOUND', missingFields: undefined, message: undefined });
   });
 
+  it('extracts ICLASS_REJECTED including the reason', () => {
+    const err = { response: { data: { code: 'ICLASS_REJECTED', reason: 'ICLERR_0045: codigoCliente ultrapassou o limite' } } };
+    expect(parseIClassError(err)).toEqual({
+      code: 'ICLASS_REJECTED',
+      missingFields: undefined,
+      message: undefined,
+      reason: 'ICLERR_0045: codigoCliente ultrapassou o limite',
+    });
+  });
+
   it('returns null for a non-IClass error code', () => {
     const err = { response: { data: { code: 'VALIDATION_ERROR' } } };
     expect(parseIClassError(err)).toBeNull();

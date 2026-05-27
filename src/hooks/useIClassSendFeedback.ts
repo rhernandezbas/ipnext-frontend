@@ -7,6 +7,7 @@ const ICLASS_ERROR_CODES = new Set([
   'MISSING_REQUIRED_FIELDS',
   'ICLASS_NODE_NOT_FOUND',
   'ICLASS_UNAVAILABLE',
+  'ICLASS_REJECTED',
 ]);
 
 /**
@@ -16,11 +17,11 @@ const ICLASS_ERROR_CODES = new Set([
  */
 export function parseIClassError(err: unknown): IClassSendError | null {
   if (!err || typeof err !== 'object' || !('response' in err)) return null;
-  const data = (err as { response?: { data?: { code?: string; missingFields?: string[]; message?: string } } })
+  const data = (err as { response?: { data?: { code?: string; missingFields?: string[]; message?: string; reason?: string } } })
     .response?.data;
   const code = data?.code;
   if (!code || !ICLASS_ERROR_CODES.has(code)) return null;
-  return { code, missingFields: data?.missingFields, message: data?.message };
+  return { code, missingFields: data?.missingFields, message: data?.message, reason: data?.reason };
 }
 
 export interface IClassSendFeedback {

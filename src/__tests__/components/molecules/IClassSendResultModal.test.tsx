@@ -126,6 +126,46 @@ describe('IClassSendResultModal', () => {
     });
   });
 
+  describe('ICLASS_REJECTED', () => {
+    function setup(reason?: string) {
+      return render(
+        <IClassSendResultModal
+          open
+          error={{ code: 'ICLASS_REJECTED', reason }}
+          onClose={onClose}
+          onRetry={onRetry}
+        />,
+      );
+    }
+
+    it('shows a title about IClass rejecting the order', () => {
+      setup('ICLERR_0045: codigoCliente ultrapassou o limite');
+      expect(screen.getByText(/rechazó la orden/i)).toBeInTheDocument();
+    });
+
+    it('renders the reason detail', () => {
+      setup('ICLERR_0045: codigoCliente ultrapassou o limite de caracteres');
+      expect(screen.getByText('ICLERR_0045: codigoCliente ultrapassou o limite de caracteres')).toBeInTheDocument();
+    });
+
+    it('shows a generic message when reason is empty', () => {
+      setup('');
+      expect(screen.getByText(/IClass rechazó la orden por un problema en los datos/i)).toBeInTheDocument();
+    });
+
+    it('shows "Reintentar" and "Cerrar"', () => {
+      setup('whatever');
+      expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Cerrar' })).toBeInTheDocument();
+    });
+
+    it('calls onRetry when "Reintentar" is clicked', () => {
+      setup('whatever');
+      fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+      expect(onRetry).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('calls onClose when "Cerrar" is clicked', () => {
     render(
       <IClassSendResultModal

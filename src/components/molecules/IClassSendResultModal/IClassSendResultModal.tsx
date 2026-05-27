@@ -6,12 +6,15 @@ import styles from './IClassSendResultModal.module.css';
 export type IClassErrorCode =
   | 'MISSING_REQUIRED_FIELDS'
   | 'ICLASS_NODE_NOT_FOUND'
-  | 'ICLASS_UNAVAILABLE';
+  | 'ICLASS_UNAVAILABLE'
+  | 'ICLASS_REJECTED';
 
 export interface IClassSendError {
   code: string;
   missingFields?: string[];
   message?: string;
+  /** Human-readable rejection detail returned by IClass (ICLASS_REJECTED). */
+  reason?: string;
 }
 
 interface IClassSendResultModalProps {
@@ -39,6 +42,7 @@ const TITLES: Record<string, string> = {
   MISSING_REQUIRED_FIELDS: 'Faltan datos para enviar a IClass',
   ICLASS_NODE_NOT_FOUND: 'No se encontró el nodo en IClass',
   ICLASS_UNAVAILABLE: 'IClass no está disponible',
+  ICLASS_REJECTED: 'IClass rechazó la orden',
 };
 
 /**
@@ -110,6 +114,12 @@ export function IClassSendResultModal({
           <p className={styles.message}>
             El servicio de IClass no está disponible en este momento. Reintentá en
             unos minutos.
+          </p>
+        ) : error.code === 'ICLASS_REJECTED' ? (
+          <p className={styles.message}>
+            {error.reason?.trim()
+              ? error.reason
+              : 'IClass rechazó la orden por un problema en los datos. Revisá la información de la tarea antes de reintentar.'}
           </p>
         ) : (
           <p className={styles.message}>
