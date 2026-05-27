@@ -38,6 +38,15 @@ describe('ClientesListPage', () => {
       data: { data: mockCustomers, total: 2, page: 1, totalPages: 1 },
       isLoading: false,
     } as ReturnType<typeof useClientsModule.useClientList>);
+    // Auto-mocked siblings must return usable shapes or the page's children crash.
+    vi.mocked(useClientsModule.useClientStats).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+    } as ReturnType<typeof useClientsModule.useClientStats>);
+    vi.mocked(useClientsModule.useToggleClientStatus).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useClientsModule.useToggleClientStatus>);
   });
 
   it('renders page title', () => {
