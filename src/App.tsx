@@ -163,7 +163,6 @@ export function App() {
                 <Route path=":id" element={<CustomerIdRedirect />} />
               </Route>
 
-              <Route path="crm/leads" element={<LeadsPage />} />
               <Route path="leads" element={<Navigate to="/admin/crm/leads" replace />} />
               <Route path="messages" element={<Navigate to="/admin/support/inbox" replace />} />
               {/* ── Tickets ────────────────────────────────────────────────── */}
@@ -231,17 +230,81 @@ export function App() {
                 <Route path="tasks" element={<SchedulingTasksPage />} />
                 <Route path="tasks/:id" element={<SchedulingTaskDetailPage />} />
               </Route>
-              <Route path="inventory/list" element={<InventarioPage />} />
-              <Route path="voice" element={<VozPage />} />
-              <Route path="tariffs" element={<TarifasPage />} />
-              <Route path="tariffs/internet" element={<TarifasInternetPage />} />
-              <Route path="tariffs/voice" element={<TarifasVozPage />} />
-              <Route path="tariffs/recurring" element={<TarifasRecurrentePage />} />
-              <Route path="tariffs/one-time" element={<TarifasUnicoPage />} />
-              <Route path="tariffs/bundles" element={<TarifasPaquetesPage />} />
-              <Route path="tariffs/huawei-groups" element={<TarifasHuaweiGroupsPage />} />
-              <Route path="administration/administrators" element={<AdministracionPage />} />
-              <Route path="config/main" element={<ConfiguracionPage />} />
+              {/* ── Tariffs ────────────────────────────────────────────────── */}
+              <Route path="tariffs">
+                <Route index element={<TarifasPage />} />
+                <Route path="internet" element={<TarifasInternetPage />} />
+                <Route path="voice" element={<TarifasVozPage />} />
+                <Route path="recurring" element={<TarifasRecurrentePage />} />
+                <Route path="one-time" element={<TarifasUnicoPage />} />
+                <Route path="bundles" element={<TarifasPaquetesPage />} />
+                <Route path="huawei-groups" element={<TarifasHuaweiGroupsPage />} />
+              </Route>
+
+              {/* ── Voice ──────────────────────────────────────────────────── */}
+              <Route path="voice">
+                <Route index element={<VozPage />} />
+                <Route path="categories" element={<VoiceCategoriesPage />} />
+                <Route path="processing" element={<VoiceProcessingPage />} />
+                <Route path="rate-tables" element={<VoiceRateTablesPage />} />
+                <Route path="prefixes" element={<VoicePrefixesPage />} />
+                <Route path="cdr" element={<CDRPage />} />
+              </Route>
+
+              {/* ── Inventory ──────────────────────────────────────────────── */}
+              <Route path="inventory">
+                <Route path="list" element={<InventarioPage />} />
+                <Route path="dashboard" element={<InventoryDashboardPage />} />
+                <Route path="items" element={<InventoryItemsPage />} />
+                <Route path="products" element={<InventoryProductsPage />} />
+                <Route path="supply" element={<InventorySupplyPage />} />
+              </Route>
+
+              {/* ── Support ────────────────────────────────────────────────── */}
+              <Route path="support">
+                <Route path="inbox" element={<SupportInboxPage />} />
+                <Route path="mass-send" element={<MassSendPage />} />
+                <Route path="messengers" element={<MessengersPage />} />
+                <Route path="news" element={<NewsPage />} />
+              </Route>
+
+              {/* ── CRM ────────────────────────────────────────────────────── */}
+              <Route path="crm">
+                <Route path="leads" element={<LeadsPage />} />
+                <Route path="dashboard" element={<CrmDashboardPage />} />
+                <Route path="quotes" element={<CrmQuotesPage />} />
+                <Route path="map" element={<CrmMapPage />} />
+              </Route>
+
+              {/* ── SLA ────────────────────────────────────────────────────── */}
+              <Route path="sla">
+                <Route index element={<SLADashboardPage />} />
+                <Route path="list" element={<SLAListPage />} />
+              </Route>
+
+              {/* ── Resellers ──────────────────────────────────────────────── */}
+              <Route path="resellers">
+                <Route index element={<ResellersListPage />} />
+                <Route path=":id" element={<ResellerDetailPage />} />
+              </Route>
+
+              {/* ── Portal ─────────────────────────────────────────────────── */}
+              <Route path="portal">
+                <Route index element={<PortalConfigPage />} />
+                <Route path="users" element={<PortalUsersPage />} />
+              </Route>
+
+              {/* ── Administration ─────────────────────────────────────────── */}
+              <Route path="administration">
+                <Route path="administrators" element={<AdministracionPage />} />
+              </Route>
+
+              {/* ── Config ─────────────────────────────────────────────────── */}
+              <Route path="config">
+                <Route path="main" element={<ConfiguracionPage />} />
+              </Route>
+
+              {/* ── Singletons ─────────────────────────────────────────────── */}
               <Route path="partners" element={<PartnersPage />} />
               <Route path="locations" element={<UbicacionesPage />} />
               <Route path="reports" element={<InformesPage />} />
@@ -249,28 +312,6 @@ export function App() {
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="api-docs" element={<ApiDocsPage />} />
               <Route path="profile" element={<ProfilePage />} />
-              <Route path="crm/dashboard" element={<CrmDashboardPage />} />
-              <Route path="crm/quotes" element={<CrmQuotesPage />} />
-              <Route path="crm/map" element={<CrmMapPage />} />
-              <Route path="support/inbox" element={<SupportInboxPage />} />
-              <Route path="support/mass-send" element={<MassSendPage />} />
-              <Route path="support/messengers" element={<MessengersPage />} />
-              <Route path="support/news" element={<NewsPage />} />
-              <Route path="inventory/dashboard" element={<InventoryDashboardPage />} />
-              <Route path="inventory/items" element={<InventoryItemsPage />} />
-              <Route path="inventory/products" element={<InventoryProductsPage />} />
-              <Route path="inventory/supply" element={<InventorySupplyPage />} />
-              <Route path="voice/categories" element={<VoiceCategoriesPage />} />
-              <Route path="voice/processing" element={<VoiceProcessingPage />} />
-              <Route path="voice/rate-tables" element={<VoiceRateTablesPage />} />
-              <Route path="voice/prefixes" element={<VoicePrefixesPage />} />
-              <Route path="sla" element={<SLADashboardPage />} />
-              <Route path="sla/list" element={<SLAListPage />} />
-              <Route path="resellers" element={<ResellersListPage />} />
-              <Route path="resellers/:id" element={<ResellerDetailPage />} />
-              <Route path="voice/cdr" element={<CDRPage />} />
-              <Route path="portal" element={<PortalConfigPage />} />
-              <Route path="portal/users" element={<PortalUsersPage />} />
             </Route>
           </Route>
         </Route>
