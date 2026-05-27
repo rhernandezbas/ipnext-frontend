@@ -213,6 +213,7 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
   return (
     <>
       <div className={styles.bulkActionBar} data-testid="bulk-action-bar">
+        <span className={styles.bulkLabel}>Acciones masivas</span>
         <span className={styles.bulkCount}>
           ✓ {selectedIds.length} tarea{selectedIds.length !== 1 ? 's' : ''} seleccionada{selectedIds.length !== 1 ? 's' : ''}
         </span>
@@ -414,6 +415,22 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
 
   return (
     <div className={styles.wrapper}>
+      {/* Bulk action bar — inline panel, shown above the table when rows are selected */}
+      <BulkActionBar
+        selectedIds={selectedIds}
+        availableStages={availableStages}
+        onClear={() => setSelectedIds([])}
+        onMoveStage={async (ids, stageId) => {
+          for (const id of ids) {
+            await moveToStage.mutateAsync({ id, stageId });
+          }
+        }}
+        onDelete={async (ids) => {
+          for (const id of ids) {
+            await deleteTask.mutateAsync(id);
+          }
+        }}
+      />
       <DataTable
         columns={COLUMNS}
         data={pageData}
@@ -446,25 +463,6 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
         </div>
       )}
 
-      {/* Bulk action bar */}
-      <BulkActionBar
-        selectedIds={selectedIds}
-        availableStages={availableStages}
-        onClear={() => setSelectedIds([])}
-        onMoveStage={async (ids, stageId) => {
-          // Fan out: one mutation per task. Sequential to keep UI consistent
-          // and avoid hammering the server. Each call invalidates the task
-          // list cache so the table refreshes when done.
-          for (const id of ids) {
-            await moveToStage.mutateAsync({ id, stageId });
-          }
-        }}
-        onDelete={async (ids) => {
-          for (const id of ids) {
-            await deleteTask.mutateAsync(id);
-          }
-        }}
-      />
     </div>
   );
 }

@@ -155,24 +155,30 @@
   padding: 0 6px;
 }
 
-/* Bulk action bar (fixed bottom) */
+/* Bulk action bar (inline panel, above the table) */
 .bulkActionBar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 50;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 24px;
-  background: #1e293b;
-  color: #fff;
-  box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
+  padding: 10px 16px;
+  margin-bottom: 8px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  color: #0c4a6e;
 }
-.bulkCount { flex: 1; font-size: 14px; font-weight: 500; }
+.bulkLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #0369a1;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+.bulkCount { font-size: 13px; font-weight: 600; color: #0c4a6e; flex: 1; }
 .bulkDeleteBtn {
-  padding: 6px 16px;
+  padding: 5px 14px;
   background: #ef4444;
   color: #fff;
   border: none;
@@ -183,22 +189,22 @@
 }
 .bulkDeleteBtn:hover { background: #dc2626; }
 .bulkClearBtn {
-  padding: 6px 16px;
+  padding: 5px 14px;
   background: transparent;
-  color: #94a3b8;
-  border: 1px solid #475569;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
 }
-.bulkClearBtn:hover { color: #fff; border-color: #94a3b8; }
+.bulkClearBtn:hover { background: #e0f2fe; }
 
 /* Mover etapa button — primary action in the bulk bar */
 .bulkMoveBtn {
   background: #2563eb;
   color: #fff;
   border: none;
-  padding: 8px 14px;
+  padding: 5px 14px;
   border-radius: 6px;
   font-size: 13px;
   font-weight: 600;
