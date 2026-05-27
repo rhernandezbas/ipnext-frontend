@@ -66,3 +66,10 @@ export const assignTemplateToTask = (taskId: string, templateId: string) =>
 
 export const clearChecklist = (taskId: string) =>
   axiosClient.delete(`${BASE}/${taskId}/checklist`);
+
+// ── Inventory review ─────────────────────────────────────────────────────────
+
+export const setTaskInventoryReview = (taskId: string, reviewed: boolean) =>
+  axiosClient
+    .patch<ScheduledTask>(`${BASE}/${taskId}/inventory-review`, { reviewed })
+    .then(r => r.data);

@@ -184,5 +184,19 @@ export function useClearChecklist(taskId: string) {
   });
 }
 
+// ── Inventory review ─────────────────────────────────────────────────────────
+
+export function useSetTaskInventoryReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reviewed }: { id: string; reviewed: boolean }) =>
+      api.setTaskInventoryReview(id, reviewed),
+    onSuccess: (_result, { id }) => {
+      void qc.invalidateQueries({ queryKey: ['scheduling-tasks'] });
+      void qc.invalidateQueries({ queryKey: ['scheduling-task', id] });
+    },
+  });
+}
+
 // Type alias exported for convenience in components
 export type { TaskChecklistItem };

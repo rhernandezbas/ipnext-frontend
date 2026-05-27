@@ -104,6 +104,10 @@ export interface ScheduledTask {
    *  Only admins / superadmins can physically delete tasks. */
   isClosed?: boolean;
 
+  /** Inventory review flag — set via PATCH /scheduling/:id/inventory-review.
+   *  Indicates that the inventory team has reviewed the task (RV). */
+  reviewedByInventory: boolean;
+
   // Timestamps — backend always returns ISO strings (post-change-1)
   createdAt: string;
   updatedAt: string;

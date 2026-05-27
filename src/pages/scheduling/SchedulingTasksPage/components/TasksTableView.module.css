@@ -315,3 +315,29 @@
   opacity: 0.5;
   text-decoration: line-through;
 }
+
+/* RV (Revisado por Inventario) indicator — clickable dot */
+.rvBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full, 9999px);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  background: transparent;
+  transition: transform var(--transition-fast, 100ms ease), opacity var(--transition-fast, 100ms ease);
+}
+.rvBtn:hover { opacity: 0.75; transform: scale(1.15); }
+.rvBtn:disabled { opacity: 0.4; cursor: progress; }
+
+.rvDot {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full, 9999px);
+  display: block;
+}
+.rvDot[data-reviewed="true"]  { background: #22c55e; }   /* green — matches hecho category color */
+.rvDot[data-reviewed="false"] { background: #ef4444; }   /* red — matches cancelado category color */

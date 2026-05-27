@@ -6,7 +6,7 @@ import type { ScheduledTask, TaskStageCategory } from '@/types/scheduling';
 import type { Workflow, WorkflowStage } from '@/types/workflow';
 import type { Project } from '@/types/project';
 import type { TaskPriority } from '@/types/taskPriority';
-import { useMoveTaskToStage, useDeleteTask, useCloseTask } from '@/hooks/useScheduling';
+import { useMoveTaskToStage, useDeleteTask, useCloseTask, useSetTaskInventoryReview } from '@/hooks/useScheduling';
 import { useAuth } from '@/hooks/useAuth';
 import styles from './TasksTableView.module.css';
 
@@ -41,6 +41,43 @@ function StageBadge({ stageCategory }: { stageCategory: TaskStageCategory }) {
     <span className={styles.stageBadge} data-category={stageCategory}>
       {CATEGORY_LABEL[stageCategory]}
     </span>
+  );
+}
+
+/** Clickable indicator for the RV (Revisado por Inventario) column. */
+function RvIndicator({
+  taskId,
+  reviewed,
+  onToggle,
+}: {
+  taskId: string;
+  reviewed: boolean;
+  onToggle: (id: string, next: boolean) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  async function handleClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    setBusy(true);
+    try {
+      await onToggle(taskId, !reviewed);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className={styles.rvBtn}
+      disabled={busy}
+      onClick={e => void handleClick(e)}
+      aria-label={reviewed ? 'RV: revisado' : 'RV: no revisado'}
+      data-reviewed={String(reviewed)}
+      title={reviewed ? 'Revisado por inventario — clic para desmarcar' : 'No revisado — clic para marcar'}
+    >
+      <span className={styles.rvDot} data-reviewed={String(reviewed)} aria-hidden="true" />
+    </button>
   );
 }
 
@@ -340,8 +377,9 @@ export const ALL_TASK_COLUMNS: { key: string; label: string }[] = [
   { key: 'startDate',      label: 'Inicio' },
   { key: 'assigneeName',   label: 'Asignado' },
   { key: 'priority',       label: 'Prioridad' },
-  { key: 'createdAt',      label: 'Fecha creación' },
-  { key: 'updatedAt',      label: 'Fecha actualización' },
+  { key: 'createdAt',             label: 'Fecha creación' },
+  { key: 'updatedAt',             label: 'Fecha actualización' },
+  { key: 'reviewedByInventory',   label: 'RV' },
 ];
 
 const PAGE_SIZES = [10, 25, 50, 100];
@@ -351,6 +389,7 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
   const moveToStage = useMoveTaskToStage();
   const deleteTask = useDeleteTask();
   const closeTask = useCloseTask();
+  const setInventoryReview = useSetTaskInventoryReview();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -439,6 +478,14 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
       render: (t: ScheduledTask) => new Date(t.createdAt).toLocaleDateString('es-AR') },
     { label: 'Fecha actualización', key: 'updatedAt', sortable: true,
       render: (t: ScheduledTask) => new Date(t.updatedAt).toLocaleDateString('es-AR') },
+    { label: 'RV', key: 'reviewedByInventory', sortable: false,
+      render: (t: ScheduledTask) => (
+        <RvIndicator
+          taskId={t.id}
+          reviewed={t.reviewedByInventory}
+          onToggle={(id, next) => setInventoryReview.mutateAsync({ id, reviewed: next })}
+        />
+      ) },
   ];
 
   // Build COLUMNS in the EXACT order of visibleColumnKeys (drag-to-reorder).

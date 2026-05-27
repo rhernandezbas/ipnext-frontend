@@ -6,9 +6,10 @@ const moveAsync = vi.fn();
 const deleteAsync = vi.fn();
 const closeAsync = vi.fn();
 vi.mock('@/hooks/useScheduling', () => ({
-  useMoveTaskToStage: () => ({ mutateAsync: moveAsync, isPending: false }),
-  useDeleteTask: () => ({ mutateAsync: deleteAsync, isPending: false }),
-  useCloseTask: () => ({ mutateAsync: closeAsync, isPending: false }),
+  useMoveTaskToStage:        () => ({ mutateAsync: moveAsync,   isPending: false }),
+  useDeleteTask:             () => ({ mutateAsync: deleteAsync, isPending: false }),
+  useCloseTask:              () => ({ mutateAsync: closeAsync,  isPending: false }),
+  useSetTaskInventoryReview: () => ({ mutateAsync: vi.fn(),     isPending: false }),
 }));
 
 vi.mock('@/hooks/useAuth', () => ({

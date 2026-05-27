@@ -44,12 +44,13 @@ vi.mock('@dnd-kit/utilities', () => ({
 
 // ── Mock hooks ───────────────────────────────────────────────────────────────
 vi.mock('@/hooks/useScheduling', () => ({
-  useFilteredTasks:   vi.fn(),
-  useTasks:           vi.fn(),
-  useCreateTask:      vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
-  useMoveTaskToStage: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
-  useDeleteTask:      vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
-  useCloseTask:       vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
+  useFilteredTasks:          vi.fn(),
+  useTasks:                  vi.fn(),
+  useCreateTask:             vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
+  useMoveTaskToStage:        vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
+  useDeleteTask:             vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
+  useCloseTask:              vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
+  useSetTaskInventoryReview: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
 }));
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -115,6 +116,7 @@ const baseTask: ScheduledTask = {
   travelTimeTo: null,
   travelTimeFrom: null,
   checklist: [],
+  reviewedByInventory: false,
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
 };
