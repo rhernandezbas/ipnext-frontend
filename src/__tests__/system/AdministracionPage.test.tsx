@@ -172,7 +172,7 @@ describe('AdminPage', () => {
     expect(screen.getByRole('button', { name: 'Nuevo administrador' })).toBeInTheDocument();
   });
 
-  it('clicking "Nuevo administrador" shows form with Nombre, Email, Rol fields', async () => {
+  it('clicking "Nuevo administrador" shows form with Nombre, Email, Rol, Contraseña fields', async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -181,6 +181,7 @@ describe('AdminPage', () => {
     expect(screen.getByLabelText('Nombre')).toBeInTheDocument();
     expect(screen.getByLabelText('Email')).toBeInTheDocument();
     expect(screen.getByLabelText('Rol')).toBeInTheDocument();
+    expect(screen.getByLabelText(/contraseña \*/i)).toBeInTheDocument();
   });
 
   it('submitting the form calls createAdmin mutate', async () => {
@@ -191,11 +192,12 @@ describe('AdminPage', () => {
 
     await user.type(screen.getByLabelText('Nombre'), 'Nuevo Admin');
     await user.type(screen.getByLabelText('Email'), 'nuevo@test.com');
+    await user.type(screen.getByLabelText(/contraseña/i), 'secret123');
 
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
 
     expect(mockMutate).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Nuevo Admin', email: 'nuevo@test.com' })
+      expect.objectContaining({ name: 'Nuevo Admin', email: 'nuevo@test.com', password: 'secret123' })
     );
   });
 

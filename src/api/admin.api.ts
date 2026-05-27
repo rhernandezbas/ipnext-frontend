@@ -6,7 +6,7 @@ const BASE = '/admins';
 export const getAdmins = (params?: { role?: string }) =>
   axiosClient.get<Admin[]>(BASE, { params }).then(r => r.data);
 export const getAdmin = (id: string) => axiosClient.get<Admin>(`${BASE}/${id}`).then(r => r.data);
-export const createAdmin = (data: Omit<Admin, 'id' | 'createdAt' | 'lastLogin'>) =>
+export const createAdmin = (data: Omit<Admin, 'id' | 'createdAt' | 'lastLogin'> & { password?: string }) =>
   axiosClient.post<Admin>(BASE, data).then(r => r.data);
 export const updateAdmin = (id: string, data: Partial<Admin>) =>
   axiosClient.patch<Admin>(`${BASE}/${id}`, data).then(r => r.data);

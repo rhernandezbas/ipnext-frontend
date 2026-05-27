@@ -183,18 +183,33 @@ interface AdminFormProps {
   initialData?: Partial<Admin>;
   title: string;
   onClose: () => void;
-  onSubmit: (data: Omit<Admin, 'id' | 'createdAt' | 'lastLogin'>) => void;
+  onSubmit: (data: Omit<Admin, 'id' | 'createdAt' | 'lastLogin'> & { password?: string }) => void;
 }
 
 function AdminFormModal({ initialData, title, onClose, onSubmit }: AdminFormProps) {
   const { data: roles = [] } = useRoles();
+  const isEditing = !!initialData?.id;
   const [name, setName] = useState(initialData?.name ?? '');
   const [email, setEmail] = useState(initialData?.email ?? '');
   const [role, setRole] = useState<string>(initialData?.role ?? 'admin');
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSubmit({ name, email, role, status: initialData?.status ?? 'active' });
+    if (!isEditing && !password.trim()) {
+      setPasswordError('La contraseña es obligatoria para crear un administrador.');
+      return;
+    }
+    setPasswordError(null);
+    const payload: Omit<Admin, 'id' | 'createdAt' | 'lastLogin'> & { password?: string } = {
+      name, email, role, status: initialData?.status ?? 'active',
+    };
+    // Only send password when creating, or when editing and user typed something.
+    if (!isEditing || password.trim()) {
+      payload.password = password;
+    }
+    onSubmit(payload);
   }
 
   return (
@@ -237,6 +252,24 @@ function AdminFormModal({ initialData, title, onClose, onSubmit }: AdminFormProp
                 <option key={r.id} value={r.name}>{ROLE_LABEL[r.name] ?? r.name}</option>
               ))}
             </select>
+          </div>
+          <div className={styles.formGroup}>
+            <label htmlFor="admin-password">
+              Contraseña{isEditing ? ' (dejar vacío para no cambiar)' : ' *'}
+            </label>
+            <input
+              id="admin-password"
+              type="password"
+              value={password}
+              onChange={e => { setPassword(e.target.value); setPasswordError(null); }}
+              autoComplete={isEditing ? 'new-password' : 'new-password'}
+              placeholder={isEditing ? 'Sin cambios' : 'Contraseña'}
+            />
+            {passwordError && (
+              <span style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
+                {passwordError}
+              </span>
+            )}
           </div>
           <div className={styles.modalActions}>
             <button type="button" className={styles.btnSecondary} onClick={onClose}>
@@ -817,12 +850,12 @@ export default function AdminPage() {
   useCreateRole();
   const { mutate: updateRole } = useUpdateRole();
 
-  function handleCreate(data: Omit<Admin, 'id' | 'createdAt' | 'lastLogin'>) {
+  function handleCreate(data: Omit<Admin, 'id' | 'createdAt' | 'lastLogin'> & { password?: string }) {
     createAdmin(data);
     setShowModal(false);
   }
 
-  function handleEdit(data: Omit<Admin, 'id' | 'createdAt' | 'lastLogin'>) {
+  function handleEdit(data: Omit<Admin, 'id' | 'createdAt' | 'lastLogin'> & { password?: string }) {
     if (!editingAdmin) return;
     updateAdmin({ id: editingAdmin.id, data });
     setEditingAdmin(null);
