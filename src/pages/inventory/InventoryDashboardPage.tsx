@@ -1,5 +1,5 @@
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
-import { useInventoryItems } from '@/hooks/useEmpresa';
+import { useInventoryItems } from '@/hooks/useInventory';
 import type { InventoryItem } from '@/types/inventory';
 import styles from './InventoryDashboardPage.module.css';
 

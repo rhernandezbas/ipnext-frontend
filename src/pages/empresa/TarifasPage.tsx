@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
-import { useServicePlans, useCreateServicePlan, useUpdateServicePlan, useDeleteServicePlan } from '@/hooks/useEmpresa';
+import { useServicePlans, useCreateServicePlan, useUpdateServicePlan, useDeleteServicePlan } from '@/hooks/useServicePlans';
 import type { ServicePlan } from '@/types/service-plans';
 import styles from './TarifasPage.module.css';
 

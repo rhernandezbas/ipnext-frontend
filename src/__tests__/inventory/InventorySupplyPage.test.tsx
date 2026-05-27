@@ -3,25 +3,25 @@ import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import InventorySupplyPage from '@/pages/inventory/InventorySupplyPage';
 
-vi.mock('@/hooks/useEmpresa', () => ({
+vi.mock('@/hooks/useInventory', () => ({
   useSupplyOrders: vi.fn(),
 }));
 
-import { useSupplyOrders } from '@/hooks/useEmpresa';
+import { useSupplyOrders } from '@/hooks/useInventory';
 
 const mockOrders = [
   {
     id: '1',
-    proveedor: 'TP-Link',
-    estado: 'pendiente',
-    fecha: '2024-01-15',
+    supplier: 'TP-Link',
+    status: 'pending',
+    date: '2024-01-15',
     total: 1500,
   },
   {
     id: '2',
-    proveedor: 'Huawei',
-    estado: 'recibido',
-    fecha: '2024-01-10',
+    supplier: 'Huawei',
+    status: 'received',
+    date: '2024-01-10',
     total: 3200,
   },
 ];

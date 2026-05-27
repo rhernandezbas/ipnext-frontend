@@ -4,10 +4,10 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { default as InventarioPage } from '@/pages/empresa/InventarioPage';
-import * as useEmpresaModule from '@/hooks/useEmpresa';
+import * as useEmpresaModule from '@/hooks/useInventory';
 import type { InventoryProduct, InventoryUnit } from '@/types/inventory';
 
-vi.mock('@/hooks/useEmpresa');
+vi.mock('@/hooks/useInventory');
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });

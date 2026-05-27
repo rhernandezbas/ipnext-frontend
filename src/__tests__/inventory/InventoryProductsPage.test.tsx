@@ -3,11 +3,11 @@ import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import InventoryProductsPage from '@/pages/inventory/InventoryProductsPage';
 
-vi.mock('@/hooks/useEmpresa', () => ({
+vi.mock('@/hooks/useInventory', () => ({
   useInventoryProducts: vi.fn(),
 }));
 
-import { useInventoryProducts } from '@/hooks/useEmpresa';
+import { useInventoryProducts } from '@/hooks/useInventory';
 
 const mockProducts = [
   {

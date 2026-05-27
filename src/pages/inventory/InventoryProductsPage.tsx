@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { FilterBar } from '@/components/molecules/FilterBar/FilterBar';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
-import { useInventoryProducts } from '@/hooks/useEmpresa';
+import { useInventoryProducts } from '@/hooks/useInventory';
 import type { InventoryProduct } from '@/types/inventory';
 import styles from './InventoryItemsPage.module.css';
 

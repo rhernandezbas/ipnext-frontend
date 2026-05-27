@@ -8,7 +8,7 @@ import {
   useDeleteInventoryProduct,
   useDeleteInventoryUnit,
   useUpdateInventoryUnit,
-} from '@/hooks/useEmpresa';
+} from '@/hooks/useInventory';
 import type { InventoryProduct, InventoryUnit } from '@/types/inventory';
 import styles from './InventarioPage.module.css';
 

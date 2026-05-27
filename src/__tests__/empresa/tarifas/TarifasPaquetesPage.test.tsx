@@ -3,10 +3,10 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import TarifasPaquetesPage from '@/pages/empresa/tarifas/TarifasPaquetesPage';
-import * as useEmpresaModule from '@/hooks/useEmpresa';
+import * as useEmpresaModule from '@/hooks/useServicePlans';
 import type { ServicePlan } from '@/types/service-plans';
 
-vi.mock('@/hooks/useEmpresa');
+vi.mock('@/hooks/useServicePlans');
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });

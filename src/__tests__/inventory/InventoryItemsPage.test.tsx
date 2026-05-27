@@ -4,11 +4,11 @@ import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import InventoryItemsPage from '@/pages/inventory/InventoryItemsPage';
 
-vi.mock('@/hooks/useEmpresa', () => ({
+vi.mock('@/hooks/useInventory', () => ({
   useInventoryItems: vi.fn(),
 }));
 
-import { useInventoryItems } from '@/hooks/useEmpresa';
+import { useInventoryItems } from '@/hooks/useInventory';
 
 const mockItems = [
   { id: '1', name: 'Router Alpha', category: 'router', sku: 'R1', quantity: 5, minStock: 2, unitPrice: 100, supplier: 'A', location: 'A1', status: 'in_stock' },
