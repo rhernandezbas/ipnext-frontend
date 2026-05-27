@@ -2,9 +2,9 @@ import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ActividadTab } from '@/pages/clientes/tabs/ActividadTab';
-import * as useClientsModule from '@/hooks/useClients';
+import * as useClientsModule from '@/hooks/useCustomers';
 
-vi.mock('@/hooks/useClients');
+vi.mock('@/hooks/useCustomers');
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });

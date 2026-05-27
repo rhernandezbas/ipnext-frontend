@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useClientComments, useCreateComment } from '../../../hooks/useClients';
+import { useClientComments, useCreateComment } from '../../../hooks/useCustomers';
 import { Button } from '../../../components/atoms/Button/Button';
 import styles from './Tab.module.css';
 

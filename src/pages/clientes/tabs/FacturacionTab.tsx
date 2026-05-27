@@ -1,6 +1,6 @@
 import { DataTable } from '../../../components/organisms/DataTable/DataTable';
 import { StatusBadge } from '../../../components/atoms/StatusBadge/StatusBadge';
-import { useClientInvoices } from '../../../hooks/useClients';
+import { useClientInvoices } from '../../../hooks/useCustomers';
 import type { Invoice, InvoiceStatus } from '../../../types/billing';
 import styles from './Tab.module.css';
 

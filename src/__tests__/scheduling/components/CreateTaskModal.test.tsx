@@ -5,7 +5,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 // modal renders without a QueryClientProvider.
 const useClientListMock = vi.fn(() => ({ data: { data: [] as unknown[], total: 0, page: 1, pageSize: 20, totalPages: 0 }, isFetching: false }));
 const useClientDetailMock = vi.fn(() => ({ data: undefined as unknown }));
-vi.mock('@/hooks/useClients', () => ({
+vi.mock('@/hooks/useCustomers', () => ({
   useClientList: () => useClientListMock(),
   useClientDetail: () => useClientDetailMock(),
 }));

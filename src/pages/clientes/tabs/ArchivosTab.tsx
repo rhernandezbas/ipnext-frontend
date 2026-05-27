@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { useClientFiles, useUploadFile } from '../../../hooks/useClients';
+import { useClientFiles, useUploadFile } from '../../../hooks/useCustomers';
 import styles from './Tab.module.css';
 
 interface Props { clientId: string; active: boolean; }

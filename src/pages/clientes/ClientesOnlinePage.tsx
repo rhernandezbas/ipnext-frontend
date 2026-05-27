@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useOnlineSessions, useDisconnectSession } from '@/hooks/useClients';
-import type { OnlineSession } from '@/hooks/useClients';
+import { useOnlineSessions, useDisconnectSession } from '@/hooks/useCustomers';
+import type { OnlineSession } from '@/hooks/useCustomers';
 import styles from './ClientesOnlinePage.module.css';
 
 function calcTotalTrafficGB(sessions: OnlineSession[]): number {

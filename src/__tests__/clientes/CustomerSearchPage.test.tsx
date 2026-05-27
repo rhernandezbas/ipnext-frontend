@@ -3,11 +3,11 @@ import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import CustomerSearchPage from '@/pages/clientes/CustomerSearchPage';
 
-vi.mock('@/hooks/useClients', () => ({
+vi.mock('@/hooks/useCustomers', () => ({
   useClientList: vi.fn(),
 }));
 
-import { useClientList } from '@/hooks/useClients';
+import { useClientList } from '@/hooks/useCustomers';
 
 const mockCustomers = [
   { id: 1, name: 'Juan Pérez', login: 'jperez', email: 'juan@example.com', phone: '1234567890', status: 'active' as const, balance: 0, category: 'residencial', tariffPlan: null, ipRanges: null, accessDevices: 0, createdAt: '2026-01-01' },

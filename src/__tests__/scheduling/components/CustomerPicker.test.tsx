@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 const useClientList = vi.fn();
-vi.mock('@/hooks/useClients', () => ({ useClientList: () => useClientList() }));
+vi.mock('@/hooks/useCustomers', () => ({ useClientList: () => useClientList() }));
 
 import { CustomerPicker } from '@/pages/scheduling/SchedulingTasksPage/components/CustomerPicker';
 

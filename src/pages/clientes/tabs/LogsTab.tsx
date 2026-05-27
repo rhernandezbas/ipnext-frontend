@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { DataTable } from '../../../components/organisms/DataTable/DataTable';
 import { Pagination } from '../../../components/molecules/Pagination/Pagination';
-import { useClientLogs } from '../../../hooks/useClients';
+import { useClientLogs } from '../../../hooks/useCustomers';
 import type { LogEntry } from '../../../types/customer';
 import styles from './Tab.module.css';
 

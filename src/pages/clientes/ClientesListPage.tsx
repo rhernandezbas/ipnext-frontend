@@ -4,7 +4,7 @@ import { FilterBar } from '../../components/molecules/FilterBar/FilterBar';
 import { Pagination } from '../../components/molecules/Pagination/Pagination';
 import { DataTable } from '../../components/organisms/DataTable/DataTable';
 import { StatusBadge } from '../../components/atoms/StatusBadge/StatusBadge';
-import { useClientList, useToggleClientStatus } from '../../hooks/useClients';
+import { useClientList, useToggleClientStatus } from '../../hooks/useCustomers';
 import { useGestionRealSyncStatus } from '../../hooks/useGestionRealSync';
 import { GestionRealSyncBadge } from '../../components/gestionReal/GestionRealSyncBadge';
 import type { CustomerSummary } from '../../types/customer';

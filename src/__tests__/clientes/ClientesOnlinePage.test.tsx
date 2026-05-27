@@ -4,9 +4,9 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ClientesOnlinePage from '@/pages/clientes/ClientesOnlinePage';
-import * as useClientsModule from '@/hooks/useClients';
+import * as useClientsModule from '@/hooks/useCustomers';
 
-vi.mock('@/hooks/useClients');
+vi.mock('@/hooks/useCustomers');
 
 const mockSessions: useClientsModule.OnlineSession[] = [
   { id: 1, clientId: 1, clientName: 'Alice García', ip: '192.168.1.101', mac: 'AA:BB:CC:DD:EE:01', connectedSince: '2026-04-28T08:00:00Z', downloadMbps: 12.4, uploadMbps: 2.1 },

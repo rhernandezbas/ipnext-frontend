@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTasks, useCreateTask, useUpdateTask, useUpdateTaskStatus, useDeleteTask } from '@/hooks/useScheduling';
 import { useTechnicians } from '@/hooks/useAdmins';
-import { useClientList } from '@/hooks/useClients';
+import { useClientList } from '@/hooks/useCustomers';
 import { useTaskTemplates } from '@/hooks/useTaskTemplates';
 import type { ScheduledTask, TaskStageCategory, TaskPriority } from '@/types/scheduling';
 

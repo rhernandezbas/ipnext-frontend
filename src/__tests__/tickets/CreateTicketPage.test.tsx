@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import CreateTicketPage from '@/pages/tickets/CreateTicketPage';
 import * as useTicketsModule from '@/hooks/useTickets';
-import * as clientsApi from '@/api/clients.api';
+import * as clientsApi from '@/api/customers.api';
 
 vi.mock('@/hooks/useTickets');
 vi.mock('@/api/clients.api');

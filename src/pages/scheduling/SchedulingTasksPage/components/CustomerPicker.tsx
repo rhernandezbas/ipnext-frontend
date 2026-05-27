@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useClientList } from '@/hooks/useClients';
+import { useClientList } from '@/hooks/useCustomers';
 import styles from './CustomerPicker.module.css';
 
 interface Props {

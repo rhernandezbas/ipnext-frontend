@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useClientList } from '@/hooks/useClients';
+import { useClientList } from '@/hooks/useCustomers';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import type { CustomerSummary } from '@/types/customer';
 import styles from './CustomerSearchPage.module.css';

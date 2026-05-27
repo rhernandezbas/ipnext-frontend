@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '../../components/atoms/Input/Input';
 import { Button } from '../../components/atoms/Button/Button';
 import { useCreateTicket } from '../../hooks/useTickets';
-import { getClients } from '../../api/clients.api';
+import { getClients } from '../../api/customers.api';
 import styles from './CreateTicketPage.module.css';
 
 interface FormState {

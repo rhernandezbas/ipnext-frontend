@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useClientServices, useAddService, useUpdateService, useDeleteService } from '../../../hooks/useClients';
+import { useClientServices, useAddService, useUpdateService, useDeleteService } from '../../../hooks/useCustomers';
 import type { Service } from '../../../types/customer';
 import type { AddServiceData, UpdateServiceData } from '../../../types/customer';
 import styles from './Tab.module.css';

@@ -3,7 +3,7 @@ import { useParams, Navigate, useNavigate, Link } from 'react-router-dom';
 import { Tabs } from '../../components/molecules/Tabs/Tabs';
 import { ConfirmModal } from '../../components/molecules/ConfirmModal/ConfirmModal';
 import { Button } from '../../components/atoms/Button/Button';
-import { useClientDetail, useToggleClientStatus, useDeleteCustomer } from '../../hooks/useClients';
+import { useClientDetail, useToggleClientStatus, useDeleteCustomer } from '../../hooks/useCustomers';
 import { InformacionTab } from './tabs/InformacionTab';
 import { ServiciosTab } from './tabs/ServiciosTab';
 import { FacturacionTab } from './tabs/FacturacionTab';

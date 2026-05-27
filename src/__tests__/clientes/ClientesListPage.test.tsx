@@ -4,10 +4,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import ClientesListPage from '@/pages/clientes/ClientesListPage';
-import * as useClientsModule from '@/hooks/useClients';
+import * as useClientsModule from '@/hooks/useCustomers';
 import type { CustomerSummary } from '@/types/customer';
 
-vi.mock('@/hooks/useClients');
+vi.mock('@/hooks/useCustomers');
 
 function makeQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });

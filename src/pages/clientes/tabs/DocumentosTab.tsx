@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { Button } from '../../../components/atoms/Button/Button';
-import { useClientDocuments, useUploadDocument } from '../../../hooks/useClients';
+import { useClientDocuments, useUploadDocument } from '../../../hooks/useCustomers';
 import styles from './Tab.module.css';
 import docStyles from './DocumentosTab.module.css';
 

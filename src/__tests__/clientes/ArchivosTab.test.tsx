@@ -2,9 +2,9 @@ import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ArchivosTab } from '@/pages/clientes/tabs/ArchivosTab';
-import * as useClientsModule from '@/hooks/useClients';
+import * as useClientsModule from '@/hooks/useCustomers';
 
-vi.mock('@/hooks/useClients');
+vi.mock('@/hooks/useCustomers');
 
 // jsdom doesn't implement URL.createObjectURL
 URL.createObjectURL = vi.fn(() => 'blob:mock');

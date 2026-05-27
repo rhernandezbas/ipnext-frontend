@@ -1,4 +1,4 @@
-import { useClientComments } from '../../../hooks/useClients';
+import { useClientComments } from '../../../hooks/useCustomers';
 import styles from './Tab.module.css';
 
 interface Props {

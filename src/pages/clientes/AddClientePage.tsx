@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCreateCustomer } from '../../hooks/useClients';
+import { useCreateCustomer } from '../../hooks/useCustomers';
 import styles from './AddClientePage.module.css';
 
 interface FormState {

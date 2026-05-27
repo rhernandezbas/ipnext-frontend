@@ -21,7 +21,7 @@ import {
   getOnlineSessions,
   disconnectSession,
   deleteCustomer,
-} from '../api/clients.api';
+} from '../api/customers.api';
 import type {
   ClientsQuery,
   LogsQuery,
@@ -30,7 +30,7 @@ import type {
   ClientDocument,
   ClientFile,
   OnlineSession,
-} from '../api/clients.api';
+} from '../api/customers.api';
 import type { CreateCustomerData, UpdateCustomerData, AddServiceData, UpdateServiceData } from '../types/customer';
 
 export type { ClientsQuery, LogsQuery, ClientComment, ClientDocument, ClientFile, OnlineSession };

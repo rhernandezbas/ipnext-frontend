@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useClientDetail, useUpdateCustomer } from '../../hooks/useClients';
+import { useClientDetail, useUpdateCustomer } from '../../hooks/useCustomers';
 import styles from './EditClientePage.module.css';
 
 interface FormState {

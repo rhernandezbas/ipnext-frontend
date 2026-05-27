@@ -3,10 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ServiciosTab } from '@/pages/clientes/tabs/ServiciosTab';
-import * as useClientsModule from '@/hooks/useClients';
+import * as useClientsModule from '@/hooks/useCustomers';
 import type { Service } from '@/types/customer';
 
-vi.mock('@/hooks/useClients');
+vi.mock('@/hooks/useCustomers');
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });

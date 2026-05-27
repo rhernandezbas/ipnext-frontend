@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useClientDetail } from '@/hooks/useClients';
+import { useClientDetail } from '@/hooks/useCustomers';
 import { useTaskCategories } from '@/hooks/useTaskCategories';
 import type { Project } from '@/types/project';
 import type { Workflow } from '@/types/workflow';

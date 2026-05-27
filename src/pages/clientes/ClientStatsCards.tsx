@@ -1,4 +1,4 @@
-import { useClientStats } from '../../hooks/useClients';
+import { useClientStats } from '../../hooks/useCustomers';
 import styles from './ClientStatsCards.module.css';
 
 interface ClientStatsCardsProps {
