@@ -5,6 +5,7 @@ import { ConfirmModal } from '../../components/molecules/ConfirmModal/ConfirmMod
 import { Button } from '../../components/atoms/Button/Button';
 import { useClientDetail, useToggleClientStatus, useDeleteCustomer } from '../../hooks/useCustomers';
 import { useTasksByCustomer } from '../../hooks/useScheduling';
+import { useTicketsByCustomer } from '../../hooks/useTickets';
 import { InfoTab } from './tabs/InfoTab';
 import { ServicesTab } from './tabs/ServicesTab';
 import { BillingTab } from './tabs/BillingTab';
@@ -69,6 +70,8 @@ export default function CustomerDetailPage() {
   const deleteCustomer = useDeleteCustomer();
   const { data: customerTasks = [] } = useTasksByCustomer(id || undefined);
   const taskCount = customerTasks.length;
+  const { data: customerTicketsData } = useTicketsByCustomer(id || undefined);
+  const ticketCount = customerTicketsData?.total ?? 0;
 
   if (!id) {
     return <Navigate to="/admin/customers/list" replace />;
@@ -212,7 +215,7 @@ export default function CustomerDetailPage() {
             )}
           </div>
           <Button variant="secondary" size="sm" onClick={() => navigate(`/admin/scheduling/tasks?customerId=${id}`)}>Tareas ({taskCount}) ▾</Button>
-          <Button variant="secondary" size="sm" onClick={() => navigate('/admin/tickets/opened')}>Tickets ▾</Button>
+          <Button variant="secondary" size="sm" onClick={() => navigate(`/admin/tickets/opened?customerId=${id}`)}>Tickets ({ticketCount}) ▾</Button>
           <Button variant="primary" size="sm" onClick={() => navigate(`/admin/customers/view/${id}/edit`)}>Guardar</Button>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { FilterBar } from '../../components/molecules/FilterBar/FilterBar';
 import { Pagination } from '../../components/molecules/Pagination/Pagination';
 import { DataTable } from '../../components/organisms/DataTable/DataTable';
@@ -46,6 +46,9 @@ const COLUMNS: Array<{ label: string; key: keyof Ticket | string; sortable?: boo
 interface Props { statusFilter?: string; }
 
 export default function TicketsListPage({ statusFilter }: Props) {
+  const [searchParams] = useSearchParams();
+  const customerIdParam = searchParams.get('customerId') ?? undefined;
+
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState(statusFilter ?? '');
   const [priority, setPriority] = useState('');
@@ -59,6 +62,7 @@ export default function TicketsListPage({ statusFilter }: Props) {
     search: search || undefined,
     status: status || undefined,
     priority: priority || undefined,
+    customerId: customerIdParam ? Number(customerIdParam) : undefined,
   });
 
   const totalPages = data ? Math.ceil(data.total / 25) : 1;

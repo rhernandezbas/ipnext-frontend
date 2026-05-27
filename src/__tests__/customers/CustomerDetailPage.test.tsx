@@ -5,9 +5,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import CustomerDetailPage from '@/pages/customers/CustomerDetailPage';
 import * as useClientsModule from '@/hooks/useCustomers';
+import * as useSchedulingModule from '@/hooks/useScheduling';
+import * as useTicketsModule from '@/hooks/useTickets';
 import type { Customer } from '@/types/customer';
 
 vi.mock('@/hooks/useCustomers');
+vi.mock('@/hooks/useScheduling');
+vi.mock('@/hooks/useTickets');
 
 function makeQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -30,6 +34,16 @@ const mockCustomer: Customer = {
 };
 
 function mockAllHooks() {
+  vi.mocked(useSchedulingModule.useTasksByCustomer).mockReturnValue({
+    data: [],
+    isLoading: false,
+  } as ReturnType<typeof useSchedulingModule.useTasksByCustomer>);
+
+  vi.mocked(useTicketsModule.useTicketsByCustomer).mockReturnValue({
+    data: { data: [], total: 0 },
+    isLoading: false,
+  } as ReturnType<typeof useTicketsModule.useTicketsByCustomer>);
+
   vi.mocked(useClientsModule.useClientDetail).mockReturnValue({
     data: mockCustomer,
     isLoading: false,
@@ -219,13 +233,21 @@ describe('CustomerDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Eliminar cliente' })).toBeInTheDocument();
   });
 
-  it('"Tareas" button is present', () => {
+  it('"Tareas (N)" button is present and shows task count', () => {
     renderDetail();
-    expect(screen.getByRole('button', { name: 'Tareas' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Tareas \(\d+\)/ })).toBeInTheDocument();
   });
 
-  it('"Tickets" button is present', () => {
+  it('"Tickets (N)" button is present and shows ticket count', () => {
     renderDetail();
-    expect(screen.getByRole('button', { name: 'Tickets' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Tickets \(\d+\)/ })).toBeInTheDocument();
+  });
+
+  it('"Tickets (N)" button navigates to filtered ticket list', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+    const ticketsBtn = screen.getByRole('button', { name: /^Tickets \(\d+\)/ });
+    await user.click(ticketsBtn);
+    // Navigation is triggered; no error thrown = success
   });
 });

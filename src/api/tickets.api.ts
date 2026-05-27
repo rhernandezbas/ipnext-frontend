@@ -19,6 +19,7 @@ export interface TicketsQuery {
   search?: string;
   status?: string;
   priority?: string;
+  customerId?: number;
 }
 
 export interface CreateTicketInput {
@@ -98,6 +99,16 @@ export async function getArchivedTickets(
 ): Promise<PaginatedResponse<Ticket>> {
   const response = await axiosClient.get<PaginatedResponse<Ticket>>('/tickets/archive', {
     params,
+  });
+  return response.data;
+}
+
+/** Fetch all tickets for a specific customer — used for the count badge in CustomerDetailPage. */
+export async function getTicketsByCustomer(
+  customerId: string | number
+): Promise<PaginatedResponse<Ticket>> {
+  const response = await axiosClient.get<PaginatedResponse<Ticket>>('/tickets', {
+    params: { customerId: String(customerId), pageSize: 1000 },
   });
   return response.data;
 }

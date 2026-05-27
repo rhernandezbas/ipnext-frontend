@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getTickets, getTicketStats, createTicket, TicketsQuery, CreateTicketInput } from '../api/tickets.api';
+import { getTickets, getTicketsByCustomer, getTicketStats, createTicket, TicketsQuery, CreateTicketInput } from '../api/tickets.api';
 import axiosClient from '../api/axios-client';
 import type { Ticket, TicketReply } from '../types/ticket';
 
@@ -7,6 +7,16 @@ export function useTicketList(query: TicketsQuery) {
   return useQuery({
     queryKey: ['tickets', query],
     queryFn: () => getTickets(query),
+    staleTime: 30_000,
+  });
+}
+
+/** Fetch tickets for a specific customer. Used for the count badge in CustomerDetailPage. */
+export function useTicketsByCustomer(customerId: string | undefined) {
+  return useQuery({
+    queryKey: ['tickets', { customerId }],
+    queryFn: () => getTicketsByCustomer(customerId!),
+    enabled: !!customerId,
     staleTime: 30_000,
   });
 }
