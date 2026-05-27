@@ -44,9 +44,9 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: /ingresar/i })).toBeInTheDocument();
   });
 
-  it('shows IPNEXT branding', () => {
+  it('shows Prominense branding', () => {
     renderLogin();
-    expect(screen.getByText('IPNEXT')).toBeInTheDocument();
+    expect(screen.getByText('Prominense')).toBeInTheDocument();
     expect(screen.getByText(/acceso de administradores/i)).toBeInTheDocument();
   });
 

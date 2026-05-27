@@ -229,7 +229,7 @@ export function Sidebar({ open, onToggle }: SidebarProps) {
   return (
     <aside className={`${styles.sidebar} ${!open ? styles.sidebarClosed : ''}`}>
       <div className={styles.brand}>
-        <span className={styles.brandName}>IPNEXT</span>
+        <span className={styles.brandName}>Prominense</span>
         <button className={styles.collapseBtn} onClick={onToggle} title="Colapsar menú">
           ‹
         </button>

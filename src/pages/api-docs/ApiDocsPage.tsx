@@ -197,13 +197,13 @@ const API_GROUPS: ApiGroup[] = [
         method: 'GET',
         path: '/api/settings/system',
         description: 'Obtener configuración del sistema',
-        exampleResponse: JSON.stringify({ companyName: 'IPNEXT SA', timezone: 'America/Argentina/Buenos_Aires', currency: 'ARS' }, null, 2),
+        exampleResponse: JSON.stringify({ companyName: 'Prominense SA', timezone: 'America/Argentina/Buenos_Aires', currency: 'ARS' }, null, 2),
       },
       {
         method: 'PUT',
         path: '/api/settings/system',
         description: 'Actualizar configuración del sistema',
-        exampleResponse: JSON.stringify({ companyName: 'IPNEXT SA', timezone: 'UTC', currency: 'USD' }, null, 2),
+        exampleResponse: JSON.stringify({ companyName: 'Prominense SA', timezone: 'UTC', currency: 'USD' }, null, 2),
       },
       {
         method: 'GET',
@@ -305,7 +305,7 @@ export default function ApiDocsPage() {
       <main style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
         <h1 style={{ margin: '0 0 0.5rem', fontSize: '1.5rem', fontWeight: 700 }}>Documentación API</h1>
         <p style={{ color: '#6b7280', marginBottom: '2rem', fontSize: '0.875rem' }}>
-          API REST de IPNEXT — Base URL: <code style={{ background: '#f3f4f6', padding: '0.1rem 0.4rem', borderRadius: '0.25rem' }}>https://api.ipnext.com.ar</code>
+          API REST de Prominense — Base URL: <code style={{ background: '#f3f4f6', padding: '0.1rem 0.4rem', borderRadius: '0.25rem' }}>https://api.ipnext.com.ar</code>
         </p>
 
         <h2 style={{ margin: '0 0 1.5rem', fontSize: '1.25rem', fontWeight: 700, borderBottom: '2px solid #e5e7eb', paddingBottom: '0.5rem' }}>

@@ -46,7 +46,7 @@ export function LoginPage() {
               </defs>
             </svg>
           </div>
-          <div className={styles.logoText}>IPNEXT</div>
+          <div className={styles.logoText}>Prominense</div>
           <div className={styles.subtitle}>Acceso de administradores</div>
         </div>
 

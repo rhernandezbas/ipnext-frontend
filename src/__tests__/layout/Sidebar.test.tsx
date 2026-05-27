@@ -12,9 +12,9 @@ function renderSidebar(path = '/admin/customers/list') {
 }
 
 describe('Sidebar', () => {
-  it('renders IPNEXT brand', () => {
+  it('renders Prominense brand', () => {
     renderSidebar();
-    expect(screen.getByText('IPNEXT')).toBeInTheDocument();
+    expect(screen.getByText('Prominense')).toBeInTheDocument();
   });
 
   it('renders CRM navigation section buttons', () => {

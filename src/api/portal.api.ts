@@ -4,7 +4,7 @@ const MOCK_CONFIG: PortalConfig = {
   enablePayments: true,
   enableTickets: true,
   enableUsage: false,
-  welcomeMessage: 'Bienvenido al portal de clientes IPNEXT',
+  welcomeMessage: 'Bienvenido al portal de clientes Prominense',
   brandColor: '#2563eb',
 };
 

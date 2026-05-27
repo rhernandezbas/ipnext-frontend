@@ -13,7 +13,7 @@ const mockConfig = {
   enablePayments: true,
   enableTickets: true,
   enableUsage: false,
-  welcomeMessage: 'Bienvenido al portal de clientes IPNEXT',
+  welcomeMessage: 'Bienvenido al portal de clientes Prominense',
   brandColor: '#2563eb',
 };
 
@@ -47,6 +47,6 @@ describe('PortalConfigPage', () => {
 
   it('renders welcome message', () => {
     render(<MemoryRouter><PortalConfigPage /></MemoryRouter>);
-    expect(screen.getByText('Bienvenido al portal de clientes IPNEXT')).toBeInTheDocument();
+    expect(screen.getByText('Bienvenido al portal de clientes Prominense')).toBeInTheDocument();
   });
 });

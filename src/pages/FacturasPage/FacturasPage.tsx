@@ -58,7 +58,7 @@ function printInvoice(invoice: Invoice) {
     </head>
     <body>
       <div class="header">
-        <div><h1>IPNEXT</h1><p>Sistema de Gestión ISP</p></div>
+        <div><h1>Prominense</h1><p>Sistema de Gestión ISP</p></div>
         <div><h2>FACTURA</h2><p>${invoice.number}</p></div>
       </div>
       <div class="divider"></div>
@@ -70,7 +70,7 @@ function printInvoice(invoice: Invoice) {
       </div>
       <div class="divider"></div>
       <div class="total">Total: $${invoice.total.toFixed(2)}</div>
-      <p style="margin-top:3rem;font-size:12px;color:#999">Generado por IPNEXT — ${new Date().toLocaleDateString('es-AR')}</p>
+      <p style="margin-top:3rem;font-size:12px;color:#999">Generado por Prominense — ${new Date().toLocaleDateString('es-AR')}</p>
     </body>
     </html>
   `);
