@@ -174,19 +174,21 @@ export function App() {
               <Route path="tickets/archive" element={<Navigate to="/admin/tickets/trash" replace />} />
               <Route path="tickets/new" element={<TicketCreatePage />} />
               <Route path="tickets/:id" element={<TicketDetailPage />} />
-              <Route path="finance/dashboard" element={<Navigate to="/admin/finance" replace />} />
-              <Route path="finance" element={<FinanzasDashboardPage />} />
-              <Route path="finance/invoices" element={<FacturasPage />} />
-              <Route path="finance/payments" element={<PagosPage />} />
-              <Route
-                path="finance/transactions"
-                element={<TransaccionesPage />}
-              />
-              <Route path="finance/credit-notes" element={<NotasCreditoPage />} />
-              <Route path="finance/proforma-invoices" element={<ProformasPage />} />
-              <Route path="finance/proformas" element={<Navigate to="/admin/finance/proforma-invoices" replace />} />
-              <Route path="finance/history" element={<HistorialFinancieroPage />} />
-              <Route path="finance/payment-statements" element={<PaymentStatementsPage />} />
+              {/* ── Finance ────────────────────────────────────────────────── */}
+              <Route path="finance">
+                <Route index element={<FinanzasDashboardPage />} />
+                <Route path="dashboard" element={<Navigate to="/admin/finance" replace />} />
+                <Route path="invoices" element={<FacturasPage />} />
+                <Route path="payments" element={<PagosPage />} />
+                <Route path="transactions" element={<TransaccionesPage />} />
+                <Route path="credit-notes" element={<NotasCreditoPage />} />
+                <Route path="proforma-invoices" element={<ProformasPage />} />
+                <Route path="proformas" element={<Navigate to="/admin/finance/proforma-invoices" replace />} />
+                <Route path="history" element={<HistorialFinancieroPage />} />
+                <Route path="payment-statements" element={<PaymentStatementsPage />} />
+                <Route path="dunning" element={<DunningPage />} />
+                <Route path="payment-plans" element={<PaymentPlansPage />} />
+              </Route>
               <Route path="networking/routers/list" element={<GestionRedPage />} />
               <Route path="networking/network-sites" element={<NetworkSitesPage />} />
               <Route path="networking/sites" element={<Navigate to="/admin/networking/network-sites" replace />} />
@@ -258,8 +260,6 @@ export function App() {
               <Route path="sla/list" element={<SLAListPage />} />
               <Route path="resellers" element={<ResellersListPage />} />
               <Route path="resellers/:id" element={<ResellerDetailPage />} />
-              <Route path="finance/dunning" element={<DunningPage />} />
-              <Route path="finance/payment-plans" element={<PaymentPlansPage />} />
               <Route path="voice/cdr" element={<CDRPage />} />
               <Route path="portal" element={<PortalConfigPage />} />
               <Route path="portal/users" element={<PortalUsersPage />} />
