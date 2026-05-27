@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Ubicacion } from '@/types/location';
-import * as api from '@/api/ubicaciones.api';
+import * as api from '@/api/locations.api';
 
 export function useUbicaciones() {
   return useQuery({ queryKey: ['ubicaciones'], queryFn: api.getUbicaciones });

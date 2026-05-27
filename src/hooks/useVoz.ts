@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { VoipCategory, VoipPlan } from '@/types/voice';
-import * as api from '@/api/voz.api';
+import * as api from '@/api/voice.api';
 
 export function useVoipCategories() {
   return useQuery({ queryKey: ['voip-categories'], queryFn: api.listVoipCategories });
