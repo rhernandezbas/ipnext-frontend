@@ -49,6 +49,11 @@ vi.mock('@/hooks/useScheduling', () => ({
   useCreateTask:      vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
   useMoveTaskToStage: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
   useDeleteTask:      vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
+  useCloseTask:       vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
+}));
+
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: vi.fn(() => ({ user: { id: 1, username: 'admin', email: 'a@b.com', displayName: 'Admin', role: 'admin', permissions: [] } })),
 }));
 
 vi.mock('@/hooks/useProjects', () => ({

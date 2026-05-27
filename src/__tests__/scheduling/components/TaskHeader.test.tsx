@@ -55,6 +55,8 @@ function renderHeader(props: Partial<Parameters<typeof TaskHeader>[0]> = {}) {
     onStageMove: vi.fn().mockResolvedValue(undefined),
     onPriorityChange: vi.fn().mockResolvedValue(undefined),
     onDelete: vi.fn(),
+    onClose: vi.fn(),
+    isAdmin: false,
     isSaving: false,
     ...props,
   };
@@ -128,5 +130,45 @@ describe('TaskHeader', () => {
   it('renders kebab menu button', () => {
     renderHeader({ onTitleSave, onStageMove, onPriorityChange, onDelete });
     expect(screen.getByTestId('kebab-menu')).toBeInTheDocument();
+  });
+
+  it('shows "Cerrar tarea" in kebab menu for open task', async () => {
+    const user = userEvent.setup();
+    renderHeader({ onTitleSave, onStageMove, onPriorityChange, onDelete, isAdmin: false });
+    await user.click(screen.getByTestId('kebab-menu'));
+    expect(screen.getByTestId('kebab-close')).toHaveTextContent('Cerrar tarea');
+  });
+
+  it('shows "Reabrir tarea" in kebab menu for closed task', async () => {
+    const user = userEvent.setup();
+    const closedTask = { ...mockTask, isClosed: true };
+    renderHeader({ task: closedTask, onTitleSave, onStageMove, onPriorityChange, onDelete, isAdmin: false });
+    await user.click(screen.getByTestId('kebab-menu'));
+    expect(screen.getByTestId('kebab-close')).toHaveTextContent('Reabrir tarea');
+  });
+
+  it('shows "Cerrada" badge when task.isClosed is true', () => {
+    const closedTask = { ...mockTask, isClosed: true };
+    renderHeader({ task: closedTask });
+    expect(screen.getByTestId('task-closed-badge')).toBeInTheDocument();
+  });
+
+  it('does NOT show "Cerrada" badge for open task', () => {
+    renderHeader({ task: mockTask });
+    expect(screen.queryByTestId('task-closed-badge')).not.toBeInTheDocument();
+  });
+
+  it('hides "Eliminar tarea" in kebab menu for non-admin', async () => {
+    const user = userEvent.setup();
+    renderHeader({ onTitleSave, onStageMove, onPriorityChange, onDelete, isAdmin: false });
+    await user.click(screen.getByTestId('kebab-menu'));
+    expect(screen.queryByTestId('kebab-delete')).not.toBeInTheDocument();
+  });
+
+  it('shows "Eliminar tarea" in kebab menu for admin', async () => {
+    const user = userEvent.setup();
+    renderHeader({ onTitleSave, onStageMove, onPriorityChange, onDelete, isAdmin: true });
+    await user.click(screen.getByTestId('kebab-menu'));
+    expect(screen.getByTestId('kebab-delete')).toBeInTheDocument();
   });
 });

@@ -12,6 +12,7 @@ vi.mock('@/hooks/useScheduling', () => ({
   useUpdateTask: vi.fn(),
   useMoveTaskToStage: vi.fn(),
   useDeleteTask: vi.fn(),
+  useCloseTask: vi.fn(() => noopMutationFactory()),
   useAddChecklistItem: vi.fn(() => noopMutationFactory()),
   useToggleChecklistItem: vi.fn(() => noopMutationFactory()),
   useUpdateChecklistItem: vi.fn(() => noopMutationFactory()),
@@ -19,6 +20,14 @@ vi.mock('@/hooks/useScheduling', () => ({
   useReorderChecklist: vi.fn(() => noopMutationFactory()),
   useAssignTemplateToTask: vi.fn(() => noopMutationFactory()),
   useClearChecklist: vi.fn(() => noopMutationFactory()),
+}));
+
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: vi.fn(() => ({ user: { id: 1, username: 'admin', email: 'a@b.com', displayName: 'Admin', role: 'admin', permissions: [] } })),
+}));
+
+vi.mock('@/hooks/useTaskPriorities', () => ({
+  useTaskPriorities: vi.fn(() => ({ data: [], isLoading: false })),
 }));
 
 vi.mock('@/hooks/useWorkflows', () => ({
@@ -75,10 +84,11 @@ vi.mock('@tiptap/react', () => ({
 
 vi.mock('@tiptap/starter-kit', () => ({ default: {} }));
 
-import { useTask, useUpdateTask, useMoveTaskToStage, useDeleteTask } from '@/hooks/useScheduling';
+import { useTask, useUpdateTask, useMoveTaskToStage, useDeleteTask, useCloseTask } from '@/hooks/useScheduling';
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { useAdmins } from '@/hooks/useAdmins';
 import { usePartners } from '@/hooks/usePartners';
+import { useAuth } from '@/hooks/useAuth';
 
 const mockTask: ScheduledTask = {
   id: 'task-1',
@@ -169,6 +179,8 @@ function setupMocks(overrides?: { taskData?: Partial<ScheduledTask> | null; isLo
   vi.mocked(useUpdateTask).mockReturnValue(noopMutation as ReturnType<typeof useUpdateTask>);
   vi.mocked(useMoveTaskToStage).mockReturnValue(noopMutation as ReturnType<typeof useMoveTaskToStage>);
   vi.mocked(useDeleteTask).mockReturnValue(noopMutation as ReturnType<typeof useDeleteTask>);
+  vi.mocked(useCloseTask).mockReturnValue(noopMutation as ReturnType<typeof useCloseTask>);
+  vi.mocked(useAuth).mockReturnValue({ user: { id: 1, username: 'admin', email: 'a@b.com', displayName: 'Admin', role: 'admin', permissions: [] } });
 
   vi.mocked(useWorkflows).mockReturnValue({
     data: mockWorkflows,
@@ -253,5 +265,75 @@ describe('SchedulingTaskDetailPage', () => {
       // Pedro López is admin-2, who is in watcherIds
       expect(screen.getByRole('button', { name: /quitar Pedro López/i })).toBeInTheDocument();
     });
+  });
+
+  it('shows "Cerrar tarea" option in kebab menu for an open task', async () => {
+    setupMocks();
+    const { fireEvent: fe } = await import('@testing-library/react');
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => {
+      expect(screen.getByTestId('kebab-menu')).toBeInTheDocument();
+    });
+    fe.click(screen.getByTestId('kebab-menu'));
+    expect(screen.getByTestId('kebab-close')).toHaveTextContent('Cerrar tarea');
+  });
+
+  it('shows "Reabrir tarea" option in kebab menu for a closed task', async () => {
+    setupMocks({ taskData: { isClosed: true } });
+    const { fireEvent: fe } = await import('@testing-library/react');
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => {
+      expect(screen.getByTestId('kebab-menu')).toBeInTheDocument();
+    });
+    fe.click(screen.getByTestId('kebab-menu'));
+    expect(screen.getByTestId('kebab-close')).toHaveTextContent('Reabrir tarea');
+  });
+
+  it('shows "Cerrada" badge in header when task is closed', async () => {
+    setupMocks({ taskData: { isClosed: true } });
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => {
+      expect(screen.getByTestId('task-closed-badge')).toBeInTheDocument();
+    });
+  });
+
+  it('calls useCloseTask with isClosed:true when "Cerrar tarea" is clicked', async () => {
+    setupMocks();
+    const closeTaskMutateAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useCloseTask).mockReturnValue({ ...noopMutation, mutateAsync: closeTaskMutateAsync } as ReturnType<typeof useCloseTask>);
+    const { fireEvent: fe } = await import('@testing-library/react');
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => {
+      expect(screen.getByTestId('kebab-menu')).toBeInTheDocument();
+    });
+    fe.click(screen.getByTestId('kebab-menu'));
+    fe.click(screen.getByTestId('kebab-close'));
+    await waitFor(() => {
+      expect(closeTaskMutateAsync).toHaveBeenCalledWith({ id: 'task-1', isClosed: true });
+    });
+  });
+
+  it('shows "Eliminar tarea" in kebab menu for admin role', async () => {
+    setupMocks();
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 1, username: 'admin', email: 'a@b.com', displayName: 'Admin', role: 'admin', permissions: [] } });
+    const { fireEvent: fe } = await import('@testing-library/react');
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => {
+      expect(screen.getByTestId('kebab-menu')).toBeInTheDocument();
+    });
+    fe.click(screen.getByTestId('kebab-menu'));
+    expect(screen.getByTestId('kebab-delete')).toBeInTheDocument();
+  });
+
+  it('hides "Eliminar tarea" in kebab menu for non-admin role', async () => {
+    setupMocks();
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 2, username: 'tech', email: 'tech@b.com', displayName: 'Tech', role: 'technician', permissions: [] } });
+    const { fireEvent: fe } = await import('@testing-library/react');
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => {
+      expect(screen.getByTestId('kebab-menu')).toBeInTheDocument();
+    });
+    fe.click(screen.getByTestId('kebab-menu'));
+    expect(screen.queryByTestId('kebab-delete')).not.toBeInTheDocument();
   });
 });
