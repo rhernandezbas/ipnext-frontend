@@ -4,7 +4,17 @@ import { useTasks, useCreateTask, useUpdateTask, useUpdateTaskStatus, useDeleteT
 import { useTechnicians } from '@/hooks/useAdmins';
 import { useClientList } from '@/hooks/useClients';
 import { useTaskTemplates } from '@/hooks/useTaskTemplates';
-import type { ScheduledTask, TaskStatus, TaskPriority } from '@/types/scheduling';
+import type { ScheduledTask, TaskStageCategory, TaskPriority } from '@/types/scheduling';
+
+/** @deprecated — local alias kept for this legacy page only */
+type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+/** Maps stageCategory to legacy TaskStatus for display helpers */
+const STAGE_TO_STATUS: Partial<Record<TaskStageCategory, TaskStatus>> = {
+  nuevo:      'pending',
+  enProgreso: 'in_progress',
+  hecho:      'completed',
+  cancelado:  'cancelled',
+};
 import { KebabMenu } from '@/components/atoms/KebabMenu/KebabMenu';
 import styles from './SchedulingPage.module.css';
 
@@ -78,12 +88,10 @@ function fmtDate(d: string | null): string {
 // ── Form modal ────────────────────────────────────────────────
 
 const EMPTY: Omit<ScheduledTask, 'id' | 'sequenceNumber' | 'createdAt' | 'updatedAt'> = {
-  title: '', description: null, assignedTo: null, assignedToId: null,
-  clientId: null, clientName: null, status: 'pending', priority: 'normal',
-  scheduledDate: null, scheduledTime: null, estimatedHours: 1,
+  title: '', description: null, priority: 'normal',
+  estimatedHours: 1,
   address: null, coordinates: null, category: 'other',
   projectId: null, projectName: null, completedAt: null, notes: null,
-  // post-change-3 fields
   stageId: '', stageCategory: 'nuevo',
   startDate: null, endDate: null,
   customerId: null, customerName: null, customerCity: null, serviceId: null, partnerId: null,
@@ -136,27 +144,27 @@ function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFo
 
   function handleTechnicianChange(adminId: string) {
     if (!adminId) {
-      setForm(prev => ({ ...prev, assignedTo: null, assignedToId: null }));
+      setForm(prev => ({ ...prev, assigneeId: null, assigneeName: null }));
       return;
     }
     const tech = technicians.find(t => t.id === adminId);
     setForm(prev => ({
       ...prev,
-      assignedToId: adminId,
-      assignedTo: tech?.name ?? null,
+      assigneeId: adminId,
+      assigneeName: tech?.name ?? null,
     }));
   }
 
   function handleClientChange(clientId: string) {
     if (!clientId) {
-      setForm(prev => ({ ...prev, clientId: null, clientName: null }));
+      setForm(prev => ({ ...prev, customerId: null, customerName: null }));
       return;
     }
     const client = clients.find(c => String(c.id) === clientId);
     setForm(prev => ({
       ...prev,
-      clientId,
-      clientName: client?.name ?? null,
+      customerId: clientId,
+      customerName: client?.name ?? null,
     }));
   }
 
@@ -165,8 +173,6 @@ function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFo
     setSubmitError(null);
     const payload: Omit<ScheduledTask, 'id' | 'sequenceNumber' | 'createdAt' | 'updatedAt'> = {
       ...form,
-      scheduledDate: form.scheduledDate ? emptyToNull(form.scheduledDate) : null,
-      scheduledTime: form.scheduledTime ? emptyToNull(form.scheduledTime) : null,
       description: form.description ? emptyToNull(form.description) : null,
       address: form.address ? emptyToNull(form.address) : null,
       notes: form.notes ? emptyToNull(form.notes) : null,
@@ -244,7 +250,7 @@ function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFo
                 <label htmlFor="f-assigned">Asignado a</label>
                 <select
                   id="f-assigned" className={styles.formControl}
-                  value={form.assignedToId ?? ''}
+                  value={form.assigneeId ?? ''}
                   onChange={e => handleTechnicianChange(e.target.value)}
                 >
                   <option value="">— Sin asignar —</option>
@@ -257,7 +263,7 @@ function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFo
                 <label htmlFor="f-client">Cliente</label>
                 <select
                   id="f-client" className={styles.formControl}
-                  value={form.clientId ?? ''}
+                  value={form.customerId ?? ''}
                   onChange={e => handleClientChange(e.target.value)}
                 >
                   <option value="">— Sin cliente —</option>
@@ -302,14 +308,17 @@ function TaskModal({ title = 'Nueva tarea', initial, onClose, onSubmit }: TaskFo
               <div className={styles.formGroup}>
                 <label htmlFor="f-date">Fecha <small style={{ color: 'var(--text-3)' }}>(opcional)</small></label>
                 <input id="f-date" className={styles.formControl} type="date"
-                  value={form.scheduledDate ?? ''}
-                  onChange={e => set('scheduledDate', e.target.value || null)} />
+                  value={form.startDate ? form.startDate.slice(0, 10) : ''}
+                  onChange={e => set('startDate', e.target.value ? `${e.target.value}T08:00:00Z` : null)} />
               </div>
               <div className={styles.formGroup}>
                 <label htmlFor="f-time">Hora <small style={{ color: 'var(--text-3)' }}>(opcional)</small></label>
                 <input id="f-time" className={styles.formControl} type="time"
-                  value={form.scheduledTime ?? ''}
-                  onChange={e => set('scheduledTime', e.target.value || null)} />
+                  value={form.startDate ? form.startDate.slice(11, 16) : ''}
+                  onChange={e => {
+                    const datePart = form.startDate ? form.startDate.slice(0, 10) : new Date().toISOString().slice(0, 10);
+                    set('startDate', e.target.value ? `${datePart}T${e.target.value}:00Z` : null);
+                  }} />
               </div>
             </div>
 
@@ -395,8 +404,8 @@ function ListView({
               </td>
               <td>
                 <div className={styles.assignee}>
-                  <span className={styles.assigneeAvatar}>{initials(t.assignedTo)}</span>
-                  {t.assignedTo ?? 'Sin asignar'}
+                  <span className={styles.assigneeAvatar}>{initials(t.assigneeName)}</span>
+                  {t.assigneeName ?? 'Sin asignar'}
                 </div>
               </td>
               <td>
@@ -406,19 +415,19 @@ function ListView({
                 </span>
               </td>
               <td>
-                <span className={`${styles.badge} ${priorityClass(t.priority)}`}>
-                  {PRIORITY_LABEL[t.priority]}
+                <span className={`${styles.badge} ${priorityClass(t.priority as TaskPriority)}`}>
+                  {PRIORITY_LABEL[t.priority as TaskPriority]}
                 </span>
               </td>
               <td>
-                <span className={`${styles.badge} ${statusClass(t.status)}`}>
-                  {STATUS_LABEL[t.status]}
+                <span className={`${styles.badge} ${statusClass(STAGE_TO_STATUS[t.stageCategory] ?? 'pending')}`}>
+                  {STATUS_LABEL[STAGE_TO_STATUS[t.stageCategory] ?? 'pending']}
                 </span>
               </td>
-              <td>{fmtDate(t.scheduledDate)}<br /><small style={{ color: 'var(--text-3)' }}>{t.scheduledTime ?? ''}</small></td>
+              <td>{fmtDate(t.startDate ? t.startDate.slice(0, 10) : null)}<br /><small style={{ color: 'var(--text-3)' }}>{t.startDate ? t.startDate.slice(11, 16) : ''}</small></td>
               <td>
                 <KebabMenu items={[
-                  ...(t.status !== 'completed' && t.status !== 'cancelled' ? [{
+                  ...(t.stageCategory !== 'hecho' && t.stageCategory !== 'cancelado' ? [{
                     label: 'Completar',
                     onClick: () => onComplete(t.id),
                   }] : []),
@@ -444,11 +453,11 @@ function ListView({
 
 // ── Kanban view ───────────────────────────────────────────────
 
-const KANBAN_COLS: { status: TaskStatus; label: string; dotColor: string }[] = [
-  { status: 'pending',     label: 'Pendiente',   dotColor: 'var(--s-pending-fg)'   },
-  { status: 'in_progress', label: 'En progreso', dotColor: 'var(--s-progress-fg)'  },
-  { status: 'completed',   label: 'Completada',  dotColor: 'var(--s-done-fg)'      },
-  { status: 'cancelled',   label: 'Cancelada',   dotColor: 'var(--s-cancelled-fg)' },
+const KANBAN_COLS: { stageCategory: TaskStageCategory; status: TaskStatus; label: string; dotColor: string }[] = [
+  { stageCategory: 'nuevo',      status: 'pending',     label: 'Pendiente',   dotColor: 'var(--s-pending-fg)'   },
+  { stageCategory: 'enProgreso', status: 'in_progress', label: 'En progreso', dotColor: 'var(--s-progress-fg)'  },
+  { stageCategory: 'hecho',      status: 'completed',   label: 'Completada',  dotColor: 'var(--s-done-fg)'      },
+  { stageCategory: 'cancelado',  status: 'cancelled',   label: 'Cancelada',   dotColor: 'var(--s-cancelled-fg)' },
 ];
 
 function KanbanView({
@@ -463,9 +472,9 @@ function KanbanView({
   return (
     <div className={styles.kanban}>
       {KANBAN_COLS.map(col => {
-        const colTasks = tasks.filter(t => t.status === col.status);
+        const colTasks = tasks.filter(t => t.stageCategory === col.stageCategory);
         return (
-          <div key={col.status} className={styles.kanbanCol}>
+          <div key={col.stageCategory} className={styles.kanbanCol}>
             <div className={styles.kanbanHeader}>
               <span className={styles.kanbanTitle}>
                 <span className={styles.kanbanDot} style={{ background: col.dotColor }} />
@@ -481,8 +490,8 @@ function KanbanView({
                 <div key={t.id} className={styles.kanbanCard}>
                   <div className={styles.kanbanCardTitle}>{t.title}</div>
                   <div className={styles.kanbanCardFooter}>
-                    <span className={`${styles.badge} ${priorityClass(t.priority)}`}>
-                      {PRIORITY_LABEL[t.priority]}
+                    <span className={`${styles.badge} ${priorityClass(t.priority as TaskPriority)}`}>
+                      {PRIORITY_LABEL[t.priority as TaskPriority]}
                     </span>
                     <span className={styles.categoryBadge}>
                       <span className={`${styles.catDot} ${catDotClass(t.category)}`} />
@@ -492,20 +501,20 @@ function KanbanView({
                   <div className={styles.kanbanCardMeta} style={{ marginTop: 8 }}>
                     <span className={styles.kanbanCardAssignee}>
                       <span className={styles.assigneeAvatar} style={{ fontSize: 9, width: 22, height: 22, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
-                        {initials(t.assignedTo)}
+                        {initials(t.assigneeName)}
                       </span>{' '}
-                      {t.assignedTo ?? 'Sin asignar'}
+                      {t.assigneeName ?? 'Sin asignar'}
                     </span>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      {t.status !== 'completed' && t.status !== 'cancelled' && (
+                      {t.stageCategory !== 'hecho' && t.stageCategory !== 'cancelado' && (
                         <button className={styles.btnGhost} onClick={() => onComplete(t.id)} aria-label="Completar">✓</button>
                       )}
                       <button className={styles.btnGhost} onClick={() => onEdit(t)} aria-label="Editar">✎</button>
                     </div>
                   </div>
-                  {t.scheduledDate ? (
+                  {t.startDate ? (
                     <div className={styles.kanbanCardDate} style={{ marginTop: 6, fontSize: 11, color: 'var(--text-3)' }}>
-                      📅 {fmtDate(t.scheduledDate)} {t.scheduledTime ?? ''}
+                      📅 {fmtDate(t.startDate.slice(0, 10))} {t.startDate.slice(11, 16)}
                     </div>
                   ) : (
                     <div className={styles.kanbanCardDate} style={{ marginTop: 6, fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>
@@ -560,13 +569,13 @@ function CalendarView({ tasks }: { tasks: ScheduledTask[] }) {
         <div />
         {weekDates.map((date, i) => {
           const dateStr = date.toISOString().slice(0, 10);
-          const dayTasks = tasks.filter(t => t.scheduledDate === dateStr);
+          const dayTasks = tasks.filter(t => t.startDate?.slice(0, 10) === dateStr);
           return (
             <div key={i} className={styles.calendarCell}>
               {dayTasks.map(t => (
                 <span key={t.id} className={`${styles.calendarTaskChip} ${chipClass(t.category)}`}
-                  title={`${t.scheduledTime ?? ''} — ${t.title} (${t.assignedTo ?? 'Sin asignar'})`}>
-                  {t.scheduledTime ?? ''} {t.title}
+                  title={`${t.startDate ? t.startDate.slice(11, 16) : ''} — ${t.title} (${t.assigneeName ?? 'Sin asignar'})`}>
+                  {t.startDate ? t.startDate.slice(11, 16) : ''} {t.title}
                 </span>
               ))}
             </div>
@@ -602,18 +611,18 @@ export default function SchedulingPage() {
 
   const filtered = tasks.filter(t => {
     if (projectIdParam && t.projectId !== projectIdParam) return false;
-    if (filterStatus   && t.status !== filterStatus)     return false;
+    if (filterStatus   && (STAGE_TO_STATUS[t.stageCategory] ?? 'pending') !== filterStatus) return false;
     if (filterPriority && t.priority !== filterPriority) return false;
     if (filterCategory && t.category !== filterCategory) return false;
-    if (filterAssigned && !(t.assignedTo ?? '').toLowerCase().includes(filterAssigned.toLowerCase())) return false;
+    if (filterAssigned && !(t.assigneeName ?? '').toLowerCase().includes(filterAssigned.toLowerCase())) return false;
     return true;
   });
 
   // Stats
-  const pending    = tasks.filter(t => t.status === 'pending').length;
-  const inProgress = tasks.filter(t => t.status === 'in_progress').length;
-  const completed  = tasks.filter(t => t.status === 'completed').length;
-  const cancelled  = tasks.filter(t => t.status === 'cancelled').length;
+  const pending    = tasks.filter(t => t.stageCategory === 'nuevo').length;
+  const inProgress = tasks.filter(t => t.stageCategory === 'enProgreso').length;
+  const completed  = tasks.filter(t => t.stageCategory === 'hecho').length;
+  const cancelled  = tasks.filter(t => t.stageCategory === 'cancelado').length;
 
   function handleComplete(id: string) {
     updateStatus({ id, status: 'completed' });

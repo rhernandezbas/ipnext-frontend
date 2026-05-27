@@ -7,10 +7,10 @@ import styles from './SchedulingDashboardPage.module.css';
 const COLUMNS = [
   { label: 'Título',     key: 'title' as keyof ScheduledTask },
   { label: 'Categoría',  key: 'category' as keyof ScheduledTask },
-  { label: 'Estado',     key: 'status' as keyof ScheduledTask },
+  { label: 'Estado',     key: 'stageCategory' as keyof ScheduledTask },
   { label: 'Prioridad',  key: 'priority' as keyof ScheduledTask },
-  { label: 'Técnico',    key: 'assignedTo' as keyof ScheduledTask },
-  { label: 'Fecha',      key: 'scheduledDate' as keyof ScheduledTask },
+  { label: 'Técnico',    key: 'assigneeName' as keyof ScheduledTask },
+  { label: 'Fecha',      key: 'startDate' as keyof ScheduledTask },
 ];
 
 interface KpiCardProps {
@@ -37,12 +37,12 @@ export default function SchedulingDashboardPage() {
   const { data: tasks = [], isLoading } = useTasks();
 
   const total     = tasks.length;
-  const progress  = tasks.filter(t => t.status === 'in_progress').length;
-  const completed = tasks.filter(t => t.status === 'completed').length;
-  const urgent    = tasks.filter(t => t.priority === 'urgent' && t.status !== 'completed' && t.status !== 'cancelled').length;
+  const progress  = tasks.filter(t => t.stageCategory === 'enProgreso').length;
+  const completed = tasks.filter(t => t.stageCategory === 'hecho').length;
+  const urgent    = tasks.filter(t => t.priority === 'urgent' && t.stageCategory !== 'hecho' && t.stageCategory !== 'cancelado').length;
 
   const recent = [...tasks]
-    .sort((a, b) => (b.scheduledDate ?? '').localeCompare(a.scheduledDate ?? ''))
+    .sort((a, b) => (b.startDate ?? '').localeCompare(a.startDate ?? ''))
     .slice(0, 10);
 
   return (

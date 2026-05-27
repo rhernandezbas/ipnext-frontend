@@ -10,9 +10,9 @@ vi.mock('@/hooks/useScheduling', () => ({
 import { useTasks } from '@/hooks/useScheduling';
 
 const mockTasks = [
-  { id: '1', title: 'Instalación A', category: 'installation', status: 'in_progress', priority: 'high', assignedTo: 'Juan', scheduledDate: '2026-04-28', scheduledTime: '10:00', description: '', assignedToId: 'u1', clientId: null, clientName: null, estimatedHours: 2, address: '', coordinates: null, completedAt: null, notes: '' },
-  { id: '2', title: 'Reparación B', category: 'repair', status: 'completed', priority: 'normal', assignedTo: 'Ana', scheduledDate: '2026-04-27', scheduledTime: '09:00', description: '', assignedToId: 'u2', clientId: null, clientName: null, estimatedHours: 1, address: '', coordinates: null, completedAt: '2026-04-27T12:00:00Z', notes: '' },
-  { id: '3', title: 'Mantenimiento C', category: 'maintenance', status: 'pending', priority: 'low', assignedTo: 'Pedro', scheduledDate: '2026-04-29', scheduledTime: '14:00', description: '', assignedToId: 'u3', clientId: null, clientName: null, estimatedHours: 3, address: '', coordinates: null, completedAt: null, notes: '' },
+  { id: '1', title: 'Instalación A', category: 'installation', stageCategory: 'enProgreso', priority: 'high', assigneeName: 'Juan', startDate: '2026-04-28T10:00:00Z', description: '', estimatedHours: 2, address: '', coordinates: null, completedAt: null, notes: '' },
+  { id: '2', title: 'Reparación B', category: 'repair', stageCategory: 'hecho', priority: 'normal', assigneeName: 'Ana', startDate: '2026-04-27T09:00:00Z', description: '', estimatedHours: 1, address: '', coordinates: null, completedAt: '2026-04-27T12:00:00Z', notes: '' },
+  { id: '3', title: 'Mantenimiento C', category: 'maintenance', stageCategory: 'nuevo', priority: 'low', assigneeName: 'Pedro', startDate: '2026-04-29T14:00:00Z', description: '', estimatedHours: 3, address: '', coordinates: null, completedAt: null, notes: '' },
 ];
 
 describe('SchedulingDashboardPage', () => {

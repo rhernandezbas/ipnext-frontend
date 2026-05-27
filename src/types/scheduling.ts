@@ -1,6 +1,3 @@
-/** @deprecated use stageCategory; will be removed next change */
-export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
-
 // ── Filter types ─────────────────────────────────────────────────────────────
 export interface TaskListFilter {
   projectId?:  string;
@@ -60,23 +57,7 @@ export interface ScheduledTask {
   title: string;
   description: string | null;
 
-  /** @deprecated use assigneeId; will be removed in cleanup change */
-  assignedTo: string | null;
-  /** @deprecated use assigneeId; will be removed in cleanup change */
-  assignedToId: string | null;
-  /** @deprecated use customerId; will be removed in cleanup change */
-  clientId: string | null;
-  /** @deprecated use customerName; will be removed in cleanup change */
-  clientName: string | null;
-
-  /** @deprecated use stageCategory; will be removed next change */
-  status: TaskStatus;
   priority: string;   // catalog priority name (free text)
-
-  /** @deprecated use startDate; will be removed in cleanup change */
-  scheduledDate: string | null;
-  /** @deprecated use startDate; will be removed in cleanup change */
-  scheduledTime: string | null;
 
   estimatedHours: number;
   address: string | null;

@@ -85,14 +85,7 @@ const mockTask: ScheduledTask = {
   sequenceNumber: 1001,
   title: 'Instalación Cliente Pérez',
   description: '<p>Descripción de prueba</p>',
-  assignedTo: null,
-  assignedToId: null,
-  clientId: null,
-  clientName: null,
-  status: 'pending',
   priority: 'high',
-  scheduledDate: null,
-  scheduledTime: null,
   estimatedHours: 2,
   address: 'Av. Corrientes 1234',
   coordinates: { lat: -34.6, lng: -58.38 },
@@ -107,6 +100,7 @@ const mockTask: ScheduledTask = {
   endDate: '2026-06-01T16:00:00.000Z',
   customerId: 'cust-1',
   customerName: 'Pérez, Juan',
+  customerCity: null,
   serviceId: null,
   partnerId: null,
   reporterId: null,
@@ -116,6 +110,8 @@ const mockTask: ScheduledTask = {
   travelTimeTo: 30,
   travelTimeFrom: 30,
   checklist: [],
+  createdAt: '2026-05-01T00:00:00Z',
+  updatedAt: '2026-05-01T00:00:00Z',
 };
 
 const mockAdmins: Admin[] = [

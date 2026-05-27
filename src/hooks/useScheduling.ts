@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { ScheduledTask, TaskStatus, TaskChecklistItem, TaskListFilter, CreateTaskPayload } from '@/types/scheduling';
+import type { ScheduledTask, TaskChecklistItem, TaskListFilter, CreateTaskPayload } from '@/types/scheduling';
 import * as api from '@/api/scheduling.api';
 
 export function useTasks() {
@@ -58,7 +58,7 @@ export function useDeleteTask() {
 export function useUpdateTaskStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: TaskStatus }) =>
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
       api.updateTaskStatus(id, status),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['scheduling-tasks'] }),
   });

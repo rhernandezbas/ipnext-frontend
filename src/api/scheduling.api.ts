@@ -1,5 +1,5 @@
 import axiosClient from './axios-client';
-import type { ScheduledTask, TaskStatus, TaskChecklistItem, TaskListFilter, CreateTaskPayload } from '@/types/scheduling';
+import type { ScheduledTask, TaskChecklistItem, TaskListFilter, CreateTaskPayload } from '@/types/scheduling';
 
 const BASE = '/scheduling';
 
@@ -37,7 +37,7 @@ export const deleteTask = (id: string) =>
   axiosClient.delete(`${BASE}/${id}`);
 
 /** @deprecated use stageCategory flow; kept for legacy compatibility */
-export const updateTaskStatus = (id: string, status: TaskStatus) =>
+export const updateTaskStatus = (id: string, status: string) =>
   axiosClient.patch<ScheduledTask>(`${BASE}/${id}/status`, { status }).then(r => r.data);
 
 export const moveTaskToStage = (id: string, stageId: string) =>

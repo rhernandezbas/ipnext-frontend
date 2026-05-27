@@ -48,9 +48,7 @@ function IconCalendar() {
 function toCalendarEvent(task: ScheduledTask): CalendarEvent {
   const start = task.startDate
     ? new Date(task.startDate)
-    : task.scheduledDate
-      ? new Date(`${task.scheduledDate}T${task.scheduledTime ?? '08:00'}:00`)
-      : new Date();
+    : new Date();
 
   const end = task.endDate
     ? new Date(task.endDate)
@@ -63,7 +61,7 @@ function toCalendarEvent(task: ScheduledTask): CalendarEvent {
     end,
     resourceId: task.assigneeId ?? 'unassigned',
     stageCategory: task.stageCategory === 'cancelado' ? 'hecho' : task.stageCategory,
-    customerName: task.customerName ?? task.clientName ?? undefined,
+    customerName: task.customerName ?? undefined,
     address: task.address ?? undefined,
   };
 }
@@ -107,38 +105,13 @@ function CreateTaskModal({ preFill, onClose }: CreateModalProps) {
     if (!title.trim()) return;
     await createTask.mutateAsync({
       title: title.trim(),
-      description: null,
-      assignedTo: null,
-      assignedToId: null,
-      clientId: null,
-      clientName: null,
       stageId: '10000000-0000-4000-a000-000000000001',
       priority: 'normal',
-      scheduledDate: null,
-      scheduledTime: null,
       estimatedHours: 1,
-      address: null,
-      coordinates: null,
       category: 'installation',
-      projectId: null,
-      projectName: null,
-      completedAt: null,
-      notes: null,
-      stageCategory: 'nuevo',
-      status: 'pending',
       startDate: preFill.startDate ?? null,
       endDate: null,
-      customerId: null,
-      customerName: null,
-      serviceId: null,
-      partnerId: null,
-      reporterId: null,
       assigneeId: preFill.assigneeId ?? null,
-      assigneeName: null,
-      watcherIds: [],
-      travelTimeTo: null,
-      travelTimeFrom: null,
-      checklist: [],
     });
     onClose();
   }
