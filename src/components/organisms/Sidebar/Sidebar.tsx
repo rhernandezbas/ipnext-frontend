@@ -44,6 +44,7 @@ const CRM_ITEMS: NavParentItem[] = [
       { to: '/admin/tickets/opened', label: 'Lista' },
       { to: '/admin/tickets/trash', label: 'Archivar' },
       { to: '/admin/tickets/requesters', label: 'Destinatarios' },
+      { to: '/admin/tickets/statuses', label: 'Estados' },
     ],
   },
   {

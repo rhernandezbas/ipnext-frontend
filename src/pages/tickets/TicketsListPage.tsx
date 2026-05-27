@@ -4,16 +4,10 @@ import { FilterBar } from '../../components/molecules/FilterBar/FilterBar';
 import { Pagination } from '../../components/molecules/Pagination/Pagination';
 import { DataTable } from '../../components/organisms/DataTable/DataTable';
 import { useTicketList, useDeleteTicket } from '../../hooks/useTickets';
+import { useTicketStatuses } from '../../hooks/useTicketStatuses';
 import { Ticket } from '../../types/ticket';
 import styles from './TicketsListPage.module.css';
-
-const STATUS_FILTERS = [
-  { value: '', label: 'Todos' },
-  { value: 'open', label: 'Abierto' },
-  { value: 'pending', label: 'En progreso' },
-  { value: 'resolved', label: 'Resuelto' },
-  { value: 'closed', label: 'Cerrado' },
-];
+import tabStyles from './TicketsListPage.tabs.module.css';
 
 const PRIORITY_FILTERS = [
   { value: '', label: 'Todas' },
@@ -55,6 +49,7 @@ export default function TicketsListPage({ statusFilter }: Props) {
   const [page, setPage] = useState(1);
 
   const deleteTicket = useDeleteTicket();
+  const { data: catalogStatuses = [], isLoading: statusesLoading } = useTicketStatuses();
 
   const { data, isLoading } = useTicketList({
     page,
@@ -67,6 +62,12 @@ export default function TicketsListPage({ statusFilter }: Props) {
 
   const totalPages = data ? Math.ceil(data.total / 25) : 1;
 
+  // Build STATUS_FILTERS for the dropdown from the catalog
+  const STATUS_FILTERS = [
+    { value: '', label: 'Todas' },
+    ...(catalogStatuses.map(s => ({ value: s.name, label: s.name }))),
+  ];
+
   const filters = [
     { key: 'status', label: 'Estado', options: STATUS_FILTERS },
     { key: 'priority', label: 'Prioridad', options: PRIORITY_FILTERS },
@@ -77,6 +78,38 @@ export default function TicketsListPage({ statusFilter }: Props) {
       <h1 className={styles.title}>
         {statusFilter === 'closed' ? 'Archivo de Tickets' : 'Lista de Tickets'}
       </h1>
+
+      {/* Catalog-driven status tabs */}
+      <div className={tabStyles.tabs}>
+        <button
+          className={`${tabStyles.tab} ${status === '' ? tabStyles.active : ''}`}
+          onClick={() => { setStatus(''); setPage(1); }}
+        >
+          Todos
+        </button>
+        {!statusesLoading && catalogStatuses.map(s => (
+          <button
+            key={s.id}
+            className={`${tabStyles.tab} ${status === s.name ? tabStyles.active : ''}`}
+            style={status === s.name ? { borderBottomColor: s.color } : undefined}
+            onClick={() => { setStatus(s.name); setPage(1); }}
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                width: 8,
+                height: 8,
+                borderRadius: 9999,
+                background: s.color,
+                marginRight: 6,
+                verticalAlign: 'middle',
+              }}
+            />
+            {s.name}
+          </button>
+        ))}
+      </div>
+
       <FilterBar
         onSearch={(v) => { setSearch(v); setPage(1); }}
         filters={filters}
