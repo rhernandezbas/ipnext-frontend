@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useVoipCategories, useCreateVoipCategory, useVoipCdrs, useVoipPlans, useCreateVoipPlan } from '@/hooks/useVoice';
 import type { VoipCategory, VoipCdr, VoipPlan } from '@/types/voice';
-import styles from './VozPage.module.css';
+import styles from './VoiceLegacyPage.module.css';
 
 type Tab = 'categorias' | 'planes' | 'cdr';
 
@@ -370,7 +370,7 @@ function CdrTab() {
 
 // ── Main Page ─────────────────────────────────────────────────────────────
 
-export default function VozPage() {
+export default function VoiceLegacyPage() {
   const [activeTab, setActiveTab] = useState<Tab>('categorias');
 
   return (

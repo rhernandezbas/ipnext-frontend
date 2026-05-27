@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import TarifasRecurrentePage from '@/pages/empresa/tarifas/TarifasRecurrentePage';
+import TarifasInternetPage from '@/pages/tariffs/TarifasInternetPage';
 import * as useEmpresaModule from '@/hooks/useServicePlans';
 import type { ServicePlan } from '@/types/service-plans';
 
@@ -14,17 +15,30 @@ function makeQC() {
 
 const mockPlans: ServicePlan[] = [
   {
-    id: '6',
-    name: 'Soporte Técnico Mensual',
-    type: 'other',
-    planSubtype: 'recurring',
-    downloadSpeed: 0,
-    uploadSpeed: 0,
-    price: 1500,
+    id: '1',
+    name: 'Plan Básico',
+    type: 'internet',
+    planSubtype: 'internet',
+    downloadSpeed: 25,
+    uploadSpeed: 10,
+    price: 3500,
     billingCycle: 'monthly',
     status: 'active',
-    description: 'Soporte mensual',
-    subscriberCount: 120,
+    description: 'Internet básico',
+    subscriberCount: 234,
+  },
+  {
+    id: '4',
+    name: 'VoIP Básico',
+    type: 'voip',
+    planSubtype: 'voice',
+    downloadSpeed: 0,
+    uploadSpeed: 0,
+    price: 2000,
+    billingCycle: 'monthly',
+    status: 'active',
+    description: 'VoIP básico',
+    subscriberCount: 45,
   },
 ];
 
@@ -34,13 +48,13 @@ function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
       <MemoryRouter>
-        <TarifasRecurrentePage />
+        <TarifasInternetPage />
       </MemoryRouter>
     </QueryClientProvider>
   );
 }
 
-describe('TarifasRecurrentePage', () => {
+describe('TarifasInternetPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -55,9 +69,9 @@ describe('TarifasRecurrentePage', () => {
     } as unknown as ReturnType<typeof useEmpresaModule.useCreateServicePlan>);
   });
 
-  it('renders "Tarifas Recurrentes" heading', () => {
+  it('renders "Tarifas de Internet" heading', () => {
     renderPage();
-    expect(screen.getByRole('heading', { name: /tarifas recurrentes/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /tarifas de internet/i })).toBeInTheDocument();
   });
 
   it('"Nueva tarifa" button exists', () => {
@@ -65,8 +79,9 @@ describe('TarifasRecurrentePage', () => {
     expect(screen.getByRole('button', { name: /nueva tarifa/i })).toBeInTheDocument();
   });
 
-  it('table renders with recurring plans', () => {
+  it('table renders only internet plans', () => {
     renderPage();
-    expect(screen.getByText('Soporte Técnico Mensual')).toBeInTheDocument();
+    expect(screen.getByText('Plan Básico')).toBeInTheDocument();
+    expect(screen.queryByText('VoIP Básico')).not.toBeInTheDocument();
   });
 });

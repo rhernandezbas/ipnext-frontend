@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import TarifasHuaweiGroupsPage from '@/pages/empresa/tarifas/TarifasHuaweiGroupsPage';
+import TarifasHuaweiGroupsPage from '@/pages/tariffs/TarifasHuaweiGroupsPage';
 
 describe('TarifasHuaweiGroupsPage', () => {
   it('renders the page title', () => {

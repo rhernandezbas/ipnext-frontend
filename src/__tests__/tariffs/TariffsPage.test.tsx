@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { default as TarifasPage } from '@/pages/empresa/TarifasPage';
+import { default as TariffsPage } from '@/pages/tariffs/TariffsPage';
 import * as useEmpresaModule from '@/hooks/useServicePlans';
 import type { ServicePlan } from '@/types/service-plans';
 
@@ -48,13 +48,13 @@ function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
       <MemoryRouter>
-        <TarifasPage />
+        <TariffsPage />
       </MemoryRouter>
     </QueryClientProvider>
   );
 }
 
-describe('TarifasPage', () => {
+describe('TariffsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 

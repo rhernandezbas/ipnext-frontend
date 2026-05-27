@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import TarifasVozPage from '@/pages/empresa/tarifas/TarifasVozPage';
+import TarifasVozPage from '@/pages/tariffs/TarifasVozPage';
 import * as useEmpresaModule from '@/hooks/useServicePlans';
 import type { ServicePlan } from '@/types/service-plans';
 

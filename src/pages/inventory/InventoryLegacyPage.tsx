@@ -10,7 +10,7 @@ import {
   useUpdateInventoryUnit,
 } from '@/hooks/useInventory';
 import type { InventoryProduct, InventoryUnit } from '@/types/inventory';
-import styles from './InventarioPage.module.css';
+import styles from './InventoryLegacyPage.module.css';
 
 type Tab = 'productos' | 'items';
 
@@ -322,7 +322,7 @@ function EditProductModal({ product, onClose, onSubmit }: EditProductModalProps)
 
 // ── Main Page ──────────────────────────────────────────────────────────────
 
-export default function InventarioPage() {
+export default function InventoryLegacyPage() {
   const [activeTab, setActiveTab] = useState<Tab>('productos');
   const [showModal, setShowModal] = useState(false);
   const [filterProductId, setFilterProductId] = useState('');

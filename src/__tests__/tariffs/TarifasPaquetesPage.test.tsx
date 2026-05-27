@@ -1,9 +1,8 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import TarifasInternetPage from '@/pages/empresa/tarifas/TarifasInternetPage';
+import TarifasPaquetesPage from '@/pages/tariffs/TarifasPaquetesPage';
 import * as useEmpresaModule from '@/hooks/useServicePlans';
 import type { ServicePlan } from '@/types/service-plans';
 
@@ -15,30 +14,17 @@ function makeQC() {
 
 const mockPlans: ServicePlan[] = [
   {
-    id: '1',
-    name: 'Plan Básico',
-    type: 'internet',
-    planSubtype: 'internet',
-    downloadSpeed: 25,
-    uploadSpeed: 10,
-    price: 3500,
+    id: '10',
+    name: 'Paquete Internet + Voz Básico',
+    type: 'other',
+    planSubtype: 'bundle',
+    downloadSpeed: 100,
+    uploadSpeed: 50,
+    price: 7500,
     billingCycle: 'monthly',
     status: 'active',
-    description: 'Internet básico',
-    subscriberCount: 234,
-  },
-  {
-    id: '4',
-    name: 'VoIP Básico',
-    type: 'voip',
-    planSubtype: 'voice',
-    downloadSpeed: 0,
-    uploadSpeed: 0,
-    price: 2000,
-    billingCycle: 'monthly',
-    status: 'active',
-    description: 'VoIP básico',
-    subscriberCount: 45,
+    description: 'Internet + VoIP',
+    subscriberCount: 67,
   },
 ];
 
@@ -48,13 +34,13 @@ function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
       <MemoryRouter>
-        <TarifasInternetPage />
+        <TarifasPaquetesPage />
       </MemoryRouter>
     </QueryClientProvider>
   );
 }
 
-describe('TarifasInternetPage', () => {
+describe('TarifasPaquetesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -69,9 +55,9 @@ describe('TarifasInternetPage', () => {
     } as unknown as ReturnType<typeof useEmpresaModule.useCreateServicePlan>);
   });
 
-  it('renders "Tarifas de Internet" heading', () => {
+  it('renders "Tarifas de Paquetes" heading', () => {
     renderPage();
-    expect(screen.getByRole('heading', { name: /tarifas de internet/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /tarifas de paquetes/i })).toBeInTheDocument();
   });
 
   it('"Nueva tarifa" button exists', () => {
@@ -79,9 +65,8 @@ describe('TarifasInternetPage', () => {
     expect(screen.getByRole('button', { name: /nueva tarifa/i })).toBeInTheDocument();
   });
 
-  it('table renders only internet plans', () => {
+  it('table renders with bundle plans', () => {
     renderPage();
-    expect(screen.getByText('Plan Básico')).toBeInTheDocument();
-    expect(screen.queryByText('VoIP Básico')).not.toBeInTheDocument();
+    expect(screen.getByText('Paquete Internet + Voz Básico')).toBeInTheDocument();
   });
 });

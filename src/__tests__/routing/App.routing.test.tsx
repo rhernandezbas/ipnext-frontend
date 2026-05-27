@@ -149,19 +149,19 @@ vi.mock('@/pages/finance/PaymentPlansPage', () => ({
 }));
 
 // Networking
-vi.mock('@/pages/empresa/GestionRedPage', () => ({
+vi.mock('@/pages/networking/GestionRedPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:GestionRed]'),
 }));
-vi.mock('@/pages/empresa/NetworkSitesPage', () => ({
+vi.mock('@/pages/networking/NetworkSitesPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:NetworkSites]'),
 }));
-vi.mock('@/pages/empresa/CpePage', () => ({
+vi.mock('@/pages/networking/CpePage', () => ({
   default: () => React.createElement('div', null, '[PAGE:Cpe]'),
 }));
-vi.mock('@/pages/empresa/Tr069Page', () => ({
+vi.mock('@/pages/networking/Tr069Page', () => ({
   default: () => React.createElement('div', null, '[PAGE:Tr069]'),
 }));
-vi.mock('@/pages/empresa/HardwarePage', () => ({
+vi.mock('@/pages/networking/HardwarePage', () => ({
   default: () => React.createElement('div', null, '[PAGE:Hardware]'),
 }));
 vi.mock('@/pages/networking/Ipv4NetworksPage', () => ({
@@ -219,30 +219,30 @@ vi.mock('@/pages/scheduling/SchedulingTaskDetailPage', () => ({
 }));
 
 // Tariffs
-vi.mock('@/pages/empresa/TarifasPage', () => ({
+vi.mock('@/pages/tariffs/TariffsPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:Tarifas]'),
 }));
-vi.mock('@/pages/empresa/tarifas/TarifasInternetPage', () => ({
+vi.mock('@/pages/tariffs/TarifasInternetPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:TarifasInternet]'),
 }));
-vi.mock('@/pages/empresa/tarifas/TarifasVozPage', () => ({
+vi.mock('@/pages/tariffs/TarifasVozPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:TarifasVoz]'),
 }));
-vi.mock('@/pages/empresa/tarifas/TarifasRecurrentePage', () => ({
+vi.mock('@/pages/tariffs/TarifasRecurrentePage', () => ({
   default: () => React.createElement('div', null, '[PAGE:TarifasRecurrente]'),
 }));
-vi.mock('@/pages/empresa/tarifas/TarifasUnicoPage', () => ({
+vi.mock('@/pages/tariffs/TarifasUnicoPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:TarifasUnico]'),
 }));
-vi.mock('@/pages/empresa/tarifas/TarifasPaquetesPage', () => ({
+vi.mock('@/pages/tariffs/TarifasPaquetesPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:TarifasPaquetes]'),
 }));
-vi.mock('@/pages/empresa/tarifas/TarifasHuaweiGroupsPage', () => ({
+vi.mock('@/pages/tariffs/TarifasHuaweiGroupsPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:TarifasHuaweiGroups]'),
 }));
 
 // Inventory
-vi.mock('@/pages/empresa/InventarioPage', () => ({
+vi.mock('@/pages/inventory/InventoryLegacyPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:Inventario]'),
 }));
 vi.mock('@/pages/inventory/InventoryDashboardPage', () => ({
@@ -259,7 +259,7 @@ vi.mock('@/pages/inventory/InventorySupplyPage', () => ({
 }));
 
 // Voice
-vi.mock('@/pages/empresa/VozPage', () => ({
+vi.mock('@/pages/voice/VoiceLegacyPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:Voz]'),
 }));
 vi.mock('@/pages/voice/VoiceCategoriesPage', () => ({

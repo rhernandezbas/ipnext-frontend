@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { default as Tr069Page } from '@/pages/empresa/Tr069Page';
+import { default as Tr069Page } from '@/pages/networking/Tr069Page';
 import * as useTr069Module from '@/hooks/useTr069';
 import type { Tr069Profile, Tr069Device } from '@/types/tr069';
 

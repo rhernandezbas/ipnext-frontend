@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { default as VozPage } from '@/pages/empresa/VozPage';
+import { default as VoiceLegacyPage } from '@/pages/voice/VoiceLegacyPage';
 import * as useVozModule from '@/hooks/useVoice';
 import type { VoipCategory, VoipCdr, VoipPlan } from '@/types/voice';
 
@@ -33,13 +33,13 @@ function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
       <MemoryRouter>
-        <VozPage />
+        <VoiceLegacyPage />
       </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
-describe('VozPage', () => {
+describe('VoiceLegacyPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 

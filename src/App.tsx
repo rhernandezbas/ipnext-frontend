@@ -56,23 +56,20 @@ const NotFoundPage = lazy(() =>
   }))
 );
 
-const GestionRedPage = lazy(() => import('@/pages/empresa/GestionRedPage'));
-// Legacy pre-change-6 tasks page — kept on disk for reference but no longer routed.
-// `/admin/scheduling` now redirects to /admin/scheduling/tasks (SchedulingTasksPage).
-// const SchedulingPage = lazy(() => import('@/pages/empresa/SchedulingPage'));
-const InventarioPage = lazy(() => import('@/pages/empresa/InventarioPage'));
-const VozPage = lazy(() => import('@/pages/empresa/VozPage'));
-const TarifasPage = lazy(() => import('@/pages/empresa/TarifasPage'));
-const NetworkSitesPage = lazy(() => import('@/pages/empresa/NetworkSitesPage'));
-const CpePage = lazy(() => import('@/pages/empresa/CpePage'));
-const Tr069Page = lazy(() => import('@/pages/empresa/Tr069Page'));
-const HardwarePage = lazy(() => import('@/pages/empresa/HardwarePage'));
-const TarifasInternetPage = lazy(() => import('@/pages/empresa/tarifas/TarifasInternetPage'));
-const TarifasVozPage = lazy(() => import('@/pages/empresa/tarifas/TarifasVozPage'));
-const TarifasRecurrentePage = lazy(() => import('@/pages/empresa/tarifas/TarifasRecurrentePage'));
-const TarifasUnicoPage = lazy(() => import('@/pages/empresa/tarifas/TarifasUnicoPage'));
-const TarifasPaquetesPage = lazy(() => import('@/pages/empresa/tarifas/TarifasPaquetesPage'));
-const TarifasHuaweiGroupsPage = lazy(() => import('@/pages/empresa/tarifas/TarifasHuaweiGroupsPage'));
+const GestionRedPage = lazy(() => import('@/pages/networking/GestionRedPage'));
+const InventoryLegacyPage = lazy(() => import('@/pages/inventory/InventoryLegacyPage'));
+const VoiceLegacyPage = lazy(() => import('@/pages/voice/VoiceLegacyPage'));
+const TariffsPage = lazy(() => import('@/pages/tariffs/TariffsPage'));
+const NetworkSitesPage = lazy(() => import('@/pages/networking/NetworkSitesPage'));
+const CpePage = lazy(() => import('@/pages/networking/CpePage'));
+const Tr069Page = lazy(() => import('@/pages/networking/Tr069Page'));
+const HardwarePage = lazy(() => import('@/pages/networking/HardwarePage'));
+const TarifasInternetPage = lazy(() => import('@/pages/tariffs/TarifasInternetPage'));
+const TarifasVozPage = lazy(() => import('@/pages/tariffs/TarifasVozPage'));
+const TarifasRecurrentePage = lazy(() => import('@/pages/tariffs/TarifasRecurrentePage'));
+const TarifasUnicoPage = lazy(() => import('@/pages/tariffs/TarifasUnicoPage'));
+const TarifasPaquetesPage = lazy(() => import('@/pages/tariffs/TarifasPaquetesPage'));
+const TarifasHuaweiGroupsPage = lazy(() => import('@/pages/tariffs/TarifasHuaweiGroupsPage'));
 const NotasCreditoPage = lazy(() => import('@/pages/finance/NotasCreditoPage'));
 const ProformasPage = lazy(() => import('@/pages/finance/ProformasPage'));
 const HistorialFinancieroPage = lazy(() => import('@/pages/finance/HistorialFinancieroPage'));
@@ -228,7 +225,7 @@ export function App() {
               </Route>
               {/* ── Tariffs ────────────────────────────────────────────────── */}
               <Route path="tariffs">
-                <Route index element={<TarifasPage />} />
+                <Route index element={<TariffsPage />} />
                 <Route path="internet" element={<TarifasInternetPage />} />
                 <Route path="voice" element={<TarifasVozPage />} />
                 <Route path="recurring" element={<TarifasRecurrentePage />} />
@@ -239,7 +236,7 @@ export function App() {
 
               {/* ── Voice ──────────────────────────────────────────────────── */}
               <Route path="voice">
-                <Route index element={<VozPage />} />
+                <Route index element={<VoiceLegacyPage />} />
                 <Route path="categories" element={<VoiceCategoriesPage />} />
                 <Route path="processing" element={<VoiceProcessingPage />} />
                 <Route path="rate-tables" element={<VoiceRateTablesPage />} />
@@ -249,7 +246,7 @@ export function App() {
 
               {/* ── Inventory ──────────────────────────────────────────────── */}
               <Route path="inventory">
-                <Route path="list" element={<InventarioPage />} />
+                <Route path="list" element={<InventoryLegacyPage />} />
                 <Route path="dashboard" element={<InventoryDashboardPage />} />
                 <Route path="items" element={<InventoryItemsPage />} />
                 <Route path="products" element={<InventoryProductsPage />} />

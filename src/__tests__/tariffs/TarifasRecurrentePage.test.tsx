@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import TarifasUnicoPage from '@/pages/empresa/tarifas/TarifasUnicoPage';
+import TarifasRecurrentePage from '@/pages/tariffs/TarifasRecurrentePage';
 import * as useEmpresaModule from '@/hooks/useServicePlans';
 import type { ServicePlan } from '@/types/service-plans';
 
@@ -14,17 +14,17 @@ function makeQC() {
 
 const mockPlans: ServicePlan[] = [
   {
-    id: '8',
-    name: 'Instalación Básica',
+    id: '6',
+    name: 'Soporte Técnico Mensual',
     type: 'other',
-    planSubtype: 'onetime',
+    planSubtype: 'recurring',
     downloadSpeed: 0,
     uploadSpeed: 0,
-    price: 3000,
+    price: 1500,
     billingCycle: 'monthly',
     status: 'active',
-    description: 'Instalación FTTH',
-    subscriberCount: 0,
+    description: 'Soporte mensual',
+    subscriberCount: 120,
   },
 ];
 
@@ -34,13 +34,13 @@ function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
       <MemoryRouter>
-        <TarifasUnicoPage />
+        <TarifasRecurrentePage />
       </MemoryRouter>
     </QueryClientProvider>
   );
 }
 
-describe('TarifasUnicoPage', () => {
+describe('TarifasRecurrentePage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -55,9 +55,9 @@ describe('TarifasUnicoPage', () => {
     } as unknown as ReturnType<typeof useEmpresaModule.useCreateServicePlan>);
   });
 
-  it('renders "Tarifas de Pago Único" heading', () => {
+  it('renders "Tarifas Recurrentes" heading', () => {
     renderPage();
-    expect(screen.getByRole('heading', { name: /tarifas de pago único/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /tarifas recurrentes/i })).toBeInTheDocument();
   });
 
   it('"Nueva tarifa" button exists', () => {
@@ -65,8 +65,8 @@ describe('TarifasUnicoPage', () => {
     expect(screen.getByRole('button', { name: /nueva tarifa/i })).toBeInTheDocument();
   });
 
-  it('table renders with one-time plans', () => {
+  it('table renders with recurring plans', () => {
     renderPage();
-    expect(screen.getByText('Instalación Básica')).toBeInTheDocument();
+    expect(screen.getByText('Soporte Técnico Mensual')).toBeInTheDocument();
   });
 });

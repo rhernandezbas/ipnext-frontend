@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { default as CpePage } from '@/pages/empresa/CpePage';
+import { default as CpePage } from '@/pages/networking/CpePage';
 import * as useCpeModule from '@/hooks/useCpe';
 import type { CpeDevice } from '@/types/cpe';
 

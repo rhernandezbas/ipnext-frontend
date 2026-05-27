@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { default as InventarioPage } from '@/pages/empresa/InventarioPage';
+import { default as InventoryLegacyPage } from '@/pages/inventory/InventoryLegacyPage';
 import * as useEmpresaModule from '@/hooks/useInventory';
 import type { InventoryProduct, InventoryUnit } from '@/types/inventory';
 
@@ -61,13 +61,13 @@ function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
       <MemoryRouter>
-        <InventarioPage />
+        <InventoryLegacyPage />
       </MemoryRouter>
     </QueryClientProvider>
   );
 }
 
-describe('InventarioPage', () => {
+describe('InventoryLegacyPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 

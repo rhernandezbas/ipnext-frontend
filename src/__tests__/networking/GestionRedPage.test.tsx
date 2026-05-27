@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { default as GestionRedPage } from '@/pages/empresa/GestionRedPage';
+import { default as GestionRedPage } from '@/pages/networking/GestionRedPage';
 import * as useNasModule from '@/hooks/useNas';
 import * as useNetworkModule from '@/hooks/useNetwork';
 import type { NasServer } from '@/types/nas';

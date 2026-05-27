@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useServicePlans, useCreateServicePlan, useUpdateServicePlan, useDeleteServicePlan } from '@/hooks/useServicePlans';
 import type { ServicePlan } from '@/types/service-plans';
-import styles from './TarifasPage.module.css';
+import styles from './TariffsPage.module.css';
 
 type TypeFilter = '' | 'internet' | 'voip' | 'tv' | 'other';
 
@@ -213,7 +213,7 @@ const columns = [
   { label: 'Suscriptores', key: 'subscriberCount' as keyof ServicePlan },
 ];
 
-export default function TarifasPage() {
+export default function TariffsPage() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('');
   const [showModal, setShowModal] = useState(false);
