@@ -3,6 +3,7 @@
 .headerLeft { display: flex; flex-direction: column; gap: 2px; }
 .breadcrumb { font-size: 12px; color: var(--color-accent, #6366f1); font-weight: 500; }
 .title { font-size: 24px; font-weight: 700; color: var(--color-text-primary, #0f172a); margin: 0; }
+.toolbar { display: flex; justify-content: flex-end; }
 
 .card { background: var(--color-surface, #fff); border: 1px solid var(--color-border, #e2e8f0); border-radius: 12px; overflow: hidden; }
 .empty { padding: 24px; color: #64748b; text-align: center; margin: 0; }
