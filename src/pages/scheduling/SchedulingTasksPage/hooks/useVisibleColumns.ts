@@ -21,7 +21,15 @@ export function useVisibleColumns(defaultKeys: string[]) {
       if (!Array.isArray(parsed) || !parsed.every(x => typeof x === 'string')) {
         return defaultKeys;
       }
-      return parsed;
+      // Additive backfill: any key in defaultKeys that isn't in the stored
+      // list is a NEW column added to the catalog since this user last
+      // visited. Append it (in catalog order) so additive changes show up
+      // automatically — without this, a user who customised columns once
+      // would never see new columns until they manually reset.
+      // Keys that were stored but are no longer in defaultKeys stay put;
+      // TasksTableView already filters unknown keys at render time.
+      const missing = defaultKeys.filter(k => !parsed.includes(k));
+      return missing.length > 0 ? [...parsed, ...missing] : parsed;
     } catch {
       return defaultKeys;
     }
