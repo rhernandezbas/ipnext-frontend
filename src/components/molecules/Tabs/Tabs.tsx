@@ -13,12 +13,14 @@ interface TabsProps {
   onTabChange: (id: string) => void;
   mountMode?: 'all' | 'lazy';
   mountedIds?: Set<string>;
+  /** 'compact' tightens tab padding/size so many tabs fit without horizontal scroll. */
+  size?: 'default' | 'compact';
 }
 
-export function Tabs({ tabs, activeTab, onTabChange, mountMode = 'all', mountedIds }: TabsProps) {
+export function Tabs({ tabs, activeTab, onTabChange, mountMode = 'all', mountedIds, size = 'default' }: TabsProps) {
   return (
     <div className={styles.container}>
-      <div className={styles.tabList} role="tablist">
+      <div className={[styles.tabList, size === 'compact' ? styles.compact : ''].join(' ')} role="tablist">
         {tabs.map((tab) => (
           <button
             key={tab.id}

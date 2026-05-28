@@ -142,6 +142,7 @@ export function TaskTabs({
         onTabChange={handleTabChange}
         mountMode="lazy"
         mountedIds={mountedIds}
+        size="compact"
       />
     </div>
   );

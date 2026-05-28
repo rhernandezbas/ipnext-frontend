@@ -4,9 +4,9 @@
 
 .tabList {
   display: flex;
+  flex-wrap: wrap;
   border-bottom: 2px solid var(--color-border);
   gap: 0;
-  overflow-x: auto;
 }
 
 .tab {
@@ -21,6 +21,13 @@
   color: var(--color-text-secondary);
   white-space: nowrap;
   transition: color 0.15s, border-color 0.15s;
+}
+
+/* Compact: tighter padding + smaller type so a long tab strip (e.g. 7 tabs)
+   fits the column width without triggering the horizontal scroll. */
+.compact .tab {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
 }
 
 .tab:hover { color: var(--color-text-primary); }
