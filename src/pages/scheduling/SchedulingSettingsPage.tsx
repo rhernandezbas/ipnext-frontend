@@ -4,6 +4,7 @@ import { TaskCategoriesBody } from './settings/TaskCategoriesBody';
 import { TaskPrioritiesBody } from './settings/TaskPrioritiesBody';
 import { StageColorsBody } from './settings/StageColorsBody';
 import { TaskTemplatesBody } from './settings/TaskTemplatesBody';
+import { IClassSettingsBody } from './settings/IClassSettingsBody';
 import styles from './SchedulingTaskCategoriesPage.module.css';
 
 const TABS = [
@@ -11,6 +12,7 @@ const TABS = [
   { id: 'prioridades', label: 'Prioridades',        content: <TaskPrioritiesBody /> },
   { id: 'colores',     label: 'Colores de estados', content: <StageColorsBody /> },
   { id: 'plantillas',  label: 'Plantillas',         content: <TaskTemplatesBody /> },
+  { id: 'iclass',      label: 'IClass',             content: <IClassSettingsBody /> },
 ];
 
 const TAB_IDS = TABS.map(t => t.id);

@@ -47,6 +47,20 @@ vi.mock('@dnd-kit/sortable', () => ({
 }));
 vi.mock('@dnd-kit/utilities', () => ({ CSS: { Transform: { toString: vi.fn(() => '') } } }));
 
+// IClass hooks used by the new IClass settings sub-tabs
+vi.mock('@/hooks/useFeatureFlags', () => ({
+  useFeatureFlag: vi.fn(() => ({ data: { key: 'iclass-integration', enabled: false }, isLoading: false, isError: false })),
+  useSetFeatureFlag: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false })),
+}));
+vi.mock('@/hooks/useIClassSoTypes', () => ({
+  useIClassSoTypes: vi.fn(() => ({ data: [], isLoading: false, isError: false })),
+  useSyncIClassSoTypes: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false })),
+}));
+vi.mock('@/hooks/useProjects', () => ({
+  useProjects: vi.fn(() => ({ data: [], isLoading: false, isError: false })),
+  useUpdateProject: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false })),
+}));
+
 import SchedulingSettingsPage from '@/pages/scheduling/SchedulingSettingsPage';
 
 function renderPage() {
@@ -67,10 +81,16 @@ describe('SchedulingSettingsPage', () => {
     expect(screen.queryByRole('heading', { level: 1, name: 'Prioridades' })).not.toBeInTheDocument();
   });
 
-  it('renders the four config tabs', () => {
+  it('renders the five config tabs in order', () => {
     renderPage();
     const tabs = screen.getAllByRole('tab').map(t => t.textContent);
-    expect(tabs).toEqual(['Categorías', 'Prioridades', 'Colores de estados', 'Plantillas']);
+    expect(tabs).toEqual(['Categorías', 'Prioridades', 'Colores de estados', 'Plantillas', 'IClass']);
+  });
+
+  it('switches to the IClass tab and shows its host (the Integración sub-tab is default)', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: 'IClass' }));
+    expect(screen.getByRole('tab', { name: 'Integración' })).toBeInTheDocument();
   });
 
   it('shows the Categorías body by default', () => {
