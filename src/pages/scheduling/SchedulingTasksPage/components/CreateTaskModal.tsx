@@ -8,6 +8,7 @@ import type { TaskTemplate } from '@/types/taskTemplate';
 import type { CreateTaskPayload } from '@/types/scheduling';
 import { useTaskPriorities } from '@/hooks/useTaskPriorities';
 import { CustomerPicker } from './CustomerPicker';
+import { applyTaskVariables } from '../../lib/taskVariables';
 import styles from './CreateTaskModal.module.css';
 
 const DEFAULT_PRIORITY = 'Normal';
@@ -178,9 +179,19 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
       return;
     }
     setError(null);
+    // Resolve merge variables ({{cliente}}, {{telefono}}, {{servicio}},
+    // {{direccion}}) once, here at creation, against the chosen customer/service.
+    const vars = {
+      cliente: customerName,
+      telefono: customerDetail?.phone ?? null,
+      servicio: customerServices.find(s => String(s.id) === serviceId)?.plan ?? null,
+      direccion: address.trim() || null,
+    };
+    const finalTitle = applyTaskVariables(title.trim(), vars);
+    const finalDescription = description.trim() ? applyTaskVariables(description.trim(), vars) : null;
     try {
       await onCreate({
-        title: title.trim(),
+        title: finalTitle,
         projectId,
         stageId: firstStageId,
         priority,
@@ -190,7 +201,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
         customerName: customerName || null,
         serviceId: serviceId || null,
         assigneeId: assigneeId || null,
-        description: description.trim() || null,
+        description: finalDescription,
         startDate: toStartDate(date, time),
         address: address.trim() || null,
         notes: notes.trim() || null,

@@ -12,7 +12,9 @@ import {
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { useAdmins } from '@/hooks/useAdmins';
 import { usePartners } from '@/hooks/usePartners';
+import { useClientDetail, useClientServices } from '@/hooks/useCustomers';
 import { useAuth } from '@/hooks/useAuth';
+import { applyTaskVariables } from './lib/taskVariables';
 import { TaskHeader } from './SchedulingTaskDetailPage/components/TaskHeader';
 import { TaskTabs } from './SchedulingTaskDetailPage/components/TaskTabs';
 import { CustomerSidebar } from './SchedulingTaskDetailPage/components/CustomerSidebar';
@@ -46,6 +48,11 @@ export default function SchedulingTaskDetailPage() {
   const { data: admins = [] } = useAdmins();
   const { data: partners = [] } = usePartners();
   const { data: priorities = [] } = useTaskPriorities();
+  // Customer detail + services — cached share with CustomerSidebar (same query keys).
+  // Used only to resolve {{telefono}} / {{servicio}} in description merge variables.
+  const customerId = task?.customerId ?? null;
+  const { data: customerDetail } = useClientDetail(customerId ?? '');
+  const { data: customerServices = [] } = useClientServices(customerId ?? '', !!customerId);
 
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
@@ -116,10 +123,19 @@ export default function SchedulingTaskDetailPage() {
 
   const handleDescSave = useCallback(async (html: string) => {
     if (!task) return;
-    await updateTask.mutateAsync({ id: task.id, data: { description: html } });
+    // Resolve {{cliente}} / {{telefono}} / {{servicio}} / {{direccion}} once at
+    // save time using the task's linked entities; tokens with no value stay as-is.
+    const servicio = customerServices.find(s => String(s.id) === task.serviceId)?.plan ?? null;
+    const finalHtml = applyTaskVariables(html, {
+      cliente: task.customerName,
+      telefono: customerDetail?.phone ?? null,
+      servicio,
+      direccion: task.address,
+    });
+    await updateTask.mutateAsync({ id: task.id, data: { description: finalHtml } });
     setDescDirty(false);
     showToast('Descripción guardada');
-  }, [task, updateTask]);
+  }, [task, updateTask, customerDetail, customerServices]);
 
   const handleFormSubmit = useCallback(async (values: DatosFormValues) => {
     if (!task) return;
