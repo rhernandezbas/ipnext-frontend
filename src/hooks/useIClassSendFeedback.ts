@@ -8,6 +8,8 @@ const ICLASS_ERROR_CODES = new Set([
   'ICLASS_NODE_NOT_FOUND',
   'ICLASS_UNAVAILABLE',
   'ICLASS_REJECTED',
+  'MISSING_PROJECT_FOR_ICLASS',
+  'MISSING_ICLASS_MAPPING',
 ]);
 
 /**
@@ -17,11 +19,17 @@ const ICLASS_ERROR_CODES = new Set([
  */
 export function parseIClassError(err: unknown): IClassSendError | null {
   if (!err || typeof err !== 'object' || !('response' in err)) return null;
-  const data = (err as { response?: { data?: { code?: string; missingFields?: string[]; message?: string; reason?: string } } })
+  const data = (err as { response?: { data?: { code?: string; missingFields?: string[]; message?: string; reason?: string; projectTitle?: string } } })
     .response?.data;
   const code = data?.code;
   if (!code || !ICLASS_ERROR_CODES.has(code)) return null;
-  return { code, missingFields: data?.missingFields, message: data?.message, reason: data?.reason };
+  return {
+    code,
+    missingFields: data?.missingFields,
+    message: data?.message,
+    reason: data?.reason,
+    projectTitle: data?.projectTitle,
+  };
 }
 
 export interface IClassSendFeedback {

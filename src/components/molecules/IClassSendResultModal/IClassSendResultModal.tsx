@@ -7,7 +7,9 @@ export type IClassErrorCode =
   | 'MISSING_REQUIRED_FIELDS'
   | 'ICLASS_NODE_NOT_FOUND'
   | 'ICLASS_UNAVAILABLE'
-  | 'ICLASS_REJECTED';
+  | 'ICLASS_REJECTED'
+  | 'MISSING_PROJECT_FOR_ICLASS'
+  | 'MISSING_ICLASS_MAPPING';
 
 export interface IClassSendError {
   code: string;
@@ -15,6 +17,8 @@ export interface IClassSendError {
   message?: string;
   /** Human-readable rejection detail returned by IClass (ICLASS_REJECTED). */
   reason?: string;
+  /** Project title surfaced by the backend on MISSING_ICLASS_MAPPING. */
+  projectTitle?: string;
 }
 
 interface IClassSendResultModalProps {
@@ -44,6 +48,8 @@ const TITLES: Record<string, string> = {
   ICLASS_NODE_NOT_FOUND: 'No se encontró el nodo en IClass',
   ICLASS_UNAVAILABLE: 'IClass no está disponible',
   ICLASS_REJECTED: 'IClass rechazó la orden',
+  MISSING_PROJECT_FOR_ICLASS: 'La tarea no tiene proyecto asignado',
+  MISSING_ICLASS_MAPPING: 'El proyecto no está configurado para IClass',
 };
 
 /** Map a field code to its Spanish label (raw code fallback). */
@@ -58,7 +64,7 @@ export function fieldLabel(code: string): string {
  */
 export function iclassErrorReason(
   errorCode: string | undefined,
-  detail?: { missingFields?: string[]; reason?: string },
+  detail?: { missingFields?: string[]; reason?: string; projectTitle?: string },
 ): string {
   switch (errorCode) {
     case 'MISSING_REQUIRED_FIELDS': {
@@ -75,6 +81,12 @@ export function iclassErrorReason(
       return detail?.reason?.trim()
         ? `IClass rechazó la orden: ${detail.reason}`
         : 'IClass rechazó la orden por un problema en los datos.';
+    case 'MISSING_PROJECT_FOR_ICLASS':
+      return 'La tarea no tiene proyecto asignado.';
+    case 'MISSING_ICLASS_MAPPING':
+      return detail?.projectTitle?.trim()
+        ? `El proyecto «${detail.projectTitle}» no tiene tipo de OS de IClass mapeado.`
+        : 'El proyecto no tiene tipo de OS de IClass mapeado.';
     case 'TASK_NOT_FOUND':
       return 'No se encontró la tarea.';
     case 'STAGE_NOT_FOUND':
@@ -118,6 +130,10 @@ export function IClassSendResultModal({
   if (!open || !error) return null;
 
   const isMissing = error.code === 'MISSING_REQUIRED_FIELDS';
+  const isMissingProject = error.code === 'MISSING_PROJECT_FOR_ICLASS';
+  const isMissingMapping = error.code === 'MISSING_ICLASS_MAPPING';
+  const showEditTask = isMissing || isMissingProject;
+  const showRetry = !isMissing && !isMissingProject && !isMissingMapping;
   const title = TITLES[error.code] ?? 'Error al enviar a IClass';
 
   return createPortal(
@@ -160,6 +176,18 @@ export function IClassSendResultModal({
               ? error.reason
               : 'IClass rechazó la orden por un problema en los datos. Revisá la información de la tarea antes de reintentar.'}
           </p>
+        ) : isMissingProject ? (
+          <p className={styles.message}>
+            Asignale un proyecto a la tarea antes de enviarla a IClass. Cada
+            proyecto define qué tipo de orden de servicio se crea en IClass.
+          </p>
+        ) : isMissingMapping ? (
+          <p className={styles.message}>
+            {error.projectTitle?.trim()
+              ? `El proyecto «${error.projectTitle}» no tiene un tipo de orden de servicio asociado. `
+              : 'El proyecto no tiene un tipo de orden de servicio asociado. '}
+            Pedile al administrador que lo configure desde el menú de proyectos.
+          </p>
         ) : (
           <p className={styles.message}>
             {error.message ?? 'Ocurrió un error al enviar la tarea a IClass.'}
@@ -175,17 +203,17 @@ export function IClassSendResultModal({
           >
             Cerrar
           </button>
-          {isMissing ? (
+          {showEditTask ? (
             onEditTask && (
               <button type="button" className={styles.primary} onClick={onEditTask}>
                 Editar tarea
               </button>
             )
-          ) : (
+          ) : showRetry ? (
             <button type="button" className={styles.primary} onClick={onRetry}>
               Reintentar
             </button>
-          )}
+          ) : null}
         </div>
       </div>
     </div>,

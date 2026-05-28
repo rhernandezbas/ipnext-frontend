@@ -23,6 +23,18 @@ describe('parseIClassError', () => {
     });
   });
 
+  it('extracts MISSING_PROJECT_FOR_ICLASS', () => {
+    const err = { response: { data: { code: 'MISSING_PROJECT_FOR_ICLASS' } } };
+    expect(parseIClassError(err)?.code).toBe('MISSING_PROJECT_FOR_ICLASS');
+  });
+
+  it('extracts MISSING_ICLASS_MAPPING and forwards projectTitle', () => {
+    const err = { response: { data: { code: 'MISSING_ICLASS_MAPPING', projectTitle: 'INSTALACION FIBRA' } } };
+    const parsed = parseIClassError(err);
+    expect(parsed?.code).toBe('MISSING_ICLASS_MAPPING');
+    expect(parsed?.projectTitle).toBe('INSTALACION FIBRA');
+  });
+
   it('returns null for a non-IClass error code', () => {
     const err = { response: { data: { code: 'VALIDATION_ERROR' } } };
     expect(parseIClassError(err)).toBeNull();

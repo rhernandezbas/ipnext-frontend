@@ -166,6 +166,77 @@ describe('IClassSendResultModal', () => {
     });
   });
 
+  describe('MISSING_PROJECT_FOR_ICLASS', () => {
+    function setup() {
+      return render(
+        <IClassSendResultModal
+          open
+          error={{ code: 'MISSING_PROJECT_FOR_ICLASS' }}
+          onClose={onClose}
+          onRetry={onRetry}
+          onEditTask={onEditTask}
+        />,
+      );
+    }
+
+    it('shows a title about the task missing a project', () => {
+      setup();
+      expect(screen.getByText(/no tiene proyecto asignado/i)).toBeInTheDocument();
+    });
+
+    it('shows "Editar tarea" and "Cerrar"', () => {
+      setup();
+      expect(screen.getByRole('button', { name: 'Editar tarea' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Cerrar' })).toBeInTheDocument();
+    });
+
+    it('does NOT show "Reintentar"', () => {
+      setup();
+      expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument();
+    });
+
+    it('calls onEditTask when "Editar tarea" is clicked', () => {
+      setup();
+      fireEvent.click(screen.getByRole('button', { name: 'Editar tarea' }));
+      expect(onEditTask).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('MISSING_ICLASS_MAPPING', () => {
+    function setup(projectTitle?: string) {
+      return render(
+        <IClassSendResultModal
+          open
+          error={{ code: 'MISSING_ICLASS_MAPPING', projectTitle }}
+          onClose={onClose}
+          onRetry={onRetry}
+        />,
+      );
+    }
+
+    it('shows a title about the project not being configured for IClass', () => {
+      setup('INSTALACION FIBRA');
+      expect(screen.getByText(/no está configurado para IClass/i)).toBeInTheDocument();
+    });
+
+    it('renders the projectTitle in the body when provided', () => {
+      setup('INSTALACION FIBRA');
+      expect(screen.getByText(/INSTALACION FIBRA/)).toBeInTheDocument();
+    });
+
+    it('still renders a usable body when projectTitle is missing', () => {
+      setup(undefined);
+      expect(screen.getByText(/administrador/i)).toBeInTheDocument();
+    });
+
+    it('only shows "Cerrar" (no Reintentar, no Editar)', () => {
+      setup('INSTALACION FIBRA');
+      expect(screen.getByRole('button', { name: 'Cerrar' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Editar tarea' })).not.toBeInTheDocument();
+    });
+  });
+
   it('calls onClose when "Cerrar" is clicked', () => {
     render(
       <IClassSendResultModal
