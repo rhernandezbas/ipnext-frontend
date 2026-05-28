@@ -224,6 +224,9 @@ function TemplateModal({ initial, initialItems, onClose, onSave, loading }: Temp
             rows={4}
           />
         </label>
+        <p className={styles.variableHint}>
+          Variables: <code>{'{{cliente}}'}</code> <code>{'{{telefono}}'}</code> <code>{'{{servicio}}'}</code> <code>{'{{direccion}}'}</code> — se reemplazan al crear la tarea.
+        </p>
 
         {/* Items section */}
         <div className={styles.itemsSection}>

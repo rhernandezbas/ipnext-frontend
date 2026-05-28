@@ -282,9 +282,6 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
             rows={2}
           />
         </label>
-        <p className={styles.variableHint}>
-          Variables: <code>{'{{cliente}}'}</code> <code>{'{{telefono}}'}</code> <code>{'{{servicio}}'}</code> <code>{'{{direccion}}'}</code> — se reemplazan al guardar.
-        </p>
 
         <div className={styles.row}>
           <label className={styles.label}>
