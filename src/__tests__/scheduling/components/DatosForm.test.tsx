@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { DatosForm } from '@/pages/scheduling/SchedulingTaskDetailPage/components/DatosForm';
 import type { Admin } from '@/types/admin';
 import type { Partner } from '@/types/partner';
+import type { Project } from '@/types/project';
 
 // Stub useClientServices so DatosForm can be rendered without a real API.
 const useClientServicesMock = vi.fn(() => ({ data: [] as unknown[] }));
@@ -19,6 +20,11 @@ const mockAdmins: Admin[] = [
 
 const mockPartners: Partner[] = [
   { id: 'partner-1', name: 'Partner A', status: 'active', primaryEmail: '', phone: '', address: '', city: '', country: '', timezone: '', currency: '', logoUrl: null, clientCount: 0, adminCount: 0, createdAt: '' },
+];
+
+const mockProjects: Project[] = [
+  { id: 'proj-1', title: 'Proyecto Zeta', description: null, workflowId: null, createdAt: '', updatedAt: '' },
+  { id: 'proj-2', title: 'Proyecto Alpha', description: null, workflowId: null, createdAt: '', updatedAt: '' },
 ];
 
 const initialValues = {
@@ -85,11 +91,12 @@ describe('DatosForm', () => {
     render(
       <MemoryRouter>
         <DatosForm
-          initial={initialValues}
+          initial={{ ...initialValues, projectId: 'proj-1' }}
           onSubmit={onSubmit}
           isSaving={false}
           admins={mockAdmins}
           partners={mockPartners}
+          projects={mockProjects}
         />
       </MemoryRouter>
     );
@@ -104,6 +111,7 @@ describe('DatosForm', () => {
         <DatosForm
           initial={{
             ...initialValues,
+            projectId: 'proj-1',
             startDate: '2026-06-10T10:00',
             endDate: '2026-06-09T10:00',
           }}
@@ -111,6 +119,7 @@ describe('DatosForm', () => {
           isSaving={false}
           admins={mockAdmins}
           partners={mockPartners}
+          projects={mockProjects}
         />
       </MemoryRouter>
     );
@@ -184,11 +193,12 @@ describe('DatosForm', () => {
     render(
       <MemoryRouter>
         <DatosForm
-          initial={{ ...initialValues, customerId: 'c-5', address: 'Dirección Original' }}
+          initial={{ ...initialValues, customerId: 'c-5', address: 'Dirección Original', projectId: 'proj-1' }}
           onSubmit={onSubmit}
           isSaving={false}
           admins={mockAdmins}
           partners={mockPartners}
+          projects={mockProjects}
         />
       </MemoryRouter>
     );
@@ -208,6 +218,180 @@ describe('DatosForm', () => {
       expect(onSubmit).toHaveBeenCalledWith(
         expect.objectContaining({ address: 'Av. Servicio 2000' }),
       );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Project select (FASE 4)
+  // ---------------------------------------------------------------------------
+
+  describe('project select', () => {
+    it('renders project select with sorted options and placeholder', () => {
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, projectId: null }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+          />
+        </MemoryRouter>
+      );
+      const select = screen.getByLabelText(/proyecto/i) as HTMLSelectElement;
+      expect(select).toBeInTheDocument();
+      const options = Array.from(select.options).map(o => o.text);
+      // Sorted: Alpha before Zeta; placeholder first
+      expect(options[0]).toMatch(/seleccionar proyecto/i);
+      expect(options[1]).toBe('Proyecto Alpha');
+      expect(options[2]).toBe('Proyecto Zeta');
+    });
+
+    it('refuses submit when no project selected and shows error', async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, projectId: null }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+          />
+        </MemoryRouter>
+      );
+      await user.click(screen.getByRole('button', { name: /guardar cambios/i }));
+      await waitFor(() => {
+        expect(screen.getByText(/proyecto requerido/i)).toBeInTheDocument();
+      });
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it('submits successfully when a project is selected', async () => {
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, projectId: null }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+          />
+        </MemoryRouter>
+      );
+      fireEvent.change(screen.getByLabelText(/proyecto/i), { target: { value: 'proj-1' } });
+      await user.click(screen.getByRole('button', { name: /guardar cambios/i }));
+      await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: 'proj-1' })
+      ));
+    });
+
+    it('hydrates select with initial projectId', () => {
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, projectId: 'proj-2' }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+          />
+        </MemoryRouter>
+      );
+      const select = screen.getByLabelText(/proyecto/i) as HTMLSelectElement;
+      expect(select.value).toBe('proj-2');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // IClass warning (FASE 5)
+  // ---------------------------------------------------------------------------
+
+  describe('IClass warning', () => {
+    const warningText = /ya tiene OS en IClass/i;
+
+    it('hidden when iclassOrderCode is null', () => {
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, projectId: 'proj-1' }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+            iclassOrderCode={null}
+            originalProjectId="proj-1"
+          />
+        </MemoryRouter>
+      );
+      expect(screen.queryByText(warningText)).not.toBeInTheDocument();
+    });
+
+    it('hidden when project has not changed', () => {
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, projectId: 'proj-1' }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+            iclassOrderCode="OS-42"
+            originalProjectId="proj-1"
+          />
+        </MemoryRouter>
+      );
+      expect(screen.queryByText(warningText)).not.toBeInTheDocument();
+    });
+
+    it('visible when iclassOrderCode is set AND project changed', async () => {
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, projectId: 'proj-1' }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+            iclassOrderCode="OS-42"
+            originalProjectId="proj-1"
+          />
+        </MemoryRouter>
+      );
+      // Change to a different project
+      fireEvent.change(screen.getByLabelText(/proyecto/i), { target: { value: 'proj-2' } });
+      await waitFor(() => {
+        expect(screen.getByText(warningText)).toBeInTheDocument();
+      });
+    });
+
+    it('disappears when user reverts to original project', async () => {
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, projectId: 'proj-1' }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+            iclassOrderCode="OS-42"
+            originalProjectId="proj-1"
+          />
+        </MemoryRouter>
+      );
+      fireEvent.change(screen.getByLabelText(/proyecto/i), { target: { value: 'proj-2' } });
+      await waitFor(() => expect(screen.getByText(warningText)).toBeInTheDocument());
+      fireEvent.change(screen.getByLabelText(/proyecto/i), { target: { value: 'proj-1' } });
+      await waitFor(() => expect(screen.queryByText(warningText)).not.toBeInTheDocument());
     });
   });
 });

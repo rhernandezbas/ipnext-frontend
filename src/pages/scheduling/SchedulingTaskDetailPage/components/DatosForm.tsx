@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import type { Admin } from '@/types/admin';
 import type { Partner } from '@/types/partner';
+import type { Project } from '@/types/project';
 import { useClientServices } from '@/hooks/useCustomers';
 import styles from './DatosForm.module.css';
 
@@ -27,6 +28,12 @@ interface DatosFormProps {
   isSaving: boolean;
   admins: Admin[];
   partners: Partner[];
+  /** Projects available for reassignment — parent fetches via useProjects() */
+  projects?: Project[];
+  /** IClass OS code — if set and projectId changes, shows an inline warning */
+  iclassOrderCode?: string | null;
+  /** The project that was set when the task was last saved (used for warning) */
+  originalProjectId?: string | null;
   /** Notifies parent whenever any field changes vs initial values (REQ-EDIT-3/4) */
   onDirtyChange?: (isDirty: boolean) => void;
 }
@@ -51,7 +58,7 @@ function toIso(local: string): string | null {
   }
 }
 
-export function DatosForm({ initial, onSubmit, isSaving, admins, partners, onDirtyChange }: DatosFormProps) {
+export function DatosForm({ initial, onSubmit, isSaving, admins, partners, projects = [], iclassOrderCode, originalProjectId, onDirtyChange }: DatosFormProps) {
   // Fetch services for the customer assigned to the task (if any)
   const { data: customerServices = [] } = useClientServices(
     initial.customerId ?? '',
@@ -88,6 +95,10 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, onDir
       hydratedServiceRef.current = true;
     }
   }, [customerServices, initial.serviceId, setValue]);
+
+  // Watch projectId to compute the IClass warning inline.
+  const currentProjectId = useWatch({ control, name: 'projectId' });
+  const showIClassWarning = (iclassOrderCode ?? null) != null && currentProjectId !== originalProjectId;
 
   // Watch serviceId to autofill address when the technician changes the service.
   // Precedence: service address > task initial address (customer address fallback).
@@ -161,6 +172,29 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, onDir
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
+          </div>
+
+          {/* Proyecto */}
+          <div className={styles.field}>
+            <label htmlFor="projectId" className={styles.label}>Proyecto</label>
+            <select
+              id="projectId"
+              className={styles.select}
+              {...register('projectId', { required: 'Proyecto requerido' })}
+            >
+              <option value="">Seleccionar proyecto…</option>
+              {[...projects].sort((a, b) => a.title.localeCompare(b.title)).map(p => (
+                <option key={p.id} value={p.id}>{p.title}</option>
+              ))}
+            </select>
+            {showIClassWarning && (
+              <p className={styles.iclassWarning}>
+                Esta tarea ya tiene OS en IClass. El cambio no afecta la OS creada.
+              </p>
+            )}
+            {errors.projectId && (
+              <span className={styles.error} role="alert">{errors.projectId.message}</span>
+            )}
           </div>
 
           {/* Servicio */}
