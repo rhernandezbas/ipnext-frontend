@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useIClassSoTypes, useSyncIClassSoTypes } from '@/hooks/useIClassSoTypes';
 import type { IClassSoTypeSyncResult } from '@/types/iclassSoType';
-import styles from '../SchedulingTaskCategoriesPage.module.css';
+import styles from './IClassSettings.module.css';
 
 /**
  * Sub-tab "Catálogo" — read-only del catálogo de IClass SO types.
- * Permite re-sincronizar contra IClass; el contenido se edita en el panel IClass,
- * no acá.
+ * Permite re-sincronizar contra IClass; el contenido se edita en el panel
+ * IClass, no acá. Filtros y badges siguen el design system del proyecto.
  */
 export function IClassSoTypesCatalogBody() {
   const [includeInactive, setIncludeInactive] = useState(false);
@@ -19,53 +19,79 @@ export function IClassSoTypesCatalogBody() {
       const summary = await sync.mutateAsync();
       setLastSummary(summary);
     } catch {
-      // error UI ya cubierto por sync.isError abajo
+      // surface via sync.isError banner below
     }
   }
 
   const items = types ?? [];
 
   return (
-    <>
+    <div className={styles.section}>
       <div className={styles.toolbar}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <input
-            type="checkbox"
-            checked={includeInactive}
-            onChange={e => setIncludeInactive(e.target.checked)}
-          />
-          Mostrar inactivos también
-        </label>
-        <button
-          className={styles.btnPrimary}
-          onClick={handleSync}
-          disabled={sync.isPending}
-        >
-          {sync.isPending ? 'Sincronizando…' : 'Sincronizar ahora'}
-        </button>
+        <div className={styles.toolbarLeft}>
+          <label className={styles.segmented} aria-label="Filtro de tipos">
+            <span className={styles.segmentedItem}>
+              <input
+                type="radio"
+                name="catalog-filter"
+                checked={!includeInactive}
+                onChange={() => setIncludeInactive(false)}
+              />
+              Solo activos
+            </span>
+            <span className={styles.segmentedItem}>
+              <input
+                type="radio"
+                name="catalog-filter"
+                checked={includeInactive}
+                onChange={() => setIncludeInactive(true)}
+                aria-label="Mostrar inactivos también"
+              />
+              Todos
+            </span>
+          </label>
+        </div>
+        <div className={styles.toolbarRight}>
+          <button
+            className={styles.btnPrimary}
+            onClick={handleSync}
+            disabled={sync.isPending}
+          >
+            {sync.isPending ? 'Sincronizando…' : 'Sincronizar ahora'}
+          </button>
+        </div>
       </div>
 
-      <p className={styles.empty} style={{ textAlign: 'left', fontSize: '0.875rem', padding: '0.5rem 0' }}>
+      <p className={styles.helper}>
         Catálogo sincronizado desde IClass. Para crear o modificar tipos, hacelo en el panel IClass y luego sincronizá acá.
       </p>
 
       {lastSummary && (
-        <div className={styles.card} style={{ background: 'var(--color-success-bg, #e6f6e6)', marginBottom: '0.75rem' }}>
-          Sincronizados {lastSummary.synced} tipos: {lastSummary.created} nuevos, {lastSummary.updated} actualizados, {lastSummary.reactivated} reactivados, {lastSummary.deactivated} desactivados.
+        <div className={`${styles.banner} ${styles.bannerSuccess}`}>
+          <span>
+            <span className={styles.bannerTitle}>Sincronizados {lastSummary.synced} tipos.</span>
+            {' '}
+            {lastSummary.created} nuevos · {lastSummary.updated} actualizados · {lastSummary.reactivated} reactivados · {lastSummary.deactivated} desactivados.
+          </span>
         </div>
       )}
 
       {sync.isError && (
-        <p className={styles.error}>No se pudo sincronizar el catálogo. Reintentá en unos segundos.</p>
+        <div className={`${styles.banner} ${styles.bannerError}`}>
+          <span><span className={styles.bannerTitle}>No se pudo sincronizar el catálogo.</span> Reintentá en unos segundos.</span>
+        </div>
       )}
 
-      <div className={styles.card}>
+      <div className={styles.tableWrap}>
         {isLoading ? (
-          <p className={styles.empty}>Cargando…</p>
+          <p className={styles.tableLoading}>Cargando…</p>
         ) : items.length === 0 ? (
-          <p className={styles.empty}>
-            Catálogo vacío. Hacé click en "Sincronizar ahora" para traer los tipos desde IClass.
-          </p>
+          <div className={styles.emptyState}>
+            <p className={styles.emptyStateTitle}>Catálogo vacío</p>
+            <p className={styles.emptyStateText}>
+              No hay tipos de OS sincronizados todavía. Hacé click en "Sincronizar ahora" para traerlos desde IClass.
+            </p>
+          </div>
         ) : (
           <table className={styles.table}>
             <thead>
@@ -80,15 +106,9 @@ export function IClassSoTypesCatalogBody() {
               {items.map(t => (
                 <tr key={t.id}>
                   <td>{t.code}</td>
-                  <td className={styles.desc}>{t.description || '—'}</td>
+                  <td>{t.description || '—'}</td>
                   <td>
-                    <span style={{
-                      padding: '0.125rem 0.5rem',
-                      borderRadius: '0.375rem',
-                      fontSize: '0.75rem',
-                      background: t.active ? 'var(--color-success-bg, #e6f6e6)' : 'var(--color-neutral-bg, #eee)',
-                      color: t.active ? 'var(--color-success-text, #1a6f1a)' : 'var(--color-neutral-text, #555)',
-                    }}>
+                    <span className={`${styles.typeBadge} ${t.active ? styles.typeBadgeActive : styles.typeBadgeInactive}`}>
                       {t.active ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
@@ -99,6 +119,6 @@ export function IClassSoTypesCatalogBody() {
           </table>
         )}
       </div>
-    </>
+    </div>
   );
 }

@@ -1,13 +1,13 @@
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
-import styles from '../SchedulingTaskCategoriesPage.module.css';
+import styles from './IClassSettings.module.css';
 
 const FLAG_KEY = 'iclass-integration';
 
 /**
  * Sub-tab "Integración" del back office de IClass.
- * Toggle ON/OFF del feature flag `iclass-integration`. Si la key no existe en
- * DB el hook devuelve `enabled: false` (AD-3), así que acá solo manejamos
- * loading / network-error / data.
+ * Status card con badge de estado + descripción contextual + acción visible
+ * (switch). El hook devuelve `enabled: false` si la key no existe en DB (AD-3),
+ * así que solo manejamos loading / network-error / data.
  */
 export function IClassFlagBody() {
   const { data, isLoading, isError, refetch } = useFeatureFlag(FLAG_KEY);
@@ -15,20 +15,22 @@ export function IClassFlagBody() {
 
   if (isLoading) {
     return (
-      <div className={styles.card}>
-        <p className={styles.empty}>Cargando…</p>
-      </div>
+      <section className={styles.statusCard}>
+        <p className={styles.tableLoading}>Cargando…</p>
+      </section>
     );
   }
 
   if (isError || !data) {
     return (
-      <div className={styles.card}>
-        <p className={styles.error}>No se pudo cargar el estado de la integración.</p>
+      <section className={styles.statusCard}>
+        <div className={`${styles.banner} ${styles.bannerError}`}>
+          <span><span className={styles.bannerTitle}>No se pudo cargar el estado de la integración.</span> Reintentá en unos segundos.</span>
+        </div>
         <button className={styles.btnSecondary} onClick={() => refetch()}>
           Reintentar
         </button>
-      </div>
+      </section>
     );
   }
 
@@ -39,26 +41,43 @@ export function IClassFlagBody() {
   }
 
   return (
-    <div className={styles.card}>
-      <h2 className={styles.modalTitle}>Integración con IClass</h2>
+    <div className={styles.section}>
+      <section className={styles.statusCard}>
+        <header className={styles.statusHeader}>
+          <h2 className={styles.statusTitle}>Integración con IClass</h2>
+          <span className={`${styles.statusBadge} ${enabled ? styles.statusBadgeOn : styles.statusBadgeOff}`}>
+            <span className={styles.statusBadgeDot} aria-hidden="true" />
+            {enabled ? 'Activa' : 'Inactiva'}
+          </span>
+        </header>
 
-      <label className={styles.label} style={{ flexDirection: 'row', alignItems: 'center', gap: '0.75rem' }}>
-        <input
-          type="checkbox"
-          checked={enabled}
-          disabled={setFlag.isPending}
-          onChange={handleToggle}
-          aria-label="Integración con IClass"
-        />
-        <span>
+        <p className={styles.statusDescription}>
           {enabled
-            ? 'Integración activa: las tareas que pases a la etapa "Enviar a IClass" crearán órdenes de servicio.'
-            : 'Integración inactiva: las tareas que pases a la etapa "Enviar a IClass" sólo cambian de etapa, no se envía nada al panel.'}
-        </span>
-      </label>
+            ? 'Las tareas que pases a la etapa "Enviar a IClass" crearán órdenes de servicio en el panel IClass usando el tipo de OS configurado para cada proyecto.'
+            : 'Las tareas que pases a la etapa "Enviar a IClass" sólo cambian de etapa. No se envía nada al panel IClass.'}
+        </p>
+
+        <div className={styles.statusActionRow}>
+          <span className={styles.statusActionLabel}>
+            {enabled ? 'Desactivar integración' : 'Activar integración'}
+          </span>
+          <label className={styles.switch}>
+            <input
+              type="checkbox"
+              checked={enabled}
+              disabled={setFlag.isPending}
+              onChange={handleToggle}
+              aria-label="Integración con IClass"
+            />
+            <span className={styles.switchTrack} aria-hidden="true" />
+          </label>
+        </div>
+      </section>
 
       {setFlag.isError && (
-        <p className={styles.error}>No se pudo cambiar el estado de la integración. Reintentá en unos segundos.</p>
+        <div className={`${styles.banner} ${styles.bannerError}`}>
+          <span><span className={styles.bannerTitle}>No se pudo cambiar el estado de la integración.</span> Reintentá en unos segundos.</span>
+        </div>
       )}
     </div>
   );

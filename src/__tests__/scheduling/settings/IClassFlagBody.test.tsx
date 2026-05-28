@@ -45,20 +45,20 @@ describe('IClassFlagBody', () => {
     expect(screen.getByText(/no se pudo cargar/i)).toBeInTheDocument();
   });
 
-  it('renders toggle OFF and the inactive description when enabled is false', () => {
+  it('renders toggle OFF and the inactive status badge when enabled is false', () => {
     mockFlag(false);
     render(<IClassFlagBody />);
     const toggle = screen.getByRole('checkbox', { name: /integración con iclass/i });
     expect(toggle).not.toBeChecked();
-    expect(screen.getByText(/integración inactiva/i)).toBeInTheDocument();
+    expect(screen.getByText('Inactiva')).toBeInTheDocument();
   });
 
-  it('renders toggle ON and the active description when enabled is true', () => {
+  it('renders toggle ON and the active status badge when enabled is true', () => {
     mockFlag(true);
     render(<IClassFlagBody />);
     const toggle = screen.getByRole('checkbox', { name: /integración con iclass/i });
     expect(toggle).toBeChecked();
-    expect(screen.getByText(/integración activa/i)).toBeInTheDocument();
+    expect(screen.getByText('Activa')).toBeInTheDocument();
   });
 
   it('clicking the toggle calls setFlag with the inverted boolean', () => {
