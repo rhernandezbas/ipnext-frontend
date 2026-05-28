@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ScheduledTask, TaskStageCategory } from '@/types/scheduling';
+import type { ScheduledTask } from '@/types/scheduling';
 import type { WorkflowStage } from '@/types/workflow';
 import type { TaskPriority } from '@/types/taskPriority';
+import { StageSelect } from '@/components/molecules/StageSelect/StageSelect';
 import styles from './TaskHeader.module.css';
 
 interface TaskHeaderProps {
@@ -20,13 +21,6 @@ interface TaskHeaderProps {
   isAdmin: boolean;
   isSaving: boolean;
 }
-
-const STAGE_CATEGORY_CLASS: Record<TaskStageCategory, string> = {
-  nuevo: 'categoryNuevo',
-  enProgreso: 'categoryEnProgreso',
-  hecho: 'categoryHecho',
-  cancelado: 'categoryCancelado',
-};
 
 export function TaskHeader({
   task,
@@ -107,18 +101,9 @@ export function TaskHeader({
     }
   };
 
-  const handleStageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    void onStageMove(e.target.value);
-  };
-
   const handlePriorityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     void onPriorityChange(e.target.value);
   };
-
-  const currentStage = stages.find(s => s.id === task.stageId);
-  const categoryClass = currentStage
-    ? styles[STAGE_CATEGORY_CLASS[currentStage.category]]
-    : undefined;
 
   return (
     <header className={styles.header} role="banner">
@@ -166,24 +151,7 @@ export function TaskHeader({
 
       <div className={styles.controls}>
         <div className={styles.stagePillWrapper}>
-          <span
-            className={`${styles.stagePill} ${categoryClass ?? ''}`}
-            data-testid="stage-pill"
-          >
-            {currentStage?.name ?? 'Sin estado'}
-          </span>
-          <select
-            data-testid="stage-selector"
-            className={styles.stageSelect}
-            value={task.stageId ?? ''}
-            onChange={handleStageChange}
-            disabled={isSaving}
-            aria-label="Cambiar estado"
-          >
-            {stages.map(s => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
+          <StageSelect task={task} stages={stages} onMove={onStageMove} disabled={isSaving} />
         </div>
 
         <select

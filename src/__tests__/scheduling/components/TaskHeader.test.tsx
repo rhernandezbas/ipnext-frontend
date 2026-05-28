@@ -115,15 +115,15 @@ describe('TaskHeader', () => {
     expect(onTitleSave).not.toHaveBeenCalled();
   });
 
-  it('shows current stage in selector', () => {
+  it('shows current stage on the colour-coded selector', () => {
     renderHeader({ onTitleSave, onStageMove, onPriorityChange, onDelete });
-    expect(screen.getByTestId('stage-selector')).toBeInTheDocument();
+    expect(screen.getByLabelText('Cambiar estado')).toHaveTextContent('Nuevo');
   });
 
-  it('calls onStageMove when stage changes', async () => {
+  it('calls onStageMove when a stage option is picked', async () => {
     renderHeader({ onTitleSave, onStageMove, onPriorityChange, onDelete });
-    const select = screen.getByTestId('stage-selector');
-    fireEvent.change(select, { target: { value: 'stage-2' } });
+    fireEvent.click(screen.getByLabelText('Cambiar estado'));
+    fireEvent.click(screen.getByRole('option', { name: /En progreso/ }));
     await waitFor(() => expect(onStageMove).toHaveBeenCalledWith('stage-2'));
   });
 

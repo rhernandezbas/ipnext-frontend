@@ -89,63 +89,8 @@
 }
 
 .stagePillWrapper {
-  position: relative;
   display: flex;
   align-items: center;
-}
-
-.stagePill {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  pointer-events: none;
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  white-space: nowrap;
-}
-
-.stageSelect {
-  padding: 0.25rem 2.5rem 0.25rem 0.75rem;
-  border: 1px solid #E2E8F0;
-  border-radius: 9999px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  background: transparent;
-  cursor: pointer;
-  appearance: auto;
-  color: transparent;
-  min-width: 120px;
-}
-
-.stageSelect:focus-visible {
-  outline: 2px solid #2563EB;
-  outline-offset: 2px;
-}
-
-/* Stage category colours */
-.categoryNuevo {
-  background: #DBEAFE;
-  color: #1E40AF;
-}
-
-.categoryEnProgreso {
-  background: #FEF3C7;
-  color: #92400E;
-}
-
-.categoryHecho {
-  background: #D1FAE5;
-  color: #065F46;
-}
-
-.categoryCancelado {
-  background: #E2E8F0;
-  color: #334155;
 }
 
 .prioritySelect {
