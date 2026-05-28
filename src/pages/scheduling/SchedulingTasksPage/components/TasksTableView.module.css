@@ -125,16 +125,6 @@
   cursor: pointer;
 }
 .bulkDeleteBtn:hover { background: #dc2626; }
-.bulkClearBtn {
-  padding: 5px 14px;
-  background: transparent;
-  color: #0369a1;
-  border: 1px solid #7dd3fc;
-  border-radius: 6px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.bulkClearBtn:hover { background: #e0f2fe; }
 
 /* Mover etapa button — primary action in the bulk bar */
 .bulkMoveBtn {

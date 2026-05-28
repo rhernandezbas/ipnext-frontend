@@ -159,9 +159,6 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
             Eliminar
           </button>
         )}
-        <button type="button" className={styles.bulkClearBtn} onClick={onClear} disabled={busy}>
-          ✕ Limpiar
-        </button>
       </div>
 
       {showMoveDialog && (
