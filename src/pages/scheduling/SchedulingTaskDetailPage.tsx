@@ -139,10 +139,16 @@ export default function SchedulingTaskDetailPage() {
     // Build the payload from Datos values, and ONLY add description when the
     // user actually edited it. Sending it unchanged would be a noisy write for
     // a field the user never touched.
+    // Normalise the "Sin asignar / Sin partner / Sin servicio" selects: the UI
+    // represents "no value" as the empty string `""` (the <option value="">),
+    // but the API contract (UpdateTaskSchema) requires either a non-empty
+    // string or null — an empty string fails `z.string().min(1)` and the
+    // server replies 400 VALIDATION_ERROR. Convert "" → null at the boundary.
+    const nullable = (v: string | null | undefined): string | null => (v && v.length > 0 ? v : null);
     const data: Parameters<typeof updateTask.mutateAsync>[0]['data'] = {
-      assigneeId: values.assigneeId,
-      partnerId: values.partnerId,
-      serviceId: values.serviceId,
+      assigneeId: nullable(values.assigneeId),
+      partnerId: nullable(values.partnerId),
+      serviceId: nullable(values.serviceId),
       startDate: values.startDate,
       endDate: values.endDate,
       travelTimeTo: values.travelTimeTo,
