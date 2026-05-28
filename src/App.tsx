@@ -10,6 +10,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { AdminLayout } from '@/components/templates/AdminLayout/AdminLayout';
 import { LoginPage } from '@/pages/LoginPage/LoginPage';
 import { Spinner } from '@/components/atoms/Spinner/Spinner';
+import { RouteErrorBoundary } from '@/components/RouteErrorBoundary/RouteErrorBoundary';
 
 const DashboardPage = lazy(() => import('@/pages/DashboardPage/DashboardPage'));
 const LeadsPage = lazy(() => import('@/pages/customers/LeadsPage'));
@@ -110,6 +111,7 @@ const SchedulingTemplatesPage = lazy(() => import('@/pages/scheduling/Scheduling
 const SchedulingTaskCategoriesPage = lazy(() => import('@/pages/scheduling/SchedulingTaskCategoriesPage'));
 const SchedulingTaskPrioritiesPage = lazy(() => import('@/pages/scheduling/SchedulingTaskPrioritiesPage'));
 const SchedulingStageColorsPage = lazy(() => import('@/pages/scheduling/SchedulingStageColorsPage'));
+const SchedulingSettingsPage = lazy(() => import('@/pages/scheduling/SchedulingSettingsPage'));
 const SchedulingTaskDetailPage = lazy(() => import('@/pages/scheduling/SchedulingTaskDetailPage'));
 // SchedulingTasksPage is a re-export shim pointing at the directory index (SchedulingTasksPage/index.tsx).
 // Route ordering is no longer load-bearing — RR6 ranking handles tasks vs tasks/:id automatically.
@@ -135,6 +137,7 @@ const NetworkTopologyPage = lazy(() => import('@/pages/networking/NetworkTopolog
 
 export function App() {
   return (
+    <RouteErrorBoundary>
     <Suspense fallback={<Spinner fullPage />}>
       <Routes>
         <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
@@ -222,6 +225,7 @@ export function App() {
                 <Route path="task-categories" element={<SchedulingTaskCategoriesPage />} />
                 <Route path="task-priorities" element={<SchedulingTaskPrioritiesPage />} />
                 <Route path="stage-colors" element={<SchedulingStageColorsPage />} />
+                <Route path="settings" element={<SchedulingSettingsPage />} />
                 <Route path="tasks" element={<SchedulingTasksPage />} />
                 <Route path="tasks/:id" element={<SchedulingTaskDetailPage />} />
               </Route>
@@ -314,5 +318,6 @@ export function App() {
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
+    </RouteErrorBoundary>
   );
 }
