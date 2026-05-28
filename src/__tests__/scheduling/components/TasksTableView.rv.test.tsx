@@ -13,6 +13,7 @@ const setInventoryReviewAsync = vi.fn();
 
 vi.mock('@/hooks/useScheduling', () => ({
   useMoveTaskToStage:         () => ({ mutateAsync: moveAsync,                isPending: false }),
+  useBulkMoveTasksToStage:    () => ({ mutateAsync: vi.fn(),                   isPending: false }),
   useDeleteTask:              () => ({ mutateAsync: deleteAsync,               isPending: false }),
   useCloseTask:               () => ({ mutateAsync: closeAsync,                isPending: false }),
   useSetTaskInventoryReview:  () => ({ mutateAsync: setInventoryReviewAsync,   isPending: false }),

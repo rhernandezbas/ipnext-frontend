@@ -44,6 +44,31 @@ export const updateTaskStatus = (id: string, status: string) =>
 export const moveTaskToStage = (id: string, stageId: string) =>
   axiosClient.patch<ScheduledTask>(`${BASE}/${id}/stage`, { stageId }).then(r => r.data);
 
+// ── Bulk move to stage ─────────────────────────────────────────────────────────
+
+/** Per-task result of a bulk stage move. `ok:false` carries the failure detail. */
+export interface BulkStageResult {
+  taskId: string;
+  ok: boolean;
+  errorCode?: string;
+  reason?: string;
+  missingFields?: string[];
+}
+
+export interface BulkStageResponse {
+  summary: { total: number; ok: number; failed: number };
+  results: BulkStageResult[];
+}
+
+/**
+ * Move many tasks to a stage in one call. The endpoint always returns 200 with a
+ * per-task result so partial failures are reported instead of swallowed.
+ */
+export const bulkMoveToStage = (ids: string[], stageId: string) =>
+  axiosClient
+    .post<BulkStageResponse>(`${BASE}/bulk/stage`, { ids, stageId })
+    .then(r => r.data);
+
 // ── Checklist API ────────────────────────────────────────────────────────────
 
 export const addChecklistItem = (taskId: string, text: string) =>

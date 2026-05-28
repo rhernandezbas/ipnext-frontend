@@ -103,6 +103,21 @@ export function useMoveTaskToStage() {
   });
 }
 
+/**
+ * Bulk move many tasks to a stage. Invalidates the task lists when settled so
+ * the table reflects whatever moved (even on partial failure).
+ */
+export function useBulkMoveTasksToStage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, stageId }: { ids: string[]; stageId: string }) =>
+      api.bulkMoveToStage(ids, stageId),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ['scheduling-tasks'] });
+    },
+  });
+}
+
 // ── Checklist hooks ──────────────────────────────────────────────────────────
 
 export function useAddChecklistItem(taskId: string) {

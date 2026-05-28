@@ -29,8 +29,9 @@ interface IClassSendResultModalProps {
 }
 
 /** code → Spanish label for the missing-fields list. Unknown codes fall back
- *  to the raw code so a backend change never produces an empty row. */
-const FIELD_LABELS: Record<string, string> = {
+ *  to the raw code so a backend change never produces an empty row.
+ *  Exported so the bulk-move result modal reuses the SAME translations. */
+export const FIELD_LABELS: Record<string, string> = {
   customerName: 'Nombre del cliente',
   phone: 'Teléfono',
   address: 'Dirección',
@@ -44,6 +45,44 @@ const TITLES: Record<string, string> = {
   ICLASS_UNAVAILABLE: 'IClass no está disponible',
   ICLASS_REJECTED: 'IClass rechazó la orden',
 };
+
+/** Map a field code to its Spanish label (raw code fallback). */
+export function fieldLabel(code: string): string {
+  return FIELD_LABELS[code] ?? code;
+}
+
+/**
+ * One-line human-readable reason for a failed IClass send, given the error code
+ * and optional details. Reused by the bulk-move result modal so the per-task
+ * failure reasons match the single-send modal wording (no duplicated strings).
+ */
+export function iclassErrorReason(
+  errorCode: string | undefined,
+  detail?: { missingFields?: string[]; reason?: string },
+): string {
+  switch (errorCode) {
+    case 'MISSING_REQUIRED_FIELDS': {
+      const fields = (detail?.missingFields ?? []).map(fieldLabel);
+      return fields.length
+        ? `Faltan datos: ${fields.join(', ')}`
+        : 'Faltan datos requeridos para enviar a IClass.';
+    }
+    case 'ICLASS_NODE_NOT_FOUND':
+      return 'La localidad no corresponde a un nodo de IClass.';
+    case 'ICLASS_UNAVAILABLE':
+      return 'IClass no está disponible en este momento.';
+    case 'ICLASS_REJECTED':
+      return detail?.reason?.trim()
+        ? `IClass rechazó la orden: ${detail.reason}`
+        : 'IClass rechazó la orden por un problema en los datos.';
+    case 'TASK_NOT_FOUND':
+      return 'No se encontró la tarea.';
+    case 'STAGE_NOT_FOUND':
+      return 'No se encontró el estado destino.';
+    default:
+      return 'Ocurrió un error al enviar la tarea a IClass.';
+  }
+}
 
 /**
  * Reusable modal for the result of sending a task to IClass. Mirrors the
@@ -100,7 +139,7 @@ export function IClassSendResultModal({
             <ul className={styles.fieldList}>
               {(error.missingFields ?? []).map((field) => (
                 <li key={field} className={styles.fieldItem}>
-                  {FIELD_LABELS[field] ?? field}
+                  {fieldLabel(field)}
                 </li>
               ))}
             </ul>

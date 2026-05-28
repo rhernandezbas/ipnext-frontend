@@ -5,6 +5,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 const moveAsync = vi.fn();
 vi.mock('@/hooks/useScheduling', () => ({
   useMoveTaskToStage:        () => ({ mutateAsync: moveAsync, isPending: false }),
+  useBulkMoveTasksToStage:   () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteTask:             () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCloseTask:              () => ({ mutateAsync: vi.fn(), isPending: false }),
   useSetTaskInventoryReview: () => ({ mutateAsync: vi.fn(), isPending: false }),

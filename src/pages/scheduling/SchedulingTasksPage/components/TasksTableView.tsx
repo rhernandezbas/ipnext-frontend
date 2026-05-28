@@ -6,10 +6,12 @@ import type { ScheduledTask, TaskStageCategory } from '@/types/scheduling';
 import type { Workflow, WorkflowStage } from '@/types/workflow';
 import type { Project } from '@/types/project';
 import type { TaskPriority } from '@/types/taskPriority';
-import { useMoveTaskToStage, useDeleteTask, useCloseTask, useSetTaskInventoryReview } from '@/hooks/useScheduling';
+import { useMoveTaskToStage, useBulkMoveTasksToStage, useDeleteTask, useCloseTask, useSetTaskInventoryReview } from '@/hooks/useScheduling';
+import type { BulkStageResponse } from '@/api/scheduling.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useIClassSendFeedback } from '@/hooks/useIClassSendFeedback';
 import { IClassSendResultModal } from '@/components/molecules/IClassSendResultModal/IClassSendResultModal';
+import { BulkMoveResultModal } from '@/components/molecules/BulkMoveResultModal/BulkMoveResultModal';
 import styles from './TasksTableView.module.css';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -389,7 +391,49 @@ const PAGE_SIZES = [10, 25, 50, 100];
 export function TasksTableView({ tasks, loading = false, availableStages = [], projects = [], workflows = [], priorities = [], visibleColumnKeys }: TasksTableViewProps) {
   const navigate = useNavigate();
   const moveToStage = useMoveTaskToStage();
+  const bulkMoveToStage = useBulkMoveTasksToStage();
   const iclass = useIClassSendFeedback();
+  // Result of the last bulk "Mover estado" — drives BulkMoveResultModal.
+  const [bulkResult, setBulkResult] = useState<BulkStageResponse | null>(null);
+  // Stage the bulk move targeted, so "Reintentar las fallidas" re-runs the same move.
+  const bulkStageId = useRef<string | null>(null);
+  const [bulkToast, setBulkToast] = useState<string | null>(null);
+  const bulkToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showBulkToast(msg: string) {
+    setBulkToast(msg);
+    if (bulkToastTimer.current) clearTimeout(bulkToastTimer.current);
+    bulkToastTimer.current = setTimeout(() => setBulkToast(null), 4000);
+  }
+
+  /**
+   * Bulk move via the endpoint that returns a per-task result. On a full success
+   * we toast; on a partial failure we open the result modal so the user can see
+   * which tasks failed (and why) and retry only those.
+   */
+  async function handleBulkMove(ids: string[], stageId: string) {
+    bulkStageId.current = stageId;
+    const res = await bulkMoveToStage.mutateAsync({ ids, stageId });
+    if (res.summary.failed > 0) {
+      setBulkResult(res);
+    } else {
+      showBulkToast(`${res.summary.ok} de ${res.summary.total} tarea(s) enviada(s) a IClass.`);
+    }
+  }
+
+  /** Retry only the still-failing tasks. Update the modal with the new result,
+   *  or close it (and toast) when nothing fails anymore. */
+  async function handleBulkRetry(failedIds: string[]) {
+    const stageId = bulkStageId.current;
+    if (!stageId || failedIds.length === 0) return;
+    const res = await bulkMoveToStage.mutateAsync({ ids: failedIds, stageId });
+    if (res.summary.failed > 0) {
+      setBulkResult(res);
+    } else {
+      setBulkResult(null);
+      showBulkToast(`${res.summary.ok} de ${res.summary.total} tarea(s) enviada(s) a IClass.`);
+    }
+  }
   // Remember the last IClass move so "Reintentar" / "Editar tarea" know the task.
   const lastMove = useRef<{ id: string; stageId: string } | null>(null);
   const deleteTask = useDeleteTask();
@@ -542,11 +586,7 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
         selectedIds={selectedIds}
         availableStages={availableStages}
         onClear={() => setSelectedIds([])}
-        onMoveStage={async (ids, stageId) => {
-          for (const id of ids) {
-            await moveToStage.mutateAsync({ id, stageId });
-          }
-        }}
+        onMoveStage={handleBulkMove}
         onClose={async (ids) => {
           for (const id of ids) {
             await closeTask.mutateAsync({ id, isClosed: true });
@@ -599,9 +639,21 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
         onEditTask={handleEditTask}
       />
 
-      {iclass.toast && (
+      <BulkMoveResultModal
+        open={!!bulkResult}
+        summary={bulkResult?.summary ?? { total: 0, ok: 0, failed: 0 }}
+        results={bulkResult?.results ?? []}
+        labelForTask={(id) => {
+          const t = tasks.find(x => x.id === id);
+          return t ? `#${t.sequenceNumber} — ${t.title}` : id;
+        }}
+        onRetryFailed={ids => void handleBulkRetry(ids)}
+        onClose={() => setBulkResult(null)}
+      />
+
+      {(iclass.toast || bulkToast) && (
         <div className={styles.iclassToast} role="status" aria-live="polite" aria-atomic="true">
-          {iclass.toast}
+          {iclass.toast ?? bulkToast}
         </div>
       )}
     </div>
