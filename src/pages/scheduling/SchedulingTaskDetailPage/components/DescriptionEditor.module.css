@@ -1,93 +1,108 @@
+/* DescriptionEditor — flat section, no card border/shadow.
+   Separation from siblings comes from the hairline <hr> in TaskDetailsTab. */
 .section {
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 8px;
-  padding: 1.25rem;
+  padding: var(--space-6, 24px) var(--space-6, 24px);
 }
 
+/* Section label: 12px / 600 / uppercase / muted */
 .sectionTitle {
-  font-size: 1.125rem;
+  font-size: 12px;
   font-weight: 600;
-  color: #0F172A;
-  margin: 0 0 1rem 0;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary, #6c757d);
+  margin: 0 0 var(--space-3, 12px) 0;
 }
 
 .placeholder {
-  color: #64748B;
-  font-size: 0.875rem;
-  margin: 0 0 0.5rem 0;
+  color: var(--color-text-secondary, #6c757d);
+  font-size: 13.5px;
+  margin: 0 0 var(--space-2, 8px) 0;
   font-style: italic;
 }
 
+/* Tiptap editor wrapper — kept bordered so it reads as an editable field */
 .editorWrapper {
   min-height: 120px;
-  border: 1px solid #E2E8F0;
-  border-radius: 6px;
-  padding: 0.5rem;
+  border: 1px solid var(--color-border, #dee2e6);
+  border-radius: 8px;
+  padding: var(--space-2, 8px) 10px;
+  background: var(--color-surface, #fff);
+  transition: border-color var(--transition-fast, 100ms ease),
+              box-shadow var(--transition-fast, 100ms ease);
+}
+
+.editorWrapper:focus-within {
+  border-color: var(--color-primary, #0d6efd);
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
 }
 
 .editorWrapper :global(.ProseMirror) {
   outline: none;
   min-height: 100px;
-  padding: 0.25rem;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--color-text-primary, #212529);
+  padding: 2px 0;
 }
 
 .editorWrapper :global(.ProseMirror p.is-editor-empty:first-child::before) {
   content: attr(data-placeholder);
   float: left;
-  color: #94A3B8;
+  color: var(--color-text-secondary, #6c757d);
   pointer-events: none;
   height: 0;
 }
 
 .editorWrapper :global(.ProseMirror:focus-visible) {
-  outline: 2px solid #2563EB;
-  outline-offset: 2px;
-  border-radius: 4px;
+  outline: none;
 }
 
 .actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 0.75rem;
+  gap: var(--space-4, 16px);
+  margin-top: var(--space-3, 12px);
 }
 
 .saveStatus {
-  font-size: 0.875rem;
+  font-size: 13px;
   color: #065F46;
   flex: 1;
 }
 
+/* DESIGN.md primary button: height 36px, radius 8px, font 13.5px/500 */
 .saveBtn {
-  padding: 0.5rem 1.25rem;
-  background: #2563EB;
+  height: 36px;
+  padding: 0 var(--space-4, 16px);
+  background: var(--color-primary, #0d6efd);
   color: #fff;
   border: none;
-  border-radius: 6px;
-  font-size: 0.875rem;
+  border-radius: 8px;
+  font-size: 13.5px;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color var(--transition-normal, 200ms ease);
 }
 
 .saveBtn:hover:not(:disabled) {
-  background: #1D4ED8;
+  background: #0b5ed7;
 }
 
 .saveBtn:disabled {
-  background: #94A3B8;
+  background: var(--color-gray-400, #94A3B8);
   cursor: not-allowed;
 }
 
 .saveBtn:focus-visible {
-  outline: 2px solid #2563EB;
+  outline: 2px solid var(--color-primary, #0d6efd);
   outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .saveBtn {
+  .saveBtn,
+  .editorWrapper {
     transition: none;
   }
 }

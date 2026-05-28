@@ -87,7 +87,7 @@ export function UbicacionMap({ address, coordinates, onChange }: UbicacionMapPro
 
   return (
     <section className={styles.section} aria-labelledby="ubicacion-heading">
-      <h2 id="ubicacion-heading" className={styles.sectionTitle}>▣ Ubicación</h2>
+      <h2 id="ubicacion-heading" className={styles.sectionTitle}>Ubicación</h2>
 
       <div className={styles.addressRow}>
         <input

@@ -42,6 +42,16 @@ export function TaskDetailsTab({
 }: TaskDetailsTabProps) {
   return (
     <div className={styles.shell}>
+      {/* 1. DESCRIPCIÓN */}
+      <DescriptionEditor
+        initialHtml={descriptionEditor.initialHtml}
+        onSave={descriptionEditor.onSave}
+        isSaving={descriptionEditor.isSaving}
+      />
+
+      <hr className={styles.divider} />
+
+      {/* 2. DATOS */}
       <DatosForm
         initial={datosForm.initial}
         onSubmit={datosForm.onSubmit}
@@ -51,18 +61,18 @@ export function TaskDetailsTab({
         onDirtyChange={datosForm.onDirtyChange}
       />
 
+      <hr className={styles.divider} />
+
+      {/* 3. UBICACIÓN */}
       <UbicacionMap
         address={ubicacionMap.address}
         coordinates={ubicacionMap.coordinates}
         onChange={ubicacionMap.onChange}
       />
 
-      <DescriptionEditor
-        initialHtml={descriptionEditor.initialHtml}
-        onSave={descriptionEditor.onSave}
-        isSaving={descriptionEditor.isSaving}
-      />
+      <hr className={styles.divider} />
 
+      {/* 4. LISTA DE VERIFICACIÓN */}
       <ChecklistSection
         taskId={checklistSection.taskId}
         checklist={checklistSection.checklist}

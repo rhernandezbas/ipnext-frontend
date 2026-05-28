@@ -150,7 +150,7 @@ export function ChecklistSection({ taskId, checklist, onError }: ChecklistSectio
     <section className={styles.section} aria-labelledby="checklist-heading" aria-live="polite">
       <div className={styles.sectionHeader}>
         <h2 id="checklist-heading" className={styles.sectionTitle}>
-          ▣ Lista de verificación
+          Lista de verificación
           {totalCount > 0 && (
             <span className={styles.progress}>{doneCount}/{totalCount}</span>
           )}

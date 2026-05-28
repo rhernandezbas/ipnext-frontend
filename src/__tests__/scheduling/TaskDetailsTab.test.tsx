@@ -106,7 +106,7 @@ describe('TaskDetailsTab', () => {
     expect(screen.getByText(/lista de verificación/i)).toBeInTheDocument();
   });
 
-  it('renders child components in correct vertical order (DatosForm → UbicacionMap → DescriptionEditor → ChecklistSection)', () => {
+  it('renders child components in correct vertical order (DescriptionEditor → DatosForm → UbicacionMap → ChecklistSection)', () => {
     // Use null initialHtml so DescriptionEditor renders its unique "sin descripción" placeholder
     const { container } = render(
       <TaskDetailsTab
@@ -115,19 +115,20 @@ describe('TaskDetailsTab', () => {
       />
     );
     const root = container.firstElementChild as HTMLElement;
-    const sections = Array.from(root.querySelectorAll(':scope > *'));
+    // Sections are separated by <hr> dividers; select direct children that are <section> elements
+    const sections = Array.from(root.querySelectorAll(':scope > section'));
     expect(sections.length).toBeGreaterThanOrEqual(4);
 
     const sectionTexts = sections.map(s => s.textContent ?? '');
+    const editorIdx = sectionTexts.findIndex(t => /descripci/i.test(t));
     const datosIdx = sectionTexts.findIndex(t => /datos/i.test(t));
     const mapIdx = sectionTexts.findIndex(t => /sin ubicaci/i.test(t));
-    const editorIdx = sectionTexts.findIndex(t => /sin descripci/i.test(t));
     const checklistIdx = sectionTexts.findIndex(t => /lista de verificaci/i.test(t));
 
-    expect(datosIdx).toBeGreaterThanOrEqual(0);
+    expect(editorIdx).toBeGreaterThanOrEqual(0);
+    expect(datosIdx).toBeGreaterThan(editorIdx);
     expect(mapIdx).toBeGreaterThan(datosIdx);
-    expect(editorIdx).toBeGreaterThan(mapIdx);
-    expect(checklistIdx).toBeGreaterThan(editorIdx);
+    expect(checklistIdx).toBeGreaterThan(mapIdx);
   });
 
   it('forwards initialHtml prop to DescriptionEditor (smoke check)', () => {

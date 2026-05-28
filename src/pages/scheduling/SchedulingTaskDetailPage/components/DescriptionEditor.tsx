@@ -46,7 +46,7 @@ export function DescriptionEditor({ initialHtml, onSave, isSaving }: Description
 
   return (
     <section className={styles.section} aria-labelledby="desc-heading">
-      <h2 id="desc-heading" className={styles.sectionTitle}>▣ Descripción</h2>
+      <h2 id="desc-heading" className={styles.sectionTitle}>Descripción</h2>
 
       {isEmpty && !editor?.isFocused && (
         <p className={styles.placeholder}>Sin descripción. Haz clic para añadir.</p>

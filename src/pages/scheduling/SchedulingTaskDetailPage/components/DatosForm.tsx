@@ -138,7 +138,7 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, onDir
 
   return (
     <section className={styles.section} aria-labelledby="datos-heading">
-      <h2 id="datos-heading" className={styles.sectionTitle}>▣ Datos</h2>
+      <h2 id="datos-heading" className={styles.sectionTitle}>Datos</h2>
       <form onSubmit={(e) => { void handleSubmit(onValid)(e); }} noValidate>
         <div className={styles.grid}>
           {/* Asignado a */}
