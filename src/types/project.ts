@@ -12,4 +12,11 @@ export interface Project {
     hecho: number;
     total: number;
   };
+  iclassSoTypeId?: string | null;
+  iclassSoType?: {
+    id: string;
+    code: string;
+    description: string;
+    active: boolean;
+  } | null;
 }
