@@ -5,6 +5,7 @@ import { ChecklistSection } from './ChecklistSection';
 import type { DatosFormValues } from './DatosForm';
 import type { Admin } from '@/types/admin';
 import type { Partner } from '@/types/partner';
+import type { Project } from '@/types/project';
 import type { TaskChecklistItem } from '@/types/scheduling';
 import styles from './TaskDetailsTab.module.css';
 
@@ -15,6 +16,9 @@ export interface TaskDetailsTabProps {
     isSaving: boolean;
     admins: Admin[];
     partners: Partner[];
+    projects?: Project[];
+    iclassOrderCode?: string | null;
+    originalProjectId?: string | null;
     onDirtyChange?: (isDirty: boolean) => void;
   };
   ubicacionMap: {
@@ -58,6 +62,9 @@ export function TaskDetailsTab({
         isSaving={datosForm.isSaving}
         admins={datosForm.admins}
         partners={datosForm.partners}
+        projects={datosForm.projects}
+        iclassOrderCode={datosForm.iclassOrderCode}
+        originalProjectId={datosForm.originalProjectId}
         onDirtyChange={datosForm.onDirtyChange}
       />
 

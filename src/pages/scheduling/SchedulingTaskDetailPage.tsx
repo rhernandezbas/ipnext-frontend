@@ -12,6 +12,7 @@ import {
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { useAdmins } from '@/hooks/useAdmins';
 import { usePartners } from '@/hooks/usePartners';
+import { useProjects } from '@/hooks/useProjects';
 import { useClientDetail, useClientServices } from '@/hooks/useCustomers';
 import { useAuth } from '@/hooks/useAuth';
 import { useIClassSendFeedback } from '@/hooks/useIClassSendFeedback';
@@ -50,6 +51,7 @@ export default function SchedulingTaskDetailPage() {
   const { data: workflows = [] } = useWorkflows();
   const { data: admins = [] } = useAdmins();
   const { data: partners = [] } = usePartners();
+  const { data: projects = [] } = useProjects();
   const { data: priorities = [] } = useTaskPriorities();
   // Customer detail + services — cached share with CustomerSidebar (same query keys).
   // Used only to resolve {{telefono}} / {{servicio}} in description merge variables.
@@ -173,6 +175,7 @@ export default function SchedulingTaskDetailPage() {
     // server replies 400 VALIDATION_ERROR. Convert "" → null at the boundary.
     const nullable = (v: string | null | undefined): string | null => (v && v.length > 0 ? v : null);
     const data: Parameters<typeof updateTask.mutateAsync>[0]['data'] = {
+      projectId: nullable(values.projectId),
       assigneeId: nullable(values.assigneeId),
       partnerId: nullable(values.partnerId),
       serviceId: nullable(values.serviceId),
@@ -316,6 +319,9 @@ export default function SchedulingTaskDetailPage() {
                 isSaving: updateTask.isPending,
                 admins,
                 partners,
+                projects,
+                iclassOrderCode: task.iclassOrderCode ?? null,
+                originalProjectId: task.projectId,
                 onDirtyChange: setFormDirty,
               },
               ubicacionMap: {

@@ -43,6 +43,10 @@ vi.mock('@/hooks/usePartners', () => ({
   usePartners: vi.fn(),
 }));
 
+vi.mock('@/hooks/useProjects', () => ({
+  useProjects: vi.fn(),
+}));
+
 vi.mock('@/hooks/useTaskTemplates', () => ({
   useTaskTemplates: vi.fn(() => ({ data: [], isLoading: false })),
   useCreateTaskTemplate: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
@@ -173,6 +177,7 @@ import { useTask, useUpdateTask, useMoveTaskToStage, useDeleteTask, useCloseTask
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { useAdmins } from '@/hooks/useAdmins';
 import { usePartners } from '@/hooks/usePartners';
+import { useProjects } from '@/hooks/useProjects';
 import { useAuth } from '@/hooks/useAuth';
 
 const mockTask: ScheduledTask = {
@@ -284,6 +289,11 @@ function setupMocks(overrides?: { taskData?: Partial<ScheduledTask> | null; isLo
     data: [],
     isLoading: false,
   } as ReturnType<typeof usePartners>);
+
+  vi.mocked(useProjects).mockReturnValue({
+    data: [{ id: 'proj-1', title: 'Proyecto A', description: null, workflowId: null, createdAt: '', updatedAt: '' }],
+    isLoading: false,
+  } as ReturnType<typeof useProjects>);
 }
 
 // Import page after mocks are set up
@@ -550,4 +560,8 @@ describe('SchedulingTaskDetailPage', () => {
       expect(inventoryMutateAsync).toHaveBeenCalledWith({ id: 'task-1', reviewed: true });
     });
   });
+
+  // TaskTabs is mocked in this file, so DatosForm never renders here.
+  // The project select is thoroughly covered in DatosForm.test.tsx.
+  it.todo('renders project select in task detail (covered by DatosForm.test.tsx component tests)');
 });
