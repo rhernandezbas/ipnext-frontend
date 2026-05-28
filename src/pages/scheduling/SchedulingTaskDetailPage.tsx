@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Spinner } from '@/components/atoms/Spinner/Spinner';
 import {
@@ -14,6 +14,9 @@ import { useAdmins } from '@/hooks/useAdmins';
 import { usePartners } from '@/hooks/usePartners';
 import { useClientDetail, useClientServices } from '@/hooks/useCustomers';
 import { useAuth } from '@/hooks/useAuth';
+import { useIClassSendFeedback } from '@/hooks/useIClassSendFeedback';
+import { IClassSendResultModal } from '@/components/molecules/IClassSendResultModal/IClassSendResultModal';
+import type { ScheduledTask } from '@/types/scheduling';
 import { applyTaskVariables } from './lib/taskVariables';
 import { TaskHeader } from './SchedulingTaskDetailPage/components/TaskHeader';
 import { TaskTabs } from './SchedulingTaskDetailPage/components/TaskTabs';
@@ -62,6 +65,9 @@ export default function SchedulingTaskDetailPage() {
   const deleteTask = useDeleteTask();
   const closeTask = useCloseTask();
   const setInventoryReview = useSetTaskInventoryReview();
+  const iclass = useIClassSendFeedback();
+  // Last stageId attempted — used by the IClass modal's "Reintentar" CTA.
+  const lastStageIdRef = useRef<string | null>(null);
 
   const [formDirty, setFormDirty] = useState(false);
   const [descDirty, setDescDirty] = useState(false);
@@ -116,9 +122,30 @@ export default function SchedulingTaskDetailPage() {
 
   const handleStageMove = useCallback(async (stageId: string) => {
     if (!task) return;
-    await moveToStage.mutateAsync({ id: task.id, stageId });
-    showToast('Estado actualizado');
-  }, [task, moveToStage]);
+    lastStageIdRef.current = stageId;
+    try {
+      const updated = await moveToStage.mutateAsync({ id: task.id, stageId });
+      const code = (updated as ScheduledTask | undefined)?.iclassOrderCode;
+      if (code) {
+        // IClass send succeeded — surface the OS code via the shared toast helper.
+        iclass.handleSuccess(code);
+      } else {
+        showToast('Estado actualizado');
+      }
+    } catch (err) {
+      // IClass errors open the result modal (MISSING_*, ICLASS_*). Everything
+      // else falls back to the existing inline toast.
+      if (!iclass.handleError(err)) {
+        showToast(mapError(err), 'error');
+      }
+    }
+  }, [task, moveToStage, iclass]);
+
+  const handleIClassRetry = useCallback(() => {
+    iclass.closeModal();
+    const stageId = lastStageIdRef.current;
+    if (stageId) void handleStageMove(stageId);
+  }, [iclass, handleStageMove]);
 
   const handlePriorityChange = useCallback(async (priority: string) => {
     if (!task) return;
@@ -327,16 +354,24 @@ export default function SchedulingTaskDetailPage() {
       </div>
 
       {/* Toast */}
-      {toastMsg && (
+      {(toastMsg || iclass.toast) && (
         <div
           className={`${styles.toast} ${toastType === 'error' ? styles.toastError : styles.toastSuccess}`}
           role="status"
           aria-live="polite"
           aria-atomic="true"
         >
-          {toastMsg}
+          {toastMsg ?? iclass.toast}
         </div>
       )}
+
+      {/* IClass send result modal — same hook + component the list views use */}
+      <IClassSendResultModal
+        open={!!iclass.error}
+        error={iclass.error}
+        onClose={iclass.closeModal}
+        onRetry={handleIClassRetry}
+      />
 
       {/* Live region for save status */}
       <div aria-live="polite" aria-atomic="true" className={styles.srOnly} />
