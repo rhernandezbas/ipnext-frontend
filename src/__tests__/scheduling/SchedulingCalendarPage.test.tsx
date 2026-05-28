@@ -203,7 +203,12 @@ describe('SchedulingCalendarPage — navigation (REQ-NAV)', () => {
     renderWithRouter('/admin/scheduling/calendars?view=week&date=2026-01-01');
     fireEvent.click(screen.getByRole('button', { name: 'Hoy' }));
     const location = screen.getByTestId('location');
-    const today = new Date().toISOString().slice(0, 10);
+    // Mirror goToday() exactly: local midnight, then serialized via toISOString.
+    // Computing the expectation any other way (e.g. a bare new Date().toISOString())
+    // drifts by a day once UTC has rolled past local midnight, flaking at night.
+    const t = new Date();
+    t.setHours(0, 0, 0, 0);
+    const today = t.toISOString().slice(0, 10);
     expect(location.getAttribute('data-search')).toContain(`date=${today}`);
   });
 
