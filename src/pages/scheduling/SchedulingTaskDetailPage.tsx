@@ -162,11 +162,19 @@ export default function SchedulingTaskDetailPage() {
         direccion: task.address,
       });
     }
-    await updateTask.mutateAsync({ id: task.id, data });
-    setFormDirty(false);
-    setDescDirty(false);
-    setLocationOverride(null);
-    showToast('Cambios guardados');
+    try {
+      await updateTask.mutateAsync({ id: task.id, data });
+      setFormDirty(false);
+      setDescDirty(false);
+      setLocationOverride(null);
+      showToast('Cambios guardados');
+    } catch (err) {
+      // Surface the API error to the user instead of producing an unhandled
+      // promise rejection (DatosForm wraps the submit in `void`, which would
+      // swallow the rejection silently into the console). Dirty state is
+      // preserved so the user can correct and retry without losing input.
+      showToast(mapError(err), 'error');
+    }
   }, [task, updateTask, locationOverride, descDirty, descriptionHtml, customerDetail, customerServices]);
 
   const handleWatcherChange = useCallback(async (nextIds: string[]) => {
