@@ -66,6 +66,11 @@ export default function SchedulingTaskDetailPage() {
   const [formDirty, setFormDirty] = useState(false);
   const [descDirty, setDescDirty] = useState(false);
   const [titleDirty, setTitleDirty] = useState(false);
+  // Description editor is controlled — parent stores the latest HTML so the
+  // single bottom "Guardar cambios" can persist description + Datos in ONE
+  // updateTask call. Initialised lazily by handleDescChange when the editor
+  // fires its first onChange (no need to sync from task here).
+  const [descriptionHtml, setDescriptionHtml] = useState<string>('');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -121,43 +126,48 @@ export default function SchedulingTaskDetailPage() {
     showToast('Prioridad actualizada');
   }, [task, updateTask]);
 
-  const handleDescSave = useCallback(async (html: string) => {
-    if (!task) return;
-    // Resolve {{cliente}} / {{telefono}} / {{servicio}} / {{direccion}} once at
-    // save time using the task's linked entities; tokens with no value stay as-is.
-    const servicio = customerServices.find(s => String(s.id) === task.serviceId)?.plan ?? null;
-    const finalHtml = applyTaskVariables(html, {
-      cliente: task.customerName,
-      telefono: customerDetail?.phone ?? null,
-      servicio,
-      direccion: task.address,
-    });
-    await updateTask.mutateAsync({ id: task.id, data: { description: finalHtml } });
-    setDescDirty(false);
-    showToast('Descripción guardada');
-  }, [task, updateTask, customerDetail, customerServices]);
+  // Description is controlled by this page — the editor pushes every change
+  // here; the actual save is part of the unified handleFormSubmit below.
+  const handleDescChange = useCallback((html: string, isDirty: boolean) => {
+    setDescriptionHtml(html);
+    setDescDirty(isDirty);
+  }, []);
 
   const handleFormSubmit = useCallback(async (values: DatosFormValues) => {
     if (!task) return;
     const loc = locationOverride ?? { address: task.address, coordinates: task.coordinates };
-    await updateTask.mutateAsync({
-      id: task.id,
-      data: {
-        assigneeId: values.assigneeId,
-        partnerId: values.partnerId,
-        serviceId: values.serviceId,
-        startDate: values.startDate,
-        endDate: values.endDate,
-        travelTimeTo: values.travelTimeTo,
-        travelTimeFrom: values.travelTimeFrom,
-        address: loc.address,
-        coordinates: loc.coordinates,
-      },
-    });
+    // Build the payload from Datos values, and ONLY add description when the
+    // user actually edited it. Sending it unchanged would be a noisy write for
+    // a field the user never touched.
+    const data: Parameters<typeof updateTask.mutateAsync>[0]['data'] = {
+      assigneeId: values.assigneeId,
+      partnerId: values.partnerId,
+      serviceId: values.serviceId,
+      startDate: values.startDate,
+      endDate: values.endDate,
+      travelTimeTo: values.travelTimeTo,
+      travelTimeFrom: values.travelTimeFrom,
+      address: loc.address,
+      coordinates: loc.coordinates,
+    };
+    if (descDirty) {
+      // Resolve {{cliente}} / {{telefono}} / {{servicio}} / {{direccion}} once
+      // at save time using the task's linked entities; tokens with no value
+      // stay as-is.
+      const servicio = customerServices.find(s => String(s.id) === task.serviceId)?.plan ?? null;
+      data.description = applyTaskVariables(descriptionHtml, {
+        cliente: task.customerName,
+        telefono: customerDetail?.phone ?? null,
+        servicio,
+        direccion: task.address,
+      });
+    }
+    await updateTask.mutateAsync({ id: task.id, data });
     setFormDirty(false);
+    setDescDirty(false);
     setLocationOverride(null);
     showToast('Cambios guardados');
-  }, [task, updateTask, locationOverride]);
+  }, [task, updateTask, locationOverride, descDirty, descriptionHtml, customerDetail, customerServices]);
 
   const handleWatcherChange = useCallback(async (nextIds: string[]) => {
     if (!task) return;
@@ -274,8 +284,7 @@ export default function SchedulingTaskDetailPage() {
               },
               descriptionEditor: {
                 initialHtml: task.description,
-                onSave: handleDescSave,
-                isSaving: updateTask.isPending,
+                onChange: handleDescChange,
               },
               checklistSection: {
                 taskId: id!,

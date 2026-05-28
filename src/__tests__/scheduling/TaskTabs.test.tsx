@@ -97,8 +97,7 @@ const minimalDetailProps: TaskTabsProps['detailsProps'] = {
   },
   descriptionEditor: {
     initialHtml: null,
-    onSave: vi.fn().mockResolvedValue(undefined),
-    isSaving: false,
+    onChange: vi.fn(),
   },
   checklistSection: {
     taskId: 'task-1',

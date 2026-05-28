@@ -111,6 +111,7 @@ export default function SchedulingTasksPage() {
               projects={projects}
               workflows={workflows}
               priorities={priorities}
+              admins={technicians}
               visibleColumnKeys={visibleColumns}
             />
           ) : (

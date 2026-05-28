@@ -1,8 +1,8 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
-// Mock TipTap since it doesn't work well in jsdom
+// Mock TipTap since it doesn't work well in jsdom. The mock captures the
+// component's onUpdate handler so tests can simulate user edits by invoking it.
 vi.mock('@tiptap/react', () => ({
   useEditor: vi.fn(({ onUpdate }: { content?: string; onUpdate?: (props: { editor: { getHTML: () => string } }) => void }) => ({
     getHTML: () => '<p>content</p>',
@@ -10,7 +10,6 @@ vi.mock('@tiptap/react', () => ({
     on: vi.fn(),
     off: vi.fn(),
     destroy: vi.fn(),
-    // Simulate calling onUpdate to set dirty
     _onUpdate: onUpdate,
   })),
   EditorContent: ({ editor }: { editor: unknown }) => (
@@ -22,69 +21,57 @@ vi.mock('@tiptap/react', () => ({
 
 vi.mock('@tiptap/starter-kit', () => ({ default: {} }));
 
+import { useEditor } from '@tiptap/react';
 import { DescriptionEditor } from '@/pages/scheduling/SchedulingTaskDetailPage/components/DescriptionEditor';
 
-describe('DescriptionEditor', () => {
-  const onSave = vi.fn();
+/**
+ * Retrieve the editor instance returned by the most recent `useEditor` call.
+ * The component's `onUpdate` handler is exposed via `_onUpdate` so tests can
+ * simulate edits without relying on jsdom's flaky contentEditable behaviour.
+ */
+function lastEditor(): { _onUpdate: (props: { editor: { getHTML: () => string } }) => void } {
+  const mock = vi.mocked(useEditor);
+  const results = mock.mock.results;
+  return results[results.length - 1].value as ReturnType<typeof lastEditor>;
+}
 
+describe('DescriptionEditor (controlled API)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    onSave.mockResolvedValue(undefined);
   });
 
   it('renders the editor area', () => {
-    render(
-      <DescriptionEditor
-        initialHtml="<p>Hola</p>"
-        onSave={onSave}
-        isSaving={false}
-      />
-    );
+    render(<DescriptionEditor initialHtml="<p>Hola</p>" onChange={vi.fn()} />);
     expect(screen.getByTestId('editor-content')).toBeInTheDocument();
   });
 
-  it('shows save button', () => {
-    render(
-      <DescriptionEditor
-        initialHtml="<p>Hola</p>"
-        onSave={onSave}
-        isSaving={false}
-      />
-    );
-    expect(screen.getByRole('button', { name: /guardar/i })).toBeInTheDocument();
-  });
-
-  it('disables save button when not dirty', () => {
-    render(
-      <DescriptionEditor
-        initialHtml="<p>Hola</p>"
-        onSave={onSave}
-        isSaving={false}
-      />
-    );
-    const btn = screen.getByRole('button', { name: /guardar/i });
-    expect(btn).toBeDisabled();
+  it('does NOT render its own Guardar button (single-save lives in the parent)', () => {
+    render(<DescriptionEditor initialHtml="<p>Hola</p>" onChange={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: /guardar/i })).not.toBeInTheDocument();
   });
 
   it('shows placeholder when initialHtml is null', () => {
-    render(
-      <DescriptionEditor
-        initialHtml={null}
-        onSave={onSave}
-        isSaving={false}
-      />
-    );
+    render(<DescriptionEditor initialHtml={null} onChange={vi.fn()} />);
     expect(screen.getByText(/sin descripción/i)).toBeInTheDocument();
   });
 
-  it('disables save button while saving', () => {
-    render(
-      <DescriptionEditor
-        initialHtml="<p>Hola</p>"
-        onSave={onSave}
-        isSaving={true}
-      />
-    );
-    expect(screen.getByRole('button', { name: /guardando/i })).toBeDisabled();
+  it('calls onChange with the new html and isDirty=true when content diverges from initial', () => {
+    const onChange = vi.fn();
+    render(<DescriptionEditor initialHtml="<p>Hola</p>" onChange={onChange} />);
+
+    // Simulate an edit that produces different HTML than the initial value
+    lastEditor()._onUpdate({ editor: { getHTML: () => '<p>Cambiado</p>' } });
+
+    expect(onChange).toHaveBeenCalledWith('<p>Cambiado</p>', true);
+  });
+
+  it('calls onChange with isDirty=false when the editor reports the same html as initial', () => {
+    const onChange = vi.fn();
+    render(<DescriptionEditor initialHtml="<p>Hola</p>" onChange={onChange} />);
+
+    // Simulate a no-op update where the HTML matches initial
+    lastEditor()._onUpdate({ editor: { getHTML: () => '<p>Hola</p>' } });
+
+    expect(onChange).toHaveBeenLastCalledWith('<p>Hola</p>', false);
   });
 });

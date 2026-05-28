@@ -24,8 +24,9 @@ export interface TaskDetailsTabProps {
   };
   descriptionEditor: {
     initialHtml: string | null;
-    onSave: (html: string) => Promise<void>;
-    isSaving: boolean;
+    /** Fires on every edit. The unified bottom Guardar persists this together
+     *  with the rest of the Datos form in one updateTask call. */
+    onChange: (html: string, isDirty: boolean) => void;
   };
   checklistSection: {
     taskId: string;
@@ -45,8 +46,7 @@ export function TaskDetailsTab({
       {/* 1. DESCRIPCIÓN */}
       <DescriptionEditor
         initialHtml={descriptionEditor.initialHtml}
-        onSave={descriptionEditor.onSave}
-        isSaving={descriptionEditor.isSaving}
+        onChange={descriptionEditor.onChange}
       />
 
       <hr className={styles.divider} />

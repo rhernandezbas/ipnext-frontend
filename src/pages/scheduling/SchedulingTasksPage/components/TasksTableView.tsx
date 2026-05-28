@@ -5,6 +5,7 @@ import type { ScheduledTask } from '@/types/scheduling';
 import type { Workflow, WorkflowStage } from '@/types/workflow';
 import type { Project } from '@/types/project';
 import type { TaskPriority } from '@/types/taskPriority';
+import type { Admin } from '@/types/admin';
 import { useMoveTaskToStage, useBulkMoveTasksToStage, useDeleteTask, useCloseTask, useSetTaskInventoryReview } from '@/hooks/useScheduling';
 import type { BulkStageResponse } from '@/api/scheduling.api';
 import { useAuth } from '@/hooks/useAuth';
@@ -221,6 +222,10 @@ interface TasksTableViewProps {
   workflows?: Workflow[];
   /** Priority catalog — used to colour the priority pill from its editable colour. */
   priorities?: TaskPriority[];
+  /** Admin catalog — used to resolve `reporterId → name` for the Reporter column.
+   *  The same list already powers the assignee filter on the page, so passing
+   *  it here avoids a denormalised `reporterName` field in the API DTO. */
+  admins?: Admin[];
   /** Column keys that should be rendered. When undefined, all columns are shown. */
   visibleColumnKeys?: string[];
 }
@@ -237,6 +242,7 @@ export const ALL_TASK_COLUMNS: { key: string; label: string }[] = [
   { key: 'customerCity',   label: 'Localidad' },
   { key: 'startDate',      label: 'Inicio' },
   { key: 'assigneeName',   label: 'Asignado' },
+  { key: 'reporterName',   label: 'Reporter' },
   { key: 'priority',       label: 'Prioridad' },
   { key: 'createdAt',             label: 'Fecha creación' },
   { key: 'updatedAt',             label: 'Fecha actualización' },
@@ -245,7 +251,7 @@ export const ALL_TASK_COLUMNS: { key: string; label: string }[] = [
 
 const PAGE_SIZES = [10, 25, 50, 100];
 
-export function TasksTableView({ tasks, loading = false, availableStages = [], projects = [], workflows = [], priorities = [], visibleColumnKeys }: TasksTableViewProps) {
+export function TasksTableView({ tasks, loading = false, availableStages = [], projects = [], workflows = [], priorities = [], admins = [], visibleColumnKeys }: TasksTableViewProps) {
   const navigate = useNavigate();
   const moveToStage = useMoveTaskToStage();
   const bulkMoveToStage = useBulkMoveTasksToStage();
@@ -407,6 +413,11 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
     { label: 'Inicio',    key: 'startDate',      sortable: true,
       render: (t: ScheduledTask) => t.startDate ? new Date(t.startDate).toLocaleDateString('es-AR') : '—' },
     { label: 'Asignado',  key: 'assigneeName',   sortable: true },
+    { label: 'Reporter',  key: 'reporterName',   sortable: true,
+      // Resolve reporterId → admin name from the admin catalog. Fall back to
+      // an em-dash when there's no reporter or the id no longer matches any
+      // admin (deleted user / stale data) — never leak the raw uuid to the UI.
+      render: (t: ScheduledTask) => admins.find(a => a.id === t.reporterId)?.name ?? '—' },
     { label: 'Prioridad', key: 'priority',       sortable: true,
       render: (t: ScheduledTask) => <PriorityPill priority={t.priority} color={priorityColor.get(t.priority)} /> },
     { label: 'Fecha creación',      key: 'createdAt', sortable: true,

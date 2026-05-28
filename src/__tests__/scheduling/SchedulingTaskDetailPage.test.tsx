@@ -70,15 +70,17 @@ vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs', () =>
       {['Detalles', 'Adjuntos', 'Comentarios', 'Relacionado', 'Inventory', 'Registro de trabajo', 'Actividad'].map(label => (
         <button key={label} role="tab" aria-selected={label === 'Detalles' ? 'true' : 'false'}>{label}</button>
       ))}
-      {/* Expose description save for integration test */}
+      {/* Expose description change for integration tests — the editor is now
+          controlled (controlled API: onChange(html, isDirty)), so editing it
+          only updates parent state. The actual save happens via datos-save-btn. */}
       <button
-        data-testid="desc-save-btn"
+        data-testid="desc-change-btn"
         onClick={() => {
-          const onSave = (detailsProps.descriptionEditor as { onSave?: (h: string) => Promise<void> })?.onSave;
-          void onSave?.('<p>updated</p>');
+          const onChange = (detailsProps.descriptionEditor as { onChange?: (h: string, dirty: boolean) => void })?.onChange;
+          onChange?.('<p>updated</p>', true);
         }}
       >
-        Save Desc
+        Change Desc
       </button>
       {/* Expose datos form save for integration test */}
       <button
@@ -459,23 +461,48 @@ describe('SchedulingTaskDetailPage', () => {
     expect(screen.queryByTestId('kebab-delete')).not.toBeInTheDocument();
   });
 
-  it('description save dispatches updateTask PATCH via detailsProps.descriptionEditor.onSave', async () => {
+  it('editing the description alone does NOT trigger updateTask (save is via datos submit)', async () => {
+    // The unified save model: editing the description only updates parent state.
+    // No network call happens until the user clicks the single bottom "Guardar".
     setupMocks();
     const mutateAsync = vi.fn().mockResolvedValue({});
     vi.mocked(useUpdateTask).mockReturnValue({ ...noopMutation, mutateAsync } as ReturnType<typeof useUpdateTask>);
     const { fireEvent: fe } = await import('@testing-library/react');
 
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
-    await waitFor(() => expect(screen.getByTestId('desc-save-btn')).toBeInTheDocument());
-    fe.click(screen.getByTestId('desc-save-btn'));
+    await waitFor(() => expect(screen.getByTestId('desc-change-btn')).toBeInTheDocument());
+    fe.click(screen.getByTestId('desc-change-btn'));
+
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('unified save: after editing description, a single datos submit sends BOTH description and datos in ONE updateTask call', async () => {
+    setupMocks();
+    const mutateAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useUpdateTask).mockReturnValue({ ...noopMutation, mutateAsync } as ReturnType<typeof useUpdateTask>);
+    const { fireEvent: fe } = await import('@testing-library/react');
+
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('desc-change-btn')).toBeInTheDocument());
+
+    // 1) User edits the description — parent stores it as dirty.
+    fe.click(screen.getByTestId('desc-change-btn'));
+    // 2) User clicks the single bottom Guardar (the datos submit).
+    fe.click(screen.getByTestId('datos-save-btn'));
+
     await waitFor(() => {
-      expect(mutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'task-1', data: expect.objectContaining({ description: '<p>updated</p>' }) }),
-      );
+      expect(mutateAsync).toHaveBeenCalledTimes(1);
+      expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+        id: 'task-1',
+        data: expect.objectContaining({ description: '<p>updated</p>' }),
+      }));
     });
   });
 
-  it('datos form save dispatches updateTask PATCH via detailsProps.datosForm.onSubmit', async () => {
+  it('datos submit without a description edit sends datos only — no description field in the payload', async () => {
+    // When the description was not touched, the unified save MUST NOT push the
+    // current task description back to the server (that would be a noisy write
+    // for a field the user never edited).
     setupMocks();
     const mutateAsync = vi.fn().mockResolvedValue({});
     vi.mocked(useUpdateTask).mockReturnValue({ ...noopMutation, mutateAsync } as ReturnType<typeof useUpdateTask>);
@@ -484,10 +511,12 @@ describe('SchedulingTaskDetailPage', () => {
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
     await waitFor(() => expect(screen.getByTestId('datos-save-btn')).toBeInTheDocument());
     fe.click(screen.getByTestId('datos-save-btn'));
+
     await waitFor(() => {
-      expect(mutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'task-1' }),
-      );
+      expect(mutateAsync).toHaveBeenCalledTimes(1);
+      const call = mutateAsync.mock.calls[0][0] as { id: string; data: Record<string, unknown> };
+      expect(call.id).toBe('task-1');
+      expect(call.data).not.toHaveProperty('description');
     });
   });
 
