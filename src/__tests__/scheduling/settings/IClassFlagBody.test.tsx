@@ -1,0 +1,90 @@
+import { render, screen, fireEvent } from '@testing-library/react';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+
+vi.mock('@/hooks/useFeatureFlags', () => ({
+  useFeatureFlag: vi.fn(),
+  useSetFeatureFlag: vi.fn(),
+}));
+
+import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
+import { IClassFlagBody } from '@/pages/scheduling/settings/IClassFlagBody';
+
+const idleMutation = {
+  mutate: vi.fn(),
+  mutateAsync: vi.fn(),
+  isPending: false,
+  isError: false,
+  reset: vi.fn(),
+};
+
+function mockFlag(enabled: boolean | null, loading = false, error = false) {
+  vi.mocked(useFeatureFlag).mockReturnValue({
+    data: enabled === null ? undefined : { key: 'iclass-integration', enabled },
+    isLoading: loading,
+    isError: error,
+    isSuccess: !loading && !error && enabled !== null,
+    refetch: vi.fn(),
+  } as never);
+}
+
+describe('IClassFlagBody', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useSetFeatureFlag).mockReturnValue(idleMutation as never);
+  });
+
+  it('renders loading state while the flag query is loading', () => {
+    mockFlag(null, true);
+    render(<IClassFlagBody />);
+    expect(screen.getByText(/cargando/i)).toBeInTheDocument();
+  });
+
+  it('renders error state with retry when the flag query errors', () => {
+    mockFlag(null, false, true);
+    render(<IClassFlagBody />);
+    expect(screen.getByText(/no se pudo cargar/i)).toBeInTheDocument();
+  });
+
+  it('renders toggle OFF and the inactive description when enabled is false', () => {
+    mockFlag(false);
+    render(<IClassFlagBody />);
+    const toggle = screen.getByRole('checkbox', { name: /integración con iclass/i });
+    expect(toggle).not.toBeChecked();
+    expect(screen.getByText(/integración inactiva/i)).toBeInTheDocument();
+  });
+
+  it('renders toggle ON and the active description when enabled is true', () => {
+    mockFlag(true);
+    render(<IClassFlagBody />);
+    const toggle = screen.getByRole('checkbox', { name: /integración con iclass/i });
+    expect(toggle).toBeChecked();
+    expect(screen.getByText(/integración activa/i)).toBeInTheDocument();
+  });
+
+  it('clicking the toggle calls setFlag with the inverted boolean', () => {
+    mockFlag(false);
+    const mutate = vi.fn();
+    vi.mocked(useSetFeatureFlag).mockReturnValue({ ...idleMutation, mutate } as never);
+
+    render(<IClassFlagBody />);
+    fireEvent.click(screen.getByRole('checkbox', { name: /integración con iclass/i }));
+
+    expect(mutate).toHaveBeenCalledWith({ key: 'iclass-integration', enabled: true });
+  });
+
+  it('disables the toggle while the mutation is pending', () => {
+    mockFlag(false);
+    vi.mocked(useSetFeatureFlag).mockReturnValue({ ...idleMutation, isPending: true } as never);
+
+    render(<IClassFlagBody />);
+    expect(screen.getByRole('checkbox', { name: /integración con iclass/i })).toBeDisabled();
+  });
+
+  it('shows an error banner when the mutation fails', () => {
+    mockFlag(true);
+    vi.mocked(useSetFeatureFlag).mockReturnValue({ ...idleMutation, isError: true } as never);
+
+    render(<IClassFlagBody />);
+    expect(screen.getByText(/no se pudo cambiar el estado/i)).toBeInTheDocument();
+  });
+});
