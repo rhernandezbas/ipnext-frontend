@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useFilteredTasks, useCreateTask } from '@/hooks/useScheduling';
 import { useProjects } from '@/hooks/useProjects';
 import { useWorkflows } from '@/hooks/useWorkflows';
-import { useTechnicians } from '@/hooks/useAdmins';
+import { useTechnicians, useAdmins } from '@/hooks/useAdmins';
 import { useTaskTemplates } from '@/hooks/useTaskTemplates';
 import { useTaskPriorities } from '@/hooks/useTaskPriorities';
 import { TaskFilterBar } from './components/TaskFilterBar';
@@ -47,6 +47,11 @@ export default function SchedulingTasksPage() {
   const { data: projects = [] } = useProjects();
   const { data: workflows = [] } = useWorkflows();
   const { data: technicians = [] } = useTechnicians();
+  // Full admin catalog (any role) — needed to resolve the Reporter column,
+  // since the reporter on a task is whoever created it (admin OR technician),
+  // not only technicians. `technicians` (filtered to role=technician) stays
+  // dedicated to the "Asignado a" select in CreateTaskModal.
+  const { data: admins = [] } = useAdmins();
   const { data: templates = [] } = useTaskTemplates();
   const { data: priorities = [] } = useTaskPriorities();
   const createTask = useCreateTask();
@@ -111,7 +116,7 @@ export default function SchedulingTasksPage() {
               projects={projects}
               workflows={workflows}
               priorities={priorities}
-              admins={technicians}
+              admins={admins}
               visibleColumnKeys={visibleColumns}
             />
           ) : (
