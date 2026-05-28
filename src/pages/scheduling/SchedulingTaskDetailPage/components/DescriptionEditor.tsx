@@ -56,6 +56,10 @@ export function DescriptionEditor({ initialHtml, onSave, isSaving }: Description
         <EditorContent editor={editor} data-testid="editor-content" />
       </div>
 
+      <p className={styles.variableHint}>
+        Variables: <code>{'{{cliente}}'}</code> <code>{'{{telefono}}'}</code> <code>{'{{servicio}}'}</code> <code>{'{{direccion}}'}</code> — se reemplazan al guardar.
+      </p>
+
       <div className={styles.actions}>
         <div aria-live="polite" aria-atomic="true" className={styles.saveStatus}>
           {saveStatus}

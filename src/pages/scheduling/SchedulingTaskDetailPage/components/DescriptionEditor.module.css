@@ -58,6 +58,25 @@
   outline: none;
 }
 
+/* Merge-variable hint below the editor — descubrible para el autor */
+.variableHint {
+  margin: var(--space-2, 8px) 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-secondary, #6c757d);
+}
+
+.variableHint code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  padding: 1px 5px;
+  margin: 0 1px;
+  background: var(--color-gray-50, #f8f9fa);
+  border: 1px solid var(--color-border, #dee2e6);
+  border-radius: 4px;
+  color: var(--color-text-primary, #212529);
+}
+
 .actions {
   display: flex;
   align-items: center;
