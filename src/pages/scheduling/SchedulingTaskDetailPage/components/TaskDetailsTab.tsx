@@ -3,8 +3,9 @@ import { UbicacionMap } from './UbicacionMap';
 import { DescriptionEditor } from './DescriptionEditor';
 import { ChecklistSection } from './ChecklistSection';
 import type { DatosFormValues } from './DatosForm';
-import type { Admin } from '@/types/admin';
 import type { Partner } from '@/types/partner';
+
+type SchedulingAssignee = { id: string; name: string };
 import type { Project } from '@/types/project';
 import type { TaskChecklistItem } from '@/types/scheduling';
 import styles from './TaskDetailsTab.module.css';
@@ -14,7 +15,7 @@ export interface TaskDetailsTabProps {
     initial: DatosFormValues;
     onSubmit: (values: DatosFormValues) => Promise<void>;
     isSaving: boolean;
-    admins: Admin[];
+    admins: SchedulingAssignee[];
     partners: Partner[];
     projects?: Project[];
     iclassOrderCode?: string | null;

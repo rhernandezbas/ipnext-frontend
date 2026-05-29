@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useNetworkSites, useCreateNetworkSite, useUpdateNetworkSite, useDeleteNetworkSite } from '@/hooks/useNetworkSites';
 import type { NetworkSite } from '@/types/networkSite';
+import { Can } from '@/components/auth/Can';
+import { useCan } from '@/hooks/useMyPermissions';
 import styles from './NetworkSitesPage.module.css';
 
 const TYPE_LABELS: Record<NetworkSite['type'], string> = {
@@ -214,6 +216,7 @@ export default function NetworkSitesPage() {
   const { mutate: createSite } = useCreateNetworkSite();
   const { mutate: updateSite } = useUpdateNetworkSite();
   const { mutate: deleteSite } = useDeleteNetworkSite();
+  const canManageSites = useCan('network.manage_sites');
 
   const total = sites.length;
   const active = sites.filter(s => s.status === 'active').length;
@@ -225,18 +228,22 @@ export default function NetworkSitesPage() {
     }
   }
 
-  const actions = [
-    { label: 'Editar', onClick: (row: NetworkSite) => setEditingSite(row) },
-    { label: 'Eliminar', onClick: handleDelete },
-  ];
+  const actions = canManageSites
+    ? [
+        { label: 'Editar', onClick: (row: NetworkSite) => setEditingSite(row) },
+        { label: 'Eliminar', onClick: handleDelete },
+      ]
+    : [];
 
   return (
     <div className={styles.page}>
       <div className={styles.header}>
         <h1 className={styles.title}>Sitios de red</h1>
-        <button className={styles.btnPrimary} onClick={() => setShowModal(true)}>
-          Nuevo sitio
-        </button>
+        <Can permission="network.manage_sites">
+          <button className={styles.btnPrimary} onClick={() => setShowModal(true)}>
+            Nuevo sitio
+          </button>
+        </Can>
       </div>
 
       <div className={styles.summaryCards}>

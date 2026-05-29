@@ -9,6 +9,7 @@ import { useGestionRealSyncStatus } from '../../hooks/useGestionRealSync';
 import { GestionRealSyncBadge } from '../../components/gestionReal/GestionRealSyncBadge';
 import type { CustomerSummary } from '../../types/customer';
 import { ClientStatsCards } from './ClientStatsCards';
+import { Can } from '../../components/auth/Can';
 import styles from './CustomersListPage.module.css';
 
 const STATUS_FILTERS = [
@@ -133,12 +134,14 @@ export default function CustomersListPage() {
           <h1 className={styles.title}>Clientes</h1>
           <GestionRealSyncBadge status={grSync.data} isError={grSync.isError} totalClients={data?.total} />
         </div>
-        <button
-          className={styles.newClientBtn}
-          onClick={() => navigate('/admin/customers/add')}
-        >
-          Nuevo cliente
-        </button>
+        <Can permission="clients.write">
+          <button
+            className={styles.newClientBtn}
+            onClick={() => navigate('/admin/customers/add')}
+          >
+            Nuevo cliente
+          </button>
+        </Can>
       </div>
       <ClientStatsCards
         activeStatus={status}
@@ -160,7 +163,7 @@ export default function CustomersListPage() {
         </button>
         {showActionsDropdown && selectedIds.length > 0 && (
           <ul className={styles.actionsDropdown}>
-            <li onClick={() => { selectedIds.forEach(id => toggleStatus.mutate({ id, status: 'blocked' })); setShowActionsDropdown(false); }}>Bloquear seleccionados</li>
+            <Can permission="clients.write"><li onClick={() => { selectedIds.forEach(id => toggleStatus.mutate({ id, status: 'blocked' })); setShowActionsDropdown(false); }}>Bloquear seleccionados</li></Can>
             <li onClick={() => { const msg = window.prompt('Mensaje para los clientes seleccionados:'); if (msg) { window.alert(`Mensaje enviado a ${selectedIds.length} cliente(s).`); } setShowActionsDropdown(false); }}>Enviar mensaje</li>
             <li onClick={() => { exportToCSV(data?.data ?? [], 'clientes.csv'); setShowActionsDropdown(false); }}>Exportar</li>
           </ul>

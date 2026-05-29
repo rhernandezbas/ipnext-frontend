@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useServicePlans, useCreateServicePlan, useUpdateServicePlan, useDeleteServicePlan } from '@/hooks/useServicePlans';
 import type { ServicePlan } from '@/types/service-plans';
+import { Can } from '@/components/auth/Can';
+import { useCan } from '@/hooks/useMyPermissions';
 import styles from './TariffsPage.module.css';
 
 type TypeFilter = '' | 'internet' | 'voip' | 'tv' | 'other';
@@ -223,6 +225,8 @@ export default function TariffsPage() {
   const { mutate: createPlan } = useCreateServicePlan();
   const { mutate: updatePlan } = useUpdateServicePlan();
   const { mutate: deletePlan } = useDeleteServicePlan();
+  const canWriteTariffs = useCan('tariffs.write');
+  const canDeleteTariffs = useCan('tariffs.delete');
 
   const filtered = plans.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
@@ -231,24 +235,28 @@ export default function TariffsPage() {
   });
 
   const actions = [
-    {
-      label: 'Editar',
-      onClick: (row: ServicePlan) => {
-        setEditingPlan(row);
+    ...(canWriteTariffs ? [
+      {
+        label: 'Editar',
+        onClick: (row: ServicePlan) => {
+          setEditingPlan(row);
+        },
       },
-    },
-    {
-      label: 'Activar/Desactivar',
-      onClick: (row: ServicePlan) => {
-        updatePlan({ id: row.id, data: { status: row.status === 'active' ? 'inactive' : 'active' } });
+      {
+        label: 'Activar/Desactivar',
+        onClick: (row: ServicePlan) => {
+          updatePlan({ id: row.id, data: { status: row.status === 'active' ? 'inactive' : 'active' } });
+        },
       },
-    },
-    {
-      label: 'Eliminar',
-      onClick: (row: ServicePlan) => {
-        deletePlan(row.id);
+    ] : []),
+    ...(canDeleteTariffs ? [
+      {
+        label: 'Eliminar',
+        onClick: (row: ServicePlan) => {
+          deletePlan(row.id);
+        },
       },
-    },
+    ] : []),
   ];
 
   function handleCreate(data: Omit<ServicePlan, 'id'>) {
@@ -266,9 +274,11 @@ export default function TariffsPage() {
     <div className={styles.page}>
       <div className={styles.header}>
         <h1 className={styles.title}>Tarifas / Planes de servicio</h1>
-        <button className={styles.btnPrimary} onClick={() => setShowModal(true)}>
-          Nuevo plan
-        </button>
+        <Can permission="tariffs.write">
+          <button className={styles.btnPrimary} onClick={() => setShowModal(true)}>
+            Nuevo plan
+          </button>
+        </Can>
       </div>
 
       <div className={styles.filterRow}>

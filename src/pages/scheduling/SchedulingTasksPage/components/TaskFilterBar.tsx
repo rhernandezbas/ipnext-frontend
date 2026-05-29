@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useProjects } from '@/hooks/useProjects';
 import { useWorkflow } from '@/hooks/useWorkflows';
 import { usePartners } from '@/hooks/usePartners';
-import { useAdmins } from '@/hooks/useAdmins';
+import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { useTaskPriorities } from '@/hooks/useTaskPriorities';
 import type { TaskListFilter, TasksView } from '@/types/scheduling';
 import type { Project } from '@/types/project';
@@ -105,7 +105,7 @@ export function TaskFilterBar({ filter, view, onFilterChange, onViewChange }: Ta
   const navigate = useNavigate();
   const { data: projects = [] } = useProjects();
   const { data: partners = [] } = usePartners();
-  const { data: admins = [] } = useAdmins();
+  const { data: admins = [] } = useRbacUsers();
   const { data: priorities = [] } = useTaskPriorities();
   const selectedProject: Project | undefined = projects.find(p => p.id === filter.projectId);
 
@@ -169,7 +169,7 @@ export function TaskFilterBar({ filter, view, onFilterChange, onViewChange }: Ta
           aria-label="Asignado"
         >
           <option value="">Cualquier asignado</option>
-          {admins.map(a => (
+          {admins.map((a: { id: string; name: string }) => (
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
         </select>

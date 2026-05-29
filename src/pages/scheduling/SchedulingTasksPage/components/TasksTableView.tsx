@@ -1,11 +1,13 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
+import { Can } from '@/components/auth/Can';
 import type { ScheduledTask } from '@/types/scheduling';
 import type { Workflow, WorkflowStage } from '@/types/workflow';
 import type { Project } from '@/types/project';
 import type { TaskPriority } from '@/types/taskPriority';
-import type { Admin } from '@/types/admin';
+
+type SchedulingAssignee = { id: string; name: string };
 import { useMoveTaskToStage, useBulkMoveTasksToStage, useDeleteTask, useCloseTask, useSetTaskInventoryReview, useUpdateTask } from '@/hooks/useScheduling';
 import type { BulkStageResponse } from '@/api/scheduling.api';
 import { useAuth } from '@/hooks/useAuth';
@@ -132,15 +134,17 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
         <span className={styles.bulkCount}>
           ✓ {selectedIds.length} tarea{selectedIds.length !== 1 ? 's' : ''} seleccionada{selectedIds.length !== 1 ? 's' : ''}
         </span>
-        <button
-          type="button"
-          className={styles.bulkMoveBtn}
-          onClick={() => setShowMoveDialog(true)}
-          disabled={busy || availableStages.length === 0}
-          aria-label="Mover estado"
-        >
-          Mover estado
-        </button>
+        <Can permission="scheduling.move_stage">
+          <button
+            type="button"
+            className={styles.bulkMoveBtn}
+            onClick={() => setShowMoveDialog(true)}
+            disabled={busy || availableStages.length === 0}
+            aria-label="Mover estado"
+          >
+            Mover estado
+          </button>
+        </Can>
         <button
           type="button"
           className={styles.bulkCloseBtn}
@@ -224,7 +228,7 @@ interface TasksTableViewProps {
   /** Admin catalog — used to resolve `reporterId → name` for the Reporter column.
    *  The same list already powers the assignee filter on the page, so passing
    *  it here avoids a denormalised `reporterName` field in the API DTO. */
-  admins?: Admin[];
+  admins?: SchedulingAssignee[];
   /** Column keys that should be rendered. When undefined, all columns are shown. */
   visibleColumnKeys?: string[];
 }

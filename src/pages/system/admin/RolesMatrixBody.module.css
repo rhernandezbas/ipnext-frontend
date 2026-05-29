@@ -1,0 +1,208 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  position: relative;
+}
+
+/* ── Feedback banners ────────────────────────────────────────────────────────── */
+
+.banner {
+  padding: 0.625rem var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: 0;
+  animation: bannerIn 0.18s ease-out;
+}
+
+@keyframes bannerIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.bannerSuccess {
+  background: oklch(94% 0.06 150);
+  color: oklch(28% 0.12 150);
+  border-bottom: 1px solid oklch(84% 0.1 150);
+}
+
+.bannerError {
+  background: oklch(95% 0.04 25);
+  color: oklch(33% 0.14 25);
+  border-bottom: 1px solid oklch(85% 0.07 25);
+}
+
+/* ── Main layout ──────────────────────────────────────────────────────────────── */
+
+.layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Matrix panel ──────────────────────────────────────────────────────────────── */
+
+.panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────────── */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: var(--space-4);
+  padding: var(--space-12);
+  color: var(--color-text-secondary);
+}
+
+.emptyIcon {
+  color: var(--color-gray-300);
+}
+
+.emptyText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* ── Loading skeleton ─────────────────────────────────────────────────────────── */
+
+.skeletonWrap {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.skeleton {
+  height: 72px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--color-gray-100) 25%,
+    var(--color-gray-50) 50%,
+    var(--color-gray-100) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Sticky save bar ─────────────────────────────────────────────────────────── */
+
+.saveBar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  box-shadow: 0 -2px 8px oklch(0% 0 0 / 0.06);
+  z-index: 10;
+  gap: var(--space-4);
+}
+
+.saveBarRole {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dirtyDot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: oklch(65% 0.18 55);
+  border-radius: 50%;
+}
+
+.saveBarActions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.discardBtn {
+  padding: 0.4375rem 0.875rem;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.discardBtn:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.discardBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.saveBtn {
+  padding: 0.4375rem 1.125rem;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: opacity 0.15s;
+  min-width: 84px;
+}
+
+.saveBtn:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.saveBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .layout {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .panel {
+    overflow: visible;
+  }
+
+  .saveBar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  .saveBarActions {
+    justify-content: flex-end;
+  }
+}

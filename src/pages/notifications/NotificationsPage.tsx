@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead, useDeleteNotification } from '@/hooks/useNotifications';
 import type { Notification } from '@/types/notification';
+import { Can } from '@/components/auth/Can';
 import styles from './NotificationsPage.module.css';
 
 type Filter = 'all' | 'unread';
@@ -39,14 +40,16 @@ export default function NotificationsPage() {
     <div className={styles.page}>
       <div className={styles.header}>
         <h1 className={styles.title}>Notificaciones</h1>
-        <button
-          type="button"
-          className={styles.markAllBtn}
-          onClick={() => markAllRead()}
-          disabled={unreadCount === 0}
-        >
-          Marcar todas como leidas
-        </button>
+        <Can permission="notifications.write">
+          <button
+            type="button"
+            className={styles.markAllBtn}
+            onClick={() => markAllRead()}
+            disabled={unreadCount === 0}
+          >
+            Marcar todas como leidas
+          </button>
+        </Can>
       </div>
 
       {/* Filters */}
@@ -92,24 +95,26 @@ export default function NotificationsPage() {
                 <p className={styles.itemMessage}>{notif.message}</p>
               </div>
               {!notif.read && <span className={styles.unreadIndicator} aria-label="Sin leer" />}
-              <div className={styles.itemActions}>
-                {!notif.read && (
+              <Can permission="notifications.write">
+                <div className={styles.itemActions}>
+                  {!notif.read && (
+                    <button
+                      type="button"
+                      className={styles.actionBtn}
+                      onClick={() => markRead(notif.id)}
+                    >
+                      Marcar como leida
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className={styles.actionBtn}
-                    onClick={() => markRead(notif.id)}
+                    className={`${styles.actionBtn} ${styles.deleteBtn}`}
+                    onClick={() => deleteNotif(notif.id)}
                   >
-                    Marcar como leida
+                    Eliminar
                   </button>
-                )}
-                <button
-                  type="button"
-                  className={`${styles.actionBtn} ${styles.deleteBtn}`}
-                  onClick={() => deleteNotif(notif.id)}
-                >
-                  Eliminar
-                </button>
-              </div>
+                </div>
+              </Can>
             </div>
           ))}
         </div>

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
-import { useAdminActivityLog, useRoles, useCreateRole, useUpdateRole, useEnable2FA, useDisable2FA, useAdmin2FAStatus } from '@/hooks/useAdmins';
+import { useAdminActivityLog, useEnable2FA, useDisable2FA, useAdmin2FAStatus } from '@/hooks/useAdmins';
 import type { Admin, AdminActivityLog, ActivityCategory } from '@/types/admin';
-import type { AdminRole_Definition } from '@/types/role';
 import { RbacUsersBody } from './admin/RbacUsersBody';
+import { RolesMatrixBody } from './admin/RolesMatrixBody';
+import { Can } from '@/components/auth/Can';
 import styles from './AdminPage.module.css';
 
 type Tab = 'admins' | 'activity' | 'roles' | 'seguridad' | 'sesiones';
@@ -54,13 +55,15 @@ function TwoFAModal({ admin, onClose }: { admin: Admin; onClose: () => void }) {
             <p>Códigos de respaldo restantes: {status.backupCodesCount}</p>
             <div className={styles.modalActions}>
               <button className={styles.btnSecondary} onClick={onClose}>Cancelar</button>
-              <button
-                className={styles.btnDanger ?? styles.btnPrimary}
-                onClick={handleDisable}
-                disabled={disabling}
-              >
-                {disabling ? 'Desactivando...' : 'Desactivar 2FA'}
-              </button>
+              <Can permission="admin.manage_2fa">
+                <button
+                  className={styles.btnDanger ?? styles.btnPrimary}
+                  onClick={handleDisable}
+                  disabled={disabling}
+                >
+                  {disabling ? 'Desactivando...' : 'Desactivar 2FA'}
+                </button>
+              </Can>
             </div>
           </div>
         ) : (
@@ -79,9 +82,11 @@ function TwoFAModal({ admin, onClose }: { admin: Admin; onClose: () => void }) {
             </div>
             <div className={styles.modalActions}>
               <button className={styles.btnSecondary} onClick={onClose}>Cancelar</button>
-              <button className={styles.btnPrimary} onClick={handleEnable} disabled={enabling}>
-                {enabling ? 'Activando...' : 'Activar'}
-              </button>
+              <Can permission="admin.manage_2fa">
+                <button className={styles.btnPrimary} onClick={handleEnable} disabled={enabling}>
+                  {enabling ? 'Activando...' : 'Activar'}
+                </button>
+              </Can>
             </div>
           </div>
         )}
@@ -139,131 +144,6 @@ const CATEGORY_FILTERS: { value: ActivityCategory | 'all'; label: string }[] = [
   { value: 'settings', label: 'Configuración' },
   { value: 'admins', label: 'Admins' },
 ];
-
-// ── Roles tab ───────────────────────────────────────────────────────────────
-
-const ALL_MODULES = ['clients', 'billing', 'tickets', 'network', 'settings', 'admins'];
-const MODULE_LABELS: Record<string, string> = {
-  clients: 'Clientes',
-  billing: 'Facturación',
-  tickets: 'Tickets',
-  network: 'Red',
-  settings: 'Configuración',
-  admins: 'Administradores',
-};
-
-function RolesTab({ roles, onSave }: { roles: AdminRole_Definition[]; onSave: (role: AdminRole_Definition) => void }) {
-  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
-  const [editingPermissions, setEditingPermissions] = useState<AdminRole_Definition['permissions']>([]);
-
-  const selectedRole = roles.find(r => r.id === selectedRoleId);
-
-  function handleSelectRole(role: AdminRole_Definition) {
-    setSelectedRoleId(role.id);
-    setEditingPermissions([...role.permissions]);
-  }
-
-  function hasAction(module: string, action: 'read' | 'write' | 'delete'): boolean {
-    return editingPermissions.some(p => p.module === module && p.actions.includes(action));
-  }
-
-  function toggleAction(module: string, action: 'read' | 'write' | 'delete') {
-    setEditingPermissions(prev => {
-      const existing = prev.find(p => p.module === module);
-      if (existing) {
-        const actions = existing.actions.includes(action)
-          ? existing.actions.filter(a => a !== action)
-          : [...existing.actions, action];
-        return prev.map(p => p.module === module ? { ...p, actions } : p);
-      }
-      return [...prev, { module, actions: [action] }];
-    });
-  }
-
-  function handleSave() {
-    if (!selectedRole) return;
-    onSave({ ...selectedRole, permissions: editingPermissions });
-  }
-
-  return (
-    <div style={{ display: 'flex', gap: '1.5rem' }}>
-      {/* Role list */}
-      <div style={{ width: '220px', flexShrink: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-          <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>Roles</span>
-          <button className={styles.btnPrimary} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}>
-            Nuevo rol
-          </button>
-        </div>
-        {roles.map(role => (
-          <div
-            key={role.id}
-            onClick={() => handleSelectRole(role)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={e => e.key === 'Enter' && handleSelectRole(role)}
-            style={{
-              padding: '0.75rem',
-              borderRadius: '0.5rem',
-              border: '1px solid',
-              borderColor: selectedRoleId === role.id ? '#2563eb' : '#e5e7eb',
-              background: selectedRoleId === role.id ? '#eff6ff' : '#fff',
-              marginBottom: '0.5rem',
-              cursor: 'pointer',
-            }}
-          >
-            <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{role.name}</div>
-            <div style={{ color: '#6b7280', fontSize: '0.75rem' }}>{role.description}</div>
-          </div>
-        ))}
-        {roles.length === 0 && (
-          <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>No hay roles definidos.</p>
-        )}
-      </div>
-
-      {/* Permission matrix */}
-      {selectedRole && (
-        <div style={{ flex: 1 }}>
-          <p style={{ fontWeight: 600, marginBottom: '1rem' }}>Permisos: {selectedRole.name}</p>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Módulo</th>
-                <th style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Leer</th>
-                <th style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Escribir</th>
-                <th style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Eliminar</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ALL_MODULES.map(module => (
-                <tr key={module}>
-                  <td style={{ padding: '0.5rem', borderBottom: '1px solid #f3f4f6' }}>
-                    {MODULE_LABELS[module] ?? module}
-                  </td>
-                  {(['read', 'write', 'delete'] as const).map(action => (
-                    <td key={action} style={{ textAlign: 'center', padding: '0.5rem', borderBottom: '1px solid #f3f4f6' }}>
-                      <input
-                        type="checkbox"
-                        checked={hasAction(module, action)}
-                        onChange={() => toggleAction(module, action)}
-                        disabled={selectedRole.isSystem}
-                      />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
-            <button className={styles.btnPrimary} onClick={handleSave} disabled={selectedRole.isSystem}>
-              Guardar cambios
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ── Seguridad Tab ───────────────────────────────────────────────────────────
 
@@ -657,9 +537,6 @@ export default function AdminPage() {
   const [activityDateTo, setActivityDateTo] = useState('');
 
   const { data: activityLog = [], isLoading: loadingActivity } = useAdminActivityLog();
-  const { data: roles = [] } = useRoles();
-  useCreateRole();
-  const { mutate: updateRole } = useUpdateRole();
 
   const filteredActivity = (() => {
     let list = activityCategory === 'all' ? activityLog : activityLog.filter(l => l.category === activityCategory);
@@ -764,9 +641,7 @@ export default function AdminPage() {
         </>
       )}
 
-      {activeTab === 'roles' && (
-        <RolesTab roles={roles} onSave={(role) => updateRole({ id: role.id, data: role })} />
-      )}
+      {activeTab === 'roles' && <RolesMatrixBody />}
 
       {activeTab === 'seguridad' && <SeguridadTab />}
 

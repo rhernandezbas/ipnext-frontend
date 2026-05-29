@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useIClassSoTypes, useSyncIClassSoTypes } from '@/hooks/useIClassSoTypes';
 import type { IClassSoTypeSyncResult } from '@/types/iclassSoType';
+import { Can } from '@/components/auth/Can';
 import styles from './IClassSettings.module.css';
 
 /**
@@ -52,13 +53,15 @@ export function IClassSoTypesCatalogBody() {
           </label>
         </div>
         <div className={styles.toolbarRight}>
-          <button
-            className={styles.btnPrimary}
-            onClick={handleSync}
-            disabled={sync.isPending}
-          >
-            {sync.isPending ? 'Sincronizando…' : 'Sincronizar ahora'}
-          </button>
+          <Can permission="iclass.sync">
+            <button
+              className={styles.btnPrimary}
+              onClick={handleSync}
+              disabled={sync.isPending}
+            >
+              {sync.isPending ? 'Sincronizando…' : 'Sincronizar ahora'}
+            </button>
+          </Can>
         </div>
       </div>
 

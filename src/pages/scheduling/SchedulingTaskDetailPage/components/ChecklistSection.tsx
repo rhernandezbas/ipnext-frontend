@@ -26,6 +26,7 @@ import {
 } from '@/hooks/useScheduling';
 import type { TaskChecklistItem } from '@/types/scheduling';
 import { AssignTemplateDialog } from './AssignTemplateDialog';
+import { Can } from '@/components/auth/Can';
 import styles from './ChecklistSection.module.css';
 
 interface SortableChecklistItemProps {
@@ -155,24 +156,26 @@ export function ChecklistSection({ taskId, checklist, onError }: ChecklistSectio
             <span className={styles.progress}>{doneCount}/{totalCount}</span>
           )}
         </h2>
-        <div className={styles.sectionActions}>
-          <button
-            type="button"
-            className={styles.btnSecondary}
-            onClick={() => setShowAssignDialog(true)}
-          >
-            Cargar lista
-          </button>
-          {totalCount > 0 && (
+        <Can permission="scheduling.manage_checklist">
+          <div className={styles.sectionActions}>
             <button
               type="button"
-              className={`${styles.btnSecondary} ${styles.btnDanger}`}
-              onClick={() => setClearConfirm(true)}
+              className={styles.btnSecondary}
+              onClick={() => setShowAssignDialog(true)}
             >
-              Limpiar lista
+              Cargar lista
             </button>
-          )}
-        </div>
+            {totalCount > 0 && (
+              <button
+                type="button"
+                className={`${styles.btnSecondary} ${styles.btnDanger}`}
+                onClick={() => setClearConfirm(true)}
+              >
+                Limpiar lista
+              </button>
+            )}
+          </div>
+        </Can>
       </div>
 
       {totalCount === 0 ? (
@@ -198,26 +201,28 @@ export function ChecklistSection({ taskId, checklist, onError }: ChecklistSectio
       )}
 
       {/* Add item inline */}
-      <div className={styles.addRow}>
-        <input
-          type="text"
-          className={styles.addInput}
-          placeholder="Añadir elemento..."
-          value={newText}
-          onChange={e => setNewText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') handleAddItem(); }}
-          aria-label="Nuevo elemento de checklist"
-        />
-        <button
-          type="button"
-          className={styles.btnAdd}
-          onClick={handleAddItem}
-          disabled={!newText.trim() || addItem.isPending}
-          aria-label="Agregar elemento"
-        >
-          +
-        </button>
-      </div>
+      <Can permission="scheduling.manage_checklist">
+        <div className={styles.addRow}>
+          <input
+            type="text"
+            className={styles.addInput}
+            placeholder="Añadir elemento..."
+            value={newText}
+            onChange={e => setNewText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleAddItem(); }}
+            aria-label="Nuevo elemento de checklist"
+          />
+          <button
+            type="button"
+            className={styles.btnAdd}
+            onClick={handleAddItem}
+            disabled={!newText.trim() || addItem.isPending}
+            aria-label="Agregar elemento"
+          >
+            +
+          </button>
+        </div>
+      </Can>
 
       {/* Assign template dialog */}
       {showAssignDialog && (

@@ -35,8 +35,8 @@ vi.mock('@/hooks/useWorkflows', () => ({
   useWorkflows: vi.fn(),
 }));
 
-vi.mock('@/hooks/useAdmins', () => ({
-  useAdmins: vi.fn(),
+vi.mock('@/hooks/useRbacUsers', () => ({
+  useRbacUsers: vi.fn(),
 }));
 
 vi.mock('@/hooks/usePartners', () => ({
@@ -175,7 +175,7 @@ vi.mock('@tiptap/starter-kit', () => ({ default: {} }));
 
 import { useTask, useUpdateTask, useMoveTaskToStage, useDeleteTask, useCloseTask, useSetTaskInventoryReview } from '@/hooks/useScheduling';
 import { useWorkflows } from '@/hooks/useWorkflows';
-import { useAdmins } from '@/hooks/useAdmins';
+import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { usePartners } from '@/hooks/usePartners';
 import { useProjects } from '@/hooks/useProjects';
 import { useAuth } from '@/hooks/useAuth';
@@ -217,9 +217,10 @@ const mockTask: ScheduledTask = {
   updatedAt: '2026-05-01T00:00:00Z',
 };
 
-const mockAdmins: Admin[] = [
-  { id: 'admin-1', name: 'Ana García', email: 'ana@test.com', role: 'admin', status: 'active', createdAt: '', lastLogin: null },
-  { id: 'admin-2', name: 'Pedro López', email: 'pedro@test.com', role: 'admin', status: 'active', createdAt: '', lastLogin: null },
+// Shape matches RbacUserWithRolesDto (roles array drives the technicians filter)
+const mockAdmins: any[] = [
+  { id: 'admin-1', name: 'Ana García', email: 'ana@test.com', login: 'ana', status: 'active', createdAt: '', updatedAt: '', lastLoginAt: null, roles: [{ id: 'r-t', code: 'tecnico', label: 'Técnico' }] },
+  { id: 'admin-2', name: 'Pedro López', email: 'pedro@test.com', login: 'pedro', status: 'active', createdAt: '', updatedAt: '', lastLoginAt: null, roles: [{ id: 'r-t', code: 'tecnico', label: 'Técnico' }] },
 ];
 
 const mockWorkflows = [
@@ -281,10 +282,10 @@ function setupMocks(overrides?: { taskData?: Partial<ScheduledTask> | null; isLo
     isLoading: false,
   } as ReturnType<typeof useWorkflows>);
 
-  vi.mocked(useAdmins).mockReturnValue({
+  vi.mocked(useRbacUsers).mockReturnValue({
     data: mockAdmins,
     isLoading: false,
-  } as ReturnType<typeof useAdmins>);
+  } as ReturnType<typeof useRbacUsers>);
 
   vi.mocked(usePartners).mockReturnValue({
     data: [],

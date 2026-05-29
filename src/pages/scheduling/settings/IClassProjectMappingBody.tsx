@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useProjects, useUpdateProject } from '@/hooks/useProjects';
 import { useIClassSoTypes } from '@/hooks/useIClassSoTypes';
+import { Can } from '@/components/auth/Can';
 import styles from './IClassSettings.module.css';
 
 type FilterMode = 'all' | 'mapped' | 'unmapped';
@@ -143,17 +144,19 @@ export function IClassProjectMappingBody() {
                       </div>
                     </td>
                     <td>
-                      <select
-                        className={`${styles.select} ${value === '' ? styles.selectUnmapped : ''}`}
-                        value={value}
-                        onChange={e => handleChange(p.id, e.target.value)}
-                        disabled={status === 'saving'}
-                      >
-                        <option value="">(sin mapeo)</option>
-                        {activeTypes.map(t => (
-                          <option key={t.id} value={t.id}>{t.code}</option>
-                        ))}
-                      </select>
+                      <Can permission="iclass.assign_to_project" fallback={<span>{value || '(sin mapeo)'}</span>}>
+                        <select
+                          className={`${styles.select} ${value === '' ? styles.selectUnmapped : ''}`}
+                          value={value}
+                          onChange={e => handleChange(p.id, e.target.value)}
+                          disabled={status === 'saving'}
+                        >
+                          <option value="">(sin mapeo)</option>
+                          {activeTypes.map(t => (
+                            <option key={t.id} value={t.id}>{t.code}</option>
+                          ))}
+                        </select>
+                      </Can>
                     </td>
                     <td>
                       {status === 'saving' && (

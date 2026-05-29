@@ -11,6 +11,7 @@ import { AdminLayout } from '@/components/templates/AdminLayout/AdminLayout';
 import { LoginPage } from '@/pages/LoginPage/LoginPage';
 import { Spinner } from '@/components/atoms/Spinner/Spinner';
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary/RouteErrorBoundary';
+import { RequirePermission } from '@/components/auth/RequirePermission';
 
 const DashboardPage = lazy(() => import('@/pages/DashboardPage/DashboardPage'));
 const LeadsPage = lazy(() => import('@/pages/customers/LeadsPage'));
@@ -146,17 +147,18 @@ export function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AdminLayout />}>
             <Route path="admin">
-              <Route path="dashboard" element={<DashboardPage />} />
+              {/* dashboard.read */}
+              <Route path="dashboard" element={<RequirePermission permission="dashboard.read"><DashboardPage /></RequirePermission>} />
 
-              {/* ── Customers ──────────────────────────────────────────────── */}
+              {/* ── Customers (clients.read) ────────────────────────────────── */}
               <Route path="customers">
-                <Route path="list" element={<CustomersListPage />} />
-                <Route path="add" element={<AddCustomerPage />} />
-                <Route path="search" element={<CustomerSearchPage />} />
-                <Route path="vouchers" element={<CustomerVouchersPage />} />
-                <Route path="map" element={<CustomerMapPage />} />
-                <Route path="view/:id" element={<CustomerDetailPage />} />
-                <Route path="view/:id/edit" element={<EditCustomerPage />} />
+                <Route path="list" element={<RequirePermission permission="clients.read"><CustomersListPage /></RequirePermission>} />
+                <Route path="add" element={<RequirePermission permission="clients.read"><AddCustomerPage /></RequirePermission>} />
+                <Route path="search" element={<RequirePermission permission="clients.read"><CustomerSearchPage /></RequirePermission>} />
+                <Route path="vouchers" element={<RequirePermission permission="clients.read"><CustomerVouchersPage /></RequirePermission>} />
+                <Route path="map" element={<RequirePermission permission="clients.read"><CustomerMapPage /></RequirePermission>} />
+                <Route path="view/:id" element={<RequirePermission permission="clients.read"><CustomerDetailPage /></RequirePermission>} />
+                <Route path="view/:id/edit" element={<RequirePermission permission="clients.read"><EditCustomerPage /></RequirePermission>} />
                 {/* CATCH-ALL — RR6 ranking ensures specific paths above win over :id.
                     Natural /admin/customers/:id redirects to canonical /view/:id. */}
                 <Route path=":id" element={<CustomerIdRedirect />} />
@@ -164,50 +166,50 @@ export function App() {
 
               <Route path="leads" element={<Navigate to="/admin/crm/leads" replace />} />
               <Route path="messages" element={<Navigate to="/admin/support/inbox" replace />} />
-              {/* ── Tickets ────────────────────────────────────────────────── */}
+              {/* ── Tickets (tickets.read) ─────────────────────────────────── */}
               <Route path="tickets">
-                <Route index element={<TicketsDashboardPage />} />
+                <Route index element={<RequirePermission permission="tickets.read"><TicketsDashboardPage /></RequirePermission>} />
                 <Route path="dashboard" element={<Navigate to="/admin/tickets" replace />} />
-                <Route path="opened" element={<TicketsListPage />} />
+                <Route path="opened" element={<RequirePermission permission="tickets.read"><TicketsListPage /></RequirePermission>} />
                 <Route path="list" element={<Navigate to="/admin/tickets/opened" replace />} />
-                <Route path="trash" element={<TicketsArchivePage />} />
+                <Route path="trash" element={<RequirePermission permission="tickets.read"><TicketsArchivePage /></RequirePermission>} />
                 <Route path="archive" element={<Navigate to="/admin/tickets/trash" replace />} />
-                <Route path="new" element={<TicketCreatePage />} />
-                <Route path="requesters" element={<TicketRequestersPage />} />
-                <Route path="statuses" element={<TicketStatusesPage />} />
-                <Route path=":id" element={<TicketDetailPage />} />
+                <Route path="new" element={<RequirePermission permission="tickets.read"><TicketCreatePage /></RequirePermission>} />
+                <Route path="requesters" element={<RequirePermission permission="tickets.read"><TicketRequestersPage /></RequirePermission>} />
+                <Route path="statuses" element={<RequirePermission permission="tickets.read"><TicketStatusesPage /></RequirePermission>} />
+                <Route path=":id" element={<RequirePermission permission="tickets.read"><TicketDetailPage /></RequirePermission>} />
               </Route>
-              {/* ── Finance ────────────────────────────────────────────────── */}
+              {/* ── Finance (billing.read) ─────────────────────────────────── */}
               <Route path="finance">
-                <Route index element={<FinanzasDashboardPage />} />
+                <Route index element={<RequirePermission permission="billing.read"><FinanzasDashboardPage /></RequirePermission>} />
                 <Route path="dashboard" element={<Navigate to="/admin/finance" replace />} />
-                <Route path="invoices" element={<FacturasPage />} />
-                <Route path="payments" element={<PagosPage />} />
-                <Route path="transactions" element={<TransaccionesPage />} />
-                <Route path="credit-notes" element={<NotasCreditoPage />} />
-                <Route path="proforma-invoices" element={<ProformasPage />} />
+                <Route path="invoices" element={<RequirePermission permission="billing.read"><FacturasPage /></RequirePermission>} />
+                <Route path="payments" element={<RequirePermission permission="billing.read"><PagosPage /></RequirePermission>} />
+                <Route path="transactions" element={<RequirePermission permission="billing.read"><TransaccionesPage /></RequirePermission>} />
+                <Route path="credit-notes" element={<RequirePermission permission="billing.read"><NotasCreditoPage /></RequirePermission>} />
+                <Route path="proforma-invoices" element={<RequirePermission permission="billing.read"><ProformasPage /></RequirePermission>} />
                 <Route path="proformas" element={<Navigate to="/admin/finance/proforma-invoices" replace />} />
-                <Route path="history" element={<HistorialFinancieroPage />} />
-                <Route path="payment-statements" element={<PaymentStatementsPage />} />
-                <Route path="dunning" element={<DunningPage />} />
-                <Route path="payment-plans" element={<PaymentPlansPage />} />
+                <Route path="history" element={<RequirePermission permission="billing.read"><HistorialFinancieroPage /></RequirePermission>} />
+                <Route path="payment-statements" element={<RequirePermission permission="billing.read"><PaymentStatementsPage /></RequirePermission>} />
+                <Route path="dunning" element={<RequirePermission permission="billing.read"><DunningPage /></RequirePermission>} />
+                <Route path="payment-plans" element={<RequirePermission permission="billing.read"><PaymentPlansPage /></RequirePermission>} />
               </Route>
-              {/* ── Networking ─────────────────────────────────────────────── */}
+              {/* ── Networking (network.read) ──────────────────────────────── */}
               <Route path="networking">
-                <Route path="routers/list" element={<GestionRedPage />} />
-                <Route path="network-sites" element={<NetworkSitesPage />} />
+                <Route path="routers/list" element={<RequirePermission permission="network.read"><GestionRedPage /></RequirePermission>} />
+                <Route path="network-sites" element={<RequirePermission permission="network.read"><NetworkSitesPage /></RequirePermission>} />
                 <Route path="sites" element={<Navigate to="/admin/networking/network-sites" replace />} />
-                <Route path="cpe" element={<CpePage />} />
-                <Route path="tr069" element={<Tr069Page />} />
-                <Route path="hardware" element={<HardwarePage />} />
-                <Route path="gpon" element={<GponPage />} />
-                <Route path="radius-sessions" element={<RadiusSessionsPage />} />
-                <Route path="ipv4-networks" element={<Ipv4NetworksPage />} />
-                <Route path="ipv6-networks" element={<Ipv6NetworksPage />} />
-                <Route path="map" element={<NetworkMapPage />} />
-                <Route path="topology" element={<NetworkTopologyPage />} />
+                <Route path="cpe" element={<RequirePermission permission="network.read"><CpePage /></RequirePermission>} />
+                <Route path="tr069" element={<RequirePermission permission="network.read"><Tr069Page /></RequirePermission>} />
+                <Route path="hardware" element={<RequirePermission permission="network.read"><HardwarePage /></RequirePermission>} />
+                <Route path="gpon" element={<RequirePermission permission="network.read"><GponPage /></RequirePermission>} />
+                <Route path="radius-sessions" element={<RequirePermission permission="network.read"><RadiusSessionsPage /></RequirePermission>} />
+                <Route path="ipv4-networks" element={<RequirePermission permission="network.read"><Ipv4NetworksPage /></RequirePermission>} />
+                <Route path="ipv6-networks" element={<RequirePermission permission="network.read"><Ipv6NetworksPage /></RequirePermission>} />
+                <Route path="map" element={<RequirePermission permission="network.read"><NetworkMapPage /></RequirePermission>} />
+                <Route path="topology" element={<RequirePermission permission="network.read"><NetworkTopologyPage /></RequirePermission>} />
               </Route>
-              {/* ── Scheduling ─────────────────────────────────────────────── */}
+              {/* ── Scheduling (scheduling.read) ───────────────────────────── */}
               <Route path="scheduling">
                 {/*
                  * /admin/scheduling was the legacy pre-change-6 tasks page
@@ -216,101 +218,108 @@ export function App() {
                  * bookmark / sidebar entry that still hits the old URL.
                  */}
                 <Route index element={<Navigate to="/admin/scheduling/tasks" replace />} />
-                <Route path="dashboard" element={<SchedulingDashboardPage />} />
-                <Route path="projects" element={<SchedulingProjectsPage />} />
-                <Route path="calendars" element={<SchedulingCalendarPage />} />
-                <Route path="maps" element={<SchedulingMapsPage />} />
-                <Route path="archive" element={<SchedulingArchivePage />} />
-                <Route path="templates" element={<SchedulingTemplatesPage />} />
-                <Route path="task-categories" element={<SchedulingTaskCategoriesPage />} />
-                <Route path="task-priorities" element={<SchedulingTaskPrioritiesPage />} />
-                <Route path="stage-colors" element={<SchedulingStageColorsPage />} />
-                <Route path="settings" element={<SchedulingSettingsPage />} />
-                <Route path="tasks" element={<SchedulingTasksPage />} />
-                <Route path="tasks/:id" element={<SchedulingTaskDetailPage />} />
+                <Route path="dashboard" element={<RequirePermission permission="scheduling.read"><SchedulingDashboardPage /></RequirePermission>} />
+                <Route path="projects" element={<RequirePermission permission="scheduling.read"><SchedulingProjectsPage /></RequirePermission>} />
+                <Route path="calendars" element={<RequirePermission permission="scheduling.read"><SchedulingCalendarPage /></RequirePermission>} />
+                <Route path="maps" element={<RequirePermission permission="scheduling.read"><SchedulingMapsPage /></RequirePermission>} />
+                <Route path="archive" element={<RequirePermission permission="scheduling.read"><SchedulingArchivePage /></RequirePermission>} />
+                <Route path="templates" element={<RequirePermission permission="scheduling.read"><SchedulingTemplatesPage /></RequirePermission>} />
+                <Route path="task-categories" element={<RequirePermission permission="scheduling.read"><SchedulingTaskCategoriesPage /></RequirePermission>} />
+                <Route path="task-priorities" element={<RequirePermission permission="scheduling.read"><SchedulingTaskPrioritiesPage /></RequirePermission>} />
+                <Route path="stage-colors" element={<RequirePermission permission="scheduling.read"><SchedulingStageColorsPage /></RequirePermission>} />
+                <Route path="settings" element={<RequirePermission permission="scheduling.read"><SchedulingSettingsPage /></RequirePermission>} />
+                <Route path="tasks" element={<RequirePermission permission="scheduling.read"><SchedulingTasksPage /></RequirePermission>} />
+                <Route path="tasks/:id" element={<RequirePermission permission="scheduling.read"><SchedulingTaskDetailPage /></RequirePermission>} />
               </Route>
-              {/* ── Tariffs ────────────────────────────────────────────────── */}
+              {/* ── Tariffs (tariffs.read) ─────────────────────────────────── */}
               <Route path="tariffs">
-                <Route index element={<TariffsPage />} />
-                <Route path="internet" element={<TarifasInternetPage />} />
-                <Route path="voice" element={<TarifasVozPage />} />
-                <Route path="recurring" element={<TarifasRecurrentePage />} />
-                <Route path="one-time" element={<TarifasUnicoPage />} />
-                <Route path="bundles" element={<TarifasPaquetesPage />} />
-                <Route path="huawei-groups" element={<TarifasHuaweiGroupsPage />} />
+                <Route index element={<RequirePermission permission="tariffs.read"><TariffsPage /></RequirePermission>} />
+                <Route path="internet" element={<RequirePermission permission="tariffs.read"><TarifasInternetPage /></RequirePermission>} />
+                <Route path="voice" element={<RequirePermission permission="tariffs.read"><TarifasVozPage /></RequirePermission>} />
+                <Route path="recurring" element={<RequirePermission permission="tariffs.read"><TarifasRecurrentePage /></RequirePermission>} />
+                <Route path="one-time" element={<RequirePermission permission="tariffs.read"><TarifasUnicoPage /></RequirePermission>} />
+                <Route path="bundles" element={<RequirePermission permission="tariffs.read"><TarifasPaquetesPage /></RequirePermission>} />
+                <Route path="huawei-groups" element={<RequirePermission permission="tariffs.read"><TarifasHuaweiGroupsPage /></RequirePermission>} />
               </Route>
 
-              {/* ── Voice ──────────────────────────────────────────────────── */}
+              {/* ── Voice (voices.read) ────────────────────────────────────── */}
               <Route path="voice">
-                <Route index element={<VoiceLegacyPage />} />
-                <Route path="categories" element={<VoiceCategoriesPage />} />
-                <Route path="processing" element={<VoiceProcessingPage />} />
-                <Route path="rate-tables" element={<VoiceRateTablesPage />} />
-                <Route path="prefixes" element={<VoicePrefixesPage />} />
-                <Route path="cdr" element={<CDRPage />} />
+                <Route index element={<RequirePermission permission="voices.read"><VoiceLegacyPage /></RequirePermission>} />
+                <Route path="categories" element={<RequirePermission permission="voices.read"><VoiceCategoriesPage /></RequirePermission>} />
+                <Route path="processing" element={<RequirePermission permission="voices.read"><VoiceProcessingPage /></RequirePermission>} />
+                <Route path="rate-tables" element={<RequirePermission permission="voices.read"><VoiceRateTablesPage /></RequirePermission>} />
+                <Route path="prefixes" element={<RequirePermission permission="voices.read"><VoicePrefixesPage /></RequirePermission>} />
+                <Route path="cdr" element={<RequirePermission permission="voices.read"><CDRPage /></RequirePermission>} />
               </Route>
 
-              {/* ── Inventory ──────────────────────────────────────────────── */}
+              {/* ── Inventory (inventory.read) ─────────────────────────────── */}
               <Route path="inventory">
-                <Route path="list" element={<InventoryLegacyPage />} />
-                <Route path="dashboard" element={<InventoryDashboardPage />} />
-                <Route path="items" element={<InventoryItemsPage />} />
-                <Route path="products" element={<InventoryProductsPage />} />
-                <Route path="supply" element={<InventorySupplyPage />} />
+                <Route path="list" element={<RequirePermission permission="inventory.read"><InventoryLegacyPage /></RequirePermission>} />
+                <Route path="dashboard" element={<RequirePermission permission="inventory.read"><InventoryDashboardPage /></RequirePermission>} />
+                <Route path="items" element={<RequirePermission permission="inventory.read"><InventoryItemsPage /></RequirePermission>} />
+                <Route path="products" element={<RequirePermission permission="inventory.read"><InventoryProductsPage /></RequirePermission>} />
+                <Route path="supply" element={<RequirePermission permission="inventory.read"><InventorySupplyPage /></RequirePermission>} />
               </Route>
 
-              {/* ── Support ────────────────────────────────────────────────── */}
+              {/* ── Support (support.read) ─────────────────────────────────── */}
               <Route path="support">
-                <Route path="inbox" element={<SupportInboxPage />} />
-                <Route path="mass-send" element={<MassSendPage />} />
-                <Route path="messengers" element={<MessengersPage />} />
-                <Route path="news" element={<NewsPage />} />
+                <Route path="inbox" element={<RequirePermission permission="support.read"><SupportInboxPage /></RequirePermission>} />
+                <Route path="mass-send" element={<RequirePermission permission="support.read"><MassSendPage /></RequirePermission>} />
+                <Route path="messengers" element={<RequirePermission permission="support.read"><MessengersPage /></RequirePermission>} />
+                <Route path="news" element={<RequirePermission permission="support.read"><NewsPage /></RequirePermission>} />
               </Route>
 
-              {/* ── CRM ────────────────────────────────────────────────────── */}
+              {/* ── CRM (crm.read) ─────────────────────────────────────────── */}
               <Route path="crm">
-                <Route path="leads" element={<LeadsPage />} />
-                <Route path="dashboard" element={<CrmDashboardPage />} />
-                <Route path="quotes" element={<CrmQuotesPage />} />
-                <Route path="map" element={<CrmMapPage />} />
+                <Route path="leads" element={<RequirePermission permission="crm.read"><LeadsPage /></RequirePermission>} />
+                <Route path="dashboard" element={<RequirePermission permission="crm.read"><CrmDashboardPage /></RequirePermission>} />
+                <Route path="quotes" element={<RequirePermission permission="crm.read"><CrmQuotesPage /></RequirePermission>} />
+                <Route path="map" element={<RequirePermission permission="crm.read"><CrmMapPage /></RequirePermission>} />
               </Route>
 
-              {/* ── SLA ────────────────────────────────────────────────────── */}
+              {/* ── SLA (sla.read) ─────────────────────────────────────────── */}
               <Route path="sla">
-                <Route index element={<SLADashboardPage />} />
-                <Route path="list" element={<SLAListPage />} />
+                <Route index element={<RequirePermission permission="sla.read"><SLADashboardPage /></RequirePermission>} />
+                <Route path="list" element={<RequirePermission permission="sla.read"><SLAListPage /></RequirePermission>} />
               </Route>
 
-              {/* ── Resellers ──────────────────────────────────────────────── */}
+              {/* ── Resellers (partners.read) ──────────────────────────────── */}
               <Route path="resellers">
-                <Route index element={<ResellersListPage />} />
-                <Route path=":id" element={<ResellerDetailPage />} />
+                <Route index element={<RequirePermission permission="partners.read"><ResellersListPage /></RequirePermission>} />
+                <Route path=":id" element={<RequirePermission permission="partners.read"><ResellerDetailPage /></RequirePermission>} />
               </Route>
 
-              {/* ── Portal ─────────────────────────────────────────────────── */}
+              {/* ── Portal (portal.read) ───────────────────────────────────── */}
               <Route path="portal">
-                <Route index element={<PortalConfigPage />} />
-                <Route path="users" element={<PortalUsersPage />} />
+                <Route index element={<RequirePermission permission="portal.read"><PortalConfigPage /></RequirePermission>} />
+                <Route path="users" element={<RequirePermission permission="portal.read"><PortalUsersPage /></RequirePermission>} />
               </Route>
 
-              {/* ── Administration ─────────────────────────────────────────── */}
+              {/* ── Administration (admin.read) ────────────────────────────── */}
               <Route path="administration">
-                <Route path="administrators" element={<AdminPage />} />
+                <Route path="administrators" element={<RequirePermission permission="admin.read"><AdminPage /></RequirePermission>} />
               </Route>
 
-              {/* ── Config ─────────────────────────────────────────────────── */}
+              {/* ── Config (settings.read) ─────────────────────────────────── */}
               <Route path="config">
-                <Route path="main" element={<SettingsPage />} />
+                <Route path="main" element={<RequirePermission permission="settings.read"><SettingsPage /></RequirePermission>} />
               </Route>
 
               {/* ── Singletons ─────────────────────────────────────────────── */}
-              <Route path="partners" element={<PartnersPage />} />
-              <Route path="locations" element={<LocationsPage />} />
-              <Route path="reports" element={<ReportsPage />} />
-              <Route path="monitoring" element={<MonitoringPage />} />
-              <Route path="notifications" element={<NotificationsPage />} />
-              <Route path="api-docs" element={<ApiDocsPage />} />
-              <Route path="profile" element={<ProfilePage />} />
+              {/* partners.read — used for /admin/partners per inventory */}
+              <Route path="partners" element={<RequirePermission permission="partners.read"><PartnersPage /></RequirePermission>} />
+              {/* crm.read — locations per inventory note */}
+              <Route path="locations" element={<RequirePermission permission="crm.read"><LocationsPage /></RequirePermission>} />
+              {/* reports.read */}
+              <Route path="reports" element={<RequirePermission permission="reports.read"><ReportsPage /></RequirePermission>} />
+              {/* monitoring.read */}
+              <Route path="monitoring" element={<RequirePermission permission="monitoring.read"><MonitoringPage /></RequirePermission>} />
+              {/* notifications.read */}
+              <Route path="notifications" element={<RequirePermission permission="notifications.read"><NotificationsPage /></RequirePermission>} />
+              {/* settings.read — api-docs */}
+              <Route path="api-docs" element={<RequirePermission permission="settings.read"><ApiDocsPage /></RequirePermission>} />
+              {/* profile.read — always allow own profile */}
+              <Route path="profile" element={<RequirePermission permission="profile.read"><ProfilePage /></RequirePermission>} />
             </Route>
           </Route>
         </Route>

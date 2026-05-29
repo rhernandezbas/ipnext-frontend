@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMonitoringStats, useMonitoringDevices, useMonitoringAlerts, useAcknowledgeAlert } from '@/hooks/useMonitoring';
 import type { MonitoringDevice } from '@/types/monitoring';
 import { Spinner } from '@/components/atoms/Spinner/Spinner';
+import { Can } from '@/components/auth/Can';
 import styles from './MonitoringPage.module.css';
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -206,13 +207,15 @@ export default function MonitoringPage() {
                     </div>
                     <p className={styles.alertDevice}>{alert.deviceName}</p>
                     <p className={styles.alertMessage}>{alert.message}</p>
-                    <button
-                      type="button"
-                      className={styles.acknowledgeBtn}
-                      onClick={() => acknowledge(alert.id)}
-                    >
-                      Reconocer
-                    </button>
+                    <Can permission="monitoring.acknowledge_alert">
+                      <button
+                        type="button"
+                        className={styles.acknowledgeBtn}
+                        onClick={() => acknowledge(alert.id)}
+                      >
+                        Reconocer
+                      </button>
+                    </Can>
                   </div>
                 ))}
             </div>

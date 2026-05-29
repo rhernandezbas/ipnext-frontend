@@ -5,6 +5,7 @@ import { DataTable } from '../../components/organisms/DataTable/DataTable';
 import { StatusBadge } from '../../components/atoms/StatusBadge/StatusBadge';
 import { useInvoices, useCreateInvoice, useSendInvoiceEmail } from '../../hooks/useBilling';
 import { Invoice, InvoiceStatus } from '../../types/billing';
+import { Can } from '../../components/auth/Can';
 import styles from './FacturasPage.module.css';
 
 const STATUS_FILTERS = [
@@ -154,9 +155,11 @@ export function FacturasPage() {
         >
           Exportar
         </button>
-        <button className={styles.exportBtn} onClick={() => setShowNewForm(true)}>
-          Nueva factura
-        </button>
+        <Can permission="billing.write">
+          <button className={styles.exportBtn} onClick={() => setShowNewForm(true)}>
+            Nueva factura
+          </button>
+        </Can>
       </div>
       <div className={styles.filterRow}>
         <FilterBar
@@ -337,15 +340,17 @@ export function FacturasPage() {
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
               />
-              <button
-                onClick={() => sendEmail.mutate(
-                  { id: String(selectedInvoice.id), email: emailInput },
-                  { onSuccess: () => { setEmailInput(''); alert('Email enviado correctamente'); } }
-                )}
-                disabled={!emailInput || sendEmail.isPending}
-              >
-                {sendEmail.isPending ? 'Enviando...' : 'Enviar por email'}
-              </button>
+              <Can permission="billing.send_email">
+                <button
+                  onClick={() => sendEmail.mutate(
+                    { id: String(selectedInvoice.id), email: emailInput },
+                    { onSuccess: () => { setEmailInput(''); alert('Email enviado correctamente'); } }
+                  )}
+                  disabled={!emailInput || sendEmail.isPending}
+                >
+                  {sendEmail.isPending ? 'Enviando...' : 'Enviar por email'}
+                </button>
+              </Can>
               {sendEmail.isError && <p>Error al enviar el email.</p>}
             </div>
           </div>

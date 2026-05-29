@@ -23,6 +23,7 @@ import {
   useUpdateClientPortalSettings,
 } from '@/hooks/useSettings';
 import type { SystemSettings, EmailSettings, MessageTemplate, PaymentMethod, TemplateVariable, Webhook, WebhookEvent, ClientPortalSettings } from '@/types/settings';
+import { Can } from '@/components/auth/Can';
 import styles from './SettingsPage.module.css';
 
 type Tab = 'sistema' | 'correo' | 'plantillas' | 'tokens' | 'finanzas' | 'webhooks' | 'respaldo' | 'portal-cliente' | 'notificaciones' | 'politicas-red' | 'addons' | 'system-logs' | 'scheduled-tasks' | 'integraciones';
@@ -193,9 +194,11 @@ function SistemaTab() {
         </div>
 
         <div className={styles.formActions}>
-          <button type="submit" className={styles.btnPrimary}>
-            Guardar cambios
-          </button>
+          <Can permission="settings.write">
+            <button type="submit" className={styles.btnPrimary}>
+              Guardar cambios
+            </button>
+          </Can>
         </div>
       </form>
     </div>
@@ -316,9 +319,11 @@ function CorreoTab() {
         </div>
 
         <div className={styles.formActions}>
-          <button type="submit" className={styles.btnPrimary}>
-            Guardar configuración de correo
-          </button>
+          <Can permission="settings.write">
+            <button type="submit" className={styles.btnPrimary}>
+              Guardar configuración de correo
+            </button>
+          </Can>
           <button type="button" className={styles.btnSecondary} onClick={handleTestEmail} disabled={sendingTest}>
             {sendingTest ? 'Enviando...' : 'Enviar correo de prueba'}
           </button>
@@ -549,9 +554,11 @@ function TokensTab() {
     <div>
       <div className={styles.sectionActions}>
         <span />
-        <button className={styles.btnPrimary} onClick={() => setShowForm(v => !v)}>
-          Nuevo token
-        </button>
+        <Can permission="settings.manage_api_tokens">
+          <button className={styles.btnPrimary} onClick={() => setShowForm(v => !v)}>
+            Nuevo token
+          </button>
+        </Can>
       </div>
 
       {showForm && (
@@ -628,12 +635,14 @@ function TokensTab() {
                 <td>{formatDate(tok.createdAt)}</td>
                 <td>{formatDate(tok.lastUsed)}</td>
                 <td>
-                  <button
-                    className={styles.btnDanger}
-                    onClick={() => revokeToken(tok.id)}
-                  >
-                    Revocar
-                  </button>
+                  <Can permission="settings.manage_api_tokens">
+                    <button
+                      className={styles.btnDanger}
+                      onClick={() => revokeToken(tok.id)}
+                    >
+                      Revocar
+                    </button>
+                  </Can>
                 </td>
               </tr>
             ))}
@@ -992,9 +1001,11 @@ function WebhooksTab() {
     <div>
       <div className={styles.sectionActions}>
         <span />
-        <button className={styles.btnPrimary} onClick={() => setShowForm(v => !v)}>
-          Nuevo webhook
-        </button>
+        <Can permission="settings.write">
+          <button className={styles.btnPrimary} onClick={() => setShowForm(v => !v)}>
+            Nuevo webhook
+          </button>
+        </Can>
       </div>
 
       {testResult && (
@@ -1141,13 +1152,15 @@ function RespaldoTab() {
 
       <div className={styles.card} style={{ marginBottom: 16 }}>
         <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600 }}>Respaldos manuales</h3>
-        <button
-          className={styles.btnPrimary}
-          onClick={() => createBackup()}
-          disabled={isPending}
-        >
-          {isPending ? 'Creando...' : 'Crear respaldo ahora'}
-        </button>
+        <Can permission="settings.manage_backups">
+          <button
+            className={styles.btnPrimary}
+            onClick={() => createBackup()}
+            disabled={isPending}
+          >
+            {isPending ? 'Creando...' : 'Crear respaldo ahora'}
+          </button>
+        </Can>
       </div>
 
       <div className={styles.card}>

@@ -369,6 +369,22 @@
   color: #6b7280;
 }
 
+/* Result-code outcome badges (Sucesso / Falha / otros) — status palette per DESIGN.md */
+.typeBadgeSuccess {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.typeBadgeFail {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.typeBadgeNeutral {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 /* === Select (mapping dropdown) ========================================== */
 
 .select {

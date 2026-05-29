@@ -10,7 +10,7 @@ import {
   useSetTaskInventoryReview,
 } from '@/hooks/useScheduling';
 import { useWorkflows } from '@/hooks/useWorkflows';
-import { useAdmins } from '@/hooks/useAdmins';
+import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { usePartners } from '@/hooks/usePartners';
 import { useProjects } from '@/hooks/useProjects';
 import { useClientDetail, useClientServices } from '@/hooks/useCustomers';
@@ -50,7 +50,16 @@ export default function SchedulingTaskDetailPage() {
 
   const { data: task, isLoading, isError } = useTask(id);
   const { data: workflows = [] } = useWorkflows();
-  const { data: admins = [] } = useAdmins();
+  const { data: allRbacUsers = [] } = useRbacUsers();
+  // `admins` (full catalog) powers Reporter resolution + Watchers picker:
+  // the reporter or a watcher can be any user, not just a técnico.
+  // `technicians` is the subset used by the "Asignado a" select on the
+  // Datos form, because that field is the field técnico assigned to the
+  // task in the field.
+  const admins = allRbacUsers;
+  const technicians = allRbacUsers.filter(u =>
+    u.roles.some(r => r.code === 'tecnico'),
+  );
   const { data: partners = [] } = usePartners();
   const { data: projects = [] } = useProjects();
   const { data: priorities = [] } = useTaskPriorities();
@@ -318,7 +327,7 @@ export default function SchedulingTaskDetailPage() {
                 initial: formInitial,
                 onSubmit: handleFormSubmit,
                 isSaving: updateTask.isPending,
-                admins,
+                admins: technicians,
                 partners,
                 projects,
                 iclassOrderCode: task.iclassOrderCode ?? null,
