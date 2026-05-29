@@ -1,9 +1,10 @@
-import type { Admin } from '@/types/admin';
 import styles from './SideCard.module.css';
+
+type SchedulingAssignee = { id: string; name: string };
 
 interface ReporterCardProps {
   reporterId: string | null;
-  allAdmins: Admin[];
+  allAdmins: SchedulingAssignee[];
 }
 
 export function ReporterCard({ reporterId, allAdmins }: ReporterCardProps) {

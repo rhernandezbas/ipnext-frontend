@@ -5,7 +5,8 @@ import type { ScheduledTask } from '@/types/scheduling';
 import type { Workflow, WorkflowStage } from '@/types/workflow';
 import type { Project } from '@/types/project';
 import type { TaskPriority } from '@/types/taskPriority';
-import type { Admin } from '@/types/admin';
+
+type SchedulingAssignee = { id: string; name: string };
 import { useMoveTaskToStage, useBulkMoveTasksToStage, useDeleteTask, useCloseTask, useSetTaskInventoryReview, useUpdateTask } from '@/hooks/useScheduling';
 import type { BulkStageResponse } from '@/api/scheduling.api';
 import { useAuth } from '@/hooks/useAuth';
@@ -224,7 +225,7 @@ interface TasksTableViewProps {
   /** Admin catalog — used to resolve `reporterId → name` for the Reporter column.
    *  The same list already powers the assignee filter on the page, so passing
    *  it here avoids a denormalised `reporterName` field in the API DTO. */
-  admins?: Admin[];
+  admins?: SchedulingAssignee[];
   /** Column keys that should be rendered. When undefined, all columns are shown. */
   visibleColumnKeys?: string[];
 }

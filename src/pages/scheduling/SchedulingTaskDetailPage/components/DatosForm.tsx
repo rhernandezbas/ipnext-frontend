@@ -1,7 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import type { Admin } from '@/types/admin';
 import type { Partner } from '@/types/partner';
+
+/**
+ * Minimal structural shape used by the assignee picker.
+ * Matches both legacy Admin and the new RbacUser DTO — only id+name
+ * are needed for the select.
+ */
+type SchedulingAssignee = { id: string; name: string };
 import type { Project } from '@/types/project';
 import { useClientServices } from '@/hooks/useCustomers';
 import styles from './DatosForm.module.css';
@@ -26,7 +32,7 @@ interface DatosFormProps {
   initial: DatosFormValues;
   onSubmit: (values: DatosFormValues) => Promise<void>;
   isSaving: boolean;
-  admins: Admin[];
+  admins: SchedulingAssignee[];
   partners: Partner[];
   /** Projects available for reassignment — parent fetches via useProjects() */
   projects?: Project[];

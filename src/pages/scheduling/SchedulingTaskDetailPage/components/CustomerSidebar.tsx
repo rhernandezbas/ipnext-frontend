@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import type { Admin } from '@/types/admin';
 import { useClientDetail, useClientServices } from '@/hooks/useCustomers';
+
+type SchedulingAssignee = { id: string; name: string };
 import { Tabs } from '@/components/molecules/Tabs/Tabs';
 import { CustomerCard } from './CustomerCard';
 import { ServiceCard } from './ServiceCard';
@@ -15,7 +16,7 @@ export interface CustomerSidebarProps {
   serviceId: string | null;
   reporterId: string | null;
   watcherIds: string[];
-  admins: Admin[];
+  admins: SchedulingAssignee[];
   onWatchersChange: (ids: string[]) => void;
   isSavingWatchers: boolean;
 }

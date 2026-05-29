@@ -10,7 +10,7 @@ import {
   useSetTaskInventoryReview,
 } from '@/hooks/useScheduling';
 import { useWorkflows } from '@/hooks/useWorkflows';
-import { useAdmins } from '@/hooks/useAdmins';
+import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { usePartners } from '@/hooks/usePartners';
 import { useProjects } from '@/hooks/useProjects';
 import { useClientDetail, useClientServices } from '@/hooks/useCustomers';
@@ -50,7 +50,7 @@ export default function SchedulingTaskDetailPage() {
 
   const { data: task, isLoading, isError } = useTask(id);
   const { data: workflows = [] } = useWorkflows();
-  const { data: admins = [] } = useAdmins();
+  const { data: admins = [] } = useRbacUsers();
   const { data: partners = [] } = usePartners();
   const { data: projects = [] } = useProjects();
   const { data: priorities = [] } = useTaskPriorities();

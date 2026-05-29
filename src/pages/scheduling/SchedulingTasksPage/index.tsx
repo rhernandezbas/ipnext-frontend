@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useFilteredTasks, useCreateTask } from '@/hooks/useScheduling';
 import { useProjects } from '@/hooks/useProjects';
 import { useWorkflows } from '@/hooks/useWorkflows';
-import { useTechnicians, useAdmins } from '@/hooks/useAdmins';
+import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { useTaskTemplates } from '@/hooks/useTaskTemplates';
 import { useTaskPriorities } from '@/hooks/useTaskPriorities';
 import { TaskFilterBar } from './components/TaskFilterBar';
@@ -46,12 +46,12 @@ export default function SchedulingTasksPage() {
     : tasksRaw;
   const { data: projects = [] } = useProjects();
   const { data: workflows = [] } = useWorkflows();
-  const { data: technicians = [] } = useTechnicians();
-  // Full admin catalog (any role) — needed to resolve the Reporter column,
-  // since the reporter on a task is whoever created it (admin OR technician),
-  // not only technicians. `technicians` (filtered to role=technician) stays
-  // dedicated to the "Asignado a" select in CreateTaskModal.
-  const { data: admins = [] } = useAdmins();
+  // Single source of users: RbacUser catalog. `technicians` is derived by
+  // role.code === 'tecnico' (CreateTaskModal's "Asignado a" select),
+  // `admins` is the full list (Reporter resolution + Asignado-a in edit form).
+  const { data: allRbacUsers = [] } = useRbacUsers();
+  const admins = allRbacUsers;
+  const technicians = allRbacUsers.filter(u => u.roles.some(r => r.code === 'tecnico'));
   const { data: templates = [] } = useTaskTemplates();
   const { data: priorities = [] } = useTaskPriorities();
   const createTask = useCreateTask();

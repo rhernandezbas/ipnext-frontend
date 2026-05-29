@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import type { Admin } from '@/types/admin';
 import styles from './WatchersChips.module.css';
+
+type SchedulingAssignee = { id: string; name: string };
 
 interface WatchersChipsProps {
   watcherIds: string[];
-  allAdmins: Admin[];
+  allAdmins: SchedulingAssignee[];
   onChange: (nextIds: string[]) => Promise<void>;
   isSaving: boolean;
 }
@@ -63,7 +64,7 @@ export function WatchersChips({ watcherIds, allAdmins, onChange, isSaving }: Wat
 
   const watcherAdmins = watcherIds
     .map(id => allAdmins.find(a => a.id === id))
-    .filter((a): a is Admin => !!a);
+    .filter((a): a is SchedulingAssignee => !!a);
 
   const availableAdmins = allAdmins.filter(
     a => !watcherIds.includes(a.id) &&

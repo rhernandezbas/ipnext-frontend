@@ -35,8 +35,8 @@ vi.mock('@/hooks/useWorkflows', () => ({
   useWorkflows: vi.fn(),
 }));
 
-vi.mock('@/hooks/useAdmins', () => ({
-  useAdmins: vi.fn(),
+vi.mock('@/hooks/useRbacUsers', () => ({
+  useRbacUsers: vi.fn(),
 }));
 
 vi.mock('@/hooks/usePartners', () => ({
@@ -175,7 +175,7 @@ vi.mock('@tiptap/starter-kit', () => ({ default: {} }));
 
 import { useTask, useUpdateTask, useMoveTaskToStage, useDeleteTask, useCloseTask, useSetTaskInventoryReview } from '@/hooks/useScheduling';
 import { useWorkflows } from '@/hooks/useWorkflows';
-import { useAdmins } from '@/hooks/useAdmins';
+import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { usePartners } from '@/hooks/usePartners';
 import { useProjects } from '@/hooks/useProjects';
 import { useAuth } from '@/hooks/useAuth';
@@ -281,10 +281,10 @@ function setupMocks(overrides?: { taskData?: Partial<ScheduledTask> | null; isLo
     isLoading: false,
   } as ReturnType<typeof useWorkflows>);
 
-  vi.mocked(useAdmins).mockReturnValue({
+  vi.mocked(useRbacUsers).mockReturnValue({
     data: mockAdmins,
     isLoading: false,
-  } as ReturnType<typeof useAdmins>);
+  } as ReturnType<typeof useRbacUsers>);
 
   vi.mocked(usePartners).mockReturnValue({
     data: [],

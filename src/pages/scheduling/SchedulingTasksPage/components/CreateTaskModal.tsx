@@ -3,7 +3,8 @@ import { useClientDetail, useClientServices } from '@/hooks/useCustomers';
 import { useTaskCategories } from '@/hooks/useTaskCategories';
 import type { Project } from '@/types/project';
 import type { Workflow } from '@/types/workflow';
-import type { Admin } from '@/types/admin';
+
+type SchedulingAssignee = { id: string; name: string };
 import type { TaskTemplate } from '@/types/taskTemplate';
 import type { CreateTaskPayload } from '@/types/scheduling';
 import { useTaskPriorities } from '@/hooks/useTaskPriorities';
@@ -27,7 +28,7 @@ const DEFAULT_CATEGORY = 'Otro';
 interface Props {
   projects: Project[];
   workflows: Workflow[];
-  technicians?: Admin[];
+  technicians?: SchedulingAssignee[];
   templates?: TaskTemplate[];
   onClose: () => void;
   onCreate: (data: CreateTaskPayload) => Promise<unknown>;
