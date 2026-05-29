@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useOnlineSessions, useDisconnectSession } from '@/hooks/useCustomers';
 import type { OnlineSession } from '@/hooks/useCustomers';
+import { Can } from '@/components/auth/Can';
 import styles from './CustomersOnlinePage.module.css';
 
 function calcTotalTrafficGB(sessions: OnlineSession[]): number {
@@ -86,12 +87,14 @@ export default function CustomersOnlinePage() {
                   <td>{session.downloadMbps} Mbps</td>
                   <td>{session.uploadMbps} Mbps</td>
                   <td>
-                    <button
-                      className={styles.disconnectBtn}
-                      onClick={() => disconnect.mutate(session.id)}
-                    >
-                      Desconectar
-                    </button>
+                    <Can permission="clients.manage_online_sessions">
+                      <button
+                        className={styles.disconnectBtn}
+                        onClick={() => disconnect.mutate(session.id)}
+                      >
+                        Desconectar
+                      </button>
+                    </Can>
                   </td>
                 </tr>
               ))

@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { Button } from '../../../components/atoms/Button/Button';
+import { Can } from '../../../components/auth/Can';
 import { useClientDocuments, useUploadDocument } from '../../../hooks/useCustomers';
 import styles from './Tab.module.css';
 import docStyles from './DocumentsTab.module.css';
@@ -38,16 +39,18 @@ export function DocumentsTab({ clientId }: Props) {
   return (
     <div className={styles.tab}>
       <div className={styles.tabActions}>
-        <input
-          ref={fileInputRef}
-          type="file"
-          style={{ display: 'none' }}
-          onChange={handleFileChange}
-          aria-label="file-upload-input"
-        />
-        <Button variant="secondary" size="sm" onClick={handleUploadClick}>
-          Subir documento
-        </Button>
+        <Can permission="clients.manage_documents">
+          <input
+            ref={fileInputRef}
+            type="file"
+            style={{ display: 'none' }}
+            onChange={handleFileChange}
+            aria-label="file-upload-input"
+          />
+          <Button variant="secondary" size="sm" onClick={handleUploadClick}>
+            Subir documento
+          </Button>
+        </Can>
       </div>
 
       {isLoading && <p className={styles.emptyList}>Cargando documentos...</p>}

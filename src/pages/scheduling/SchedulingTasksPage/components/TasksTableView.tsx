@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
+import { Can } from '@/components/auth/Can';
 import type { ScheduledTask } from '@/types/scheduling';
 import type { Workflow, WorkflowStage } from '@/types/workflow';
 import type { Project } from '@/types/project';
@@ -133,15 +134,17 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
         <span className={styles.bulkCount}>
           ✓ {selectedIds.length} tarea{selectedIds.length !== 1 ? 's' : ''} seleccionada{selectedIds.length !== 1 ? 's' : ''}
         </span>
-        <button
-          type="button"
-          className={styles.bulkMoveBtn}
-          onClick={() => setShowMoveDialog(true)}
-          disabled={busy || availableStages.length === 0}
-          aria-label="Mover estado"
-        >
-          Mover estado
-        </button>
+        <Can permission="scheduling.move_stage">
+          <button
+            type="button"
+            className={styles.bulkMoveBtn}
+            onClick={() => setShowMoveDialog(true)}
+            disabled={busy || availableStages.length === 0}
+            aria-label="Mover estado"
+          >
+            Mover estado
+          </button>
+        </Can>
         <button
           type="button"
           className={styles.bulkCloseBtn}

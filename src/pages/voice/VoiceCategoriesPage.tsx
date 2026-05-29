@@ -1,5 +1,6 @@
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { Button } from '@/components/atoms/Button/Button';
+import { Can } from '@/components/auth/Can';
 import { useVoipCategories } from '@/hooks/useVoice';
 import type { VoipCategory } from '@/types/voice';
 import styles from './VoiceCategoriesPage.module.css';
@@ -21,7 +22,9 @@ export default function VoiceCategoriesPage() {
     <div className={styles.page}>
       <div className={styles.header}>
         <h1 className={styles.title}>Categorías de voz</h1>
-        <Button variant="primary" onClick={() => {}}>Nueva categoría</Button>
+        <Can permission="voices.write">
+          <Button variant="primary" onClick={() => {}}>Nueva categoría</Button>
+        </Can>
       </div>
       <DataTable<VoipCategory>
         columns={COLUMNS}

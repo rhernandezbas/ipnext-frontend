@@ -4,6 +4,7 @@ import { useAdminActivityLog, useEnable2FA, useDisable2FA, useAdmin2FAStatus } f
 import type { Admin, AdminActivityLog, ActivityCategory } from '@/types/admin';
 import { RbacUsersBody } from './admin/RbacUsersBody';
 import { RolesMatrixBody } from './admin/RolesMatrixBody';
+import { Can } from '@/components/auth/Can';
 import styles from './AdminPage.module.css';
 
 type Tab = 'admins' | 'activity' | 'roles' | 'seguridad' | 'sesiones';
@@ -54,13 +55,15 @@ function TwoFAModal({ admin, onClose }: { admin: Admin; onClose: () => void }) {
             <p>Códigos de respaldo restantes: {status.backupCodesCount}</p>
             <div className={styles.modalActions}>
               <button className={styles.btnSecondary} onClick={onClose}>Cancelar</button>
-              <button
-                className={styles.btnDanger ?? styles.btnPrimary}
-                onClick={handleDisable}
-                disabled={disabling}
-              >
-                {disabling ? 'Desactivando...' : 'Desactivar 2FA'}
-              </button>
+              <Can permission="admin.manage_2fa">
+                <button
+                  className={styles.btnDanger ?? styles.btnPrimary}
+                  onClick={handleDisable}
+                  disabled={disabling}
+                >
+                  {disabling ? 'Desactivando...' : 'Desactivar 2FA'}
+                </button>
+              </Can>
             </div>
           </div>
         ) : (
@@ -79,9 +82,11 @@ function TwoFAModal({ admin, onClose }: { admin: Admin; onClose: () => void }) {
             </div>
             <div className={styles.modalActions}>
               <button className={styles.btnSecondary} onClick={onClose}>Cancelar</button>
-              <button className={styles.btnPrimary} onClick={handleEnable} disabled={enabling}>
-                {enabling ? 'Activando...' : 'Activar'}
-              </button>
+              <Can permission="admin.manage_2fa">
+                <button className={styles.btnPrimary} onClick={handleEnable} disabled={enabling}>
+                  {enabling ? 'Activando...' : 'Activar'}
+                </button>
+              </Can>
             </div>
           </div>
         )}

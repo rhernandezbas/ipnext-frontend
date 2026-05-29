@@ -3,6 +3,7 @@ import { useParams, Navigate, useNavigate, Link } from 'react-router-dom';
 import { Tabs } from '../../components/molecules/Tabs/Tabs';
 import { ConfirmModal } from '../../components/molecules/ConfirmModal/ConfirmModal';
 import { Button } from '../../components/atoms/Button/Button';
+import { Can } from '../../components/auth/Can';
 import { useClientDetail, useToggleClientStatus, useDeleteCustomer } from '../../hooks/useCustomers';
 import { useTasksByCustomer } from '../../hooks/useScheduling';
 import { useTicketsByCustomer } from '../../hooks/useTickets';
@@ -184,15 +185,17 @@ export default function CustomerDetailPage() {
             </Button>
             {accionesOpen && (
               <div className={styles.dropdown}>
-                <button
-                  className={styles.dropdownItem}
-                  onClick={() => {
-                    toggleStatus.mutate({ id, status: isBlocked ? 'active' : 'blocked' });
-                    setAccionesOpen(false);
-                  }}
-                >
-                  {isBlocked ? 'Desbloquear cliente' : 'Bloquear cliente'}
-                </button>
+                <Can permission="clients.write">
+                  <button
+                    className={styles.dropdownItem}
+                    onClick={() => {
+                      toggleStatus.mutate({ id, status: isBlocked ? 'active' : 'blocked' });
+                      setAccionesOpen(false);
+                    }}
+                  >
+                    {isBlocked ? 'Desbloquear cliente' : 'Bloquear cliente'}
+                  </button>
+                </Can>
                 <button
                   className={styles.dropdownItem}
                   onClick={() => { navigate('/admin/support/inbox'); setAccionesOpen(false); }}
@@ -205,22 +208,26 @@ export default function CustomerDetailPage() {
                 >
                   Crear ticket
                 </button>
-                <button
-                  className={styles.dropdownItem}
-                  onClick={() => {
-                    setDeleteError(null);
-                    setDeleteOpen(true);
-                    setAccionesOpen(false);
-                  }}
-                >
-                  Eliminar cliente
-                </button>
+                <Can permission="clients.delete">
+                  <button
+                    className={styles.dropdownItem}
+                    onClick={() => {
+                      setDeleteError(null);
+                      setDeleteOpen(true);
+                      setAccionesOpen(false);
+                    }}
+                  >
+                    Eliminar cliente
+                  </button>
+                </Can>
               </div>
             )}
           </div>
           <Button variant="secondary" size="sm" onClick={() => navigate(`/admin/scheduling/tasks?customerId=${id}`)}>Tareas ({taskCount}) ▾</Button>
           <Button variant="secondary" size="sm" onClick={() => navigate(`/admin/tickets/opened?customerId=${id}`)}>Tickets ({ticketCount}) ▾</Button>
-          <Button variant="primary" size="sm" onClick={() => navigate(`/admin/customers/view/${id}/edit`)}>Guardar</Button>
+          <Can permission="clients.write">
+            <Button variant="primary" size="sm" onClick={() => navigate(`/admin/customers/view/${id}/edit`)}>Guardar</Button>
+          </Can>
         </div>
       </div>
 

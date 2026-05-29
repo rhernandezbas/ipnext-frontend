@@ -12,6 +12,7 @@ import { ColumnSelector } from './components/ColumnSelector';
 import { CreateTaskModal } from './components/CreateTaskModal';
 import { useTasksFilterUrl } from './hooks/useTasksFilterUrl';
 import { useVisibleColumns } from './hooks/useVisibleColumns';
+import { Can } from '@/components/auth/Can';
 import styles from './SchedulingTasksPage.module.css';
 
 const DEFAULT_VISIBLE_COLUMNS = ALL_TASK_COLUMNS.map(c => c.key);
@@ -91,9 +92,11 @@ export default function SchedulingTasksPage() {
           <button className={styles.btnIcon} title="Recargar" onClick={() => void refetch()}>
             <IconRefresh />
           </button>
-          <button className={styles.btnPrimary} onClick={() => setShowCreate(true)} disabled={projects.length === 0}>
-            <IconPlus /> Añadir
-          </button>
+          <Can permission="scheduling.write">
+            <button className={styles.btnPrimary} onClick={() => setShowCreate(true)} disabled={projects.length === 0}>
+              <IconPlus /> Añadir
+            </button>
+          </Can>
         </div>
       </div>
 

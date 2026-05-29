@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useClientServices, useAddService, useUpdateService, useDeleteService } from '../../../hooks/useCustomers';
 import type { Service } from '../../../types/customer';
 import type { AddServiceData, UpdateServiceData } from '../../../types/customer';
+import { Can } from '../../../components/auth/Can';
 import styles from './Tab.module.css';
 
 interface Props { clientId: string; active: boolean; }
@@ -100,9 +101,11 @@ export function ServicesTab({ clientId, active }: Props) {
   return (
     <div className={styles.tab}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-        <button onClick={openAddForm} type="button">
-          Agregar servicio
-        </button>
+        <Can permission="clients.write">
+          <button onClick={openAddForm} type="button">
+            Agregar servicio
+          </button>
+        </Can>
       </div>
 
       {showForm && (
@@ -209,17 +212,21 @@ export function ServicesTab({ clientId, active }: Props) {
                   <td>{service.startDate}</td>
                   <td>{service.endDate ?? '—'}</td>
                   <td>
-                    <button type="button" onClick={() => openEditForm(service)}>
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(service.id)}
-                      disabled={deleteService.isPending}
-                      style={{ marginLeft: '0.5rem' }}
-                    >
-                      Eliminar
-                    </button>
+                    <Can permission="clients.write">
+                      <button type="button" onClick={() => openEditForm(service)}>
+                        Editar
+                      </button>
+                    </Can>
+                    <Can permission="clients.delete">
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(service.id)}
+                        disabled={deleteService.isPending}
+                        style={{ marginLeft: '0.5rem' }}
+                      >
+                        Eliminar
+                      </button>
+                    </Can>
                   </td>
                 </tr>
               ))

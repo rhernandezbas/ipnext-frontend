@@ -6,6 +6,7 @@ import { DataTable } from '../../components/organisms/DataTable/DataTable';
 import { useTicketList, useDeleteTicket } from '../../hooks/useTickets';
 import { useTicketStatuses } from '../../hooks/useTicketStatuses';
 import { Ticket } from '../../types/ticket';
+import { useCan } from '../../hooks/useMyPermissions';
 import styles from './TicketsListPage.module.css';
 import tabStyles from './TicketsListPage.tabs.module.css';
 
@@ -49,6 +50,7 @@ export default function TicketsListPage({ statusFilter }: Props) {
   const [page, setPage] = useState(1);
 
   const deleteTicket = useDeleteTicket();
+  const canDeleteTicket = useCan('tickets.delete');
   const { data: catalogStatuses = [], isLoading: statusesLoading } = useTicketStatuses();
 
   const { data, isLoading } = useTicketList({
@@ -125,14 +127,14 @@ export default function TicketsListPage({ statusFilter }: Props) {
         data={data?.data ?? []}
         loading={isLoading}
         emptyMessage="No hay tickets."
-        actions={[{
+        actions={canDeleteTicket ? [{
           label: 'Eliminar',
           onClick: (row) => {
             if (window.confirm('¿Eliminar este ticket? Esta acción no se puede deshacer.')) {
               deleteTicket.mutate(String(row.id));
             }
           },
-        }]}
+        }] : []}
       />
       <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
     </div>

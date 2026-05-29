@@ -4,6 +4,7 @@ import { Pagination } from '../../components/molecules/Pagination/Pagination';
 import { DataTable } from '../../components/organisms/DataTable/DataTable';
 import { usePayments, useCreatePayment } from '../../hooks/useBilling';
 import { Payment } from '../../types/billing';
+import { Can } from '../../components/auth/Can';
 import styles from './PagosPage.module.css';
 
 const COLUMNS = [
@@ -42,9 +43,11 @@ export function PagosPage() {
     <div className={styles.page}>
       <h1 className={styles.title}>Pagos</h1>
       <div className={styles.actionsBar}>
-        <button className={styles.actionBtn} onClick={() => setShowNewForm(true)}>
-          Registrar pago
-        </button>
+        <Can permission="billing.write">
+          <button className={styles.actionBtn} onClick={() => setShowNewForm(true)}>
+            Registrar pago
+          </button>
+        </Can>
       </div>
       {showNewForm && (
         <div className={styles.modalOverlay}>

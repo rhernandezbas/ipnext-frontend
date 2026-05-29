@@ -5,6 +5,7 @@ import type { WorkflowStage } from '@/types/workflow';
 import type { TaskPriority } from '@/types/taskPriority';
 import { StageSelect } from '@/components/molecules/StageSelect/StageSelect';
 import { PrioritySelect } from '@/components/molecules/PrioritySelect/PrioritySelect';
+import { Can } from '@/components/auth/Can';
 import styles from './TaskHeader.module.css';
 
 interface TaskHeaderProps {
@@ -147,9 +148,11 @@ export function TaskHeader({
       </div>
 
       <div className={styles.controls}>
-        <div className={styles.stagePillWrapper}>
-          <StageSelect task={task} stages={stages} onMove={onStageMove} disabled={isSaving} />
-        </div>
+        <Can permission="scheduling.move_stage">
+          <div className={styles.stagePillWrapper}>
+            <StageSelect task={task} stages={stages} onMove={onStageMove} disabled={isSaving} />
+          </div>
+        </Can>
 
         <PrioritySelect
           value={task.priority}

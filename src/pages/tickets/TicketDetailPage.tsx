@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTicket, useTicketReplies, useUpdateTicketStatus, useAddTicketReply, useAssignTicket, useUpdateTicket, useDeleteTicket } from '../../hooks/useTickets';
 import type { TicketStatus } from '../../types/ticket';
+import { Can } from '../../components/auth/Can';
 import styles from './TicketDetailPage.module.css';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -109,9 +110,11 @@ export default function TicketDetailPage() {
               <option value="high">Alta</option>
               <option value="critical">Crítica</option>
             </select>
-            <button className={styles.saveBtn} onClick={handleEditSave} disabled={updateTicket.isPending}>
-              Guardar cambios
-            </button>
+            <Can permission="tickets.write">
+              <button className={styles.saveBtn} onClick={handleEditSave} disabled={updateTicket.isPending}>
+                Guardar cambios
+              </button>
+            </Can>
             <button className={styles.cancelBtn} onClick={() => setEditMode(false)}>
               Cancelar
             </button>
@@ -127,9 +130,11 @@ export default function TicketDetailPage() {
                 {PRIORITY_LABELS[ticket.priority] ?? ticket.priority}
               </span>
             </div>
-            <button className={styles.editBtn} onClick={handleEditStart}>
-              Editar
-            </button>
+            <Can permission="tickets.write">
+              <button className={styles.editBtn} onClick={handleEditStart}>
+                Editar
+              </button>
+            </Can>
           </>
         )}
       </div>
@@ -166,23 +171,29 @@ export default function TicketDetailPage() {
       </div>
 
       <div className={styles.statusActions}>
-        {STATUS_BUTTONS.map(({ value, label }) => (
+        {STATUS_BUTTONS.map(({ value, label }) => {
+          const permission = value === 'closed' ? 'tickets.close' : value === 'open' ? 'tickets.reopen' : 'tickets.write';
+          return (
+            <Can key={value} permission={permission}>
+              <button
+                className={`${styles.statusBtn} ${ticket.status === value ? styles.statusBtnActive : ''}`}
+                onClick={() => handleStatusChange(value)}
+                disabled={updateStatus.isPending}
+              >
+                {label}
+              </button>
+            </Can>
+          );
+        })}
+        <Can permission="tickets.delete">
           <button
-            key={value}
-            className={`${styles.statusBtn} ${ticket.status === value ? styles.statusBtnActive : ''}`}
-            onClick={() => handleStatusChange(value)}
-            disabled={updateStatus.isPending}
+            className={styles.deleteBtn}
+            onClick={handleDeleteTicket}
+            disabled={deleteTicket.isPending}
           >
-            {label}
+            Eliminar ticket
           </button>
-        ))}
-        <button
-          className={styles.deleteBtn}
-          onClick={handleDeleteTicket}
-          disabled={deleteTicket.isPending}
-        >
-          Eliminar ticket
-        </button>
+        </Can>
       </div>
 
       <section className={styles.conversation}>
