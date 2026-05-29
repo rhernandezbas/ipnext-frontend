@@ -11,6 +11,9 @@ vi.mock('@/hooks/useGestionRealIngest', () => ({
 vi.mock('@/hooks/useProjects', () => ({
   useProjects: vi.fn(),
 }));
+vi.mock('@/hooks/useFeatureFlags', () => ({
+  useFeatureFlag: vi.fn(),
+}));
 
 import {
   useGestionRealConfig,
@@ -19,6 +22,7 @@ import {
   useGestionRealNeedsReview,
 } from '@/hooks/useGestionRealIngest';
 import { useProjects } from '@/hooks/useProjects';
+import { useFeatureFlag } from '@/hooks/useFeatureFlags';
 import { GestionRealBody } from '@/pages/scheduling/settings/GestionRealBody';
 import type { IngestConfigDTO, IngestStatusDTO, NeedsReviewTaskDTO } from '@/types/gestionRealIngest';
 import type { Project } from '@/types/project';
@@ -119,6 +123,14 @@ function mockNeedsReview(
   } as never);
 }
 
+function mockFeatureFlag(enabled: boolean) {
+  vi.mocked(useFeatureFlag).mockReturnValue({
+    data: { key: 'gestion-real-ingest', enabled },
+    isLoading: false,
+    isError: false,
+  } as never);
+}
+
 function renderBody() {
   return render(
     <MemoryRouter>
@@ -139,6 +151,7 @@ describe('GestionRealBody', () => {
     ]);
     mockStatus(makeStatus());
     mockNeedsReview([]);
+    mockFeatureFlag(true);
   });
 
   // ── Phase 4: Configuración ────────────────────────────────────────────────
@@ -221,6 +234,22 @@ describe('GestionRealBody', () => {
       } as never);
       renderBody();
       expect(screen.getByText(/validación|datos inválidos|revisá los campos/i)).toBeInTheDocument();
+    });
+
+    it('gestionRealIngest master flag disabled → shows the system-disabled warning', () => {
+      mockFeatureFlag(false);
+      renderBody();
+      expect(
+        screen.getByText(/panel\s+de feature flags para que la sincronización corra/i),
+      ).toBeInTheDocument();
+    });
+
+    it('gestionRealIngest master flag enabled → does NOT show the system-disabled warning', () => {
+      mockFeatureFlag(true);
+      renderBody();
+      expect(
+        screen.queryByText(/deshabilitada a nivel sistema/i),
+      ).not.toBeInTheDocument();
     });
 
     it('shows a Spanish project-not-found message on 404 PROJECT_NOT_FOUND', () => {

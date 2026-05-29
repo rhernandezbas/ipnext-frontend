@@ -7,6 +7,7 @@ import {
   useGestionRealNeedsReview,
 } from '@/hooks/useGestionRealIngest';
 import { useProjects } from '@/hooks/useProjects';
+import { useFeatureFlag } from '@/hooks/useFeatureFlags';
 import {
   INTERVAL_PRESETS_MIN,
   minutesToMs,
@@ -73,6 +74,11 @@ function ConfigSection() {
   const { data: config, isLoading, isError, refetch } = useGestionRealConfig();
   const { data: projects = [] } = useProjects('all');
   const update = useUpdateGestionRealConfig();
+
+  // Master release flag. When OFF, the backend skips the ingest even if
+  // config.enabled is true — surface that so the operator isn't misled.
+  const ingestFlag = useFeatureFlag('gestion-real-ingest');
+  const systemDisabled = ingestFlag.data ? ingestFlag.data.enabled === false : false;
 
   const [form, setForm] = useState<FormState | null>(null);
 
@@ -149,6 +155,17 @@ function ConfigSection() {
     <section className={styles.section}>
       <h3 className={styles.sectionTitle}>Configuración</h3>
       <div className={styles.card}>
+        {systemDisabled && (
+          <div className={`${styles.banner} ${styles.bannerWarning}`} role="status">
+            <span>
+              <span className={styles.bannerTitle}>Ingesta deshabilitada a nivel sistema.</span>{' '}
+              La ingesta está deshabilitada a nivel sistema (feature flag
+              {' '}«gestion-real-ingest»). Un administrador debe activarla en el panel
+              de Feature Flags para que la sincronización corra.
+            </span>
+          </div>
+        )}
+
         <div className={styles.toggleRow}>
           <span className={styles.fieldLabel}>Habilitar ingest de Gestión Real</span>
           <label className={styles.switch}>
