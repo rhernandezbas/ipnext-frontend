@@ -217,9 +217,10 @@ const mockTask: ScheduledTask = {
   updatedAt: '2026-05-01T00:00:00Z',
 };
 
-const mockAdmins: Admin[] = [
-  { id: 'admin-1', name: 'Ana García', email: 'ana@test.com', role: 'admin', status: 'active', createdAt: '', lastLogin: null },
-  { id: 'admin-2', name: 'Pedro López', email: 'pedro@test.com', role: 'admin', status: 'active', createdAt: '', lastLogin: null },
+// Shape matches RbacUserWithRolesDto (roles array drives the technicians filter)
+const mockAdmins: any[] = [
+  { id: 'admin-1', name: 'Ana García', email: 'ana@test.com', login: 'ana', status: 'active', createdAt: '', updatedAt: '', lastLoginAt: null, roles: [{ id: 'r-t', code: 'tecnico', label: 'Técnico' }] },
+  { id: 'admin-2', name: 'Pedro López', email: 'pedro@test.com', login: 'pedro', status: 'active', createdAt: '', updatedAt: '', lastLoginAt: null, roles: [{ id: 'r-t', code: 'tecnico', label: 'Técnico' }] },
 ];
 
 const mockWorkflows = [
