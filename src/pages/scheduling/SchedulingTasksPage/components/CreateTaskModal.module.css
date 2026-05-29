@@ -124,3 +124,9 @@
 .btnPrimary:disabled,
 .btnSecondary:disabled { opacity: 0.6; cursor: not-allowed; }
 
+.hint {
+  font-size: 12px;
+  color: var(--color-text-secondary, #6c757d);
+  margin-top: 2px;
+}
+

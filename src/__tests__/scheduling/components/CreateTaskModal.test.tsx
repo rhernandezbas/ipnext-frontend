@@ -271,4 +271,62 @@ describe('CreateTaskModal', () => {
       expect((screen.getByPlaceholderText('Dirección del trabajo') as HTMLInputElement).value).toBe('Calle Fallback 50'),
     );
   });
+
+  describe('start/end date inputs', () => {
+    it('disables Termina and shows a hint until Inicia has a value', () => {
+      setup();
+      const start = screen.getByLabelText('Inicia') as HTMLInputElement;
+      const end = screen.getByLabelText('Termina') as HTMLInputElement;
+      expect(end).toBeDisabled();
+      expect(screen.getByText(/Primero indicá la fecha de inicio/i)).toBeInTheDocument();
+      // Once Start is set, End becomes enabled and the hint goes away.
+      fireEvent.change(start, { target: { value: '2026-06-15T10:00' } });
+      expect(end).toBeEnabled();
+      expect(screen.queryByText(/Primero indicá la fecha de inicio/i)).not.toBeInTheDocument();
+    });
+
+    it('auto-defaults Termina to Inicia + 1h when Termina is empty', () => {
+      setup();
+      const start = screen.getByLabelText('Inicia') as HTMLInputElement;
+      const end = screen.getByLabelText('Termina') as HTMLInputElement;
+      fireEvent.change(start, { target: { value: '2026-06-15T10:00' } });
+      expect(end.value).toBe('2026-06-15T11:00');
+    });
+
+    it('respects a user-edited Termina and does not override it on subsequent renders', () => {
+      setup();
+      const start = screen.getByLabelText('Inicia') as HTMLInputElement;
+      const end = screen.getByLabelText('Termina') as HTMLInputElement;
+      fireEvent.change(start, { target: { value: '2026-06-15T10:00' } });
+      expect(end.value).toBe('2026-06-15T11:00');
+      // User edits End manually
+      fireEvent.change(end, { target: { value: '2026-06-15T14:30' } });
+      // Re-edit Start — the previously edited End must survive
+      fireEvent.change(start, { target: { value: '2026-06-15T09:00' } });
+      expect(end.value).toBe('2026-06-15T14:30');
+    });
+
+    it('submits both startDate and endDate as ISO strings to onCreate', async () => {
+      setup();
+      fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Reagendar' } });
+      fireEvent.change(screen.getByLabelText('Inicia'), { target: { value: '2026-06-15T10:00' } });
+      fireEvent.change(screen.getByLabelText('Termina'), { target: { value: '2026-06-15T12:30' } });
+      fireEvent.click(screen.getByRole('button', { name: /crear tarea/i }));
+      await waitFor(() => expect(onCreate).toHaveBeenCalled());
+      const payload = onCreate.mock.calls[0][0];
+      expect(payload.startDate).toBe(new Date('2026-06-15T10:00').toISOString());
+      expect(payload.endDate).toBe(new Date('2026-06-15T12:30').toISOString());
+    });
+
+    it('blocks submit when End is earlier than Start and shows an error', async () => {
+      setup();
+      fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Roto' } });
+      fireEvent.change(screen.getByLabelText('Inicia'), { target: { value: '2026-06-15T15:00' } });
+      // Override the auto +1h with an earlier value
+      fireEvent.change(screen.getByLabelText('Termina'), { target: { value: '2026-06-15T14:00' } });
+      fireEvent.click(screen.getByRole('button', { name: /crear tarea/i }));
+      expect(await screen.findByText(/fecha de fin debe ser mayor/i)).toBeInTheDocument();
+      expect(onCreate).not.toHaveBeenCalled();
+    });
+  });
 });

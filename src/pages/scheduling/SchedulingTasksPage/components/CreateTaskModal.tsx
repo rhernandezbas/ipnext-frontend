@@ -42,12 +42,18 @@ function resolveFirstStageId(project: Project | undefined, workflows: Workflow[]
   return [...wf.stages].sort((a, b) => a.order - b.order)[0].id;
 }
 
-/** Combine a date (yyyy-mm-dd) and optional time (hh:mm) into an ISO string with
- *  offset, as required by the backend (z.string().datetime({ offset: true })). */
-function toStartDate(date: string, time: string): string | null {
-  if (!date) return null;
-  const d = new Date(`${date}T${time || '00:00'}`);
+/** Convert a datetime-local string ("YYYY-MM-DDTHH:mm") to ISO 8601 with offset,
+ *  as required by the backend (z.string().datetime({ offset: true })). */
+function toIso(local: string): string | null {
+  if (!local) return null;
+  const d = new Date(local);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** Format a Date as "YYYY-MM-DDTHH:mm" in LOCAL time (datetime-local input format). */
+function toLocalInputString(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 /**
@@ -75,8 +81,8 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   const { data: priorities = [] } = useTaskPriorities();
   const [category, setCategory] = useState<string>(DEFAULT_CATEGORY);
   const { data: categories = [] } = useTaskCategories();
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [estimatedHours, setEstimatedHours] = useState(1);
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
@@ -130,6 +136,21 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     setServiceId(null);
   }, [customerId]);
 
+  // When the user sets Start (or its time) and End is still empty, default End
+  // to Start + 1h. If End already has a value, leave it alone — the user owns
+  // it. Same UX as DatosForm (task detail page).
+  useEffect(() => {
+    if (!startDate) return;
+    if (endDate) return; // respect existing End value
+    const start = new Date(startDate);
+    if (Number.isNaN(start.getTime())) return;
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    setEndDate(toLocalInputString(end));
+    // Intentionally only run when startDate changes — re-running on endDate
+    // would clobber the user's manual edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate]);
+
   // Any meaningful field the user has touched (defaults like project/priority/
   // category don't count). Used to guard against discarding work on an
   // accidental backdrop click.
@@ -139,8 +160,8 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     !!customerId ||
     !!serviceId ||
     assigneeId.length > 0 ||
-    date.length > 0 ||
-    time.length > 0 ||
+    startDate.length > 0 ||
+    endDate.length > 0 ||
     address.trim().length > 0 ||
     notes.trim().length > 0;
 
@@ -179,6 +200,15 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
       return;
     }
     setError(null);
+    // Validate end >= start when both are present
+    if (startDate && endDate) {
+      const s = new Date(startDate).getTime();
+      const e = new Date(endDate).getTime();
+      if (Number.isFinite(s) && Number.isFinite(e) && e < s) {
+        setError('La fecha de fin debe ser mayor o igual a la de inicio.');
+        return;
+      }
+    }
     // Resolve merge variables ({{cliente}}, {{telefono}}, {{servicio}},
     // {{direccion}}) once, here at creation, against the chosen customer/service.
     const vars = {
@@ -202,7 +232,8 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
         serviceId: serviceId || null,
         assigneeId: assigneeId || null,
         description: finalDescription,
-        startDate: toStartDate(date, time),
+        startDate: toIso(startDate),
+        endDate: toIso(endDate),
         address: address.trim() || null,
         notes: notes.trim() || null,
       });
@@ -335,14 +366,32 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
 
         <div className={styles.row}>
           <label className={styles.label}>
-            Fecha
-            <input className={styles.input} type="date" value={date} onChange={e => setDate(e.target.value)} />
+            Inicia
+            <input
+              className={styles.input}
+              type="datetime-local"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+            />
           </label>
 
-          <label className={styles.label}>
-            Hora
-            <input className={styles.input} type="time" value={time} onChange={e => setTime(e.target.value)} />
-          </label>
+          <div className={styles.label}>
+            <label htmlFor="create-task-end-date">Termina</label>
+            <input
+              id="create-task-end-date"
+              className={styles.input}
+              type="datetime-local"
+              value={endDate}
+              onChange={e => setEndDate(e.target.value)}
+              disabled={!startDate}
+              aria-describedby={!startDate ? 'create-end-hint' : undefined}
+            />
+            {!startDate && (
+              <span id="create-end-hint" className={styles.hint}>
+                Primero indicá la fecha de inicio
+              </span>
+            )}
+          </div>
         </div>
 
         <div className={styles.row}>
