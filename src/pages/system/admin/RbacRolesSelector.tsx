@@ -27,16 +27,41 @@ export function RbacRolesSelector({
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
 
   // Compute popover position from the WRAPPER trigger rect (not the chevron
-  // button — that would give the popover the ~20px chevron width).
+  // button — that would give the popover the ~20px chevron width). Pick the
+  // side (below / above) with more vertical room and cap maxHeight to the
+  // available space so the popover never overflows the viewport on small
+  // screens. Clamp horizontal position too so a narrow window can't push it
+  // off the right edge.
   const updatePopoverPos = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    const minWidth = 240; // ensure section headers + options have room
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const margin = 8;
+    const gap = 4;
+    const minWidth = 240;
+    const desiredWidth = Math.max(rect.width, minWidth);
+    const width = Math.min(desiredWidth, vw - margin * 2);
+
+    // Horizontal: prefer left-aligned to trigger; clamp inside viewport
+    let left = rect.left;
+    if (left + width > vw - margin) left = vw - margin - width;
+    if (left < margin) left = margin;
+
+    // Vertical: compute room on each side, pick the larger one
+    const roomBelow = vh - rect.bottom - gap - margin;
+    const roomAbove = rect.top - gap - margin;
+    const placeAbove = roomBelow < 220 && roomAbove > roomBelow;
+    const maxHeight = Math.max(160, placeAbove ? roomAbove : roomBelow);
+
+    const top = placeAbove ? Math.max(margin, rect.top - gap - maxHeight) : rect.bottom + gap;
+
     setPopoverStyle({
       position: 'fixed',
-      top: rect.bottom + 4,
-      left: rect.left,
-      width: Math.max(rect.width, minWidth),
+      top,
+      left,
+      width,
+      maxHeight,
       zIndex: 9999,
     });
   }, []);

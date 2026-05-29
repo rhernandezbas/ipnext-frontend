@@ -129,6 +129,8 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* maxHeight is injected from JS so the popover fits the available
+     viewport room on small screens. The optionsList scrolls inside. */
   animation: popoverIn 120ms ease-out;
   transform-origin: top center;
 }
@@ -156,7 +158,8 @@
 }
 
 .optionsList {
-  max-height: 280px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
 }
 
