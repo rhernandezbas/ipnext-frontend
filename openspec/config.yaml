@@ -10,11 +10,11 @@ context: |
   Style: No ESLint/Prettier config tracked. PascalCase components, kebab-case URL segments. Spanish UI copy.
   Source of truth: backend API at /api (sibling repo ipnext-backend). Frontend consumes endpoints; does NOT own data shape.
 
-strict_tdd: false
+strict_tdd: true
 
 testing:
-  strict_tdd: false
-  detected: "2026-05-27"
+  strict_tdd: true
+  detected: "2026-05-29"
   runner:
     command: "npx vitest run"
     framework: "vitest"

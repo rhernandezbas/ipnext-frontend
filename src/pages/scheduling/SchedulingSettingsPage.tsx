@@ -5,14 +5,16 @@ import { TaskPrioritiesBody } from './settings/TaskPrioritiesBody';
 import { StageColorsBody } from './settings/StageColorsBody';
 import { TaskTemplatesBody } from './settings/TaskTemplatesBody';
 import { IClassSettingsBody } from './settings/IClassSettingsBody';
+import { GestionRealBody } from './settings/GestionRealBody';
 import styles from './SchedulingTaskCategoriesPage.module.css';
 
 const TABS = [
-  { id: 'categorias',  label: 'Categorías',         content: <TaskCategoriesBody /> },
-  { id: 'prioridades', label: 'Prioridades',        content: <TaskPrioritiesBody /> },
-  { id: 'colores',     label: 'Colores de estados', content: <StageColorsBody /> },
-  { id: 'plantillas',  label: 'Plantillas',         content: <TaskTemplatesBody /> },
-  { id: 'iclass',      label: 'IClass',             content: <IClassSettingsBody /> },
+  { id: 'categorias',   label: 'Categorías',         content: <TaskCategoriesBody /> },
+  { id: 'prioridades',  label: 'Prioridades',        content: <TaskPrioritiesBody /> },
+  { id: 'colores',      label: 'Colores de estados', content: <StageColorsBody /> },
+  { id: 'plantillas',   label: 'Plantillas',         content: <TaskTemplatesBody /> },
+  { id: 'iclass',       label: 'IClass',             content: <IClassSettingsBody /> },
+  { id: 'gestion-real', label: 'Gestión Real',       content: <GestionRealBody /> },
 ];
 
 const TAB_IDS = TABS.map(t => t.id);
