@@ -3,6 +3,13 @@ import { projectsApi, type ProjectVisibilityFilter } from '@/api/projects.api';
 
 const KEY = ['projects'] as const;
 
+/**
+ * Public query-key for the projects list. Exported so cross-feature hooks
+ * (e.g. scheduling task mutations) can invalidate the projects cache when
+ * actions affect per-project `taskCounts` aggregates.
+ */
+export const PROJECTS_KEY = KEY;
+
 export function useProjects(visibility?: ProjectVisibilityFilter) {
   return useQuery({
     queryKey: [...KEY, visibility ?? 'default'],

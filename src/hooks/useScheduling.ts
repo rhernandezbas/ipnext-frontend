@@ -1,6 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ScheduledTask, TaskChecklistItem, TaskListFilter, CreateTaskPayload } from '@/types/scheduling';
 import * as api from '@/api/scheduling.api';
+import { PROJECTS_KEY } from '@/hooks/useProjects';
+
+/**
+ * Invalidate both the scheduling tasks list and the projects list.
+ * Projects need invalidation because the API returns per-project `taskCounts`
+ * aggregates that mutate whenever a task is created, deleted, moved, or has
+ * its status changed.
+ */
+function invalidateTasksAndProjects(qc: ReturnType<typeof useQueryClient>) {
+  void qc.invalidateQueries({ queryKey: ['scheduling-tasks'] });
+  void qc.invalidateQueries({ queryKey: PROJECTS_KEY });
+}
 
 export function useTasks() {
   return useQuery({ queryKey: ['scheduling-tasks'], queryFn: () => api.listTasks() });
@@ -41,7 +53,7 @@ export function useCreateTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateTaskPayload) => api.createTask(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['scheduling-tasks'] }),
+    onSuccess: () => invalidateTasksAndProjects(qc),
   });
 }
 
@@ -51,7 +63,7 @@ export function useUpdateTask() {
     mutationFn: ({ id, data }: { id: string; data: Partial<ScheduledTask> }) =>
       api.updateTask(id, data),
     onSuccess: (_result, { id }) => {
-      void qc.invalidateQueries({ queryKey: ['scheduling-tasks'] });
+      invalidateTasksAndProjects(qc);
       void qc.invalidateQueries({ queryKey: ['scheduling-task', id] });
     },
   });
@@ -61,7 +73,7 @@ export function useDeleteTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.deleteTask(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['scheduling-tasks'] }),
+    onSuccess: () => invalidateTasksAndProjects(qc),
   });
 }
 
@@ -76,7 +88,7 @@ export function useCloseTask() {
     mutationFn: ({ id, isClosed }: { id: string; isClosed: boolean }) =>
       api.updateTask(id, { isClosed }),
     onSuccess: (_result, { id }) => {
-      void qc.invalidateQueries({ queryKey: ['scheduling-tasks'] });
+      invalidateTasksAndProjects(qc);
       void qc.invalidateQueries({ queryKey: ['scheduling-task', id] });
     },
   });
@@ -87,7 +99,7 @@ export function useUpdateTaskStatus() {
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       api.updateTaskStatus(id, status),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['scheduling-tasks'] }),
+    onSuccess: () => invalidateTasksAndProjects(qc),
   });
 }
 
@@ -98,7 +110,7 @@ export function useMoveTaskToStage() {
       api.moveTaskToStage(id, stageId),
     onSuccess: (_result, { id }) => {
       void qc.invalidateQueries({ queryKey: ['scheduling-task', id] });
-      void qc.invalidateQueries({ queryKey: ['scheduling-tasks'] });
+      invalidateTasksAndProjects(qc);
     },
   });
 }
@@ -113,7 +125,7 @@ export function useBulkMoveTasksToStage() {
     mutationFn: ({ ids, stageId }: { ids: string[]; stageId: string }) =>
       api.bulkMoveToStage(ids, stageId),
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: ['scheduling-tasks'] });
+      invalidateTasksAndProjects(qc);
     },
   });
 }

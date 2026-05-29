@@ -36,16 +36,6 @@ function IconExternalLink() {
   );
 }
 
-function IconRefresh() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="23 4 23 10 17 10" />
-      <polyline points="1 20 1 14 7 14" />
-      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-    </svg>
-  );
-}
-
 function IconFilter() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -142,7 +132,7 @@ export default function SchedulingProjectsPage() {
   const navigate = useNavigate();
   const [showDisabled, setShowDisabled] = useState(false);
   // visibility = 'all' to also fetch disabled rows; default behaviour (omitted) is enabled-only.
-  const { data: projects = [], isLoading, refetch } = useProjects(showDisabled ? 'all' : undefined);
+  const { data: projects = [], isLoading } = useProjects(showDisabled ? 'all' : undefined);
   const { data: workflows = [] } = useWorkflows();
   const createMutation = useCreateProject();
   const updateMutation = useUpdateProject();
@@ -236,9 +226,6 @@ export default function SchedulingProjectsPage() {
           <h1 className={styles.title}>Proyectos</h1>
         </div>
         <div className={styles.headerRight}>
-          <button className={styles.btnIcon} title="Recargar" onClick={() => void refetch()}>
-            <IconRefresh />
-          </button>
           <button className={styles.btnPrimary} onClick={() => setShowCreate(true)}>
             Añadir
           </button>
