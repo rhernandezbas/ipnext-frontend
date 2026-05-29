@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
+import { useRunClosureBackfill } from '@/hooks/useIClassClosure';
+import type { ClosureBackfillResult } from '@/api/iclassClosure.api';
 import styles from './IClassSettings.module.css';
 
 const FLAG_KEY = 'iclass-closure-loop';
@@ -13,6 +16,16 @@ const FLAG_KEY = 'iclass-closure-loop';
 export function IClassClosureFlagBody() {
   const { data, isLoading, isError, refetch } = useFeatureFlag(FLAG_KEY);
   const setFlag = useSetFeatureFlag();
+  const backfill = useRunClosureBackfill();
+  const [lastBackfill, setLastBackfill] = useState<ClosureBackfillResult | null>(null);
+
+  async function handleBackfill() {
+    try {
+      setLastBackfill(await backfill.mutateAsync());
+    } catch {
+      // surfaced via backfill.isError banner
+    }
+  }
 
   if (isLoading) {
     return (
@@ -78,6 +91,36 @@ export function IClassClosureFlagBody() {
       {setFlag.isError && (
         <div className={`${styles.banner} ${styles.bannerError}`}>
           <span><span className={styles.bannerTitle}>No se pudo cambiar el estado del cierre automático.</span> Reintentá en unos segundos.</span>
+        </div>
+      )}
+
+      <section className={styles.statusCard}>
+        <header className={styles.statusHeader}>
+          <h2 className={styles.statusTitle}>Reconciliar tareas pendientes</h2>
+        </header>
+        <p className={styles.statusDescription}>
+          Revisa ahora las tareas ya enviadas a IClass (en "Registrado en IClass") y, para las que ya cerraron, las mueve al estado mapeado. Es idempotente: podés correrlo las veces que quieras.
+        </p>
+        <div className={styles.statusActionRow}>
+          <span className={styles.statusActionLabel}>Buscar cierres recientes y actualizar tareas</span>
+          <button className={styles.btnSecondary} onClick={handleBackfill} disabled={backfill.isPending}>
+            {backfill.isPending ? 'Reconciliando…' : 'Reconciliar ahora'}
+          </button>
+        </div>
+      </section>
+
+      {lastBackfill && (
+        <div className={`${styles.banner} ${styles.bannerSuccess}`}>
+          <span>
+            <span className={styles.bannerTitle}>{lastBackfill.transitioned} tareas movidas.</span>{' '}
+            {lastBackfill.mirrored} OS espejadas · {lastBackfill.skippedNotClosed} aún abiertas · {lastBackfill.skippedUnchanged} sin cambios.
+          </span>
+        </div>
+      )}
+
+      {backfill.isError && (
+        <div className={`${styles.banner} ${styles.bannerError}`}>
+          <span><span className={styles.bannerTitle}>No se pudo reconciliar.</span> Reintentá en unos segundos.</span>
         </div>
       )}
     </div>

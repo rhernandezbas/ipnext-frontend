@@ -5,8 +5,10 @@ vi.mock('@/hooks/useFeatureFlags', () => ({
   useFeatureFlag: vi.fn(),
   useSetFeatureFlag: vi.fn(),
 }));
+vi.mock('@/hooks/useIClassClosure', () => ({ useRunClosureBackfill: vi.fn() }));
 
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
+import { useRunClosureBackfill } from '@/hooks/useIClassClosure';
 import { IClassClosureFlagBody } from '@/pages/scheduling/settings/IClassClosureFlagBody';
 
 const FLAG = 'iclass-closure-loop';
@@ -34,6 +36,7 @@ describe('IClassClosureFlagBody', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useSetFeatureFlag).mockReturnValue(idleMutation as never);
+    vi.mocked(useRunClosureBackfill).mockReturnValue(idleMutation as never);
   });
 
   it('renders loading state while the flag query is loading', () => {
@@ -87,5 +90,16 @@ describe('IClassClosureFlagBody', () => {
 
     render(<IClassClosureFlagBody />);
     expect(screen.getByText(/no se pudo cambiar el estado/i)).toBeInTheDocument();
+  });
+
+  it('runs the backfill when "Reconciliar ahora" is clicked', () => {
+    mockFlag(true);
+    const mutateAsync = vi.fn().mockResolvedValue({ mirrored: 0, transitioned: 0, skippedNotClosed: 0, skippedNotOurs: 0, skippedUnchanged: 0 });
+    vi.mocked(useRunClosureBackfill).mockReturnValue({ ...idleMutation, mutateAsync } as never);
+
+    render(<IClassClosureFlagBody />);
+    fireEvent.click(screen.getByRole('button', { name: /reconciliar ahora/i }));
+
+    expect(mutateAsync).toHaveBeenCalled();
   });
 });
