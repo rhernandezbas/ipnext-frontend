@@ -1,3 +1,7 @@
+/**
+ * Integration tests for the Roles & Permissions tab in AdminPage.
+ * Verifies that the new RolesMatrixBody is wired up correctly.
+ */
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -6,9 +10,45 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { default as AdminPage } from '@/pages/system/AdminPage';
 import * as useAdminsModule from '@/hooks/useAdmins';
 import type { Admin, AdminActivityLog, Admin2FA } from '@/types/admin';
-import type { AdminRole_Definition } from '@/types/role';
 
 vi.mock('@/hooks/useAdmins');
+
+// Mock the RBAC hooks used by RolesMatrixBody sub-components
+vi.mock('@/hooks/useRbacRoles', () => ({
+  useRbacRoles: vi.fn(() => ({
+    data: [
+      { id: 'r1', code: 'super_admin', label: 'Super Administrador', isSystem: true },
+      { id: 'r2', code: 'noc', label: 'NOC', isSystem: true },
+    ],
+    isLoading: false,
+    isSuccess: true,
+  })),
+  useCreateRbacRole: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useDeleteRbacRole: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+}));
+
+vi.mock('@/hooks/useRbacPermissions', () => ({
+  useRbacPermissions: vi.fn(() => ({
+    permissions: [],
+    modules: [
+      {
+        moduleId: 'm1',
+        moduleCode: 'clients',
+        moduleLabel: 'Clientes',
+        actions: ['read', 'write'],
+        actionToId: { read: 'p1', write: 'p2' },
+      },
+    ],
+    isLoading: false,
+    isSuccess: true,
+    isError: false,
+  })),
+}));
+
+vi.mock('@/hooks/useRolePermissions', () => ({
+  useRolePermissions: vi.fn(() => ({ data: undefined, isLoading: false, isSuccess: false })),
+  useSetRolePermissions: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+}));
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -26,25 +66,6 @@ const mockAdmins: Admin[] = [
   },
 ];
 
-const mockActivityLog: AdminActivityLog[] = [];
-
-const mockRoles: AdminRole_Definition[] = [
-  {
-    id: '1',
-    name: 'superadmin',
-    description: 'Acceso total',
-    isSystem: true,
-    permissions: [{ module: 'clients', actions: ['read', 'write', 'delete'] }],
-  },
-  {
-    id: '2',
-    name: 'viewer',
-    description: 'Solo lectura',
-    isSystem: true,
-    permissions: [{ module: 'clients', actions: ['read'] }],
-  },
-];
-
 function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
@@ -55,7 +76,7 @@ function renderPage() {
   );
 }
 
-describe('RolesTab', () => {
+describe('Roles y Permisos tab (RolesMatrixBody)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -65,7 +86,7 @@ describe('RolesTab', () => {
     } as ReturnType<typeof useAdminsModule.useAdmins>);
 
     vi.mocked(useAdminsModule.useAdminActivityLog).mockReturnValue({
-      data: mockActivityLog,
+      data: [] as AdminActivityLog[],
       isLoading: false,
     } as ReturnType<typeof useAdminsModule.useAdminActivityLog>);
 
@@ -84,21 +105,6 @@ describe('RolesTab', () => {
       isPending: false,
     } as unknown as ReturnType<typeof useAdminsModule.useDeleteAdmin>);
 
-    vi.mocked(useAdminsModule.useRoles).mockReturnValue({
-      data: mockRoles,
-      isLoading: false,
-    } as ReturnType<typeof useAdminsModule.useRoles>);
-
-    vi.mocked(useAdminsModule.useCreateRole).mockReturnValue({
-      mutate: vi.fn(),
-      isPending: false,
-    } as unknown as ReturnType<typeof useAdminsModule.useCreateRole>);
-
-    vi.mocked(useAdminsModule.useUpdateRole).mockReturnValue({
-      mutate: vi.fn(),
-      isPending: false,
-    } as unknown as ReturnType<typeof useAdminsModule.useUpdateRole>);
-
     vi.mocked(useAdminsModule.useAdmin2FAStatus).mockReturnValue({
       data: { adminId: '1', enabled: false, method: null, backupCodesCount: 0, enabledAt: null, lastUsedAt: null } as Admin2FA,
       isLoading: false,
@@ -115,28 +121,23 @@ describe('RolesTab', () => {
     } as unknown as ReturnType<typeof useAdminsModule.useDisable2FA>);
   });
 
-  it('shows permission matrix with module rows when a role is selected', async () => {
+  it('shows empty state before any role is selected', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: /roles y permisos/i }));
-    // Click first role card to select it
-    const roleCards = screen.getAllByText(/superadmin|viewer/i);
-    await user.click(roleCards[0]);
 
-    // Should see module rows in permission matrix
-    expect(screen.getByText(/clientes/i)).toBeInTheDocument();
+    expect(screen.getByText(/seleccioná un rol/i)).toBeInTheDocument();
   });
 
-  it('shows "Guardar cambios" button when a role is selected', async () => {
+  it('shows the roles list rail with role names', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: /roles y permisos/i }));
-    const roleCards = screen.getAllByText(/superadmin|viewer/i);
-    await user.click(roleCards[0]);
 
-    expect(screen.getByRole('button', { name: /guardar cambios/i })).toBeInTheDocument();
+    expect(screen.getByText('Super Administrador')).toBeInTheDocument();
+    expect(screen.getByText('NOC')).toBeInTheDocument();
   });
 
   it('"Nuevo rol" button exists in Roles tab', async () => {

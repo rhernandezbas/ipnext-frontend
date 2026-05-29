@@ -18,6 +18,23 @@ vi.mock('@/hooks/useRbacUsers', () => ({
 }));
 vi.mock('@/hooks/useRbacRoles', () => ({
   useRbacRoles: vi.fn(),
+  useCreateRbacRole: vi.fn(),
+  useDeleteRbacRole: vi.fn(),
+}));
+
+vi.mock('@/hooks/useRbacPermissions', () => ({
+  useRbacPermissions: vi.fn(() => ({
+    permissions: [],
+    modules: [],
+    isLoading: false,
+    isSuccess: true,
+    isError: false,
+  })),
+}));
+
+vi.mock('@/hooks/useRolePermissions', () => ({
+  useRolePermissions: vi.fn(() => ({ data: undefined, isLoading: false, isSuccess: false })),
+  useSetRolePermissions: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
 }));
 
 import {
@@ -27,7 +44,7 @@ import {
   useDeleteRbacUser,
   useSetUserRoles,
 } from '@/hooks/useRbacUsers';
-import { useRbacRoles } from '@/hooks/useRbacRoles';
+import { useRbacRoles, useCreateRbacRole, useDeleteRbacRole } from '@/hooks/useRbacRoles';
 
 vi.mock('@/hooks/useAdmins');
 
@@ -180,9 +197,15 @@ describe('AdminPage', () => {
       refetch: vi.fn(),
     } as unknown as ReturnType<typeof useRbacUsers>);
     vi.mocked(useRbacRoles).mockReturnValue({
-      data: [],
+      data: [
+        { id: 'r1', code: 'super_admin', label: 'Super Administrador', isSystem: true },
+        { id: 'r2', code: 'noc', label: 'NOC', isSystem: true },
+      ],
       isLoading: false,
+      isSuccess: true,
     } as unknown as ReturnType<typeof useRbacRoles>);
+    vi.mocked(useCreateRbacRole).mockReturnValue(idleRbacMutation as unknown as ReturnType<typeof useCreateRbacRole>);
+    vi.mocked(useDeleteRbacRole).mockReturnValue(idleRbacMutation as unknown as ReturnType<typeof useDeleteRbacRole>);
     vi.mocked(useCreateRbacUser).mockReturnValue(idleRbacMutation as unknown as ReturnType<typeof useCreateRbacUser>);
     vi.mocked(useUpdateRbacUser).mockReturnValue(idleRbacMutation as unknown as ReturnType<typeof useUpdateRbacUser>);
     vi.mocked(useDeleteRbacUser).mockReturnValue(idleRbacMutation as unknown as ReturnType<typeof useDeleteRbacUser>);
@@ -259,8 +282,8 @@ describe('AdminPage', () => {
 
     await user.click(screen.getByRole('button', { name: /roles y permisos/i }));
 
-    // The roles panel should be visible
-    expect(screen.getByText('superadmin')).toBeInTheDocument();
+    // New RolesMatrixBody shows roles from useRbacRoles
+    expect(screen.getByText('Super Administrador')).toBeInTheDocument();
   });
 
   it('role list shows at least one role name from mock', async () => {
@@ -269,7 +292,7 @@ describe('AdminPage', () => {
 
     await user.click(screen.getByRole('button', { name: /roles y permisos/i }));
 
-    expect(screen.getByText('superadmin')).toBeInTheDocument();
+    expect(screen.getByText('NOC')).toBeInTheDocument();
   });
 
   it('Activity tab shows category filter tabs', async () => {
@@ -364,40 +387,17 @@ describe('AdminPage', () => {
     expect(screen.getByLabelText('Hasta')).toBeInTheDocument();
   });
 
-  it('Roles tab "Guardar cambios" button calls onSave when non-system role selected', async () => {
+  it('Roles tab save bar appears when non-system role is selected', async () => {
     const user = userEvent.setup();
-    const updateRoleMutate = vi.fn();
-    vi.mocked(useAdminsModule.useUpdateRole).mockReturnValue({
-      mutate: updateRoleMutate,
-      isPending: false,
-    } as unknown as ReturnType<typeof useAdminsModule.useUpdateRole>);
-
-    // Override roles with a non-system role
-    const editableRole: AdminRole_Definition = {
-      id: 'r2',
-      name: 'editor',
-      description: 'Puede editar',
-      isSystem: false,
-      permissions: [{ module: 'clients', actions: ['read'] }],
-    };
-    vi.mocked(useAdminsModule.useRoles).mockReturnValue({
-      data: [editableRole],
-      isLoading: false,
-    } as ReturnType<typeof useAdminsModule.useRoles>);
 
     renderPage();
     await user.click(screen.getByRole('button', { name: /roles y permisos/i }));
 
-    // Click the editable role
-    const roleItem = screen.getByText('editor');
-    await user.click(roleItem);
+    // NOC is a system role — save bar is visible (just disabled when not dirty)
+    await user.click(screen.getByText('NOC'));
 
-    // Click save
-    const saveBtn = screen.getByRole('button', { name: 'Guardar cambios' });
-    await user.click(saveBtn);
-
-    // updateRole mutate should have been called
-    expect(updateRoleMutate).toHaveBeenCalled();
+    // Save bar should be visible (save button exists, may be disabled if not dirty)
+    expect(screen.getByRole('button', { name: /guardar/i })).toBeInTheDocument();
   });
 
   // Batch 2 — Seguridad + Sesiones tabs

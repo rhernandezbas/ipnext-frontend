@@ -1,3 +1,8 @@
+export interface CreateRbacRolePayload {
+  code: string;
+  label: string;
+}
+
 export type SystemRoleCode =
   | 'super_admin'
   | 'administrador'
