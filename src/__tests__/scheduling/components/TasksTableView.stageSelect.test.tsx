@@ -11,6 +11,7 @@ vi.mock('@/hooks/useScheduling', () => ({
   useDeleteTask:             () => ({ mutateAsync: deleteAsync, isPending: false }),
   useCloseTask:              () => ({ mutateAsync: closeAsync,  isPending: false }),
   useSetTaskInventoryReview: () => ({ mutateAsync: vi.fn(),     isPending: false }),
+  useUpdateTask:             () => ({ mutateAsync: vi.fn(),     isPending: false }),
 }));
 
 vi.mock('@/hooks/useAuth', () => ({

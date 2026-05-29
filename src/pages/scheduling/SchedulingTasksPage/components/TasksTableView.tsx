@@ -6,13 +6,14 @@ import type { Workflow, WorkflowStage } from '@/types/workflow';
 import type { Project } from '@/types/project';
 import type { TaskPriority } from '@/types/taskPriority';
 import type { Admin } from '@/types/admin';
-import { useMoveTaskToStage, useBulkMoveTasksToStage, useDeleteTask, useCloseTask, useSetTaskInventoryReview } from '@/hooks/useScheduling';
+import { useMoveTaskToStage, useBulkMoveTasksToStage, useDeleteTask, useCloseTask, useSetTaskInventoryReview, useUpdateTask } from '@/hooks/useScheduling';
 import type { BulkStageResponse } from '@/api/scheduling.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useIClassSendFeedback } from '@/hooks/useIClassSendFeedback';
 import { IClassSendResultModal } from '@/components/molecules/IClassSendResultModal/IClassSendResultModal';
 import { BulkMoveResultModal } from '@/components/molecules/BulkMoveResultModal/BulkMoveResultModal';
 import { StageSelect } from '@/components/molecules/StageSelect/StageSelect';
+import { PrioritySelect } from '@/components/molecules/PrioritySelect/PrioritySelect';
 import styles from './TasksTableView.module.css';
 
 // ── Atoms ────────────────────────────────────────────────────────────────────
@@ -252,6 +253,7 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
   const navigate = useNavigate();
   const moveToStage = useMoveTaskToStage();
   const bulkMoveToStage = useBulkMoveTasksToStage();
+  const updateTask = useUpdateTask();
   const iclass = useIClassSendFeedback();
   // Result of the last bulk "Mover estado" — drives BulkMoveResultModal.
   const [bulkResult, setBulkResult] = useState<BulkStageResponse | null>(null);
@@ -353,16 +355,15 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
     if (lastMove.current) void handleMove(lastMove.current.id, lastMove.current.stageId);
   }
 
+  /** Inline priority edit — mirrors handleMove's UX for the priority column. */
+  async function handlePriorityChange(id: string, priority: string) {
+    await updateTask.mutateAsync({ id, data: { priority } });
+  }
+
   function handleEditTask() {
     iclass.closeModal();
     if (lastMove.current) navigate(`/admin/scheduling/tasks/${lastMove.current.id}`);
   }
-
-  // priority name → colour, from the editable catalog.
-  const priorityColor = useMemo(
-    () => new Map(priorities.map(p => [p.name, p.color])),
-    [priorities],
-  );
 
   const ALL_COLUMNS = [
     { label: '#',         key: 'sequenceNumber', sortable: true,
@@ -416,7 +417,13 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
       // admin (deleted user / stale data) — never leak the raw uuid to the UI.
       render: (t: ScheduledTask) => admins.find(a => a.id === t.reporterId)?.name ?? '—' },
     { label: 'Prioridad', key: 'priority',       sortable: true,
-      render: (t: ScheduledTask) => <PriorityPill priority={t.priority} color={priorityColor.get(t.priority)} /> },
+      render: (t: ScheduledTask) => (
+        <PrioritySelect
+          value={t.priority}
+          priorities={priorities}
+          onChange={(name) => handlePriorityChange(t.id, name)}
+        />
+      ) },
     { label: 'Fecha creación',      key: 'createdAt', sortable: true,
       render: (t: ScheduledTask) => new Date(t.createdAt).toLocaleDateString('es-AR') },
     { label: 'Fecha actualización', key: 'updatedAt', sortable: true,
