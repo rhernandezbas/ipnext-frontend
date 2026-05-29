@@ -48,6 +48,12 @@ function toLocalInput(iso: string | null): string {
   }
 }
 
+/** Format a Date as "YYYY-MM-DDTHH:mm" in local time (datetime-local input format). */
+function toLocalInputString(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 /** Convert datetime-local string to ISO 8601 */
 function toIso(local: string): string | null {
   if (!local) return null;
@@ -71,6 +77,7 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
     formState: { errors, isDirty },
     setError,
     setValue,
+    getValues,
     control,
   } = useForm<DatosFormValues>({
     defaultValues: {
@@ -119,6 +126,22 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
   // Only re-run when the service selection changes, not on every render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedServiceId, customerServices]);
+
+  // Watch startDate to drive end-date UX: disable End while Start is empty, and
+  // auto-default End to Start + 1h when End is empty. If End already has a value
+  // (initial or user-edited), leave it alone — the user owns it.
+  const watchedStartDate = useWatch({ control, name: 'startDate' });
+  useEffect(() => {
+    if (!watchedStartDate) return;
+    const currentEnd = getValues('endDate');
+    if (currentEnd) return; // respect existing End value
+    const start = new Date(watchedStartDate);
+    if (Number.isNaN(start.getTime())) return;
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    setValue('endDate', toLocalInputString(end), { shouldDirty: true, shouldValidate: false });
+    // Only re-run when startDate changes. setValue/getValues are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedStartDate]);
 
   // Bubble react-hook-form's dirty state up to the parent so confirm-on-leave covers
   // every Datos field (assignee/dates/partner/travel) — not just the map override.
@@ -242,8 +265,15 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
               id="endDate"
               className={styles.input}
               type="datetime-local"
+              disabled={!watchedStartDate}
+              aria-describedby={!watchedStartDate ? 'endDate-hint' : undefined}
               {...register('endDate')}
             />
+            {!watchedStartDate && (
+              <span id="endDate-hint" className={styles.hint}>
+                Primero indicá la fecha de inicio
+              </span>
+            )}
             {errors.endDate && (
               <span className={styles.error} role="alert">{errors.endDate.message}</span>
             )}
