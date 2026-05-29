@@ -15,7 +15,6 @@ export interface TaskTabsProps {
 
 const TAB_IDS = {
   detalles: 'detalles',
-  adjuntos: 'adjuntos',
   comentarios: 'comentarios',
   relacionado: 'relacionado',
   inventory: 'inventory',
@@ -76,16 +75,6 @@ export function TaskTabs({
       id: TAB_IDS.detalles,
       label: 'Detalles',
       content: <TaskDetailsTab {...detailsProps} />,
-    },
-    {
-      id: TAB_IDS.adjuntos,
-      label: 'Adjuntos',
-      content: (
-        <ComingSoonPanel
-          title="Adjuntos"
-          description="Subí y gestioná archivos de la tarea. Próximamente."
-        />
-      ),
     },
     {
       id: TAB_IDS.comentarios,
