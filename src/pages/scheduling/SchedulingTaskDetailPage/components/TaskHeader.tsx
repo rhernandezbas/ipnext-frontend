@@ -4,6 +4,7 @@ import type { ScheduledTask } from '@/types/scheduling';
 import type { WorkflowStage } from '@/types/workflow';
 import type { TaskPriority } from '@/types/taskPriority';
 import { StageSelect } from '@/components/molecules/StageSelect/StageSelect';
+import { PrioritySelect } from '@/components/molecules/PrioritySelect/PrioritySelect';
 import styles from './TaskHeader.module.css';
 
 interface TaskHeaderProps {
@@ -101,10 +102,6 @@ export function TaskHeader({
     }
   };
 
-  const handlePriorityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    void onPriorityChange(e.target.value);
-  };
-
   return (
     <header className={styles.header} role="banner">
       <div className={styles.breadcrumbs}>
@@ -154,18 +151,12 @@ export function TaskHeader({
           <StageSelect task={task} stages={stages} onMove={onStageMove} disabled={isSaving} />
         </div>
 
-        <select
-          className={styles.prioritySelect}
+        <PrioritySelect
           value={task.priority}
-          onChange={handlePriorityChange}
+          priorities={priorities}
+          onChange={onPriorityChange}
           disabled={isSaving}
-          aria-label="Cambiar prioridad"
-        >
-          {priorities.length === 0 && <option value={task.priority}>{task.priority}</option>}
-          {priorities.map(p => (
-            <option key={p.id} value={p.name}>{p.name}</option>
-          ))}
-        </select>
+        />
 
         <div className={styles.kebabWrapper} data-kebab-wrapper="">
           <button

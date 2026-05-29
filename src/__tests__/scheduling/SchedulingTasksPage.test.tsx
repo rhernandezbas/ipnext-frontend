@@ -52,6 +52,7 @@ vi.mock('@/hooks/useScheduling', () => ({
   useDeleteTask:             vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
   useCloseTask:              vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
   useSetTaskInventoryReview: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
+  useUpdateTask:             vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false })),
 }));
 
 vi.mock('@/hooks/useAuth', () => ({
