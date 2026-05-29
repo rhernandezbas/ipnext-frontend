@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useConfirm } from '@/context/ConfirmContext';
 import { useRbacRoles } from '@/hooks/useRbacRoles';
 import { useRbacPermissions } from '@/hooks/useRbacPermissions';
 import { useRolePermissions, useSetRolePermissions } from '@/hooks/useRolePermissions';
@@ -61,6 +62,7 @@ function extractErrorCode(err: unknown): string | undefined {
 export function RolesMatrixBody() {
   const { data: roles } = useRbacRoles();
   const { modules, isLoading: catalogLoading } = useRbacPermissions();
+  const confirm = useConfirm();
 
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
   const [stagedIds, setStagedIds] = useState<Set<string>>(new Set());
@@ -87,9 +89,9 @@ export function RolesMatrixBody() {
 
   const isDirty = !setsEqual(stagedIds, savedIds);
 
-  function handleSelect(roleId: string) {
+  async function handleSelect(roleId: string) {
     if (roleId === selectedRoleId) return;
-    if (isDirty && !window.confirm('Tenés cambios sin guardar. ¿Descartar y continuar?')) return;
+    if (isDirty && !(await confirm({ message: 'Tenés cambios sin guardar. ¿Descartar y continuar?', confirmLabel: 'Descartar' }))) return;
     setSelectedRoleId(roleId);
     setStagedIds(new Set());
     setSavedIds(new Set());

@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTicket, useTicketReplies, useUpdateTicketStatus, useAddTicketReply, useAssignTicket, useUpdateTicket, useDeleteTicket } from '../../hooks/useTickets';
 import type { TicketStatus } from '../../types/ticket';
 import { Can } from '../../components/auth/Can';
+import { useConfirm } from '@/context/ConfirmContext';
 import styles from './TicketDetailPage.module.css';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -30,6 +31,7 @@ export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const ticketId = id ?? '';
   const navigate = useNavigate();
+  const confirm = useConfirm();
 
   const { data: ticket, isLoading: ticketLoading } = useTicket(ticketId);
   const { data: replies, isLoading: repliesLoading } = useTicketReplies(ticketId);
@@ -69,8 +71,8 @@ export default function TicketDetailPage() {
     );
   }
 
-  function handleDeleteTicket() {
-    if (window.confirm('¿Eliminar este ticket? Esta acción no se puede deshacer.')) {
+  async function handleDeleteTicket() {
+    if (await confirm({ message: '¿Eliminar este ticket? Esta acción no se puede deshacer.', tone: 'danger', confirmLabel: 'Eliminar' })) {
       deleteTicket.mutate(ticketId, { onSuccess: () => navigate('/admin/tickets/opened') });
     }
   }

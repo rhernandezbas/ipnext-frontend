@@ -8,6 +8,7 @@ type SchedulingAssignee = { id: string; name: string };
 import type { TaskTemplate } from '@/types/taskTemplate';
 import type { CreateTaskPayload } from '@/types/scheduling';
 import { useTaskPriorities } from '@/hooks/useTaskPriorities';
+import { useConfirm } from '@/context/ConfirmContext';
 import { CustomerPicker } from './CustomerPicker';
 import { applyTaskVariables } from '../../lib/taskVariables';
 import styles from './CreateTaskModal.module.css';
@@ -88,6 +89,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   // When a customer is picked, pull its detail and auto-fill the address with the
   // customer's address. Fill once per customer (ref guard) so we don't clobber a
@@ -169,8 +171,8 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   // Backdrop click: only discard silently when the form is empty. With data,
   // confirm first so a stray click outside the modal doesn't wipe the work.
   // The explicit Cancel button bypasses this (it's a deliberate action).
-  function handleBackdropClick() {
-    if (hasData && !window.confirm('Tenés datos sin guardar. ¿Cerrar y descartar la tarea?')) {
+  async function handleBackdropClick() {
+    if (hasData && !(await confirm({ message: 'Tenés datos sin guardar. ¿Cerrar y descartar la tarea?', confirmLabel: 'Descartar' }))) {
       return;
     }
     onClose();
@@ -245,7 +247,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   }
 
   return (
-    <div className={styles.overlay} data-testid="create-task-overlay" onClick={handleBackdropClick}>
+    <div className={styles.overlay} data-testid="create-task-overlay" onClick={() => void handleBackdropClick()}>
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
         <h2 className={styles.title}>Nueva tarea</h2>
 

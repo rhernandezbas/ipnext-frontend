@@ -4,6 +4,7 @@ import { useNetworkSites, useCreateNetworkSite, useUpdateNetworkSite, useDeleteN
 import type { NetworkSite } from '@/types/networkSite';
 import { Can } from '@/components/auth/Can';
 import { useCan } from '@/hooks/useMyPermissions';
+import { useConfirm } from '@/context/ConfirmContext';
 import styles from './NetworkSitesPage.module.css';
 
 const TYPE_LABELS: Record<NetworkSite['type'], string> = {
@@ -217,13 +218,14 @@ export default function NetworkSitesPage() {
   const { mutate: updateSite } = useUpdateNetworkSite();
   const { mutate: deleteSite } = useDeleteNetworkSite();
   const canManageSites = useCan('network.manage_sites');
+  const confirm = useConfirm();
 
   const total = sites.length;
   const active = sites.filter(s => s.status === 'active').length;
   const maintenance = sites.filter(s => s.status === 'maintenance').length;
 
-  function handleDelete(row: NetworkSite) {
-    if (window.confirm(`¿Eliminar sitio "${row.name}"?`)) {
+  async function handleDelete(row: NetworkSite) {
+    if (await confirm({ message: `¿Eliminar sitio "${row.name}"?`, tone: 'danger', confirmLabel: 'Eliminar' })) {
       deleteSite(row.id);
     }
   }

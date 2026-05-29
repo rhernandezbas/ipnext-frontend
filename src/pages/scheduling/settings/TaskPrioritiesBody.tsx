@@ -6,6 +6,7 @@ import {
   useDeleteTaskPriority,
 } from '@/hooks/useTaskPriorities';
 import type { TaskPriority } from '@/types/taskPriority';
+import { useConfirm } from '@/context/ConfirmContext';
 import styles from '../SchedulingTaskCategoriesPage.module.css';
 
 interface ModalProps {
@@ -74,6 +75,7 @@ export function TaskPrioritiesBody() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<TaskPriority | null>(null);
+  const confirm = useConfirm();
 
   const nextWeight = priorities.reduce((max, p) => Math.max(max, p.weight), 0) + 1;
 
@@ -86,7 +88,7 @@ export function TaskPrioritiesBody() {
     setEditing(null);
   }
   async function handleDelete(p: TaskPriority) {
-    if (!window.confirm(`¿Eliminar la prioridad "${p.name}"?`)) return;
+    if (!(await confirm({ message: `¿Eliminar la prioridad "${p.name}"?`, tone: 'danger', confirmLabel: 'Eliminar' }))) return;
     try {
       await deleteMutation.mutateAsync(p.id);
     } catch (err: unknown) {

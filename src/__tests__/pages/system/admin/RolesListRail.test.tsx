@@ -11,6 +11,7 @@ vi.mock('@/hooks/useRbacRoles', () => ({
 }));
 
 import { useRbacRoles, useDeleteRbacRole, useCreateRbacRole } from '@/hooks/useRbacRoles';
+import { useConfirm } from '@/context/ConfirmContext';
 import { RolesListRail } from '@/pages/system/admin/RolesListRail';
 import type { RbacRoleDto } from '@/types/rbacRole';
 
@@ -21,6 +22,7 @@ const mockRoles: RbacRoleDto[] = [
 ];
 
 const mockDeleteMutate = vi.fn();
+const confirmFn = vi.fn().mockResolvedValue(true);
 
 function createWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -32,6 +34,8 @@ function createWrapper() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  confirmFn.mockResolvedValue(true);
+  vi.mocked(useConfirm).mockReturnValue(confirmFn);
   vi.mocked(useRbacRoles).mockReturnValue({
     data: mockRoles,
     isLoading: false,
@@ -94,7 +98,7 @@ describe('RolesListRail', () => {
   });
 
   it('confirms and deletes custom role on delete click', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    confirmFn.mockResolvedValue(true);
     mockDeleteMutate.mockResolvedValue(undefined);
 
     const wrapper = createWrapper();
@@ -103,7 +107,7 @@ describe('RolesListRail', () => {
     fireEvent.click(screen.getByRole('button', { name: /eliminar/i }));
 
     await waitFor(() => {
-      expect(window.confirm).toHaveBeenCalled();
+      expect(confirmFn).toHaveBeenCalled();
       expect(mockDeleteMutate).toHaveBeenCalledWith('r3');
     });
   });

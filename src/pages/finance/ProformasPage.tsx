@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
+import { useConfirm } from '@/context/ConfirmContext';
 import { useProformas, useCreateProforma, useCancelProforma, useConvertToInvoice } from '@/hooks/useBilling';
 import type { ProformaInvoice, ProformaStatus } from '@/types/billing';
 import styles from './finanzas.module.css';
@@ -73,6 +74,7 @@ export default function ProformasPage() {
   const [validUntil, setValidUntil] = useState('');
   const [notes, setNotes] = useState('');
 
+  const confirm = useConfirm();
   const { data: proformas = [], isLoading } = useProformas();
   const { mutate: createProforma } = useCreateProforma();
   const { mutate: cancelProf } = useCancelProforma();
@@ -82,8 +84,8 @@ export default function ProformasPage() {
     { label: 'Ver', onClick: (row: ProformaInvoice) => setViewProforma(row) },
     {
       label: 'Convertir a factura',
-      onClick: (row: ProformaInvoice) => {
-        if (window.confirm('¿Convertir proforma a factura?')) convertProforma(row.id);
+      onClick: async (row: ProformaInvoice) => {
+        if (await confirm({ message: '¿Convertir proforma a factura?', confirmLabel: 'Convertir' })) convertProforma(row.id);
       },
     },
     { label: 'Cancelar', onClick: (row: ProformaInvoice) => cancelProf(row.id) },

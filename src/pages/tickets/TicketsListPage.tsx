@@ -7,6 +7,7 @@ import { useTicketList, useDeleteTicket } from '../../hooks/useTickets';
 import { useTicketStatuses } from '../../hooks/useTicketStatuses';
 import { Ticket } from '../../types/ticket';
 import { useCan } from '../../hooks/useMyPermissions';
+import { useConfirm } from '@/context/ConfirmContext';
 import styles from './TicketsListPage.module.css';
 import tabStyles from './TicketsListPage.tabs.module.css';
 
@@ -49,6 +50,7 @@ export default function TicketsListPage({ statusFilter }: Props) {
   const [priority, setPriority] = useState('');
   const [page, setPage] = useState(1);
 
+  const confirm = useConfirm();
   const deleteTicket = useDeleteTicket();
   const canDeleteTicket = useCan('tickets.delete');
   const { data: catalogStatuses = [], isLoading: statusesLoading } = useTicketStatuses();
@@ -129,8 +131,8 @@ export default function TicketsListPage({ statusFilter }: Props) {
         emptyMessage="No hay tickets."
         actions={canDeleteTicket ? [{
           label: 'Eliminar',
-          onClick: (row) => {
-            if (window.confirm('¿Eliminar este ticket? Esta acción no se puede deshacer.')) {
+          onClick: async (row) => {
+            if (await confirm({ message: '¿Eliminar este ticket? Esta acción no se puede deshacer.', tone: 'danger', confirmLabel: 'Eliminar' })) {
               deleteTicket.mutate(String(row.id));
             }
           },

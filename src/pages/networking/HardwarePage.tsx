@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useHardwareAssets, useCreateHardwareAsset, useUpdateHardwareAsset, useDeleteHardwareAsset } from '@/hooks/useHardware';
+import { useConfirm } from '@/context/ConfirmContext';
 import type { HardwareAsset } from '@/types/hardware';
 import styles from './HardwarePage.module.css';
 
@@ -280,6 +281,7 @@ export default function HardwarePage() {
   const { mutate: createAsset } = useCreateHardwareAsset();
   const { mutate: updateAsset } = useUpdateHardwareAsset();
   const { mutate: deleteAsset } = useDeleteHardwareAsset();
+  const confirm = useConfirm();
 
   const total = assets.length;
   const inUse = assets.filter(a => a.status === 'in_use').length;
@@ -287,8 +289,8 @@ export default function HardwarePage() {
   const maintenance = assets.filter(a => a.status === 'maintenance').length;
   const warrantyExpiring = assets.filter(a => isWarrantyExpiringSoon(a.warrantyExpiry)).length;
 
-  function handleDelete(row: HardwareAsset) {
-    if (window.confirm(`¿Eliminar activo "${row.name}"?`)) {
+  async function handleDelete(row: HardwareAsset) {
+    if (await confirm({ message: `¿Eliminar activo "${row.name}"?`, tone: 'danger', confirmLabel: 'Eliminar' })) {
       deleteAsset(row.id);
     }
   }

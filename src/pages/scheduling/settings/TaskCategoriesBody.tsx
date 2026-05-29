@@ -6,6 +6,7 @@ import {
   useDeleteTaskCategory,
 } from '@/hooks/useTaskCategories';
 import type { TaskCategory } from '@/types/taskCategory';
+import { useConfirm } from '@/context/ConfirmContext';
 import styles from '../SchedulingTaskCategoriesPage.module.css';
 
 interface ModalProps {
@@ -69,6 +70,7 @@ export function TaskCategoriesBody() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<TaskCategory | null>(null);
+  const confirm = useConfirm();
 
   async function handleCreate(data: { name: string; description: string | null }) {
     await createMutation.mutateAsync(data);
@@ -79,7 +81,7 @@ export function TaskCategoriesBody() {
     setEditing(null);
   }
   async function handleDelete(cat: TaskCategory) {
-    if (!window.confirm(`¿Eliminar la categoría "${cat.name}"?`)) return;
+    if (!(await confirm({ message: `¿Eliminar la categoría "${cat.name}"?`, tone: 'danger', confirmLabel: 'Eliminar' }))) return;
     try {
       await deleteMutation.mutateAsync(cat.id);
     } catch (err: unknown) {

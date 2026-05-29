@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useConfirm } from '@/context/ConfirmContext';
 import { useRbacUsers, useCreateRbacUser, useUpdateRbacUser, useDeleteRbacUser, useSetUserRoles } from '@/hooks/useRbacUsers';
 import { useRbacRoles } from '@/hooks/useRbacRoles';
 import { roleDisplay } from '@/constants/rbacRoleLabels';
@@ -121,6 +122,7 @@ export function RbacUsersBody() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<RbacUserWithRolesDto | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
@@ -143,9 +145,11 @@ export function RbacUsersBody() {
 
   async function handleDelete(user: RbacUserWithRolesDto) {
     const rolesLabel = user.roles.map(r => roleDisplay(r).label).join(', ');
-    const confirmed = window.confirm(
-      `¿Eliminás a ${user.name} (${user.login})? Esta acción no se puede deshacer.\nRoles actuales: ${rolesLabel || 'ninguno'}`,
-    );
+    const confirmed = await confirm({
+      message: `¿Eliminás a ${user.name} (${user.login})? Esta acción no se puede deshacer.\nRoles actuales: ${rolesLabel || 'ninguno'}`,
+      tone: 'danger',
+      confirmLabel: 'Eliminar',
+    });
     if (!confirmed) return;
 
     setDeleteError(null);

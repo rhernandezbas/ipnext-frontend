@@ -25,6 +25,7 @@ vi.mock('@/hooks/useTaskPriorities', () => ({
 }));
 
 import { CreateTaskModal } from '@/pages/scheduling/SchedulingTasksPage/components/CreateTaskModal';
+import { useConfirm } from '@/context/ConfirmContext';
 import type { Project } from '@/types/project';
 import type { Workflow } from '@/types/workflow';
 
@@ -168,42 +169,42 @@ describe('CreateTaskModal', () => {
   });
 
   it('closes immediately on backdrop click when the form is empty', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm');
+    const confirmFn = vi.fn().mockResolvedValue(true);
+    vi.mocked(useConfirm).mockReturnValue(confirmFn);
     setup();
     fireEvent.click(screen.getByTestId('create-task-overlay'));
-    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(confirmFn).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledTimes(1);
-    confirmSpy.mockRestore();
   });
 
-  it('asks for confirmation on backdrop click when the form has data, and closes if confirmed', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('asks for confirmation on backdrop click when the form has data, and closes if confirmed', async () => {
+    const confirmFn = vi.fn().mockResolvedValue(true);
+    vi.mocked(useConfirm).mockReturnValue(confirmFn);
     setup();
     fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Algo cargado' } });
     fireEvent.click(screen.getByTestId('create-task-overlay'));
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
-    expect(onClose).toHaveBeenCalledTimes(1);
-    confirmSpy.mockRestore();
+    expect(confirmFn).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
-  it('does NOT close on backdrop click when there is data and the user cancels the confirm', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('does NOT close on backdrop click when there is data and the user cancels the confirm', async () => {
+    const confirmFn = vi.fn().mockResolvedValue(false);
+    vi.mocked(useConfirm).mockReturnValue(confirmFn);
     setup();
     fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'No quiero perder esto' } });
     fireEvent.click(screen.getByTestId('create-task-overlay'));
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(confirmFn).toHaveBeenCalledTimes(1));
     expect(onClose).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
   });
 
   it('Cancel button always closes without confirmation, even with data', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm');
+    const confirmFn = vi.fn().mockResolvedValue(true);
+    vi.mocked(useConfirm).mockReturnValue(confirmFn);
     setup();
     fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Datos' } });
     fireEvent.click(screen.getByRole('button', { name: /cancelar/i }));
-    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(confirmFn).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledTimes(1);
-    confirmSpy.mockRestore();
   });
 
   it('auto-fills the address with the selected customer address', async () => {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useTr069Profiles, useCreateTr069Profile, useUpdateTr069Profile, useDeleteTr069Profile, useTr069Devices, useProvisionDevice, useDeleteTr069Device } from '@/hooks/useTr069';
+import { useConfirm } from '@/context/ConfirmContext';
 import type { Tr069Profile, Tr069Device } from '@/types/tr069';
 import styles from './Tr069Page.module.css';
 
@@ -242,15 +243,16 @@ export default function Tr069Page() {
   const { data: devices = [], isLoading: devicesLoading } = useTr069Devices();
   const { mutate: provision } = useProvisionDevice();
   const { mutate: deleteDevice } = useDeleteTr069Device();
+  const confirm = useConfirm();
 
-  function handleDeleteProfile(row: Tr069Profile) {
-    if (window.confirm(`¿Eliminar perfil "${row.name}"?`)) {
+  async function handleDeleteProfile(row: Tr069Profile) {
+    if (await confirm({ message: `¿Eliminar perfil "${row.name}"?`, tone: 'danger', confirmLabel: 'Eliminar' })) {
       deleteProfile(row.id);
     }
   }
 
-  function handleDeleteDevice(row: Tr069Device) {
-    if (window.confirm(`¿Eliminar dispositivo "${row.serialNumber}"?`)) {
+  async function handleDeleteDevice(row: Tr069Device) {
+    if (await confirm({ message: `¿Eliminar dispositivo "${row.serialNumber}"?`, tone: 'danger', confirmLabel: 'Eliminar' })) {
       deleteDevice(row.id);
     }
   }

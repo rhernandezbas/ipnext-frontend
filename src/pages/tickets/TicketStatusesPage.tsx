@@ -6,6 +6,7 @@ import {
   useDeleteTicketStatus,
 } from '@/hooks/useTicketStatuses';
 import type { TicketStatus } from '@/types/ticketStatus';
+import { useConfirm } from '@/context/ConfirmContext';
 import styles from '../scheduling/SchedulingTaskCategoriesPage.module.css';
 
 interface ModalProps {
@@ -92,6 +93,7 @@ export default function TicketStatusesPage() {
   const createMutation = useCreateTicketStatus();
   const updateMutation = useUpdateTicketStatus();
   const deleteMutation = useDeleteTicketStatus();
+  const confirm = useConfirm();
 
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<TicketStatus | null>(null);
@@ -109,7 +111,7 @@ export default function TicketStatusesPage() {
   }
 
   async function handleDelete(s: TicketStatus) {
-    if (!window.confirm(`¿Eliminar el estado "${s.name}"?`)) return;
+    if (!(await confirm({ message: `¿Eliminar el estado "${s.name}"?`, tone: 'danger', confirmLabel: 'Eliminar' }))) return;
     try {
       await deleteMutation.mutateAsync(s.id);
     } catch (err: unknown) {

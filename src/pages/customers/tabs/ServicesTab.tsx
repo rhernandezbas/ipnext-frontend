@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useConfirm } from '@/context/ConfirmContext';
 import { useClientServices, useAddService, useUpdateService, useDeleteService } from '../../../hooks/useCustomers';
 import type { Service } from '../../../types/customer';
 import type { AddServiceData, UpdateServiceData } from '../../../types/customer';
@@ -29,6 +30,7 @@ const EMPTY_FORM: FormState = {
 };
 
 export function ServicesTab({ clientId, active }: Props) {
+  const confirm = useConfirm();
   const { data, isLoading } = useClientServices(clientId, active);
   const addService = useAddService();
   const updateService = useUpdateService();
@@ -90,8 +92,8 @@ export function ServicesTab({ clientId, active }: Props) {
     }
   }
 
-  function handleDelete(serviceId: number) {
-    if (window.confirm('¿Eliminar este servicio?')) {
+  async function handleDelete(serviceId: number) {
+    if (await confirm({ message: '¿Eliminar este servicio?', tone: 'danger', confirmLabel: 'Eliminar' })) {
       deleteService.mutate({ clientId, serviceId });
     }
   }

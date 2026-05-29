@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useNasServers, useCreateNasServer, useUpdateNasServer, useDeleteNasServer, useRadiusConfig, useUpdateRadiusConfig } from '@/hooks/useNas';
 import { useIpNetworks, useCreateIpNetwork, useDeleteIpNetwork, useIpPools, useCreateIpPool, useDeleteIpPool, useIpAssignments, useIpv6Networks, useCreateIpv6Network } from '@/hooks/useNetwork';
+import { useConfirm } from '@/context/ConfirmContext';
 import type { NasServer, NasType, RadiusConfig } from '@/types/nas';
 import type { IpNetwork, IpPool, Ipv6Network } from '@/types/network';
 import styles from './GestionRedPage.module.css';
@@ -594,6 +595,7 @@ export default function GestionRedPage() {
   const { data: assignments = [], isLoading: assignmentsLoading } = useIpAssignments();
   const { data: ipv6Networks = [], isLoading: ipv6Loading } = useIpv6Networks();
   const { mutate: createIpv6Network } = useCreateIpv6Network();
+  const confirm = useConfirm();
 
   // NAS summary counts
   const totalNas = nasServers.length;
@@ -603,17 +605,17 @@ export default function GestionRedPage() {
 
   const nasActions = [
     { label: 'Editar', onClick: (row: NasServer) => setEditingNas(row) },
-    { label: 'Probar conexión', onClick: (row: NasServer) => { if (window.confirm(`¿Probar conexión con ${row.name}?`)) alert(`Conexión a ${row.name} (${row.ipAddress}) probada correctamente.`); } },
-    { label: 'Desactivar', onClick: (row: NasServer) => { if (window.confirm(`¿Desactivar ${row.name}?`)) updateNas({ id: row.id, data: { status: 'inactive' } }); } },
-    { label: 'Eliminar', onClick: (row: NasServer) => { if (window.confirm(`¿Eliminar ${row.name}?`)) deleteNas(row.id); } },
+    { label: 'Probar conexión', onClick: async (row: NasServer) => { if (await confirm({ message: `¿Probar conexión con ${row.name}?`, confirmLabel: 'Probar' })) alert(`Conexión a ${row.name} (${row.ipAddress}) probada correctamente.`); } },
+    { label: 'Desactivar', onClick: async (row: NasServer) => { if (await confirm({ message: `¿Desactivar ${row.name}?`, tone: 'danger', confirmLabel: 'Desactivar' })) updateNas({ id: row.id, data: { status: 'inactive' } }); } },
+    { label: 'Eliminar', onClick: async (row: NasServer) => { if (await confirm({ message: `¿Eliminar ${row.name}?`, tone: 'danger', confirmLabel: 'Eliminar' })) deleteNas(row.id); } },
   ];
 
   const networkActions = [
-    { label: 'Eliminar', onClick: (row: IpNetwork) => { if (window.confirm(`¿Eliminar red ${row.network}?`)) deleteNetwork(row.id); } },
+    { label: 'Eliminar', onClick: async (row: IpNetwork) => { if (await confirm({ message: `¿Eliminar red ${row.network}?`, tone: 'danger', confirmLabel: 'Eliminar' })) deleteNetwork(row.id); } },
   ];
 
   const poolActions = [
-    { label: 'Eliminar', onClick: (row: IpPool) => { if (window.confirm(`¿Eliminar pool ${row.name}?`)) deletePool(row.id); } },
+    { label: 'Eliminar', onClick: async (row: IpPool) => { if (await confirm({ message: `¿Eliminar pool ${row.name}?`, tone: 'danger', confirmLabel: 'Eliminar' })) deletePool(row.id); } },
   ];
 
   return (

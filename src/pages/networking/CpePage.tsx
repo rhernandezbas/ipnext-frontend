@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useCpeDevices, useCreateCpeDevice, useDeleteCpeDevice, useAssignCpeToClient } from '@/hooks/useCpe';
+import { useConfirm } from '@/context/ConfirmContext';
 import type { CpeDevice, CpeType } from '@/types/cpe';
 import styles from './CpePage.module.css';
 
@@ -236,6 +237,7 @@ export default function CpePage() {
   const { mutate: createDevice } = useCreateCpeDevice();
   const { mutate: deleteDevice } = useDeleteCpeDevice();
   const { mutate: assignToClient } = useAssignCpeToClient();
+  const confirm = useConfirm();
 
   const filtered = devices.filter(d => {
     if (statusFilter && d.status !== statusFilter) return false;
@@ -250,14 +252,14 @@ export default function CpePage() {
   const offline = devices.filter(d => d.status === 'offline').length;
   const unconfigured = devices.filter(d => d.status === 'unconfigured').length;
 
-  function handleDelete(row: CpeDevice) {
-    if (window.confirm(`¿Eliminar CPE "${row.serialNumber}"?`)) {
+  async function handleDelete(row: CpeDevice) {
+    if (await confirm({ message: `¿Eliminar CPE "${row.serialNumber}"?`, tone: 'danger', confirmLabel: 'Eliminar' })) {
       deleteDevice(row.id);
     }
   }
 
-  function handleReiniciar(row: CpeDevice) {
-    if (window.confirm(`¿Reiniciar CPE "${row.serialNumber}"?`)) {
+  async function handleReiniciar(row: CpeDevice) {
+    if (await confirm({ message: `¿Reiniciar CPE "${row.serialNumber}"?`, confirmLabel: 'Reiniciar' })) {
       alert(`Reinicio solicitado para ${row.serialNumber}`);
     }
   }

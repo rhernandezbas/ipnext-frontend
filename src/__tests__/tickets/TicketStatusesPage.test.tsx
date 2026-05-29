@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import TicketStatusesPage from '@/pages/tickets/TicketStatusesPage';
 import * as useTicketStatusesModule from '@/hooks/useTicketStatuses';
+import { useConfirm } from '@/context/ConfirmContext';
 import type { TicketStatus } from '@/types/ticketStatus';
 
 vi.mock('@/hooks/useTicketStatuses');
@@ -48,6 +49,7 @@ function renderPage() {
 describe('TicketStatusesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useConfirm).mockReturnValue(vi.fn().mockResolvedValue(true));
     vi.mocked(useTicketStatusesModule.useTicketStatuses).mockReturnValue({
       data: mockStatuses,
       isLoading: false,
@@ -133,24 +135,27 @@ describe('TicketStatusesPage', () => {
       isPending: false,
     } as ReturnType<typeof useTicketStatusesModule.useDeleteTicketStatus>);
 
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const confirmFn = vi.fn().mockResolvedValue(true);
+    vi.mocked(useConfirm).mockReturnValue(confirmFn);
     renderPage();
     const deleteBtns = screen.getAllByRole('button', { name: 'Eliminar' });
     fireEvent.click(deleteBtns[0]);
     await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledWith('1'));
   });
 
-  it('does not call delete when confirm is cancelled', () => {
+  it('does not call delete when confirm is cancelled', async () => {
     const mockMutateAsync = vi.fn();
     vi.mocked(useTicketStatusesModule.useDeleteTicketStatus).mockReturnValue({
       mutateAsync: mockMutateAsync,
       isPending: false,
     } as ReturnType<typeof useTicketStatusesModule.useDeleteTicketStatus>);
 
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const confirmFn = vi.fn().mockResolvedValue(false);
+    vi.mocked(useConfirm).mockReturnValue(confirmFn);
     renderPage();
     const deleteBtns = screen.getAllByRole('button', { name: 'Eliminar' });
     fireEvent.click(deleteBtns[0]);
+    await waitFor(() => expect(confirmFn).toHaveBeenCalled());
     expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
@@ -216,7 +221,8 @@ describe('TicketStatusesPage', () => {
       isPending: false,
     } as ReturnType<typeof useTicketStatusesModule.useDeleteTicketStatus>);
 
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const confirmFn = vi.fn().mockResolvedValue(true);
+    vi.mocked(useConfirm).mockReturnValue(confirmFn);
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
     renderPage();
     const deleteBtns = screen.getAllByRole('button', { name: 'Eliminar' });

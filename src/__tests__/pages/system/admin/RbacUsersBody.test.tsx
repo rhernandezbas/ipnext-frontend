@@ -24,6 +24,7 @@ import {
   useSetUserRoles,
 } from '@/hooks/useRbacUsers';
 import { useRbacRoles } from '@/hooks/useRbacRoles';
+import { useConfirm } from '@/context/ConfirmContext';
 
 const ROLES = [
   { id: 'r1', code: 'super_admin', label: 'Super Admin', isSystem: true },
@@ -56,6 +57,7 @@ const USERS = [
 ];
 
 const idleMutation = { mutateAsync: vi.fn(), isPending: false };
+const confirmFn = vi.fn().mockResolvedValue(true);
 
 function renderBody() {
   return render(
@@ -68,6 +70,8 @@ function renderBody() {
 describe('RbacUsersBody', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    confirmFn.mockResolvedValue(true);
+    vi.mocked(useConfirm).mockReturnValue(confirmFn);
     vi.mocked(useRbacUsers).mockReturnValue({
       data: USERS,
       isLoading: false,
@@ -162,8 +166,7 @@ describe('RbacUsersBody', () => {
   });
 
   it('calls delete mutation after confirm dialog', async () => {
-    // Stub window.confirm
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    // confirm resolves true via the injected useConfirm mock (see beforeEach)
     const deleteMutation = { mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false };
     vi.mocked(useDeleteRbacUser).mockReturnValue(deleteMutation as unknown as ReturnType<typeof useDeleteRbacUser>);
 
@@ -177,7 +180,6 @@ describe('RbacUsersBody', () => {
   });
 
   it('shows error toast when delete returns CANNOT_DELETE_SELF', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const serverError = Object.assign(new Error('self delete'), {
       response: { data: { code: 'CANNOT_DELETE_SELF' } },
     });
@@ -197,7 +199,6 @@ describe('RbacUsersBody', () => {
   });
 
   it('shows error when delete returns CANNOT_REMOVE_LAST_SUPER_ADMIN', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const serverError = Object.assign(new Error('last super admin'), {
       response: { data: { code: 'CANNOT_REMOVE_LAST_SUPER_ADMIN' } },
     });

@@ -17,6 +17,7 @@ import { IClassSendResultModal } from '@/components/molecules/IClassSendResultMo
 import { BulkMoveResultModal } from '@/components/molecules/BulkMoveResultModal/BulkMoveResultModal';
 import { StageSelect } from '@/components/molecules/StageSelect/StageSelect';
 import { PrioritySelect } from '@/components/molecules/PrioritySelect/PrioritySelect';
+import { useConfirm } from '@/context/ConfirmContext';
 import styles from './TasksTableView.module.css';
 
 // ── Atoms ────────────────────────────────────────────────────────────────────
@@ -89,11 +90,13 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [targetStageId, setTargetStageId] = useState<string>('');
   const [busy, setBusy] = useState(false);
+  const confirm = useConfirm();
 
+  // NOTE: hooks must run before any early return — keep useConfirm above this.
   if (selectedIds.length === 0) return null;
 
   async function handleDelete() {
-    if (!window.confirm(`¿Eliminar ${selectedIds.length} tarea(s)?`)) return;
+    if (!(await confirm({ message: `¿Eliminar ${selectedIds.length} tarea(s)?`, tone: 'danger', confirmLabel: 'Eliminar' }))) return;
     setBusy(true);
     try {
       await onDelete(selectedIds);
@@ -104,7 +107,7 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
   }
 
   async function handleClose() {
-    if (!window.confirm(`¿Cerrar ${selectedIds.length} tarea(s)?`)) return;
+    if (!(await confirm({ message: `¿Cerrar ${selectedIds.length} tarea(s)?`, confirmLabel: 'Cerrar' }))) return;
     setBusy(true);
     try {
       await onClose(selectedIds);

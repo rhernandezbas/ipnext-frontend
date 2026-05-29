@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useConfirm } from '@/context/ConfirmContext';
 import { useRbacRoles, useDeleteRbacRole } from '@/hooks/useRbacRoles';
 import { NewRoleModal } from './NewRoleModal';
 import type { RbacRoleDto } from '@/types/rbacRole';
@@ -23,10 +24,11 @@ export function RolesListRail({ selectedRoleId, onSelect }: RolesListRailProps) 
   const { data: roles, isLoading } = useRbacRoles();
   const { mutateAsync: deleteRole, isPending: deleting } = useDeleteRbacRole();
   const [showNewModal, setShowNewModal] = useState(false);
+  const confirm = useConfirm();
 
   async function handleDelete(role: RbacRoleDto, e: React.MouseEvent) {
     e.stopPropagation();
-    if (!window.confirm(`¿Eliminar el rol "${role.label}"? Esta acción no se puede deshacer.`)) return;
+    if (!(await confirm({ message: `¿Eliminar el rol "${role.label}"? Esta acción no se puede deshacer.`, tone: 'danger', confirmLabel: 'Eliminar' }))) return;
     await deleteRole(role.id);
   }
 

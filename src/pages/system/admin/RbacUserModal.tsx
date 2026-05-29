@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
+import { useConfirm } from '@/context/ConfirmContext';
 import { RbacRolesSelector } from './RbacRolesSelector';
 import type { RbacUserWithRolesDto, CreateRbacUserPayload, UpdateRbacUserPayload } from '@/types/rbacUser';
 import type { RbacRoleDto } from '@/types/rbacRole';
@@ -67,6 +68,7 @@ export function RbacUserModal({
   const [serverBanner, setServerBanner] = useState<string | undefined>(undefined);
   const [changePassword, setChangePassword] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const confirm = useConfirm();
 
   const {
     register,
@@ -92,11 +94,11 @@ export function RbacUserModal({
     }
   }
 
-  function handleOverlayClick() {
+  async function handleOverlayClick() {
     if (isDirty || selectedRoleIds.length > 0 && !initialValues) {
       // only confirm if user modified something
       if (isDirty) {
-        if (window.confirm('¿Descartás los cambios?')) onClose();
+        if (await confirm({ message: '¿Descartás los cambios?', confirmLabel: 'Descartar' })) onClose();
         return;
       }
     }

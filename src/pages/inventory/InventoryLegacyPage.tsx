@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
+import { useConfirm } from '@/context/ConfirmContext';
 import {
   useInventoryProducts,
   useInventoryUnits,
@@ -328,6 +329,7 @@ export default function InventoryLegacyPage() {
   const [filterProductId, setFilterProductId] = useState('');
   const [editingProduct, setEditingProduct] = useState<InventoryProduct | null>(null);
 
+  const confirm = useConfirm();
   const { data: products = [], isLoading: loadingProducts } = useInventoryProducts();
   const { data: units = [], isLoading: loadingUnits } = useInventoryUnits(filterProductId || undefined);
   const { mutate: createUnit } = useCreateInventoryUnit();
@@ -343,13 +345,13 @@ export default function InventoryLegacyPage() {
 
   const productActions = [
     { label: 'Editar', onClick: (row: InventoryProduct) => setEditingProduct(row) },
-    { label: 'Eliminar', onClick: (row: InventoryProduct) => { if (window.confirm(`¿Eliminar producto "${row.name}"?`)) deleteProduct(row.id); } },
+    { label: 'Eliminar', onClick: async (row: InventoryProduct) => { if (await confirm({ message: `¿Eliminar producto "${row.name}"?`, tone: 'danger', confirmLabel: 'Eliminar' })) deleteProduct(row.id); } },
   ];
 
   const unitActions = [
     { label: 'Asignar a cliente', onClick: (row: InventoryUnit) => { const clientId = window.prompt('ID del cliente:'); if (clientId) updateUnit({ id: row.id, data: { assignedToClientId: clientId, status: 'assigned', assignedAt: new Date().toISOString() } }); } },
-    { label: 'Marcar dañado', onClick: (row: InventoryUnit) => { if (window.confirm(`¿Marcar "${row.serialNumber ?? row.id}" como dañado?`)) updateUnit({ id: row.id, data: { status: 'damaged' } }); } },
-    { label: 'Retirar', onClick: (row: InventoryUnit) => { if (window.confirm(`¿Retirar "${row.serialNumber ?? row.id}"?`)) updateUnit({ id: row.id, data: { status: 'retired' } }); } },
+    { label: 'Marcar dañado', onClick: async (row: InventoryUnit) => { if (await confirm({ message: `¿Marcar "${row.serialNumber ?? row.id}" como dañado?`, tone: 'danger', confirmLabel: 'Marcar dañado' })) updateUnit({ id: row.id, data: { status: 'damaged' } }); } },
+    { label: 'Retirar', onClick: async (row: InventoryUnit) => { if (await confirm({ message: `¿Retirar "${row.serialNumber ?? row.id}"?`, tone: 'danger', confirmLabel: 'Retirar' })) updateUnit({ id: row.id, data: { status: 'retired' } }); } },
   ];
 
   function handleCreateUnit(data: Omit<InventoryUnit, 'id'>) {

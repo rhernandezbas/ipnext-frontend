@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
+import { useConfirm } from '@/context/ConfirmContext';
 import { useLeads, useCreateLead, useUpdateLead, useDeleteLead, useConvertLeadToClient } from '@/hooks/useLeads';
 import type { Lead, LeadStatus, LeadSource } from '@/types/lead';
 import styles from './LeadsPage.module.css';
@@ -174,6 +175,7 @@ export default function LeadsPage() {
   const [viewLead, setViewLead] = useState<Lead | null>(null);
   const [editLead, setEditLead] = useState<Lead | null>(null);
 
+  const confirm = useConfirm();
   const { data: leads = [], isLoading } = useLeads();
   const { mutate: createLead } = useCreateLead();
   const { mutate: updateLead } = useUpdateLead();
@@ -220,8 +222,8 @@ export default function LeadsPage() {
     },
     {
       label: 'Convertir a cliente',
-      onClick: (row: Lead) => {
-        if (window.confirm(`¿Convertir "${row.name}" a cliente?`)) convertLead({ id: row.id, clientId: row.id });
+      onClick: async (row: Lead) => {
+        if (await confirm({ message: `¿Convertir "${row.name}" a cliente?`, confirmLabel: 'Convertir' })) convertLead({ id: row.id, clientId: row.id });
       },
     },
     {
