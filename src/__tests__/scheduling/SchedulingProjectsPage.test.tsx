@@ -55,4 +55,10 @@ describe('SchedulingProjectsPage', () => {
     renderPage();
     expect(screen.getByRole('heading', { name: /Proyectos/i })).toBeInTheDocument();
   });
+
+  it('does not render a manual "Recargar" refresh button (auto-sync via query invalidation)', () => {
+    renderPage();
+    expect(screen.queryByRole('button', { name: /Recargar/i })).toBeNull();
+    expect(screen.queryByTitle(/Recargar/i)).toBeNull();
+  });
 });
