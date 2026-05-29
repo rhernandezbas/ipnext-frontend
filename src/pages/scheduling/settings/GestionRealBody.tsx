@@ -7,7 +7,7 @@ import {
   useGestionRealNeedsReview,
 } from '@/hooks/useGestionRealIngest';
 import { useProjects } from '@/hooks/useProjects';
-import { useFeatureFlag } from '@/hooks/useFeatureFlags';
+import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
 import {
   INTERVAL_PRESETS_MIN,
   minutesToMs,
@@ -25,7 +25,6 @@ import styles from './GestionReal.module.css';
  * only when the user actually changes the interval (via minutesToMs).
  */
 interface FormState {
-  enabled: boolean;
   intervalMs: number;
   windowMonths: number;
   fiberProjectId: string | null;
@@ -34,7 +33,6 @@ interface FormState {
 
 function configToForm(c: IngestConfigDTO): FormState {
   return {
-    enabled: c.enabled,
     intervalMs: c.intervalMs,
     windowMonths: c.windowMonths,
     fiberProjectId: c.fiberProjectId,
@@ -44,7 +42,6 @@ function configToForm(c: IngestConfigDTO): FormState {
 
 function formEquals(a: FormState, b: FormState): boolean {
   return (
-    a.enabled === b.enabled &&
     a.intervalMs === b.intervalMs &&
     a.windowMonths === b.windowMonths &&
     a.fiberProjectId === b.fiberProjectId &&
@@ -75,12 +72,17 @@ function ConfigSection() {
   const { data: projects = [] } = useProjects('all');
   const update = useUpdateGestionRealConfig();
 
-  // Master release flag. When OFF, the backend skips the ingest even if
-  // config.enabled is true — surface that so the operator isn't misled.
+  // The feature flag `gestion-real-ingest` is now the SINGLE on/off for the
+  // ingest. This subpage is its central control: the activation toggle below
+  // reads/writes it live (independent of the Guardar button).
   const ingestFlag = useFeatureFlag('gestion-real-ingest');
-  const systemDisabled = ingestFlag.data ? ingestFlag.data.enabled === false : false;
+  const setFlag = useSetFeatureFlag();
+  const flagEnabled = ingestFlag.data?.enabled ?? false;
 
   const [form, setForm] = useState<FormState | null>(null);
+  // Set when the user tries to turn the activation toggle ON while a project is
+  // unmapped — the toggle is blocked and this surfaces the warning to fix it.
+  const [enableGuardTripped, setEnableGuardTripped] = useState(false);
 
   // Reset baseline whenever the loaded config changes (load / invalidate success).
   useEffect(() => {
@@ -120,9 +122,10 @@ function ConfigSection() {
   const baseline = configToForm(config);
   const dirty = !formEquals(form, baseline);
 
-  // Enable-guard: enabling the ingest while a project is unmapped is blocked.
-  const missingProject =
-    form.enabled && (form.fiberProjectId === null || form.wirelessProjectId === null);
+  // The activation toggle can only turn ON once both projects are mapped on the
+  // SAVED config — the flag drives a backend job that needs the mapping in place.
+  const projectsMapped =
+    config.fiberProjectId !== null && config.wirelessProjectId !== null;
 
   // windowMonths must be a positive integer — clearing the input yields 0.
   const invalidWindow = !Number.isFinite(form.windowMonths) || form.windowMonths < 1;
@@ -137,10 +140,21 @@ function ConfigSection() {
     setForm(f => (f ? { ...f, ...p } : f));
   }
 
+  // Activation toggle: writes the feature flag live. Turning OFF is always
+  // allowed; turning ON is blocked when the saved config has unmapped projects.
+  function handleToggleFlag(next: boolean) {
+    if (setFlag.isPending) return;
+    if (next && !projectsMapped) {
+      setEnableGuardTripped(true);
+      return;
+    }
+    setEnableGuardTripped(false);
+    setFlag.mutate({ key: 'gestion-real-ingest', enabled: next });
+  }
+
   function handleSave() {
-    if (!dirty || update.isPending || missingProject || invalidWindow) return;
+    if (!dirty || update.isPending || invalidWindow) return;
     const payload: UpdateIngestConfigPayload = {
-      enabled: form!.enabled,
       intervalMs: form!.intervalMs,
       windowMonths: form!.windowMonths,
       fiberProjectId: form!.fiberProjectId,
@@ -155,29 +169,29 @@ function ConfigSection() {
     <section className={styles.section}>
       <h3 className={styles.sectionTitle}>Configuración</h3>
       <div className={styles.card}>
-        {systemDisabled && (
-          <div className={`${styles.banner} ${styles.bannerWarning}`} role="status">
-            <span>
-              <span className={styles.bannerTitle}>Ingesta deshabilitada a nivel sistema.</span>{' '}
-              La ingesta está deshabilitada a nivel sistema (feature flag
-              {' '}«gestion-real-ingest»). Un administrador debe activarla en el panel
-              de Feature Flags para que la sincronización corra.
-            </span>
-          </div>
-        )}
-
         <div className={styles.toggleRow}>
-          <span className={styles.fieldLabel}>Habilitar ingest de Gestión Real</span>
+          <span className={styles.fieldLabel}>Activar ingesta de Gestión Real</span>
           <label className={styles.switch}>
             <input
               type="checkbox"
-              checked={form.enabled}
-              onChange={e => patch({ enabled: e.target.checked })}
-              aria-label="Habilitar ingest de Gestión Real"
+              checked={flagEnabled}
+              disabled={setFlag.isPending}
+              onChange={e => handleToggleFlag(e.target.checked)}
+              aria-label="Activar ingesta de Gestión Real"
             />
             <span className={styles.switchTrack} aria-hidden="true" />
           </label>
         </div>
+
+        {!flagEnabled && !enableGuardTripped && (
+          <span className={styles.fieldHint}>La ingesta está desactivada.</span>
+        )}
+
+        {setFlag.isError && (
+          <div className={`${styles.banner} ${styles.bannerError}`}>
+            <span>No se pudo cambiar el estado de la ingesta. Reintentá en unos segundos.</span>
+          </div>
+        )}
 
         <div className={styles.formGrid}>
           <div className={styles.field}>
@@ -245,12 +259,13 @@ function ConfigSection() {
           </div>
         </div>
 
-        {missingProject && (
+        {enableGuardTripped && (
           <div className={`${styles.banner} ${styles.bannerWarning}`}>
             <span>
               <span className={styles.bannerTitle}>Proyecto sin mapear.</span>{' '}
-              Asigná un proyecto de Fibra y Wireless antes de habilitar el ingest:
-              las órdenes clasificadas sin proyecto caen en revisión pendiente.
+              Mapeá los proyectos de Fibra y Wireless primero y guardá los cambios
+              antes de activar la ingesta: las órdenes clasificadas sin proyecto
+              caen en revisión pendiente.
             </span>
           </div>
         )}
@@ -271,7 +286,7 @@ function ConfigSection() {
           <button
             type="button"
             className={styles.btnPrimary}
-            disabled={!dirty || update.isPending || missingProject || invalidWindow}
+            disabled={!dirty || update.isPending || invalidWindow}
             onClick={handleSave}
           >
             {update.isPending ? 'Guardando…' : 'Guardar'}

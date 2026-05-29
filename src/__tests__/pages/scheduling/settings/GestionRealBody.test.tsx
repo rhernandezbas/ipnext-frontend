@@ -13,6 +13,7 @@ vi.mock('@/hooks/useProjects', () => ({
 }));
 vi.mock('@/hooks/useFeatureFlags', () => ({
   useFeatureFlag: vi.fn(),
+  useSetFeatureFlag: vi.fn(),
 }));
 
 import {
@@ -22,7 +23,7 @@ import {
   useGestionRealNeedsReview,
 } from '@/hooks/useGestionRealIngest';
 import { useProjects } from '@/hooks/useProjects';
-import { useFeatureFlag } from '@/hooks/useFeatureFlags';
+import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
 import { GestionRealBody } from '@/pages/scheduling/settings/GestionRealBody';
 import type { IngestConfigDTO, IngestStatusDTO, NeedsReviewTaskDTO } from '@/types/gestionRealIngest';
 import type { Project } from '@/types/project';
@@ -39,7 +40,6 @@ const makeProject = (over: Partial<Project> = {}): Project => ({
 });
 
 const makeConfig = (over: Partial<IngestConfigDTO> = {}): IngestConfigDTO => ({
-  enabled: false,
   intervalMs: 300_000,
   windowMonths: 3,
   fiberProjectId: 'p1',
@@ -131,6 +131,21 @@ function mockFeatureFlag(enabled: boolean) {
   } as never);
 }
 
+const idleSetFlag = {
+  mutate: vi.fn(),
+  mutateAsync: vi.fn(),
+  isPending: false,
+  isError: false,
+  error: null,
+  reset: vi.fn(),
+};
+
+function mockSetFeatureFlag(over: Partial<typeof idleSetFlag> = {}) {
+  const m = { ...idleSetFlag, ...over };
+  vi.mocked(useSetFeatureFlag).mockReturnValue(m as never);
+  return m;
+}
+
 function renderBody() {
   return render(
     <MemoryRouter>
@@ -152,15 +167,15 @@ describe('GestionRealBody', () => {
     mockStatus(makeStatus());
     mockNeedsReview([]);
     mockFeatureFlag(true);
+    mockSetFeatureFlag();
   });
 
   // ── Phase 4: Configuración ────────────────────────────────────────────────
   describe('Configuración', () => {
     it('populates the form from the loaded config', () => {
-      mockConfig(makeConfig({ enabled: true, intervalMs: 900_000, windowMonths: 6, fiberProjectId: 'p1', wirelessProjectId: 'p2' }));
+      mockConfig(makeConfig({ intervalMs: 900_000, windowMonths: 6, fiberProjectId: 'p1', wirelessProjectId: 'p2' }));
       renderBody();
 
-      expect(screen.getByRole('checkbox', { name: /habilitar ingest/i })).toBeChecked();
       expect((screen.getByLabelText(/intervalo/i) as HTMLSelectElement).value).toBe('15');
       expect((screen.getByLabelText(/ventana/i) as HTMLInputElement).value).toBe('6');
       expect((screen.getByLabelText(/proyecto fibra/i) as HTMLSelectElement).value).toBe('p1');
@@ -193,10 +208,10 @@ describe('GestionRealBody', () => {
       expect(screen.getByRole('button', { name: /guardar/i })).toBeEnabled();
     });
 
-    it('Guardar sends the payload with intervalMs converted from minutes (5 → 300000)', async () => {
+    it('Guardar sends the payload with intervalMs converted from minutes (5 → 300000) and no enabled field', async () => {
       const mutate = vi.fn();
       vi.mocked(useUpdateGestionRealConfig).mockReturnValue({ ...idleMutation, mutate } as never);
-      mockConfig(makeConfig({ enabled: false, intervalMs: 900_000, windowMonths: 3, fiberProjectId: 'p1', wirelessProjectId: 'p2' }));
+      mockConfig(makeConfig({ intervalMs: 900_000, windowMonths: 3, fiberProjectId: 'p1', wirelessProjectId: 'p2' }));
 
       renderBody();
       fireEvent.change(screen.getByLabelText(/intervalo/i), { target: { value: '5' } });
@@ -204,9 +219,10 @@ describe('GestionRealBody', () => {
 
       await waitFor(() => {
         expect(mutate).toHaveBeenCalledWith(
-          expect.objectContaining({ intervalMs: 300_000, windowMonths: 3, fiberProjectId: 'p1', wirelessProjectId: 'p2', enabled: false }),
+          expect.objectContaining({ intervalMs: 300_000, windowMonths: 3, fiberProjectId: 'p1', wirelessProjectId: 'p2' }),
         );
       });
+      expect(mutate.mock.calls[0][0]).not.toHaveProperty('enabled');
     });
 
     it('Guardar is disabled while the mutation is pending', () => {
@@ -214,16 +230,6 @@ describe('GestionRealBody', () => {
       renderBody();
       fireEvent.change(screen.getByLabelText(/ventana/i), { target: { value: '9' } });
       expect(screen.getByRole('button', { name: /guardar|guardando/i })).toBeDisabled();
-    });
-
-    it('enable-guard: turning enabled on with a null project shows a warning and blocks Guardar', () => {
-      mockConfig(makeConfig({ enabled: false, fiberProjectId: null, wirelessProjectId: 'p2' }));
-      renderBody();
-
-      fireEvent.click(screen.getByRole('checkbox', { name: /habilitar ingest/i }));
-
-      expect(screen.getByText(/proyecto sin mapear/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /guardar/i })).toBeDisabled();
     });
 
     it('shows a Spanish validation message on 400 VALIDATION_ERROR', () => {
@@ -236,22 +242,6 @@ describe('GestionRealBody', () => {
       expect(screen.getByText(/validación|datos inválidos|revisá los campos/i)).toBeInTheDocument();
     });
 
-    it('gestionRealIngest master flag disabled → shows the system-disabled warning', () => {
-      mockFeatureFlag(false);
-      renderBody();
-      expect(
-        screen.getByText(/panel\s+de feature flags para que la sincronización corra/i),
-      ).toBeInTheDocument();
-    });
-
-    it('gestionRealIngest master flag enabled → does NOT show the system-disabled warning', () => {
-      mockFeatureFlag(true);
-      renderBody();
-      expect(
-        screen.queryByText(/deshabilitada a nivel sistema/i),
-      ).not.toBeInTheDocument();
-    });
-
     it('shows a Spanish project-not-found message on 404 PROJECT_NOT_FOUND', () => {
       vi.mocked(useUpdateGestionRealConfig).mockReturnValue({
         ...idleMutation,
@@ -260,6 +250,77 @@ describe('GestionRealBody', () => {
       } as never);
       renderBody();
       expect(screen.getByText(/proyecto.*no.*encontr|no existe/i)).toBeInTheDocument();
+    });
+  });
+
+  // ── Activación (feature flag gestion-real-ingest) ─────────────────────────
+  describe('Activación (feature flag)', () => {
+    it('toggle reflects the flag state when ON', () => {
+      mockFeatureFlag(true);
+      renderBody();
+      expect(screen.getByRole('checkbox', { name: /activar ingesta de gestión real/i })).toBeChecked();
+    });
+
+    it('toggle reflects the flag state when OFF and shows the off-hint', () => {
+      mockFeatureFlag(false);
+      renderBody();
+      expect(screen.getByRole('checkbox', { name: /activar ingesta de gestión real/i })).not.toBeChecked();
+      expect(screen.getByText(/la ingesta está desactivada/i)).toBeInTheDocument();
+    });
+
+    it('does NOT render the old "ir al panel de Feature Flags" wording', () => {
+      mockFeatureFlag(false);
+      renderBody();
+      expect(screen.queryByText(/panel\s+de feature flags/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/deshabilitada a nivel sistema/i)).not.toBeInTheDocument();
+    });
+
+    it('turning the flag ON calls setFeatureFlag with enabled=true', () => {
+      const setFlag = mockSetFeatureFlag();
+      mockFeatureFlag(false);
+      mockConfig(makeConfig({ fiberProjectId: 'p1', wirelessProjectId: 'p2' }));
+      renderBody();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: /activar ingesta de gestión real/i }));
+
+      expect(setFlag.mutate).toHaveBeenCalledWith({ key: 'gestion-real-ingest', enabled: true });
+    });
+
+    it('turning the flag OFF calls setFeatureFlag with enabled=false (always allowed, even with unmapped projects)', () => {
+      const setFlag = mockSetFeatureFlag();
+      mockFeatureFlag(true);
+      mockConfig(makeConfig({ fiberProjectId: null, wirelessProjectId: null }));
+      renderBody();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: /activar ingesta de gestión real/i }));
+
+      expect(setFlag.mutate).toHaveBeenCalledWith({ key: 'gestion-real-ingest', enabled: false });
+    });
+
+    it('enable-guard: turning ON while a project is unmapped is BLOCKED (setFeatureFlag not called) and shows the warning', () => {
+      const setFlag = mockSetFeatureFlag();
+      mockFeatureFlag(false);
+      mockConfig(makeConfig({ fiberProjectId: null, wirelessProjectId: 'p2' }));
+      renderBody();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: /activar ingesta de gestión real/i }));
+
+      expect(setFlag.mutate).not.toHaveBeenCalled();
+      expect(screen.getByText(/mape.* los proyectos primero|proyecto sin mapear/i)).toBeInTheDocument();
+    });
+
+    it('shows pending/disabled state while the mutation runs', () => {
+      mockSetFeatureFlag({ isPending: true });
+      mockFeatureFlag(false);
+      renderBody();
+      expect(screen.getByRole('checkbox', { name: /activar ingesta de gestión real/i })).toBeDisabled();
+    });
+
+    it('surfaces an error when the toggle mutation fails', () => {
+      mockSetFeatureFlag({ isError: true });
+      mockFeatureFlag(false);
+      renderBody();
+      expect(screen.getByText(/no se pudo cambiar el estado de la ingesta/i)).toBeInTheDocument();
     });
   });
 

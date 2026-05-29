@@ -20,7 +20,6 @@ import axiosClient from '@/api/axios-client';
 import { gestionRealIngestApi } from '@/api/gestionRealIngest.api';
 
 const mockConfig: IngestConfigDTO = {
-  enabled: true,
   intervalMs: 300000,
   windowMonths: 6,
   fiberProjectId: 'p-fiber',
@@ -71,7 +70,7 @@ describe('gestionRealIngestApi.updateConfig', () => {
   it('PUTs /gestion-real-ingest/config with the partial body and returns the config', async () => {
     vi.mocked(axiosClient.put).mockResolvedValue({ data: mockConfig });
 
-    const body = { enabled: true, intervalMs: 300000 };
+    const body = { intervalMs: 300000, windowMonths: 6 };
     const result = await gestionRealIngestApi.updateConfig(body);
 
     expect(axiosClient.put).toHaveBeenCalledWith('/gestion-real-ingest/config', body);

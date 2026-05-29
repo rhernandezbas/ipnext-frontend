@@ -13,6 +13,10 @@ vi.mock('@/hooks/useGestionRealIngest', () => ({
 vi.mock('@/hooks/useProjects', () => ({
   useProjects: vi.fn(),
 }));
+vi.mock('@/hooks/useFeatureFlags', () => ({
+  useFeatureFlag: vi.fn(() => ({ data: { key: 'gestion-real-ingest', enabled: false }, isLoading: false, isError: false })),
+  useSetFeatureFlag: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false })),
+}));
 
 import {
   useGestionRealConfig,
@@ -34,7 +38,6 @@ const idleMutation = {
 };
 
 const config: IngestConfigDTO = {
-  enabled: false,
   intervalMs: 300_000,
   windowMonths: 3,
   fiberProjectId: 'p1',

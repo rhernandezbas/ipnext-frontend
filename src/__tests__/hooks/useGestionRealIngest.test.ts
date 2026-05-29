@@ -27,7 +27,6 @@ import type {
 } from '@/types/gestionRealIngest';
 
 const mockConfig: IngestConfigDTO = {
-  enabled: true,
   intervalMs: 300000,
   windowMonths: 6,
   fiberProjectId: 'p-fiber',
@@ -127,7 +126,7 @@ describe('useUpdateGestionRealConfig', () => {
 
     const { result } = renderHook(() => useUpdateGestionRealConfig(), { wrapper });
 
-    const body = { enabled: true, intervalMs: 300000 };
+    const body = { intervalMs: 300000, windowMonths: 6 };
     await result.current.mutateAsync(body);
 
     expect(gestionRealIngestApi.updateConfig).toHaveBeenCalledWith(body);

@@ -2,7 +2,6 @@
  * Gestión Real ingest configuration — mirrors the backend DTO exactly.
  */
 export interface IngestConfigDTO {
-  enabled: boolean;
   intervalMs: number;
   windowMonths: number;
   fiberProjectId: string | null;
@@ -40,7 +39,7 @@ export interface NeedsReviewTaskDTO {
 
 /** Partial body accepted by `PUT /gestion-real-ingest/config`. */
 export type UpdateIngestConfigPayload = Partial<
-  Pick<IngestConfigDTO, 'enabled' | 'intervalMs' | 'windowMonths' | 'fiberProjectId' | 'wirelessProjectId'>
+  Pick<IngestConfigDTO, 'intervalMs' | 'windowMonths' | 'fiberProjectId' | 'wirelessProjectId'>
 >;
 
 /** Settled interval presets, in minutes. */
