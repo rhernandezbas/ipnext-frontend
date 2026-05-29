@@ -222,6 +222,91 @@ describe('DatosForm', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Date/time validation (REQ-DATE-1..4)
+  // ---------------------------------------------------------------------------
+
+  describe('date/time validation', () => {
+    const baseProps = {
+      onSubmit,
+      isSaving: false,
+      admins: mockAdmins,
+      partners: mockPartners,
+      projects: mockProjects,
+    } as const;
+
+    it('disables End input when Start is empty', () => {
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, startDate: null, endDate: null }}
+            {...baseProps}
+          />
+        </MemoryRouter>
+      );
+      const endInput = screen.getByLabelText(/termina/i) as HTMLInputElement;
+      expect(endInput).toBeDisabled();
+    });
+
+    it('enables End input when Start has a value', () => {
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, startDate: '2026-06-10T10:00', endDate: null }}
+            {...baseProps}
+          />
+        </MemoryRouter>
+      );
+      const endInput = screen.getByLabelText(/termina/i) as HTMLInputElement;
+      expect(endInput).not.toBeDisabled();
+    });
+
+    it('auto-defaults End to Start + 1 hour when End is empty and user sets Start', async () => {
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, projectId: 'proj-1', startDate: null, endDate: null }}
+            {...baseProps}
+          />
+        </MemoryRouter>
+      );
+      const startInput = screen.getByLabelText(/inicia/i) as HTMLInputElement;
+      fireEvent.change(startInput, { target: { value: '2026-06-10T10:00' } });
+
+      await waitFor(() => {
+        const endInput = screen.getByLabelText(/termina/i) as HTMLInputElement;
+        expect(endInput.value).toBe('2026-06-10T11:00');
+        expect(endInput).not.toBeDisabled();
+      });
+    });
+
+    it('does NOT override End when End already has a value and Start changes', async () => {
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{
+              ...initialValues,
+              projectId: 'proj-1',
+              startDate: '2026-06-10T10:00',
+              endDate: '2026-06-10T12:30',
+            }}
+            {...baseProps}
+          />
+        </MemoryRouter>
+      );
+      const endInput = screen.getByLabelText(/termina/i) as HTMLInputElement;
+      const endBefore = endInput.value;
+      expect(endBefore).not.toBe('');
+
+      const startInput = screen.getByLabelText(/inicia/i) as HTMLInputElement;
+      fireEvent.change(startInput, { target: { value: '2026-06-11T08:00' } });
+
+      // End must remain exactly as it was before the Start change
+      await new Promise((r) => setTimeout(r, 50));
+      expect((screen.getByLabelText(/termina/i) as HTMLInputElement).value).toBe(endBefore);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Project select (FASE 4)
   // ---------------------------------------------------------------------------
 

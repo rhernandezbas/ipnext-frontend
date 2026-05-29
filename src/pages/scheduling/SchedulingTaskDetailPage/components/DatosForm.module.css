@@ -73,6 +73,13 @@
   margin-top: 2px;
 }
 
+/* Helper text shown under disabled inputs (e.g. End date until Start is set) */
+.hint {
+  font-size: 12px;
+  color: var(--color-text-secondary, #6c757d);
+  margin-top: 2px;
+}
+
 /* Inline warning shown when reassigning a task that already has an IClass OS */
 .iclassWarning {
   font-size: 12px;
