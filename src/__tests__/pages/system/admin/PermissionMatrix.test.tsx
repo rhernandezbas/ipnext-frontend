@@ -114,6 +114,21 @@ describe('PermissionMatrix — collapsible modules', () => {
     // only billing checkboxes visible (2)
     expect(checkboxes).toHaveLength(2);
   });
+
+  it('auto-expands a collapsed module when a bulk change is applied to it', async () => {
+    const user = userEvent.setup();
+    render(createElement(PermissionMatrix, defaultProps));
+
+    // Collapse Clientes
+    await user.click(screen.getByRole('button', { name: /clientes/i }));
+    expect(screen.getAllByRole('checkbox')).toHaveLength(2); // only billing visible
+
+    // Apply a bulk change to the still-collapsed Clientes module via "Todo"
+    await user.click(screen.getAllByRole('button', { name: /^todo$/i })[0]);
+
+    // The change re-expands Clientes so the user sees what changed → all 5 visible
+    expect(screen.getAllByRole('checkbox')).toHaveLength(5);
+  });
 });
 
 describe('PermissionMatrix — search', () => {

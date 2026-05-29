@@ -64,6 +64,7 @@ function ModuleRow({
       const id = module.actionToId[a];
       if (id) onChange(id, true);
     });
+    setExpanded(true); // surface the change if the module was collapsed
   }
 
   function selectNone() {
@@ -71,6 +72,7 @@ function ModuleRow({
       const id = module.actionToId[a];
       if (id) onChange(id, false);
     });
+    setExpanded(true); // surface the change if the module was collapsed
   }
 
   return (
