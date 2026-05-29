@@ -4,12 +4,14 @@ import { IClassFlagBody } from './IClassFlagBody';
 import { IClassClosureFlagBody } from './IClassClosureFlagBody';
 import { IClassSoTypesCatalogBody } from './IClassSoTypesCatalogBody';
 import { IClassProjectMappingBody } from './IClassProjectMappingBody';
+import { IClassResultCodeMappingBody } from './IClassResultCodeMappingBody';
 
 const SUB_TABS = [
-  { id: 'integracion', label: 'Integración',         content: <IClassFlagBody /> },
-  { id: 'catalogo',    label: 'Catálogo',            content: <IClassSoTypesCatalogBody /> },
-  { id: 'mapeo',       label: 'Mapeo de proyectos',  content: <IClassProjectMappingBody /> },
-  { id: 'cierre',      label: 'Cierre de OS',        content: <IClassClosureFlagBody /> },
+  { id: 'integracion', label: 'Integración',          content: <IClassFlagBody /> },
+  { id: 'catalogo',    label: 'Catálogo',             content: <IClassSoTypesCatalogBody /> },
+  { id: 'mapeo',       label: 'Mapeo de proyectos',   content: <IClassProjectMappingBody /> },
+  { id: 'cierre',      label: 'Cierre de OS',         content: <IClassClosureFlagBody /> },
+  { id: 'resultados',  label: 'Mapeo de resultados',  content: <IClassResultCodeMappingBody /> },
 ];
 
 /**
