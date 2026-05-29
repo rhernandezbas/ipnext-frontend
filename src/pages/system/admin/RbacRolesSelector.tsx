@@ -21,22 +21,39 @@ export function RbacRolesSelector({
 }: RbacRolesSelectorProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const openBtnRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
 
-  // Compute popover position from trigger rect
+  // Compute popover position from the WRAPPER trigger rect (not the chevron
+  // button — that would give the popover the ~20px chevron width).
   const updatePopoverPos = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
+    const minWidth = 240; // ensure section headers + options have room
     setPopoverStyle({
       position: 'fixed',
       top: rect.bottom + 4,
       left: rect.left,
-      width: rect.width,
+      width: Math.max(rect.width, minWidth),
       zIndex: 9999,
     });
   }, []);
+
+  // Recompute on scroll / resize while open so the popover stays anchored.
+  useEffect(() => {
+    if (!open) return;
+    function onResize() {
+      updatePopoverPos();
+    }
+    window.addEventListener('resize', onResize);
+    window.addEventListener('scroll', onResize, true);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onResize, true);
+    };
+  }, [open, updatePopoverPos]);
 
   useEffect(() => {
     if (open) {
@@ -61,6 +78,9 @@ export function RbacRolesSelector({
     return () => document.removeEventListener('mousedown', handleMouseDown);
   }, [open]);
 
+  // Refocus the chevron when popover closes via Escape
+  // (handled inside the Escape effect below)
+
   // Close on Escape
   useEffect(() => {
     if (!open) return;
@@ -68,7 +88,7 @@ export function RbacRolesSelector({
       if (e.key === 'Escape') {
         setOpen(false);
         setSearch('');
-        triggerRef.current?.focus();
+        openBtnRef.current?.focus();
       }
     }
     document.addEventListener('keydown', handleKey);
@@ -170,6 +190,7 @@ export function RbacRolesSelector({
   return (
     <div className={styles.wrapper}>
       <div
+        ref={triggerRef}
         className={`${styles.trigger} ${error ? styles.triggerError : ''} ${disabled ? styles.triggerDisabled : ''}`}
       >
         {selectedRoles.map(role => {
@@ -190,7 +211,7 @@ export function RbacRolesSelector({
           );
         })}
         <button
-          ref={triggerRef}
+          ref={openBtnRef}
           type="button"
           className={styles.openBtn}
           aria-label="Seleccionar roles"
