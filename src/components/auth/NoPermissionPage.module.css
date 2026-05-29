@@ -1,0 +1,112 @@
+/* ------------------------------------------------------------------ */
+/* NoPermissionPage — centered card, friendly, mobile-responsive       */
+/* ------------------------------------------------------------------ */
+
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: var(--space-6);
+  background-color: var(--color-gray-50, #f8f9fa);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #dee2e6);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-10) var(--space-8);
+  max-width: 440px;
+  width: 100%;
+  gap: var(--space-4);
+}
+
+/* Icon */
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background-color: #eef2ff;
+  color: #6366f1;
+  margin-bottom: var(--space-2);
+  flex-shrink: 0;
+}
+
+.iconSvg {
+  width: 36px;
+  height: 36px;
+}
+
+/* Heading */
+.heading {
+  font-size: var(--font-size-2xl, 1.5rem);
+  font-weight: var(--font-weight-bold, 700);
+  color: var(--color-text-primary, #212529);
+  margin: 0;
+  line-height: var(--line-height-tight, 1.25);
+  /* Remove default outline — visual focus is on the card context */
+  outline: none;
+}
+
+/* Description */
+.description {
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-text-secondary, #6c757d);
+  line-height: var(--line-height-normal, 1.5);
+  margin: 0;
+  max-width: 340px;
+}
+
+/* CTA button */
+.cta {
+  margin-top: var(--space-2);
+  padding: var(--space-3) var(--space-6);
+  background-color: #6366f1;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-button, 8px);
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-medium, 500);
+  cursor: pointer;
+  transition: background-color var(--transition-fast, 100ms ease);
+  min-width: 160px;
+}
+
+.cta:hover {
+  background-color: #4f46e5;
+}
+
+.cta:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .card {
+    padding: var(--space-8) var(--space-6);
+    border-radius: var(--radius-lg, 12px);
+  }
+
+  .icon {
+    width: 60px;
+    height: 60px;
+  }
+
+  .iconSvg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .heading {
+    font-size: var(--font-size-xl, 1.25rem);
+  }
+}
