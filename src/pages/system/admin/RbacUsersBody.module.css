@@ -1,0 +1,340 @@
+/* RbacUsersBody — users table with header and action buttons */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Header ── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.heading {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+/* ── Buttons ── */
+.btnPrimary {
+  padding: var(--space-2) var(--space-5);
+  background: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-button);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btnPrimary:hover {
+  opacity: 0.9;
+}
+
+.btnEdit {
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.btnEdit:hover {
+  background: var(--color-surface-hover);
+}
+
+.btnDelete {
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-surface);
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.btnDelete:hover {
+  background: #fee2e2;
+}
+
+/* ── Error/toast ── */
+.errorToast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+.toastClose {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #991b1b;
+  font-size: var(--font-size-sm);
+  padding: 0;
+  line-height: 1;
+}
+
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+.retryBtn {
+  background: none;
+  border: 1px solid #991b1b;
+  color: #991b1b;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+/* ── Table ── */
+.tableWrapper {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.table thead tr {
+  background: var(--color-gray-50);
+}
+
+.table th {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-gray-100);
+  vertical-align: middle;
+}
+
+.row:last-child td {
+  border-bottom: none;
+}
+
+.row:hover {
+  background: var(--color-surface-hover);
+}
+
+.actionsCol {
+  text-align: right;
+}
+
+.cellActions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.cellName {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.cellEmail {
+  color: var(--color-text-secondary);
+}
+
+.cellLogin {
+  color: var(--color-text-secondary);
+}
+
+.loginCode {
+  font-family: monospace;
+  background: var(--color-gray-50);
+  padding: 2px var(--space-1);
+  border-radius: var(--radius-sm);
+  font-size: 0.8em;
+}
+
+.cellMuted {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+/* ── Role chips ── */
+.roleChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.roleChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+/* System role badge colors (AD-FE-10) */
+.role-super-admin {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.role-administrador {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.role-administracion {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.role-ventas {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.role-noc {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.role-tecnico {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.role-custom,
+.chipCustom {
+  background: var(--color-gray-100);
+  color: var(--color-gray-700);
+}
+
+.chipOverflow {
+  background: var(--color-gray-100);
+  color: var(--color-text-secondary);
+}
+
+/* ── Status badges ── */
+.statusActive {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.statusInactive {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-gray-100);
+  color: var(--color-gray-600);
+}
+
+/* ── Skeleton (AD-FE-5) ── */
+.skeletonCell {
+  padding: var(--space-3) var(--space-4);
+}
+
+.skeleton {
+  display: block;
+  height: 14px;
+  background: linear-gradient(
+    90deg,
+    var(--color-gray-100) 25%,
+    var(--color-gray-200) 50%,
+    var(--color-gray-100) 75%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm);
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Empty state (AD-FE-4) ── */
+.emptyCell {
+  padding: var(--space-10) var(--space-4) !important;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: center;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.emptyIcon {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.emptyTitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.emptyBody {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: var(--line-height-relaxed);
+}
+
+.envCode {
+  font-family: monospace;
+  background: var(--color-gray-100);
+  padding: 1px var(--space-1);
+  border-radius: 3px;
+  font-size: 0.9em;
+}

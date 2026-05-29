@@ -1,0 +1,188 @@
+/* RbacRolesSelector — chip-based multi-select with popover */
+
+.wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.trigger {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 42px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: text;
+  transition: border-color var(--transition-fast);
+}
+
+.trigger:focus-within {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.triggerError {
+  border-color: #dc2626;
+}
+
+.triggerDisabled {
+  background: var(--color-gray-50);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* ── Chips ── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.chipRemove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  font-size: 0.9rem;
+  color: inherit;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+}
+
+.chipRemove:hover {
+  opacity: 1;
+}
+
+/* ── System role badge colors ── */
+.role-super-admin {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.role-administrador {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.role-administracion {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.role-ventas {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.role-noc {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.role-tecnico {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.role-custom,
+.chipCustom {
+  background: var(--color-gray-100);
+  color: var(--color-gray-700);
+}
+
+/* ── Open button ── */
+.openBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  padding: 0 var(--space-1);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.openBtn:disabled {
+  cursor: not-allowed;
+}
+
+/* ── Popover ── */
+.popover {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.searchInput {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  outline: none;
+  background: var(--color-gray-50);
+  box-sizing: border-box;
+}
+
+.optionsList {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.sectionHeader {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--color-gray-50);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.option {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--color-gray-100);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  transition: background var(--transition-fast);
+}
+
+.option:hover {
+  background: var(--color-surface-hover);
+}
+
+.emptyPopover {
+  padding: var(--space-4);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+/* ── Error message ── */
+.errorMsg {
+  font-size: var(--font-size-xs);
+  color: #dc2626;
+  margin-top: 2px;
+}

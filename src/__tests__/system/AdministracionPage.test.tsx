@@ -8,6 +8,27 @@ import * as useAdminsModule from '@/hooks/useAdmins';
 import type { Admin, AdminActivityLog, Admin2FA } from '@/types/admin';
 import type { AdminRole_Definition } from '@/types/role';
 
+// ── RbacUsers/RbacRoles hooks — mocked so RbacUsersBody (admins tab) renders ─
+vi.mock('@/hooks/useRbacUsers', () => ({
+  useRbacUsers: vi.fn(),
+  useCreateRbacUser: vi.fn(),
+  useUpdateRbacUser: vi.fn(),
+  useDeleteRbacUser: vi.fn(),
+  useSetUserRoles: vi.fn(),
+}));
+vi.mock('@/hooks/useRbacRoles', () => ({
+  useRbacRoles: vi.fn(),
+}));
+
+import {
+  useRbacUsers,
+  useCreateRbacUser,
+  useUpdateRbacUser,
+  useDeleteRbacUser,
+  useSetUserRoles,
+} from '@/hooks/useRbacUsers';
+import { useRbacRoles } from '@/hooks/useRbacRoles';
+
 vi.mock('@/hooks/useAdmins');
 
 const mockRoles: AdminRole_Definition[] = [
@@ -80,6 +101,8 @@ const mockActivityLog: AdminActivityLog[] = [
 const mockMutate = vi.fn();
 const mockUpdateMutate = vi.fn();
 
+const idleRbacMutation = { mutateAsync: vi.fn(), isPending: false };
+
 function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
@@ -148,11 +171,27 @@ describe('AdminPage', () => {
       mutate: vi.fn(),
       isPending: false,
     } as unknown as ReturnType<typeof useAdminsModule.useDisable2FA>);
+
+    // ── RbacUsersBody (replaces admins tab content) ─────────────────────────
+    vi.mocked(useRbacUsers).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useRbacUsers>);
+    vi.mocked(useRbacRoles).mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useRbacRoles>);
+    vi.mocked(useCreateRbacUser).mockReturnValue(idleRbacMutation as unknown as ReturnType<typeof useCreateRbacUser>);
+    vi.mocked(useUpdateRbacUser).mockReturnValue(idleRbacMutation as unknown as ReturnType<typeof useUpdateRbacUser>);
+    vi.mocked(useDeleteRbacUser).mockReturnValue(idleRbacMutation as unknown as ReturnType<typeof useDeleteRbacUser>);
+    vi.mocked(useSetUserRoles).mockReturnValue(idleRbacMutation as unknown as ReturnType<typeof useSetUserRoles>);
   });
 
-  it('renders "Administradores" tab button', () => {
+  it('renders "Usuarios" tab button (previously "Administradores")', () => {
     renderPage();
-    expect(screen.getByRole('button', { name: 'Administradores' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Usuarios' })).toBeInTheDocument();
   });
 
   it('renders "Actividad" tab button', () => {
@@ -160,45 +199,33 @@ describe('AdminPage', () => {
     expect(screen.getByRole('button', { name: 'Actividad' })).toBeInTheDocument();
   });
 
-  it('renders admins table with seeded data', () => {
+  it('renders RbacUsersBody heading "Usuarios" in the admins tab (h2)', () => {
     renderPage();
-    expect(screen.getByText('Super Admin')).toBeInTheDocument();
-    expect(screen.getByText('Carlos López')).toBeInTheDocument();
-    expect(screen.getByText('María Fernández')).toBeInTheDocument();
+    // The RbacUsersBody renders an h2 "Usuarios" heading (level 2)
+    expect(screen.getByRole('heading', { name: /^usuarios$/i, level: 2 })).toBeInTheDocument();
   });
 
-  it('renders "Nuevo administrador" button', () => {
+  it('renders "Nuevo usuario" button in admins tab', () => {
     renderPage();
-    expect(screen.getByRole('button', { name: 'Nuevo administrador' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /nuevo usuario/i })).toBeInTheDocument();
   });
 
-  it('clicking "Nuevo administrador" shows form with Nombre, Email, Rol, Contraseña fields', async () => {
+  it('clicking "Nuevo usuario" shows RbacUserModal', async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByRole('button', { name: 'Nuevo administrador' }));
+    await user.click(screen.getByRole('button', { name: /nuevo usuario/i }));
 
-    expect(screen.getByLabelText('Nombre')).toBeInTheDocument();
-    expect(screen.getByLabelText('Email')).toBeInTheDocument();
-    expect(screen.getByLabelText('Rol')).toBeInTheDocument();
-    expect(screen.getByLabelText(/contraseña \*/i)).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByLabelText(/nombre/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/login/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/contraseña/i)).toBeInTheDocument();
   });
 
-  it('submitting the form calls createAdmin mutate', async () => {
-    const user = userEvent.setup();
+  it('admins tab shows empty state when no users', () => {
     renderPage();
-
-    await user.click(screen.getByRole('button', { name: 'Nuevo administrador' }));
-
-    await user.type(screen.getByLabelText('Nombre'), 'Nuevo Admin');
-    await user.type(screen.getByLabelText('Email'), 'nuevo@test.com');
-    await user.type(screen.getByLabelText(/contraseña/i), 'secret123');
-
-    await user.click(screen.getByRole('button', { name: 'Guardar' }));
-
-    expect(mockMutate).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Nuevo Admin', email: 'nuevo@test.com', password: 'secret123' })
-    );
+    expect(screen.getByText(/no hay usuarios/i)).toBeInTheDocument();
   });
 
   it('clicking "Actividad" tab shows activity log table', async () => {
@@ -273,70 +300,50 @@ describe('AdminPage', () => {
     expect(screen.getByRole('columnheader', { name: 'Categoría' })).toBeInTheDocument();
   });
 
-  it('Admin table has "2FA" column', () => {
+  it('admins tab does not show legacy "2FA" column (replaced by RbacUsersBody)', () => {
     renderPage();
-    expect(screen.getByRole('columnheader', { name: '2FA' })).toBeInTheDocument();
+    // The new RbacUsersBody table does not have a "2FA" column
+    expect(screen.queryByRole('columnheader', { name: '2FA' })).toBeNull();
   });
 
-  it('2FA badge shows status from mock', () => {
-    vi.mocked(useAdminsModule.useAdmin2FAStatus).mockReturnValue({
-      data: { adminId: '1', enabled: false, method: null, backupCodesCount: 0, enabledAt: null, lastUsedAt: null } as Admin2FA,
-      isLoading: false,
-    } as ReturnType<typeof useAdminsModule.useAdmin2FAStatus>);
-
-    renderPage();
-    const badges = screen.getAllByText('Deshabilitado');
-    expect(badges.length).toBeGreaterThan(0);
-  });
-
-  it('Clicking "Editar" on a row shows form pre-filled with admin name', async () => {
+  it('admins tab "Editar" button opens RbacUserModal pre-filled with user data', async () => {
     const user = userEvent.setup();
+    // Set up one RBAC user so Editar buttons appear
+    const rbacUser = {
+      id: 'u1',
+      name: 'Super Admin',
+      email: 'admin@ipnext.com.ar',
+      login: 'superadmin',
+      status: 'active' as const,
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+      lastLoginAt: null,
+      roles: [{ id: 'r1', code: 'super_admin', label: 'Super Admin', isSystem: true }],
+    };
+    vi.mocked(useRbacUsers).mockReturnValue({
+      data: [rbacUser],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useRbacUsers>);
+
     renderPage();
 
-    // Click the first KebabMenu trigger (Acciones button) for Super Admin row
-    const kebabButtons = screen.getAllByRole('button', { name: 'Acciones' });
-    await user.click(kebabButtons[0]);
+    const editButtons = screen.getAllByRole('button', { name: 'Editar' });
+    await user.click(editButtons[0]);
 
-    // Click "Editar" from the dropdown
-    await user.click(screen.getByRole('menuitem', { name: 'Editar' }));
-
-    // Form should appear pre-filled with "Super Admin"
-    const nameInput = screen.getByLabelText('Nombre') as HTMLInputElement;
+    const nameInput = screen.getByLabelText(/nombre/i) as HTMLInputElement;
     expect(nameInput.value).toBe('Super Admin');
   });
 
   // Batch 1 — new tests
 
-  it('Admins tab has a search input with placeholder "Buscar por nombre o email..."', () => {
+  it('admins tab renders table headings from RbacUsersBody', () => {
+    // RbacUsersBody table has: Nombre, Email, Login, Roles, Estado, Última sesión, Acciones
     renderPage();
-    expect(screen.getByPlaceholderText('Buscar por nombre o email...')).toBeInTheDocument();
-  });
-
-  it('Admins search filters list by name', async () => {
-    const user = userEvent.setup();
-    renderPage();
-
-    const searchInput = screen.getByPlaceholderText('Buscar por nombre o email...');
-    await user.type(searchInput, 'Carlos');
-
-    // Wait for debounce
-    await new Promise(r => setTimeout(r, 350));
-
-    expect(screen.queryByText('Super Admin')).not.toBeInTheDocument();
-    expect(screen.getByText('Carlos López')).toBeInTheDocument();
-  });
-
-  it('Admins search filters list by email', async () => {
-    const user = userEvent.setup();
-    renderPage();
-
-    const searchInput = screen.getByPlaceholderText('Buscar por nombre o email...');
-    await user.type(searchInput, 'maria@');
-
-    await new Promise(r => setTimeout(r, 350));
-
-    expect(screen.queryByText('Super Admin')).not.toBeInTheDocument();
-    expect(screen.getByText('María Fernández')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Nombre' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Roles' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Estado' })).toBeInTheDocument();
   });
 
   it('Activity tab has "Desde" date input', async () => {

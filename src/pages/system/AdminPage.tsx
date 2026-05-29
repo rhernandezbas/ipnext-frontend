@@ -1,62 +1,13 @@
 import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
-import { FilterBar } from '@/components/molecules/FilterBar/FilterBar';
-import { useAdmins, useAdminActivityLog, useCreateAdmin, useUpdateAdmin, useDeleteAdmin, useRoles, useCreateRole, useUpdateRole, useEnable2FA, useDisable2FA, useAdmin2FAStatus } from '@/hooks/useAdmins';
+import { useAdminActivityLog, useRoles, useCreateRole, useUpdateRole, useEnable2FA, useDisable2FA, useAdmin2FAStatus } from '@/hooks/useAdmins';
 import type { Admin, AdminActivityLog, ActivityCategory } from '@/types/admin';
 import type { AdminRole_Definition } from '@/types/role';
+import { RbacUsersBody } from './admin/RbacUsersBody';
 import styles from './AdminPage.module.css';
 
 type Tab = 'admins' | 'activity' | 'roles' | 'seguridad' | 'sesiones';
 
-// role is now free text (a role-definition name), so these maps are best-effort
-// styling/labels with sensible fallbacks for any custom role.
-const ROLE_CLASS: Record<string, string> = {
-  superadmin: styles.roleSuperadmin,
-  admin: styles.roleAdmin,
-  viewer: styles.roleViewer,
-  engineer: styles.roleAdmin,
-  financial_manager: styles.roleAdmin,
-  support_agent: styles.roleViewer,
-  technician: styles.roleViewer,
-};
-const ROLE_LABEL: Record<string, string> = {
-  superadmin: 'Superadmin',
-  admin: 'Admin',
-  viewer: 'Viewer',
-  engineer: 'Ingeniero',
-  financial_manager: 'Gerente financiero',
-  support_agent: 'Soporte',
-  technician: 'Técnico',
-};
-function RoleBadge({ role }: { role: string }) {
-  return <span className={`${styles.roleBadge} ${ROLE_CLASS[role] ?? styles.roleViewer}`}>{ROLE_LABEL[role] ?? role}</span>;
-}
-
-function StatusBadge({ status }: { status: Admin['status'] }) {
-  return (
-    <span className={status === 'active' ? styles.statusActive : styles.statusInactive}>
-      {status === 'active' ? 'Activo' : 'Inactivo'}
-    </span>
-  );
-}
-
-function TwoFABadge({ adminId }: { adminId: string }) {
-  const { data: status } = useAdmin2FAStatus(adminId);
-  if (!status) return <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>—</span>;
-  return (
-    <span style={{
-      display: 'inline-block',
-      padding: '0.2rem 0.6rem',
-      borderRadius: '9999px',
-      fontSize: '0.75rem',
-      fontWeight: 600,
-      color: '#fff',
-      background: status.enabled ? '#059669' : '#6b7280',
-    }}>
-      {status.enabled ? 'Habilitado' : 'Deshabilitado'}
-    </span>
-  );
-}
 
 function TwoFAModal({ admin, onClose }: { admin: Admin; onClose: () => void }) {
   const { data: status } = useAdmin2FAStatus(admin.id);
@@ -175,114 +126,6 @@ function formatDate(dateStr: string | null): string {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-// ── Admin form modal ────────────────────────────────────────────────────────
-
-interface AdminFormProps {
-  initialData?: Partial<Admin>;
-  title: string;
-  onClose: () => void;
-  onSubmit: (data: Omit<Admin, 'id' | 'createdAt' | 'lastLogin'> & { password?: string }) => void;
-}
-
-function AdminFormModal({ initialData, title, onClose, onSubmit }: AdminFormProps) {
-  const { data: roles = [] } = useRoles();
-  const isEditing = !!initialData?.id;
-  const [name, setName] = useState(initialData?.name ?? '');
-  const [email, setEmail] = useState(initialData?.email ?? '');
-  const [role, setRole] = useState<string>(initialData?.role ?? 'admin');
-  const [password, setPassword] = useState('');
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!isEditing && !password.trim()) {
-      setPasswordError('La contraseña es obligatoria para crear un administrador.');
-      return;
-    }
-    setPasswordError(null);
-    const payload: Omit<Admin, 'id' | 'createdAt' | 'lastLogin'> & { password?: string } = {
-      name, email, role, status: initialData?.status ?? 'active',
-    };
-    // Only send password when creating, or when editing and user typed something.
-    if (!isEditing || password.trim()) {
-      payload.password = password;
-    }
-    onSubmit(payload);
-  }
-
-  return (
-    <div className={styles.overlay}>
-      <div className={styles.modal} role="dialog" aria-modal="true">
-        <h2 className={styles.modalTitle}>{title}</h2>
-        <form onSubmit={handleSubmit}>
-          <div className={styles.formGroup}>
-            <label htmlFor="admin-name">Nombre</label>
-            <input
-              id="admin-name"
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              required
-              autoFocus
-            />
-          </div>
-          <div className={styles.formGroup}>
-            <label htmlFor="admin-email">Email</label>
-            <input
-              id="admin-email"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className={styles.formGroup}>
-            <label htmlFor="admin-role">Rol</label>
-            <select
-              id="admin-role"
-              value={role}
-              onChange={e => setRole(e.target.value)}
-            >
-              {/* Editable: options come from the AdminRoleDefinition catalog
-                  (manage them in the "Roles y Permisos" tab). */}
-              {roles.length === 0 && <option value={role}>{ROLE_LABEL[role] ?? role}</option>}
-              {roles.map(r => (
-                <option key={r.id} value={r.name}>{ROLE_LABEL[r.name] ?? r.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className={styles.formGroup}>
-            <label htmlFor="admin-password">
-              Contraseña{isEditing ? ' (dejar vacío para no cambiar)' : ' *'}
-            </label>
-            <input
-              id="admin-password"
-              type="password"
-              value={password}
-              onChange={e => { setPassword(e.target.value); setPasswordError(null); }}
-              autoComplete={isEditing ? 'new-password' : 'new-password'}
-              placeholder={isEditing ? 'Sin cambios' : 'Contraseña'}
-            />
-            {passwordError && (
-              <span style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
-                {passwordError}
-              </span>
-            )}
-          </div>
-          <div className={styles.modalActions}>
-            <button type="button" className={styles.btnSecondary} onClick={onClose}>
-              Cancelar
-            </button>
-            <button type="submit" className={styles.btnPrimary}>
-              Guardar
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
 }
 
 // ── Activity category filter ────────────────────────────────────────────────
@@ -787,31 +630,6 @@ function SesionesTab() {
 
 // ── Column definitions ──────────────────────────────────────────────────────
 
-const adminColumns = [
-  { label: 'Nombre', key: 'name' as keyof Admin },
-  { label: 'Email', key: 'email' as keyof Admin },
-  {
-    label: 'Rol',
-    key: 'role' as keyof Admin,
-    render: (row: Admin) => <RoleBadge role={row.role} />,
-  },
-  {
-    label: 'Estado',
-    key: 'status' as keyof Admin,
-    render: (row: Admin) => <StatusBadge status={row.status} />,
-  },
-  {
-    label: '2FA',
-    key: 'id' as keyof Admin,
-    render: (row: Admin) => <TwoFABadge adminId={row.id} />,
-  },
-  {
-    label: 'Último acceso',
-    key: 'lastLogin' as keyof Admin,
-    render: (row: Admin) => formatDate(row.lastLogin),
-  },
-];
-
 const activityColumns = [
   { label: 'Administrador', key: 'adminName' as keyof AdminActivityLog },
   {
@@ -833,40 +651,15 @@ const activityColumns = [
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('admins');
-  const [showModal, setShowModal] = useState(false);
-  const [editingAdmin, setEditingAdmin] = useState<Admin | null>(null);
   const [show2FAModal, setShow2FAModal] = useState<Admin | null>(null);
   const [activityCategory, setActivityCategory] = useState<ActivityCategory | 'all'>('all');
-  const [adminSearch, setAdminSearch] = useState('');
   const [activityDateFrom, setActivityDateFrom] = useState('');
   const [activityDateTo, setActivityDateTo] = useState('');
 
-  const { data: admins = [], isLoading: loadingAdmins } = useAdmins();
   const { data: activityLog = [], isLoading: loadingActivity } = useAdminActivityLog();
   const { data: roles = [] } = useRoles();
-  const { mutate: createAdmin } = useCreateAdmin();
-  const { mutate: updateAdmin } = useUpdateAdmin();
-  const { mutate: deleteAdmin } = useDeleteAdmin();
   useCreateRole();
   const { mutate: updateRole } = useUpdateRole();
-
-  function handleCreate(data: Omit<Admin, 'id' | 'createdAt' | 'lastLogin'> & { password?: string }) {
-    createAdmin(data);
-    setShowModal(false);
-  }
-
-  function handleEdit(data: Omit<Admin, 'id' | 'createdAt' | 'lastLogin'> & { password?: string }) {
-    if (!editingAdmin) return;
-    updateAdmin({ id: editingAdmin.id, data });
-    setEditingAdmin(null);
-  }
-
-  const filteredAdmins = adminSearch.trim()
-    ? admins.filter(a => {
-        const q = adminSearch.toLowerCase();
-        return a.name.toLowerCase().includes(q) || a.email.toLowerCase().includes(q);
-      })
-    : admins;
 
   const filteredActivity = (() => {
     let list = activityCategory === 'all' ? activityLog : activityLog.filter(l => l.category === activityCategory);
@@ -881,33 +674,6 @@ export default function AdminPage() {
     return list;
   })();
 
-  const adminActions = [
-    {
-      label: 'Editar',
-      onClick: (row: Admin) => {
-        setEditingAdmin(row);
-      },
-    },
-    {
-      label: 'Configurar 2FA',
-      onClick: (row: Admin) => {
-        setShow2FAModal(row);
-      },
-    },
-    {
-      label: 'Desactivar',
-      onClick: (row: Admin) => {
-        updateAdmin({ id: row.id, data: { status: 'inactive' } });
-      },
-    },
-    {
-      label: 'Eliminar',
-      onClick: (row: Admin) => {
-        deleteAdmin(row.id);
-      },
-    },
-  ];
-
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -919,7 +685,7 @@ export default function AdminPage() {
           className={`${styles.tab} ${activeTab === 'admins' ? styles.tabActive : ''}`}
           onClick={() => setActiveTab('admins')}
         >
-          Administradores
+          Usuarios
         </button>
         <button
           className={`${styles.tab} ${activeTab === 'activity' ? styles.tabActive : ''}`}
@@ -947,26 +713,7 @@ export default function AdminPage() {
         </button>
       </div>
 
-      {activeTab === 'admins' && (
-        <>
-          <div className={styles.actions}>
-            <button className={styles.btnPrimary} onClick={() => setShowModal(true)}>
-              Nuevo administrador
-            </button>
-          </div>
-          <FilterBar
-            searchPlaceholder="Buscar por nombre o email..."
-            onSearch={setAdminSearch}
-          />
-          <DataTable
-            columns={adminColumns}
-            data={filteredAdmins}
-            loading={loadingAdmins}
-            actions={adminActions}
-            emptyMessage="No hay administradores."
-          />
-        </>
-      )}
+      {activeTab === 'admins' && <RbacUsersBody />}
 
       {activeTab === 'activity' && (
         <>
@@ -1024,23 +771,6 @@ export default function AdminPage() {
       {activeTab === 'seguridad' && <SeguridadTab />}
 
       {activeTab === 'sesiones' && <SesionesTab />}
-
-      {showModal && (
-        <AdminFormModal
-          title="Nuevo administrador"
-          onClose={() => setShowModal(false)}
-          onSubmit={handleCreate}
-        />
-      )}
-
-      {editingAdmin && (
-        <AdminFormModal
-          title="Editar administrador"
-          initialData={editingAdmin}
-          onClose={() => setEditingAdmin(null)}
-          onSubmit={handleEdit}
-        />
-      )}
 
       {show2FAModal && (
         <TwoFAModal
