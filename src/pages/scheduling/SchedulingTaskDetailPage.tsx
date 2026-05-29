@@ -15,6 +15,7 @@ import { usePartners } from '@/hooks/usePartners';
 import { useProjects } from '@/hooks/useProjects';
 import { useClientDetail, useClientServices } from '@/hooks/useCustomers';
 import { useAuth } from '@/hooks/useAuth';
+import { useCan } from '@/hooks/useMyPermissions';
 import { useIClassSendFeedback } from '@/hooks/useIClassSendFeedback';
 import { IClassSendResultModal } from '@/components/molecules/IClassSendResultModal/IClassSendResultModal';
 import type { ScheduledTask } from '@/types/scheduling';
@@ -59,8 +60,8 @@ export default function SchedulingTaskDetailPage() {
   const { data: customerDetail } = useClientDetail(customerId ?? '');
   const { data: customerServices = [] } = useClientServices(customerId ?? '', !!customerId);
 
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  useAuth(); // keep context subscription (auth:unauthorized event handling)
+  const canDelete = useCan('scheduling.delete');
 
   const updateTask = useUpdateTask();
   const moveToStage = useMoveTaskToStage();
@@ -305,7 +306,7 @@ export default function SchedulingTaskDetailPage() {
         onPriorityChange={handlePriorityChange}
         onDelete={() => setDeleteConfirm(true)}
         onClose={() => void handleClose()}
-        isAdmin={isAdmin}
+        isAdmin={canDelete}
         isSaving={isSaving}
       />
 

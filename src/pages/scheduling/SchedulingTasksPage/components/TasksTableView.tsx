@@ -9,6 +9,7 @@ import type { Admin } from '@/types/admin';
 import { useMoveTaskToStage, useBulkMoveTasksToStage, useDeleteTask, useCloseTask, useSetTaskInventoryReview, useUpdateTask } from '@/hooks/useScheduling';
 import type { BulkStageResponse } from '@/api/scheduling.api';
 import { useAuth } from '@/hooks/useAuth';
+import { useCan } from '@/hooks/useMyPermissions';
 import { useIClassSendFeedback } from '@/hooks/useIClassSendFeedback';
 import { IClassSendResultModal } from '@/components/molecules/IClassSendResultModal/IClassSendResultModal';
 import { BulkMoveResultModal } from '@/components/molecules/BulkMoveResultModal/BulkMoveResultModal';
@@ -301,8 +302,8 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
   const deleteTask = useDeleteTask();
   const closeTask = useCloseTask();
   const setInventoryReview = useSetTaskInventoryReview();
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  useAuth(); // keep context subscription (auth:unauthorized event handling)
+  const canBulkDelete = useCan('scheduling.bulk_delete');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -469,7 +470,7 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
             await deleteTask.mutateAsync(id);
           }
         }}
-        isAdmin={isAdmin}
+        isAdmin={canBulkDelete}
       />
       <DataTable
         columns={COLUMNS}

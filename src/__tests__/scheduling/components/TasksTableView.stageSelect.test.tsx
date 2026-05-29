@@ -20,6 +20,7 @@ vi.mock('@/hooks/useAuth', () => ({
 
 import { TasksTableView } from '@/pages/scheduling/SchedulingTasksPage/components/TasksTableView';
 import { useAuth } from '@/hooks/useAuth';
+import { useCan } from '@/hooks/useMyPermissions';
 import type { ScheduledTask } from '@/types/scheduling';
 import type { Workflow } from '@/types/workflow';
 import type { Project } from '@/types/project';
@@ -115,22 +116,27 @@ describe('TasksTableView — bulk actions', () => {
     closeAsync.mockResolvedValue(undefined);
     deleteAsync.mockResolvedValue(undefined);
     vi.spyOn(window, 'confirm').mockReturnValue(true);
+    // Restore default permissive behaviour after vi.clearAllMocks()
+    vi.mocked(useCan).mockImplementation(() => true);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('shows "Cerrar" button in bulk bar for non-admin', () => {
+  it('shows "Cerrar" button in bulk bar for user without scheduling.bulk_delete permission', () => {
     vi.mocked(useAuth).mockReturnValue({ user: regularUser, isLoading: false, login: vi.fn(), logout: vi.fn() });
+    // Override useCan to deny bulk_delete for this test
+    vi.mocked(useCan).mockImplementation((perm: string) => perm !== 'scheduling.bulk_delete');
     setup();
     selectFirstRow();
     expect(screen.getByTestId('bulk-close-btn')).toBeInTheDocument();
     expect(screen.queryByTestId('bulk-delete-btn')).not.toBeInTheDocument();
   });
 
-  it('shows both "Cerrar" and "Eliminar" for admin', () => {
+  it('shows both "Cerrar" and "Eliminar" for user with scheduling.bulk_delete permission', () => {
     vi.mocked(useAuth).mockReturnValue({ user: adminUser, isLoading: false, login: vi.fn(), logout: vi.fn() });
+    // Default global mock grants all permissions (useCan → true)
     setup();
     selectFirstRow();
     expect(screen.getByTestId('bulk-close-btn')).toBeInTheDocument();
@@ -145,8 +151,9 @@ describe('TasksTableView — bulk actions', () => {
     await waitFor(() => expect(closeAsync).toHaveBeenCalledWith({ id: 't1', isClosed: true }));
   });
 
-  it('calls deleteTask when admin clicks "Eliminar"', async () => {
+  it('calls deleteTask when user with scheduling.bulk_delete permission clicks "Eliminar"', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: adminUser, isLoading: false, login: vi.fn(), logout: vi.fn() });
+    // Default global mock grants all permissions
     setup();
     selectFirstRow();
     fireEvent.click(screen.getByTestId('bulk-delete-btn'));

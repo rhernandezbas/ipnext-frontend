@@ -179,6 +179,7 @@ import { useAdmins } from '@/hooks/useAdmins';
 import { usePartners } from '@/hooks/usePartners';
 import { useProjects } from '@/hooks/useProjects';
 import { useAuth } from '@/hooks/useAuth';
+import { useCan } from '@/hooks/useMyPermissions';
 
 const mockTask: ScheduledTask = {
   id: 'task-1',
@@ -302,6 +303,8 @@ const { default: SchedulingTaskDetailPage } = await import('@/pages/scheduling/S
 describe('SchedulingTaskDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Restore permissive default for useCan after vi.clearAllMocks() wipes it
+    vi.mocked(useCan).mockImplementation(() => true);
   });
 
   it('renders TaskHeader and layout structure', async () => {
@@ -447,9 +450,9 @@ describe('SchedulingTaskDetailPage', () => {
     });
   });
 
-  it('shows "Eliminar tarea" in kebab menu for admin role', async () => {
+  it('shows "Eliminar tarea" in kebab menu for user with scheduling.delete permission', async () => {
     setupMocks();
-    vi.mocked(useAuth).mockReturnValue({ user: { id: 1, username: 'admin', email: 'a@b.com', displayName: 'Admin', role: 'admin', permissions: [] } });
+    // Default global mock grants all (useCan → true), so delete is visible
     const { fireEvent: fe } = await import('@testing-library/react');
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
     await waitFor(() => {
@@ -459,9 +462,10 @@ describe('SchedulingTaskDetailPage', () => {
     expect(screen.getByTestId('kebab-delete')).toBeInTheDocument();
   });
 
-  it('hides "Eliminar tarea" in kebab menu for non-admin role', async () => {
+  it('hides "Eliminar tarea" in kebab menu for user without scheduling.delete permission', async () => {
     setupMocks();
-    vi.mocked(useAuth).mockReturnValue({ user: { id: 2, username: 'tech', email: 'tech@b.com', displayName: 'Tech', role: 'technician', permissions: [] } });
+    // Deny scheduling.delete for this test
+    vi.mocked(useCan).mockImplementation((perm: string) => perm !== 'scheduling.delete');
     const { fireEvent: fe } = await import('@testing-library/react');
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
     await waitFor(() => {
