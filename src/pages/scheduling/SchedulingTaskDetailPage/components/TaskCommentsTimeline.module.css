@@ -2,129 +2,227 @@
   background: var(--color-surface);
   border: 1px solid var(--color-gray-200);
   border-radius: var(--radius-xl);
-  padding: 20px;
+  padding: var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .sectionTitle {
-  font-size: 15px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text-primary);
   margin: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .loadingText {
-  font-size: 13px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
-  padding: 8px 0;
+  padding: var(--space-2) 0;
+  margin: 0;
 }
 
 .emptyState {
-  padding: 12px 0 4px;
+  padding: var(--space-3) 0 var(--space-1);
   color: var(--color-gray-400);
-  font-size: 13px;
+  font-size: var(--font-size-xs);
 }
 
 .emptyState p { margin: 0; }
 
-/* Timeline */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Timeline ──────────────────────────────────────────────────────────── */
+
 .timeline {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
-.commentCard {
+.commentItem {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   background: var(--color-gray-50);
   border: 1px solid var(--color-gray-100);
   border-radius: var(--radius-md);
-  padding: 12px 14px;
+  position: relative;
+  transition: border-color 0.15s ease;
+}
+
+.commentItem:hover {
+  border-color: var(--color-gray-200);
+}
+
+.commentItem:hover .deleteBtn {
+  opacity: 1;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.justAdded {
+  animation: fadeIn 0.25s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .justAdded { animation: none; }
+}
+
+.commentAvatar {
+  --avatar-hue: 220;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: hsl(var(--avatar-hue) 60% 92%);
+  color: hsl(var(--avatar-hue) 50% 32%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.commentMain {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  position: relative;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
 .commentHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
 .authorName {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text-primary);
 }
 
-.commentMeta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .commentDate {
-  font-size: 11px;
-  color: var(--color-gray-400);
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-500);
 }
 
 .deleteBtn {
+  margin-left: auto;
   background: transparent;
   border: none;
   cursor: pointer;
-  color: var(--color-gray-300);
-  font-size: 16px;
+  color: var(--color-gray-400);
+  font-size: 18px;
   line-height: 1;
   padding: 2px 6px;
-  border-radius: 4px;
-  transition: color 0.1s, background 0.1s;
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
   flex-shrink: 0;
 }
 
-.deleteBtn:hover { color: #ef4444; background: #fef2f2; }
-.deleteBtn:focus-visible { outline: 2px solid var(--color-accent); }
+.deleteBtn:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.deleteBtn:hover {
+  color: var(--color-status-late);
+  background: var(--color-gray-100);
+}
 
 .commentBody {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-primary);
-  line-height: 1.5;
+  line-height: 1.55;
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-/* Attachments */
-.attachments {
+/* ── Attachments on comment items ──────────────────────────────────────── */
+
+.thumbsRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  align-items: center;
+}
+
+.thumb {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-gray-200);
+  padding: 0;
+  background: var(--color-gray-100);
+  cursor: zoom-in;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.thumb:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.thumb:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .attachmentLink {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--color-accent);
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 4px;
-  padding: 2px 8px;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-primary);
+  background: var(--color-gray-100);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
   text-decoration: none;
-  transition: background 0.1s, border-color 0.1s;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .attachmentLink:hover {
-  background: #dbeafe;
-  border-color: #93c5fd;
+  background: var(--color-surface-hover);
+  border-color: var(--color-accent);
 }
 
 .attachmentLink:focus-visible {
@@ -137,129 +235,290 @@
   opacity: 0.7;
 }
 
-/* Add comment form */
-.form {
+/* ── Composer ──────────────────────────────────────────────────────────── */
+
+.composer {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-2);
   border-top: 1px solid var(--color-gray-100);
-  padding-top: 14px;
+  padding-top: var(--space-4);
 }
 
-.formRow {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-}
-
-.textarea {
+.composerTextarea {
   width: 100%;
-  min-height: 72px;
-  padding: 8px 12px;
+  min-height: 84px;
+  padding: var(--space-3);
   border: 1px solid var(--color-gray-200);
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-family: inherit;
   resize: vertical;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
   box-sizing: border-box;
+  background: var(--color-surface);
 }
 
-.textarea:focus { border-color: var(--color-accent); }
+.composerTextarea:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px hsl(265 50% 50% / 0.12);
+}
 
-.inputField {
-  padding: 7px 12px;
+.composerInput {
+  padding: 7px var(--space-3);
   border: 1px solid var(--color-gray-200);
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-family: inherit;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s ease;
   width: 100%;
   box-sizing: border-box;
+  background: var(--color-surface);
 }
 
-.inputField:focus { border-color: var(--color-accent); }
-
-/* Attachment rows in form */
-.attachmentRows {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.attachmentRowLabel {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.btnAddAttachment {
-  background: transparent;
-  border: 1px dashed var(--color-gray-300);
-  border-radius: var(--radius-md);
-  color: var(--color-gray-500);
-  font-size: 12px;
-  cursor: pointer;
-  padding: 5px 10px;
-  transition: all 0.15s;
-}
-
-.btnAddAttachment:hover {
+.composerInput:focus {
   border-color: var(--color-accent);
-  color: var(--color-accent);
-  background: #eff6ff;
 }
 
-.attachmentInputRow {
+.urlRow {
   display: grid;
   grid-template-columns: 1fr 1fr auto;
-  gap: 6px;
+  gap: var(--space-2);
   align-items: center;
+  padding: var(--space-2);
+  background: var(--color-gray-50);
+  border: 1px dashed var(--color-gray-200);
+  border-radius: var(--radius-md);
 }
 
-.btnRemoveAttachment {
+.pendingRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.pendingChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 8px 4px 4px;
+  background: var(--color-gray-100);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  max-width: 260px;
+}
+
+.pendingThumb {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  display: block;
+  flex-shrink: 0;
+}
+
+.pendingFilename {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+.pendingRemove {
   background: transparent;
   border: none;
   cursor: pointer;
-  color: var(--color-gray-300);
+  color: var(--color-gray-500);
   font-size: 16px;
-  padding: 2px 4px;
-  border-radius: 4px;
-  transition: color 0.1s;
   line-height: 1;
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease, background 0.15s ease;
+  flex-shrink: 0;
 }
 
-.btnRemoveAttachment:hover { color: #ef4444; }
+.pendingRemove:hover {
+  color: var(--color-status-late);
+  background: var(--color-gray-200);
+}
 
-/* Submit row */
-.formActions {
+.pendingRemove:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.composerActions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.spacer { flex: 1; }
+
+.btnAttachToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: transparent;
+  border: 1px solid var(--color-gray-200);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.btnAttachToggle:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-surface-hover);
+}
+
+.btnAttachToggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.btnAttachToggle[aria-expanded="true"] {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.btnAddDraft {
+  background: var(--color-gray-100);
+  border: 1px solid var(--color-gray-200);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 7px var(--space-3);
+  border-radius: var(--radius-md);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btnAddDraft:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: var(--color-accent);
+}
+
+.btnAddDraft:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnAddDraft:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .btnSubmit {
-  padding: 7px 16px;
+  padding: 8px 18px;
   background: var(--color-accent);
-  color: white;
+  color: var(--color-white);
   border: none;
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s ease, transform 0.05s ease;
 }
 
-.btnSubmit:hover:not(:disabled) { background: #4f46e5; }
-.btnSubmit:disabled { opacity: 0.5; cursor: not-allowed; }
-.btnSubmit:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.btnSubmit:hover:not(:disabled) {
+  background: hsl(265 56% 42%);
+}
+
+.btnSubmit:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btnSubmit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnSubmit:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.loginPrompt {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.composerHint {
+  font-size: 11px;
+  color: var(--color-gray-400);
+  margin: 0;
+}
+
+/* ── Lightbox ──────────────────────────────────────────────────────────── */
+
+.lightboxOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-5);
+  animation: overlayIn 0.15s ease-out;
+}
+
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lightboxOverlay { animation: none; }
+}
+
+.lightboxImage {
+  max-width: 95vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  cursor: default;
+}
+
+.lightboxClose {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--color-white);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-full);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.lightboxClose:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.lightboxClose:focus-visible {
+  outline: 2px solid var(--color-white);
+  outline-offset: 2px;
+}

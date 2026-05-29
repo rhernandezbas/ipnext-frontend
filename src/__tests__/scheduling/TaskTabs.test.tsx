@@ -121,32 +121,37 @@ describe('TaskTabs', () => {
     vi.clearAllMocks();
   });
 
-  it('renders exactly 7 tabs in correct order with correct labels', () => {
+  it('renders exactly 6 tabs in correct order with correct labels (no Adjuntos)', () => {
     render(<TaskTabs {...makeProps()} />);
     const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(7);
+    expect(tabs).toHaveLength(6);
     expect(tabs[0]).toHaveTextContent('Detalles');
-    expect(tabs[1]).toHaveTextContent('Adjuntos');
-    expect(tabs[2]).toHaveTextContent('Comentarios');
-    expect(tabs[3]).toHaveTextContent('Relacionado');
-    expect(tabs[4]).toHaveTextContent('Inventory');
-    expect(tabs[5]).toHaveTextContent('Registro de trabajo');
-    expect(tabs[6]).toHaveTextContent('Actividad');
+    expect(tabs[1]).toHaveTextContent('Comentarios');
+    expect(tabs[2]).toHaveTextContent('Relacionado');
+    expect(tabs[3]).toHaveTextContent('Inventory');
+    expect(tabs[4]).toHaveTextContent('Registro de trabajo');
+    expect(tabs[5]).toHaveTextContent('Actividad');
+  });
+
+  it('does not render an Adjuntos tab', () => {
+    render(<TaskTabs {...makeProps()} />);
+    const tabs = screen.getAllByRole('tab');
+    for (const tab of tabs) {
+      expect(tab).not.toHaveTextContent('Adjuntos');
+    }
   });
 
   it('defaults to Detalles tab selected (aria-selected=true)', () => {
     render(<TaskTabs {...makeProps()} />);
     const tabs = screen.getAllByRole('tab');
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
-    // all others false
-    for (let i = 1; i < 7; i++) {
+    for (let i = 1; i < tabs.length; i++) {
       expect(tabs[i]).toHaveAttribute('aria-selected', 'false');
     }
   });
 
   it('Detalles content is visible on load', () => {
     render(<TaskTabs {...makeProps()} />);
-    // DatosForm is rendered inside Detalles
     expect(screen.getByTestId('datos-form')).toBeInTheDocument();
   });
 
@@ -155,17 +160,12 @@ describe('TaskTabs', () => {
     expect(screen.queryByTestId('task-comments-timeline')).not.toBeInTheDocument();
   });
 
-  it('Adjuntos content is NOT in the DOM on initial load (lazy)', () => {
-    render(<TaskTabs {...makeProps()} />);
-    expect(screen.queryByText(/Subí y gestioná archivos/i)).not.toBeInTheDocument();
-  });
-
   it('clicking Comentarios mounts the (mocked) timeline', async () => {
     const user = userEvent.setup();
     render(<TaskTabs {...makeProps()} />);
 
     const tabs = screen.getAllByRole('tab');
-    await user.click(tabs[2]); // Comentarios
+    await user.click(tabs[1]); // Comentarios
 
     expect(screen.getByTestId('task-comments-timeline')).toBeInTheDocument();
     expect(screen.getByTestId('task-comments-timeline')).toHaveAttribute(
@@ -174,53 +174,26 @@ describe('TaskTabs', () => {
     );
   });
 
-  it('switching back to Detalles keeps it mounted (lazy mount memory)', async () => {
+  it('switching back to Detalles keeps Comentarios mounted (lazy mount memory)', async () => {
     const user = userEvent.setup();
     render(<TaskTabs {...makeProps()} />);
 
     const tabs = screen.getAllByRole('tab');
 
-    // Go to Comentarios
-    await user.click(tabs[2]);
+    await user.click(tabs[1]); // Comentarios
     expect(screen.getByTestId('task-comments-timeline')).toBeInTheDocument();
 
-    // Go back to Detalles
-    await user.click(tabs[0]);
-    // Detalles content is still mounted
+    await user.click(tabs[0]); // back to Detalles
     expect(screen.getByTestId('datos-form')).toBeInTheDocument();
-    // Comentarios stays mounted (lazy-mount preserves once opened)
     expect(screen.getByTestId('task-comments-timeline')).toBeInTheDocument();
   });
 
-  it('Adjuntos ComingSoonPanel renders correct copy with zero fetch', async () => {
+  it('Relacionado renders a ComingSoonPanel', async () => {
     const user = userEvent.setup();
     render(<TaskTabs {...makeProps()} />);
-
     const tabs = screen.getAllByRole('tab');
-    await user.click(tabs[1]); // Adjuntos
-
-    // The tab button + the h3 in the panel both say "Adjuntos" — check the heading
-    expect(screen.getByRole('heading', { name: 'Adjuntos' })).toBeInTheDocument();
-    expect(
-      screen.getByText(/Subí y gestioná archivos de la tarea/i),
-    ).toBeInTheDocument();
-  });
-
-  it('Relacionado renders a ComingSoonPanel (no fetch)', async () => {
-    const user = userEvent.setup();
-    render(<TaskTabs {...makeProps()} />);
-
-    const tabs = screen.getAllByRole('tab');
-    await user.click(tabs[3]); // Relacionado
-
-    // ComingSoonPanel renders a "Próximamente" badge
+    await user.click(tabs[2]); // Relacionado
     expect(screen.getAllByText('Próximamente').length).toBeGreaterThan(0);
-  });
-
-  it('Inventory toggle reflects reviewedByInventory=false as unchecked', () => {
-    render(<TaskTabs {...makeProps({ reviewedByInventory: false })} />);
-    // Need to switch to Inventory tab
-    // Actually the tab content may not be mounted yet (lazy), click first
   });
 
   it('Inventory: toggle reflects reviewedByInventory prop and calls onInventoryToggle', async () => {
@@ -233,7 +206,7 @@ describe('TaskTabs', () => {
     );
 
     const tabs = screen.getAllByRole('tab');
-    await user.click(tabs[4]); // Inventory
+    await user.click(tabs[3]); // Inventory
 
     const checkbox = screen.getByRole('checkbox');
     expect(checkbox).not.toBeChecked();
@@ -246,10 +219,8 @@ describe('TaskTabs', () => {
   it('Inventory: reviewedByInventory=true shows checkbox as checked', async () => {
     const user = userEvent.setup();
     render(<TaskTabs {...makeProps({ reviewedByInventory: true })} />);
-
     const tabs = screen.getAllByRole('tab');
-    await user.click(tabs[4]); // Inventory
-
+    await user.click(tabs[3]);
     const checkbox = screen.getByRole('checkbox');
     expect(checkbox).toBeChecked();
   });
@@ -257,20 +228,16 @@ describe('TaskTabs', () => {
   it('Registro de trabajo renders ComingSoonPanel', async () => {
     const user = userEvent.setup();
     render(<TaskTabs {...makeProps()} />);
-
     const tabs = screen.getAllByRole('tab');
-    await user.click(tabs[5]); // Registro de trabajo
-
+    await user.click(tabs[4]);
     expect(screen.getAllByText('Próximamente').length).toBeGreaterThan(0);
   });
 
   it('Actividad renders ComingSoonPanel', async () => {
     const user = userEvent.setup();
     render(<TaskTabs {...makeProps()} />);
-
     const tabs = screen.getAllByRole('tab');
-    await user.click(tabs[6]); // Actividad
-
+    await user.click(tabs[5]);
     expect(screen.getAllByText('Próximamente').length).toBeGreaterThan(0);
   });
 });
