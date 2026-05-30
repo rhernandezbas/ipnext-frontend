@@ -19,13 +19,13 @@ El sistema MUST registrar un tab "Gestión Real" en la Configuración de Schedul
 
 ### Requirement: Config Load
 
-Al montar, el sistema MUST obtener la config vía GET `/api/gestion-real-ingest/config` (a través de un hook, nunca axios directo) y poblar el formulario: toggle `enabled`, selector de intervalo, `windowMonths`, y dos dropdowns de Proyecto (Fibra/Wireless) alimentados desde `useProjects('all')`.
+Al montar, el sistema MUST obtener la config vía GET `/api/gestion-real-ingest/config` (a través de un hook, nunca axios directo) y poblar el formulario: selector de intervalo, `windowMonths`, y dos dropdowns de Proyecto (Fibra/Wireless) alimentados desde `useProjects('all')`. La activación on/off NO es un campo del formulario: vive en el feature flag `gestion-real-ingest` (ver Requirement: Activation Toggle).
 
 #### Scenario: Formulario poblado desde la config
 
 - GIVEN el backend responde la config con valores existentes
 - WHEN el cuerpo termina de cargar
-- THEN el toggle, el selector de intervalo, el window y ambos dropdowns reflejan los valores recibidos
+- THEN el selector de intervalo, el window y ambos dropdowns reflejan los valores recibidos
 
 ### Requirement: Interval Preset Selector
 
@@ -45,7 +45,7 @@ El intervalo MUST mostrarse al usuario en MINUTOS mediante un selector con prese
 
 ### Requirement: Edit and Save
 
-El sistema MUST guardar mediante un botón explícito "Guardar" que dispara un único PUT `/api/gestion-real-ingest/config` con la config editada. El botón MUST estar deshabilitado mientras no haya cambios y mientras se guarda. Tras éxito MUST mostrar feedback e invalidar las queries de config y status.
+El sistema MUST guardar mediante un botón explícito "Guardar" que dispara un único PUT `/api/gestion-real-ingest/config` con la config editada (`intervalMs`, `windowMonths`, `fiberProjectId`, `wirelessProjectId`). El payload NO incluye `enabled` — la activación se maneja por separado vía el feature flag (ver Requirement: Activation Toggle). El botón MUST estar deshabilitado mientras no haya cambios y mientras se guarda. Tras éxito MUST mostrar feedback e invalidar las queries de config y status.
 
 #### Scenario: Guardar cambios exitoso
 
@@ -76,15 +76,38 @@ Ante errores del PUT, el sistema MUST mapear el código de error a un mensaje en
 - WHEN falla el guardado
 - THEN se muestra un mensaje de proyecto no encontrado
 
+### Requirement: Activation Toggle
+
+La activación on/off de la ingesta MUST ser un único toggle ligado al feature flag `gestion-real-ingest`, leído vía `useFeatureFlag('gestion-real-ingest')` y escrito en vivo vía `useSetFeatureFlag` (independiente del botón "Guardar"). Apagar SIEMPRE está permitido. El toggle MUST deshabilitarse mientras la mutación del flag está pendiente y MUST surfacear un error si la mutación falla. Cuando está apagado MUST mostrar un hint indicando que la ingesta está desactivada.
+
+#### Scenario: Toggle refleja el feature flag
+
+- GIVEN el feature flag `gestion-real-ingest` está habilitado
+- WHEN se renderiza la sección Configuración
+- THEN el toggle de activación aparece encendido
+
+#### Scenario: Apagar la ingesta
+
+- GIVEN el toggle está encendido
+- WHEN el usuario lo apaga
+- THEN se escribe el feature flag `gestion-real-ingest` con `enabled: false` en vivo
+
+#### Scenario: Error al cambiar el flag
+
+- GIVEN la mutación del feature flag falla
+- WHEN se intenta cambiar el toggle
+- THEN se muestra un banner de error y no se confirma el cambio
+
 ### Requirement: Enable-with-unmapped-project Guard
 
-Si el usuario habilita `enabled` mientras `fiberProjectId` o `wirelessProjectId` es null, el sistema MUST mostrar una advertencia clara (bloqueando el guardado o exigiendo confirmación), espejando el bug backend C1 donde una orden clasificada sin proyecto mapeado cae como needs-review.
+Si el usuario intenta ENCENDER el toggle de activación mientras la config GUARDADA tiene `fiberProjectId` o `wirelessProjectId` en null, el sistema MUST bloquear el encendido (no escribir el flag) y mostrar una advertencia clara, espejando el bug backend C1 donde una orden clasificada sin proyecto mapeado cae como needs-review. La advertencia se limpia al corregir el mapeo o al apagar.
 
-#### Scenario: Habilitar con proyecto sin mapear
+#### Scenario: Encender con proyecto sin mapear
 
-- GIVEN `fiberProjectId` o `wirelessProjectId` es null
-- WHEN el usuario activa el toggle `enabled`
-- THEN se muestra una advertencia clara que avisa del riesgo de tareas en revisión
+- GIVEN `fiberProjectId` o `wirelessProjectId` de la config guardada es null
+- WHEN el usuario intenta encender el toggle de activación
+- THEN el flag NO se escribe
+- AND se muestra una advertencia clara que avisa del riesgo de tareas en revisión
 
 ### Requirement: Project Dropdowns
 
