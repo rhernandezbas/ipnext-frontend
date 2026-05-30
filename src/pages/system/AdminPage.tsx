@@ -4,6 +4,7 @@ import type { Admin } from '@/types/admin';
 import { RbacUsersBody } from './admin/RbacUsersBody';
 import { RolesMatrixBody } from './admin/RolesMatrixBody';
 import { ActivityBody } from './admin/ActivityBody';
+import { SessionsBody } from './admin/SessionsBody';
 import { Can } from '@/components/auth/Can';
 import styles from './AdminPage.module.css';
 
@@ -93,17 +94,6 @@ function TwoFAModal({ admin, onClose }: { admin: Admin; onClose: () => void }) {
       </div>
     </div>
   );
-}
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleString('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 // ── Seguridad Tab ───────────────────────────────────────────────────────────
@@ -277,198 +267,6 @@ function SeguridadTab() {
   );
 }
 
-// ── Sesiones Tab ────────────────────────────────────────────────────────────
-
-interface ActiveSession {
-  id: string;
-  adminName: string;
-  ip: string;
-  browser: string;
-  loginTime: string;
-  lastActivity: string;
-  location: string;
-}
-
-interface AccessHistoryEntry {
-  id: string;
-  admin: string;
-  ip: string;
-  result: 'success' | 'failed';
-  browser: string;
-  timestamp: string;
-}
-
-const MOCK_ACTIVE_SESSIONS: ActiveSession[] = [
-  { id: 's1', adminName: 'Super Admin', ip: '192.168.1.1', browser: 'Chrome 124', loginTime: '2026-04-28T07:00:00Z', lastActivity: '2026-04-28T08:30:00Z', location: 'Buenos Aires, AR' },
-  { id: 's2', adminName: 'Carlos López', ip: '192.168.1.20', browser: 'Firefox 125', loginTime: '2026-04-28T06:00:00Z', lastActivity: '2026-04-28T08:25:00Z', location: 'Córdoba, AR' },
-];
-
-const MOCK_ACCESS_HISTORY: AccessHistoryEntry[] = [
-  { id: 'h1', admin: 'Super Admin', ip: '192.168.1.1', result: 'success', browser: 'Chrome 124', timestamp: '2026-04-28T07:00:00Z' },
-  { id: 'h2', admin: 'Carlos López', ip: '10.0.0.5', result: 'failed', browser: 'Firefox 125', timestamp: '2026-04-27T22:15:00Z' },
-  { id: 'h3', admin: 'Super Admin', ip: '192.168.1.1', result: 'success', browser: 'Chrome 124', timestamp: '2026-04-27T09:00:00Z' },
-];
-
-function SesionesTab() {
-  const [sessions, setSessions] = useState<ActiveSession[]>(MOCK_ACTIVE_SESSIONS);
-  const [historyFilter, setHistoryFilter] = useState<'all' | 'success' | 'failed'>('all');
-  const [historyAdminFilter, setHistoryAdminFilter] = useState('');
-  const [maxDurationHours, setMaxDurationHours] = useState(8);
-  const [idleTimeoutMinutes, setIdleTimeoutMinutes] = useState(30);
-  const [concurrentLimit, setConcurrentLimit] = useState(3);
-
-  function forceLogout(sessionId: string) {
-    setSessions(prev => prev.filter(s => s.id !== sessionId));
-  }
-
-  const filteredHistory = MOCK_ACCESS_HISTORY.filter(entry => {
-    if (historyFilter !== 'all' && entry.result !== historyFilter) return false;
-    if (historyAdminFilter && !entry.admin.toLowerCase().includes(historyAdminFilter.toLowerCase())) return false;
-    return true;
-  });
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Sesiones activas */}
-      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1.5rem' }}>
-        <h2 style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '1rem' }}>Sesiones activas</h2>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Admin</th>
-              <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>IP</th>
-              <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Navegador</th>
-              <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Inicio sesión</th>
-              <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Última actividad</th>
-              <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Ubicación</th>
-              <th style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {sessions.map(session => (
-              <tr key={session.id}>
-                <td style={{ padding: '0.5rem', borderBottom: '1px solid #f3f4f6' }}>{session.adminName}</td>
-                <td style={{ padding: '0.5rem', borderBottom: '1px solid #f3f4f6', fontFamily: 'monospace' }}>{session.ip}</td>
-                <td style={{ padding: '0.5rem', borderBottom: '1px solid #f3f4f6' }}>{session.browser}</td>
-                <td style={{ padding: '0.5rem', borderBottom: '1px solid #f3f4f6' }}>{formatDate(session.loginTime)}</td>
-                <td style={{ padding: '0.5rem', borderBottom: '1px solid #f3f4f6' }}>{formatDate(session.lastActivity)}</td>
-                <td style={{ padding: '0.5rem', borderBottom: '1px solid #f3f4f6' }}>{session.location}</td>
-                <td style={{ padding: '0.5rem', borderBottom: '1px solid #f3f4f6' }}>
-                  <button
-                    onClick={() => forceLogout(session.id)}
-                    style={{ background: '#dc2626', color: '#fff', border: 'none', borderRadius: '0.375rem', padding: '0.25rem 0.5rem', cursor: 'pointer', fontSize: '0.75rem' }}
-                  >
-                    Forzar logout
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {sessions.length === 0 && (
-              <tr>
-                <td colSpan={7} style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>No hay sesiones activas.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Historial de acceso */}
-      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1.5rem' }}>
-        <h2 style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '1rem' }}>Historial de acceso</h2>
-        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <input
-            type="text"
-            placeholder="Filtrar por admin..."
-            value={historyAdminFilter}
-            onChange={e => setHistoryAdminFilter(e.target.value)}
-            style={{ padding: '0.375rem 0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
-          />
-          <select
-            value={historyFilter}
-            onChange={e => setHistoryFilter(e.target.value as 'all' | 'success' | 'failed')}
-            style={{ padding: '0.375rem 0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
-          >
-            <option value="all">Todos</option>
-            <option value="success">Exitoso</option>
-            <option value="failed">Fallido</option>
-          </select>
-        </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Admin</th>
-              <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>IP</th>
-              <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Resultado</th>
-              <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Navegador</th>
-              <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Timestamp</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredHistory.map(entry => (
-              <tr key={entry.id}>
-                <td style={{ padding: '0.5rem', borderBottom: '1px solid #f3f4f6' }}>{entry.admin}</td>
-                <td style={{ padding: '0.5rem', borderBottom: '1px solid #f3f4f6', fontFamily: 'monospace' }}>{entry.ip}</td>
-                <td style={{ padding: '0.5rem', borderBottom: '1px solid #f3f4f6' }}>
-                  <span style={{
-                    display: 'inline-block',
-                    padding: '0.15rem 0.5rem',
-                    borderRadius: '9999px',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    background: entry.result === 'success' ? '#d1fae5' : '#fee2e2',
-                    color: entry.result === 'success' ? '#065f46' : '#991b1b',
-                  }}>
-                    {entry.result === 'success' ? 'Exitoso' : 'Fallido'}
-                  </span>
-                </td>
-                <td style={{ padding: '0.5rem', borderBottom: '1px solid #f3f4f6' }}>{entry.browser}</td>
-                <td style={{ padding: '0.5rem', borderBottom: '1px solid #f3f4f6' }}>{formatDate(entry.timestamp)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Configuración de sesión */}
-      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1.5rem' }}>
-        <h2 style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '1rem' }}>Configuración de sesión</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-          <div className={styles.formGroup}>
-            <label htmlFor="session-max-duration">Duración máxima (horas)</label>
-            <input
-              id="session-max-duration"
-              type="number"
-              min={1}
-              value={maxDurationHours}
-              onChange={e => setMaxDurationHours(Number(e.target.value))}
-            />
-          </div>
-          <div className={styles.formGroup}>
-            <label htmlFor="session-idle-timeout">Timeout inactividad (minutos)</label>
-            <input
-              id="session-idle-timeout"
-              type="number"
-              min={1}
-              value={idleTimeoutMinutes}
-              onChange={e => setIdleTimeoutMinutes(Number(e.target.value))}
-            />
-          </div>
-          <div className={styles.formGroup}>
-            <label htmlFor="session-concurrent">Sesiones simultáneas por admin</label>
-            <input
-              id="session-concurrent"
-              type="number"
-              min={1}
-              value={concurrentLimit}
-              onChange={e => setConcurrentLimit(Number(e.target.value))}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Main Page ───────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
@@ -522,7 +320,7 @@ export default function AdminPage() {
 
       {activeTab === 'seguridad' && <SeguridadTab />}
 
-      {activeTab === 'sesiones' && <SesionesTab />}
+      {activeTab === 'sesiones' && <SessionsBody />}
 
       {show2FAModal && (
         <TwoFAModal
