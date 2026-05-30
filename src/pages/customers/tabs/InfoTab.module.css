@@ -152,6 +152,7 @@
 .badge_inactive { background: #f3f4f6; color: #4b5563; }
 .badge_blocked  { background: #fee2e2; color: #991b1b; }
 .badge_late     { background: #fef3c7; color: #92400e; }
+.badge_baja     { background: #e9d5ff; color: #6b21a8; }
 
 .chevron {
   margin-left: auto;

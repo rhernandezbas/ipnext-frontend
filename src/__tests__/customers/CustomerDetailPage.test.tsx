@@ -182,8 +182,8 @@ describe('CustomerDetailPage', () => {
 
   it('renders status badge', () => {
     renderDetail();
-    // FieldRowStatus capitalises the raw status value: 'active' → 'Active'
-    expect(screen.getByText('Active')).toBeInTheDocument();
+    // FieldRowStatus now uses the GR client-status labels: 'active' → 'Activo'.
+    expect(screen.getByText('Activo')).toBeInTheDocument();
   });
 
   it('renders all 7 tabs', () => {

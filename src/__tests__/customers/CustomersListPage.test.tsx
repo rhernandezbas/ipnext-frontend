@@ -68,6 +68,31 @@ describe('CustomersListPage', () => {
     expect(screen.getAllByText('Inactivo').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('status filter offers the GR-aligned options including Bajas and Incobrable', () => {
+    renderPage();
+    const select = screen.getByRole('combobox', { name: 'Estado' });
+    const optionLabels = Array.from(select.querySelectorAll('option')).map(o => o.textContent);
+    expect(optionLabels).toContain('Bajas');
+    expect(optionLabels).toContain('Incobrable');
+    // Old finance vocabulary must NOT appear in the client filter.
+    expect(optionLabels).not.toContain('Bloqueado');
+  });
+
+  it('renders a baja row with the GR "Bajas" badge (not collapsed to Inactivo)', () => {
+    vi.mocked(useClientsModule.useClientList).mockReturnValue({
+      data: {
+        data: [{ ...mockCustomers[0], id: 9, name: 'Carla Baja', status: 'baja' }],
+        total: 1,
+        page: 1,
+        totalPages: 1,
+      },
+      isLoading: false,
+    } as ReturnType<typeof useClientsModule.useClientList>);
+    renderPage();
+    // The badge in the table shows "Bajas"; "Bajas" also appears as a filter option.
+    expect(screen.getAllByText('Bajas').length).toBeGreaterThanOrEqual(2);
+  });
+
   it('shows skeleton while loading', () => {
     vi.mocked(useClientsModule.useClientList).mockReturnValue({
       data: undefined,

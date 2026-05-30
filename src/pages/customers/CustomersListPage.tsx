@@ -9,6 +9,7 @@ import { useGestionRealSyncStatus } from '../../hooks/useGestionRealSync';
 import { GestionRealSyncBadge } from '../../components/gestionReal/GestionRealSyncBadge';
 import type { CustomerSummary } from '../../types/customer';
 import { ClientStatsCards } from './ClientStatsCards';
+import { CLIENT_STATUS_LABELS } from './clientStatusLabels';
 import { Can } from '../../components/auth/Can';
 import styles from './CustomersListPage.module.css';
 
@@ -16,11 +17,12 @@ const STATUS_FILTERS = [
   { value: '', label: 'Todos' },
   { value: 'active', label: 'Activo' },
   { value: 'inactive', label: 'Inactivo' },
-  { value: 'blocked', label: 'Bloqueado' },
+  { value: 'blocked', label: 'Incobrable' },
+  { value: 'baja', label: 'Bajas' },
   { value: 'new', label: 'Nuevo' },
 ];
 
-function toStatusBadge(status: CustomerSummary['status']): 'active' | 'late' | 'blocked' | 'inactive' {
+function toStatusBadge(status: CustomerSummary['status']): 'active' | 'late' | 'blocked' | 'inactive' | 'baja' {
   if (status === 'new') return 'inactive';
   return status;
 }
@@ -38,7 +40,11 @@ function getColumns(): Column[] {
       label: 'Estado',
       key: 'status',
       sortable: false,
-      render: (row: CustomerSummary) => <StatusBadge status={toStatusBadge(row.status)} />,
+      // Client rows show GR vocabulary (Deudor/Incobrable/Bajas) via the label
+      // override; the shared badge keeps its neutral defaults for finance pages.
+      render: (row: CustomerSummary) => (
+        <StatusBadge status={toStatusBadge(row.status)} label={CLIENT_STATUS_LABELS[row.status]} />
+      ),
     },
     {
       label: 'ID',

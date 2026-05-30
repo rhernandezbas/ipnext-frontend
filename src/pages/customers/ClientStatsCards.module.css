@@ -1,6 +1,6 @@
 .row {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 12px;
   margin-bottom: 16px;
 }
@@ -51,6 +51,7 @@
 .inactive { border-left-color: #6b7280; }
 .late     { border-left-color: #f59e0b; }
 .blocked  { border-left-color: #ef4444; }
+.baja     { border-left-color: #7c3aed; }
 
 @media (max-width: 900px) {
   .row { grid-template-columns: repeat(2, 1fr); }

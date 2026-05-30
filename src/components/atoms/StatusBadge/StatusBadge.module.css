@@ -12,3 +12,4 @@
 .late     { background-color: var(--badge-late-bg);     color: var(--badge-late-fg); }
 .blocked  { background-color: var(--badge-blocked-bg);  color: var(--badge-blocked-fg); }
 .inactive { background-color: var(--badge-inactive-bg); color: var(--badge-inactive-fg); }
+.baja     { background-color: var(--badge-baja-bg);     color: var(--badge-baja-fg); }
