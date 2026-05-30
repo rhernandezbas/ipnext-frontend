@@ -17,6 +17,22 @@ vi.mock('@/hooks/useFeatureFlags', () => ({
   useFeatureFlag: vi.fn(() => ({ data: { key: 'gestion-real-ingest', enabled: false }, isLoading: false, isError: false })),
   useSetFeatureFlag: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false })),
 }));
+// New "Sincronización" tab body hooks — mock so the body renders without real
+// fetches. The returned objects MUST be stable references: ConfigSection has a
+// `useEffect([config])` that would loop forever if `data` were a fresh object
+// each render. Declared via vi.hoisted so the hoisted vi.mock factories can use them.
+const syncHandles = vi.hoisted(() => ({
+  config: { data: { intervalMs: 300_000, estados: ['1'] }, isLoading: false, isError: false, refetch: () => {} },
+  update: { mutate: () => {}, isPending: false, isSuccess: false, isError: false, error: null, reset: () => {} },
+  status: { data: { lastRunAt: null, itemsSynced: 0, hasRun: false }, isLoading: false, isError: false },
+}));
+vi.mock('@/hooks/useGestionRealSyncConfig', () => ({
+  useSyncConfig: () => syncHandles.config,
+  useUpdateSyncConfig: () => syncHandles.update,
+}));
+vi.mock('@/hooks/useGestionRealSync', () => ({
+  useGestionRealSyncStatus: () => syncHandles.status,
+}));
 
 import {
   useGestionRealConfig,
@@ -87,5 +103,41 @@ describe('SchedulingSettingsPage — Gestión Real tab', () => {
     expect(screen.getByRole('heading', { name: /configuración/i, level: 3 })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /^estado$/i, level: 3 })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /revisión pendiente/i, level: 3 })).toBeInTheDocument();
+  });
+});
+
+describe('SchedulingSettingsPage — Sincronización tab', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.location.hash = '';
+    vi.mocked(useGestionRealConfig).mockReturnValue({ data: config, isLoading: false, isError: false } as never);
+    vi.mocked(useUpdateGestionRealConfig).mockReturnValue(idleMutation as never);
+    vi.mocked(useGestionRealStatus).mockReturnValue({ data: status, isLoading: false, isError: false } as never);
+    vi.mocked(useGestionRealNeedsReview).mockReturnValue({ data: [], isLoading: false, isError: false } as never);
+    vi.mocked(useProjects).mockReturnValue({ data: [], isLoading: false, isError: false } as never);
+  });
+
+  it('renders the "Sincronización" tab and existing tabs remain present and unreordered', () => {
+    renderPage();
+    const tabs = screen.getAllByRole('tab').map(t => t.textContent);
+    expect(tabs).toEqual([
+      'Categorías',
+      'Prioridades',
+      'Colores de estados',
+      'Plantillas',
+      'IClass',
+      'Gestión Real',
+      'Sincronización',
+    ]);
+  });
+
+  it('selecting "Sincronización" renders the two sections and sets the hash', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: /^sincronización$/i }));
+
+    expect(screen.getByRole('heading', { name: /configuración/i, level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^estado$/i, level: 3 })).toBeInTheDocument();
+    expect(screen.getByLabelText(/activar sincronización/i)).toBeInTheDocument();
+    expect(window.location.hash).toBe('#gestion-real-sync');
   });
 });
