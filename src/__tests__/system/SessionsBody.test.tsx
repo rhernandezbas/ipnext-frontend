@@ -14,7 +14,9 @@ vi.mock('@/hooks/useSessions', () => ({
   useActiveSessions: vi.fn(),
   useRevokeSession: vi.fn(() => ({ mutate: revokeMutate, isPending: false })),
   useRevokeAllSessions: vi.fn(() => ({ mutate: revokeAllMutate, isPending: false })),
+  useSessionHistory: vi.fn(() => ({ data: undefined, isLoading: false, isError: false })),
   SESSIONS_QUERY_KEY: ['admin', 'sessions'],
+  SESSION_HISTORY_QUERY_KEY: ['admin', 'sessions', 'history'],
 }));
 
 import { useActiveSessions } from '@/hooks/useSessions';
@@ -93,10 +95,10 @@ describe('SessionsBody', () => {
     mockHook(makePage());
     render(<SessionsBody />);
 
-    expect(screen.getByRole('columnheader', { name: /actor/i })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: /ip/i })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: /navegador/i })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: /inicio/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('columnheader', { name: /actor/i }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole('columnheader', { name: /ip/i }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole('columnheader', { name: /navegador/i }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole('columnheader', { name: /inicio/i }).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('columnheader', { name: /última actividad/i })).toBeInTheDocument();
   });
 
