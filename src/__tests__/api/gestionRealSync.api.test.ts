@@ -13,7 +13,7 @@ vi.mock('@/api/axios-client', () => ({
 }));
 
 import axiosClient from '@/api/axios-client';
-import { getSyncConfig, updateSyncConfig } from '@/api/gestionRealSync.api';
+import { getSyncConfig, updateSyncConfig, resyncAll } from '@/api/gestionRealSync.api';
 
 const mockConfig: SyncConfigDTO = {
   intervalMs: 300000,
@@ -44,5 +44,17 @@ describe('updateSyncConfig', () => {
 
     expect(axiosClient.put).toHaveBeenCalledWith('/gestion-real/sync/config', body);
     expect(result).toEqual(mockConfig);
+  });
+});
+
+describe('resyncAll', () => {
+  it('POSTs /gestion-real/sync/resync-all and returns the response data', async () => {
+    const payload = { started: true };
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: payload });
+
+    const result = await resyncAll();
+
+    expect(axiosClient.post).toHaveBeenCalledWith('/gestion-real/sync/resync-all');
+    expect(result).toEqual(payload);
   });
 });

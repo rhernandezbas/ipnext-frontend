@@ -7,10 +7,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 vi.mock('@/api/gestionRealSync.api', () => ({
   getSyncConfig: vi.fn(),
   updateSyncConfig: vi.fn(),
+  resyncAll: vi.fn(),
 }));
 
-import { getSyncConfig, updateSyncConfig } from '@/api/gestionRealSync.api';
-import { useSyncConfig, useUpdateSyncConfig } from '@/hooks/useGestionRealSyncConfig';
+import { getSyncConfig, updateSyncConfig, resyncAll } from '@/api/gestionRealSync.api';
+import { useSyncConfig, useUpdateSyncConfig, useResyncAll } from '@/hooks/useGestionRealSyncConfig';
 
 function makeWrapper() {
   const qc = new QueryClient({
@@ -54,5 +55,23 @@ describe('useUpdateSyncConfig', () => {
     expect(updateSyncConfig).toHaveBeenCalledWith({ intervalMs: 900000, estados: ['2'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['gestionRealSync', 'config'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['gestion-real-sync-status'] });
+  });
+});
+
+describe('useResyncAll', () => {
+  it('calls resyncAll and invalidates status, config and client-stats on success', async () => {
+    vi.mocked(resyncAll).mockResolvedValue({ started: true });
+    const { qc, wrapper } = makeWrapper();
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+
+    const { result } = renderHook(() => useResyncAll(), { wrapper });
+
+    result.current.mutate();
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(resyncAll).toHaveBeenCalledTimes(1);
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['gestion-real-sync-status'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['gestionRealSync', 'config'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['client-stats'] });
   });
 });

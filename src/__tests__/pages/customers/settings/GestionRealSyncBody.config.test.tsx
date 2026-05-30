@@ -9,9 +9,18 @@ const mockUseFeatureFlag = vi.fn();
 const mockUseSetFeatureFlag = vi.fn();
 const mockUseGestionRealSyncStatus = vi.fn();
 
+// Stable refs for the sections this test does NOT exercise (Mantenimiento /
+// Distribución) so the body mounts without driving the config assertions.
+const hExtra = vi.hoisted(() => ({
+  resyncAll: { mutate: () => {}, isPending: false, isSuccess: false, isError: false, error: null, reset: () => {} },
+  clientStats: { data: undefined as unknown, isLoading: false, isError: false },
+  confirmFn: () => Promise.resolve(false),
+}));
+
 vi.mock('@/hooks/useGestionRealSyncConfig', () => ({
   useSyncConfig: () => mockUseSyncConfig(),
   useUpdateSyncConfig: () => mockUseUpdateSyncConfig(),
+  useResyncAll: () => hExtra.resyncAll,
 }));
 vi.mock('@/hooks/useFeatureFlags', () => ({
   useFeatureFlag: (key: string) => mockUseFeatureFlag(key),
@@ -19,6 +28,12 @@ vi.mock('@/hooks/useFeatureFlags', () => ({
 }));
 vi.mock('@/hooks/useGestionRealSync', () => ({
   useGestionRealSyncStatus: () => mockUseGestionRealSyncStatus(),
+}));
+vi.mock('@/hooks/useCustomers', () => ({
+  useClientStats: () => hExtra.clientStats,
+}));
+vi.mock('@/context/ConfirmContext', () => ({
+  useConfirm: () => hExtra.confirmFn,
 }));
 
 import { GestionRealSyncBody } from '@/pages/customers/settings/GestionRealSyncBody';
