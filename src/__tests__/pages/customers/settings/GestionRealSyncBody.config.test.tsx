@@ -21,7 +21,7 @@ vi.mock('@/hooks/useGestionRealSync', () => ({
   useGestionRealSyncStatus: () => mockUseGestionRealSyncStatus(),
 }));
 
-import { GestionRealSyncBody } from '@/pages/scheduling/settings/GestionRealSyncBody';
+import { GestionRealSyncBody } from '@/pages/customers/settings/GestionRealSyncBody';
 
 // Mutation / setFlag handles reused across tests.
 let mutateSpy: ReturnType<typeof vi.fn>;
