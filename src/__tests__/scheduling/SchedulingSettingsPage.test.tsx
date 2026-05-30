@@ -60,20 +60,6 @@ vi.mock('@/hooks/useProjects', () => ({
   useProjects: vi.fn(() => ({ data: [], isLoading: false, isError: false })),
   useUpdateProject: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false })),
 }));
-// Sincronización tab body hooks. Stable references — ConfigSection has a
-// useEffect([config]) that would loop forever on a fresh object each render.
-const grSyncHandles = vi.hoisted(() => ({
-  config: { data: { intervalMs: 300_000, estados: ['1'] }, isLoading: false, isError: false, refetch: () => {} },
-  update: { mutate: () => {}, isPending: false, isSuccess: false, isError: false, error: null, reset: () => {} },
-  status: { data: { lastRunAt: null, itemsSynced: 0, hasRun: false }, isLoading: false, isError: false },
-}));
-vi.mock('@/hooks/useGestionRealSyncConfig', () => ({
-  useSyncConfig: () => grSyncHandles.config,
-  useUpdateSyncConfig: () => grSyncHandles.update,
-}));
-vi.mock('@/hooks/useGestionRealSync', () => ({
-  useGestionRealSyncStatus: () => grSyncHandles.status,
-}));
 // GestionRealBody (ingest) hooks — the page imports the body eagerly.
 vi.mock('@/hooks/useGestionRealIngest', () => ({
   useGestionRealConfig: vi.fn(() => ({ data: { intervalMs: 300_000, windowMonths: 3, fiberProjectId: null, wirelessProjectId: null }, isLoading: false, isError: false })),
@@ -102,10 +88,10 @@ describe('SchedulingSettingsPage', () => {
     expect(screen.queryByRole('heading', { level: 1, name: 'Prioridades' })).not.toBeInTheDocument();
   });
 
-  it('renders the seven config tabs in order', () => {
+  it('renders the six config tabs in order', () => {
     renderPage();
     const tabs = screen.getAllByRole('tab').map(t => t.textContent);
-    expect(tabs).toEqual(['Categorías', 'Prioridades', 'Colores de estados', 'Plantillas', 'IClass', 'Gestión Real', 'Sincronización']);
+    expect(tabs).toEqual(['Categorías', 'Prioridades', 'Colores de estados', 'Plantillas', 'IClass', 'Gestión Real']);
   });
 
   it('switches to the IClass tab and shows its host (the Integración sub-tab is default)', () => {

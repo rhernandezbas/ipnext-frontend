@@ -17,6 +17,7 @@ const DashboardPage = lazy(() => import('@/pages/DashboardPage/DashboardPage'));
 const LeadsPage = lazy(() => import('@/pages/customers/LeadsPage'));
 const LocationsPage = lazy(() => import('@/pages/system/LocationsPage'));
 const CustomersListPage = lazy(() => import('@/pages/customers/CustomersListPage'));
+const CustomersSettingsPage = lazy(() => import('@/pages/customers/CustomersSettingsPage'));
 
 const CustomerDetailPage = lazy(() => import('@/pages/customers/CustomerDetailPage'));
 
@@ -159,6 +160,7 @@ export function App() {
                 <Route path="map" element={<RequirePermission permission="clients.read"><CustomerMapPage /></RequirePermission>} />
                 <Route path="view/:id" element={<RequirePermission permission="clients.read"><CustomerDetailPage /></RequirePermission>} />
                 <Route path="view/:id/edit" element={<RequirePermission permission="clients.read"><EditCustomerPage /></RequirePermission>} />
+                <Route path="settings" element={<RequirePermission permission="clients.read"><CustomersSettingsPage /></RequirePermission>} />
                 {/* CATCH-ALL — RR6 ranking ensures specific paths above win over :id.
                     Natural /admin/customers/:id redirects to canonical /view/:id. */}
                 <Route path=":id" element={<CustomerIdRedirect />} />
