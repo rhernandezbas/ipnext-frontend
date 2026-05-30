@@ -8,6 +8,7 @@ import * as useAdminsModule from '@/hooks/useAdmins';
 import type { Admin, Admin2FA } from '@/types/admin';
 import type { AdminRole_Definition } from '@/types/role';
 import type { AuditEventDto, AuditEventPage } from '@/types/audit';
+import type { SessionPage } from '@/types/session';
 
 // ── RbacUsers/RbacRoles hooks — mocked so RbacUsersBody (admins tab) renders ─
 vi.mock('@/hooks/useRbacUsers', () => ({
@@ -53,6 +54,15 @@ vi.mock('@/hooks/useAuditEvents', () => ({
   AUDIT_EVENTS_QUERY_KEY: ['admin', 'audit-events'],
 }));
 import { useAuditEvents } from '@/hooks/useAuditEvents';
+
+// ── Sessions hooks — back the new Sesiones tab (SessionsBody) ───────────────
+vi.mock('@/hooks/useSessions', () => ({
+  useActiveSessions: vi.fn(),
+  useRevokeSession: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useRevokeAllSessions: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  SESSIONS_QUERY_KEY: ['admin', 'sessions'],
+}));
+import { useActiveSessions } from '@/hooks/useSessions';
 
 vi.mock('@/hooks/useAdmins');
 
@@ -142,6 +152,25 @@ const mockAuditPage: AuditEventPage = {
   pageSize: 25,
 };
 
+const mockSessionPage: SessionPage = {
+  items: [
+    {
+      id: 's-1',
+      rbacUserId: 'u1',
+      actorLogin: 'superadmin',
+      ip: '192.168.1.1',
+      userAgent: 'Chrome 124',
+      loginAt: '2026-04-28T07:00:00Z',
+      lastSeenAt: '2026-04-28T08:30:00Z',
+      revokedAt: null,
+      createdAt: '2026-04-28T07:00:00Z',
+    },
+  ],
+  total: 1,
+  page: 1,
+  pageSize: 25,
+};
+
 const mockMutate = vi.fn();
 const mockUpdateMutate = vi.fn();
 
@@ -172,6 +201,13 @@ describe('AdminPage', () => {
       isError: false,
       isFetching: false,
     } as unknown as ReturnType<typeof useAuditEvents>);
+
+    vi.mocked(useActiveSessions).mockReturnValue({
+      data: mockSessionPage,
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    } as unknown as ReturnType<typeof useActiveSessions>);
 
     vi.mocked(useAdminsModule.useCreateAdmin).mockReturnValue({
       mutate: mockMutate,
@@ -476,30 +512,31 @@ describe('AdminPage', () => {
     expect(screen.getByLabelText(/longitud mínima/i)).toBeInTheDocument();
   });
 
-  it('switching to Sesiones tab shows "Sesiones activas" heading', async () => {
+  it('switching to Sesiones tab renders the real session rows', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Sesiones' }));
 
-    expect(screen.getByText('Sesiones activas')).toBeInTheDocument();
+    // Actor login from the mocked SessionsBody data
+    expect(screen.getByText('superadmin')).toBeInTheDocument();
   });
 
-  it('Sesiones tab shows "Historial de acceso" section', async () => {
+  it('Sesiones tab shows the Navegador column header', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Sesiones' }));
 
-    expect(screen.getByText('Historial de acceso')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /navegador/i })).toBeInTheDocument();
   });
 
-  it('Sesiones tab shows session config duration field', async () => {
+  it('Sesiones tab shows a "Forzar logout" action per session', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Sesiones' }));
 
-    expect(screen.getByLabelText(/duración máxima/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /forzar logout/i })).toBeInTheDocument();
   });
 });
