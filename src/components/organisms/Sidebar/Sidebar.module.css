@@ -183,3 +183,28 @@
   background-color: #eef2ff;
   font-weight: 600;
 }
+
+/* -----------------------------------------------------------------------
+ * Portal nav panel — rendered in document.body via createPortal
+ * z-index: 9999 ensures it sits above the sidebar (z-index: 100)
+ * ----------------------------------------------------------------------- */
+.navPanel {
+  position: fixed;
+  z-index: 9999;
+  min-width: 200px;
+  background: var(--sidebar-bg, #ffffff);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 4px 0;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+  pointer-events: none;
+}
+
+.navPanelOpen {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
