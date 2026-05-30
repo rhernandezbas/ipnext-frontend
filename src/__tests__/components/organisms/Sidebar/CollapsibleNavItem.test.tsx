@@ -127,7 +127,7 @@ describe('CollapsibleNavItem — portal behavior', () => {
     await userEvent.click(trigger);
     expect(screen.getByRole('navigation', { name: /menú clientes/i })).toBeInTheDocument();
 
-    fireEvent.mousedown(document.body);
+    fireEvent.mouseDown(document.body);
 
     expect(screen.queryByRole('navigation', { name: /menú clientes/i })).toBeNull();
   });
@@ -140,7 +140,7 @@ describe('CollapsibleNavItem — portal behavior', () => {
     await userEvent.click(trigger);
 
     const panel = screen.getByRole('navigation', { name: /menú clientes/i });
-    fireEvent.mousedown(panel);
+    fireEvent.mouseDown(panel);
 
     expect(screen.queryByRole('navigation', { name: /menú clientes/i })).toBeInTheDocument();
   });
