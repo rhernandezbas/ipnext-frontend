@@ -5,8 +5,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { default as AdminPage } from '@/pages/system/AdminPage';
 import * as useAdminsModule from '@/hooks/useAdmins';
-import type { Admin, AdminActivityLog, Admin2FA } from '@/types/admin';
+import type { Admin, Admin2FA } from '@/types/admin';
 import type { AdminRole_Definition } from '@/types/role';
+import type { AuditEventDto, AuditEventPage } from '@/types/audit';
 
 // ── RbacUsers/RbacRoles hooks — mocked so RbacUsersBody (admins tab) renders ─
 vi.mock('@/hooks/useRbacUsers', () => ({
@@ -45,6 +46,13 @@ import {
   useSetUserRoles,
 } from '@/hooks/useRbacUsers';
 import { useRbacRoles, useCreateRbacRole, useDeleteRbacRole } from '@/hooks/useRbacRoles';
+
+// ── Audit events hook — backs the new Actividad tab (ActivityBody) ──────────
+vi.mock('@/hooks/useAuditEvents', () => ({
+  useAuditEvents: vi.fn(),
+  AUDIT_EVENTS_QUERY_KEY: ['admin', 'audit-events'],
+}));
+import { useAuditEvents } from '@/hooks/useAuditEvents';
 
 vi.mock('@/hooks/useAdmins');
 
@@ -92,28 +100,47 @@ const mockAdmins: Admin[] = [
   },
 ];
 
-const mockActivityLog: AdminActivityLog[] = [
+const mockAuditEvents: AuditEventDto[] = [
   {
-    id: 'log-1',
-    adminId: '1',
-    adminName: 'Super Admin',
-    category: 'auth',
-    action: 'Inicio de sesión',
-    details: 'Sesión iniciada desde IP 192.168.1.1',
+    id: 'ae-1',
+    actorId: '1',
+    actorLogin: 'superadmin',
+    method: 'POST',
+    path: '/api/auth/login',
+    action: 'login',
+    entityType: 'Session',
+    entityId: 's1',
+    beforeJson: null,
+    afterJson: { ok: true },
+    statusCode: 200,
+    errorMessage: null,
     ip: '192.168.1.1',
-    timestamp: '2026-04-28T07:00:00Z',
+    createdAt: '2026-04-28T07:00:00Z',
   },
   {
-    id: 'log-2',
-    adminId: '2',
-    adminName: 'Carlos López',
-    category: 'clients',
-    action: 'Creó cliente',
-    details: 'Creó cliente ID 1001',
+    id: 'ae-2',
+    actorId: '2',
+    actorLogin: 'carlos',
+    method: 'POST',
+    path: '/api/clients',
+    action: 'create_client',
+    entityType: 'Client',
+    entityId: '1001',
+    beforeJson: null,
+    afterJson: { id: '1001' },
+    statusCode: 201,
+    errorMessage: null,
     ip: '192.168.1.20',
-    timestamp: '2026-04-27T16:00:00Z',
+    createdAt: '2026-04-27T16:00:00Z',
   },
 ];
+
+const mockAuditPage: AuditEventPage = {
+  items: mockAuditEvents,
+  total: mockAuditEvents.length,
+  page: 1,
+  pageSize: 25,
+};
 
 const mockMutate = vi.fn();
 const mockUpdateMutate = vi.fn();
@@ -139,10 +166,12 @@ describe('AdminPage', () => {
       isLoading: false,
     } as ReturnType<typeof useAdminsModule.useAdmins>);
 
-    vi.mocked(useAdminsModule.useAdminActivityLog).mockReturnValue({
-      data: mockActivityLog,
+    vi.mocked(useAuditEvents).mockReturnValue({
+      data: mockAuditPage,
       isLoading: false,
-    } as ReturnType<typeof useAdminsModule.useAdminActivityLog>);
+      isError: false,
+      isFetching: false,
+    } as unknown as ReturnType<typeof useAuditEvents>);
 
     vi.mocked(useAdminsModule.useCreateAdmin).mockReturnValue({
       mutate: mockMutate,
@@ -251,24 +280,24 @@ describe('AdminPage', () => {
     expect(screen.getByText(/no hay usuarios/i)).toBeInTheDocument();
   });
 
-  it('clicking "Actividad" tab shows activity log table', async () => {
+  it('clicking "Actividad" tab shows the audit events table', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Actividad' }));
 
-    expect(screen.getByText('Inicio de sesión')).toBeInTheDocument();
-    expect(screen.getByText('Creó cliente')).toBeInTheDocument();
+    expect(screen.getByText('superadmin')).toBeInTheDocument();
+    expect(screen.getByText('create_client')).toBeInTheDocument();
   });
 
-  it('activity log table shows "Administrador" and "Acción" columns', async () => {
+  it('audit table shows "Actor" and "Acción" columns', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Actividad' }));
 
-    expect(screen.getByRole('columnheader', { name: 'Administrador' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Acción' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /actor/i })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /acción/i })).toBeInTheDocument();
   });
 
   it('renders "Roles y Permisos" tab button', () => {
@@ -295,32 +324,31 @@ describe('AdminPage', () => {
     expect(screen.getByText('NOC')).toBeInTheDocument();
   });
 
-  it('Activity tab shows category filter tabs', async () => {
+  it('Activity tab shows the método filter', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Actividad' }));
 
-    const filterContainer = screen.getByTestId('category-filter-tabs');
-    expect(filterContainer).toBeInTheDocument();
+    expect(screen.getByLabelText(/método/i)).toBeInTheDocument();
   });
 
-  it('Category filter shows "Todos" option', async () => {
+  it('método filter has a "Todos" option', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Actividad' }));
 
-    expect(screen.getByRole('button', { name: 'Todos' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Todos' })).toBeInTheDocument();
   });
 
-  it('DataTable has "Categoría" column', async () => {
+  it('audit table has a "Método" column', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Actividad' }));
 
-    expect(screen.getByRole('columnheader', { name: 'Categoría' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /método/i })).toBeInTheDocument();
   });
 
   it('admins tab does not show legacy "2FA" column (replaced by RbacUsersBody)', () => {

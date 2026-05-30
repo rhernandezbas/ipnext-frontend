@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { default as AdminPage } from '@/pages/system/AdminPage';
 import * as useAdminsModule from '@/hooks/useAdmins';
-import type { Admin, AdminActivityLog, Admin2FA } from '@/types/admin';
+import type { Admin, Admin2FA } from '@/types/admin';
 
 vi.mock('@/hooks/useAdmins');
 
@@ -84,11 +84,6 @@ describe('Roles y Permisos tab (RolesMatrixBody)', () => {
       data: mockAdmins,
       isLoading: false,
     } as ReturnType<typeof useAdminsModule.useAdmins>);
-
-    vi.mocked(useAdminsModule.useAdminActivityLog).mockReturnValue({
-      data: [] as AdminActivityLog[],
-      isLoading: false,
-    } as ReturnType<typeof useAdminsModule.useAdminActivityLog>);
 
     vi.mocked(useAdminsModule.useCreateAdmin).mockReturnValue({
       mutate: vi.fn(),

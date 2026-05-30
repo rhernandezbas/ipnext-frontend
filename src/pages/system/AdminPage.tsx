@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { DataTable } from '@/components/organisms/DataTable/DataTable';
-import { useAdminActivityLog, useEnable2FA, useDisable2FA, useAdmin2FAStatus } from '@/hooks/useAdmins';
-import type { Admin, AdminActivityLog, ActivityCategory } from '@/types/admin';
+import { useEnable2FA, useDisable2FA, useAdmin2FAStatus } from '@/hooks/useAdmins';
+import type { Admin } from '@/types/admin';
 import { RbacUsersBody } from './admin/RbacUsersBody';
 import { RolesMatrixBody } from './admin/RolesMatrixBody';
+import { ActivityBody } from './admin/ActivityBody';
 import { Can } from '@/components/auth/Can';
 import styles from './AdminPage.module.css';
 
@@ -95,33 +95,6 @@ function TwoFAModal({ admin, onClose }: { admin: Admin; onClose: () => void }) {
   );
 }
 
-function CategoryBadge({ category }: { category: ActivityCategory }) {
-  const colorMap: Record<ActivityCategory, string> = {
-    auth: '#dbeafe',
-    clients: '#d1fae5',
-    billing: '#fef3c7',
-    network: '#ede9fe',
-    scheduling: '#fce7f3',
-    settings: '#f3f4f6',
-    admins: '#fee2e2',
-    api: '#e0f2fe',
-    system: '#f1f5f9',
-  };
-  return (
-    <span style={{
-      display: 'inline-block',
-      padding: '0.2rem 0.5rem',
-      borderRadius: '9999px',
-      fontSize: '0.75rem',
-      fontWeight: 600,
-      background: colorMap[category] ?? '#f3f4f6',
-      color: '#374151',
-    }}>
-      {category}
-    </span>
-  );
-}
-
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleString('es-AR', {
@@ -132,18 +105,6 @@ function formatDate(dateStr: string | null): string {
     minute: '2-digit',
   });
 }
-
-// ── Activity category filter ────────────────────────────────────────────────
-
-const CATEGORY_FILTERS: { value: ActivityCategory | 'all'; label: string }[] = [
-  { value: 'all', label: 'Todos' },
-  { value: 'auth', label: 'Auth' },
-  { value: 'clients', label: 'Clientes' },
-  { value: 'billing', label: 'Facturación' },
-  { value: 'network', label: 'Red' },
-  { value: 'settings', label: 'Configuración' },
-  { value: 'admins', label: 'Admins' },
-];
 
 // ── Seguridad Tab ───────────────────────────────────────────────────────────
 
@@ -508,48 +469,11 @@ function SesionesTab() {
   );
 }
 
-// ── Column definitions ──────────────────────────────────────────────────────
-
-const activityColumns = [
-  { label: 'Administrador', key: 'adminName' as keyof AdminActivityLog },
-  {
-    label: 'Categoría',
-    key: 'category' as keyof AdminActivityLog,
-    render: (row: AdminActivityLog) => <CategoryBadge category={row.category} />,
-  },
-  { label: 'Acción', key: 'action' as keyof AdminActivityLog },
-  { label: 'Detalles', key: 'details' as keyof AdminActivityLog },
-  { label: 'IP', key: 'ip' as keyof AdminActivityLog },
-  {
-    label: 'Fecha/Hora',
-    key: 'timestamp' as keyof AdminActivityLog,
-    render: (row: AdminActivityLog) => formatDate(row.timestamp),
-  },
-];
-
 // ── Main Page ───────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('admins');
   const [show2FAModal, setShow2FAModal] = useState<Admin | null>(null);
-  const [activityCategory, setActivityCategory] = useState<ActivityCategory | 'all'>('all');
-  const [activityDateFrom, setActivityDateFrom] = useState('');
-  const [activityDateTo, setActivityDateTo] = useState('');
-
-  const { data: activityLog = [], isLoading: loadingActivity } = useAdminActivityLog();
-
-  const filteredActivity = (() => {
-    let list = activityCategory === 'all' ? activityLog : activityLog.filter(l => l.category === activityCategory);
-    if (activityDateFrom) {
-      list = list.filter(l => l.timestamp >= activityDateFrom);
-    }
-    if (activityDateTo) {
-      // Include the whole "to" day
-      const toEnd = activityDateTo + 'T23:59:59Z';
-      list = list.filter(l => l.timestamp <= toEnd);
-    }
-    return list;
-  })();
 
   return (
     <div className={styles.page}>
@@ -592,54 +516,7 @@ export default function AdminPage() {
 
       {activeTab === 'admins' && <RbacUsersBody />}
 
-      {activeTab === 'activity' && (
-        <>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }} data-testid="category-filter-tabs">
-            {CATEGORY_FILTERS.map(f => (
-              <button
-                key={f.value}
-                onClick={() => setActivityCategory(f.value)}
-                style={{
-                  padding: '0.375rem 0.75rem',
-                  borderRadius: '0.375rem',
-                  border: '1px solid #d1d5db',
-                  background: activityCategory === f.value ? '#2563eb' : '#fff',
-                  color: activityCategory === f.value ? '#fff' : '#374151',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: 500,
-                }}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', margin: '0.75rem 0' }}>
-            <label htmlFor="activity-date-from" style={{ fontSize: '0.875rem', fontWeight: 500 }}>Desde</label>
-            <input
-              id="activity-date-from"
-              type="date"
-              value={activityDateFrom}
-              onChange={e => setActivityDateFrom(e.target.value)}
-              style={{ fontSize: '0.875rem', padding: '0.25rem 0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-            />
-            <label htmlFor="activity-date-to" style={{ fontSize: '0.875rem', fontWeight: 500 }}>Hasta</label>
-            <input
-              id="activity-date-to"
-              type="date"
-              value={activityDateTo}
-              onChange={e => setActivityDateTo(e.target.value)}
-              style={{ fontSize: '0.875rem', padding: '0.25rem 0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-            />
-          </div>
-          <DataTable
-            columns={activityColumns}
-            data={filteredActivity}
-            loading={loadingActivity}
-            emptyMessage="No hay actividad registrada."
-          />
-        </>
-      )}
+      {activeTab === 'activity' && <ActivityBody />}
 
       {activeTab === 'roles' && <RolesMatrixBody />}
 

@@ -15,10 +15,6 @@ export function useTechnicians() {
   return useAdmins({ role: 'technician' });
 }
 
-export function useAdminActivityLog() {
-  return useQuery({ queryKey: ['admin-activity-log'], queryFn: api.getActivityLog });
-}
-
 export function useCreateAdmin() {
   const qc = useQueryClient();
   return useMutation({

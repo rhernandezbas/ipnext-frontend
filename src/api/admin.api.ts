@@ -1,5 +1,5 @@
 import axiosClient from './axios-client';
-import type { Admin, AdminActivityLog, Admin2FA } from '../types/admin';
+import type { Admin, Admin2FA } from '../types/admin';
 
 const BASE = '/admins';
 
@@ -11,8 +11,6 @@ export const createAdmin = (data: Omit<Admin, 'id' | 'createdAt' | 'lastLogin'> 
 export const updateAdmin = (id: string, data: Partial<Admin>) =>
   axiosClient.patch<Admin>(`${BASE}/${id}`, data).then(r => r.data);
 export const deleteAdmin = (id: string) => axiosClient.delete(`${BASE}/${id}`);
-export const getActivityLog = () =>
-  axiosClient.get<AdminActivityLog[]>(`${BASE}/activity-log`).then(r => r.data);
 export const get2FAStatus = (adminId: string) =>
   axiosClient.get<Admin2FA>(`${BASE}/${adminId}/2fa`).then(r => r.data);
 export const enable2FA = (adminId: string, method: 'totp' | 'sms') =>
