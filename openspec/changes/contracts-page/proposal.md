@@ -15,10 +15,10 @@ Add a first-class contracts list page at `/admin/contracts/list` that surfaces t
 - `src/hooks/useServiceTechnologies.ts`: TanStack Query hook for catalog CRUD
 - `src/pages/contracts/ServiceTechnologiesPage.tsx`: backoffice admin page for technology catalog (inline edit/add/delete table, same UX as `SchedulingTaskCategoriesPage`)
 - New route group `contracts` in `App.tsx`:
-  - `admin/contracts/list` — protected by `clients.read`
-  - `admin/contracts/technologies` — protected by `clients.read`
+  - `admin/contracts/list` — protected by `contracts.read`
+  - `admin/contracts/technologies` — protected by `contracts.read`
   - Total routes after change: **96** (94 existing + 2 new)
-- Permission `clients.read` — existing permission emitted by `/me`; contracts are a sub-view of client data
+- Permission `contracts.read` — dedicated RBAC permission created by the backend (branch `feat/service-technology`); seeded for roles: super_admin, administrador, administracion, ventas, noc, tecnico
 - Tests: Vitest + Testing Library for both pages and hooks
 
 ### Out of Scope
@@ -57,14 +57,14 @@ Add a first-class contracts list page at `/admin/contracts/list` that surfaces t
 
 ### Permission Guard
 
-`clients.read` permission is used (existing, always emitted by `/me` for authorized users). Both pages use `RequirePermission permission="clients.read"`. No backend RBAC changes needed — contracts are a sub-view of client data and share the `clients.read` authorization boundary.
+`contracts.read` permission is used — a dedicated RBAC permission created by the backend in branch `feat/service-technology`. The `contracts` module (contracts.read/write/delete/manage) was added to `RBAC_MODULES` and seeded via migration. Both pages use `RequirePermission permission="contracts.read"`.
 
 ## Risks
 
 | Risk | Likelihood | Mitigation |
 |------|------------|------------|
 | App.tsx route insertion at wrong position | Med | Task breakdown specifies exact insertion point (after CRM block, line reference). Review diff carefully. |
-| Route count mismatch | Low | Add a comment in App.tsx `{/* Contracts (clients.read) — 2 routes */}` to make counting explicit |
+| Route count mismatch | Low | Add a comment in App.tsx `{/* Contracts (contracts.read) — 2 routes */}` to make counting explicit |
 | Filter by technology depends on ServiceTechnology catalog existing | Low | `useServiceTechnologies` hook fetches catalog on mount; if empty, technology filter dropdown shows empty (graceful). |
 | Deep link breakage on page component rename | Low | URL paths are canonical (`/admin/contracts/list`); component names are internal. No redirect aliases needed for new routes. |
 | Existing test suite affected by new routes | Very Low | New routes added; no existing routes modified. Existing tests unaffected. |

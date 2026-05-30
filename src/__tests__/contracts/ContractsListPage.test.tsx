@@ -299,7 +299,7 @@ describe('CP-6: permission guard', () => {
             <Route
               path="/admin/contracts/list"
               element={
-                <RequirePermission permission="clients.read">
+                <RequirePermission permission="contracts.read">
                   <ContractsListPage />
                 </RequirePermission>
               }
@@ -310,12 +310,12 @@ describe('CP-6: permission guard', () => {
     );
   }
 
-  it('renders content when user has clients.read', () => {
+  it('renders content when user has contracts.read', () => {
     renderWithPermission(true);
     expect(screen.getByRole('heading', { name: /contratos/i })).toBeInTheDocument();
   });
 
-  it('renders NoPermissionPage when user lacks clients.read', () => {
+  it('renders NoPermissionPage when user lacks contracts.read', () => {
     renderWithPermission(false);
     // NoPermissionPage renders "No tenés permisos" text
     expect(screen.getByText(/no ten[eé]s permisos/i)).toBeInTheDocument();

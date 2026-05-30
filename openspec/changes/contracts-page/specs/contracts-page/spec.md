@@ -12,7 +12,7 @@ A paginated, filterable, searchable contracts list page (`/admin/contracts/list`
 
 #### Scenario CP-1.1: Page renders the contracts table
 
-- Given the user has the `clients.read` permission
+- Given the user has the `contracts.read` permission
 - And `GET /api/services` returns a paginated response with at least one contract
 - When the user navigates to `/admin/contracts/list`
 - Then the page MUST render a data table with one row per contract
@@ -138,13 +138,13 @@ A paginated, filterable, searchable contracts list page (`/admin/contracts/list`
 
 #### Scenario CP-6.1: Unauthorized user cannot access the contracts page
 
-- Given the user does NOT have the `clients.read` permission (not present in `/me` response)
+- Given the user does NOT have the `contracts.read` permission (not present in `/me` response)
 - When the user navigates to `/admin/contracts/list`
 - Then the `RequirePermission` wrapper MUST block rendering and show the appropriate fallback (redirect or 403 message)
 
 #### Scenario CP-6.2: Authorized user sees the page
 
-- Given the user has `clients.read` in their permissions
+- Given the user has `contracts.read` in their permissions
 - When the user navigates to `/admin/contracts/list`
 - Then the page MUST render without a permission block
 
@@ -207,13 +207,13 @@ A paginated, filterable, searchable contracts list page (`/admin/contracts/list`
 
 - Given the App.tsx routing is loaded
 - When a user navigates to `/admin/contracts/list`
-- Then `ContractsListPage` MUST be rendered inside `AdminLayout` with `RequirePermission permission="clients.read"`
+- Then `ContractsListPage` MUST be rendered inside `AdminLayout` with `RequirePermission permission="contracts.read"`
 
 #### Scenario CP-8.2: Route /admin/contracts/technologies is registered
 
 - Given the App.tsx routing is loaded
 - When a user navigates to `/admin/contracts/technologies`
-- Then `ServiceTechnologiesPage` MUST be rendered inside `AdminLayout` with `RequirePermission permission="clients.read"`
+- Then `ServiceTechnologiesPage` MUST be rendered inside `AdminLayout` with `RequirePermission permission="contracts.read"`
 
 #### Scenario CP-8.3: No existing routes are reordered or broken
 
@@ -229,6 +229,6 @@ A paginated, filterable, searchable contracts list page (`/admin/contracts/list`
 - `useContracts` hook MUST NOT duplicate pagination logic — it MUST use the same `PaginatedResponse<ContractSummary>` shape returned by the backend
 - `useServiceTechnologies` hook MUST use TanStack Query's `invalidateQueries` after every mutation
 - Both pages MUST be lazy-loaded via `React.lazy` in App.tsx (consistent with all other pages)
-- The `clients.read` permission string is used — it is an existing permission already emitted by `/me`. No new RBAC module is needed for Phase 1.
+- The `contracts.read` permission string is used — a dedicated RBAC permission created by the backend (branch `feat/service-technology`). Seeded for roles: super_admin, administrador, administracion, ventas, noc, tecnico.
 - `ServiceTechnologiesPage` MUST handle loading and error states for every mutation (create, update, delete)
 - Tests MUST mock the API layer (axios-client), not TanStack Query internals

@@ -279,10 +279,10 @@ export function App() {
                 <Route path="map" element={<RequirePermission permission="crm.read"><CrmMapPage /></RequirePermission>} />
               </Route>
 
-              {/* ── Contracts (clients.read) — 2 routes ──────────────────── */}
+              {/* ── Contracts (contracts.read) — 2 routes ─────────────────── */}
               <Route path="contracts">
-                <Route path="list" element={<RequirePermission permission="clients.read"><ContractsListPage /></RequirePermission>} />
-                <Route path="technologies" element={<RequirePermission permission="clients.read"><ServiceTechnologiesPage /></RequirePermission>} />
+                <Route path="list" element={<RequirePermission permission="contracts.read"><ContractsListPage /></RequirePermission>} />
+                <Route path="technologies" element={<RequirePermission permission="contracts.read"><ServiceTechnologiesPage /></RequirePermission>} />
               </Route>
 
               {/* ── SLA (sla.read) ─────────────────────────────────────────── */}
