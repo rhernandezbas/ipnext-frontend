@@ -297,3 +297,28 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.btnDanger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 16px;
+  background: var(--color-danger, #dc3545);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.btnDanger:hover:not(:disabled) {
+  background: #bb2d3b;
+}
+
+.btnDanger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

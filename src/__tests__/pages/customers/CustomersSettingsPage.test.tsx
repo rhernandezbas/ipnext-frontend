@@ -10,10 +10,14 @@ const grSyncHandles = vi.hoisted(() => ({
   flag: { data: { key: 'gestion-real-sync', enabled: false }, isLoading: false, isError: false },
   setFlag: { mutate: () => {}, isPending: false, isError: false },
   status: { data: { lastRunAt: null, itemsSynced: 0, hasRun: false }, isLoading: false, isError: false },
+  resyncAll: { mutate: () => {}, isPending: false, isSuccess: false, isError: false, error: null, reset: () => {} },
+  clientStats: { data: undefined, isLoading: false, isError: false },
+  confirmFn: () => Promise.resolve(false),
 }));
 vi.mock('@/hooks/useGestionRealSyncConfig', () => ({
   useSyncConfig: () => grSyncHandles.config,
   useUpdateSyncConfig: () => grSyncHandles.update,
+  useResyncAll: () => grSyncHandles.resyncAll,
 }));
 vi.mock('@/hooks/useFeatureFlags', () => ({
   useFeatureFlag: () => grSyncHandles.flag,
@@ -21,6 +25,12 @@ vi.mock('@/hooks/useFeatureFlags', () => ({
 }));
 vi.mock('@/hooks/useGestionRealSync', () => ({
   useGestionRealSyncStatus: () => grSyncHandles.status,
+}));
+vi.mock('@/hooks/useCustomers', () => ({
+  useClientStats: () => grSyncHandles.clientStats,
+}));
+vi.mock('@/context/ConfirmContext', () => ({
+  useConfirm: () => grSyncHandles.confirmFn,
 }));
 
 import CustomersSettingsPage from '@/pages/customers/CustomersSettingsPage';

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useSyncConfig, useUpdateSyncConfig } from '@/hooks/useGestionRealSyncConfig';
+import { useSyncConfig, useUpdateSyncConfig, useResyncAll } from '@/hooks/useGestionRealSyncConfig';
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
 import { useGestionRealSyncStatus } from '@/hooks/useGestionRealSync';
+import { useClientStats } from '@/hooks/useCustomers';
+import { useConfirm } from '@/context/ConfirmContext';
 import {
   INTERVAL_PRESETS_MIN,
   minutesToMs,
@@ -46,6 +48,15 @@ function mapSaveError(err: unknown): string {
     return 'Datos inválidos. Revisá los campos e intentá de nuevo.';
   }
   return 'No se pudo guardar la configuración. Reintentá en unos segundos.';
+}
+
+/** Map a resync error to a Spanish message; a 403 means a missing backend permission. */
+function mapResyncError(err: unknown): string {
+  const e = err as { response?: { status?: number } };
+  if (e?.response?.status === 403) {
+    return 'No tenés permiso para re-sincronizar.';
+  }
+  return 'No se pudo iniciar la re-sincronización. Reintentá en unos segundos.';
 }
 
 const es = new Intl.NumberFormat('es-AR');
@@ -242,6 +253,98 @@ function ConfigSection() {
   );
 }
 
+// ── Mantenimiento ─────────────────────────────────────────────────────────────
+
+function MaintenanceSection() {
+  const confirm = useConfirm();
+  const resync = useResyncAll();
+
+  async function handleResync() {
+    if (resync.isPending) return;
+    const ok = await confirm({
+      title: 'Re-sincronizar todo',
+      message:
+        'Esto vuelve a traer TODOS los clientes y contratos desde Gestión Real. ' +
+        'Puede tardar varios minutos. ¿Continuar?',
+      tone: 'danger',
+      confirmLabel: 'Re-sincronizar',
+    });
+    if (ok) resync.mutate();
+  }
+
+  const resyncError = resync.isError ? mapResyncError(resync.error) : null;
+
+  return (
+    <section className={styles.section}>
+      <h3 className={styles.sectionTitle}>Mantenimiento</h3>
+      <div className={styles.card}>
+        <span className={styles.fieldHint}>
+          Vuelve a traer todos los clientes y contratos desde Gestión Real. Acción destructiva y
+          de larga duración.
+        </span>
+
+        {resyncError && (
+          <div className={`${styles.banner} ${styles.bannerError}`}>
+            <span>{resyncError}</span>
+          </div>
+        )}
+
+        {resync.isSuccess && (
+          <div className={`${styles.banner} ${styles.bannerSuccess}`}>
+            <span>Re-sincronización iniciada.</span>
+          </div>
+        )}
+
+        <div className={styles.formActions}>
+          <button
+            type="button"
+            className={styles.btnDanger}
+            disabled={resync.isPending}
+            onClick={handleResync}
+          >
+            {resync.isPending ? 'Re-sincronizando…' : 'Re-sincronizar todo'}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Distribución por estado ───────────────────────────────────────────────────
+
+const ESTADO_BUCKETS: { key: 'total' | 'active' | 'late' | 'inactive' | 'blocked' | 'baja'; label: string }[] = [
+  { key: 'total', label: 'Total' },
+  { key: 'active', label: 'Activos' },
+  { key: 'late', label: 'Deudor' },
+  { key: 'inactive', label: 'Inactivo' },
+  { key: 'blocked', label: 'Incobrable' },
+  { key: 'baja', label: 'Bajas' },
+];
+
+function EstadoBreakdownSection() {
+  const { data, isLoading } = useClientStats();
+
+  return (
+    <section className={styles.section}>
+      <h3 className={styles.sectionTitle}>Distribución por estado</h3>
+      <div className={styles.card}>
+        {isLoading && !data ? (
+          <p className={styles.tableLoading}>Cargando…</p>
+        ) : (
+          <div className={styles.countersGrid}>
+            {ESTADO_BUCKETS.map(b => (
+              <div key={b.key} className={styles.counter} data-testid={`gr-estado-${b.key}`}>
+                <span className={styles.counterValue}>{es.format(data?.[b.key] ?? 0)}</span>
+                <span className={styles.counterLabel}>{b.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 // ── Estado ──────────────────────────────────────────────────────────────────
 
 const COUNTERS: { key: 'itemsSynced' | 'clientCount' | 'contractCount'; label: string }[] = [
@@ -299,6 +402,8 @@ export function GestionRealSyncBody() {
   return (
     <div className={styles.body}>
       <ConfigSection />
+      <MaintenanceSection />
+      <EstadoBreakdownSection />
       <StatusSection />
     </div>
   );
