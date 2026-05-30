@@ -87,4 +87,44 @@ describe('Sidebar — permission filtering', () => {
     // They are NavLinks (not collapsible groups), no permission filter needed per design
     expect(screen.getByRole('link', { name: /panel de control/i })).toBeInTheDocument();
   });
+
+  it('SP7 — has contracts.read: Contratos group renders', () => {
+    mockPerms({
+      permissions: ['contracts.read'],
+      can: (p) => {
+        const perm = Array.isArray(p) ? p[0] : p;
+        return perm === 'contracts.read';
+      },
+    });
+    renderSidebar();
+    expect(screen.getByRole('button', { name: /contratos/i })).toBeInTheDocument();
+  });
+
+  it('SP8 — without contracts.read: Contratos group is hidden', () => {
+    mockPerms({
+      permissions: [],
+      can: () => false,
+    });
+    renderSidebar();
+    expect(screen.queryByRole('button', { name: /contratos/i })).not.toBeInTheDocument();
+  });
+
+  it('SP9 — has contracts.read: both sub-items (Contratos, Tecnologías) render', () => {
+    mockPerms({
+      permissions: ['contracts.read'],
+      can: (p) => {
+        const perm = Array.isArray(p) ? p[0] : p;
+        return perm === 'contracts.read';
+      },
+    });
+    renderSidebar('/admin/contracts/list');
+    expect(screen.getByRole('link', { name: /^contratos$/i })).toHaveAttribute(
+      'href',
+      '/admin/contracts/list'
+    );
+    expect(screen.getByRole('link', { name: /tecnologías/i })).toHaveAttribute(
+      'href',
+      '/admin/contracts/technologies'
+    );
+  });
 });

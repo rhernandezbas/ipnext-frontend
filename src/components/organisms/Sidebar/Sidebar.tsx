@@ -144,6 +144,15 @@ const EMPRESA_ITEMS: NavParentItem[] = [
     ],
   },
   {
+    label: 'Contratos',
+    matchPaths: ['/admin/contracts'],
+    requiredPermission: 'contracts.read', // /admin/contracts/* → contracts.read
+    children: [
+      { to: '/admin/contracts/list', label: 'Contratos' },
+      { to: '/admin/contracts/technologies', label: 'Tecnologías' },
+    ],
+  },
+  {
     label: 'SLA',
     matchPaths: ['/admin/sla'],
     requiredPermission: 'sla.read', // /admin/sla/* → sla.read
