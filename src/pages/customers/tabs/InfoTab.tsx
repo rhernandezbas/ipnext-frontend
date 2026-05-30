@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Customer } from '../../../types/customer';
+import { CLIENT_STATUS_LABELS } from '../clientStatusLabels';
 import styles from './InfoTab.module.css';
 
 interface Props { customer: Customer; active: boolean; }
@@ -153,8 +154,11 @@ function FieldRowStatus({ label, value }: { label: string; value: string }) {
               : value === 'inactive' ? 'inactive'
               : value === 'blocked' ? 'blocked'
               : value === 'late' ? 'late'
+              : value === 'baja' ? 'baja'
               : 'inactive';
-  const labelText = value.charAt(0).toUpperCase() + value.slice(1);
+  // GR vocabulary for the client domain (Deudor/Incobrable/Bajas), with a safe
+  // fallback to a capitalized raw value for any unexpected status.
+  const labelText = CLIENT_STATUS_LABELS[value] ?? (value.charAt(0).toUpperCase() + value.slice(1));
   return (
     <div className={styles.row}>
       <label className={styles.rowLabel}>{label}</label>

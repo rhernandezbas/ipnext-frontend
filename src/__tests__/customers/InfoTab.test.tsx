@@ -29,6 +29,18 @@ describe('InfoTab', () => {
   });
 
   // M1: OpenStreetMap iframe was removed from this component — test removed
+
+  it('renders "Bajas" for a baja customer status', () => {
+    const customer: Customer = { ...mockCustomer, status: 'baja' };
+    render(<InfoTab customer={customer} active={true} />);
+    expect(screen.getByText('Bajas')).toBeInTheDocument();
+  });
+
+  it('renders "Incobrable" (GR label) for a blocked customer status', () => {
+    const customer: Customer = { ...mockCustomer, status: 'blocked' };
+    render(<InfoTab customer={customer} active={true} />);
+    expect(screen.getByText('Incobrable')).toBeInTheDocument();
+  });
 });
 
 describe('InfoTab — BalanceCard (gr-client-balance-sync)', () => {

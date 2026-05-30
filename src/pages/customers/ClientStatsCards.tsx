@@ -16,11 +16,12 @@ export function ClientStatsCards({ activeStatus, onStatusClick }: ClientStatsCar
   const { data, isLoading } = useClientStats();
 
   const cards = [
-    { key: '',         label: 'Total',       value: data?.total    ?? 0, tone: 'total'    as const },
-    { key: 'active',   label: 'Activos',     value: data?.active   ?? 0, tone: 'active'   as const },
-    { key: 'inactive', label: 'Inactivos',   value: data?.inactive ?? 0, tone: 'inactive' as const },
-    { key: 'late',     label: 'Atrasados',   value: data?.late     ?? 0, tone: 'late'     as const },
-    { key: 'blocked',  label: 'Bloqueados',  value: data?.blocked  ?? 0, tone: 'blocked'  as const },
+    { key: '',         label: 'Total',      value: data?.total    ?? 0, tone: 'total'    as const },
+    { key: 'active',   label: 'Activos',    value: data?.active   ?? 0, tone: 'active'   as const },
+    { key: 'inactive', label: 'Inactivos',  value: data?.inactive ?? 0, tone: 'inactive' as const },
+    { key: 'late',     label: 'Deudor',     value: data?.late     ?? 0, tone: 'late'     as const },
+    { key: 'blocked',  label: 'Incobrable', value: data?.blocked  ?? 0, tone: 'blocked'  as const },
+    { key: 'baja',     label: 'Bajas',      value: data?.baja     ?? 0, tone: 'baja'     as const },
   ];
 
   return (

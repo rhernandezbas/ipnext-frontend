@@ -124,6 +124,15 @@ describe('EditCustomerPage', () => {
     });
   });
 
+  it('status select offers GR-aligned options including Bajas and Incobrable', () => {
+    renderPage();
+    const select = screen.getByLabelText('Estado');
+    const optionLabels = Array.from(select.querySelectorAll('option')).map(o => o.textContent);
+    expect(optionLabels).toContain('Bajas');
+    expect(optionLabels).toContain('Incobrable');
+    expect(optionLabels).not.toContain('Bloqueado');
+  });
+
   it('shows loading spinner while client data loads', () => {
     vi.mocked(useClientsModule.useClientDetail).mockReturnValue({
       data: undefined,

@@ -169,7 +169,8 @@ export default function EditCustomerPage() {
           >
             <option value="active">Activo</option>
             <option value="inactive">Inactivo</option>
-            <option value="blocked">Bloqueado</option>
+            <option value="blocked">Incobrable</option>
+            <option value="baja">Bajas</option>
           </select>
         </div>
 
