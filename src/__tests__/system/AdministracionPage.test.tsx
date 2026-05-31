@@ -60,7 +60,9 @@ vi.mock('@/hooks/useSessions', () => ({
   useActiveSessions: vi.fn(),
   useRevokeSession: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useRevokeAllSessions: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useSessionHistory: vi.fn(() => ({ data: undefined, isLoading: false, isError: false })),
   SESSIONS_QUERY_KEY: ['admin', 'sessions'],
+  SESSION_HISTORY_QUERY_KEY: ['admin', 'sessions', 'history'],
 }));
 import { useActiveSessions } from '@/hooks/useSessions';
 
@@ -528,7 +530,7 @@ describe('AdminPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Sesiones' }));
 
-    expect(screen.getByRole('columnheader', { name: /navegador/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('columnheader', { name: /navegador/i }).length).toBeGreaterThanOrEqual(1);
   });
 
   it('Sesiones tab shows a "Forzar logout" action per session', async () => {
