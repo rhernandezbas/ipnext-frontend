@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import styles from './Sidebar.module.css';
@@ -204,14 +205,147 @@ function isParentActive(item: NavParentItem, pathname: string): boolean {
   return item.matchPaths.some((p) => pathname.startsWith(p));
 }
 
+// ---------------------------------------------------------------------------
+// NavPanel — presentational component (portal content)
+// ---------------------------------------------------------------------------
+
+interface NavPanelProps {
+  items: SubItem[];
+  groupLabel: string;
+  style: React.CSSProperties;
+  onClose: () => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  panelRef: React.RefObject<HTMLDivElement>;
+}
+
+function NavPanel({ items, groupLabel, style, onClose, onKeyDown, panelRef }: NavPanelProps) {
+  const firstLinkRef = useRef<HTMLAnchorElement>(null);
+
+  // Move focus to first link when panel mounts
+  useEffect(() => {
+    firstLinkRef.current?.focus();
+  }, []);
+
+  return (
+    <div
+      ref={panelRef}
+      role="navigation"
+      aria-label={`Menú ${groupLabel}`}
+      className={`${styles.navPanel} ${styles.navPanelOpen}`}
+      style={style}
+      onKeyDown={onKeyDown}
+    >
+      {items.map(({ to, label }, index) => (
+        <NavLink
+          key={to}
+          to={to}
+          end
+          ref={index === 0 ? firstLinkRef : undefined}
+          className={({ isActive }) =>
+            isActive
+              ? `${styles.navChild} ${styles.navChildActive}`
+              : styles.navChild
+          }
+          onClick={onClose}
+        >
+          {label}
+        </NavLink>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CollapsibleNavItem — container component
+// ---------------------------------------------------------------------------
+
 function CollapsibleNavItem({ item }: { item: NavParentItem }) {
   const location = useLocation();
   const active = isParentActive(item, location.pathname);
   const [open, setOpen] = useState(active);
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({});
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const getPortalStyle = useCallback((): React.CSSProperties => {
+    if (!triggerRef.current) return {};
+    const rect = triggerRef.current.getBoundingClientRect();
+    return {
+      position: 'fixed',
+      top: rect.top,
+      left: rect.right,
+      minWidth: 200,
+      zIndex: 9999,
+    };
+  }, []);
+
+  // Set initial position when opening
+  useEffect(() => {
+    if (open) {
+      setPanelStyle(getPortalStyle());
+    }
+  }, [open, getPortalStyle]);
+
+  // Scroll/resize repositioning with rAF throttle
+  useEffect(() => {
+    if (!open) return;
+
+    let scheduled = false;
+
+    function update() {
+      setPanelStyle(getPortalStyle());
+      scheduled = false;
+    }
+
+    function onScrollOrResize() {
+      if (!scheduled) {
+        scheduled = true;
+        requestAnimationFrame(update);
+      }
+    }
+
+    window.addEventListener('scroll', onScrollOrResize, true); // capture: true
+    window.addEventListener('resize', onScrollOrResize);
+
+    return () => {
+      window.removeEventListener('scroll', onScrollOrResize, true);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
+  }, [open, getPortalStyle]);
+
+  // Outside click closes panel
+  useEffect(() => {
+    if (!open) return;
+
+    function handleMouseDown(e: MouseEvent) {
+      const target = e.target as Node;
+      if (
+        panelRef.current?.contains(target) ||
+        triggerRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setOpen(false);
+    }
+
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+    };
+  }, [open]);
+
+  // Escape key handler
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') {
+      setOpen(false);
+      triggerRef.current?.focus();
+    }
+  }
 
   return (
     <div className={styles.navGroup}>
       <button
+        ref={triggerRef}
         className={`${styles.navParent} ${active ? styles.navParentActive : ''}`}
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
@@ -219,27 +353,25 @@ function CollapsibleNavItem({ item }: { item: NavParentItem }) {
         <span>{item.label}</span>
         <span className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`}>›</span>
       </button>
-      {open && (
-        <div className={styles.navChildren}>
-          {item.children.map(({ to, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end
-              className={({ isActive }) =>
-                isActive
-                  ? `${styles.navChild} ${styles.navChildActive}`
-                  : styles.navChild
-              }
-            >
-              {label}
-            </NavLink>
-          ))}
-        </div>
-      )}
+      {open &&
+        ReactDOM.createPortal(
+          <NavPanel
+            items={item.children}
+            groupLabel={item.label}
+            style={panelStyle}
+            onClose={() => setOpen(false)}
+            onKeyDown={handleKeyDown}
+            panelRef={panelRef}
+          />,
+          document.body
+        )}
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Sidebar
+// ---------------------------------------------------------------------------
 
 interface SidebarProps {
   open?: boolean;
