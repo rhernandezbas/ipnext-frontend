@@ -197,6 +197,8 @@
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   padding: 4px 0;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   opacity: 0;
   transform: translateX(-4px);
   transition: opacity 0.15s ease-out, transform 0.15s ease-out;

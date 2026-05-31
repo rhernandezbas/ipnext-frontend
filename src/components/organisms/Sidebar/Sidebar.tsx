@@ -214,7 +214,7 @@ interface NavPanelProps {
   style: React.CSSProperties;
   onClose: () => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
-  panelRef: React.RefObject<HTMLDivElement | null>;
+  panelRef: React.RefObject<HTMLDivElement>;
 }
 
 function NavPanel({ items, groupLabel, style, onClose, onKeyDown, panelRef }: NavPanelProps) {
