@@ -1,214 +1,155 @@
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { Sidebar } from '@/components/organisms/Sidebar/Sidebar';
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Inline accordion behavior (NO portal, NO document.body, NO Escape/outside-click)
+//
+// Three levels, all inline:
+//   L1 sections (CRM / Empresa / Sistema)  -> single-open accordions
+//   L2 items    (Clientes, Tickets, ...)   -> single-open accordions within a section
+//   L3 sub-pages (Lista, Añadir, ...)      -> NavLinks
 // ---------------------------------------------------------------------------
 
-function mockTriggerRect(top: number, right: number) {
-  Element.prototype.getBoundingClientRect = vi.fn().mockReturnValue({
-    top,
-    right,
-    bottom: top + 32,
-    left: 0,
-    width: right,
-    height: 32,
-    x: 0,
-    y: top,
-    toJSON: () => ({}),
-  });
-}
-
-/** Render a Sidebar rooted at a path that opens the "Clientes" group by default */
 function renderSidebar(path = '/admin/customers/list') {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Sidebar />
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 }
 
-function getClientesButton() {
-  // The button's accessible name includes the chevron character "›",
-  // so we use a partial match. getAllByRole returns all matching buttons;
-  // the first one that matches /clientes/i (case-insensitive, no "potenciales")
-  // is the one we want.
+/** L2 "Clientes" item button (excludes "Clientes potenciales"). */
+function getClientesItemButton() {
   return screen
     .getAllByRole('button', { name: /clientes/i })
     .find((btn) => !/potenciales/i.test(btn.textContent ?? ''))!;
 }
 
-// ---------------------------------------------------------------------------
-// Setup / teardown
-// ---------------------------------------------------------------------------
+/** L1 section button by accessible name. */
+function getSectionButton(name: RegExp) {
+  return screen.getByRole('button', { name });
+}
 
-beforeEach(() => {
-  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
-    cb(0);
-    return 0;
-  });
-});
-
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
-// ---------------------------------------------------------------------------
-// Phase 2 RED tests
-// ---------------------------------------------------------------------------
-
-describe('CollapsibleNavItem — portal behavior', () => {
-  // 2.1 — Panel renderizado en document.body (NO dentro del <aside>)
-  it('renders nav panel in document.body, NOT inside <aside>', async () => {
-    renderSidebar('/admin/dashboard'); // start closed — Clientes not active
-    const trigger = getClientesButton();
-    const aside = document.querySelector('aside');
-
-    // Panel should not exist initially
-    expect(screen.queryByRole('navigation', { name: /menú clientes/i })).not.toBeInTheDocument();
-
-    await userEvent.click(trigger);
-
-    const panel = screen.getByRole('navigation', { name: /menú clientes/i });
-    expect(panel).toBeInTheDocument();
-    expect(aside).not.toContainElement(panel);
-  });
-
-  // 2.2 — Panel NO montado cuando cerrado
-  it('does NOT mount panel when closed', () => {
+describe('Sidebar — inline accordion (no portal)', () => {
+  // (a) clicking a section expands its items INLINE inside the sidebar (not portaled)
+  it('expands section items inline inside the <aside>, not in document.body', async () => {
+    // Start on a neutral route so no section is auto-open.
     renderSidebar('/admin/dashboard');
-    expect(screen.queryByRole('navigation', { name: /menú clientes/i })).toBeNull();
+    const aside = document.querySelector('aside')!;
+
+    // Empresa item buttons not present while section collapsed.
+    expect(screen.queryByRole('button', { name: /^scheduling$/i })).toBeNull();
+
+    const empresa = getSectionButton(/^empresa$/i);
+    await userEvent.click(empresa);
+
+    const scheduling = screen.getByRole('button', { name: /^scheduling$/i });
+    expect(scheduling).toBeInTheDocument();
+    // Crucial: the expanded content lives INSIDE the sidebar tree, never portaled to body.
+    expect(aside).toContainElement(scheduling);
   });
 
-  // 2.3 — Posicionamiento position: fixed
-  it('positions panel with style.top and style.left from getBoundingClientRect', async () => {
-    mockTriggerRect(120, 240);
-    renderSidebar('/admin/dashboard');
-    const trigger = getClientesButton();
+  // (b) sections are single-open: opening Empresa closes CRM
+  it('single-open sections: opening Empresa collapses CRM', async () => {
+    renderSidebar('/admin/customers/list'); // CRM auto-open
 
-    await userEvent.click(trigger);
+    // CRM open → its item "Tickets" button is visible.
+    expect(screen.getByRole('button', { name: /^tickets$/i })).toBeInTheDocument();
 
-    const panel = screen.getByRole('navigation', { name: /menú clientes/i });
-    const top = parseFloat(panel.style.top);
-    const left = parseFloat(panel.style.left);
-    expect(top).toBeCloseTo(120, 0);
-    expect(left).toBeCloseTo(240, 0);
+    await userEvent.click(getSectionButton(/^empresa$/i));
+
+    // CRM collapsed now → Tickets item button gone, Empresa items present.
+    expect(screen.queryByRole('button', { name: /^tickets$/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /^scheduling$/i })).toBeInTheDocument();
   });
 
-  // 2.4 — aria-expanded en trigger
-  it('toggles aria-expanded on trigger button', async () => {
-    renderSidebar('/admin/dashboard');
-    const trigger = getClientesButton();
+  // (c) single-open items within a section
+  it('single-open items: opening Tickets collapses Clientes within CRM', async () => {
+    renderSidebar('/admin/customers/list'); // CRM open, Clientes item auto-open
 
-    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    // Clientes open → "Vouchers" sub-link visible.
+    expect(screen.getByRole('link', { name: /vouchers/i })).toBeInTheDocument();
 
-    await userEvent.click(trigger);
-    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await userEvent.click(screen.getByRole('button', { name: /^tickets$/i }));
+
+    // Clientes collapsed → Vouchers gone; Tickets open → its sub-link visible.
+    expect(screen.queryByRole('link', { name: /vouchers/i })).toBeNull();
+    expect(screen.getByRole('link', { name: /destinatarios/i })).toBeInTheDocument();
   });
 
-  // 2.5 — aria-label en panel
-  it('panel has accessible navigation label', async () => {
-    renderSidebar('/admin/dashboard');
-    const trigger = getClientesButton();
+  // (d) auto-expand of the active route: /admin/customers/list -> CRM + Clientes open, Lista active
+  it('auto-expands the section and item of the active route', () => {
+    renderSidebar('/admin/customers/list');
 
-    await userEvent.click(trigger);
+    // CRM section auto-open → Clientes item button present.
+    const clientes = getClientesItemButton();
+    expect(clientes).toBeInTheDocument();
+    expect(clientes).toHaveAttribute('aria-expanded', 'true');
 
-    expect(screen.getByRole('navigation', { name: /menú clientes/i })).toBeInTheDocument();
+    // Clientes item auto-open → Lista sub-link present and active.
+    const lista = screen.getByRole('link', { name: /^lista$/i });
+    expect(lista).toHaveAttribute('href', '/admin/customers/list');
+    expect(lista.className).toMatch(/navChildActive/);
   });
 
-  // 2.6 — Cierre por outside click
-  it('closes panel on outside mousedown', async () => {
+  // (e) aria-expanded reflects state on section and item buttons
+  it('toggles aria-expanded on section and item buttons', async () => {
     renderSidebar('/admin/dashboard');
-    const trigger = getClientesButton();
 
-    await userEvent.click(trigger);
-    expect(screen.getByRole('navigation', { name: /menú clientes/i })).toBeInTheDocument();
+    const empresa = getSectionButton(/^empresa$/i);
+    expect(empresa).toHaveAttribute('aria-expanded', 'false');
 
-    fireEvent.mouseDown(document.body);
+    await userEvent.click(empresa);
+    expect(empresa).toHaveAttribute('aria-expanded', 'true');
 
-    expect(screen.queryByRole('navigation', { name: /menú clientes/i })).toBeNull();
+    const scheduling = screen.getByRole('button', { name: /^scheduling$/i });
+    expect(scheduling).toHaveAttribute('aria-expanded', 'false');
+
+    await userEvent.click(scheduling);
+    expect(scheduling).toHaveAttribute('aria-expanded', 'true');
   });
 
-  // 2.7 — Click dentro del panel no cierra
-  it('click inside panel does not close it', async () => {
+  // (f) chevron open class toggles
+  it('applies chevronOpen class when a section/item is open', async () => {
     renderSidebar('/admin/dashboard');
-    const trigger = getClientesButton();
 
-    await userEvent.click(trigger);
-
-    const panel = screen.getByRole('navigation', { name: /menú clientes/i });
-    fireEvent.mouseDown(panel);
-
-    expect(screen.queryByRole('navigation', { name: /menú clientes/i })).toBeInTheDocument();
-  });
-
-  // 2.8 — Cierre al navegar (NavLink click)
-  it('closes panel when a NavLink child is clicked', async () => {
-    renderSidebar('/admin/dashboard');
-    const trigger = getClientesButton();
-
-    await userEvent.click(trigger);
-    expect(screen.getByRole('navigation', { name: /menú clientes/i })).toBeInTheDocument();
-
-    const link = screen.getByRole('link', { name: /búsqueda/i });
-    await userEvent.click(link);
-
-    expect(screen.queryByRole('navigation', { name: /menú clientes/i })).toBeNull();
-  });
-
-  // 2.9 + 2.10 — Escape cierra y devuelve foco al trigger
-  it('closes panel on Escape and returns focus to trigger', async () => {
-    renderSidebar('/admin/dashboard');
-    const trigger = getClientesButton();
-
-    await userEvent.click(trigger);
-    expect(screen.getByRole('navigation', { name: /menú clientes/i })).toBeInTheDocument();
-
-    const panel = screen.getByRole('navigation', { name: /menú clientes/i });
-    panel.focus();
-
-    await userEvent.keyboard('{Escape}');
-
-    expect(screen.queryByRole('navigation', { name: /menú clientes/i })).toBeNull();
-    expect(document.activeElement).toBe(trigger);
-  });
-
-  // 2.11 — Chevron tiene clase chevronOpen cuando open
-  it('applies chevronOpen class to chevron when open', async () => {
-    renderSidebar('/admin/dashboard');
-    const trigger = getClientesButton();
-    const chevron = trigger.querySelector('[class*="chevron"]') as HTMLElement;
-
+    const empresa = getSectionButton(/^empresa$/i);
+    const chevron = empresa.querySelector('[class*="chevron"]') as HTMLElement;
     expect(chevron.className).not.toMatch(/chevronOpen/);
 
-    await userEvent.click(trigger);
+    await userEvent.click(empresa);
     expect(chevron.className).toMatch(/chevronOpen/);
 
-    await userEvent.click(trigger);
+    await userEvent.click(empresa);
     expect(chevron.className).not.toMatch(/chevronOpen/);
   });
 
-  // 2.12 — Reposicionamiento en scroll
-  it('recalculates panel position on scroll', async () => {
-    mockTriggerRect(120, 240);
+  // a11y: section button points at the region it controls via aria-controls
+  it('wires aria-controls from a section button to its region', async () => {
     renderSidebar('/admin/dashboard');
-    const trigger = getClientesButton();
+    const empresa = getSectionButton(/^empresa$/i);
+    const controls = empresa.getAttribute('aria-controls');
+    expect(controls).toBeTruthy();
 
-    await userEvent.click(trigger);
+    await userEvent.click(empresa);
+    const region = document.getElementById(controls!);
+    expect(region).toBeInTheDocument();
+    expect(region).toContainElement(screen.getByRole('button', { name: /^scheduling$/i }));
+  });
 
-    const panel = screen.getByRole('navigation', { name: /menú clientes/i });
-    expect(parseFloat(panel.style.top)).toBeCloseTo(120, 0);
+  // keyboard: Enter / Space toggle the section
+  it('toggles a section with Enter and Space', async () => {
+    renderSidebar('/admin/dashboard');
+    const empresa = getSectionButton(/^empresa$/i);
+    empresa.focus();
 
-    // Update mock rect and fire scroll
-    mockTriggerRect(200, 240);
+    await userEvent.keyboard('{Enter}');
+    expect(empresa).toHaveAttribute('aria-expanded', 'true');
 
-    act(() => {
-      fireEvent.scroll(window);
-    });
-
-    expect(parseFloat(panel.style.top)).toBeCloseTo(200, 0);
+    await userEvent.keyboard(' ');
+    expect(empresa).toHaveAttribute('aria-expanded', 'false');
   });
 });

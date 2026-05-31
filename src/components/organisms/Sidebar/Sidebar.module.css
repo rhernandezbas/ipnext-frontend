@@ -11,7 +11,7 @@
   overflow-y: auto;
   z-index: 100;
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
-  transition: transform 0.25s ease;
+  transition: transform var(--transition-slow, 250ms ease);
 }
 
 .sidebarClosed {
@@ -44,7 +44,7 @@
   padding: 4px 6px;
   border-radius: 6px;
   line-height: 1;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--transition-fast, 120ms ease), color var(--transition-fast, 120ms ease);
   display: flex;
   align-items: center;
 }
@@ -59,20 +59,170 @@
   padding: var(--space-3) 0;
 }
 
+/* Level 0 — direct top-level links (Panel, Monitoreo, Notificaciones, Informes) */
+.navTop {
+  margin-bottom: var(--space-1);
+}
+
+/* -----------------------------------------------------------------------
+ * Level 1 — section accordions (CRM / Empresa / Sistema)
+ * Section heading is now a BUTTON, not a static label.
+ * ----------------------------------------------------------------------- */
 .navSection {
   margin-bottom: var(--space-1);
 }
 
 .navSectionTitle {
-  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: calc(100% - var(--space-2) * 2);
+  margin: 1px var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #6366f1;
-  padding: var(--space-3) var(--space-4) var(--space-1);
-  margin: 0;
+  color: #9ca3af;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--transition-fast, 120ms ease), color var(--transition-fast, 120ms ease);
 }
 
+.navSectionTitle:hover {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Section that contains the active route — subtle indigo emphasis (NO side stripe) */
+.navSectionTitleActive {
+  color: #6366f1;
+}
+
+.navSectionTitleActive:hover {
+  color: #6366f1;
+}
+
+/* -----------------------------------------------------------------------
+ * Collapsible region — inline expand/collapse via grid-template-rows.
+ * Animating 0fr -> 1fr avoids animating layout height directly while still
+ * pushing the content below downward (no floating, no portal).
+ * ----------------------------------------------------------------------- */
+.collapsible {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--transition-normal, 200ms ease);
+}
+
+.collapsibleOpen {
+  grid-template-rows: 1fr;
+}
+
+.collapsibleInner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* -----------------------------------------------------------------------
+ * Level 2 — item accordions (Clientes, Tickets, Gestión de red, ...)
+ * ----------------------------------------------------------------------- */
+.navGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.navParent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* Level-2 indentation: deeper than the section header */
+  padding: 7px var(--space-4) 7px var(--space-6);
+  color: #374151;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  margin: 1px var(--space-2);
+  width: calc(100% - var(--space-2) * 2);
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color var(--transition-fast, 120ms ease), color var(--transition-fast, 120ms ease);
+}
+
+.navParent:hover {
+  color: #111827;
+  background-color: #f3f4f6;
+}
+
+/* Item that contains the active route — indigo text emphasis (NO side stripe) */
+.navParentActive {
+  color: #6366f1;
+  font-weight: 600;
+}
+
+.chevron {
+  font-size: 12px;
+  transition: transform var(--transition-normal, 200ms ease);
+  display: inline-block;
+  transform: rotate(0deg);
+  color: #9ca3af;
+  flex-shrink: 0;
+  margin-left: var(--space-2);
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+}
+
+/* -----------------------------------------------------------------------
+ * Level 3 — sub-page NavLinks (Lista, Añadir, Búsqueda, ...)
+ * ----------------------------------------------------------------------- */
+.navChildren {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--space-1);
+}
+
+.navChild {
+  display: flex;
+  align-items: center;
+  /* Level-3 indentation: deeper than the item button */
+  padding: 5px var(--space-4) 5px calc(var(--space-6) + var(--space-4));
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 400;
+  text-decoration: none;
+  transition: background-color var(--transition-fast, 120ms ease), color var(--transition-fast, 120ms ease);
+  border-radius: 6px;
+  margin: 1px var(--space-2);
+}
+
+.navChild:hover {
+  color: #111827;
+  background-color: #f3f4f6;
+}
+
+/* Active sub-page — indigo fill, white text (design system, no side stripe) */
+.navChildActive {
+  color: #fff;
+  background-color: #6366f1;
+  font-weight: 600;
+}
+
+.navChildActive:hover {
+  background-color: #4f46e5;
+  color: #fff;
+}
+
+/* -----------------------------------------------------------------------
+ * Level 0 — direct top-level links
+ * ----------------------------------------------------------------------- */
 .navLink {
   display: flex;
   align-items: center;
@@ -81,7 +231,7 @@
   color: #374151;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  transition: background-color 0.12s, color 0.12s;
+  transition: background-color var(--transition-fast, 120ms ease), color var(--transition-fast, 120ms ease);
   text-decoration: none;
   border-radius: 6px;
   margin: 1px var(--space-2);
@@ -100,113 +250,4 @@
 .navLinkActive:hover {
   background-color: #4f46e5;
   color: #fff;
-}
-
-.navLinkDisabled {
-  opacity: 0.4;
-  cursor: default;
-  pointer-events: none;
-}
-
-.navGroup {
-  display: flex;
-  flex-direction: column;
-}
-
-.navParent {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 7px var(--space-4);
-  color: #374151;
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  background: none;
-  border: none;
-  border-radius: 6px;
-  margin: 1px var(--space-2);
-  width: calc(100% - var(--space-2) * 2);
-  text-align: left;
-  cursor: pointer;
-  transition: background-color 0.12s, color 0.12s;
-}
-
-.navParent:hover {
-  color: #111827;
-  background-color: #f3f4f6;
-}
-
-.navParentActive {
-  color: #6366f1;
-  font-weight: 600;
-}
-
-.chevron {
-  font-size: 12px;
-  transition: transform 0.2s;
-  display: inline-block;
-  transform: rotate(0deg);
-  color: #9ca3af;
-}
-
-.chevronOpen {
-  transform: rotate(90deg);
-}
-
-.navChildren {
-  display: flex;
-  flex-direction: column;
-  padding-left: var(--space-2);
-  margin-bottom: var(--space-1);
-}
-
-.navChild {
-  display: flex;
-  align-items: center;
-  padding: 5px var(--space-4) 5px calc(var(--space-4) + 12px);
-  color: #6b7280;
-  font-size: 13px;
-  font-weight: 400;
-  text-decoration: none;
-  transition: background-color 0.12s, color 0.12s;
-  border-radius: 6px;
-  margin: 1px var(--space-1);
-}
-
-.navChild:hover {
-  color: #111827;
-  background-color: #f3f4f6;
-}
-
-.navChildActive {
-  color: #6366f1;
-  background-color: #eef2ff;
-  font-weight: 600;
-}
-
-/* -----------------------------------------------------------------------
- * Portal nav panel — rendered in document.body via createPortal
- * z-index: 9999 ensures it sits above the sidebar (z-index: 100)
- * ----------------------------------------------------------------------- */
-.navPanel {
-  position: fixed;
-  z-index: 9999;
-  min-width: 200px;
-  background: var(--sidebar-bg, #ffffff);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  padding: 4px 0;
-  max-height: calc(100vh - 32px);
-  overflow-y: auto;
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
-  pointer-events: none;
-}
-
-.navPanelOpen {
-  opacity: 1;
-  transform: translateX(0);
-  pointer-events: auto;
 }
