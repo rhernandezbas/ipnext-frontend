@@ -13,7 +13,8 @@ import { useWorkflows } from '@/hooks/useWorkflows';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { usePartners } from '@/hooks/usePartners';
 import { useProjects } from '@/hooks/useProjects';
-import { useClientDetail, useClientServices } from '@/hooks/useCustomers';
+import { useClientDetail, useClientContracts } from '@/hooks/useCustomers';
+import { buildContractLabel } from '@/lib/buildContractLabel';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/useMyPermissions';
 import { useIClassSendFeedback } from '@/hooks/useIClassSendFeedback';
@@ -63,11 +64,11 @@ export default function SchedulingTaskDetailPage() {
   const { data: partners = [] } = usePartners();
   const { data: projects = [] } = useProjects();
   const { data: priorities = [] } = useTaskPriorities();
-  // Customer detail + services — cached share with CustomerSidebar (same query keys).
-  // Used only to resolve {{telefono}} / {{servicio}} in description merge variables.
+  // Customer detail + contracts — cached share with CustomerSidebar (same query keys).
+  // Used only to resolve {{telefono}} / {{contrato}} / {{servicio}} in description merge variables.
   const customerId = task?.customerId ?? null;
   const { data: customerDetail } = useClientDetail(customerId ?? '');
-  const { data: customerServices = [] } = useClientServices(customerId ?? '', !!customerId);
+  const { data: customerContracts = [] } = useClientContracts(customerId ?? '', !!customerId);
 
   useAuth(); // keep context subscription (auth:unauthorized event handling)
   const canDelete = useCan('scheduling.delete');
@@ -188,7 +189,7 @@ export default function SchedulingTaskDetailPage() {
       projectId: nullable(values.projectId),
       assigneeId: nullable(values.assigneeId),
       partnerId: nullable(values.partnerId),
-      serviceId: nullable(values.serviceId),
+      contractId: nullable(values.contractId),
       startDate: values.startDate,
       endDate: values.endDate,
       travelTimeTo: values.travelTimeTo,
@@ -197,14 +198,16 @@ export default function SchedulingTaskDetailPage() {
       coordinates: loc.coordinates,
     };
     if (descDirty) {
-      // Resolve {{cliente}} / {{telefono}} / {{servicio}} / {{direccion}} once
+      // Resolve {{cliente}} / {{telefono}} / {{contrato}} / {{servicio}} / {{direccion}} once
       // at save time using the task's linked entities; tokens with no value
       // stay as-is.
-      const servicio = customerServices.find(s => String(s.id) === task.serviceId)?.plan ?? null;
+      const resolvedContract = customerContracts.find(s => String(s.id) === task.contractId) ?? null;
+      const contratoLabel = resolvedContract ? buildContractLabel(resolvedContract) : null;
       data.description = applyTaskVariables(descriptionHtml, {
         cliente: task.customerName,
         telefono: customerDetail?.phone ?? null,
-        servicio,
+        contrato: contratoLabel,
+        servicio: contratoLabel, // backward compat: {{servicio}} resolves to contract label
         direccion: task.address,
       });
     }
@@ -221,7 +224,7 @@ export default function SchedulingTaskDetailPage() {
       // preserved so the user can correct and retry without losing input.
       showToast(mapError(err), 'error');
     }
-  }, [task, updateTask, locationOverride, descDirty, descriptionHtml, customerDetail, customerServices]);
+  }, [task, updateTask, locationOverride, descDirty, descriptionHtml, customerDetail, customerContracts]);
 
   const handleWatcherChange = useCallback(async (nextIds: string[]) => {
     if (!task) return;
@@ -288,7 +291,7 @@ export default function SchedulingTaskDetailPage() {
     assigneeId: task.assigneeId,
     partnerId: task.partnerId,
     customerId: task.customerId,
-    serviceId: task.serviceId,
+    contractId: task.contractId,
     startDate: task.startDate,
     endDate: task.endDate,
     travelTimeTo: task.travelTimeTo,
@@ -359,7 +362,7 @@ export default function SchedulingTaskDetailPage() {
           <CustomerSidebar
             customerId={task.customerId}
             customerName={task.customerName}
-            serviceId={task.serviceId}
+            contractId={task.contractId}
             reporterId={task.reporterId}
             watcherIds={task.watcherIds}
             admins={admins}

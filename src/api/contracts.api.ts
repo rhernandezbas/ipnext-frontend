@@ -19,13 +19,13 @@ export async function listContracts(
   params: ContractsQuery = {},
 ): Promise<PaginatedResponse<ContractSummary>> {
   const response = await axiosClient.get<PaginatedResponse<ContractSummary>>(
-    '/services',
+    '/contracts',
     { params },
   );
   return response.data;
 }
 
 export async function getContractStats(): Promise<ContractStats> {
-  const response = await axiosClient.get<ContractStats>('/services/stats');
+  const response = await axiosClient.get<ContractStats>('/contracts/stats');
   return response.data;
 }

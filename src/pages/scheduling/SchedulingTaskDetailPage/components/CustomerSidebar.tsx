@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useClientDetail, useClientServices } from '@/hooks/useCustomers';
+import { useClientDetail, useClientContracts } from '@/hooks/useCustomers';
 
 type SchedulingAssignee = { id: string; name: string };
 import { Tabs } from '@/components/molecules/Tabs/Tabs';
 import { CustomerCard } from './CustomerCard';
-import { ServiceCard } from './ServiceCard';
+import { ContractCard } from './ContractCard';
 import { ReporterCard } from './ReporterCard';
 import { WatchersChips } from './WatchersChips';
 import { ComingSoonPanel } from './ComingSoonPanel';
@@ -13,7 +13,7 @@ import styles from './CustomerSidebar.module.css';
 export interface CustomerSidebarProps {
   customerId: string | null;
   customerName: string | null;
-  serviceId: string | null;
+  contractId: string | null;
   reporterId: string | null;
   watcherIds: string[];
   admins: SchedulingAssignee[];
@@ -24,7 +24,7 @@ export interface CustomerSidebarProps {
 export function CustomerSidebar({
   customerId,
   customerName,
-  serviceId,
+  contractId,
   reporterId,
   watcherIds,
   admins,
@@ -35,16 +35,16 @@ export function CustomerSidebar({
 
   // Gate hooks on customerId
   const { data: clientDetail, isLoading: isLoadingContact } = useClientDetail(customerId ?? '');
-  const { data: clientServices = [] } = useClientServices(customerId ?? '', !!customerId);
+  const { data: clientContracts = [] } = useClientContracts(customerId ?? '', !!customerId);
 
-  // Resolve the service object matching the task's serviceId (task serviceId is string, Service.id is number)
-  const resolvedService = serviceId
-    ? (clientServices.find((s) => String(s.id) === serviceId) ?? null)
+  // Resolve the contract object matching the task's contractId (task contractId is string, Contract.id is number)
+  const resolvedContract = contractId
+    ? (clientContracts.find((s) => String(s.id) === contractId) ?? null)
     : null;
 
-  // Map to { plan, type } that ServiceCard expects
-  const serviceDetail = resolvedService
-    ? { plan: resolvedService.plan, type: resolvedService.type }
+  // Map to { plan, type, address, technology } that ContractCard expects
+  const contractDetail = resolvedContract
+    ? { plan: resolvedContract.plan, type: resolvedContract.type, address: resolvedContract.address ?? null, technology: resolvedContract.technology ?? null }
     : null;
 
   const tabs = [
@@ -61,10 +61,10 @@ export function CustomerSidebar({
             customerCity={clientDetail?.city}
             isLoadingContact={isLoadingContact}
           />
-          <ServiceCard
-            serviceId={serviceId}
+          <ContractCard
+            contractId={contractId}
             customerId={customerId}
-            service={serviceDetail}
+            contract={contractDetail}
             isLoading={isLoadingContact}
           />
           <ReporterCard reporterId={reporterId} allAdmins={admins} />

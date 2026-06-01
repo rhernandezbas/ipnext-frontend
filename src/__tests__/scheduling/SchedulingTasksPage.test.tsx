@@ -109,7 +109,7 @@ const baseTask: ScheduledTask = {
   customerId: null,
   customerName: 'Cliente Test',
   customerCity: null,
-  serviceId: null,
+  contractId: null,
   partnerId: null,
   reporterId: null,
   assigneeId: null,

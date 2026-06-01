@@ -5,11 +5,11 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 // modal renders without a QueryClientProvider.
 const useClientListMock = vi.fn(() => ({ data: { data: [] as unknown[], total: 0, page: 1, pageSize: 20, totalPages: 0 }, isFetching: false }));
 const useClientDetailMock = vi.fn(() => ({ data: undefined as unknown }));
-const useClientServicesMock = vi.fn(() => ({ data: [] as unknown[] }));
+const useClientContractsMock = vi.fn(() => ({ data: [] as unknown[] }));
 vi.mock('@/hooks/useCustomers', () => ({
   useClientList: () => useClientListMock(),
   useClientDetail: () => useClientDetailMock(),
-  useClientServices: () => useClientServicesMock(),
+  useClientContracts: () => useClientContractsMock(),
 }));
 vi.mock('@/hooks/useTaskCategories', () => ({
   useTaskCategories: () => ({ data: [
@@ -57,7 +57,7 @@ describe('CreateTaskModal', () => {
     onCreate.mockResolvedValue(undefined);
     useClientListMock.mockReturnValue({ data: { data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }, isFetching: false });
     useClientDetailMock.mockReturnValue({ data: undefined });
-    useClientServicesMock.mockReturnValue({ data: [] });
+    useClientContractsMock.mockReturnValue({ data: [] });
   });
 
   function setup() {
@@ -72,13 +72,13 @@ describe('CreateTaskModal', () => {
     );
   }
 
-  /** Helper: sets up mocks with a customer that has one service, renders, and
-   *  picks both the customer and the service so the form can be submitted. */
+  /** Helper: sets up mocks with a customer that has one contract, renders, and
+   *  picks both the customer and the contract so the form can be submitted. */
   async function setupWithFullForm(title = 'Cambiar router') {
     const customer = { id: 'c-full', name: 'FULL CUSTOMER', email: 'full@test.com' };
     useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
     useClientDetailMock.mockReturnValue({ data: { id: 'c-full', name: 'FULL CUSTOMER', address: 'Calle Full 1' } });
-    useClientServicesMock.mockReturnValue({
+    useClientContractsMock.mockReturnValue({
       data: [{ id: 1, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null }],
       isLoading: false,
     });
@@ -88,16 +88,16 @@ describe('CreateTaskModal', () => {
     fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: title } });
     fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Full' } });
     fireEvent.click(await screen.findByText('FULL CUSTOMER'));
-    const serviceSelect = await screen.findByRole('combobox', { name: /servicio/i });
-    fireEvent.change(serviceSelect, { target: { value: '1' } });
+    const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
+    fireEvent.change(contractSelect, { target: { value: '1' } });
     return result;
   }
 
-  it('disables the create button until title + client + service are all entered', async () => {
+  it('disables the create button until title + client + contract are all entered', async () => {
     const customer = { id: 'c-btn', name: 'BTN CUSTOMER', email: 'btn@test.com' };
     useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
     useClientDetailMock.mockReturnValue({ data: { id: 'c-btn', name: 'BTN CUSTOMER', address: 'Calle 1' } });
-    useClientServicesMock.mockReturnValue({
+    useClientContractsMock.mockReturnValue({
       data: [{ id: 2, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null }],
       isLoading: false,
     });
@@ -108,13 +108,13 @@ describe('CreateTaskModal', () => {
     // Title only — still disabled (no client)
     fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Cambiar router' } });
     expect(btn).toBeDisabled();
-    // Pick customer — still disabled (no service selected yet)
+    // Pick customer — still disabled (no contract selected yet)
     fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'BTN' } });
     fireEvent.click(await screen.findByText('BTN CUSTOMER'));
-    await screen.findByRole('combobox', { name: /servicio/i });
+    await screen.findByRole('combobox', { name: /contrato/i });
     expect(btn).toBeDisabled();
-    // Pick service — now enabled
-    fireEvent.change(screen.getByRole('combobox', { name: /servicio/i }), { target: { value: '2' } });
+    // Pick contract — now enabled
+    fireEvent.change(screen.getByRole('combobox', { name: /contrato/i }), { target: { value: '2' } });
     expect(btn).toBeEnabled();
   });
 
@@ -257,11 +257,11 @@ describe('CreateTaskModal', () => {
     );
   });
 
-  it('auto-fills address from the selected service (service > customer precedence)', async () => {
+  it('auto-fills address from the selected contract (contract > customer precedence)', async () => {
     const customer = { id: 'c-10', name: 'PEREZ MARIO', email: 'perez@test.com' };
     useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
     useClientDetailMock.mockReturnValue({ data: { id: 'c-10', name: 'PEREZ MARIO', address: 'Calle Cliente 100' } });
-    useClientServicesMock.mockReturnValue({
+    useClientContractsMock.mockReturnValue({
       data: [
         { id: 55, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: 'Av. Servicio 999' },
       ],
@@ -273,21 +273,21 @@ describe('CreateTaskModal', () => {
     fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Perez' } });
     fireEvent.click(await screen.findByText('PEREZ MARIO'));
 
-    // The service dropdown should now be visible — pick the service
-    const serviceSelect = await screen.findByRole('combobox', { name: /servicio/i });
-    fireEvent.change(serviceSelect, { target: { value: '55' } });
+    // The contract dropdown should now be visible — pick the contract
+    const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
+    fireEvent.change(contractSelect, { target: { value: '55' } });
 
-    // Address should be the SERVICE address, overriding the customer address
+    // Address should be the CONTRACT address, overriding the customer address
     await waitFor(() =>
       expect((screen.getByPlaceholderText('Dirección del trabajo') as HTMLInputElement).value).toBe('Av. Servicio 999'),
     );
   });
 
-  it('falls back to customer address when selected service has no address', async () => {
+  it('falls back to customer address when selected contract has no address', async () => {
     const customer = { id: 'c-11', name: 'GOMEZ ANA', email: 'gomez@test.com' };
     useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
     useClientDetailMock.mockReturnValue({ data: { id: 'c-11', name: 'GOMEZ ANA', address: 'Calle Fallback 50' } });
-    useClientServicesMock.mockReturnValue({
+    useClientContractsMock.mockReturnValue({
       data: [
         { id: 66, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null },
       ],
@@ -299,9 +299,9 @@ describe('CreateTaskModal', () => {
     fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Gomez' } });
     fireEvent.click(await screen.findByText('GOMEZ ANA'));
 
-    // Pick the service (no address)
-    const serviceSelect = await screen.findByRole('combobox', { name: /servicio/i });
-    fireEvent.change(serviceSelect, { target: { value: '66' } });
+    // Pick the contract (no address)
+    const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
+    fireEvent.change(contractSelect, { target: { value: '66' } });
 
     // Address should fall back to the customer address
     await waitFor(() =>
@@ -383,29 +383,29 @@ describe('CreateTaskModal', () => {
       expect(clienteLabel.textContent).toMatch(/\*/);
     });
 
-    it('shows required indicator (*) in the Servicio label (when customer is selected)', async () => {
+    it('shows required indicator (*) in the Contrato label (when customer is selected)', async () => {
       const customer = { id: 'c-req', name: 'REQ CUSTOMER', email: 'req@test.com' };
       useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
       useClientDetailMock.mockReturnValue({ data: { id: 'c-req', name: 'REQ CUSTOMER', address: 'Calle 1' } });
-      useClientServicesMock.mockReturnValue({ data: [], isLoading: false });
+      useClientContractsMock.mockReturnValue({ data: [], isLoading: false });
       setup();
 
       fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Req' } });
       fireEvent.click(await screen.findByText('REQ CUSTOMER'));
 
-      const servicioLabel = await screen.findByRole('combobox', { name: /servicio/i });
-      const labelEl = servicioLabel.closest('label');
+      const contratoLabel = await screen.findByRole('combobox', { name: /contrato/i });
+      const labelEl = contratoLabel.closest('label');
       expect(labelEl).not.toBeNull();
       expect(labelEl!.textContent).toMatch(/\*/);
     });
   });
 
-  describe('client + service required', () => {
-    function setupWithCustomer(services: unknown[] = [], isLoading = false) {
+  describe('client + contract required', () => {
+    function setupWithCustomer(contracts: unknown[] = [], isLoading = false) {
       const customer = { id: 'c-20', name: 'LOPEZ PEDRO', email: 'lopez@test.com' };
       useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
       useClientDetailMock.mockReturnValue({ data: { id: 'c-20', name: 'LOPEZ PEDRO', address: 'Calle 123' } });
-      useClientServicesMock.mockReturnValue({ data: services, isLoading });
+      useClientContractsMock.mockReturnValue({ data: contracts, isLoading });
       return render(
         <CreateTaskModal
           projects={projects}
@@ -423,76 +423,76 @@ describe('CreateTaskModal', () => {
       expect(screen.getByRole('button', { name: /crear tarea/i })).toBeDisabled();
     });
 
-    it('keeps Crear tarea disabled when title + client are present but service is missing', async () => {
-      const services = [
+    it('keeps Crear tarea disabled when title + client are present but contract is missing', async () => {
+      const contracts = [
         { id: 77, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null },
       ];
-      setupWithCustomer(services);
+      setupWithCustomer(contracts);
 
-      fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea con cliente sin servicio' } });
+      fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea con cliente sin contrato' } });
 
       // Pick the customer
       fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Lopez' } });
       fireEvent.click(await screen.findByText('LOPEZ PEDRO'));
 
-      // Service dropdown is visible but no service chosen (default empty option)
-      await screen.findByRole('combobox', { name: /servicio/i });
+      // Contract dropdown is visible but no contract chosen (default empty option)
+      await screen.findByRole('combobox', { name: /contrato/i });
       expect(screen.getByRole('button', { name: /crear tarea/i })).toBeDisabled();
     });
 
-    it('enables Crear tarea when title + client + service are all present', async () => {
-      const services = [
+    it('enables Crear tarea when title + client + contract are all present', async () => {
+      const contracts = [
         { id: 88, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2500, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null },
       ];
-      setupWithCustomer(services);
+      setupWithCustomer(contracts);
 
       fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea completa' } });
 
       fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Lopez' } });
       fireEvent.click(await screen.findByText('LOPEZ PEDRO'));
 
-      const serviceSelect = await screen.findByRole('combobox', { name: /servicio/i });
-      fireEvent.change(serviceSelect, { target: { value: '88' } });
+      const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
+      fireEvent.change(contractSelect, { target: { value: '88' } });
 
       expect(screen.getByRole('button', { name: /crear tarea/i })).toBeEnabled();
     });
 
-    it('shows informative message and disables select when customer has no services', async () => {
-      setupWithCustomer([]); // no services, not loading
+    it('shows informative message and disables select when customer has no contracts', async () => {
+      setupWithCustomer([]); // no contracts, not loading
 
       fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Lopez' } });
       fireEvent.click(await screen.findByText('LOPEZ PEDRO'));
 
-      const serviceSelect = await screen.findByRole('combobox', { name: /servicio/i });
-      expect(serviceSelect).toBeDisabled();
-      expect(screen.getByText(/este cliente no tiene servicios/i)).toBeInTheDocument();
+      const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
+      expect(contractSelect).toBeDisabled();
+      expect(screen.getByText(/este cliente no tiene contratos/i)).toBeInTheDocument();
     });
 
-    it('does NOT show "sin servicios" message while services are loading', async () => {
-      setupWithCustomer([], true); // no services yet, but loading
+    it('does NOT show "sin contratos" message while contracts are loading', async () => {
+      setupWithCustomer([], true); // no contracts yet, but loading
 
       fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Lopez' } });
       fireEvent.click(await screen.findByText('LOPEZ PEDRO'));
 
-      // While loading, the "no services" info must not appear
+      // While loading, the "no contracts" info must not appear
       await waitFor(() =>
-        expect(screen.queryByText(/este cliente no tiene servicios/i)).not.toBeInTheDocument(),
+        expect(screen.queryByText(/este cliente no tiene contratos/i)).not.toBeInTheDocument(),
       );
     });
 
-    it('submit passes serviceId to onCreate when client + service are selected', async () => {
-      const services = [
+    it('submit passes contractId to onCreate when client + contract are selected', async () => {
+      const contracts = [
         { id: 99, plan: 'Plan 200Mbps', type: 'internet', status: 'active', price: 4000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: 'Servicio Calle 9' },
       ];
-      setupWithCustomer(services);
+      setupWithCustomer(contracts);
 
-      fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea con servicio' } });
+      fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea con contrato' } });
 
       fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Lopez' } });
       fireEvent.click(await screen.findByText('LOPEZ PEDRO'));
 
-      const serviceSelect = await screen.findByRole('combobox', { name: /servicio/i });
-      fireEvent.change(serviceSelect, { target: { value: '99' } });
+      const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
+      fireEvent.change(contractSelect, { target: { value: '99' } });
 
       fireEvent.click(screen.getByRole('button', { name: /crear tarea/i }));
       await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
@@ -500,7 +500,7 @@ describe('CreateTaskModal', () => {
       expect(onCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           customerId: 'c-20',
-          serviceId: '99',
+          contractId: '99',
         }),
       );
     });

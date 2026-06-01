@@ -42,7 +42,7 @@ function makeTask(overrides: Partial<ScheduledTask> = {}): ScheduledTask {
     createdAt: '2026-01-01', updatedAt: '2026-01-01',
     description: null, watcherIds: [], checklist: [],
     customerId: null, customerName: null, customerCity: null,
-    serviceId: null, partnerId: null, reporterId: null,
+    contractId: null, partnerId: null, reporterId: null,
     assigneeId: null, assigneeName: null,
     estimatedHours: 0, address: null, coordinates: null,
     category: 'installation', projectName: null,

@@ -9,7 +9,8 @@ import type { Partner } from '@/types/partner';
  */
 type SchedulingAssignee = { id: string; name: string };
 import type { Project } from '@/types/project';
-import { useClientServices } from '@/hooks/useCustomers';
+import { useClientContracts } from '@/hooks/useCustomers';
+import { buildContractLabel } from '@/lib/buildContractLabel';
 import styles from './DatosForm.module.css';
 
 export interface DatosFormValues {
@@ -17,7 +18,7 @@ export interface DatosFormValues {
   assigneeId: string | null;
   partnerId: string | null;
   customerId: string | null;
-  serviceId: string | null;
+  contractId: string | null;
   /** ISO 8601 or datetime-local string */
   startDate: string | null;
   /** ISO 8601 or datetime-local string */
@@ -71,8 +72,8 @@ function toIso(local: string): string | null {
 }
 
 export function DatosForm({ initial, onSubmit, isSaving, admins, partners, projects = [], iclassOrderCode, originalProjectId, onDirtyChange }: DatosFormProps) {
-  // Fetch services for the customer assigned to the task (if any)
-  const { data: customerServices = [] } = useClientServices(
+  // Fetch contracts for the customer assigned to the task (if any)
+  const { data: customerContracts = [] } = useClientContracts(
     initial.customerId ?? '',
     !!initial.customerId,
   );
@@ -93,32 +94,32 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
     },
   });
 
-  // Hydrate the service <select> with the task's initial serviceId ONCE the
-  // services finish loading. On mount customerServices is empty (async query),
+  // Hydrate the contract <select> with the task's initial contractId ONCE the
+  // contracts finish loading. On mount customerContracts is empty (async query),
   // so the matching <option> doesn't exist yet and react-hook-form's
-  // defaultValue silently falls back to "Sin servicio". Re-apply the value when
+  // defaultValue silently falls back to "Sin contrato". Re-apply the value when
   // the options arrive. Ref-guarded so it runs only once and never clobbers a
   // selection the technician makes afterwards.
-  const hydratedServiceRef = useRef(false);
+  const hydratedContractRef = useRef(false);
   useEffect(() => {
-    if (hydratedServiceRef.current) return;
-    if (!initial.serviceId) return;
-    if (customerServices.some(s => String(s.id) === String(initial.serviceId))) {
-      setValue('serviceId', String(initial.serviceId));
-      hydratedServiceRef.current = true;
+    if (hydratedContractRef.current) return;
+    if (!initial.contractId) return;
+    if (customerContracts.some(s => String(s.id) === String(initial.contractId))) {
+      setValue('contractId', String(initial.contractId));
+      hydratedContractRef.current = true;
     }
-  }, [customerServices, initial.serviceId, setValue]);
+  }, [customerContracts, initial.contractId, setValue]);
 
   // Watch projectId to compute the IClass warning inline.
   const currentProjectId = useWatch({ control, name: 'projectId' });
   const showIClassWarning = (iclassOrderCode ?? null) != null && currentProjectId !== originalProjectId;
 
-  // Watch serviceId to autofill address when the technician changes the service.
-  // Precedence: service address > task initial address (customer address fallback).
-  const watchedServiceId = useWatch({ control, name: 'serviceId' });
+  // Watch contractId to autofill address when the technician changes the contract.
+  // Precedence: contract address > task initial address (customer address fallback).
+  const watchedContractId = useWatch({ control, name: 'contractId' });
   useEffect(() => {
-    if (!watchedServiceId) return;
-    const svc = customerServices.find(s => String(s.id) === String(watchedServiceId));
+    if (!watchedContractId) return;
+    const svc = customerContracts.find(s => String(s.id) === String(watchedContractId));
     if (!svc) return;
     if (svc.address) {
       setValue('address', svc.address, { shouldDirty: true });
@@ -126,12 +127,12 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
         setValue('coordinates', { lat: svc.lat, lng: svc.lng }, { shouldDirty: true });
       }
     } else if (initial.address) {
-      // Service has no address — fall back to the customer/task address
+      // Contract has no address — fall back to the customer/task address
       setValue('address', initial.address, { shouldDirty: true });
     }
-  // Only re-run when the service selection changes, not on every render.
+  // Only re-run when the contract selection changes, not on every render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedServiceId, customerServices]);
+  }, [watchedContractId, customerContracts]);
 
   // Watch startDate to drive end-date UX: disable End while Start is empty, and
   // auto-default End to Start + 1h when End is empty. If End already has a value
@@ -226,25 +227,25 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
             )}
           </div>
 
-          {/* Servicio */}
+          {/* Contrato */}
           <div className={styles.field}>
-            <label htmlFor="serviceId" className={styles.label}>Servicio</label>
+            <label htmlFor="contractId" className={styles.label}>Contrato</label>
             <select
-              id="serviceId"
+              id="contractId"
               className={styles.select}
-              disabled={!initial.customerId || customerServices.length === 0}
-              {...register('serviceId')}
+              disabled={!initial.customerId || customerContracts.length === 0}
+              {...register('contractId')}
             >
               <option value="">
                 {!initial.customerId
                   ? 'Sin cliente asignado'
-                  : customerServices.length === 0
-                    ? 'Sin servicios'
-                    : 'Sin servicio'}
+                  : customerContracts.length === 0
+                    ? 'Sin contratos'
+                    : 'Sin contrato'}
               </option>
-              {customerServices.map(s => (
+              {customerContracts.map(s => (
                 <option key={s.id} value={String(s.id)}>
-                  {s.plan} ({s.type})
+                  {buildContractLabel(s)}
                 </option>
               ))}
             </select>

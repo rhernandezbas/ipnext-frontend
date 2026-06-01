@@ -77,7 +77,7 @@ const minimalDetailProps: TaskTabsProps['detailsProps'] = {
       assigneeId: null,
       partnerId: null,
       customerId: null,
-      serviceId: null,
+      contractId: null,
       startDate: null,
       endDate: null,
       travelTimeTo: null,

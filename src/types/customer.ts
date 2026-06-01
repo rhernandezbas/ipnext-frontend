@@ -1,6 +1,6 @@
 export type CustomerStatus = 'active' | 'inactive' | 'blocked' | 'new' | 'baja';
 
-export interface Service {
+export interface Contract {
   id: number;
   type: string;
   plan: string;
@@ -16,7 +16,12 @@ export interface Service {
   lat?: number | null;
   /** Longitude from GR. Null when GR does not have it. */
   lng?: number | null;
+  /** Technology from the ServiceTechnology catalog (e.g. FTTH, HFC). */
+  technology?: string | null;
 }
+
+/** @deprecated Use Contract instead */
+export type Service = Contract;
 
 export interface LogEntry {
   id: number;
@@ -38,7 +43,9 @@ export interface Customer {
   tariffPlan: string | null;
   createdAt: string;
   updatedAt: string;
-  services: Service[];
+  contracts: Contract[];
+  /** @deprecated Use contracts instead */
+  services?: Contract[];
   logs: LogEntry[];
   // Optional fields surfaced by the Postgres adapter (Splynx Customer module)
   city?: string;
@@ -87,7 +94,7 @@ export interface UpdateCustomerData {
   address?: string;
 }
 
-export interface AddServiceData {
+export interface AddContractData {
   type: string;
   plan: string;
   ipAddress?: string;
@@ -95,10 +102,15 @@ export interface AddServiceData {
   startDate?: string;
 }
 
-export interface UpdateServiceData {
+export interface UpdateContractData {
   type?: string;
   plan?: string;
   ipAddress?: string;
   status?: string;
   endDate?: string;
 }
+
+/** @deprecated Use AddContractData */
+export type AddServiceData = AddContractData;
+/** @deprecated Use UpdateContractData */
+export type UpdateServiceData = UpdateContractData;

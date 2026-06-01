@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getClients,
   getClient,
-  getClientServices,
+  getClientContracts,
   getClientInvoices,
   getClientLogs,
   getClientComments,
@@ -13,9 +13,9 @@ import {
   updateClientStatus,
   getClientDocuments,
   uploadClientDocument,
-  addClientService,
-  updateClientService,
-  deleteClientService,
+  addClientContract,
+  updateClientContract,
+  deleteClientContract,
   getClientFiles,
   uploadClientFile,
   getOnlineSessions,
@@ -31,7 +31,7 @@ import type {
   ClientFile,
   OnlineSession,
 } from '../api/customers.api';
-import type { CreateCustomerData, UpdateCustomerData, AddServiceData, UpdateServiceData } from '../types/customer';
+import type { CreateCustomerData, UpdateCustomerData, AddContractData, UpdateContractData } from '../types/customer';
 
 export type { ClientsQuery, LogsQuery, ClientComment, ClientDocument, ClientFile, OnlineSession };
 
@@ -62,14 +62,17 @@ export function useClientDetail(id: string) {
   });
 }
 
-export function useClientServices(id: string, enabled: boolean) {
+export function useClientContracts(id: string, enabled: boolean) {
   return useQuery({
-    queryKey: ['client-services', id],
-    queryFn: () => getClientServices(id),
+    queryKey: ['client-contracts', id],
+    queryFn: () => getClientContracts(id),
     staleTime: 60_000,
     enabled,
   });
 }
+
+/** @deprecated Use useClientContracts */
+export const useClientServices = useClientContracts;
 
 export function useClientInvoices(id: string, enabled: boolean) {
   return useQuery({
@@ -158,35 +161,60 @@ export function useUploadDocument() {
   });
 }
 
-export function useAddService() {
+export function useAddContract() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ clientId, data }: { clientId: string; data: AddServiceData }) =>
-      addClientService(clientId, data),
+    mutationFn: ({ clientId, data }: { clientId: string; data: AddContractData }) =>
+      addClientContract(clientId, data),
     onSuccess: (_, { clientId }) => {
-      qc.invalidateQueries({ queryKey: ['client-services', clientId] });
+      qc.invalidateQueries({ queryKey: ['client-contracts', clientId] });
     },
   });
 }
 
+export function useUpdateContract() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ clientId, contractId, data }: { clientId: string; contractId: number; data: UpdateContractData }) =>
+      updateClientContract(clientId, contractId, data),
+    onSuccess: (_, { clientId }) => {
+      qc.invalidateQueries({ queryKey: ['client-contracts', clientId] });
+    },
+  });
+}
+
+export function useDeleteContract() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ clientId, contractId }: { clientId: string; contractId: number }) =>
+      deleteClientContract(clientId, contractId),
+    onSuccess: (_, { clientId }) => {
+      qc.invalidateQueries({ queryKey: ['client-contracts', clientId] });
+    },
+  });
+}
+
+/** @deprecated Use useAddContract */
+export const useAddService = useAddContract;
+/** @deprecated Use useUpdateContract */
 export function useUpdateService() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ clientId, serviceId, data }: { clientId: string; serviceId: number; data: UpdateServiceData }) =>
-      updateClientService(clientId, serviceId, data),
+    mutationFn: ({ clientId, serviceId, data }: { clientId: string; serviceId: number; data: UpdateContractData }) =>
+      updateClientContract(clientId, serviceId, data),
     onSuccess: (_, { clientId }) => {
-      qc.invalidateQueries({ queryKey: ['client-services', clientId] });
+      qc.invalidateQueries({ queryKey: ['client-contracts', clientId] });
     },
   });
 }
-
+/** @deprecated Use useDeleteContract */
 export function useDeleteService() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ clientId, serviceId }: { clientId: string; serviceId: number }) =>
-      deleteClientService(clientId, serviceId),
+      deleteClientContract(clientId, serviceId),
     onSuccess: (_, { clientId }) => {
-      qc.invalidateQueries({ queryKey: ['client-services', clientId] });
+      qc.invalidateQueries({ queryKey: ['client-contracts', clientId] });
     },
   });
 }

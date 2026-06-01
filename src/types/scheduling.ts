@@ -33,7 +33,7 @@ export interface CreateTaskPayload {
   endDate?: string | null;
   customerId?: string | null;
   customerName?: string | null;
-  serviceId?: string | null;
+  contractId?: string | null;
   assigneeId?: string | null;
   address?: string | null;
   notes?: string | null;
@@ -82,7 +82,7 @@ export interface ScheduledTask {
   customerId: string | null;
   customerName: string | null;
   customerCity: string | null;
-  serviceId: string | null;
+  contractId: string | null;
   partnerId: string | null;
   reporterId: string | null;
   assigneeId: string | null;

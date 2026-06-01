@@ -7,10 +7,10 @@ import type { Admin } from '@/types/admin';
 import type { Partner } from '@/types/partner';
 import type { Project } from '@/types/project';
 
-// Stub useClientServices so DatosForm can be rendered without a real API.
-const useClientServicesMock = vi.fn(() => ({ data: [] as unknown[] }));
+// Stub useClientContracts so DatosForm can be rendered without a real API.
+const useClientContractsMock = vi.fn(() => ({ data: [] as unknown[] }));
 vi.mock('@/hooks/useCustomers', () => ({
-  useClientServices: () => useClientServicesMock(),
+  useClientContracts: () => useClientContractsMock(),
 }));
 
 const mockAdmins: Admin[] = [
@@ -32,7 +32,7 @@ const initialValues = {
   assigneeId: 'admin-1',
   partnerId: null,
   customerId: null,
-  serviceId: null,
+  contractId: null,
   startDate: null,
   endDate: null,
   travelTimeTo: null,
@@ -47,7 +47,7 @@ describe('DatosForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     onSubmit.mockResolvedValue(undefined);
-    useClientServicesMock.mockReturnValue({ data: [] });
+    useClientContractsMock.mockReturnValue({ data: [] });
   });
 
   it('renders all form fields', () => {
@@ -64,7 +64,7 @@ describe('DatosForm', () => {
     );
     expect(screen.getByLabelText(/asignado a/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/partner/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/servicio/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/contrato/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/inicia/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/termina/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/tiempo de ida/i)).toBeInTheDocument();
@@ -144,14 +144,14 @@ describe('DatosForm', () => {
     expect(screen.getByRole('button', { name: /guardando/i })).toBeDisabled();
   });
 
-  it('hydrates the service select with initial.serviceId once services load async', async () => {
-    // Real-world sequence: on mount the services query is still loading (empty),
+  it('hydrates the contract select with initial.contractId once contracts load async', async () => {
+    // Real-world sequence: on mount the contracts query is still loading (empty),
     // so the matching <option> does not exist yet. The select must re-sync to
-    // initial.serviceId once the services arrive — otherwise it sticks on
-    // "Sin servicio" and the task appears serviceless after a refresh.
-    useClientServicesMock.mockReturnValue({ data: [] });
+    // initial.contractId once the contracts arrive — otherwise it sticks on
+    // "Sin contrato" and the task appears contractless after a refresh.
+    useClientContractsMock.mockReturnValue({ data: [] });
     const props = {
-      initial: { ...initialValues, customerId: 'c-5', serviceId: '77' },
+      initial: { ...initialValues, customerId: 'c-5', contractId: '77' },
       onSubmit,
       isSaving: false,
       admins: mockAdmins,
@@ -163,8 +163,8 @@ describe('DatosForm', () => {
       </MemoryRouter>
     );
 
-    // Services arrive from the API after mount
-    useClientServicesMock.mockReturnValue({
+    // Contracts arrive from the API after mount
+    useClientContractsMock.mockReturnValue({
       data: [
         { id: 77, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: '' },
         { id: 88, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: '' },
@@ -177,13 +177,13 @@ describe('DatosForm', () => {
     );
 
     await waitFor(() => {
-      const serviceSelect = screen.getByLabelText(/servicio/i) as HTMLSelectElement;
-      expect(serviceSelect.value).toBe('77');
+      const contractSelect = screen.getByLabelText(/contrato/i) as HTMLSelectElement;
+      expect(contractSelect.value).toBe('77');
     });
   });
 
-  it('autofills address from selected service when service has address', async () => {
-    useClientServicesMock.mockReturnValue({
+  it('autofills address from selected contract when contract has address', async () => {
+    useClientContractsMock.mockReturnValue({
       data: [
         { id: 77, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: 'Av. Servicio 2000' },
         { id: 88, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: 'Calle Otra 50' },
@@ -203,9 +203,9 @@ describe('DatosForm', () => {
       </MemoryRouter>
     );
 
-    // Select the first service (has address 'Av. Servicio 2000')
-    const serviceSelect = screen.getByLabelText(/servicio/i);
-    fireEvent.change(serviceSelect, { target: { value: '77' } });
+    // Select the first contract (has address 'Av. Servicio 2000')
+    const contractSelect = screen.getByLabelText(/contrato/i);
+    fireEvent.change(contractSelect, { target: { value: '77' } });
 
     // The form's address field (in the submit payload) should be updated.
     // We verify by submitting and checking the payload.

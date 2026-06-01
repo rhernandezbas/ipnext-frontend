@@ -29,7 +29,7 @@ const mockCustomer: Customer = {
   tariffPlan: 'Plan 50MB',
   createdAt: '2024-01-01',
   updatedAt: '2024-06-01',
-  services: [],
+  contracts: [],
   logs: [],
 };
 
@@ -54,10 +54,10 @@ function mockAllHooks() {
     isPending: false,
   } as unknown as ReturnType<typeof useClientsModule.useToggleClientStatus>);
 
-  vi.mocked(useClientsModule.useClientServices).mockReturnValue({
+  vi.mocked(useClientsModule.useClientContracts).mockReturnValue({
     data: [],
     isLoading: false,
-  } as ReturnType<typeof useClientsModule.useClientServices>);
+  } as ReturnType<typeof useClientsModule.useClientContracts>);
 
   vi.mocked(useClientsModule.useClientInvoices).mockReturnValue({
     data: [],
@@ -89,20 +89,20 @@ function mockAllHooks() {
     isPending: false,
   } as unknown as ReturnType<typeof useClientsModule.useUploadDocument>);
 
-  vi.mocked(useClientsModule.useAddService).mockReturnValue({
+  vi.mocked(useClientsModule.useAddContract).mockReturnValue({
     mutate: vi.fn(),
     isPending: false,
-  } as unknown as ReturnType<typeof useClientsModule.useAddService>);
+  } as unknown as ReturnType<typeof useClientsModule.useAddContract>);
 
-  vi.mocked(useClientsModule.useUpdateService).mockReturnValue({
+  vi.mocked(useClientsModule.useUpdateContract).mockReturnValue({
     mutate: vi.fn(),
     isPending: false,
-  } as unknown as ReturnType<typeof useClientsModule.useUpdateService>);
+  } as unknown as ReturnType<typeof useClientsModule.useUpdateContract>);
 
-  vi.mocked(useClientsModule.useDeleteService).mockReturnValue({
+  vi.mocked(useClientsModule.useDeleteContract).mockReturnValue({
     mutate: vi.fn(),
     isPending: false,
-  } as unknown as ReturnType<typeof useClientsModule.useDeleteService>);
+  } as unknown as ReturnType<typeof useClientsModule.useDeleteContract>);
 
   vi.mocked(useClientsModule.useClientFiles).mockReturnValue({
     data: [],
@@ -189,7 +189,7 @@ describe('CustomerDetailPage', () => {
   it('renders all 7 tabs', () => {
     renderDetail();
     expect(screen.getByRole('tab', { name: 'Información' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Servicios' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Contratos' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Facturación' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Estadísticas' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Documentos' })).toBeInTheDocument();
@@ -215,8 +215,8 @@ describe('CustomerDetailPage', () => {
   it('switches to Servicios tab on click', async () => {
     const user = userEvent.setup();
     renderDetail();
-    await user.click(screen.getByRole('tab', { name: 'Servicios' }));
-    expect(screen.getByRole('tab', { name: 'Servicios' })).toHaveAttribute('aria-selected', 'true');
+    await user.click(screen.getByRole('tab', { name: 'Contratos' }));
+    expect(screen.getByRole('tab', { name: 'Contratos' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: 'Información' })).toHaveAttribute('aria-selected', 'false');
   });
 

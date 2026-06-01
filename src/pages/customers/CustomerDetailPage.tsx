@@ -8,7 +8,7 @@ import { useClientDetail, useToggleClientStatus, useDeleteCustomer } from '../..
 import { useTasksByCustomer } from '../../hooks/useScheduling';
 import { useTicketsByCustomer } from '../../hooks/useTickets';
 import { InfoTab } from './tabs/InfoTab';
-import { ServicesTab } from './tabs/ServicesTab';
+import { ContractsTab } from './tabs/ContractsTab';
 import { BillingTab } from './tabs/BillingTab';
 import { StatsTab } from './tabs/StatsTab';
 import { DocumentsTab } from './tabs/DocumentsTab';
@@ -18,7 +18,8 @@ import { ActivityTab } from './tabs/ActivityTab';
 import { CommentsTab } from './tabs/CommentsTab';
 import styles from './CustomerDetailPage.module.css';
 
-const TAB_IDS = ['information', 'services', 'billing', 'statistics', 'documents', 'files', 'logs', 'actividad', 'comentarios'];
+const TAB_IDS = ['information', 'contracts', 'billing', 'statistics', 'documents', 'files', 'logs', 'actividad', 'comentarios'];
+const HASH_ALIASES: Record<string, string> = { services: 'contracts' };
 
 function formatBalance(b: number | undefined | null) {
   if (b === undefined || b === null) return '$ 0,00';
@@ -31,7 +32,8 @@ export default function CustomerDetailPage() {
 
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash.replace('#', '');
-    return TAB_IDS.includes(hash) ? hash : 'information';
+    const resolved = HASH_ALIASES[hash] ?? hash;
+    return TAB_IDS.includes(resolved) ? resolved : 'information';
   });
 
   const [accionesOpen, setAccionesOpen] = useState(false);
@@ -49,7 +51,8 @@ export default function CustomerDetailPage() {
   useEffect(() => {
     const onHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      if (TAB_IDS.includes(hash)) setActiveTab(hash);
+      const resolved = HASH_ALIASES[hash] ?? hash;
+      if (TAB_IDS.includes(resolved)) setActiveTab(resolved);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
@@ -95,9 +98,9 @@ export default function CustomerDetailPage() {
       ),
     },
     {
-      id: 'services',
-      label: 'Servicios',
-      content: <ServicesTab clientId={String(id)} active={activatedTabs.current.has('services')} />,
+      id: 'contracts',
+      label: 'Contratos',
+      content: <ContractsTab clientId={String(id)} active={activatedTabs.current.has('contracts')} />,
     },
     {
       id: 'billing',

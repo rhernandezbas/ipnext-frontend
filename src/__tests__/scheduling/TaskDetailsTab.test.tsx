@@ -29,7 +29,7 @@ vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/lib/geocode', () => ({
 
 // Mock heavy hooks used by DatosForm and ChecklistSection
 vi.mock('@/hooks/useCustomers', () => ({
-  useClientServices: vi.fn(() => ({ data: [] })),
+  useClientContracts: vi.fn(() => ({ data: [] })),
 }));
 vi.mock('@/hooks/useScheduling', () => ({
   useAddChecklistItem: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
@@ -50,7 +50,7 @@ const baseProps: TaskDetailsTabProps = {
       assigneeId: null,
       partnerId: null,
       customerId: 'cust-1',
-      serviceId: null,
+      contractId: null,
       startDate: null,
       endDate: null,
       travelTimeTo: null,

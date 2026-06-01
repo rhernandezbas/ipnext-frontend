@@ -58,7 +58,7 @@ vi.mock('@/hooks/useTaskTemplates', () => ({
 // Mock useCustomers so CustomerSidebar doesn't fetch
 vi.mock('@/hooks/useCustomers', () => ({
   useClientDetail: vi.fn(() => ({ data: undefined, isLoading: false })),
-  useClientServices: vi.fn(() => ({ data: [] })),
+  useClientContracts: vi.fn(() => ({ data: [] })),
 }));
 
 // Mock TaskTabs — renders a stub with 7 role=tab elements (main tabs)
@@ -112,7 +112,7 @@ vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/components/CustomerSidebar'
   CustomerSidebar: ({ customerId, customerName, watcherIds, admins }: {
     customerId: string | null;
     customerName: string | null;
-    serviceId: string | null;
+    contractId: string | null;
     reporterId: string | null;
     watcherIds: string[];
     admins: { id: string; name: string }[];
@@ -202,7 +202,7 @@ const mockTask: ScheduledTask = {
   customerId: 'cust-1',
   customerName: 'Pérez, Juan',
   customerCity: null,
-  serviceId: null,
+  contractId: null,
   partnerId: null,
   reporterId: null,
   assigneeId: 'admin-1',

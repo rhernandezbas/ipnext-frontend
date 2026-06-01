@@ -1,5 +1,5 @@
 import axiosClient from './axios-client';
-import type { Customer, CustomerSummary, Service, LogEntry, CreateCustomerData, UpdateCustomerData, AddServiceData, UpdateServiceData } from '@/types/customer';
+import type { Customer, CustomerSummary, Contract, LogEntry, CreateCustomerData, UpdateCustomerData, AddContractData, UpdateContractData } from '@/types/customer';
 import type { Invoice } from '@/types/billing';
 import type { PaginatedResponse } from '@/types/api';
 
@@ -53,7 +53,7 @@ export async function updateClient(
 }
 
 export async function createClient(
-  data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt' | 'services' | 'logs'>
+  data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt' | 'contracts' | 'services' | 'logs'>
 ): Promise<Customer> {
   const response = await axiosClient.post<Customer>('/clients', data);
   return response.data;
@@ -70,10 +70,13 @@ export async function getClient(id: string): Promise<Customer> {
   return getClientById(id);
 }
 
-export async function getClientServices(id: string): Promise<Service[]> {
-  const response = await axiosClient.get<Service[]>(`/clients/${id}/services`);
+export async function getClientContracts(id: string): Promise<Contract[]> {
+  const response = await axiosClient.get<Contract[]>(`/clients/${id}/contracts`);
   return response.data;
 }
+
+/** @deprecated Use getClientContracts */
+export const getClientServices = getClientContracts;
 
 export async function getClientInvoices(id: string): Promise<Invoice[]> {
   const response = await axiosClient.get<Invoice[]>(`/clients/${id}/invoices`);
@@ -148,23 +151,32 @@ export async function uploadClientDocument(
   return response.data;
 }
 
-export async function addClientService(clientId: string, data: AddServiceData): Promise<Service> {
-  const response = await axiosClient.post<Service>(`/clients/${clientId}/services`, data);
+export async function addClientContract(clientId: string, data: AddContractData): Promise<Contract> {
+  const response = await axiosClient.post<Contract>(`/clients/${clientId}/contracts`, data);
   return response.data;
 }
 
-export async function updateClientService(
+export async function updateClientContract(
   clientId: string,
-  serviceId: number,
-  data: UpdateServiceData
-): Promise<Service> {
-  const response = await axiosClient.patch<Service>(`/clients/${clientId}/services/${serviceId}`, data);
+  contractId: number,
+  data: UpdateContractData
+): Promise<Contract> {
+  const response = await axiosClient.patch<Contract>(`/clients/${clientId}/contracts/${contractId}`, data);
   return response.data;
 }
 
-export async function deleteClientService(clientId: string, serviceId: number): Promise<void> {
-  await axiosClient.delete(`/clients/${clientId}/services/${serviceId}`);
+export async function deleteClientContract(clientId: string, contractId: number): Promise<void> {
+  await axiosClient.delete(`/clients/${clientId}/contracts/${contractId}`);
 }
+
+/** @deprecated Use addClientContract */
+export const addClientService = addClientContract;
+/** @deprecated Use updateClientContract */
+export const updateClientService = (clientId: string, serviceId: number, data: UpdateContractData) =>
+  updateClientContract(clientId, serviceId, data);
+/** @deprecated Use deleteClientContract */
+export const deleteClientService = (clientId: string, serviceId: number) =>
+  deleteClientContract(clientId, serviceId);
 
 export interface ClientFile {
   id: number;

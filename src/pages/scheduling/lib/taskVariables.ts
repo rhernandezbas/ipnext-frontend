@@ -10,6 +10,7 @@ export interface TaskVariableValues {
   cliente?: string | null;
   telefono?: string | null;
   servicio?: string | null;
+  contrato?: string | null;
   direccion?: string | null;
 }
 
@@ -18,6 +19,7 @@ const TOKEN_PATTERNS: Record<keyof TaskVariableValues, RegExp> = {
   cliente: /\{\{\s*cliente\s*\}\}/gi,
   telefono: /\{\{\s*tel[eé]fono\s*\}\}/gi,
   servicio: /\{\{\s*servicio\s*\}\}/gi,
+  contrato: /\{\{\s*contrato\s*\}\}/gi,
   direccion: /\{\{\s*direcci[oó]n\s*\}\}/gi,
 };
 

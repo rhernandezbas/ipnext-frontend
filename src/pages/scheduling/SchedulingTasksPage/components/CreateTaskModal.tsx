@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useClientDetail, useClientServices } from '@/hooks/useCustomers';
+import { useClientDetail, useClientContracts } from '@/hooks/useCustomers';
+import { buildContractLabel } from '@/lib/buildContractLabel';
 import { useTaskCategories } from '@/hooks/useTaskCategories';
 import type { Project } from '@/types/project';
 import type { Workflow } from '@/types/workflow';
@@ -76,7 +77,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   const [projectId, setProjectId] = useState(defaultProjectId);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState<string | null>(null);
-  const [serviceId, setServiceId] = useState<string | null>(null);
+  const [contractId, setContractId] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
   const [priority, setPriority] = useState<string>(DEFAULT_PRIORITY);
@@ -95,8 +96,8 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   // customer's address. Fill once per customer (ref guard) so we don't clobber a
   // manual edit on re-render / background refetch.
   const { data: customerDetail } = useClientDetail(customerId ?? '');
-  // Services of the selected customer
-  const { data: customerServices = [], isLoading: servicesLoading } = useClientServices(customerId ?? '', !!customerId);
+  // Contracts of the selected customer
+  const { data: customerContracts = [], isLoading: contractsLoading } = useClientContracts(customerId ?? '', !!customerId);
   const filledForCustomer = useRef<string | null>(null);
   useEffect(() => {
     if (!customerId) { filledForCustomer.current = null; return; }
@@ -106,37 +107,37 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
       filledForCustomer.current !== String(customerId)
     ) {
       filledForCustomer.current = String(customerId);
-      // Only use customer address as fallback when no service is selected yet
-      if (!serviceId && customerDetail.address) setAddress(customerDetail.address);
+      // Only use customer address as fallback when no contract is selected yet
+      if (!contractId && customerDetail.address) setAddress(customerDetail.address);
     }
-  }, [customerId, customerDetail, serviceId]);
+  }, [customerId, customerDetail, contractId]);
 
-  // When a service is explicitly chosen, autofill address from the service
-  // (service > customer precedence). If the service has no address, fall back
+  // When a contract is explicitly chosen, autofill address from the contract
+  // (contract > customer precedence). If the contract has no address, fall back
   // to the customer address.
   useEffect(() => {
-    if (!serviceId) {
-      // Service deselected — restore customer address if available
+    if (!contractId) {
+      // Contract deselected — restore customer address if available
       if (customerDetail?.address) setAddress(customerDetail.address);
       else setAddress('');
       return;
     }
-    const svc = customerServices.find(s => String(s.id) === serviceId);
+    const svc = customerContracts.find(s => String(s.id) === contractId);
     if (svc) {
-      // Service has an address → use it (overrides whatever was there)
+      // Contract has an address → use it (overrides whatever was there)
       if (svc.address) {
         setAddress(svc.address);
       } else {
-        // Service has no address → fallback to customer address
+        // Contract has no address → fallback to customer address
         if (customerDetail?.address) setAddress(customerDetail.address);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serviceId]);
+  }, [contractId]);
 
-  // Reset service when customer changes
+  // Reset contract when customer changes
   useEffect(() => {
-    setServiceId(null);
+    setContractId(null);
   }, [customerId]);
 
   // When the user sets Start (or its time) and End is still empty, default End
@@ -161,7 +162,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     title.trim().length > 0 ||
     description.trim().length > 0 ||
     !!customerId ||
-    !!serviceId ||
+    !!contractId ||
     assigneeId.length > 0 ||
     startDate.length > 0 ||
     endDate.length > 0 ||
@@ -184,7 +185,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     [workflows, selectedProject],
   );
 
-  const canSave = title.trim().length > 0 && !!firstStageId && !!customerId && !!serviceId && !loading;
+  const canSave = title.trim().length > 0 && !!firstStageId && !!customerId && !!contractId && !loading;
 
   function applyTemplate(id: string) {
     setTemplateId(id);
@@ -212,12 +213,15 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
         return;
       }
     }
-    // Resolve merge variables ({{cliente}}, {{telefono}}, {{servicio}},
-    // {{direccion}}) once, here at creation, against the chosen customer/service.
+    // Resolve merge variables ({{cliente}}, {{telefono}}, {{contrato}}, {{servicio}},
+    // {{direccion}}) once, here at creation, against the chosen customer/contract.
+    const resolvedContract = customerContracts.find(s => String(s.id) === contractId) ?? null;
+    const contratoLabel = resolvedContract ? buildContractLabel(resolvedContract) : null;
     const vars = {
       cliente: customerName,
       telefono: customerDetail?.phone ?? null,
-      servicio: customerServices.find(s => String(s.id) === serviceId)?.plan ?? null,
+      contrato: contratoLabel,
+      servicio: contratoLabel, // backward compat: {{servicio}} resolves to contract label
       direccion: address.trim() || null,
     };
     const finalTitle = applyTaskVariables(title.trim(), vars);
@@ -232,7 +236,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
         estimatedHours,
         customerId: customerId || null,
         customerName: customerName || null,
-        serviceId: serviceId || null,
+        contractId: contractId || null,
         assigneeId: assigneeId || null,
         description: finalDescription,
         startDate: toIso(startDate),
@@ -287,24 +291,24 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
 
         {customerId && (
           <label className={styles.label}>
-            Servicio <span className={styles.required} aria-hidden="true">*</span>
+            Contrato <span className={styles.required} aria-hidden="true">*</span>
             <select
               className={styles.select}
-              value={serviceId ?? ''}
-              onChange={e => setServiceId(e.target.value || null)}
-              disabled={servicesLoading || customerServices.length === 0}
+              value={contractId ?? ''}
+              onChange={e => setContractId(e.target.value || null)}
+              disabled={contractsLoading || customerContracts.length === 0}
             >
               <option value="">
-                {servicesLoading ? '— Cargando servicios… —' : '— Sin servicio —'}
+                {contractsLoading ? '— Cargando contratos… —' : '— Sin contrato —'}
               </option>
-              {customerServices.map(s => (
+              {customerContracts.map(s => (
                 <option key={s.id} value={String(s.id)}>
-                  {s.plan} ({s.type})
+                  {buildContractLabel(s)}
                 </option>
               ))}
             </select>
-            {!servicesLoading && customerServices.length === 0 && (
-              <span className={styles.hint}>Este cliente no tiene servicios activos. No se puede crear la tarea.</span>
+            {!contractsLoading && customerContracts.length === 0 && (
+              <span className={styles.hint}>Este cliente no tiene contratos activos. No se puede crear la tarea.</span>
             )}
           </label>
         )}

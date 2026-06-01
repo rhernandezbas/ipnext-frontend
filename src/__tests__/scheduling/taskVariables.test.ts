@@ -44,4 +44,23 @@ describe('applyTaskVariables', () => {
   it('returns empty/whitespace input unchanged', () => {
     expect(applyTaskVariables('', vars)).toBe('');
   });
+
+  // T08 — {{contrato}} alias
+  describe('{{contrato}} alias', () => {
+    it('replaces {{contrato}} with the contrato value', () => {
+      expect(applyTaskVariables('Contrato: {{contrato}}', { ...vars, contrato: 'Plan FTTH - Av. Test' }))
+        .toBe('Contrato: Plan FTTH - Av. Test');
+    });
+
+    it('keeps {{servicio}} working for backward compat when contrato is also set', () => {
+      const allVars = { ...vars, contrato: 'Plan FTTH - Av. Test' };
+      expect(applyTaskVariables('{{servicio}} / {{contrato}}', allVars))
+        .toBe('300MB / Plan FTTH - Av. Test');
+    });
+
+    it('leaves {{contrato}} untouched when contrato value is null', () => {
+      expect(applyTaskVariables('{{contrato}}', { ...vars, contrato: null }))
+        .toBe('{{contrato}}');
+    });
+  });
 });

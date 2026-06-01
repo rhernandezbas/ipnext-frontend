@@ -28,7 +28,7 @@ const mockTask: ScheduledTask = {
   customerId: null,
   customerName: null,
   customerCity: null,
-  serviceId: null,
+  contractId: null,
   partnerId: null,
   reporterId: null,
   assigneeId: null,

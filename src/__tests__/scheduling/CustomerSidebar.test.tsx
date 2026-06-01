@@ -5,11 +5,11 @@ import type { Admin } from '@/types/admin';
 
 // --- Mock hooks ---
 const useClientDetailMock = vi.fn();
-const useClientServicesMock = vi.fn();
+const useClientContractsMock = vi.fn();
 
 vi.mock('@/hooks/useCustomers', () => ({
   useClientDetail: (id: string) => useClientDetailMock(id),
-  useClientServices: (id: string, enabled: boolean) => useClientServicesMock(id, enabled),
+  useClientContracts: (id: string, enabled: boolean) => useClientContractsMock(id, enabled),
 }));
 
 import { CustomerSidebar } from '@/pages/scheduling/SchedulingTaskDetailPage/components/CustomerSidebar';
@@ -23,7 +23,7 @@ const admins: Admin[] = [
 const defaultProps = {
   customerId: 'c-1',
   customerName: 'Juan Pérez',
-  serviceId: '42',
+  contractId: '42',
   reporterId: 'a1',
   watcherIds: ['a2'],
   admins,
@@ -47,8 +47,8 @@ describe('CustomerSidebar', () => {
       data: { id: 'c-1', name: 'Juan Pérez', email: 'juan@test.com', phone: '1122334455', city: 'Buenos Aires' },
       isLoading: false,
     });
-    // Default: services list with one matching service (id = 42 → Number)
-    useClientServicesMock.mockReturnValue({
+    // Default: contracts list with one matching contract (id = 42 → Number)
+    useClientContractsMock.mockReturnValue({
       data: [
         { id: 42, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: 'Av. Test 123' },
       ],
@@ -78,8 +78,8 @@ describe('CustomerSidebar', () => {
     renderSidebar();
     // CustomerCard heading
     expect(screen.getByRole('heading', { name: /cliente/i })).toBeInTheDocument();
-    // ServiceCard heading
-    expect(screen.getByRole('heading', { name: /servicio/i })).toBeInTheDocument();
+    // ContractCard heading
+    expect(screen.getByRole('heading', { name: /contrato/i })).toBeInTheDocument();
     // ReporterCard heading
     expect(screen.getByRole('heading', { name: /reporter/i })).toBeInTheDocument();
     // WatchersChips heading
@@ -98,8 +98,8 @@ describe('CustomerSidebar', () => {
     expect(screen.getByText('Buenos Aires')).toBeInTheDocument();
   });
 
-  // ── Service plan resolved via String(id) === serviceId ────────────────────
-  it('shows the service plan from useClientServices matching String(id) === serviceId', () => {
+  // ── Contract plan resolved via String(id) === contractId ─────────────────
+  it('shows the contract plan from useClientContracts matching String(id) === contractId', () => {
     renderSidebar();
     expect(screen.getByText('Plan 100Mbps')).toBeInTheDocument();
   });
@@ -107,31 +107,31 @@ describe('CustomerSidebar', () => {
   // ── customerId = null → hooks gated, no crash ─────────────────────────────
   it('does not crash when customerId is null', () => {
     useClientDetailMock.mockReturnValue({ data: undefined, isLoading: false });
-    useClientServicesMock.mockReturnValue({ data: [] });
-    renderSidebar({ customerId: null, customerName: null, serviceId: null });
+    useClientContractsMock.mockReturnValue({ data: [] });
+    renderSidebar({ customerId: null, customerName: null, contractId: null });
     // Should render without throwing; CustomerCard shows empty state
     expect(screen.getByText(/sin cliente asignado/i)).toBeInTheDocument();
   });
 
-  it('passes enabled=false to useClientServices when customerId is null', () => {
+  it('passes enabled=false to useClientContracts when customerId is null', () => {
     useClientDetailMock.mockReturnValue({ data: undefined, isLoading: false });
-    useClientServicesMock.mockReturnValue({ data: [] });
+    useClientContractsMock.mockReturnValue({ data: [] });
     renderSidebar({ customerId: null });
     // Hook was called with enabled=false
     // Component normalises null → '' for the hook; enabled=false so no fetch happens
-    expect(useClientServicesMock).toHaveBeenCalledWith('', false);
+    expect(useClientContractsMock).toHaveBeenCalledWith('', false);
   });
 
   // ── No matching service → graceful fallback ────────────────────────────────
-  it('renders gracefully when no service matches serviceId', () => {
-    useClientServicesMock.mockReturnValue({
+  it('renders gracefully when no contract matches contractId', () => {
+    useClientContractsMock.mockReturnValue({
       data: [
         { id: 99, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null },
       ],
     });
-    renderSidebar({ serviceId: '42' }); // 99 ≠ 42 → no match
-    // ServiceCard renders with just the ID fallback
-    expect(screen.getByText(/servicio #42/i)).toBeInTheDocument();
+    renderSidebar({ contractId: '42' }); // 99 ≠ 42 → no match
+    // ContractCard renders with just the ID fallback
+    expect(screen.getByText(/contrato #42/i)).toBeInTheDocument();
   });
 
   // ── Inventory tab → ComingSoonPanel ───────────────────────────────────────

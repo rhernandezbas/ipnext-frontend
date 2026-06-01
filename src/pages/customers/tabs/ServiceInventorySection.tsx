@@ -52,7 +52,7 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
         <strong style={{ fontSize: '0.85rem', color: '#374151' }}>Equipos instalados</strong>
         <Can permission="clients.write">
           <button type="button" onClick={() => setShowForm(s => !s)}>
-            {showForm ? 'Cancelar' : 'Agregar SN al servicio'}
+            {showForm ? 'Cancelar' : 'Agregar SN al contrato'}
           </button>
         </Can>
       </div>
@@ -72,7 +72,7 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
       {isLoading ? (
         <p style={{ fontSize: '0.8rem', color: '#6b7280' }}>Cargando equipos…</p>
       ) : items.length === 0 ? (
-        <p style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Sin equipos cargados en este servicio.</p>
+        <p style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Sin equipos cargados en este contrato.</p>
       ) : (
         <table style={{ fontSize: '0.8rem', width: '100%' }}>
           <thead>

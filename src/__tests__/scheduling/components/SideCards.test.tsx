@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect } from 'vitest';
 import { CustomerCard } from '@/pages/scheduling/SchedulingTaskDetailPage/components/CustomerCard';
-import { ServiceCard } from '@/pages/scheduling/SchedulingTaskDetailPage/components/ServiceCard';
+import { ContractCard } from '@/pages/scheduling/SchedulingTaskDetailPage/components/ContractCard';
 import { ReporterCard } from '@/pages/scheduling/SchedulingTaskDetailPage/components/ReporterCard';
 import type { Admin } from '@/types/admin';
 
@@ -116,47 +116,47 @@ describe('CustomerCard', () => {
   });
 });
 
-describe('ServiceCard', () => {
-  it('shows service link when serviceId and customerId present (no service detail)', () => {
+describe('ContractCard', () => {
+  it('shows contract link when contractId and customerId present (no contract detail)', () => {
     render(
       <MemoryRouter>
-        <ServiceCard serviceId="srv-1" customerId="cust-1" service={null} />
+        <ContractCard contractId="srv-1" customerId="cust-1" contract={null} />
       </MemoryRouter>
     );
-    expect(screen.getByRole('link', { name: /ver servicio/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /ver contrato/i })).toBeInTheDocument();
   });
 
-  it('shows empty state when serviceId is null', () => {
+  it('shows empty state when contractId is null', () => {
     render(
       <MemoryRouter>
-        <ServiceCard serviceId={null} customerId={null} service={null} />
+        <ContractCard contractId={null} customerId={null} contract={null} />
       </MemoryRouter>
     );
-    expect(screen.getByText(/sin servicio/i)).toBeInTheDocument();
+    expect(screen.getByText(/sin contrato/i)).toBeInTheDocument();
   });
 
-  it('renders plan as primary text and type as muted secondary when service is resolved', () => {
+  it('renders plan as primary text and type as muted secondary when contract is resolved', () => {
     render(
       <MemoryRouter>
-        <ServiceCard
-          serviceId="srv-1"
+        <ContractCard
+          contractId="srv-1"
           customerId="cust-1"
-          service={{ plan: '300MB', type: 'internet' }}
+          contract={{ plan: '300MB', type: 'internet' }}
         />
       </MemoryRouter>
     );
     expect(screen.getByText('300MB')).toBeInTheDocument();
     expect(screen.getByText('internet')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /ver servicio/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /ver contrato/i })).toBeInTheDocument();
   });
 
   it('shows "—" placeholder when isLoading is true', () => {
     render(
       <MemoryRouter>
-        <ServiceCard
-          serviceId="srv-1"
+        <ContractCard
+          contractId="srv-1"
           customerId="cust-1"
-          service={null}
+          contract={null}
           isLoading
         />
       </MemoryRouter>
@@ -164,23 +164,23 @@ describe('ServiceCard', () => {
     expect(screen.getByText('—')).toBeInTheDocument();
   });
 
-  it('shows graceful fallback "Servicio #<id>" when service is null but serviceId is set', () => {
+  it('shows graceful fallback "Contrato #<id>" when contract is null but contractId is set', () => {
     render(
       <MemoryRouter>
-        <ServiceCard serviceId="42" customerId="cust-1" service={null} isLoading={false} />
+        <ContractCard contractId="42" customerId="cust-1" contract={null} isLoading={false} />
       </MemoryRouter>
     );
-    expect(screen.getByText(/servicio #42/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /ver servicio/i })).toBeInTheDocument();
+    expect(screen.getByText(/contrato #42/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /ver contrato/i })).toBeInTheDocument();
   });
 
-  it('shows graceful empty state when both service and serviceId are null', () => {
+  it('shows graceful empty state when both contract and contractId are null', () => {
     render(
       <MemoryRouter>
-        <ServiceCard serviceId={null} customerId={null} service={null} isLoading={false} />
+        <ContractCard contractId={null} customerId={null} contract={null} isLoading={false} />
       </MemoryRouter>
     );
-    expect(screen.getByText(/sin servicio/i)).toBeInTheDocument();
+    expect(screen.getByText(/sin contrato/i)).toBeInTheDocument();
   });
 });
 
