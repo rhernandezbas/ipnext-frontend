@@ -6,6 +6,8 @@ export interface IngestConfigDTO {
   windowMonths: number;
   fiberProjectId: string | null;
   wirelessProjectId: string | null;
+  /** Which GR installation-order state to ingest. One of PEND/CONF/CERR/ANUL. */
+  sourceEstado: string;
 }
 
 /**
@@ -39,11 +41,25 @@ export interface NeedsReviewTaskDTO {
 
 /** Partial body accepted by `PUT /gestion-real-ingest/config`. */
 export type UpdateIngestConfigPayload = Partial<
-  Pick<IngestConfigDTO, 'intervalMs' | 'windowMonths' | 'fiberProjectId' | 'wirelessProjectId'>
+  Pick<
+    IngestConfigDTO,
+    'intervalMs' | 'windowMonths' | 'fiberProjectId' | 'wirelessProjectId' | 'sourceEstado'
+  >
 >;
 
 /** Settled interval presets, in minutes. */
 export const INTERVAL_PRESETS_MIN = [3, 5, 15, 30, 60] as const;
+
+/**
+ * GR installation-order states selectable as the ingest source, with Spanish
+ * labels for the UI. Mirrors the backend's valid `sourceEstado` values.
+ */
+export const GR_ESTADO_OPTIONS = [
+  { value: 'PEND', label: 'Pendiente' },
+  { value: 'CONF', label: 'Confirmada' },
+  { value: 'CERR', label: 'Cerrada' },
+  { value: 'ANUL', label: 'Anulada' },
+] as const;
 
 /** Convert minutes to milliseconds. */
 export const minutesToMs = (min: number): number => min * 60_000;

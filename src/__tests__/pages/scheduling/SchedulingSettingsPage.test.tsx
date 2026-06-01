@@ -41,6 +41,7 @@ const config: IngestConfigDTO = {
   windowMonths: 3,
   fiberProjectId: 'p1',
   wirelessProjectId: 'p2',
+  sourceEstado: 'CONF',
 };
 
 const status: IngestStatusDTO = {

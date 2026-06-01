@@ -10,6 +10,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
 import {
   INTERVAL_PRESETS_MIN,
+  GR_ESTADO_OPTIONS,
   minutesToMs,
   resolveIntervalPreset,
 } from '@/types/gestionRealIngest';
@@ -29,6 +30,7 @@ interface FormState {
   windowMonths: number;
   fiberProjectId: string | null;
   wirelessProjectId: string | null;
+  sourceEstado: string;
 }
 
 function configToForm(c: IngestConfigDTO): FormState {
@@ -37,6 +39,7 @@ function configToForm(c: IngestConfigDTO): FormState {
     windowMonths: c.windowMonths,
     fiberProjectId: c.fiberProjectId,
     wirelessProjectId: c.wirelessProjectId,
+    sourceEstado: c.sourceEstado,
   };
 }
 
@@ -45,7 +48,8 @@ function formEquals(a: FormState, b: FormState): boolean {
     a.intervalMs === b.intervalMs &&
     a.windowMonths === b.windowMonths &&
     a.fiberProjectId === b.fiberProjectId &&
-    a.wirelessProjectId === b.wirelessProjectId
+    a.wirelessProjectId === b.wirelessProjectId &&
+    a.sourceEstado === b.sourceEstado
   );
 }
 
@@ -159,6 +163,7 @@ function ConfigSection() {
       windowMonths: form!.windowMonths,
       fiberProjectId: form!.fiberProjectId,
       wirelessProjectId: form!.wirelessProjectId,
+      sourceEstado: form!.sourceEstado,
     };
     update.mutate(payload);
   }
@@ -254,6 +259,20 @@ function ConfigSection() {
               <option value="">(sin asignar)</option>
               {projects.map(p => (
                 <option key={p.id} value={p.id}>{p.title}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.fieldLabel} htmlFor="gr-estado">Estado de OS a traer</label>
+            <select
+              id="gr-estado"
+              className={styles.select}
+              value={form.sourceEstado}
+              onChange={e => patch({ sourceEstado: e.target.value })}
+            >
+              {GR_ESTADO_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
           </div>

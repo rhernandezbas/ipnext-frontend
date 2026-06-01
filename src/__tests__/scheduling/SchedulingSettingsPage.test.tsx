@@ -62,7 +62,7 @@ vi.mock('@/hooks/useProjects', () => ({
 }));
 // GestionRealBody (ingest) hooks — the page imports the body eagerly.
 vi.mock('@/hooks/useGestionRealIngest', () => ({
-  useGestionRealConfig: vi.fn(() => ({ data: { intervalMs: 300_000, windowMonths: 3, fiberProjectId: null, wirelessProjectId: null }, isLoading: false, isError: false })),
+  useGestionRealConfig: vi.fn(() => ({ data: { intervalMs: 300_000, windowMonths: 3, fiberProjectId: null, wirelessProjectId: null, sourceEstado: 'CONF' }, isLoading: false, isError: false })),
   useUpdateGestionRealConfig: vi.fn(() => ({ mutate: vi.fn(), isPending: false, isSuccess: false, isError: false, error: null, reset: vi.fn() })),
   useGestionRealStatus: vi.fn(() => ({ data: { lastRunAt: null, created: 0, skippedDuplicate: 0, skippedUnmirrored: 0, unclassified: 0 }, isLoading: false, isError: false })),
   useGestionRealNeedsReview: vi.fn(() => ({ data: [], isLoading: false, isError: false })),

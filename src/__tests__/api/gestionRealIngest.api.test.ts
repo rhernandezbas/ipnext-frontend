@@ -24,6 +24,7 @@ const mockConfig: IngestConfigDTO = {
   windowMonths: 6,
   fiberProjectId: 'p-fiber',
   wirelessProjectId: null,
+  sourceEstado: 'CONF',
 };
 
 const mockStatus: IngestStatusDTO = {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   INTERVAL_PRESETS_MIN,
+  GR_ESTADO_OPTIONS,
   minutesToMs,
   msToMinutes,
   resolveIntervalPreset,
@@ -9,6 +10,17 @@ import {
 describe('INTERVAL_PRESETS_MIN', () => {
   it('lists the settled minute presets', () => {
     expect(INTERVAL_PRESETS_MIN).toEqual([3, 5, 15, 30, 60]);
+  });
+});
+
+describe('GR_ESTADO_OPTIONS', () => {
+  it('maps the 4 GR order states to Spanish labels in order', () => {
+    expect(GR_ESTADO_OPTIONS).toEqual([
+      { value: 'PEND', label: 'Pendiente' },
+      { value: 'CONF', label: 'Confirmada' },
+      { value: 'CERR', label: 'Cerrada' },
+      { value: 'ANUL', label: 'Anulada' },
+    ]);
   });
 });
 

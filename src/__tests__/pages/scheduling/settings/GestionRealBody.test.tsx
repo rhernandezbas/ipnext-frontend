@@ -44,6 +44,7 @@ const makeConfig = (over: Partial<IngestConfigDTO> = {}): IngestConfigDTO => ({
   windowMonths: 3,
   fiberProjectId: 'p1',
   wirelessProjectId: 'p2',
+  sourceEstado: 'CONF',
   ...over,
 });
 
@@ -250,6 +251,53 @@ describe('GestionRealBody', () => {
       } as never);
       renderBody();
       expect(screen.getByText(/proyecto.*no.*encontr|no existe/i)).toBeInTheDocument();
+    });
+  });
+
+  // ── Estado de OS a traer (sourceEstado) ───────────────────────────────────
+  describe('Estado de OS a traer (sourceEstado)', () => {
+    it('populates the estado select from the loaded config (CONF → Confirmada selected)', () => {
+      mockConfig(makeConfig({ sourceEstado: 'CONF' }));
+      renderBody();
+      const select = screen.getByLabelText(/estado de os a traer/i) as HTMLSelectElement;
+      expect(select.value).toBe('CONF');
+      expect(select.options[select.selectedIndex].textContent).toBe('Confirmada');
+    });
+
+    it('renders the 4 estado options with Spanish labels', () => {
+      renderBody();
+      const select = screen.getByLabelText(/estado de os a traer/i) as HTMLSelectElement;
+      const labels = Array.from(select.options).map(o => o.textContent);
+      expect(labels).toEqual(['Pendiente', 'Confirmada', 'Cerrada', 'Anulada']);
+    });
+
+    it('reflects a different loaded estado (PEND → Pendiente selected)', () => {
+      mockConfig(makeConfig({ sourceEstado: 'PEND' }));
+      renderBody();
+      const select = screen.getByLabelText(/estado de os a traer/i) as HTMLSelectElement;
+      expect(select.value).toBe('PEND');
+    });
+
+    it('changing the estado enables Guardar', () => {
+      mockConfig(makeConfig({ sourceEstado: 'CONF' }));
+      renderBody();
+      expect(screen.getByRole('button', { name: /guardar/i })).toBeDisabled();
+      fireEvent.change(screen.getByLabelText(/estado de os a traer/i), { target: { value: 'CERR' } });
+      expect(screen.getByRole('button', { name: /guardar/i })).toBeEnabled();
+    });
+
+    it('saving sends sourceEstado in the PUT payload', async () => {
+      const mutate = vi.fn();
+      vi.mocked(useUpdateGestionRealConfig).mockReturnValue({ ...idleMutation, mutate } as never);
+      mockConfig(makeConfig({ sourceEstado: 'CONF' }));
+
+      renderBody();
+      fireEvent.change(screen.getByLabelText(/estado de os a traer/i), { target: { value: 'ANUL' } });
+      fireEvent.click(screen.getByRole('button', { name: /guardar/i }));
+
+      await waitFor(() => {
+        expect(mutate).toHaveBeenCalledWith(expect.objectContaining({ sourceEstado: 'ANUL' }));
+      });
     });
   });
 
