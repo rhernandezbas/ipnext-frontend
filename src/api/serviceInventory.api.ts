@@ -6,15 +6,15 @@ import type {
   TaskInventorySuggestion,
 } from '@/types/serviceInventory';
 
-// ── Contract (Service) installed items ──────────────────────────────────────
-export const listServiceInstalledItems = (serviceId: string) =>
-  axiosClient.get<ServiceInstalledItem[]>(`/services/${serviceId}/inventory`).then(r => r.data);
+// ── Contract installed items ────────────────────────────────────────────────
+export const listServiceInstalledItems = (contractId: string) =>
+  axiosClient.get<ServiceInstalledItem[]>(`/contracts/${contractId}/inventory`).then(r => r.data);
 
-export const addInstalledItem = (serviceId: string, input: AddInstalledItemInput) =>
-  axiosClient.post<ServiceInstalledItem>(`/services/${serviceId}/inventory`, input).then(r => r.data);
+export const addInstalledItem = (contractId: string, input: AddInstalledItemInput) =>
+  axiosClient.post<ServiceInstalledItem>(`/contracts/${contractId}/inventory`, input).then(r => r.data);
 
-export const updateInstalledItem = (serviceId: string, itemId: string, patch: UpdateInstalledItemInput) =>
-  axiosClient.patch<ServiceInstalledItem>(`/services/${serviceId}/inventory/${itemId}`, patch).then(r => r.data);
+export const updateInstalledItem = (contractId: string, itemId: string, patch: UpdateInstalledItemInput) =>
+  axiosClient.patch<ServiceInstalledItem>(`/contracts/${contractId}/inventory/${itemId}`, patch).then(r => r.data);
 
 // ── Task-scoped suggestion staging ──────────────────────────────────────────
 export const listTaskInventorySuggestions = (taskId: string) =>

@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, type ReactNode } from 'react';
 import { useTicketStatuses } from '@/hooks/useTicketStatuses';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
 import type { TicketFilter } from '../hooks/useTicketsFilterUrl';
@@ -13,9 +13,12 @@ const PRIORITY_OPTIONS = [
 interface TicketFilterBarProps {
   filter: TicketFilter;
   onFilterChange: (patch: Partial<TicketFilter>) => void;
+  /** Layout: 'horizontal' (top bar, default) or 'vertical' (right-side panel,
+   *  matching the Prominense reference — controls stacked with labels). */
+  variant?: 'horizontal' | 'vertical';
 }
 
-export function TicketFilterBar({ filter, onFilterChange }: TicketFilterBarProps) {
+export function TicketFilterBar({ filter, onFilterChange, variant = 'horizontal' }: TicketFilterBarProps) {
   const { data: statuses = [] } = useTicketStatuses();
   const { data: allUsers = [] } = useRbacUsers();
 
@@ -35,59 +38,83 @@ export function TicketFilterBar({ filter, onFilterChange }: TicketFilterBarProps
     }, 300);
   }
 
+  const isVertical = variant === 'vertical';
+
+  // In the vertical (panel) layout every control gets a stacked label, exactly
+  // like the Prominense reference. In horizontal layout controls sit inline and
+  // only the date inputs carry their small labels (origin behavior).
+  function field(label: string, control: ReactNode) {
+    if (!isVertical) return control;
+    return (
+      <div className={styles.field}>
+        <span className={styles.fieldLabel}>{label}</span>
+        {control}
+      </div>
+    );
+  }
+
   return (
-    <div className={styles.filterBar}>
-      <div className={styles.controls}>
+    <div className={`${styles.filterBar} ${isVertical ? styles.vertical : ''}`}>
+      {isVertical && <h3 className={styles.panelTitle}>Filtros</h3>}
+      <div className={`${styles.controls} ${isVertical ? styles.controlsVertical : ''}`}>
         {/* Estado — catalog-driven */}
-        <select
-          value={filter.status ?? ''}
-          onChange={e => onFilterChange({ status: e.target.value || undefined })}
-          className={styles.select}
-          aria-label="Estado"
-        >
-          <option value="">Todos los estados</option>
-          {statuses.map(s => (
-            <option key={s.id} value={s.name}>{s.name}</option>
-          ))}
-        </select>
+        {field('Estado',
+          <select
+            value={filter.status ?? ''}
+            onChange={e => onFilterChange({ status: e.target.value || undefined })}
+            className={styles.select}
+            aria-label="Estado"
+          >
+            <option value="">Todos los estados</option>
+            {statuses.map(s => (
+              <option key={s.id} value={s.name}>{s.name}</option>
+            ))}
+          </select>
+        )}
 
         {/* Prioridad */}
-        <select
-          value={filter.priority ?? ''}
-          onChange={e => onFilterChange({ priority: e.target.value || undefined })}
-          className={styles.select}
-          aria-label="Prioridad"
-        >
-          <option value="">Cualquier prioridad</option>
-          {PRIORITY_OPTIONS.map(p => (
-            <option key={p.value} value={p.value}>{p.label}</option>
-          ))}
-        </select>
+        {field('Prioridad',
+          <select
+            value={filter.priority ?? ''}
+            onChange={e => onFilterChange({ priority: e.target.value || undefined })}
+            className={styles.select}
+            aria-label="Prioridad"
+          >
+            <option value="">Cualquier prioridad</option>
+            {PRIORITY_OPTIONS.map(p => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+          </select>
+        )}
 
         {/* Asignado */}
-        <select
-          value={filter.assignedTo ?? ''}
-          onChange={e => onFilterChange({ assignedTo: e.target.value || undefined })}
-          className={styles.select}
-          aria-label="Asignado"
-        >
-          <option value="">Cualquier asignado</option>
-          {allUsers.map(u => (
-            <option key={u.id} value={u.id}>{u.name}</option>
-          ))}
-        </select>
+        {field('Asignado',
+          <select
+            value={filter.assignedTo ?? ''}
+            onChange={e => onFilterChange({ assignedTo: e.target.value || undefined })}
+            className={styles.select}
+            aria-label="Asignado"
+          >
+            <option value="">Cualquier asignado</option>
+            {allUsers.map(u => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+        )}
 
         {/* Búsqueda */}
-        <input
-          type="search"
-          value={qInput}
-          onChange={e => handleQChange(e.target.value)}
-          placeholder="Buscar tickets..."
-          className={styles.searchInput}
-          aria-label="Buscar"
-        />
+        {field('Búsqueda',
+          <input
+            type="search"
+            value={qInput}
+            onChange={e => handleQChange(e.target.value)}
+            placeholder="Buscar tickets..."
+            className={styles.searchInput}
+            aria-label="Buscar"
+          />
+        )}
 
-        <div className={styles.spacer} />
+        {!isVertical && <div className={styles.spacer} />}
 
         {/* Período */}
         <label className={styles.dateLabel}>

@@ -9,7 +9,10 @@ import { CalendarWeekView } from './components/CalendarWeekView';
 import { CalendarDayView } from './components/CalendarDayView';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { useProjects } from '@/hooks/useProjects';
+import { useWorkflows } from '@/hooks/useWorkflows';
+import { useTaskTemplates } from '@/hooks/useTaskTemplates';
 import { useCreateTask } from '@/hooks/useScheduling';
+import { CreateTaskModal } from '../SchedulingTasksPage/components/CreateTaskModal';
 import type { CalendarEvent, CalendarResource } from '@/types/calendar';
 import type { ScheduledTask } from '@/types/scheduling';
 
@@ -86,73 +89,20 @@ function getWeekStart(d: Date): Date {
   return date;
 }
 
-// ── Simple create-task modal stub ─────────────────────────────────────────────
+// ── Create-task prefill ───────────────────────────────────────────────────────
+// Soft fields seeded from a calendar slot click. NEVER includes the required
+// contract — the real CreateTaskModal forces the operator to pick one, which is
+// what prevents the BE 400 the inline stub used to trigger.
 interface CreatePreFill {
+  /** Local "YYYY-MM-DDTHH:mm" string for the datetime-local input. */
   startDate?: string;
   assigneeId?: string;
 }
 
-interface CreateModalProps {
-  preFill: CreatePreFill;
-  onClose: () => void;
-}
-
-function CreateTaskModal({ preFill, onClose }: CreateModalProps) {
-  const [title, setTitle] = useState('');
-  const createTask = useCreateTask();
-
-  async function handleSave() {
-    if (!title.trim()) return;
-    await createTask.mutateAsync({
-      title: title.trim(),
-      stageId: '10000000-0000-4000-a000-000000000001',
-      priority: 'normal',
-      estimatedHours: 1,
-      category: 'installation',
-      startDate: preFill.startDate ?? null,
-      endDate: null,
-      assigneeId: preFill.assigneeId ?? null,
-    });
-    onClose();
-  }
-
-  return (
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Crear tarea"
-    >
-      <div
-        style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-xl)', padding: 28, width: 440, maxWidth: '90vw', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: 'var(--shadow-lg)' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Nueva tarea</h2>
-        {preFill.startDate && (
-          <p style={{ margin: 0, fontSize: 13, color: 'var(--color-text-secondary)' }}>
-            Fecha: {new Date(preFill.startDate).toLocaleString('es-AR')}
-          </p>
-        )}
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600 }}>
-          Título *
-          <input
-            style={{ padding: '10px 12px', border: '1px solid var(--color-gray-300)', borderRadius: 'var(--radius-md)', fontSize: 14, outline: 'none' }}
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="Nombre de la tarea"
-            autoFocus
-          />
-        </label>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button className={styles.btnSecondary} onClick={onClose}>Cancelar</button>
-          <button className={styles.btnPrimary} onClick={() => void handleSave()} disabled={!title.trim() || createTask.isPending}>
-            {createTask.isPending ? 'Guardando...' : 'Guardar'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+/** Format a Date as "YYYY-MM-DDTHH:mm" in LOCAL time (datetime-local format). */
+function toLocalInputString(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -168,6 +118,16 @@ export default function SchedulingCalendarPage() {
   const { data: rawTasks = [], isLoading, refetch } = useTasksForCalendar(filter, from, to);
   const { data: rbacUsers = [] } = useRbacUsers();
   const { data: projects = [] } = useProjects();
+  const { data: workflows = [] } = useWorkflows();
+  const { data: templates = [] } = useTaskTemplates();
+  const createTask = useCreateTask();
+
+  // Same derivation as SchedulingTasksPage: technicians are RbacUsers with the
+  // 'tecnico' role (the modal's "Asignado a" select).
+  const technicians = useMemo(
+    () => rbacUsers.filter(u => u.roles.some(r => r.code === 'tecnico')),
+    [rbacUsers],
+  );
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createPreFill, setCreatePreFill] = useState<CreatePreFill>({});
@@ -191,7 +151,10 @@ export default function SchedulingCalendarPage() {
   }
 
   function handleSlotClick(slotDate: Date, resourceId: string) {
-    setCreatePreFill({ startDate: slotDate.toISOString(), assigneeId: resourceId !== 'unassigned' ? resourceId : undefined });
+    setCreatePreFill({
+      startDate: toLocalInputString(slotDate),
+      assigneeId: resourceId !== 'unassigned' ? resourceId : undefined,
+    });
     setShowCreateModal(true);
   }
 
@@ -362,10 +325,20 @@ export default function SchedulingCalendarPage() {
         )}
       </div>
 
-      {/* Create task modal */}
+      {/* Create task modal — full form, enforces the required contract so we never
+          fire a create without one (the source of the old uncaught 400). */}
       {showCreateModal && (
         <CreateTaskModal
-          preFill={createPreFill}
+          projects={projects}
+          workflows={workflows}
+          technicians={technicians}
+          templates={templates}
+          loading={createTask.isPending}
+          initialValues={{
+            startDate: createPreFill.startDate,
+            assigneeId: createPreFill.assigneeId,
+          }}
+          onCreate={data => createTask.mutateAsync(data)}
           onClose={() => setShowCreateModal(false)}
         />
       )}

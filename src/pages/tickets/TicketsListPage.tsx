@@ -201,10 +201,8 @@ export default function TicketsListPage({ statusFilter }: Props) {
         </div>
       )}
 
-      {/* Right-side Prominense filter bar */}
-      <TicketFilterBar filter={filter} onFilterChange={p => { setFilter(p); setPage(1); }} />
-
-      {/* Body */}
+      {/* Body — table on the left, vertical filter panel docked on the right
+          (Prominense reference layout). */}
       <div className={styles.body}>
         <div className={styles.tableSection}>
           <DataTable<Ticket>
@@ -223,6 +221,14 @@ export default function TicketsListPage({ statusFilter }: Props) {
           />
           <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
+
+        <aside className={styles.filterAside} aria-label="Filtros de tickets">
+          <TicketFilterBar
+            filter={filter}
+            onFilterChange={p => { setFilter(p); setPage(1); }}
+            variant="vertical"
+          />
+        </aside>
       </div>
 
       {/* CreateTicketModal (?create=1 or header button) */}

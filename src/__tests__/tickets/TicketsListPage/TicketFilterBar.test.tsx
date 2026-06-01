@@ -22,13 +22,13 @@ const mockUsers = [
   { id: 'u2', name: 'Luis Pérez', roles: [] },
 ];
 
-function renderBar(filter: TicketFilter = {}, onFilterChange = vi.fn()) {
+function renderBar(filter: TicketFilter = {}, onFilterChange = vi.fn(), variant?: 'horizontal' | 'vertical') {
   return render(
     <MemoryRouter>
       <Routes>
         <Route
           path="*"
-          element={<TicketFilterBar filter={filter} onFilterChange={onFilterChange} />}
+          element={<TicketFilterBar filter={filter} onFilterChange={onFilterChange} variant={variant} />}
         />
       </Routes>
     </MemoryRouter>
@@ -154,6 +154,29 @@ describe('TicketFilterBar', () => {
       customerId: undefined,
       from: undefined,
       to: undefined,
+    });
+  });
+
+  // ── Vertical (right-side panel) variant — FIX 3 ──────────────────────────────
+  describe('vertical variant (right-side panel)', () => {
+    it('renders a "Filtros" panel heading when variant=vertical', () => {
+      renderBar({}, vi.fn(), 'vertical');
+      expect(screen.getByRole('heading', { name: /filtros/i })).toBeInTheDocument();
+    });
+
+    it('does NOT render the panel heading in the default horizontal variant', () => {
+      renderBar({}, vi.fn());
+      expect(screen.queryByRole('heading', { name: /^filtros$/i })).not.toBeInTheDocument();
+    });
+
+    it('keeps all controls (Estado, Prioridad, Asignado, Búsqueda) in vertical layout', () => {
+      renderBar({}, vi.fn(), 'vertical');
+      expect(screen.getByRole('combobox', { name: /estado/i })).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: /prioridad/i })).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: /asignado/i })).toBeInTheDocument();
+      expect(screen.getByRole('searchbox', { name: /buscar/i })).toBeInTheDocument();
+      expect(screen.getByLabelText(/desde/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/hasta/i)).toBeInTheDocument();
     });
   });
 });

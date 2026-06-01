@@ -105,3 +105,53 @@
   .controls { gap: 6px; }
   .spacer { display: none; }
 }
+
+/* ── Vertical variant — right-side Prominense filter panel ─────────────────── */
+.vertical {
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  border-bottom: none;
+  border-radius: var(--radius-lg, 10px);
+  border: 1px solid var(--color-border, #e5e7eb);
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-primary, #111827);
+}
+
+.controlsVertical {
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* In the panel, every control fills the available width. */
+.controlsVertical .select,
+.controlsVertical .searchInput,
+.controlsVertical .dateInput {
+  width: 100%;
+  min-width: 0;
+}
+
+.controlsVertical .dateLabel {
+  width: 100%;
+}

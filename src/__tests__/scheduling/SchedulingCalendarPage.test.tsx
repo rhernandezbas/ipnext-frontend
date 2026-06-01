@@ -293,6 +293,25 @@ describe('SchedulingCalendarPage — create modal', () => {
     fireEvent.click(addBtns[0]);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
+
+  // FIX 2: the calendar create flow used to fire a create with no contract,
+  // producing an uncaught 400. It now renders the FULL CreateTaskModal, whose
+  // submit stays disabled until a contract is chosen — so a contract-less create
+  // can never be dispatched from the calendar.
+  it('keeps "Crear tarea" disabled on open (contract required, no contract yet)', () => {
+    renderWithRouter('/admin/scheduling/calendars');
+    const addBtns = screen.getAllByRole('button', { name: /Añadir tarea/i });
+    fireEvent.click(addBtns[0]);
+    expect(screen.getByRole('button', { name: /crear tarea/i })).toBeDisabled();
+  });
+
+  it('renders the full create form (Cliente field) instead of the title-only stub', () => {
+    renderWithRouter('/admin/scheduling/calendars');
+    const addBtns = screen.getAllByRole('button', { name: /Añadir tarea/i });
+    fireEvent.click(addBtns[0]);
+    // The full modal has a Cliente field; the old stub only had a Título input.
+    expect(screen.getByPlaceholderText(/buscar cliente/i)).toBeInTheDocument();
+  });
 });
 
 // ── REQ-RESOURCE-SOURCE ────────────────────────────────────────────────────────

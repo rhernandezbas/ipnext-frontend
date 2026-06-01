@@ -35,6 +35,11 @@ export interface CreateTaskInitialValues {
   customerId?: string;
   customerName?: string;
   description?: string;
+  /** Pre-selected start datetime as a "YYYY-MM-DDTHH:mm" local string (e.g. from
+   *  a calendar slot click). Soft field — never the required contract. */
+  startDate?: string;
+  /** Pre-selected assignee id (e.g. the technician row of a calendar slot). */
+  assigneeId?: string;
   /** Originating ticket id, appended to the payload as-is (BE-graceful). */
   ticketId?: number | null;
 }
@@ -94,12 +99,12 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   // required contract themselves even when creating a task from a ticket.
   const [contractId, setContractId] = useState<string | null>(null);
   const [description, setDescription] = useState(initialValues?.description ?? '');
-  const [assigneeId, setAssigneeId] = useState('');
+  const [assigneeId, setAssigneeId] = useState(initialValues?.assigneeId ?? '');
   const [priority, setPriority] = useState<string>(DEFAULT_PRIORITY);
   const { data: priorities = [] } = useTaskPriorities();
   const [category, setCategory] = useState<string>(DEFAULT_CATEGORY);
   const { data: categories = [] } = useTaskCategories();
-  const [startDate, setStartDate] = useState('');
+  const [startDate, setStartDate] = useState(initialValues?.startDate ?? '');
   const [endDate, setEndDate] = useState('');
   const [estimatedHours, setEstimatedHours] = useState(1);
   const [address, setAddress] = useState('');
@@ -266,14 +271,18 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
       }
       await onCreate(payload);
       onClose();
-    } catch {
-      setError('No se pudo crear la tarea. Revisá los datos e intentá de nuevo.');
+    } catch (err) {
+      // Surface the backend validation message when present (e.g. a 400
+      // VALIDATION_ERROR). Falls back to a generic message otherwise. This catch
+      // is what keeps a failed create from bubbling up as an uncaught rejection.
+      const resp = (err as { response?: { data?: { error?: string; message?: string } } })?.response?.data;
+      setError(resp?.error ?? resp?.message ?? 'No se pudo crear la tarea. Revisá los datos e intentá de nuevo.');
     }
   }
 
   return (
     <div className={styles.overlay} data-testid="create-task-overlay" onClick={() => void handleBackdropClick()}>
-      <div className={styles.modal} onClick={e => e.stopPropagation()}>
+      <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Nueva tarea" onClick={e => e.stopPropagation()}>
         <h2 className={styles.title}>Nueva tarea</h2>
 
         {error && <p className={styles.error}>{error}</p>}
