@@ -51,11 +51,17 @@ describe('Sidebar — Contratos bajo Clientes', () => {
     permHandles.result.can = () => true;
   });
 
-  // SB-C1: Contratos and Tecnologías visible when user has contracts.read
-  it('shows Contratos and Tecnologías children under Clientes when has contracts.read', () => {
+  // SB-C1: Contratos visible under Clientes when user has contracts.read
+  it('shows Contratos child under Clientes when has contracts.read', () => {
     renderSidebar('/admin/customers/list');
     // Clientes is auto-expanded at this path
     expect(screen.getByRole('link', { name: /^contratos$/i })).toBeInTheDocument();
+  });
+
+  // SB-C1b: Tecnologías now lives under the Configuración item (CRM), visible on its path
+  it('shows Tecnologías under the Configuración item when has contracts.read', () => {
+    renderSidebar('/admin/contracts/technologies');
+    // Configuración auto-expands at this path
     expect(screen.getByRole('link', { name: /^tecnologías$/i })).toBeInTheDocument();
   });
 
@@ -95,10 +101,10 @@ describe('Sidebar — Contratos bajo Clientes', () => {
     expect(clientesBtn).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('auto-expands Clientes item when on /admin/contracts/technologies', () => {
+  it('auto-expands Configuración item when on /admin/contracts/technologies', () => {
     renderSidebar('/admin/contracts/technologies');
-    const clientesBtn = getClientesBtn();
-    expect(clientesBtn).toHaveAttribute('aria-expanded', 'true');
+    const configBtn = screen.getByRole('button', { name: /^configuración$/i });
+    expect(configBtn).toHaveAttribute('aria-expanded', 'true');
   });
 
   // SB-C5: correct href for Contratos
@@ -108,9 +114,9 @@ describe('Sidebar — Contratos bajo Clientes', () => {
     expect(link).toHaveAttribute('href', '/admin/contracts/list');
   });
 
-  // SB-C6: correct href for Tecnologías
+  // SB-C6: correct href for Tecnologías (now under Configuración)
   it('Tecnologías child links to /admin/contracts/technologies', () => {
-    renderSidebar('/admin/customers/list');
+    renderSidebar('/admin/contracts/technologies');
     const link = screen.getByRole('link', { name: /^tecnologías$/i });
     expect(link).toHaveAttribute('href', '/admin/contracts/technologies');
   });

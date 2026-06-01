@@ -113,9 +113,9 @@ describe('Sidebar — permission filtering', () => {
     expect(screen.getByRole('link', { name: /panel de control/i })).toBeInTheDocument();
   });
 
-  it('SP7 — has clients.read + contracts.read: Contratos/Tecnologías children render under Clientes', async () => {
-    // Contratos is now a child of Clientes (CRM section), not a standalone Empresa accordion.
-    // Showing both sub-items requires clients.read (to see Clientes) + contracts.read (to see its children).
+  it('SP7 — has clients.read + contracts.read: Contratos child renders under Clientes', async () => {
+    // Contratos is a child of Clientes (CRM); Tecnologías moved to the Configuración item.
+    // Showing Contratos requires clients.read (to see Clientes) + contracts.read (to see the child).
     mockPerms({
       permissions: ['clients.read', 'contracts.read'],
       can: (p) => {
@@ -126,7 +126,6 @@ describe('Sidebar — permission filtering', () => {
     renderSidebar('/admin/customers/list');
     // Clientes accordion is auto-expanded at this path, showing its children.
     expect(screen.getByRole('link', { name: /^contratos$/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /tecnologías/i })).toBeInTheDocument();
   });
 
   it('SP8 — without contracts.read: Contratos/Tecnologías children are hidden inside Clientes', async () => {
@@ -144,7 +143,7 @@ describe('Sidebar — permission filtering', () => {
     expect(screen.queryByRole('link', { name: /tecnologías/i })).not.toBeInTheDocument();
   });
 
-  it('SP9 — has contracts.read: both sub-items (Contratos, Tecnologías) render', () => {
+  it('SP9 — has contracts.read: Contratos renders under Clientes with correct href', () => {
     mockPerms({
       permissions: ['clients.read', 'contracts.read'],
       can: (p) => {
@@ -153,14 +152,10 @@ describe('Sidebar — permission filtering', () => {
       },
     });
     renderSidebar('/admin/contracts/list');
-    // /admin/contracts/* → Clientes auto-expands (matchPaths includes /admin/contracts)
+    // /admin/contracts/list → Clientes auto-expands. (Tecnologías now lives under Configuración; covered in SidebarContracts.)
     expect(screen.getByRole('link', { name: /^contratos$/i })).toHaveAttribute(
       'href',
       '/admin/contracts/list'
-    );
-    expect(screen.getByRole('link', { name: /tecnologías/i })).toHaveAttribute(
-      'href',
-      '/admin/contracts/technologies'
     );
   });
 });
