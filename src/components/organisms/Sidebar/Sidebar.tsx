@@ -6,6 +6,12 @@ import styles from './Sidebar.module.css';
 interface SubItem {
   to: string;
   label: string;
+  /**
+   * Optional permission required to render this child.
+   * If omitted — always show (inherits parent visibility).
+   * While permissions are loading — show (no layout shift).
+   */
+  requiredPermission?: string;
 }
 
 interface NavParentItem {
@@ -35,7 +41,7 @@ interface NavSectionDef {
 const CRM_ITEMS: NavParentItem[] = [
   {
     label: 'Clientes',
-    matchPaths: ['/admin/customers'],
+    matchPaths: ['/admin/customers', '/admin/contracts'],
     requiredPermission: 'clients.read', // /admin/customers/* → clients.read
     children: [
       { to: '/admin/customers/add', label: 'Añadir' },
@@ -44,6 +50,8 @@ const CRM_ITEMS: NavParentItem[] = [
       { to: '/admin/customers/vouchers', label: 'Vouchers' },
       { to: '/admin/customers/map', label: 'Mapas' },
       { to: '/admin/customers/settings', label: 'Configuración' },
+      { to: '/admin/contracts/list', label: 'Contratos', requiredPermission: 'contracts.read' },
+      { to: '/admin/contracts/technologies', label: 'Tecnologías', requiredPermission: 'contracts.read' },
     ],
   },
   {
@@ -153,15 +161,6 @@ const EMPRESA_ITEMS: NavParentItem[] = [
       { to: '/admin/voice/categories', label: 'Categorías' },
       { to: '/admin/voice/prefixes', label: 'Prefijos' },
       { to: '/admin/voice/cdr', label: 'CDR' },
-    ],
-  },
-  {
-    label: 'Contratos',
-    matchPaths: ['/admin/contracts'],
-    requiredPermission: 'contracts.read', // /admin/contracts/* → contracts.read
-    children: [
-      { to: '/admin/contracts/list', label: 'Contratos' },
-      { to: '/admin/contracts/technologies', label: 'Tecnologías' },
     ],
   },
   {
@@ -410,10 +409,22 @@ export function Sidebar({ open = true, onToggle }: SidebarProps) {
     return can(item.requiredPermission);
   }
 
+  function canSeeChild(child: SubItem): boolean {
+    if (isLoading) return true;
+    if (!child.requiredPermission) return true;
+    return can(child.requiredPermission);
+  }
+
   // Build the visible section list, dropping any section with no visible items.
+  // Also filter each item's children by optional per-child requiredPermission.
   const visibleSections = SECTIONS.map((section) => ({
     ...section,
-    items: section.items.filter(canSee),
+    items: section.items
+      .filter(canSee)
+      .map((item) => ({
+        ...item,
+        children: item.children ? item.children.filter(canSeeChild) : item.children,
+      })),
   })).filter((section) => section.items.length > 0);
 
   // Auto-expand: derive the active section + item from the pathname.

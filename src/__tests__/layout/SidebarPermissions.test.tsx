@@ -113,36 +113,47 @@ describe('Sidebar — permission filtering', () => {
     expect(screen.getByRole('link', { name: /panel de control/i })).toBeInTheDocument();
   });
 
-  it('SP7 — has contracts.read: Contratos group renders', () => {
+  it('SP7 — has clients.read + contracts.read: Contratos/Tecnologías children render under Clientes', async () => {
+    // Contratos is now a child of Clientes (CRM section), not a standalone Empresa accordion.
+    // Showing both sub-items requires clients.read (to see Clientes) + contracts.read (to see its children).
     mockPerms({
-      permissions: ['contracts.read'],
+      permissions: ['clients.read', 'contracts.read'],
       can: (p) => {
         const perm = Array.isArray(p) ? p[0] : p;
-        return perm === 'contracts.read';
+        return perm === 'clients.read' || perm === 'contracts.read';
       },
     });
-    renderSidebar();
-    expect(screen.getByRole('button', { name: /contratos/i })).toBeInTheDocument();
+    renderSidebar('/admin/customers/list');
+    // Clientes accordion is auto-expanded at this path, showing its children.
+    expect(screen.getByRole('link', { name: /^contratos$/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /tecnologías/i })).toBeInTheDocument();
   });
 
-  it('SP8 — without contracts.read: Contratos group is hidden', () => {
+  it('SP8 — without contracts.read: Contratos/Tecnologías children are hidden inside Clientes', async () => {
+    // User can see Clientes (has clients.read) but not contracts children.
     mockPerms({
-      permissions: [],
-      can: () => false,
+      permissions: ['clients.read'],
+      can: (p) => {
+        const perm = Array.isArray(p) ? p[0] : p;
+        return perm === 'clients.read';
+      },
     });
-    renderSidebar();
-    expect(screen.queryByRole('button', { name: /contratos/i })).not.toBeInTheDocument();
+    renderSidebar('/admin/customers/list');
+    // Clientes is auto-expanded, but Contratos/Tecnologías children are filtered out.
+    expect(screen.queryByRole('link', { name: /^contratos$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /tecnologías/i })).not.toBeInTheDocument();
   });
 
   it('SP9 — has contracts.read: both sub-items (Contratos, Tecnologías) render', () => {
     mockPerms({
-      permissions: ['contracts.read'],
+      permissions: ['clients.read', 'contracts.read'],
       can: (p) => {
         const perm = Array.isArray(p) ? p[0] : p;
-        return perm === 'contracts.read';
+        return perm === 'clients.read' || perm === 'contracts.read';
       },
     });
     renderSidebar('/admin/contracts/list');
+    // /admin/contracts/* → Clientes auto-expands (matchPaths includes /admin/contracts)
     expect(screen.getByRole('link', { name: /^contratos$/i })).toHaveAttribute(
       'href',
       '/admin/contracts/list'
