@@ -365,6 +365,41 @@ describe('CreateTaskModal', () => {
     });
   });
 
+  describe('required field indicators', () => {
+    it('shows required indicator (*) in the Título label', () => {
+      setup();
+      // The label text must contain an asterisk to signal the field is required.
+      // We look for the aria-label or text node inside the label element.
+      const titleInput = screen.getByPlaceholderText('Título de la tarea');
+      const titleLabel = titleInput.closest('label');
+      expect(titleLabel).not.toBeNull();
+      expect(titleLabel!.textContent).toMatch(/\*/);
+    });
+
+    it('shows required indicator (*) in the Cliente label', () => {
+      setup();
+      // "Cliente" is rendered inside a div.label — find by its text and check for *.
+      const clienteLabel = screen.getByText(/cliente/i, { selector: '[class*="label"]' });
+      expect(clienteLabel.textContent).toMatch(/\*/);
+    });
+
+    it('shows required indicator (*) in the Servicio label (when customer is selected)', async () => {
+      const customer = { id: 'c-req', name: 'REQ CUSTOMER', email: 'req@test.com' };
+      useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
+      useClientDetailMock.mockReturnValue({ data: { id: 'c-req', name: 'REQ CUSTOMER', address: 'Calle 1' } });
+      useClientServicesMock.mockReturnValue({ data: [], isLoading: false });
+      setup();
+
+      fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Req' } });
+      fireEvent.click(await screen.findByText('REQ CUSTOMER'));
+
+      const servicioLabel = await screen.findByRole('combobox', { name: /servicio/i });
+      const labelEl = servicioLabel.closest('label');
+      expect(labelEl).not.toBeNull();
+      expect(labelEl!.textContent).toMatch(/\*/);
+    });
+  });
+
   describe('client + service required', () => {
     function setupWithCustomer(services: unknown[] = [], isLoading = false) {
       const customer = { id: 'c-20', name: 'LOPEZ PEDRO', email: 'lopez@test.com' };
