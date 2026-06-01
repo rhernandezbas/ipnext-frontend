@@ -2,7 +2,7 @@ import styles from './CalendarDayView.module.css';
 import pageStyles from '../SchedulingCalendarPage.module.css';
 import type { CalendarEvent, CalendarResource } from '@/types/calendar';
 import { EventPill } from './EventPill';
-import { ResourceSidebar } from './ResourceSidebar';
+import { avatarColor } from './resourceAvatar';
 
 interface CalendarDayViewProps {
   date: Date;
@@ -14,7 +14,7 @@ interface CalendarDayViewProps {
   isLoading: boolean;
 }
 
-const HOUR_HEADER_HEIGHT = 32; // px
+type RowResource = CalendarResource | { id: 'unassigned'; name: string; initials: string; role: string };
 
 function buildHours(fullDay: boolean): number[] {
   return fullDay
@@ -24,6 +24,31 @@ function buildHours(fullDay: boolean): number[] {
 
 function toLocalIsoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Resource label cell — the first column of a resource's grid row.
+ * Shares the row with that resource's hour cells, so it can never drift out of
+ * alignment when a cell grows with stacked events.
+ */
+function ResourceLabelCell({ resource }: { resource: RowResource }) {
+  const isUnassigned = resource.id === 'unassigned';
+  return (
+    <div
+      className={styles.labelCell}
+      data-testid="resource-row"
+      data-resource-id={resource.id}
+    >
+      <div
+        className={pageStyles.avatar}
+        style={{ backgroundColor: isUnassigned ? 'var(--color-gray-300)' : avatarColor(resource.name) }}
+        aria-hidden="true"
+      >
+        {resource.initials}
+      </div>
+      <span className={styles.resourceName}>{resource.name}</span>
+    </div>
+  );
 }
 
 export function CalendarDayView({
@@ -39,6 +64,9 @@ export function CalendarDayView({
   const nHours = hours.length;
   const dateStr = toLocalIsoDate(date);
 
+  // label column + N hour columns
+  const gridTemplateColumns = `240px repeat(${nHours}, minmax(60px, 1fr))`;
+
   // Group events by resourceId for this day
   const evByResource: Record<string, CalendarEvent[]> = {};
   for (const ev of events) {
@@ -48,27 +76,34 @@ export function CalendarDayView({
   }
 
   // All rows including "unassigned"
-  const allResources: Array<CalendarResource | { id: 'unassigned'; name: string; initials: string; role: string }> = [
+  const allResources: RowResource[] = [
     ...resources,
     { id: 'unassigned', name: 'Sin asignar', initials: '?', role: '' },
   ];
 
+  const header = (
+    <>
+      <div className={styles.cornerCell} />
+      {hours.map(h => (
+        <div key={h} className={styles.hourHeader} data-hour={h}>
+          {String(h).padStart(2, '0')}:00
+        </div>
+      ))}
+    </>
+  );
+
   if (isLoading) {
     return (
       <div className={styles.dayWrapper} role="region" aria-label="Calendario diario">
-        <ResourceSidebar resources={[]} isLoading headerHeight={HOUR_HEADER_HEIGHT} />
-        <div className={styles.gridArea}>
-          <div className={styles.hourHeaderRow} style={{ gridTemplateColumns: `repeat(${nHours}, minmax(60px, 1fr))` }}>
-            {hours.map(h => (
-              <div key={h} className={styles.hourHeader}>{String(h).padStart(2, '0')}:00</div>
-            ))}
-          </div>
+        <div className={styles.calendarGrid} style={{ gridTemplateColumns }}>
+          {header}
           {Array.from({ length: 4 }).map((_, ri) => (
-            <div
-              key={ri}
-              className={`${styles.resourceRow} ${pageStyles.skeleton}`}
-              style={{ gridTemplateColumns: `repeat(${nHours}, minmax(60px, 1fr))` }}
-            />
+            <div key={ri} className={styles.resourceRow} data-resource-row={`skeleton-${ri}`}>
+              <div className={`${styles.labelCell} ${pageStyles.skeleton}`} data-testid="resource-row" />
+              {hours.map(h => (
+                <div key={h} className={`${styles.hourSlot} ${pageStyles.skeleton}`} />
+              ))}
+            </div>
           ))}
         </div>
       </div>
@@ -77,30 +112,22 @@ export function CalendarDayView({
 
   return (
     <div className={styles.dayWrapper} role="region" aria-label="Calendario diario">
-      <ResourceSidebar resources={resources} headerHeight={HOUR_HEADER_HEIGHT} />
-      <div className={styles.gridArea}>
-        {/* Hour header row — sticky top */}
-        <div
-          className={styles.hourHeaderRow}
-          style={{ gridTemplateColumns: `repeat(${nHours}, minmax(60px, 1fr))` }}
-        >
-          {hours.map(h => (
-            <div key={h} className={styles.hourHeader} data-hour={h}>
-              {String(h).padStart(2, '0')}:00
-            </div>
-          ))}
-        </div>
+      <div className={styles.calendarGrid} style={{ gridTemplateColumns }}>
+        {header}
 
-        {/* Resource rows */}
+        {/* One grid row per resource: [label | hour-1 … hour-N]. The wrapper uses
+            display:contents so the label and hour cells are siblings on the SAME
+            grid row, sharing height regardless of event stacking. */}
         {allResources.map(resource => {
           const resourceEvents = evByResource[resource.id] ?? [];
           return (
             <div
               key={resource.id}
               className={styles.resourceRow}
-              style={{ gridTemplateColumns: `repeat(${nHours}, minmax(60px, 1fr))` }}
+              data-resource-row={resource.id}
               data-resource-id={resource.id}
             >
+              <ResourceLabelCell resource={resource} />
               {hours.map(h => {
                 // Find events starting in this hour
                 const hourEvents = resourceEvents.filter(ev => ev.start.getHours() === h);

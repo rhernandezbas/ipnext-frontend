@@ -1,51 +1,89 @@
+/* Single CSS grid: label column + N hour columns.
+   Each resource contributes ONE grid row spanning [label | hour-1 … hour-N].
+   grid-auto-rows: auto means the label cell and all hour cells of a resource
+   share the same row height automatically, regardless of how many events stack.
+   This guarantees per-resource alignment (the previous separate fixed-height
+   sidebar vs growing grid cells bug is structurally impossible here).
+   The grid-template-columns value is set inline since the hour count varies. */
+
 .dayWrapper {
-  display: flex;
-  overflow: hidden;
+  overflow: auto;
   flex: 1;
   min-height: 0;
 }
 
-.gridArea {
-  flex: 1;
-  overflow-x: auto;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
+.calendarGrid {
+  display: grid;
+  grid-auto-rows: auto;
+  min-width: max-content;
 }
 
-.hourHeaderRow {
-  display: grid;
+.resourceRow {
+  display: contents;
+}
+
+/* ── Header row ─────────────────────────────────────────────────────────── */
+.cornerCell {
   position: sticky;
   top: 0;
-  z-index: 10;
+  left: 0;
+  z-index: 20;
   background: var(--color-gray-50);
+  border-right: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
   height: 32px;
 }
 
 .hourHeader {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   padding: 6px 4px;
   font-size: 11px;
   font-weight: 600;
   color: var(--color-text-secondary);
   text-align: center;
+  background: var(--color-gray-50);
   border-right: 1px solid var(--color-gray-100);
+  border-bottom: 1px solid var(--color-border);
   white-space: nowrap;
   display: flex;
   align-items: center;
   justify-content: center;
+  height: 32px;
 }
 
 .hourHeader:last-child { border-right: none; }
 
-.resourceRow {
-  display: grid;
+/* ── Label (resource) cell ──────────────────────────────────────────────── */
+.labelCell {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-gray-100);
-  min-height: 48px;
+  box-sizing: border-box;
 }
 
+.resourceName {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+/* ── Hour cells ─────────────────────────────────────────────────────────── */
 .hourSlot {
   border-right: 1px solid var(--color-gray-100);
+  border-bottom: 1px solid var(--color-gray-100);
   padding: 4px;
   display: flex;
   flex-direction: column;
@@ -59,6 +97,5 @@
 .hourSlot:hover { background: var(--color-gray-50); }
 
 @media (max-width: 768px) {
-  .dayWrapper { flex-direction: column; }
-  .gridArea { overflow-x: auto; }
+  .labelCell { padding: 8px; }
 }

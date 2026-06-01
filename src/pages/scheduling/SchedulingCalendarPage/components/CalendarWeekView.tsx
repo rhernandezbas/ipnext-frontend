@@ -2,7 +2,7 @@ import styles from './CalendarWeekView.module.css';
 import pageStyles from '../SchedulingCalendarPage.module.css';
 import type { CalendarEvent, CalendarResource } from '@/types/calendar';
 import { EventPill } from './EventPill';
-import { ResourceSidebar } from './ResourceSidebar';
+import { avatarColor } from './resourceAvatar';
 
 interface CalendarWeekViewProps {
   weekStart: Date;     // Monday of the week
@@ -12,6 +12,8 @@ interface CalendarWeekViewProps {
   onSlotClick: (date: Date, resourceId: string) => void;
   isLoading: boolean;
 }
+
+type RowResource = CalendarResource | { id: 'unassigned'; name: string; initials: string; role: string };
 
 const DAY_NAMES_SHORT = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
@@ -23,6 +25,31 @@ function addDays(d: Date, n: number): Date {
 
 function toLocalIsoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Resource label cell — the first column of a resource's grid row.
+ * It shares the row with that resource's day cells, so it can never drift out
+ * of alignment when a cell grows with stacked events.
+ */
+function ResourceLabelCell({ resource }: { resource: RowResource }) {
+  const isUnassigned = resource.id === 'unassigned';
+  return (
+    <div
+      className={styles.labelCell}
+      data-testid="resource-row"
+      data-resource-id={resource.id}
+    >
+      <div
+        className={pageStyles.avatar}
+        style={{ backgroundColor: isUnassigned ? 'var(--color-gray-300)' : avatarColor(resource.name) }}
+        aria-hidden="true"
+      >
+        {resource.initials}
+      </div>
+      <span className={styles.resourceName}>{resource.name}</span>
+    </div>
+  );
 }
 
 export function CalendarWeekView({
@@ -47,25 +74,34 @@ export function CalendarWeekView({
   }
 
   // All visible resource rows including "unassigned"
-  const allResources: Array<CalendarResource | { id: 'unassigned'; name: string; initials: string; role: string }> = [
+  const allResources: RowResource[] = [
     ...resources,
     { id: 'unassigned', name: 'Sin asignar', initials: '?', role: '' },
   ];
 
+  const header = (
+    <>
+      <div className={styles.cornerCell} />
+      {days.map((d, i) => {
+        const dStr = toLocalIsoDate(d);
+        const isToday = dStr === todayStr;
+        return (
+          <div key={i} className={`${styles.dayHeaderCell} ${isToday ? styles.dayHeaderToday : ''}`}>
+            {DAY_NAMES_SHORT[i]} {d.getDate()}/{d.getMonth() + 1}
+          </div>
+        );
+      })}
+    </>
+  );
+
   if (isLoading) {
     return (
       <div className={styles.weekWrapper} role="region" aria-label="Calendario semanal">
-        <ResourceSidebar resources={[]} isLoading headerHeight={32} />
-        <div className={styles.gridArea}>
-          <div className={styles.dayHeaderRow}>
-            {days.map((d, i) => (
-              <div key={i} className={styles.dayHeaderCell}>
-                {DAY_NAMES_SHORT[i]} {d.getDate()}/{d.getMonth() + 1}
-              </div>
-            ))}
-          </div>
+        <div className={styles.calendarGrid}>
+          {header}
           {Array.from({ length: 4 }).map((_, ri) => (
-            <div key={ri} className={styles.resourceGrid}>
+            <div key={ri} className={styles.resourceRow} data-resource-row={`skeleton-${ri}`}>
+              <div className={`${styles.labelCell} ${pageStyles.skeleton}`} data-testid="resource-row" />
               {Array.from({ length: 7 }).map((__, ci) => (
                 <div key={ci} className={`${styles.slot} ${pageStyles.skeleton}`} />
               ))}
@@ -78,24 +114,19 @@ export function CalendarWeekView({
 
   return (
     <div className={styles.weekWrapper} role="region" aria-label="Calendario semanal">
-      <ResourceSidebar resources={resources} headerHeight={32} />
-      <div className={styles.gridArea}>
-        {/* Day header row */}
-        <div className={styles.dayHeaderRow}>
-          {days.map((d, i) => {
-            const dStr = toLocalIsoDate(d);
-            const isToday = dStr === todayStr;
-            return (
-              <div key={i} className={`${styles.dayHeaderCell} ${isToday ? styles.dayHeaderToday : ''}`}>
-                {DAY_NAMES_SHORT[i]} {d.getDate()}/{d.getMonth() + 1}
-              </div>
-            );
-          })}
-        </div>
+      <div className={styles.calendarGrid}>
+        {header}
 
-        {/* Resource rows */}
+        {/* One grid row per resource: [label | day-1 … day-7]. The wrapper uses
+            display:contents so the label and day cells are siblings on the SAME
+            grid row, sharing height regardless of event stacking. */}
         {allResources.map(resource => (
-          <div key={resource.id} className={styles.resourceGrid}>
+          <div
+            key={resource.id}
+            className={styles.resourceRow}
+            data-resource-row={resource.id}
+          >
+            <ResourceLabelCell resource={resource} />
             {days.map((d, di) => {
               const dateStr = toLocalIsoDate(d);
               const dayEvents = evMap[resource.id]?.[dateStr] ?? [];
