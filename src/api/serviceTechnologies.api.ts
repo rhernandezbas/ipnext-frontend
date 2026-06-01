@@ -1,7 +1,7 @@
 import axiosClient from './axios-client';
 import type { ServiceTechnology } from '@/types/serviceTechnology';
 
-const BASE = '/service-technologies';
+const BASE = '/contract-technologies';
 
 export const serviceTechnologiesApi = {
   list: (): Promise<ServiceTechnology[]> =>
