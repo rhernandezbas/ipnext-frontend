@@ -106,8 +106,8 @@ describe('CP-0: stats bar', () => {
   it('renders ContractStatsCards with stats from useContractStats', () => {
     renderPage();
     expect(screen.getByText(/contratos totales/i)).toBeInTheDocument();
-    expect(screen.getByText('Vigente')).toBeInTheDocument();
-    // "Baja" may appear in stats card label AND filter dropdown — at least one occurrence
+    // "Vigente" / "Baja" appear in the stats card label AND the filter dropdown — at least one occurrence
+    expect(screen.getAllByText('Vigente').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Baja').length).toBeGreaterThanOrEqual(1);
   });
 
@@ -224,24 +224,27 @@ describe('CP-3: status filter', () => {
   it('passes selected status to useContracts', async () => {
     renderPage();
     const select = screen.getByRole('combobox', { name: /estado/i });
-    fireEvent.change(select, { target: { value: 'active' } });
+    fireEvent.change(select, { target: { value: 'Vigente' } });
 
     await waitFor(() => {
       const calls = vi.mocked(useContractsModule.useContracts).mock.calls;
       const lastCall = calls[calls.length - 1][0];
-      expect(lastCall.status).toBe('active');
+      expect(lastCall.status).toBe('Vigente');
     });
   });
 
-  it('includes active, inactive, blocked, late, baja options', () => {
+  it('derives status options from real GR contract states (byStatus), not hardcoded', () => {
     renderPage();
     const select = screen.getByRole('combobox', { name: /estado/i });
     const options = Array.from(select.querySelectorAll('option')).map((o) => o.value);
-    expect(options).toContain('active');
-    expect(options).toContain('inactive');
-    expect(options).toContain('blocked');
-    expect(options).toContain('late');
-    expect(options).toContain('baja');
+    // From the mocked byStatus { Vigente, Baja } + the "Todos" empty option
+    expect(options).toContain('');
+    expect(options).toContain('Vigente');
+    expect(options).toContain('Baja');
+    // The old hardcoded client states must NOT appear
+    expect(options).not.toContain('blocked');
+    expect(options).not.toContain('late');
+    expect(options).not.toContain('inactive');
   });
 });
 
@@ -298,7 +301,7 @@ describe('CP-5: pagination', () => {
     // Start on page 2
     renderPage('/admin/contracts/list?page=2');
     const select = screen.getByRole('combobox', { name: /estado/i });
-    fireEvent.change(select, { target: { value: 'active' } });
+    fireEvent.change(select, { target: { value: 'Vigente' } });
 
     await waitFor(() => {
       const calls = vi.mocked(useContractsModule.useContracts).mock.calls;

@@ -3,20 +3,11 @@ import { useSearchParams } from 'react-router-dom';
 import { FilterBar } from '../../components/molecules/FilterBar/FilterBar';
 import { Pagination } from '../../components/molecules/Pagination/Pagination';
 import { DataTable } from '../../components/organisms/DataTable/DataTable';
-import { useContracts } from '../../hooks/useContracts';
+import { useContracts, useContractStats } from '../../hooks/useContracts';
 import { useServiceTechnologies } from '../../hooks/useServiceTechnologies';
 import type { ContractSummary } from '../../types/contract';
 import { ContractStatsCards } from './ContractStatsCards';
 import styles from './ContractsListPage.module.css';
-
-const STATUS_FILTERS = [
-  { value: '', label: 'Todos' },
-  { value: 'active', label: 'Activo' },
-  { value: 'inactive', label: 'Inactivo' },
-  { value: 'blocked', label: 'Incobrable' },
-  { value: 'late', label: 'Moroso' },
-  { value: 'baja', label: 'Baja' },
-];
 
 interface Column {
   label: string;
@@ -75,12 +66,19 @@ export default function ContractsListPage() {
   });
 
   const { data: technologies = [] } = useServiceTechnologies();
+  const { data: stats } = useContractStats();
 
   const totalPages = data ? data.totalPages : 1;
 
   const technologyOptions = [
     { value: '', label: 'Todas' },
     ...technologies.map((t) => ({ value: t.name, label: t.name })),
+  ];
+
+  // Estado: opciones derivadas de los estados REALES de GR (keys de byStatus), no hardcodeadas.
+  const statusOptions = [
+    { value: '', label: 'Todos' },
+    ...Object.keys(stats?.byStatus ?? {}).map((s) => ({ value: s, label: s })),
   ];
 
   const columns = getColumns();
@@ -103,7 +101,7 @@ export default function ContractsListPage() {
         onSearch={(v) => { setSearch(v); setPage(1); }}
         searchPlaceholder="Buscar contrato..."
         filters={[
-          { key: 'status', label: 'Estado', options: STATUS_FILTERS },
+          { key: 'status', label: 'Estado', options: statusOptions },
           { key: 'technology', label: 'Tecnología', options: technologyOptions },
         ]}
         onFilterChange={(key, v) => {
