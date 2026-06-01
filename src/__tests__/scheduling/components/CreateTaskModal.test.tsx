@@ -72,11 +72,49 @@ describe('CreateTaskModal', () => {
     );
   }
 
-  it('disables the create button until a title is entered', () => {
+  /** Helper: sets up mocks with a customer that has one service, renders, and
+   *  picks both the customer and the service so the form can be submitted. */
+  async function setupWithFullForm(title = 'Cambiar router') {
+    const customer = { id: 'c-full', name: 'FULL CUSTOMER', email: 'full@test.com' };
+    useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
+    useClientDetailMock.mockReturnValue({ data: { id: 'c-full', name: 'FULL CUSTOMER', address: 'Calle Full 1' } });
+    useClientServicesMock.mockReturnValue({
+      data: [{ id: 1, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null }],
+      isLoading: false,
+    });
+    const result = render(
+      <CreateTaskModal projects={projects} workflows={workflows} onClose={onClose} onCreate={onCreate} loading={false} />,
+    );
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: title } });
+    fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Full' } });
+    fireEvent.click(await screen.findByText('FULL CUSTOMER'));
+    const serviceSelect = await screen.findByRole('combobox', { name: /servicio/i });
+    fireEvent.change(serviceSelect, { target: { value: '1' } });
+    return result;
+  }
+
+  it('disables the create button until title + client + service are all entered', async () => {
+    const customer = { id: 'c-btn', name: 'BTN CUSTOMER', email: 'btn@test.com' };
+    useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
+    useClientDetailMock.mockReturnValue({ data: { id: 'c-btn', name: 'BTN CUSTOMER', address: 'Calle 1' } });
+    useClientServicesMock.mockReturnValue({
+      data: [{ id: 2, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null }],
+      isLoading: false,
+    });
     setup();
     const btn = screen.getByRole('button', { name: /crear tarea/i });
+    // No title yet
     expect(btn).toBeDisabled();
+    // Title only — still disabled (no client)
     fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Cambiar router' } });
+    expect(btn).toBeDisabled();
+    // Pick customer — still disabled (no service selected yet)
+    fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'BTN' } });
+    fireEvent.click(await screen.findByText('BTN CUSTOMER'));
+    await screen.findByRole('combobox', { name: /servicio/i });
+    expect(btn).toBeDisabled();
+    // Pick service — now enabled
+    fireEvent.change(screen.getByRole('combobox', { name: /servicio/i }), { target: { value: '2' } });
     expect(btn).toBeEnabled();
   });
 
@@ -90,7 +128,8 @@ describe('CreateTaskModal', () => {
     fireEvent.change(screen.getByLabelText(/aplicar plantilla/i), { target: { value: 'tpl-1' } });
     expect((screen.getByPlaceholderText('Título de la tarea') as HTMLInputElement).value).toBe('Instalación FTTH');
     expect((screen.getByPlaceholderText('Detalles de la tarea…') as HTMLTextAreaElement).value).toBe('Tirar fibra');
-    expect(screen.getByRole('button', { name: /crear tarea/i })).toBeEnabled();
+    // Button still disabled without client+service — template alone is not enough
+    expect(screen.getByRole('button', { name: /crear tarea/i })).toBeDisabled();
   });
 
   it('does not render the template selector when there are no templates', () => {
@@ -115,8 +154,7 @@ describe('CreateTaskModal', () => {
   });
 
   it('creates a task on the FIRST stage (lowest order) of the project workflow', async () => {
-    setup();
-    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Cambiar router' } });
+    await setupWithFullForm('Cambiar router');
     fireEvent.click(screen.getByRole('button', { name: /crear tarea/i }));
 
     await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
@@ -141,9 +179,8 @@ describe('CreateTaskModal', () => {
     render(
       <CreateTaskModal projects={mixed} workflows={workflows} onClose={onClose} onCreate={onCreate} loading={false} />,
     );
-    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea' } });
-    // Button enabled because the default selection landed on 'proj-1' (has workflow), not 'no-wf'.
-    expect(screen.getByRole('button', { name: /crear tarea/i })).toBeEnabled();
+    // The "no workflow" warning should NOT appear — default selection landed on 'proj-1' (has workflow).
+    expect(screen.queryByText(/no tiene un workflow asignado/i)).not.toBeInTheDocument();
   });
 
   it('warns and keeps the button disabled when the chosen project has no workflow', () => {
@@ -160,8 +197,7 @@ describe('CreateTaskModal', () => {
 
   it('shows an error and does not close when creation fails', async () => {
     onCreate.mockRejectedValueOnce(new Error('boom'));
-    setup();
-    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'X' } });
+    await setupWithFullForm('X');
     fireEvent.click(screen.getByRole('button', { name: /crear tarea/i }));
 
     expect(await screen.findByText(/no se pudo crear la tarea/i)).toBeInTheDocument();
@@ -308,8 +344,7 @@ describe('CreateTaskModal', () => {
     });
 
     it('submits both startDate and endDate as ISO strings to onCreate', async () => {
-      setup();
-      fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Reagendar' } });
+      await setupWithFullForm('Reagendar');
       fireEvent.change(screen.getByLabelText('Inicia'), { target: { value: '2026-06-15T10:00' } });
       fireEvent.change(screen.getByLabelText('Termina'), { target: { value: '2026-06-15T12:30' } });
       fireEvent.click(screen.getByRole('button', { name: /crear tarea/i }));
@@ -320,14 +355,119 @@ describe('CreateTaskModal', () => {
     });
 
     it('blocks submit when End is earlier than Start and shows an error', async () => {
-      setup();
-      fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Roto' } });
+      await setupWithFullForm('Roto');
       fireEvent.change(screen.getByLabelText('Inicia'), { target: { value: '2026-06-15T15:00' } });
       // Override the auto +1h with an earlier value
       fireEvent.change(screen.getByLabelText('Termina'), { target: { value: '2026-06-15T14:00' } });
       fireEvent.click(screen.getByRole('button', { name: /crear tarea/i }));
       expect(await screen.findByText(/fecha de fin debe ser mayor/i)).toBeInTheDocument();
       expect(onCreate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('client + service required', () => {
+    function setupWithCustomer(services: unknown[] = [], isLoading = false) {
+      const customer = { id: 'c-20', name: 'LOPEZ PEDRO', email: 'lopez@test.com' };
+      useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
+      useClientDetailMock.mockReturnValue({ data: { id: 'c-20', name: 'LOPEZ PEDRO', address: 'Calle 123' } });
+      useClientServicesMock.mockReturnValue({ data: services, isLoading });
+      return render(
+        <CreateTaskModal
+          projects={projects}
+          workflows={workflows}
+          onClose={onClose}
+          onCreate={onCreate}
+          loading={false}
+        />,
+      );
+    }
+
+    it('keeps Crear tarea disabled when title is present but client is missing', () => {
+      setup();
+      fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea sin cliente' } });
+      expect(screen.getByRole('button', { name: /crear tarea/i })).toBeDisabled();
+    });
+
+    it('keeps Crear tarea disabled when title + client are present but service is missing', async () => {
+      const services = [
+        { id: 77, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null },
+      ];
+      setupWithCustomer(services);
+
+      fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea con cliente sin servicio' } });
+
+      // Pick the customer
+      fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Lopez' } });
+      fireEvent.click(await screen.findByText('LOPEZ PEDRO'));
+
+      // Service dropdown is visible but no service chosen (default empty option)
+      await screen.findByRole('combobox', { name: /servicio/i });
+      expect(screen.getByRole('button', { name: /crear tarea/i })).toBeDisabled();
+    });
+
+    it('enables Crear tarea when title + client + service are all present', async () => {
+      const services = [
+        { id: 88, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2500, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null },
+      ];
+      setupWithCustomer(services);
+
+      fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea completa' } });
+
+      fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Lopez' } });
+      fireEvent.click(await screen.findByText('LOPEZ PEDRO'));
+
+      const serviceSelect = await screen.findByRole('combobox', { name: /servicio/i });
+      fireEvent.change(serviceSelect, { target: { value: '88' } });
+
+      expect(screen.getByRole('button', { name: /crear tarea/i })).toBeEnabled();
+    });
+
+    it('shows informative message and disables select when customer has no services', async () => {
+      setupWithCustomer([]); // no services, not loading
+
+      fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Lopez' } });
+      fireEvent.click(await screen.findByText('LOPEZ PEDRO'));
+
+      const serviceSelect = await screen.findByRole('combobox', { name: /servicio/i });
+      expect(serviceSelect).toBeDisabled();
+      expect(screen.getByText(/este cliente no tiene servicios/i)).toBeInTheDocument();
+    });
+
+    it('does NOT show "sin servicios" message while services are loading', async () => {
+      setupWithCustomer([], true); // no services yet, but loading
+
+      fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Lopez' } });
+      fireEvent.click(await screen.findByText('LOPEZ PEDRO'));
+
+      // While loading, the "no services" info must not appear
+      await waitFor(() =>
+        expect(screen.queryByText(/este cliente no tiene servicios/i)).not.toBeInTheDocument(),
+      );
+    });
+
+    it('submit passes serviceId to onCreate when client + service are selected', async () => {
+      const services = [
+        { id: 99, plan: 'Plan 200Mbps', type: 'internet', status: 'active', price: 4000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: 'Servicio Calle 9' },
+      ];
+      setupWithCustomer(services);
+
+      fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea con servicio' } });
+
+      fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Lopez' } });
+      fireEvent.click(await screen.findByText('LOPEZ PEDRO'));
+
+      const serviceSelect = await screen.findByRole('combobox', { name: /servicio/i });
+      fireEvent.change(serviceSelect, { target: { value: '99' } });
+
+      fireEvent.click(screen.getByRole('button', { name: /crear tarea/i }));
+      await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+
+      expect(onCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customerId: 'c-20',
+          serviceId: '99',
+        }),
+      );
     });
   });
 });

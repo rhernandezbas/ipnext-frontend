@@ -96,7 +96,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   // manual edit on re-render / background refetch.
   const { data: customerDetail } = useClientDetail(customerId ?? '');
   // Services of the selected customer
-  const { data: customerServices = [] } = useClientServices(customerId ?? '', !!customerId);
+  const { data: customerServices = [], isLoading: servicesLoading } = useClientServices(customerId ?? '', !!customerId);
   const filledForCustomer = useRef<string | null>(null);
   useEffect(() => {
     if (!customerId) { filledForCustomer.current = null; return; }
@@ -184,7 +184,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     [workflows, selectedProject],
   );
 
-  const canSave = title.trim().length > 0 && !!firstStageId && !loading;
+  const canSave = title.trim().length > 0 && !!firstStageId && !!customerId && !!serviceId && !loading;
 
   function applyTemplate(id: string) {
     setTemplateId(id);
@@ -287,15 +287,15 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
 
         {customerId && (
           <label className={styles.label}>
-            Servicio
+            Servicio *
             <select
               className={styles.select}
               value={serviceId ?? ''}
               onChange={e => setServiceId(e.target.value || null)}
-              disabled={customerServices.length === 0}
+              disabled={servicesLoading || customerServices.length === 0}
             >
               <option value="">
-                {customerServices.length === 0 ? '— Sin servicios —' : '— Sin servicio —'}
+                {servicesLoading ? '— Cargando servicios… —' : '— Sin servicio —'}
               </option>
               {customerServices.map(s => (
                 <option key={s.id} value={String(s.id)}>
@@ -303,6 +303,9 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
                 </option>
               ))}
             </select>
+            {!servicesLoading && customerServices.length === 0 && (
+              <span className={styles.hint}>Este cliente no tiene servicios activos. No se puede crear la tarea.</span>
+            )}
           </label>
         )}
 
