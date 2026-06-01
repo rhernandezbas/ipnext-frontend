@@ -136,6 +136,8 @@ const CDRPage = lazy(() => import('@/pages/voice/CDRPage'));
 const PortalConfigPage = lazy(() => import('@/pages/portal/PortalConfigPage'));
 const PortalUsersPage = lazy(() => import('@/pages/portal/PortalUsersPage'));
 const NetworkTopologyPage = lazy(() => import('@/pages/networking/NetworkTopologyPage'));
+const ContractsListPage = lazy(() => import('@/pages/contracts/ContractsListPage'));
+const ServiceTechnologiesPage = lazy(() => import('@/pages/contracts/ServiceTechnologiesPage'));
 
 export function App() {
   return (
@@ -277,6 +279,12 @@ export function App() {
                 <Route path="dashboard" element={<RequirePermission permission="crm.read"><CrmDashboardPage /></RequirePermission>} />
                 <Route path="quotes" element={<RequirePermission permission="crm.read"><CrmQuotesPage /></RequirePermission>} />
                 <Route path="map" element={<RequirePermission permission="crm.read"><CrmMapPage /></RequirePermission>} />
+              </Route>
+
+              {/* ── Contracts (contracts.read) — 2 routes ─────────────────── */}
+              <Route path="contracts">
+                <Route path="list" element={<RequirePermission permission="contracts.read"><ContractsListPage /></RequirePermission>} />
+                <Route path="technologies" element={<RequirePermission permission="contracts.read"><ServiceTechnologiesPage /></RequirePermission>} />
               </Route>
 
               {/* ── SLA (sla.read) ─────────────────────────────────────────── */}

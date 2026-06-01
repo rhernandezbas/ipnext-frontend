@@ -278,6 +278,14 @@ vi.mock('@/pages/voice/CDRPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:CDR]'),
 }));
 
+// Contracts
+vi.mock('@/pages/contracts/ContractsListPage', () => ({
+  default: () => React.createElement('div', null, '[PAGE:ContractsList]'),
+}));
+vi.mock('@/pages/contracts/ServiceTechnologiesPage', () => ({
+  default: () => React.createElement('div', null, '[PAGE:ServiceTechnologies]'),
+}));
+
 // SLA
 vi.mock('@/pages/sla/SLADashboardPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:SLADashboard]'),
@@ -383,6 +391,9 @@ const directCases: Array<{ url: string; marker: string }> = [
   { url: '/admin/customers/map', marker: '[PAGE:CustomerMap]' },
   { url: '/admin/customers/view/42', marker: '[PAGE:ClienteDetail]' },
   { url: '/admin/customers/view/42/edit', marker: '[PAGE:EditCliente]' },
+  // Contracts (CP-8 — 2 new routes; total routes 94 → 96)
+  { url: '/admin/contracts/list', marker: '[PAGE:ContractsList]' },
+  { url: '/admin/contracts/technologies', marker: '[PAGE:ServiceTechnologies]' },
   // CRM
   { url: '/admin/crm/leads', marker: '[PAGE:Leads]' },
   { url: '/admin/crm/dashboard', marker: '[PAGE:CrmDashboard]' },
