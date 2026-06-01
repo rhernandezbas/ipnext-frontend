@@ -4,6 +4,7 @@ import { useClientServices, useAddService, useUpdateService, useDeleteService } 
 import type { Service } from '../../../types/customer';
 import type { AddServiceData, UpdateServiceData } from '../../../types/customer';
 import { Can } from '../../../components/auth/Can';
+import { ServiceInventorySection } from './ServiceInventorySection';
 import styles from './Tab.module.css';
 
 interface Props { clientId: string; active: boolean; }
@@ -235,6 +236,20 @@ export function ServicesTab({ clientId, active }: Props) {
             )}
           </tbody>
         </table>
+      )}
+
+      {!isLoading && (data ?? []).length > 0 && (
+        <div style={{ marginTop: '1.5rem' }}>
+          <h4 style={{ margin: '0 0 0.5rem' }}>Inventario por servicio</h4>
+          {(data ?? []).map((service) => (
+            <div key={`inv-${service.id}`} style={{ marginBottom: '1rem' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                {service.type} · {service.plan}
+              </div>
+              <ServiceInventorySection serviceId={String(service.id)} enabled={active} />
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
