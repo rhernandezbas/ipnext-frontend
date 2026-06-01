@@ -6,6 +6,7 @@ import { DataTable } from '../../components/organisms/DataTable/DataTable';
 import { useContracts } from '../../hooks/useContracts';
 import { useServiceTechnologies } from '../../hooks/useServiceTechnologies';
 import type { ContractSummary } from '../../types/contract';
+import { ContractStatsCards } from './ContractStatsCards';
 import styles from './ContractsListPage.module.css';
 
 const STATUS_FILTERS = [
@@ -49,6 +50,11 @@ export default function ContractsListPage() {
   const [search, setSearch] = useState(searchParams.get('search') ?? '');
   const [status, setStatus] = useState(searchParams.get('status') ?? '');
   const [technology, setTechnology] = useState(searchParams.get('technology') ?? '');
+
+  function handleStatusClick(s: string) {
+    setStatus(s === status ? '' : s);
+    setPage(1);
+  }
   const [page, setPage] = useState(Number(searchParams.get('page') ?? '1'));
 
   useEffect(() => {
@@ -92,6 +98,7 @@ export default function ContractsListPage() {
       <div className={styles.pageHeader}>
         <h1 className={styles.title}>Contratos</h1>
       </div>
+      <ContractStatsCards activeStatus={status} onStatusClick={handleStatusClick} />
       <FilterBar
         onSearch={(v) => { setSearch(v); setPage(1); }}
         searchPlaceholder="Buscar contrato..."

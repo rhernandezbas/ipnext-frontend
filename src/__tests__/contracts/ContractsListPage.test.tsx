@@ -85,6 +85,11 @@ beforeEach(() => {
     isError: false,
   } as ReturnType<typeof useContractsModule.useContracts>);
 
+  vi.mocked(useContractsModule.useContractStats).mockReturnValue({
+    data: { total: 2, byStatus: { Vigente: 1, Baja: 1 } },
+    isLoading: false,
+  } as ReturnType<typeof useContractsModule.useContractStats>);
+
   vi.mocked(useServiceTechModule.useServiceTechnologies).mockReturnValue({
     data: mockTechnologies,
     isLoading: false,
@@ -94,6 +99,28 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+// ── CP-0: Stats bar integration ──────────────────────────────────────────────
+describe('CP-0: stats bar', () => {
+  it('renders ContractStatsCards with stats from useContractStats', () => {
+    renderPage();
+    expect(screen.getByText(/contratos totales/i)).toBeInTheDocument();
+    expect(screen.getByText('Vigente')).toBeInTheDocument();
+    // "Baja" may appear in stats card label AND filter dropdown — at least one occurrence
+    expect(screen.getAllByText('Baja').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('clicking a stats card updates the status filter', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole('button', { name: /Vigente/i }));
+    await waitFor(() => {
+      const calls = vi.mocked(useContractsModule.useContracts).mock.calls;
+      const lastCall = calls[calls.length - 1][0];
+      expect(lastCall.status).toBe('Vigente');
+    });
+  });
 });
 
 // ── CP-1: Render ──────────────────────────────────────────────────────────────
