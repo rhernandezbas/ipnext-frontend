@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
@@ -30,26 +31,44 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+/**
+ * Open a Level-1 section accordion (CRM / Empresa / Sistema) so its item
+ * buttons enter the DOM. With the inline-accordion redesign, item buttons
+ * only render while their section is expanded.
+ */
+async function openSection(name: RegExp) {
+  await userEvent.click(screen.getByRole('button', { name }));
+}
+
 describe('Sidebar — permission filtering', () => {
-  it('SP1 — super_admin (*): all nav groups render', () => {
+  it('SP1 — super_admin (*): all nav groups render', async () => {
     mockPerms({ permissions: ['*'], can: () => true });
     renderSidebar();
-    // spot-check a few sections
+    // Section headers are present regardless of open state.
+    expect(screen.getByRole('button', { name: /^crm$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^empresa$/i })).toBeInTheDocument();
+
+    // Expand CRM → its items (Clientes, Finanzas) become visible.
+    await openSection(/^crm$/i);
     expect(screen.getAllByRole('button', { name: /clientes/i }).length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: /scheduling/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /finanzas/i })).toBeInTheDocument();
+
+    // Expand Empresa → Scheduling item becomes visible.
+    await openSection(/^empresa$/i);
+    expect(screen.getByRole('button', { name: /scheduling/i })).toBeInTheDocument();
   });
 
-  it('SP2 — no permissions: CRM groups are hidden', () => {
+  it('SP2 — no permissions: CRM section (and its items) are hidden', () => {
     mockPerms({ permissions: [], can: () => false });
     renderSidebar();
-    // Clientes (clients.read) should be hidden
+    // A section with no visible items is hidden entirely → no CRM header.
+    expect(screen.queryByRole('button', { name: /^crm$/i })).not.toBeInTheDocument();
+    // And its items never render.
     expect(screen.queryByRole('button', { name: /^clientes$/i })).not.toBeInTheDocument();
-    // Finanzas (billing.read) should be hidden
     expect(screen.queryByRole('button', { name: /finanzas/i })).not.toBeInTheDocument();
   });
 
-  it('SP3 — has scheduling.read: Scheduling group renders', () => {
+  it('SP3 — has scheduling.read: Scheduling group renders', async () => {
     mockPerms({
       permissions: ['scheduling.read'],
       can: (p) => {
@@ -58,6 +77,8 @@ describe('Sidebar — permission filtering', () => {
       },
     });
     renderSidebar();
+    // Empresa section visible (it has at least the Scheduling item); expand it.
+    await openSection(/^empresa$/i);
     expect(screen.getByRole('button', { name: /scheduling/i })).toBeInTheDocument();
   });
 
@@ -70,13 +91,17 @@ describe('Sidebar — permission filtering', () => {
       },
     });
     renderSidebar();
+    // CRM section has no visible items (clients.read denied) → hidden entirely,
+    // so the Clientes item never renders.
     expect(screen.queryByRole('button', { name: /^clientes$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^crm$/i })).not.toBeInTheDocument();
   });
 
-  it('SP5 — loading state: all items visible (no layout shift while loading)', () => {
+  it('SP5 — loading state: all items visible (no layout shift while loading)', async () => {
     mockPerms({ isLoading: true, can: () => false });
     renderSidebar();
-    // While loading we show all items to avoid flicker
+    // While loading every section renders (no filtering). Expand CRM to reveal items.
+    await userEvent.click(screen.getByRole('button', { name: /^crm$/i }));
     expect(screen.getAllByRole('button', { name: /clientes/i }).length).toBeGreaterThan(0);
   });
 

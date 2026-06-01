@@ -25,10 +25,15 @@ describe('Sidebar', () => {
     expect(screen.getByRole('button', { name: /finanzas/i })).toBeInTheDocument();
   });
 
-  it('CRM parent is labelled "Clientes potenciales" (not "CRM")', () => {
+  it('CRM item is labelled "Clientes potenciales" (the leads group, distinct from the CRM section header)', () => {
     renderSidebar('/admin/crm/dashboard');
+    // The leads item button is labelled "Clientes potenciales".
     expect(screen.getByRole('button', { name: /clientes potenciales/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^crm$/i })).not.toBeInTheDocument();
+    // The CRM section header is now its own accordion button (introduced by the redesign);
+    // the leads item must NOT be mislabelled as a bare "CRM".
+    expect(
+      screen.getByRole('button', { name: /clientes potenciales/i }).textContent,
+    ).not.toMatch(/^crm/i);
   });
 
   it('Mensajes parent is labelled "Mensajes" (not "Soporte")', () => {

@@ -1,5 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import ReactDOM from 'react-dom';
+import { useEffect, useId, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import styles from './Sidebar.module.css';
@@ -12,14 +11,25 @@ interface SubItem {
 interface NavParentItem {
   label: string;
   icon?: string;
-  children: SubItem[];
+  /** Sub-pages (level 3). Omitted when the item is a direct link (use `to`). */
+  children?: SubItem[];
+  /** Direct navigation target. When set, the item renders as a link, not an accordion. */
+  to?: string;
   matchPaths: string[];
   /**
-   * Permission required to show this nav group.
+   * Permission required to show this nav item.
    * If omitted the item is always visible.
    * While permissions are loading, all items render (no layout shift).
    */
   requiredPermission?: string;
+}
+
+interface NavSectionDef {
+  /** Section heading (CRM / Empresa / Sistema). */
+  label: string;
+  /** Stable key used to track which section is open. */
+  key: string;
+  items: NavParentItem[];
 }
 
 const CRM_ITEMS: NavParentItem[] = [
@@ -184,6 +194,11 @@ const EMPRESA_ITEMS: NavParentItem[] = [
       { to: '/admin/tariffs/huawei-groups', label: 'Huawei Groups' },
     ],
   },
+  {
+    label: 'Informes',
+    to: '/admin/reports',
+    matchPaths: ['/admin/reports'],
+  },
 ];
 
 const SISTEMA_ITEMS: NavParentItem[] = [
@@ -201,170 +216,163 @@ const SISTEMA_ITEMS: NavParentItem[] = [
   },
 ];
 
-function isParentActive(item: NavParentItem, pathname: string): boolean {
+const SECTIONS: NavSectionDef[] = [
+  { key: 'crm', label: 'CRM', items: CRM_ITEMS },
+  { key: 'empresa', label: 'Empresa', items: EMPRESA_ITEMS },
+  { key: 'sistema', label: 'Sistema', items: SISTEMA_ITEMS },
+];
+
+function isItemActive(item: NavParentItem, pathname: string): boolean {
   return item.matchPaths.some((p) => pathname.startsWith(p));
 }
 
-// ---------------------------------------------------------------------------
-// NavPanel — presentational component (portal content)
-// ---------------------------------------------------------------------------
-
-interface NavPanelProps {
-  items: SubItem[];
-  groupLabel: string;
-  style: React.CSSProperties;
-  onClose: () => void;
-  onKeyDown: (e: React.KeyboardEvent) => void;
-  panelRef: React.RefObject<HTMLDivElement>;
-}
-
-function NavPanel({ items, groupLabel, style, onClose, onKeyDown, panelRef }: NavPanelProps) {
-  const firstLinkRef = useRef<HTMLAnchorElement>(null);
-
-  // Move focus to first link when panel mounts
-  useEffect(() => {
-    firstLinkRef.current?.focus();
-  }, []);
-
-  return (
-    <div
-      ref={panelRef}
-      role="navigation"
-      aria-label={`Menú ${groupLabel}`}
-      className={`${styles.navPanel} ${styles.navPanelOpen}`}
-      style={style}
-      onKeyDown={onKeyDown}
-    >
-      {items.map(({ to, label }, index) => (
-        <NavLink
-          key={to}
-          to={to}
-          end
-          ref={index === 0 ? firstLinkRef : undefined}
-          className={({ isActive }) =>
-            isActive
-              ? `${styles.navChild} ${styles.navChildActive}`
-              : styles.navChild
-          }
-          onClick={onClose}
-        >
-          {label}
-        </NavLink>
-      ))}
-    </div>
-  );
+/**
+ * Derive which section + item should auto-expand from the current pathname.
+ * Returns the section key and item label that contain the active route,
+ * or null when nothing matches (no section auto-opens).
+ */
+function deriveActive(
+  sections: NavSectionDef[],
+  pathname: string,
+): { sectionKey: string | null; itemLabel: string | null } {
+  for (const section of sections) {
+    for (const item of section.items) {
+      if (isItemActive(item, pathname)) {
+        return { sectionKey: section.key, itemLabel: item.label };
+      }
+    }
+  }
+  return { sectionKey: null, itemLabel: null };
 }
 
 // ---------------------------------------------------------------------------
-// CollapsibleNavItem — container component
+// NavItem — Level 2 inline accordion (item → sub-pages)
 // ---------------------------------------------------------------------------
 
-function CollapsibleNavItem({ item }: { item: NavParentItem }) {
+interface NavItemProps {
+  item: NavParentItem;
+  open: boolean;
+  onToggle: () => void;
+}
+
+function NavItem({ item, open, onToggle }: NavItemProps) {
   const location = useLocation();
-  const active = isParentActive(item, location.pathname);
-  const [open, setOpen] = useState(active);
-  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({});
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const active = isItemActive(item, location.pathname);
+  const regionId = useId();
 
-  const getPortalStyle = useCallback((): React.CSSProperties => {
-    if (!triggerRef.current) return {};
-    const rect = triggerRef.current.getBoundingClientRect();
-    return {
-      position: 'fixed',
-      top: rect.top,
-      left: rect.right,
-      minWidth: 200,
-      zIndex: 9999,
-    };
-  }, []);
-
-  // Set initial position when opening
-  useEffect(() => {
-    if (open) {
-      setPanelStyle(getPortalStyle());
-    }
-  }, [open, getPortalStyle]);
-
-  // Scroll/resize repositioning with rAF throttle
-  useEffect(() => {
-    if (!open) return;
-
-    let scheduled = false;
-
-    function update() {
-      setPanelStyle(getPortalStyle());
-      scheduled = false;
-    }
-
-    function onScrollOrResize() {
-      if (!scheduled) {
-        scheduled = true;
-        requestAnimationFrame(update);
-      }
-    }
-
-    window.addEventListener('scroll', onScrollOrResize, true); // capture: true
-    window.addEventListener('resize', onScrollOrResize);
-
-    return () => {
-      window.removeEventListener('scroll', onScrollOrResize, true);
-      window.removeEventListener('resize', onScrollOrResize);
-    };
-  }, [open, getPortalStyle]);
-
-  // Outside click closes panel
-  useEffect(() => {
-    if (!open) return;
-
-    function handleMouseDown(e: MouseEvent) {
-      const target = e.target as Node;
-      if (
-        panelRef.current?.contains(target) ||
-        triggerRef.current?.contains(target)
-      ) {
-        return;
-      }
-      setOpen(false);
-    }
-
-    document.addEventListener('mousedown', handleMouseDown);
-    return () => {
-      document.removeEventListener('mousedown', handleMouseDown);
-    };
-  }, [open]);
-
-  // Escape key handler
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Escape') {
-      setOpen(false);
-      triggerRef.current?.focus();
-    }
+  // Direct-link item (no sub-pages) — e.g. Informes inside Empresa.
+  if (item.to) {
+    return (
+      <NavLink
+        to={item.to}
+        end
+        className={({ isActive }) =>
+          isActive ? `${styles.navParent} ${styles.navParentLinkActive}` : styles.navParent
+        }
+      >
+        <span>{item.label}</span>
+      </NavLink>
+    );
   }
 
   return (
     <div className={styles.navGroup}>
       <button
-        ref={triggerRef}
+        type="button"
         className={`${styles.navParent} ${active ? styles.navParentActive : ''}`}
-        onClick={() => setOpen((v) => !v)}
+        onClick={onToggle}
         aria-expanded={open}
+        aria-controls={regionId}
       >
         <span>{item.label}</span>
-        <span className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`}>›</span>
+        <span aria-hidden="true" className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`}>›</span>
       </button>
-      {open &&
-        ReactDOM.createPortal(
-          <NavPanel
-            items={item.children}
-            groupLabel={item.label}
-            style={panelStyle}
-            onClose={() => setOpen(false)}
-            onKeyDown={handleKeyDown}
-            panelRef={panelRef}
-          />,
-          document.body
-        )}
+      <div
+        id={regionId}
+        role="region"
+        aria-label={item.label}
+        className={`${styles.collapsible} ${open ? styles.collapsibleOpen : ''}`}
+        hidden={!open}
+      >
+        <div className={styles.collapsibleInner}>
+          <div className={styles.navChildren}>
+            {(item.children ?? []).map(({ to, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end
+                className={({ isActive }) =>
+                  isActive
+                    ? `${styles.navChild} ${styles.navChildActive}`
+                    : styles.navChild
+                }
+              >
+                {label}
+              </NavLink>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// NavSection — Level 1 inline accordion (section → items)
+// ---------------------------------------------------------------------------
+
+interface NavSectionProps {
+  label: string;
+  items: NavParentItem[];
+  open: boolean;
+  onToggle: () => void;
+  /** Label of the item open within this section (single-open), or null. */
+  openItemLabel: string | null;
+  onItemToggle: (label: string) => void;
+}
+
+function NavSection({
+  label,
+  items,
+  open,
+  onToggle,
+  openItemLabel,
+  onItemToggle,
+}: NavSectionProps) {
+  const location = useLocation();
+  const regionId = useId();
+  const active = items.some((item) => isItemActive(item, location.pathname));
+
+  return (
+    <div className={styles.navSection}>
+      <button
+        type="button"
+        className={`${styles.navSectionTitle} ${active ? styles.navSectionTitleActive : ''}`}
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={regionId}
+      >
+        <span>{label}</span>
+        <span aria-hidden="true" className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`}>›</span>
+      </button>
+      <div
+        id={regionId}
+        role="region"
+        aria-label={label}
+        className={`${styles.collapsible} ${open ? styles.collapsibleOpen : ''}`}
+        hidden={!open}
+      >
+        <div className={styles.collapsibleInner}>
+          {items.map((item) => (
+            <NavItem
+              key={item.label}
+              item={item}
+              open={openItemLabel === item.label}
+              onToggle={() => onItemToggle(item.label)}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -380,6 +388,7 @@ interface SidebarProps {
 
 export function Sidebar({ open = true, onToggle }: SidebarProps) {
   const { can, isLoading } = useMyPermissions();
+  const location = useLocation();
 
   /**
    * Returns true if the nav item should be rendered.
@@ -392,9 +401,51 @@ export function Sidebar({ open = true, onToggle }: SidebarProps) {
     return can(item.requiredPermission);
   }
 
-  const visibleCrmItems = CRM_ITEMS.filter(canSee);
-  const visibleEmpresaItems = EMPRESA_ITEMS.filter(canSee);
-  const visibleSistemaItems = SISTEMA_ITEMS.filter(canSee);
+  // Build the visible section list, dropping any section with no visible items.
+  const visibleSections = SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter(canSee),
+  })).filter((section) => section.items.length > 0);
+
+  // Auto-expand: derive the active section + item from the pathname.
+  const { sectionKey: activeSectionKey, itemLabel: activeItemLabel } = deriveActive(
+    SECTIONS,
+    location.pathname,
+  );
+
+  // Single-open section state (lazy init from the active route).
+  const [openSection, setOpenSection] = useState<string | null>(activeSectionKey);
+
+  // Single-open item state, keyed by section (lazy init from the active route).
+  const [openItemBySection, setOpenItemBySection] = useState<Record<string, string | null>>(
+    () => (activeSectionKey ? { [activeSectionKey]: activeItemLabel } : {}),
+  );
+
+  // Keep the accordion coherent with the route: when navigation lands on a
+  // different section/item, auto-expand it (single-open semantics preserved).
+  // Skips the initial render — lazy state init already handles first paint.
+  const prevPathRef = useRef(location.pathname);
+  useEffect(() => {
+    if (prevPathRef.current === location.pathname) return;
+    prevPathRef.current = location.pathname;
+    if (!activeSectionKey) return;
+    setOpenSection(activeSectionKey);
+    setOpenItemBySection((prev) => ({
+      ...prev,
+      [activeSectionKey]: activeItemLabel,
+    }));
+  }, [location.pathname, activeSectionKey, activeItemLabel]);
+
+  function toggleSection(key: string) {
+    setOpenSection((prev) => (prev === key ? null : key));
+  }
+
+  function toggleItem(sectionKey: string, label: string) {
+    setOpenItemBySection((prev) => ({
+      ...prev,
+      [sectionKey]: prev[sectionKey] === label ? null : label,
+    }));
+  }
 
   return (
     <aside className={`${styles.sidebar} ${!open ? styles.sidebarClosed : ''}`}>
@@ -406,14 +457,12 @@ export function Sidebar({ open = true, onToggle }: SidebarProps) {
       </div>
 
       <nav className={styles.nav}>
-        {/* Top-level singleton links — no permission guard, always visible */}
-        <div className={styles.navSection}>
+        {/* Level 0 — top-level singleton links, always visible, no permission guard */}
+        <div className={styles.navTop}>
           <NavLink
             to="/admin/dashboard"
             className={({ isActive }) =>
-              isActive
-                ? `${styles.navChild} ${styles.navChildActive}`
-                : styles.navChild
+              isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink
             }
           >
             Panel de control
@@ -421,9 +470,7 @@ export function Sidebar({ open = true, onToggle }: SidebarProps) {
           <NavLink
             to="/admin/monitoring"
             className={({ isActive }) =>
-              isActive
-                ? `${styles.navChild} ${styles.navChildActive}`
-                : styles.navChild
+              isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink
             }
           >
             Monitoreo
@@ -431,54 +478,26 @@ export function Sidebar({ open = true, onToggle }: SidebarProps) {
           <NavLink
             to="/admin/notifications"
             className={({ isActive }) =>
-              isActive
-                ? `${styles.navChild} ${styles.navChildActive}`
-                : styles.navChild
+              isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink
             }
           >
             Notificaciones
           </NavLink>
         </div>
 
-        {visibleCrmItems.length > 0 && (
-          <div className={styles.navSection}>
-            <p className={styles.navSectionTitle}>CRM</p>
-            {visibleCrmItems.map((item) => (
-              <CollapsibleNavItem key={item.label} item={item} />
-            ))}
-          </div>
-        )}
-
-        {visibleEmpresaItems.length > 0 && (
-          <div className={styles.navSection}>
-            <p className={styles.navSectionTitle}>Empresa</p>
-            {visibleEmpresaItems.map((item) => (
-              <CollapsibleNavItem key={item.label} item={item} />
-            ))}
-          </div>
-        )}
-
-        <div className={styles.navSection}>
-          <NavLink
-            to="/admin/reports"
-            className={({ isActive }) =>
-              isActive
-                ? `${styles.navChild} ${styles.navChildActive}`
-                : styles.navChild
-            }
-          >
-            Informes
-          </NavLink>
-        </div>
-
-        {visibleSistemaItems.length > 0 && (
-          <div className={styles.navSection}>
-            <p className={styles.navSectionTitle}>Sistema</p>
-            {visibleSistemaItems.map((item) => (
-              <CollapsibleNavItem key={item.label} item={item} />
-            ))}
-          </div>
-        )}
+        {/* Level 1 — section accordions (single-open). Informes is now a
+            direct-link item inside the Empresa section. */}
+        {visibleSections.map((section) => (
+          <NavSection
+            key={section.key}
+            label={section.label}
+            items={section.items}
+            open={openSection === section.key}
+            onToggle={() => toggleSection(section.key)}
+            openItemLabel={openItemBySection[section.key] ?? null}
+            onItemToggle={(label) => toggleItem(section.key, label)}
+          />
+        ))}
       </nav>
     </aside>
   );
