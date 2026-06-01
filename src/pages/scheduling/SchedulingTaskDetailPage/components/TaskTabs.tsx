@@ -3,6 +3,7 @@ import { Tabs } from '@/components/molecules/Tabs/Tabs';
 import { TaskDetailsTab } from './TaskDetailsTab';
 import { TaskCommentsTimeline } from './TaskCommentsTimeline';
 import { ComingSoonPanel } from './ComingSoonPanel';
+import { TaskInventorySuggestions } from './TaskInventorySuggestions';
 import type { TaskDetailsTabProps } from './TaskDetailsTab';
 import styles from './TaskTabs.module.css';
 
@@ -23,11 +24,12 @@ const TAB_IDS = {
 } as const;
 
 interface InventoryPanelProps {
+  taskId: string;
   reviewedByInventory: boolean;
   onInventoryToggle: (next: boolean) => void;
 }
 
-function InventoryPanel({ reviewedByInventory, onInventoryToggle }: InventoryPanelProps) {
+function InventoryPanel({ taskId, reviewedByInventory, onInventoryToggle }: InventoryPanelProps) {
   return (
     <div className={styles.inventoryPanel}>
       <div className={styles.inventoryToggleRow}>
@@ -41,10 +43,7 @@ function InventoryPanel({ reviewedByInventory, onInventoryToggle }: InventoryPan
           <span>Revisado por inventario</span>
         </label>
       </div>
-      <ComingSoonPanel
-        title="Materiales y Equipos"
-        description="Gestioná materiales y equipos de la tarea. Próximamente."
-      />
+      <TaskInventorySuggestions taskId={taskId} />
     </div>
   );
 }
@@ -96,6 +95,7 @@ export function TaskTabs({
       label: 'Inventory',
       content: (
         <InventoryPanel
+          taskId={commentsTaskId}
           reviewedByInventory={reviewedByInventory}
           onInventoryToggle={onInventoryToggle}
         />
