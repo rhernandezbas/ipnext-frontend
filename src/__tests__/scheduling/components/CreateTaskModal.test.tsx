@@ -505,4 +505,90 @@ describe('CreateTaskModal', () => {
       );
     });
   });
+
+  describe('initialValues (create-from-ticket prefill)', () => {
+    it('prefills title, customer and description from initialValues', () => {
+      const customer = { id: 'c-init', name: 'INIT CUSTOMER', email: 'init@test.com' };
+      useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
+      render(
+        <CreateTaskModal
+          projects={projects}
+          workflows={workflows}
+          onClose={onClose}
+          onCreate={onCreate}
+          loading={false}
+          initialValues={{
+            title: 'Ticket #7: Sin internet',
+            customerId: 'c-init',
+            customerName: 'INIT CUSTOMER',
+            description: 'No tengo señal desde ayer.',
+          }}
+        />,
+      );
+      expect((screen.getByPlaceholderText('Título de la tarea') as HTMLInputElement).value).toBe('Ticket #7: Sin internet');
+      expect((screen.getByPlaceholderText('Detalles de la tarea…') as HTMLTextAreaElement).value).toBe('No tengo señal desde ayer.');
+      expect(screen.getByText('INIT CUSTOMER')).toBeInTheDocument();
+    });
+
+    it('leaves Contrato EMPTY and keeps the submit DISABLED until a contract is chosen', async () => {
+      const customer = { id: 'c-init2', name: 'INIT TWO', email: 'init2@test.com' };
+      useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
+      useClientDetailMock.mockReturnValue({ data: { id: 'c-init2', name: 'INIT TWO', address: 'Calle X' } });
+      useClientContractsMock.mockReturnValue({
+        data: [{ id: 7, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null }],
+        isLoading: false,
+      });
+      render(
+        <CreateTaskModal
+          projects={projects}
+          workflows={workflows}
+          onClose={onClose}
+          onCreate={onCreate}
+          loading={false}
+          initialValues={{ title: 'Pref', customerId: 'c-init2', customerName: 'INIT TWO', description: 'desc' }}
+        />,
+      );
+      const btn = screen.getByRole('button', { name: /crear tarea/i });
+      // Title + customer prefilled, but contract still empty → disabled (required-contract rule preserved)
+      const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
+      expect((contractSelect as HTMLSelectElement).value).toBe('');
+      expect(btn).toBeDisabled();
+      // User picks the contract → enabled
+      fireEvent.change(contractSelect, { target: { value: '7' } });
+      expect(btn).toBeEnabled();
+    });
+
+    it('includes ticketId in the payload when provided', async () => {
+      const customer = { id: 'c-tk', name: 'TK CUSTOMER', email: 'tk@test.com' };
+      useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
+      useClientDetailMock.mockReturnValue({ data: { id: 'c-tk', name: 'TK CUSTOMER', address: 'Calle TK' } });
+      useClientContractsMock.mockReturnValue({
+        data: [{ id: 3, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null }],
+        isLoading: false,
+      });
+      render(
+        <CreateTaskModal
+          projects={projects}
+          workflows={workflows}
+          onClose={onClose}
+          onCreate={onCreate}
+          loading={false}
+          initialValues={{ title: 'Desde ticket', customerId: 'c-tk', customerName: 'TK CUSTOMER', ticketId: 42 }}
+        />,
+      );
+      const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
+      fireEvent.change(contractSelect, { target: { value: '3' } });
+      fireEvent.click(screen.getByRole('button', { name: /crear tarea/i }));
+      await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+      expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ ticketId: 42 }));
+    });
+
+    it('omits ticketId from the payload when not provided (BE-graceful)', async () => {
+      await setupWithFullForm('Sin ticket');
+      fireEvent.click(screen.getByRole('button', { name: /crear tarea/i }));
+      await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+      const payload = onCreate.mock.calls[0][0] as Record<string, unknown>;
+      expect('ticketId' in payload).toBe(false);
+    });
+  });
 });

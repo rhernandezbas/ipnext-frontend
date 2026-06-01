@@ -1,31 +1,27 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useTicket, useTicketReplies, useUpdateTicketStatus, useAddTicketReply, useAssignTicket, useUpdateTicket, useDeleteTicket } from '../../hooks/useTickets';
-import type { TicketStatus } from '../../types/ticket';
-import { Can } from '../../components/auth/Can';
+import {
+  useTicket,
+  useTicketReplies,
+  useUpdateTicketStatus,
+  useAddTicketReply,
+  useAssignTicket,
+  useUpdateTicket,
+  useDeleteTicket,
+} from '../../hooks/useTickets';
+import { useTicketStatuses } from '../../hooks/useTicketStatuses';
+import { useRbacUsers } from '../../hooks/useRbacUsers';
+import { useCan } from '../../hooks/useMyPermissions';
 import { useConfirm } from '@/context/ConfirmContext';
+import { TicketHeader } from './TicketDetailPage/components/TicketHeader';
+import { CreateTaskModal } from '@/pages/scheduling/SchedulingTasksPage/components/CreateTaskModal';
+import { useProjects } from '@/hooks/useProjects';
+import { useWorkflows } from '@/hooks/useWorkflows';
+import { useTaskTemplates } from '@/hooks/useTaskTemplates';
+import { useCreateTask } from '@/hooks/useScheduling';
 import styles from './TicketDetailPage.module.css';
 
-const STATUS_LABELS: Record<string, string> = {
-  open: 'Abierto',
-  pending: 'Pendiente',
-  resolved: 'Resuelto',
-  closed: 'Cerrado',
-};
-
-const PRIORITY_LABELS: Record<string, string> = {
-  low: 'Baja',
-  medium: 'Media',
-  high: 'Alta',
-  critical: 'Crítica',
-};
-
-const STATUS_BUTTONS: Array<{ value: TicketStatus; label: string }> = [
-  { value: 'open', label: 'Abrir' },
-  { value: 'pending', label: 'Pendiente' },
-  { value: 'resolved', label: 'Resolver' },
-  { value: 'closed', label: 'Cerrar' },
-];
+const CLOSED_SLUGS = ['cerrado', 'closed'];
 
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -35,16 +31,25 @@ export default function TicketDetailPage() {
 
   const { data: ticket, isLoading: ticketLoading } = useTicket(ticketId);
   const { data: replies, isLoading: repliesLoading } = useTicketReplies(ticketId);
+  const { data: catalogStatuses = [] } = useTicketStatuses();
   const updateStatus = useUpdateTicketStatus();
   const updateTicket = useUpdateTicket();
   const deleteTicket = useDeleteTicket();
   const addReply = useAddTicketReply();
   const assignTicket = useAssignTicket();
+  const { data: allUsers = [] } = useRbacUsers();
+
+  const canWrite = useCan('tickets.write');
+
+  // CreateTask modal state (for the "Crear tarea" kebab item).
+  const [showCreateTask, setShowCreateTask] = useState(false);
+  const { data: projects = [] } = useProjects();
+  const { data: workflows = [] } = useWorkflows();
+  const { data: templates = [] } = useTaskTemplates();
+  const technicians = allUsers.filter(u => u.roles.some(r => r.code === 'tecnico'));
+  const createTask = useCreateTask();
 
   const [replyText, setReplyText] = useState('');
-  const [editMode, setEditMode] = useState(false);
-  const [editSubject, setEditSubject] = useState('');
-  const [editPriority, setEditPriority] = useState('');
 
   if (ticketLoading) {
     return <div className={styles.loading}>Cargando ticket...</div>;
@@ -54,24 +59,23 @@ export default function TicketDetailPage() {
     return <div className={styles.notFound}>Ticket no encontrado.</div>;
   }
 
-  function handleStatusChange(status: TicketStatus) {
-    updateStatus.mutate({ id: ticketId, status });
+  // Subject inline edit → origin's updateTicket mutation.
+  async function handleSubjectSave(subject: string) {
+    await updateTicket.mutateAsync({ id: ticketId, data: { subject } });
   }
 
-  function handleEditStart() {
-    setEditSubject(ticket?.subject ?? '');
-    setEditPriority(ticket?.priority ?? '');
-    setEditMode(true);
+  // StatusSelect / kebab close → origin's updateStatus mutation.
+  async function handleStatusChange(status: string) {
+    await updateStatus.mutateAsync({ id: ticketId, status });
   }
 
-  function handleEditSave() {
-    updateTicket.mutate(
-      { id: ticketId, data: { subject: editSubject, priority: editPriority } },
-      { onSuccess: () => setEditMode(false) }
-    );
+  // "Cerrar ticket" kebab → move to the catalog's closed slug.
+  async function handleClose() {
+    const closed = catalogStatuses.find(s => CLOSED_SLUGS.includes(s.name.toLowerCase()));
+    await updateStatus.mutateAsync({ id: ticketId, status: closed?.name ?? 'cerrado' });
   }
 
-  async function handleDeleteTicket() {
+  async function handleDelete() {
     if (await confirm({ message: '¿Eliminar este ticket? Esta acción no se puede deshacer.', tone: 'danger', confirmLabel: 'Eliminar' })) {
       deleteTicket.mutate(ticketId, { onSuccess: () => navigate('/admin/tickets/opened') });
     }
@@ -86,161 +90,156 @@ export default function TicketDetailPage() {
     );
   }
 
+  const isSaving = updateStatus.isPending || updateTicket.isPending;
+
   return (
     <div className={styles.page}>
-      <Link to="/admin/tickets/opened" className={styles.backLink}>
-        ← Volver a tickets
-      </Link>
+      <TicketHeader
+        ticket={ticket}
+        onSubjectSave={handleSubjectSave}
+        onStatusChange={handleStatusChange}
+        onClose={() => void handleClose()}
+        onDelete={() => void handleDelete()}
+        onCreateTask={() => setShowCreateTask(true)}
+        isSaving={isSaving}
+      />
 
-      <div className={styles.header}>
-        {editMode ? (
-          <>
-            <input
-              className={styles.subjectInput}
-              value={editSubject}
-              onChange={(e) => setEditSubject(e.target.value)}
-              aria-label="Asunto"
-            />
-            <select
-              className={styles.prioritySelect}
-              value={editPriority}
-              onChange={(e) => setEditPriority(e.target.value)}
-              aria-label="Prioridad"
-            >
-              <option value="low">Baja</option>
-              <option value="medium">Media</option>
-              <option value="high">Alta</option>
-              <option value="critical">Crítica</option>
-            </select>
-            <Can permission="tickets.write">
-              <button className={styles.saveBtn} onClick={handleEditSave} disabled={updateTicket.isPending}>
-                Guardar cambios
-              </button>
-            </Can>
-            <button className={styles.cancelBtn} onClick={() => setEditMode(false)}>
-              Cancelar
-            </button>
-          </>
-        ) : (
-          <>
-            <h1 className={styles.subject}>{ticket.subject}</h1>
-            <div className={styles.badges}>
-              <span className={`${styles.badge} ${styles[`status_${ticket.status}`]}`}>
-                {STATUS_LABELS[ticket.status] ?? ticket.status}
-              </span>
-              <span className={`${styles.badge} ${styles[`priority_${ticket.priority}`]}`}>
-                {PRIORITY_LABELS[ticket.priority] ?? ticket.priority}
-              </span>
+      {/* 8fr / 4fr grid */}
+      <div className={styles.grid}>
+        {/* Main column — conversation + reply form */}
+        <main className={styles.main}>
+          <section className={styles.conversation}>
+            <h2 className={styles.conversationTitle}>Conversación</h2>
+            {repliesLoading ? (
+              <p>Cargando respuestas...</p>
+            ) : (replies ?? []).length === 0 ? (
+              <p className={styles.emptyReplies}>Sin respuestas aún.</p>
+            ) : (
+              <ul className={styles.replyList}>
+                {(replies ?? []).map(reply => (
+                  <li key={reply.id} className={`${styles.replyCard} ${reply.isInternal ? styles.replyInternal : ''}`}>
+                    <div className={styles.replyHeader}>
+                      <strong>{reply.authorName}</strong>
+                      <span className={styles.replyDate}>
+                        {new Date(reply.createdAt).toLocaleString('es-AR')}
+                      </span>
+                      {reply.isInternal && <span className={styles.internalTag}>Interno</span>}
+                    </div>
+                    <p className={styles.replyMessage}>{reply.message}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {canWrite && (
+            <section className={styles.replyForm}>
+              <h2 className={styles.replyFormTitle}>Responder</h2>
+              <form onSubmit={handleSubmitReply}>
+                <textarea
+                  className={styles.textarea}
+                  placeholder="Respuesta..."
+                  value={replyText}
+                  onChange={e => setReplyText(e.target.value)}
+                  rows={4}
+                />
+                <button
+                  type="submit"
+                  className={styles.submitBtn}
+                  disabled={addReply.isPending || !replyText.trim()}
+                >
+                  {addReply.isPending ? 'Enviando...' : 'Responder'}
+                </button>
+              </form>
+            </section>
+          )}
+        </main>
+
+        {/* Right sidebar — Detalles */}
+        <aside className={styles.sidebar}>
+          <div className={styles.sideCard}>
+            <h3 className={styles.sideCardTitle}>Detalles</h3>
+
+            <div className={styles.sideRow}>
+              <span className={styles.sideLabel}>Cliente</span>
+              {ticket.customerId ? (
+                <Link to={`/admin/clients/${ticket.customerId}`} className={styles.sideLink}>
+                  {ticket.customerName}
+                </Link>
+              ) : (
+                <span>{ticket.customerName ?? '—'}</span>
+              )}
             </div>
-            <Can permission="tickets.write">
-              <button className={styles.editBtn} onClick={handleEditStart}>
-                Editar
-              </button>
-            </Can>
-          </>
-        )}
-      </div>
 
-      <div className={styles.metadata}>
-        <span>Creado por: <strong>{ticket.customerName}</strong></span>
-        <span>
-          Asignado a:{' '}
-          <select
-            value={ticket.assignedTo ?? ''}
-            onChange={(e) => {
-              const val = e.target.value;
-              const options: Record<string, { id: number | null; name: string | null }> = {
-                '': { id: null, name: null },
-                '1': { id: 1, name: 'Admin Principal' },
-                '2': { id: 2, name: 'Soporte' },
-                '3': { id: 3, name: 'Técnico' },
-              };
-              const selected = options[val];
-              if (selected !== undefined) {
-                assignTicket.mutate({ id: ticketId, assignedTo: selected.id, assignedToName: selected.name });
-              }
-            }}
-            disabled={assignTicket.isPending}
-            aria-label="Asignar a"
-          >
-            <option value="">Sin asignar</option>
-            <option value="1">Admin Principal (1)</option>
-            <option value="2">Soporte (2)</option>
-            <option value="3">Técnico (3)</option>
-          </select>
-        </span>
-        <span>Creado: <strong>{new Date(ticket.createdAt).toLocaleDateString('es-AR')}</strong></span>
-      </div>
+            <div className={styles.sideRow}>
+              <span className={styles.sideLabel}>Reporter</span>
+              <span>{ticket.reporter ?? '—'}</span>
+            </div>
 
-      <div className={styles.statusActions}>
-        {STATUS_BUTTONS.map(({ value, label }) => {
-          const permission = value === 'closed' ? 'tickets.close' : value === 'open' ? 'tickets.reopen' : 'tickets.write';
-          return (
-            <Can key={value} permission={permission}>
-              <button
-                className={`${styles.statusBtn} ${ticket.status === value ? styles.statusBtnActive : ''}`}
-                onClick={() => handleStatusChange(value)}
-                disabled={updateStatus.isPending}
+            <div className={styles.sideRow}>
+              <span className={styles.sideLabel}>Asignado a</span>
+              <select
+                value={ticket.assignedTo != null ? String(ticket.assignedTo) : ''}
+                onChange={e => {
+                  const val = e.target.value;
+                  const user = allUsers.find(u => String(u.id) === val);
+                  assignTicket.mutate({
+                    id: ticketId,
+                    assignedTo: user ? (Number(user.id) || null) : null,
+                    assignedToName: user?.name ?? null,
+                  });
+                }}
+                disabled={assignTicket.isPending}
+                aria-label="Asignar a"
+                className={styles.sideSelect}
               >
-                {label}
-              </button>
-            </Can>
-          );
-        })}
-        <Can permission="tickets.delete">
-          <button
-            className={styles.deleteBtn}
-            onClick={handleDeleteTicket}
-            disabled={deleteTicket.isPending}
-          >
-            Eliminar ticket
-          </button>
-        </Can>
+                <option value="">Sin asignar</option>
+                {allUsers.map(u => (
+                  <option key={u.id} value={String(u.id)}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.sideRow}>
+              <span className={styles.sideLabel}>Prioridad</span>
+              <span>{ticket.priority}</span>
+            </div>
+
+            <div className={styles.sideRow}>
+              <span className={styles.sideLabel}>Creado</span>
+              <span>{new Date(ticket.createdAt).toLocaleDateString('es-AR')}</span>
+            </div>
+
+            <div className={styles.sideRow}>
+              <span className={styles.sideLabel}>Actualizado</span>
+              <span>{new Date(ticket.updatedAt).toLocaleDateString('es-AR')}</span>
+            </div>
+          </div>
+        </aside>
       </div>
 
-      <section className={styles.conversation}>
-        <h2 className={styles.conversationTitle}>Conversación</h2>
-        {repliesLoading ? (
-          <p>Cargando respuestas...</p>
-        ) : (replies ?? []).length === 0 ? (
-          <p className={styles.emptyReplies}>Sin respuestas aún.</p>
-        ) : (
-          <ul className={styles.replyList}>
-            {(replies ?? []).map((reply) => (
-              <li key={reply.id} className={`${styles.replyCard} ${reply.isInternal ? styles.replyInternal : ''}`}>
-                <div className={styles.replyHeader}>
-                  <strong>{reply.authorName}</strong>
-                  <span className={styles.replyDate}>
-                    {new Date(reply.createdAt).toLocaleString('es-AR')}
-                  </span>
-                  {reply.isInternal && <span className={styles.internalTag}>Interno</span>}
-                </div>
-                <p className={styles.replyMessage}>{reply.message}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className={styles.replyForm}>
-        <h2 className={styles.replyFormTitle}>Responder</h2>
-        <form onSubmit={handleSubmitReply}>
-          <textarea
-            className={styles.textarea}
-            placeholder="Respuesta..."
-            value={replyText}
-            onChange={(e) => setReplyText(e.target.value)}
-            rows={4}
-          />
-          <button
-            type="submit"
-            className={styles.submitBtn}
-            disabled={addReply.isPending || !replyText.trim()}
-          >
-            {addReply.isPending ? 'Enviando...' : 'Enviar'}
-          </button>
-        </form>
-      </section>
+      {/* CreateTaskModal — opened from the kebab "Crear tarea".
+          Prefills soft fields from the ticket; the operator must still pick the
+          required contract (origin's required-contract rule). ticketId is sent
+          only when the BE supports it (graceful). */}
+      {showCreateTask && (
+        <CreateTaskModal
+          projects={projects}
+          workflows={workflows}
+          technicians={technicians}
+          templates={templates}
+          onClose={() => setShowCreateTask(false)}
+          onCreate={data => createTask.mutateAsync(data)}
+          loading={createTask.isPending}
+          initialValues={{
+            title: ticket.subject,
+            customerId: ticket.customerId ? String(ticket.customerId) : undefined,
+            customerName: ticket.customerName ?? undefined,
+            description: ticket.message ?? undefined,
+            ticketId: ticket.id,
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTickets, getTicketsByCustomer, getTicketStats, createTicket, TicketsQuery, CreateTicketInput } from '../api/tickets.api';
 import axiosClient from '../api/axios-client';
-import type { Ticket, TicketReply } from '../types/ticket';
+import type { Ticket, TicketReply, CreateTicketData } from '../types/ticket';
 
 export function useTicketList(query: TicketsQuery) {
   return useQuery({
@@ -32,7 +32,9 @@ export function useTicketStats() {
 export function useCreateTicket() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: CreateTicketInput) => createTicket(data),
+    // Accepts both the legacy CreateTicketPage shape (CreateTicketInput) and the
+    // CreateTicketModal shape (CreateTicketData); the api normalises either one.
+    mutationFn: (data: CreateTicketInput | CreateTicketData) => createTicket(data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['tickets'] }); },
   });
 }

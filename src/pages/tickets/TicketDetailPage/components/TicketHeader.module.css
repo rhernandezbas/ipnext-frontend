@@ -1,0 +1,178 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #fff;
+  border-bottom: 1px solid #E2E8F0;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #64748B;
+  padding: 0.25rem;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.backBtn:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+}
+
+.breadcrumbText {
+  font-size: 0.875rem;
+  color: #64748B;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #0F172A;
+  margin: 0;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0.125rem 0.25rem;
+  transition: background-color 150ms;
+}
+
+.title:hover {
+  background-color: #F8FAFC;
+}
+
+.title:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+}
+
+.titleInput {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #0F172A;
+  border: 2px solid #2563EB;
+  border-radius: 4px;
+  padding: 0.125rem 0.25rem;
+  width: 100%;
+  max-width: 600px;
+  background: #fff;
+  outline: none;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.statusSelect {
+  height: 34px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 13px;
+  background: #fff;
+  color: #111827;
+  outline: none;
+  cursor: pointer;
+}
+
+.statusSelect:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+}
+
+.statusSelect:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.kebabWrapper {
+  position: relative;
+  margin-left: auto;
+}
+
+.kebabBtn {
+  background: none;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  font-size: 1.25rem;
+  color: #64748B;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+
+.kebabBtn:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+}
+
+.kebabMenu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  list-style: none;
+  padding: 0.25rem;
+  margin: 0;
+  min-width: 160px;
+  z-index: 200;
+}
+
+.kebabItem {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.875rem;
+  color: #0F172A;
+  border-radius: 4px;
+}
+
+.kebabItem:hover:not(:disabled) {
+  background: #F8FAFC;
+}
+
+.kebabItemDanger {
+  color: #DC2626;
+}
+
+.kebabItemDanger:hover {
+  background: #FEF2F2;
+}
+
+@media (max-width: 767px) {
+  .header {
+    padding: 0.5rem 0.75rem;
+  }
+  .title {
+    font-size: 1.25rem;
+  }
+}

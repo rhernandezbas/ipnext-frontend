@@ -1,0 +1,159 @@
+import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { TicketFilterBar } from '@/pages/tickets/TicketsListPage/components/TicketFilterBar';
+import type { TicketFilter } from '@/pages/tickets/TicketsListPage/hooks/useTicketsFilterUrl';
+
+// Mock hooks
+vi.mock('@/hooks/useTicketStatuses');
+vi.mock('@/hooks/useRbacUsers');
+
+import * as useTicketStatusesModule from '@/hooks/useTicketStatuses';
+import * as useRbacUsersModule from '@/hooks/useRbacUsers';
+import type { TicketStatus as TicketStatusType } from '@/types/ticketStatus';
+
+const mockStatuses: TicketStatusType[] = [
+  { id: '1', name: 'Abierto', color: '#22c55e', weight: 1 },
+  { id: '2', name: 'Cerrado', color: '#6b7280', weight: 2 },
+];
+
+const mockUsers = [
+  { id: 'u1', name: 'Ana García', roles: [] },
+  { id: 'u2', name: 'Luis Pérez', roles: [] },
+];
+
+function renderBar(filter: TicketFilter = {}, onFilterChange = vi.fn()) {
+  return render(
+    <MemoryRouter>
+      <Routes>
+        <Route
+          path="*"
+          element={<TicketFilterBar filter={filter} onFilterChange={onFilterChange} />}
+        />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
+describe('TicketFilterBar', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useTicketStatusesModule.useTicketStatuses).mockReturnValue({
+      data: mockStatuses,
+      isLoading: false,
+    } as ReturnType<typeof useTicketStatusesModule.useTicketStatuses>);
+    vi.mocked(useRbacUsersModule.useRbacUsers).mockReturnValue({
+      data: mockUsers,
+      isLoading: false,
+    } as ReturnType<typeof useRbacUsersModule.useRbacUsers>);
+  });
+
+  it('renders Estado select populated from catalog (not hardcoded)', () => {
+    renderBar();
+    const estadoSelect = screen.getByRole('combobox', { name: /estado/i });
+    expect(estadoSelect).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Abierto' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Cerrado' })).toBeInTheDocument();
+  });
+
+  it('does NOT have hardcoded "Resuelto" or "Pendiente" options in Estado', () => {
+    renderBar();
+    expect(screen.queryByRole('option', { name: 'Resuelto' })).not.toBeInTheDocument();
+  });
+
+  it('renders Prioridad select with Alta/Media/Baja options', () => {
+    renderBar();
+    const select = screen.getByRole('combobox', { name: /prioridad/i });
+    expect(select).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Alta' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Media' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Baja' })).toBeInTheDocument();
+  });
+
+  it('renders Asignado select populated from useRbacUsers', () => {
+    renderBar();
+    const select = screen.getByRole('combobox', { name: /asignado/i });
+    expect(select).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Ana García' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Luis Pérez' })).toBeInTheDocument();
+  });
+
+  it('renders Búsqueda text input', () => {
+    renderBar();
+    expect(screen.getByRole('searchbox', { name: /buscar/i })).toBeInTheDocument();
+  });
+
+  it('renders Desde/Hasta date inputs for período', () => {
+    renderBar();
+    expect(screen.getByLabelText(/desde/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/hasta/i)).toBeInTheDocument();
+  });
+
+  it('calls onFilterChange with status when Estado changes', () => {
+    const onFilterChange = vi.fn();
+    renderBar({}, onFilterChange);
+    fireEvent.change(screen.getByRole('combobox', { name: /estado/i }), {
+      target: { value: 'Abierto' },
+    });
+    expect(onFilterChange).toHaveBeenCalledWith({ status: 'Abierto' });
+  });
+
+  it('calls onFilterChange with undefined when Estado reset to empty', () => {
+    const onFilterChange = vi.fn();
+    renderBar({ status: 'Abierto' }, onFilterChange);
+    fireEvent.change(screen.getByRole('combobox', { name: /estado/i }), {
+      target: { value: '' },
+    });
+    expect(onFilterChange).toHaveBeenCalledWith({ status: undefined });
+  });
+
+  it('calls onFilterChange with priority when Prioridad changes', () => {
+    const onFilterChange = vi.fn();
+    renderBar({}, onFilterChange);
+    fireEvent.change(screen.getByRole('combobox', { name: /prioridad/i }), {
+      target: { value: 'high' },
+    });
+    expect(onFilterChange).toHaveBeenCalledWith({ priority: 'high' });
+  });
+
+  it('shows active chip for status filter', () => {
+    renderBar({ status: 'Abierto' });
+    // The chipList should contain "Abierto" as a chip (not just as a select option)
+    const chipList = screen.getByRole('list', { name: /filtros activos/i });
+    expect(chipList).toBeInTheDocument();
+    expect(chipList.textContent).toMatch(/Abierto/);
+  });
+
+  it('shows "Limpiar filtros" when filter is active', () => {
+    renderBar({ status: 'Abierto' });
+    expect(screen.getByRole('button', { name: /limpiar/i })).toBeInTheDocument();
+  });
+
+  it('does NOT show "Limpiar filtros" when no active filter', () => {
+    renderBar({});
+    expect(screen.queryByRole('button', { name: /limpiar/i })).not.toBeInTheDocument();
+  });
+
+  it('clicking chip × calls onFilterChange to clear that filter', () => {
+    const onFilterChange = vi.fn();
+    renderBar({ status: 'Abierto' }, onFilterChange);
+    const removeBtn = screen.getByRole('button', { name: /quitar/i });
+    fireEvent.click(removeBtn);
+    expect(onFilterChange).toHaveBeenCalledWith({ status: undefined });
+  });
+
+  it('clicking "Limpiar filtros" clears all filters', () => {
+    const onFilterChange = vi.fn();
+    renderBar({ status: 'Abierto', priority: 'high' }, onFilterChange);
+    fireEvent.click(screen.getByRole('button', { name: /limpiar/i }));
+    expect(onFilterChange).toHaveBeenCalledWith({
+      status: undefined,
+      priority: undefined,
+      assignedTo: undefined,
+      q: undefined,
+      customerId: undefined,
+      from: undefined,
+      to: undefined,
+    });
+  });
+});

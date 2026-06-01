@@ -1,4 +1,13 @@
-export type TicketStatus = 'open' | 'pending' | 'resolved' | 'closed';
+/**
+ * Ticket status is catalog-driven (TicketStatus catalog) so it can be any slug
+ * the operator defines. The four legacy built-ins are kept in
+ * {@link LEGACY_TICKET_STATUSES} for the hardcoded transition fallbacks.
+ */
+export type TicketStatus = string;
+
+/** The four built-in ticket statuses that predate the catalog. */
+export const LEGACY_TICKET_STATUSES = ['open', 'pending', 'resolved', 'closed'] as const;
+
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export interface Ticket {

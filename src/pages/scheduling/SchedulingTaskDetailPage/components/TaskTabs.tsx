@@ -12,6 +12,11 @@ export interface TaskTabsProps {
   commentsTaskId: string;
   reviewedByInventory: boolean;
   onInventoryToggle: (next: boolean) => void;
+  /** Originating ticket id — from the enriched GET /scheduling/:id DTO
+   *  (tickets-actions-be). Optional so existing callers + degraded mode work. */
+  ticketId?: number | null;
+  /** Snapshot of the originating ticket's subject. */
+  ticketSubject?: string | null;
 }
 
 const TAB_IDS = {
@@ -27,6 +32,30 @@ interface InventoryPanelProps {
   taskId: string;
   reviewedByInventory: boolean;
   onInventoryToggle: (next: boolean) => void;
+}
+
+/** Relacionado tab content — shows the originating ticket when the task was
+ *  created from one, otherwise an empty state. BE-graceful: when ticketId is
+ *  absent (BE not deployed / standalone task), only the empty state renders. */
+function RelacionadoPanel({ ticketId, ticketSubject }: { ticketId?: number | null; ticketSubject?: string | null }) {
+  if (!ticketId) {
+    return (
+      <div className={styles.relEmptyState}>
+        Esta tarea no está vinculada a ningún ticket.
+      </div>
+    );
+  }
+  return (
+    <div className={styles.relCard}>
+      <p className={styles.relCardTitle}>Creada desde ticket</p>
+      <p className={styles.relCardRef}>
+        <a href={`/admin/tickets/${ticketId}`} className={styles.relLink}>
+          #{ticketId}
+        </a>
+        {ticketSubject ? ` — ${ticketSubject}` : ''}
+      </p>
+    </div>
+  );
 }
 
 function InventoryPanel({ taskId, reviewedByInventory, onInventoryToggle }: InventoryPanelProps) {
@@ -53,6 +82,8 @@ export function TaskTabs({
   commentsTaskId,
   reviewedByInventory,
   onInventoryToggle,
+  ticketId,
+  ticketSubject,
 }: TaskTabsProps) {
   const [activeTab, setActiveTab] = useState<string>(TAB_IDS.detalles);
   const [mountedIds, setMountedIds] = useState<Set<string>>(
@@ -83,12 +114,7 @@ export function TaskTabs({
     {
       id: TAB_IDS.relacionado,
       label: 'Relacionado',
-      content: (
-        <ComingSoonPanel
-          title="Relacionado"
-          description="Tareas y entidades relacionadas. Próximamente."
-        />
-      ),
+      content: <RelacionadoPanel ticketId={ticketId} ticketSubject={ticketSubject} />,
     },
     {
       id: TAB_IDS.inventory,

@@ -188,12 +188,23 @@ describe('TaskTabs', () => {
     expect(screen.getByTestId('task-comments-timeline')).toBeInTheDocument();
   });
 
-  it('Relacionado renders a ComingSoonPanel', async () => {
+  it('Relacionado shows an empty state when the task has no linked ticket', async () => {
     const user = userEvent.setup();
     render(<TaskTabs {...makeProps()} />);
     const tabs = screen.getAllByRole('tab');
     await user.click(tabs[2]); // Relacionado
-    expect(screen.getAllByText('Próximamente').length).toBeGreaterThan(0);
+    expect(screen.getByText(/no está vinculada a ningún ticket/i)).toBeInTheDocument();
+  });
+
+  it('Relacionado renders a linked-ticket card when ticketId is present', async () => {
+    const user = userEvent.setup();
+    render(<TaskTabs {...makeProps({ ticketId: 42, ticketSubject: 'Sin internet' })} />);
+    const tabs = screen.getAllByRole('tab');
+    await user.click(tabs[2]); // Relacionado
+    const link = screen.getByRole('link', { name: /#42/ });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/admin/tickets/42');
+    expect(screen.getByText(/Sin internet/)).toBeInTheDocument();
   });
 
   it('Inventory: toggle reflects reviewedByInventory prop and calls onInventoryToggle', async () => {

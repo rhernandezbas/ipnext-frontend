@@ -37,6 +37,8 @@ export interface CreateTaskPayload {
   assigneeId?: string | null;
   address?: string | null;
   notes?: string | null;
+  /** Originating ticket id when the task is created from a ticket (tickets-actions-be). */
+  ticketId?: number | null;
 }
 
 export interface TaskChecklistItem {
@@ -112,6 +114,13 @@ export interface ScheduledTask {
    *  to the "Enviar a IClass" stage and the OS is created successfully.
    *  Null when the task has never been sent to IClass. */
   iclassOrderCode: string | null;
+
+  /** Originating ticket id — set when the task was created from a ticket.
+   *  Populated by the enriched GET /scheduling/:id DTO (tickets-actions-be).
+   *  Optional so existing fixtures and the degraded (BE-not-deployed) mode work. */
+  ticketId?: number | null;
+  /** Snapshot of the originating ticket's subject (tickets-actions-be). */
+  ticketSubject?: string | null;
 
   // Timestamps — backend always returns ISO strings (post-change-1)
   createdAt: string;

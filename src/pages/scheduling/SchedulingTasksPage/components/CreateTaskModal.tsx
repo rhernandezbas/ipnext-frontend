@@ -27,6 +27,18 @@ const LEGACY_CATEGORY_LABEL: Record<string, string> = {
 };
 const DEFAULT_CATEGORY = 'Otro';
 
+/** Optional seed values when the modal is opened from another entity (e.g. a
+ *  ticket). Only prefills "soft" fields — NEVER the required contract, so the
+ *  operator must still consciously pick a contract before submitting. */
+export interface CreateTaskInitialValues {
+  title?: string;
+  customerId?: string;
+  customerName?: string;
+  description?: string;
+  /** Originating ticket id, appended to the payload as-is (BE-graceful). */
+  ticketId?: number | null;
+}
+
 interface Props {
   projects: Project[];
   workflows: Workflow[];
@@ -35,6 +47,7 @@ interface Props {
   onClose: () => void;
   onCreate: (data: CreateTaskPayload) => Promise<unknown>;
   loading: boolean;
+  initialValues?: CreateTaskInitialValues;
 }
 
 /** First stage (lowest order) of the project's workflow, or undefined if the
@@ -66,19 +79,21 @@ function toLocalInputString(date: Date): string {
  * valid stageId, so we resolve one here instead of relying on a server-side
  * default that doesn't exist.
  */
-export function CreateTaskModal({ projects, workflows, technicians = [], templates = [], onClose, onCreate, loading }: Props) {
+export function CreateTaskModal({ projects, workflows, technicians = [], templates = [], onClose, onCreate, loading, initialValues }: Props) {
   // Default to the first project that actually has a usable workflow — selecting
   // a workflow-less project would leave the form unsubmittable for no visible reason.
   const defaultProjectId =
     projects.find(p => resolveFirstStageId(p, workflows))?.id ?? projects[0]?.id ?? '';
 
   const [templateId, setTemplateId] = useState('');
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(initialValues?.title ?? '');
   const [projectId, setProjectId] = useState(defaultProjectId);
-  const [customerId, setCustomerId] = useState<string | null>(null);
-  const [customerName, setCustomerName] = useState<string | null>(null);
+  const [customerId, setCustomerId] = useState<string | null>(initialValues?.customerId ?? null);
+  const [customerName, setCustomerName] = useState<string | null>(initialValues?.customerName ?? null);
+  // NOTE: contractId is INTENTIONALLY never seeded — the operator must pick the
+  // required contract themselves even when creating a task from a ticket.
   const [contractId, setContractId] = useState<string | null>(null);
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(initialValues?.description ?? '');
   const [assigneeId, setAssigneeId] = useState('');
   const [priority, setPriority] = useState<string>(DEFAULT_PRIORITY);
   const { data: priorities = [] } = useTaskPriorities();
@@ -227,7 +242,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     const finalTitle = applyTaskVariables(title.trim(), vars);
     const finalDescription = description.trim() ? applyTaskVariables(description.trim(), vars) : null;
     try {
-      await onCreate({
+      const payload: CreateTaskPayload = {
         title: finalTitle,
         projectId,
         stageId: firstStageId,
@@ -243,7 +258,13 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
         endDate: toIso(endDate),
         address: address.trim() || null,
         notes: notes.trim() || null,
-      });
+      };
+      // Append ticketId ONLY when present so the payload stays clean for the
+      // normal create flow (BE-graceful until tickets-actions-be ships).
+      if (initialValues?.ticketId != null) {
+        payload.ticketId = initialValues.ticketId;
+      }
+      await onCreate(payload);
       onClose();
     } catch {
       setError('No se pudo crear la tarea. Revisá los datos e intentá de nuevo.');
