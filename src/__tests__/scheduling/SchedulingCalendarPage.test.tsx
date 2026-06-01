@@ -28,6 +28,10 @@ vi.mock('@/hooks/useAdmins', () => ({
   useAdmins: vi.fn(() => ({ data: [], isLoading: false })),
 }));
 
+vi.mock('@/hooks/useRbacUsers', () => ({
+  useRbacUsers: vi.fn(() => ({ data: [], isLoading: false })),
+}));
+
 vi.mock('@/hooks/useProjects', () => ({
   useProjects: vi.fn(() => ({ data: [], isLoading: false })),
 }));
@@ -38,6 +42,7 @@ vi.mock('@/hooks/usePartners', () => ({
 
 import { useFilteredTasks } from '@/hooks/useScheduling';
 import { useTechnicians } from '@/hooks/useAdmins';
+import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { useProjects } from '@/hooks/useProjects';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -96,6 +101,7 @@ function renderWithRouter(url: string, tasks: ScheduledTask[] = [], isLoading = 
     refetch: vi.fn(),
   } as unknown as ReturnType<typeof useFilteredTasks>);
   vi.mocked(useTechnicians).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useTechnicians>);
+  vi.mocked(useRbacUsers).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useRbacUsers>);
   vi.mocked(useProjects).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useProjects>);
 
   const qc = makeQc();
@@ -286,5 +292,87 @@ describe('SchedulingCalendarPage — create modal', () => {
     const addBtns = screen.getAllByRole('button', { name: /Añadir tarea/i });
     fireEvent.click(addBtns[0]);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+});
+
+// ── REQ-RESOURCE-SOURCE ────────────────────────────────────────────────────────
+// Root cause fix: calendar resources must be built from RbacUser (same source as
+// task.assigneeId), NOT from Admin. Assigned tasks must appear in the correct row.
+//
+// These tests render the page directly (not via renderWithRouter which resets mocks)
+// so we can control useRbacUsers independently.
+function renderWithMocks(url: string, tasks: ScheduledTask[], rbacUsers: Array<{ id: string; name: string; email: string; login: string; status: 'active' | 'disabled'; createdAt: string; updatedAt: string; lastLoginAt: string | null }>) {
+  vi.mocked(useFilteredTasks).mockReturnValue({
+    data: tasks,
+    isLoading: false,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useFilteredTasks>);
+  vi.mocked(useRbacUsers).mockReturnValue({ data: rbacUsers, isLoading: false } as unknown as ReturnType<typeof useRbacUsers>);
+  vi.mocked(useTechnicians).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useTechnicians>);
+  vi.mocked(useProjects).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useProjects>);
+
+  const qc = makeQc();
+  return render(
+    React.createElement(
+      QueryClientProvider,
+      { client: qc },
+      React.createElement(
+        MemoryRouter,
+        { initialEntries: [url] },
+        React.createElement(Routes, null,
+          React.createElement(Route, {
+            path: '/admin/scheduling/calendars',
+            element: React.createElement(SchedulingCalendarPage),
+          })
+        )
+      )
+    )
+  );
+}
+
+describe('SchedulingCalendarPage — resource source is RbacUser (REQ-RESOURCE-SOURCE)', () => {
+  it('task assigned to an RbacUser appears in that user resource row in week view', () => {
+    // Arrange: one RbacUser resource and a task assigned to their id
+    const rbacUser = { id: 'rbac-1', name: 'Ana Garcia', email: 'ana@test.com', login: 'ana', status: 'active' as const, createdAt: '', updatedAt: '', lastLoginAt: null };
+    const task = makeTask({
+      id: 'task-assigned',
+      title: 'Tarea asignada a Ana',
+      assigneeId: 'rbac-1',
+      startDate: '2026-05-20T09:00:00Z',
+      endDate: '2026-05-20T10:00:00Z',
+    });
+
+    const { container } = renderWithMocks(
+      '/admin/scheduling/calendars?view=week&date=2026-05-20',
+      [task],
+      [rbacUser]
+    );
+
+    // CalendarWeekView renders slots with aria-label="Slot {resource.name} {dateStr}"
+    // With the fix, Ana Garcia's resource row must exist and contain the task.
+    const anaSlot = container.querySelector('[aria-label="Slot Ana Garcia 2026-05-20"]');
+    expect(anaSlot).not.toBeNull();
+    expect(anaSlot).toHaveTextContent('Tarea asignada a Ana');
+  });
+
+  it('task with no assignee still appears in "Sin asignar" row', () => {
+    const rbacUser = { id: 'rbac-1', name: 'Ana Garcia', email: 'ana@test.com', login: 'ana', status: 'active' as const, createdAt: '', updatedAt: '', lastLoginAt: null };
+    const task = makeTask({
+      id: 'task-unassigned',
+      title: 'Tarea sin asignar',
+      assigneeId: null,
+      startDate: '2026-05-20T09:00:00Z',
+      endDate: '2026-05-20T10:00:00Z',
+    });
+
+    const { container } = renderWithMocks(
+      '/admin/scheduling/calendars?view=week&date=2026-05-20',
+      [task],
+      [rbacUser]
+    );
+
+    const unassignedSlot = container.querySelector('[aria-label="Slot Sin asignar 2026-05-20"]');
+    expect(unassignedSlot).not.toBeNull();
+    expect(unassignedSlot).toHaveTextContent('Tarea sin asignar');
   });
 });

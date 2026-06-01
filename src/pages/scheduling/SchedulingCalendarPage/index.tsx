@@ -7,7 +7,7 @@ import { CalendarToolbar } from './components/CalendarToolbar';
 import { CalendarMonthView } from './components/CalendarMonthView';
 import { CalendarWeekView } from './components/CalendarWeekView';
 import { CalendarDayView } from './components/CalendarDayView';
-import { useTechnicians } from '@/hooks/useAdmins';
+import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { useProjects } from '@/hooks/useProjects';
 import { useCreateTask } from '@/hooks/useScheduling';
 import type { CalendarEvent, CalendarResource } from '@/types/calendar';
@@ -166,7 +166,7 @@ export default function SchedulingCalendarPage() {
   } = useCalendarUrlState();
 
   const { data: rawTasks = [], isLoading, refetch } = useTasksForCalendar(filter, from, to);
-  const { data: admins = [] } = useTechnicians();
+  const { data: rbacUsers = [] } = useRbacUsers();
   const { data: projects = [] } = useProjects();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -179,8 +179,8 @@ export default function SchedulingCalendarPage() {
   );
 
   const resources: CalendarResource[] = useMemo(
-    () => admins.map(toCalendarResource),
-    [admins]
+    () => rbacUsers.map(toCalendarResource),
+    [rbacUsers]
   );
 
   function handleEventClick(id: string) {
