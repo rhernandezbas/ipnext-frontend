@@ -1,25 +1,36 @@
 import { useEffect, useRef, useState } from 'react';
 import { Tabs } from '@/components/molecules/Tabs/Tabs';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { GestionRealSyncBody } from './settings/GestionRealSyncBody';
+import { ServiceTechnologiesBody } from '../contracts/ServiceTechnologiesBody';
 import styles from './CustomersSettingsPage.module.css';
-
-const TABS = [
-  { id: 'gr-sync', label: 'Sincronización GR', content: <GestionRealSyncBody /> },
-];
-
-const TAB_IDS = TABS.map(t => t.id);
 
 /**
  * Única página de configuración de Clientes. Agrupa en tabs los ajustes propios de
- * la sección. Su primer (y por ahora único) tab aloja la configuración de
- * sincronización de Gestión Real, que antes vivía en Scheduling. El tab activo se
- * sincroniza con el hash de la URL (#gr-sync) para deep-linkear, y el montaje es
- * lazy: el cuerpo de un tab sólo dispara sus fetches al visitarlo por primera vez.
+ * la sección. El primer tab aloja la configuración de sincronización de Gestión
+ * Real; el segundo (visible sólo con `contracts.read`) el catálogo de Tecnologías
+ * de servicio. El tab activo se sincroniza con el hash de la URL (#gr-sync /
+ * #tecnologias) para deep-linkear, y el montaje es lazy: el cuerpo de un tab sólo
+ * dispara sus fetches al visitarlo por primera vez.
  */
 export default function CustomersSettingsPage() {
+  const { can } = useMyPermissions();
+
+  const tabs = [
+    { id: 'gr-sync', label: 'Sincronización GR', content: <GestionRealSyncBody /> },
+    ...(can('contracts.read')
+      ? [{ id: 'tecnologias', label: 'Tecnologías', content: <ServiceTechnologiesBody /> }]
+      : []),
+  ];
+  const tabIds = tabs.map((t) => t.id);
+
+  // Keep the latest tab ids available to the (once-registered) hashchange listener.
+  const tabIdsRef = useRef(tabIds);
+  tabIdsRef.current = tabIds;
+
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash.replace('#', '');
-    return TAB_IDS.includes(hash) ? hash : 'gr-sync';
+    return tabIds.includes(hash) ? hash : 'gr-sync';
   });
 
   const mountedIds = useRef<Set<string>>(new Set([activeTab]));
@@ -32,7 +43,7 @@ export default function CustomersSettingsPage() {
   useEffect(() => {
     const onHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      if (TAB_IDS.includes(hash)) setActiveTab(hash);
+      if (tabIdsRef.current.includes(hash)) setActiveTab(hash);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
@@ -48,7 +59,7 @@ export default function CustomersSettingsPage() {
       </div>
 
       <Tabs
-        tabs={TABS}
+        tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         mountMode="lazy"
