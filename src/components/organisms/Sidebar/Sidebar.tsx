@@ -41,7 +41,7 @@ interface NavSectionDef {
 const CRM_ITEMS: NavParentItem[] = [
   {
     label: 'Clientes',
-    matchPaths: ['/admin/customers', '/admin/contracts'],
+    matchPaths: ['/admin/customers', '/admin/contracts/list'],
     requiredPermission: 'clients.read', // /admin/customers/* → clients.read
     children: [
       { to: '/admin/customers/add', label: 'Añadir' },
@@ -49,9 +49,8 @@ const CRM_ITEMS: NavParentItem[] = [
       { to: '/admin/customers/list', label: 'Lista' },
       { to: '/admin/customers/vouchers', label: 'Vouchers' },
       { to: '/admin/customers/map', label: 'Mapas' },
-      { to: '/admin/customers/settings', label: 'Configuración' },
       { to: '/admin/contracts/list', label: 'Contratos', requiredPermission: 'contracts.read' },
-      { to: '/admin/contracts/technologies', label: 'Tecnologías', requiredPermission: 'contracts.read' },
+      { to: '/admin/customers/settings', label: 'Configuración' },
     ],
   },
   {
@@ -103,6 +102,14 @@ const CRM_ITEMS: NavParentItem[] = [
       { to: '/admin/finance/payment-statements', label: 'Payment statements' },
       { to: '/admin/finance/dunning', label: 'Dunning' },
       { to: '/admin/finance/payment-plans', label: 'Planes de pago' },
+    ],
+  },
+  {
+    label: 'Configuración',
+    matchPaths: ['/admin/contracts/technologies'],
+    requiredPermission: 'contracts.read',
+    children: [
+      { to: '/admin/contracts/technologies', label: 'Tecnologías', requiredPermission: 'contracts.read' },
     ],
   },
 ];
