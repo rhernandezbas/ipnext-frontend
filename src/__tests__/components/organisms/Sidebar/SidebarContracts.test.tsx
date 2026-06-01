@@ -58,13 +58,6 @@ describe('Sidebar — Contratos bajo Clientes', () => {
     expect(screen.getByRole('link', { name: /^contratos$/i })).toBeInTheDocument();
   });
 
-  // SB-C1b: Tecnologías now lives under the Configuración item (CRM), visible on its path
-  it('shows Tecnologías under the Configuración item when has contracts.read', () => {
-    renderSidebar('/admin/contracts/technologies');
-    // Configuración auto-expands at this path
-    expect(screen.getByRole('link', { name: /^tecnologías$/i })).toBeInTheDocument();
-  });
-
   // SB-C2: hidden without contracts.read
   it('hides Contratos and Tecnologías children when user lacks contracts.read', () => {
     permHandles.result.can = (p) => {
@@ -73,7 +66,6 @@ describe('Sidebar — Contratos bajo Clientes', () => {
     };
     renderSidebar('/admin/customers/list');
     expect(screen.queryByRole('link', { name: /^contratos$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /^tecnologías$/i })).not.toBeInTheDocument();
   });
 
   // SB-C3: "Contratos" accordion item no longer in Empresa section
@@ -101,23 +93,10 @@ describe('Sidebar — Contratos bajo Clientes', () => {
     expect(clientesBtn).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('auto-expands Configuración item when on /admin/contracts/technologies', () => {
-    renderSidebar('/admin/contracts/technologies');
-    const configBtn = screen.getByRole('button', { name: /^configuración$/i });
-    expect(configBtn).toHaveAttribute('aria-expanded', 'true');
-  });
-
   // SB-C5: correct href for Contratos
   it('Contratos child links to /admin/contracts/list', () => {
     renderSidebar('/admin/customers/list');
     const link = screen.getByRole('link', { name: /^contratos$/i });
     expect(link).toHaveAttribute('href', '/admin/contracts/list');
-  });
-
-  // SB-C6: correct href for Tecnologías (now under Configuración)
-  it('Tecnologías child links to /admin/contracts/technologies', () => {
-    renderSidebar('/admin/contracts/technologies');
-    const link = screen.getByRole('link', { name: /^tecnologías$/i });
-    expect(link).toHaveAttribute('href', '/admin/contracts/technologies');
   });
 });

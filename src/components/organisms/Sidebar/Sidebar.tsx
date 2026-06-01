@@ -104,14 +104,6 @@ const CRM_ITEMS: NavParentItem[] = [
       { to: '/admin/finance/payment-plans', label: 'Planes de pago' },
     ],
   },
-  {
-    label: 'Configuración',
-    matchPaths: ['/admin/contracts/technologies'],
-    requiredPermission: 'contracts.read',
-    children: [
-      { to: '/admin/contracts/technologies', label: 'Tecnologías', requiredPermission: 'contracts.read' },
-    ],
-  },
 ];
 
 const EMPRESA_ITEMS: NavParentItem[] = [

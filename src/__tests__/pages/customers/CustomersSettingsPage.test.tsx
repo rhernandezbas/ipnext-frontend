@@ -33,6 +33,11 @@ vi.mock('@/context/ConfirmContext', () => ({
   useConfirm: () => grSyncHandles.confirmFn,
 }));
 
+const permHandle = vi.hoisted(() => ({ can: (_: string | string[]) => true }));
+vi.mock('@/hooks/useMyPermissions', () => ({
+  useMyPermissions: () => ({ can: permHandle.can, isLoading: false, isError: false }),
+}));
+
 import CustomersSettingsPage from '@/pages/customers/CustomersSettingsPage';
 
 function renderPage() {
@@ -42,6 +47,7 @@ function renderPage() {
 describe('CustomersSettingsPage', () => {
   beforeEach(() => {
     window.location.hash = '';
+    permHandle.can = () => true; // default: user has contracts.read
   });
 
   it('renders a single Configuración level-1 heading', () => {
@@ -52,8 +58,23 @@ describe('CustomersSettingsPage', () => {
   it('renders the "Sincronización GR" tab as the first/default tab', () => {
     renderPage();
     const tabs = screen.getAllByRole('tab');
-    expect(tabs.map(t => t.textContent)).toEqual(['Sincronización GR']);
+    expect(tabs[0].textContent).toBe('Sincronización GR');
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('shows the "Tecnologías" tab when the user has contracts.read', () => {
+    renderPage();
+    expect(screen.getByRole('tab', { name: 'Tecnologías' })).toBeInTheDocument();
+  });
+
+  it('hides the "Tecnologías" tab when the user lacks contracts.read', () => {
+    permHandle.can = (p) => {
+      const perms = Array.isArray(p) ? p : [p];
+      return !perms.includes('contracts.read');
+    };
+    renderPage();
+    expect(screen.queryByRole('tab', { name: 'Tecnologías' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Sincronización GR' })).toBeInTheDocument();
   });
 
   it('mounting the page shows the GR body (Configuración section + activación toggle) and sets the hash', () => {
