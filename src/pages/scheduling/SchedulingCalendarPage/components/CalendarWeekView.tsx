@@ -21,8 +21,8 @@ function addDays(d: Date, n: number): Date {
   return result;
 }
 
-function toIsoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+function toLocalIsoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export function CalendarWeekView({
@@ -35,12 +35,12 @@ export function CalendarWeekView({
 }: CalendarWeekViewProps) {
   // Build 7 days
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const todayStr = toIsoDate(new Date());
+  const todayStr = toLocalIsoDate(new Date());
 
   // Group events by (resourceId, dateStr)
   const evMap: Record<string, Record<string, CalendarEvent[]>> = {};
   for (const ev of events) {
-    const dateStr = toIsoDate(ev.start);
+    const dateStr = toLocalIsoDate(ev.start);
     if (!evMap[ev.resourceId]) evMap[ev.resourceId] = {};
     if (!evMap[ev.resourceId][dateStr]) evMap[ev.resourceId][dateStr] = [];
     evMap[ev.resourceId][dateStr].push(ev);
@@ -83,7 +83,7 @@ export function CalendarWeekView({
         {/* Day header row */}
         <div className={styles.dayHeaderRow}>
           {days.map((d, i) => {
-            const dStr = toIsoDate(d);
+            const dStr = toLocalIsoDate(d);
             const isToday = dStr === todayStr;
             return (
               <div key={i} className={`${styles.dayHeaderCell} ${isToday ? styles.dayHeaderToday : ''}`}>
@@ -97,7 +97,7 @@ export function CalendarWeekView({
         {allResources.map(resource => (
           <div key={resource.id} className={styles.resourceGrid}>
             {days.map((d, di) => {
-              const dateStr = toIsoDate(d);
+              const dateStr = toLocalIsoDate(d);
               const dayEvents = evMap[resource.id]?.[dateStr] ?? [];
               return (
                 <div

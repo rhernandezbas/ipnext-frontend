@@ -20,8 +20,8 @@ const MONTH_NAMES = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ];
 
-function toIsoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+function toLocalIsoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export function CalendarMonthView({
@@ -34,12 +34,12 @@ export function CalendarMonthView({
   isLoading,
 }: CalendarMonthViewProps) {
   const today = new Date();
-  const todayStr = toIsoDate(today);
+  const todayStr = toLocalIsoDate(today);
 
   // Group events by date string
   const eventsByDate: Record<string, CalendarEvent[]> = {};
   for (const ev of events) {
-    const key = toIsoDate(ev.start);
+    const key = toLocalIsoDate(ev.start);
     if (!eventsByDate[key]) eventsByDate[key] = [];
     eventsByDate[key].push(ev);
   }

@@ -22,8 +22,8 @@ function buildHours(fullDay: boolean): number[] {
     : Array.from({ length: 13 }, (_, i) => i + 8); // 08–20
 }
 
-function toIsoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+function toLocalIsoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export function CalendarDayView({
@@ -37,12 +37,12 @@ export function CalendarDayView({
 }: CalendarDayViewProps) {
   const hours = buildHours(fullDay);
   const nHours = hours.length;
-  const dateStr = toIsoDate(date);
+  const dateStr = toLocalIsoDate(date);
 
   // Group events by resourceId for this day
   const evByResource: Record<string, CalendarEvent[]> = {};
   for (const ev of events) {
-    if (toIsoDate(ev.start) !== dateStr) continue;
+    if (toLocalIsoDate(ev.start) !== dateStr) continue;
     if (!evByResource[ev.resourceId]) evByResource[ev.resourceId] = [];
     evByResource[ev.resourceId].push(ev);
   }
