@@ -130,3 +130,9 @@
   margin-top: 2px;
 }
 
+.required {
+  color: #b91c1c;
+  margin-left: 1px;
+  font-weight: 600;
+}
+

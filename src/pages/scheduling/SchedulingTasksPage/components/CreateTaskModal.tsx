@@ -266,7 +266,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
         )}
 
         <label className={styles.label}>
-          Título *
+          Título <span className={styles.required} aria-hidden="true">*</span>
           <input
             className={styles.input}
             value={title}
@@ -277,7 +277,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
         </label>
 
         <div className={styles.label}>
-          Cliente
+          Cliente <span className={styles.required} aria-hidden="true">*</span>
           <CustomerPicker
             value={customerId}
             valueName={customerName}
@@ -287,7 +287,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
 
         {customerId && (
           <label className={styles.label}>
-            Servicio *
+            Servicio <span className={styles.required} aria-hidden="true">*</span>
             <select
               className={styles.select}
               value={serviceId ?? ''}
