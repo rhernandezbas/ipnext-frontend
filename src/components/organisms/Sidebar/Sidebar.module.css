@@ -87,24 +87,25 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #9ca3af;
+  color: #6366f1;
   text-align: left;
   cursor: pointer;
   transition: background-color var(--transition-fast, 120ms ease), color var(--transition-fast, 120ms ease);
 }
 
 .navSectionTitle:hover {
-  background-color: #f3f4f6;
-  color: #6b7280;
+  background-color: #eef2ff;
+  color: #4f46e5;
 }
 
-/* Section that contains the active route — subtle indigo emphasis (NO side stripe) */
+/* Section that contains the active route — same indigo, subtle background tint (NO side stripe) */
 .navSectionTitleActive {
   color: #6366f1;
+  background-color: #eef2ff;
 }
 
 .navSectionTitleActive:hover {
-  color: #6366f1;
+  color: #4f46e5;
 }
 
 /* -----------------------------------------------------------------------
@@ -143,7 +144,7 @@
   padding: 7px var(--space-4) 7px var(--space-6);
   color: #374151;
   font-size: var(--font-size-sm);
-  font-weight: 500;
+  font-weight: 600;
   background: none;
   border: none;
   border-radius: 6px;
@@ -152,6 +153,7 @@
   text-align: left;
   font-family: inherit;
   cursor: pointer;
+  text-decoration: none;
   transition: background-color var(--transition-fast, 120ms ease), color var(--transition-fast, 120ms ease);
 }
 
@@ -160,10 +162,22 @@
   background-color: #f3f4f6;
 }
 
-/* Item that contains the active route — indigo text emphasis (NO side stripe) */
+/* Item that contains the active route — neutral emphasis via weight only (no color) */
 .navParentActive {
-  color: #6366f1;
+  color: #111827;
   font-weight: 600;
+}
+
+/* Direct-link item (Informes inside Empresa) when its route is active — indigo fill */
+.navParentLinkActive {
+  color: #fff;
+  background-color: #6366f1;
+  font-weight: 600;
+}
+
+.navParentLinkActive:hover {
+  color: #fff;
+  background-color: #4f46e5;
 }
 
 .chevron {

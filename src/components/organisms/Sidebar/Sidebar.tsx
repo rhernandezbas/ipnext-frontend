@@ -11,7 +11,10 @@ interface SubItem {
 interface NavParentItem {
   label: string;
   icon?: string;
-  children: SubItem[];
+  /** Sub-pages (level 3). Omitted when the item is a direct link (use `to`). */
+  children?: SubItem[];
+  /** Direct navigation target. When set, the item renders as a link, not an accordion. */
+  to?: string;
   matchPaths: string[];
   /**
    * Permission required to show this nav item.
@@ -191,6 +194,11 @@ const EMPRESA_ITEMS: NavParentItem[] = [
       { to: '/admin/tariffs/huawei-groups', label: 'Huawei Groups' },
     ],
   },
+  {
+    label: 'Informes',
+    to: '/admin/reports',
+    matchPaths: ['/admin/reports'],
+  },
 ];
 
 const SISTEMA_ITEMS: NavParentItem[] = [
@@ -252,6 +260,21 @@ function NavItem({ item, open, onToggle }: NavItemProps) {
   const active = isItemActive(item, location.pathname);
   const regionId = useId();
 
+  // Direct-link item (no sub-pages) — e.g. Informes inside Empresa.
+  if (item.to) {
+    return (
+      <NavLink
+        to={item.to}
+        end
+        className={({ isActive }) =>
+          isActive ? `${styles.navParent} ${styles.navParentLinkActive}` : styles.navParent
+        }
+      >
+        <span>{item.label}</span>
+      </NavLink>
+    );
+  }
+
   return (
     <div className={styles.navGroup}>
       <button
@@ -273,7 +296,7 @@ function NavItem({ item, open, onToggle }: NavItemProps) {
       >
         <div className={styles.collapsibleInner}>
           <div className={styles.navChildren}>
-            {item.children.map(({ to, label }) => (
+            {(item.children ?? []).map(({ to, label }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -350,25 +373,6 @@ function NavSection({
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// InformesLink — Level 0 direct link (kept between Empresa and Sistema)
-// ---------------------------------------------------------------------------
-
-function InformesLink() {
-  return (
-    <div className={styles.navTop}>
-      <NavLink
-        to="/admin/reports"
-        className={({ isActive }) =>
-          isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink
-        }
-      >
-        Informes
-      </NavLink>
     </div>
   );
 }
@@ -481,26 +485,19 @@ export function Sidebar({ open = true, onToggle }: SidebarProps) {
           </NavLink>
         </div>
 
-        {/* Level 1 — section accordions (single-open). The Informes direct
-            link (Level 0) sits just before the Sistema section, as it did
-            before the redesign; it always renders even if Sistema is hidden. */}
+        {/* Level 1 — section accordions (single-open). Informes is now a
+            direct-link item inside the Empresa section. */}
         {visibleSections.map((section) => (
-          <div key={section.key} style={{ display: 'contents' }}>
-            {section.key === 'sistema' && <InformesLink />}
-            <NavSection
-              label={section.label}
-              items={section.items}
-              open={openSection === section.key}
-              onToggle={() => toggleSection(section.key)}
-              openItemLabel={openItemBySection[section.key] ?? null}
-              onItemToggle={(label) => toggleItem(section.key, label)}
-            />
-          </div>
+          <NavSection
+            key={section.key}
+            label={section.label}
+            items={section.items}
+            open={openSection === section.key}
+            onToggle={() => toggleSection(section.key)}
+            openItemLabel={openItemBySection[section.key] ?? null}
+            onItemToggle={(label) => toggleItem(section.key, label)}
+          />
         ))}
-
-        {/* If the Sistema section is hidden by permissions, Informes still
-            renders at the bottom of the nav. */}
-        {!visibleSections.some((s) => s.key === 'sistema') && <InformesLink />}
       </nav>
     </aside>
   );
