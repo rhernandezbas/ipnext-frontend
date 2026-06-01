@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import styles from '../SchedulingCalendarPage.module.css';
 import sidebarStyles from './ResourceSidebar.module.css';
 import type { CalendarResource } from '@/types/calendar';
@@ -23,27 +22,6 @@ function avatarColor(name: string): string {
 }
 
 export function ResourceSidebar({ resources, isLoading, headerHeight = 32 }: ResourceSidebarProps) {
-  // Group resources by role
-  const grouped = resources.reduce<Record<string, CalendarResource[]>>((acc, r) => {
-    if (!acc[r.role]) acc[r.role] = [];
-    acc[r.role].push(r);
-    return acc;
-  }, {});
-
-  // Add "unassigned" group at the bottom
-  const roles = Object.keys(grouped);
-
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-
-  function toggleGroup(role: string) {
-    setCollapsed(prev => {
-      const next = new Set(prev);
-      if (next.has(role)) next.delete(role);
-      else next.add(role);
-      return next;
-    });
-  }
-
   if (isLoading) {
     return (
       <div className={sidebarStyles.sidebar} data-testid="resource-sidebar">
@@ -61,35 +39,24 @@ export function ResourceSidebar({ resources, isLoading, headerHeight = 32 }: Res
       {/* Spacer to align with hour header */}
       <div style={{ height: headerHeight, borderBottom: '1px solid var(--color-border)' }} />
 
-      {roles.map(role => (
-        <div key={role}>
-          <button
-            className={sidebarStyles.groupHeader}
-            onClick={() => toggleGroup(role)}
-            aria-expanded={!collapsed.has(role)}
+      {/* Flat list — one row per resource, no group-header buttons.
+          This ensures 1:1 alignment with the grid (WeekView/DayView)
+          which has no matching spacer rows for group headers. */}
+      {resources.map(resource => (
+        <div
+          key={resource.id}
+          className={sidebarStyles.resourceRow}
+          data-testid="resource-row"
+          data-resource-id={resource.id}
+        >
+          <div
+            className={styles.avatar}
+            style={{ backgroundColor: avatarColor(resource.name) }}
+            aria-hidden="true"
           >
-            <span className={sidebarStyles.groupLabel}>{role}</span>
-            <span className={sidebarStyles.collapseIcon}>
-              {collapsed.has(role) ? '▶' : '▼'}
-            </span>
-          </button>
-          {!collapsed.has(role) && grouped[role].map(resource => (
-            <div
-              key={resource.id}
-              className={sidebarStyles.resourceRow}
-              data-testid="resource-row"
-              data-resource-id={resource.id}
-            >
-              <div
-                className={styles.avatar}
-                style={{ backgroundColor: avatarColor(resource.name) }}
-                aria-hidden="true"
-              >
-                {resource.initials}
-              </div>
-              <span className={sidebarStyles.resourceName}>{resource.name}</span>
-            </div>
-          ))}
+            {resource.initials}
+          </div>
+          <span className={sidebarStyles.resourceName}>{resource.name}</span>
         </div>
       ))}
 

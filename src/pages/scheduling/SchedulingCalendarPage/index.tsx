@@ -179,7 +179,10 @@ export default function SchedulingCalendarPage() {
   );
 
   const resources: CalendarResource[] = useMemo(
-    () => rbacUsers.map(toCalendarResource),
+    () =>
+      rbacUsers
+        .filter(u => u.roles.some(r => r.code === 'tecnico'))
+        .map(toCalendarResource),
     [rbacUsers]
   );
 

@@ -301,7 +301,9 @@ describe('SchedulingCalendarPage — create modal', () => {
 //
 // These tests render the page directly (not via renderWithRouter which resets mocks)
 // so we can control useRbacUsers independently.
-function renderWithMocks(url: string, tasks: ScheduledTask[], rbacUsers: Array<{ id: string; name: string; email: string; login: string; status: 'active' | 'disabled'; createdAt: string; updatedAt: string; lastLoginAt: string | null }>) {
+// NOTE: rbacUsers must include `roles` with 'tecnico' to pass the role filter
+// introduced by REQ-ROLE-FILTER (only technicians are shown as calendar resources).
+function renderWithMocks(url: string, tasks: ScheduledTask[], rbacUsers: Array<{ id: string; name: string; email: string; login: string; status: 'active' | 'disabled'; createdAt: string; updatedAt: string; lastLoginAt: string | null; roles?: Array<{ id: string; code: string; label: string; isSystem: boolean }> }>) {
   vi.mocked(useFilteredTasks).mockReturnValue({
     data: tasks,
     isLoading: false,
@@ -332,8 +334,9 @@ function renderWithMocks(url: string, tasks: ScheduledTask[], rbacUsers: Array<{
 
 describe('SchedulingCalendarPage — resource source is RbacUser (REQ-RESOURCE-SOURCE)', () => {
   it('task assigned to an RbacUser appears in that user resource row in week view', () => {
-    // Arrange: one RbacUser resource and a task assigned to their id
-    const rbacUser = { id: 'rbac-1', name: 'Ana Garcia', email: 'ana@test.com', login: 'ana', status: 'active' as const, createdAt: '', updatedAt: '', lastLoginAt: null };
+    // Arrange: one RbacUser resource and a task assigned to their id.
+    // roles includes 'tecnico' so the user passes the REQ-ROLE-FILTER and appears as a resource row.
+    const rbacUser = { id: 'rbac-1', name: 'Ana Garcia', email: 'ana@test.com', login: 'ana', status: 'active' as const, createdAt: '', updatedAt: '', lastLoginAt: null, roles: [{ id: 'role-tecnico', code: 'tecnico', label: 'Técnico', isSystem: true }] };
     const task = makeTask({
       id: 'task-assigned',
       title: 'Tarea asignada a Ana',
@@ -356,7 +359,7 @@ describe('SchedulingCalendarPage — resource source is RbacUser (REQ-RESOURCE-S
   });
 
   it('task with no assignee still appears in "Sin asignar" row', () => {
-    const rbacUser = { id: 'rbac-1', name: 'Ana Garcia', email: 'ana@test.com', login: 'ana', status: 'active' as const, createdAt: '', updatedAt: '', lastLoginAt: null };
+    const rbacUser = { id: 'rbac-1', name: 'Ana Garcia', email: 'ana@test.com', login: 'ana', status: 'active' as const, createdAt: '', updatedAt: '', lastLoginAt: null, roles: [{ id: 'role-tecnico', code: 'tecnico', label: 'Técnico', isSystem: true }] };
     const task = makeTask({
       id: 'task-unassigned',
       title: 'Tarea sin asignar',
