@@ -394,6 +394,45 @@ describe('DatosForm', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Timezone round-trip (TZ-BUG-1) — must not shift date when saving unchanged
+  // ---------------------------------------------------------------------------
+
+  describe('timezone round-trip', () => {
+    it('preserves UTC ISO startDate when user saves without changes (ARG 18:00 = UTC 21:00)', async () => {
+      // Regression: toLocalInput() was using toISOString().slice(0,16) which
+      // produces a UTC time string. The datetime-local input then interprets it
+      // as LOCAL time, so toIso() on submit shifts it by the UTC offset (+3h
+      // for Argentina UTC-3). '2026-06-01T21:00:00.000Z' → stored as
+      // '2026-06-02T00:00:00.000Z' after a single save without changes.
+      const user = userEvent.setup();
+      const startDateUtc = '2026-06-01T21:00:00.000Z';
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{
+              ...initialValues,
+              projectId: 'proj-1',
+              startDate: startDateUtc,
+              endDate: null,
+            }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+          />
+        </MemoryRouter>
+      );
+      await user.click(screen.getByRole('button', { name: /guardar cambios/i }));
+      await waitFor(() => {
+        expect(onSubmit).toHaveBeenCalledWith(
+          expect.objectContaining({ startDate: startDateUtc }),
+        );
+      });
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // IClass warning (FASE 5)
   // ---------------------------------------------------------------------------
 

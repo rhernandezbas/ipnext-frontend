@@ -29,20 +29,27 @@ function addMonths(d: Date, n: number): Date {
   return result;
 }
 
+function localDayStart(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+}
+
+function localDayEnd(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+}
+
 function computeRange(view: CalendarView, date: Date): { from: string; to: string } {
   if (view === 'day') {
-    const dateStr = toIsoDate(date);
     return {
-      from: `${dateStr}T00:00:00Z`,
-      to: `${dateStr}T23:59:59Z`,
+      from: localDayStart(date).toISOString(),
+      to: localDayEnd(date).toISOString(),
     };
   }
   if (view === 'week') {
     const weekStart = getWeekStart(date);
     const weekEnd = addDays(weekStart, 6);
     return {
-      from: `${toIsoDate(weekStart)}T00:00:00Z`,
-      to: `${toIsoDate(weekEnd)}T23:59:59Z`,
+      from: localDayStart(weekStart).toISOString(),
+      to: localDayEnd(weekEnd).toISOString(),
     };
   }
   // month
@@ -51,8 +58,8 @@ function computeRange(view: CalendarView, date: Date): { from: string; to: strin
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
   return {
-    from: `${toIsoDate(firstDay)}T00:00:00Z`,
-    to: `${toIsoDate(lastDay)}T23:59:59Z`,
+    from: localDayStart(firstDay).toISOString(),
+    to: localDayEnd(lastDay).toISOString(),
   };
 }
 

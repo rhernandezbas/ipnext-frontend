@@ -44,11 +44,11 @@ interface DatosFormProps {
   onDirtyChange?: (isDirty: boolean) => void;
 }
 
-/** Convert ISO/offset string to datetime-local format "YYYY-MM-DDTHH:mm" */
+/** Convert ISO/offset string to datetime-local format "YYYY-MM-DDTHH:mm" in LOCAL time. */
 function toLocalInput(iso: string | null): string {
   if (!iso) return '';
   try {
-    return new Date(iso).toISOString().slice(0, 16);
+    return toLocalInputString(new Date(iso));
   } catch {
     return iso.slice(0, 16);
   }

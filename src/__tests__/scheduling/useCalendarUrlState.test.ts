@@ -124,30 +124,76 @@ describe('useCalendarUrlState', () => {
   });
 
   it('computes from/to for week view', () => {
-    // 2026-05-20 is a Wednesday; week starts on Mon 2026-05-18
+    // 2026-05-20 is a Wednesday; week starts on Mon 2026-05-18, ends Sun 2026-05-24
+    // from/to are expressed as local-day boundaries in UTC (timezone-aware)
     const { result } = renderHook(() => useCalendarUrlState(), {
       wrapper: wrapper('?view=week&date=2026-05-20'),
     });
-    // from = Monday 2026-05-18T00:00:00Z
-    expect(result.current.from).toMatch(/^2026-05-18/);
-    // to = Sunday 2026-05-24T23:59:59Z
-    expect(result.current.to).toMatch(/^2026-05-24/);
+    // from must be the UTC equivalent of local Mon 2026-05-18 00:00:00
+    expect(result.current.from).toBe(new Date(2026, 4, 18, 0, 0, 0, 0).toISOString());
+    // to must be the UTC equivalent of local Sun 2026-05-24 23:59:59.999
+    expect(result.current.to).toBe(new Date(2026, 4, 24, 23, 59, 59, 999).toISOString());
   });
 
   it('computes from/to for day view', () => {
+    // from/to are expressed as local-day boundaries in UTC (timezone-aware)
     const { result } = renderHook(() => useCalendarUrlState(), {
       wrapper: wrapper('?view=day&date=2026-05-20'),
     });
-    expect(result.current.from).toBe('2026-05-20T00:00:00Z');
-    expect(result.current.to).toBe('2026-05-20T23:59:59Z');
+    expect(result.current.from).toBe(new Date(2026, 4, 20, 0, 0, 0, 0).toISOString());
+    expect(result.current.to).toBe(new Date(2026, 4, 20, 23, 59, 59, 999).toISOString());
   });
 
   it('computes from/to for month view', () => {
+    // from/to are expressed as local-day boundaries in UTC (timezone-aware)
     const { result } = renderHook(() => useCalendarUrlState(), {
       wrapper: wrapper('?view=month&date=2026-05-01'),
     });
-    expect(result.current.from).toBe('2026-05-01T00:00:00Z');
-    expect(result.current.to).toBe('2026-05-31T23:59:59Z');
+    expect(result.current.from).toBe(new Date(2026, 4, 1, 0, 0, 0, 0).toISOString());
+    expect(result.current.to).toBe(new Date(2026, 4, 31, 23, 59, 59, 999).toISOString());
+  });
+
+  // ---------------------------------------------------------------------------
+  // Timezone-aware range bounds (TZ-BUG-2)
+  // The range must cover the FULL LOCAL day, not just the UTC calendar day.
+  // For UTC-3 (Argentina): local midnight = UTC+3h, local 23:59:59 = next UTC day at 02:59:59.
+  // ---------------------------------------------------------------------------
+
+  it('day view from/to covers the full local day (ARG UTC-3)', () => {
+    // Machine timezone: America/Buenos_Aires (UTC-3, confirmed at test-write time)
+    // Local 2026-06-01 00:00:00 = UTC 2026-06-01T03:00:00.000Z
+    // Local 2026-06-01 23:59:59 = UTC 2026-06-02T02:59:59.000Z
+    const localMidnightUTC = new Date(2026, 5, 1, 0, 0, 0, 0).toISOString();  // local midnight as UTC
+    const localEndOfDayUTC = new Date(2026, 5, 1, 23, 59, 59, 999).toISOString(); // local EOD as UTC
+    const { result } = renderHook(() => useCalendarUrlState(), {
+      wrapper: wrapper('?view=day&date=2026-06-01'),
+    });
+    // from must be at or before local midnight expressed in UTC
+    expect(result.current.from <= localMidnightUTC).toBe(true);
+    // to must be at or after local end-of-day expressed in UTC
+    expect(result.current.to >= localEndOfDayUTC).toBe(true);
+  });
+
+  it('week view from/to covers the full local week (ARG UTC-3)', () => {
+    // 2026-05-20 is Wednesday; local week: Mon 2026-05-18 to Sun 2026-05-24
+    const weekStartLocalUTC = new Date(2026, 4, 18, 0, 0, 0, 0).toISOString();
+    const weekEndLocalUTC   = new Date(2026, 4, 24, 23, 59, 59, 999).toISOString();
+    const { result } = renderHook(() => useCalendarUrlState(), {
+      wrapper: wrapper('?view=week&date=2026-05-20'),
+    });
+    expect(result.current.from <= weekStartLocalUTC).toBe(true);
+    expect(result.current.to >= weekEndLocalUTC).toBe(true);
+  });
+
+  it('month view from/to covers the full local month (ARG UTC-3)', () => {
+    // May 2026: first day = May 1, last day = May 31
+    const monthStartLocalUTC = new Date(2026, 4, 1, 0, 0, 0, 0).toISOString();
+    const monthEndLocalUTC   = new Date(2026, 4, 31, 23, 59, 59, 999).toISOString();
+    const { result } = renderHook(() => useCalendarUrlState(), {
+      wrapper: wrapper('?view=month&date=2026-05-01'),
+    });
+    expect(result.current.from <= monthStartLocalUTC).toBe(true);
+    expect(result.current.to >= monthEndLocalUTC).toBe(true);
   });
 
   it('reads projectId filter from URL', () => {
