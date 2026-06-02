@@ -1,4 +1,4 @@
-name: Deploy ipnext-frontend
+name: Deploy Prominense FE
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
         # aggressively, including the COPY . . layer, which has left
         # latest pointing at a stale image despite source changes. Forcing
         # no-cache adds ~30s but guarantees the image matches the commit.
-        run: docker build --no-cache --pull -t ipnext-frontend:latest .
+        run: docker build --no-cache --pull -t prominense-fe:latest .
 
       - name: Deploy container
         run: |
@@ -29,7 +29,7 @@ jobs:
             --network ipnext-net \
             --restart unless-stopped \
             -p 7778:80 \
-            ipnext-frontend:latest
+            prominense-fe:latest
 
       - name: Verify
         run: |
@@ -41,7 +41,7 @@ jobs:
           # (with the previous image) keeps running. Same fix as backend after
           # the change-1 incident.
           CONTAINER_IMG=$(docker inspect ipnext-new-frontend --format '{{.Image}}')
-          LATEST_IMG=$(docker inspect ipnext-frontend:latest --format '{{.Id}}')
+          LATEST_IMG=$(docker inspect prominense-fe:latest --format '{{.Id}}')
           if [ "$CONTAINER_IMG" != "$LATEST_IMG" ]; then
             echo "ERROR: container is running stale image"
             echo "  container: $CONTAINER_IMG"
