@@ -66,6 +66,16 @@ vi.mock(
   }),
 );
 
+// Mock TaskInventorySuggestions, usa useQuery (necesitaria un QueryClient); stub
+vi.mock(
+  '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskInventorySuggestions',
+  () => ({
+    TaskInventorySuggestions: () => (
+      <div data-testid="task-inventory-suggestions">Suggestions Stub</div>
+    ),
+  }),
+);
+
 import { TaskTabs } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs';
 import type { TaskTabsProps } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs';
 

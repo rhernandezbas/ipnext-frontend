@@ -4,6 +4,7 @@ export interface WorkflowStage {
   id: string;
   workflowId: string;
   name: string;
+  code: string;
   category: TaskStageCategory;
   order: number;
   color?: string | null;

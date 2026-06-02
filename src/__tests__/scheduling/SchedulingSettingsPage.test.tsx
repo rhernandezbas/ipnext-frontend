@@ -91,7 +91,7 @@ describe('SchedulingSettingsPage', () => {
   it('renders the six config tabs in order', () => {
     renderPage();
     const tabs = screen.getAllByRole('tab').map(t => t.textContent);
-    expect(tabs).toEqual(['Categorías', 'Prioridades', 'Colores de estados', 'Plantillas', 'IClass', 'Gestión Real']);
+    expect(tabs).toEqual(['Categorías', 'Prioridades', 'Estados', 'Plantillas', 'IClass', 'Gestión Real']);
   });
 
   it('switches to the IClass tab and shows its host (the Integración sub-tab is default)', () => {
