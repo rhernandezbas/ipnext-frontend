@@ -208,9 +208,6 @@ vi.mock('@/pages/scheduling/SchedulingTaskCategoriesPage', () => ({
 vi.mock('@/pages/scheduling/SchedulingTaskPrioritiesPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:SchedulingTaskPriorities]'),
 }));
-vi.mock('@/pages/scheduling/SchedulingStageColorsPage', () => ({
-  default: () => React.createElement('div', null, '[PAGE:SchedulingStageColors]'),
-}));
 vi.mock('@/pages/scheduling/SchedulingTasksPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:SchedulingTasks]'),
 }));
@@ -438,7 +435,6 @@ const directCases: Array<{ url: string; marker: string }> = [
   { url: '/admin/scheduling/templates', marker: '[PAGE:SchedulingTemplates]' },
   { url: '/admin/scheduling/task-categories', marker: '[PAGE:SchedulingTaskCategories]' },
   { url: '/admin/scheduling/task-priorities', marker: '[PAGE:SchedulingTaskPriorities]' },
-  { url: '/admin/scheduling/stage-colors', marker: '[PAGE:SchedulingStageColors]' },
   { url: '/admin/scheduling/tasks', marker: '[PAGE:SchedulingTasks]' },
   { url: '/admin/scheduling/tasks/abc-123', marker: '[PAGE:SchedulingTaskDetail]' },
   // Tariffs

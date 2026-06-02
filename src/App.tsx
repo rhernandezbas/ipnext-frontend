@@ -112,7 +112,6 @@ const SchedulingArchivePage = lazy(() => import('@/pages/scheduling/SchedulingAr
 const SchedulingTemplatesPage = lazy(() => import('@/pages/scheduling/SchedulingTemplatesPage'));
 const SchedulingTaskCategoriesPage = lazy(() => import('@/pages/scheduling/SchedulingTaskCategoriesPage'));
 const SchedulingTaskPrioritiesPage = lazy(() => import('@/pages/scheduling/SchedulingTaskPrioritiesPage'));
-const SchedulingStageColorsPage = lazy(() => import('@/pages/scheduling/SchedulingStageColorsPage'));
 const SchedulingSettingsPage = lazy(() => import('@/pages/scheduling/SchedulingSettingsPage'));
 const SchedulingTaskDetailPage = lazy(() => import('@/pages/scheduling/SchedulingTaskDetailPage'));
 // SchedulingTasksPage is a re-export shim pointing at the directory index (SchedulingTasksPage/index.tsx).
@@ -230,7 +229,6 @@ export function App() {
                 <Route path="templates" element={<RequirePermission permission="scheduling.read"><SchedulingTemplatesPage /></RequirePermission>} />
                 <Route path="task-categories" element={<RequirePermission permission="scheduling.read"><SchedulingTaskCategoriesPage /></RequirePermission>} />
                 <Route path="task-priorities" element={<RequirePermission permission="scheduling.read"><SchedulingTaskPrioritiesPage /></RequirePermission>} />
-                <Route path="stage-colors" element={<RequirePermission permission="scheduling.read"><SchedulingStageColorsPage /></RequirePermission>} />
                 <Route path="settings" element={<RequirePermission permission="scheduling.read"><SchedulingSettingsPage /></RequirePermission>} />
                 <Route path="tasks" element={<RequirePermission permission="scheduling.read"><SchedulingTasksPage /></RequirePermission>} />
                 <Route path="tasks/:id" element={<RequirePermission permission="scheduling.read"><SchedulingTaskDetailPage /></RequirePermission>} />
