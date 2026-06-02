@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Tabs } from '@/components/molecules/Tabs/Tabs';
 import { TaskCategoriesBody } from './settings/TaskCategoriesBody';
 import { TaskPrioritiesBody } from './settings/TaskPrioritiesBody';
-import { StageColorsBody } from './settings/StageColorsBody';
+import { WorkflowStatesBody } from './settings/WorkflowStatesBody';
 import { TaskTemplatesBody } from './settings/TaskTemplatesBody';
 import { IClassSettingsBody } from './settings/IClassSettingsBody';
 import { GestionRealBody } from './settings/GestionRealBody';
@@ -11,7 +11,7 @@ import styles from './SchedulingTaskCategoriesPage.module.css';
 const TABS = [
   { id: 'categorias',        label: 'Categorías',         content: <TaskCategoriesBody /> },
   { id: 'prioridades',       label: 'Prioridades',        content: <TaskPrioritiesBody /> },
-  { id: 'colores',           label: 'Colores de estados', content: <StageColorsBody /> },
+  { id: 'estados',           label: 'Estados',            content: <WorkflowStatesBody /> },
   { id: 'plantillas',        label: 'Plantillas',         content: <TaskTemplatesBody /> },
   { id: 'iclass',            label: 'IClass',             content: <IClassSettingsBody /> },
   { id: 'gestion-real',      label: 'Gestión Real',       content: <GestionRealBody /> },
