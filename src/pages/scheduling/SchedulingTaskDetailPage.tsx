@@ -392,6 +392,8 @@ export default function SchedulingTaskDetailPage() {
         error={iclass.error}
         onClose={iclass.closeModal}
         onRetry={handleIClassRetry}
+        taskId={task?.id}
+        onResendSuccess={iclass.handleSuccess}
       />
 
       {/* Live region for save status */}

@@ -227,3 +227,30 @@ export function useSetTaskInventoryReview() {
 
 // Type alias exported for convenience in components
 export type { TaskChecklistItem };
+
+// ── IClass manual resend ─────────────────────────────────────────────────────
+
+/** Cache IClass nodes for 5 min — the list is small and changes rarely. */
+export function useIClassNodes(enabled = false) {
+  return useQuery({
+    queryKey: ['iclass-nodes'],
+    queryFn: () => api.listIClassNodes(),
+    enabled,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+  });
+}
+
+export function useResendToIClass(taskId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (nodeCode: string) => {
+      if (!taskId) return Promise.reject(new Error('taskId is required'));
+      return api.resendTaskToIClass(taskId, nodeCode);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['scheduling-task', taskId] });
+      void qc.invalidateQueries({ queryKey: ['scheduling-tasks'] });
+    },
+  });
+}
