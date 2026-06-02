@@ -98,3 +98,20 @@ export const setTaskInventoryReview = (taskId: string, reviewed: boolean) =>
   axiosClient
     .patch<ScheduledTask>(`${BASE}/${taskId}/inventory-review`, { reviewed })
     .then(r => r.data);
+
+// ── IClass manual resend ─────────────────────────────────────────────────────
+
+export interface IClassNode {
+  code: string;
+  description: string;
+}
+
+export const listIClassNodes = () =>
+  axiosClient
+    .get<{ nodes: IClassNode[] }>(`${BASE}/iclass/nodes`)
+    .then(r => r.data.nodes);
+
+export const resendTaskToIClass = (taskId: string, nodeCode: string) =>
+  axiosClient
+    .post<ScheduledTask>(`${BASE}/${taskId}/iclass/resend`, { nodeCode })
+    .then(r => r.data);

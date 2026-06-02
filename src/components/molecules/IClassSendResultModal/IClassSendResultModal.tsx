@@ -1,5 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useCan } from '@/hooks/useMyPermissions';
+import { useIClassNodes, useResendToIClass } from '@/hooks/useScheduling';
 import styles from './IClassSendResultModal.module.css';
 
 /** IClass send error codes returned by PATCH /scheduling/:id/stage. */
@@ -30,6 +32,18 @@ interface IClassSendResultModalProps {
   onRetry: () => void;
   /** Navigates to the task detail so the user can fill the missing fields. */
   onEditTask?: () => void;
+  /**
+   * Task id — required to show the manual-resend section when the error is
+   * ICLASS_NODE_NOT_FOUND and the user has the scheduling.iclass_manual_resend
+   * permission. Optional for backwards compatibility.
+   */
+  taskId?: string;
+  /**
+   * Called after a successful manual resend so the caller can surface the OS
+   * code toast and refresh the task. If omitted, a successful resend just
+   * closes the modal.
+   */
+  onResendSuccess?: (iclassOrderCode: string | null | undefined) => void;
 }
 
 /** code → Spanish label for the missing-fields list. Unknown codes fall back
@@ -97,6 +111,141 @@ export function iclassErrorReason(
 }
 
 /**
+ * Sub-section rendered inside the ICLASS_NODE_NOT_FOUND error body when the
+ * current user has the scheduling.iclass_manual_resend permission and taskId
+ * is provided. Fetches available nodes and lets the user pick one and resend.
+ */
+function NodeResendSection({
+  taskId,
+  onResendSuccess,
+  onClose,
+  onResendError,
+}: {
+  taskId: string;
+  onResendSuccess?: (code: string | null | undefined) => void;
+  onClose: () => void;
+  onResendError: (msg: string) => void;
+}) {
+  const [selectedCode, setSelectedCode] = useState('');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
+
+  const { data: nodes, isLoading, isError } = useIClassNodes(true);
+  const resend = useResendToIClass(taskId);
+
+  const selectedNode = nodes?.find(n => n.code === selectedCode);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const close = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!triggerRef.current?.contains(t) && !menuRef.current?.contains(t)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [dropdownOpen]);
+
+  function toggleDropdown() {
+    if (dropdownOpen) { setDropdownOpen(false); return; }
+    const r = triggerRef.current?.getBoundingClientRect();
+    if (r) {
+      const below = window.innerHeight - r.bottom;
+      const top = below < 220 && r.top > 220 ? r.top - Math.min(200, r.top - 8) : r.bottom + 4;
+      setDropdownPos({ top, left: r.left, width: r.width });
+    }
+    setDropdownOpen(true);
+  }
+
+  async function handleResend() {
+    if (!selectedCode) return;
+    try {
+      const updated = await resend.mutateAsync(selectedCode);
+      const code = (updated as { iclassOrderCode?: string | null } | undefined)?.iclassOrderCode;
+      onResendSuccess?.(code);
+      onClose();
+    } catch (err) {
+      const data = (err as { response?: { data?: { message?: string; code?: string } } }).response?.data;
+      const msg = data?.message ?? 'Error al reenviar la tarea a IClass.';
+      onResendError(msg);
+    }
+  }
+
+  return (
+    <div className={styles.nodeResend}>
+      <p className={styles.nodeResendHint}>
+        Podés elegir un nodo manualmente y reenviar la tarea directamente.
+      </p>
+
+      {isLoading ? (
+        <div className={styles.nodeSkeleton} aria-label="Cargando nodos" />
+      ) : isError ? (
+        <p className={styles.nodeResendError}>No se pudieron cargar los nodos. Reintentá más tarde.</p>
+      ) : !nodes || nodes.length === 0 ? (
+        <p className={styles.nodeResendError}>No hay nodos disponibles en este momento.</p>
+      ) : (
+        <div className={styles.nodeSelectWrapper}>
+          <button
+            ref={triggerRef}
+            type="button"
+            className={styles.nodeSelectTrigger}
+            onClick={toggleDropdown}
+            aria-haspopup="listbox"
+            aria-expanded={dropdownOpen}
+            aria-label="Seleccionar nodo"
+            disabled={resend.isPending}
+          >
+            <span className={selectedNode ? styles.nodeSelectValue : styles.nodeSelectPlaceholder}>
+              {selectedNode ? `${selectedNode.code} — ${selectedNode.description}` : 'Elegir nodo...'}
+            </span>
+            <span className={styles.caret}>▾</span>
+          </button>
+
+          {dropdownOpen && dropdownPos && createPortal(
+            <ul
+              ref={menuRef}
+              role="listbox"
+              aria-label="Nodos de IClass"
+              className={styles.nodeMenu}
+              style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
+            >
+              {nodes.map(n => (
+                <li key={n.code}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={n.code === selectedCode}
+                    className={styles.nodeOption}
+                    onClick={() => { setSelectedCode(n.code); setDropdownOpen(false); }}
+                  >
+                    <span className={styles.nodeCode}>{n.code}</span>
+                    <span className={styles.nodeDescription}>{n.description}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>,
+            document.body,
+          )}
+        </div>
+      )}
+
+      <button
+        type="button"
+        className={styles.resendBtn}
+        disabled={!selectedCode || resend.isPending}
+        onClick={() => { void handleResend(); }}
+      >
+        {resend.isPending ? 'Reenviando...' : 'Reenviar a IClass'}
+      </button>
+    </div>
+  );
+}
+
+/**
  * Reusable modal for the result of sending a task to IClass. Mirrors the
  * ConfirmModal pattern (portal to body, Esc/backdrop close, body scroll lock,
  * focus trap). Renders one of three error states; success is handled by a toast
@@ -108,11 +257,20 @@ export function IClassSendResultModal({
   onClose,
   onRetry,
   onEditTask,
+  taskId,
+  onResendSuccess,
 }: IClassSendResultModalProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const [resendError, setResendError] = useState<string | null>(null);
+
+  const canResend = useCan('scheduling.iclass_manual_resend');
+  const isNodeNotFound = error?.code === 'ICLASS_NODE_NOT_FOUND';
+  const showNodeResend = isNodeNotFound && canResend && !!taskId;
 
   useEffect(() => {
     if (!open || !error) return;
+    // Reset resend error state whenever the modal opens with a new error
+    setResendError(null);
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     closeRef.current?.focus();
@@ -133,7 +291,9 @@ export function IClassSendResultModal({
   const isMissingProject = error.code === 'MISSING_PROJECT_FOR_ICLASS';
   const isMissingMapping = error.code === 'MISSING_ICLASS_MAPPING';
   const showEditTask = isMissing || isMissingProject;
-  const showRetry = !isMissing && !isMissingProject && !isMissingMapping;
+  // Show "Reintentar" only for non-admin users on ICLASS_NODE_NOT_FOUND, or for
+  // other retryable errors where no node resend section is shown.
+  const showRetry = !isMissing && !isMissingProject && !isMissingMapping && !showNodeResend;
   const title = TITLES[error.code] ?? 'Error al enviar a IClass';
 
   return createPortal(
@@ -160,11 +320,24 @@ export function IClassSendResultModal({
               ))}
             </ul>
           </>
-        ) : error.code === 'ICLASS_NODE_NOT_FOUND' ? (
-          <p className={styles.message}>
-            La ciudad de la tarea no corresponde a un nodo de IClass. Verificá la
-            localidad del cliente o configurá el nodo antes de reintentar.
-          </p>
+        ) : isNodeNotFound ? (
+          <>
+            <p className={styles.message}>
+              La ciudad de la tarea no corresponde a un nodo de IClass. Verificá la
+              localidad del cliente o configurá el nodo antes de reintentar.
+            </p>
+            {showNodeResend && (
+              <NodeResendSection
+                taskId={taskId}
+                onResendSuccess={onResendSuccess}
+                onClose={onClose}
+                onResendError={setResendError}
+              />
+            )}
+            {resendError && (
+              <p className={styles.resendErrorMsg}>{resendError}</p>
+            )}
+          </>
         ) : error.code === 'ICLASS_UNAVAILABLE' ? (
           <p className={styles.message}>
             El servicio de IClass no está disponible en este momento. Reintentá en
