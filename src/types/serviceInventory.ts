@@ -1,4 +1,4 @@
-export type InstalledItemType = 'ONU' | 'ROUTER' | 'ANTENA' | 'REPETIDOR' | 'OTROS';
+export type InstalledItemType = string;
 export type InstalledItemStatus = 'active' | 'removed' | 'replaced';
 
 /** A physical device installed on a contract (Service). One row = one device. */

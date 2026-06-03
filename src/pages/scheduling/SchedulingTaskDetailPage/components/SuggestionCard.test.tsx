@@ -1,8 +1,38 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SuggestionCard } from './SuggestionCard';
 import type { TaskInventorySuggestion } from '@/types/serviceInventory';
+
+// Mock useDeviceTypes so we control the available types
+vi.mock('@/hooks/useDeviceTypes', () => ({
+  useDeviceTypes: vi.fn(),
+}));
+
+import { useDeviceTypes } from '@/hooks/useDeviceTypes';
+import type { DeviceType } from '@/types/deviceType';
+
+const makeDeviceType = (name: string, sortOrder: number): DeviceType => ({
+  id: `dt-${name}`,
+  name,
+  label: name,
+  active: true,
+  sortOrder,
+  createdAt: '2026-06-01T00:00:00.000Z',
+  updatedAt: '2026-06-01T00:00:00.000Z',
+});
+
+const DEFAULT_TYPES = ['ONU', 'ROUTER', 'ANTENA', 'REPETIDOR', 'OTROS'].map((n, i) =>
+  makeDeviceType(n, i + 1),
+);
+
+function mockDeviceTypes(types: DeviceType[] = DEFAULT_TYPES) {
+  vi.mocked(useDeviceTypes).mockReturnValue({
+    data: types,
+    isLoading: false,
+    isSuccess: true,
+  } as unknown as ReturnType<typeof useDeviceTypes>);
+}
 
 const sug = (over: Partial<TaskInventorySuggestion> = {}): TaskInventorySuggestion => ({
   id: 's1', taskId: 't1', kind: 'DEVICE', deviceType: 'ONU', qwenDeviceType: null,
@@ -11,6 +41,11 @@ const sug = (over: Partial<TaskInventorySuggestion> = {}): TaskInventorySuggesti
 });
 
 const noop = () => {};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockDeviceTypes();
+});
 
 describe('SuggestionCard', () => {
   it('muestra SN/MAC y el dropdown con el deviceType del label por default', () => {
@@ -49,6 +84,23 @@ describe('SuggestionCard', () => {
     render(<SuggestionCard suggestion={sug()} onConfirm={noop} onDiscard={noop} isPending={false} canWrite={false} />);
     expect(screen.queryByText('Confirmar')).toBeNull();
     expect(screen.queryByText('Descartar')).toBeNull();
+  });
+
+  it('falls back to OTROS when deviceType not in catalog and catalog is loaded', () => {
+    render(<SuggestionCard suggestion={sug({ deviceType: 'DESCONOCIDO' })} onConfirm={noop} onDiscard={noop} isPending={false} canWrite />);
+    // When DESCONOCIDO is not in the catalog, defaults to OTROS
+    expect((screen.getByLabelText('tipo de equipo') as HTMLSelectElement).value).toBe('OTROS');
+  });
+
+  it('shows all catalog types as options in the dropdown', () => {
+    mockDeviceTypes(DEFAULT_TYPES);
+    render(<SuggestionCard suggestion={sug()} onConfirm={noop} onDiscard={noop} isPending={false} canWrite />);
+    const select = screen.getByLabelText('tipo de equipo') as HTMLSelectElement;
+    const options = Array.from(select.options).map(o => o.value);
+    expect(options).toContain('ONU');
+    expect(options).toContain('ROUTER');
+    expect(options).toContain('ANTENA');
+    expect(options).toContain('OTROS');
   });
 });
 
@@ -92,5 +144,17 @@ describe('SuggestionCard — resuelta (read-only)', () => {
     );
     expect(screen.getByText(/Descartado/)).toBeInTheDocument();
     expect(screen.queryByText('Confirmar')).toBeNull();
+  });
+
+  it('resolved: shows device type from catalog even if originally inactive (legacy data)', () => {
+    // Simulate a resolved card with a type that is not in the active catalog
+    render(
+      <SuggestionCard
+        suggestion={sug({ status: 'confirmed', deviceType: 'LEGACY_TYPE' })}
+        onConfirm={noop} onDiscard={noop} isPending={false} canWrite
+      />,
+    );
+    // The resolved card renders the raw deviceType string, not looked up in catalog
+    expect(screen.getByText('LEGACY_TYPE')).toBeInTheDocument();
   });
 });

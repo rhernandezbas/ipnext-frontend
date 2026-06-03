@@ -238,13 +238,39 @@ describe('TaskTabs', () => {
     expect(onInventoryToggle).toHaveBeenCalledWith(true);
   });
 
-  it('Inventory: reviewedByInventory=true shows checkbox as checked', async () => {
+  it('Inventory: reviewedByInventory=true shows the review badge instead of a checkbox', async () => {
     const user = userEvent.setup();
     render(<TaskTabs {...makeProps({ reviewedByInventory: true })} />);
     const tabs = screen.getAllByRole('tab');
     await user.click(tabs[4]);
-    const checkbox = screen.getByRole('checkbox');
-    expect(checkbox).toBeChecked();
+    // Badge is shown, no checkbox
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.getByTestId('inventory-review-badge')).toBeInTheDocument();
+    expect(screen.getByTestId('inventory-review-badge').textContent).toContain('✓ Revisado');
+  });
+
+  it('Inventory: reviewedByInventory=true with At+UserName shows full badge text', async () => {
+    const user = userEvent.setup();
+    render(<TaskTabs {...makeProps({
+      reviewedByInventory: true,
+      reviewedByInventoryAt: '2026-06-01T10:00:00.000Z',
+      reviewedByInventoryUserName: 'Juan Pérez',
+    })} />);
+    const tabs = screen.getAllByRole('tab');
+    await user.click(tabs[4]);
+    const badge = screen.getByTestId('inventory-review-badge');
+    expect(badge.textContent).toContain('✓ Revisado');
+    expect(badge.textContent).toContain('Juan Pérez');
+  });
+
+  it('Inventory: clicking Desmarcar when reviewed calls onInventoryToggle(false)', async () => {
+    const onInventoryToggle = vi.fn();
+    const user = userEvent.setup();
+    render(<TaskTabs {...makeProps({ reviewedByInventory: true, onInventoryToggle })} />);
+    const tabs = screen.getAllByRole('tab');
+    await user.click(tabs[4]);
+    await user.click(screen.getByText('Desmarcar'));
+    expect(onInventoryToggle).toHaveBeenCalledWith(false);
   });
 
   it('Registro de trabajo renders ComingSoonPanel', async () => {

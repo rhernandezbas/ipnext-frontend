@@ -19,6 +19,10 @@ export interface TaskTabsProps {
   ticketId?: number | null;
   /** Snapshot of the originating ticket's subject. */
   ticketSubject?: string | null;
+  /** ISO datetime when inventory review was done (F3 traceability). Optional for back-compat. */
+  reviewedByInventoryAt?: string | null;
+  /** Name of the user who marked the task as reviewed (F3 traceability). Optional for back-compat. */
+  reviewedByInventoryUserName?: string | null;
 }
 
 const TAB_IDS = {
@@ -35,6 +39,8 @@ interface InventoryPanelProps {
   taskId: string;
   reviewedByInventory: boolean;
   onInventoryToggle: (next: boolean) => void;
+  reviewedByInventoryAt?: string | null;
+  reviewedByInventoryUserName?: string | null;
 }
 
 /** Relacionado tab content — shows the originating ticket when the task was
@@ -61,19 +67,48 @@ function RelacionadoPanel({ ticketId, ticketSubject }: { ticketId?: number | nul
   );
 }
 
-function InventoryPanel({ taskId, reviewedByInventory, onInventoryToggle }: InventoryPanelProps) {
+function InventoryPanel({
+  taskId,
+  reviewedByInventory,
+  onInventoryToggle,
+  reviewedByInventoryAt,
+  reviewedByInventoryUserName,
+}: InventoryPanelProps) {
+  // Format the review badge text when reviewed
+  const reviewBadge = (() => {
+    if (!reviewedByInventory) return null;
+    const user = reviewedByInventoryUserName ?? '—';
+    const dateStr = reviewedByInventoryAt
+      ? new Date(reviewedByInventoryAt).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : null;
+    return dateStr ? `✓ Revisado · ${user} · ${dateStr}` : '✓ Revisado';
+  })();
+
   return (
     <div className={styles.inventoryPanel}>
       <div className={styles.inventoryToggleRow}>
-        <label className={styles.inventoryToggleLabel}>
-          <input
-            type="checkbox"
-            className={styles.inventoryCheckbox}
-            checked={reviewedByInventory}
-            onChange={(e) => onInventoryToggle(e.target.checked)}
-          />
-          <span>Revisado por inventario</span>
-        </label>
+        {reviewedByInventory && reviewBadge ? (
+          <div className={styles.inventoryReviewBadge} data-testid="inventory-review-badge">
+            {reviewBadge}
+            <button
+              type="button"
+              className={styles.inventoryToggleBtn}
+              onClick={() => onInventoryToggle(false)}
+            >
+              Desmarcar
+            </button>
+          </div>
+        ) : (
+          <label className={styles.inventoryToggleLabel}>
+            <input
+              type="checkbox"
+              className={styles.inventoryCheckbox}
+              checked={reviewedByInventory}
+              onChange={(e) => onInventoryToggle(e.target.checked)}
+            />
+            <span>Revisado por inventario</span>
+          </label>
+        )}
       </div>
       <TaskInventorySuggestions taskId={taskId} />
     </div>
@@ -87,6 +122,8 @@ export function TaskTabs({
   onInventoryToggle,
   ticketId,
   ticketSubject,
+  reviewedByInventoryAt,
+  reviewedByInventoryUserName,
 }: TaskTabsProps) {
   const [activeTab, setActiveTab] = useState<string>(TAB_IDS.detalles);
   const [mountedIds, setMountedIds] = useState<Set<string>>(
@@ -139,6 +176,8 @@ export function TaskTabs({
           taskId={commentsTaskId}
           reviewedByInventory={reviewedByInventory}
           onInventoryToggle={onInventoryToggle}
+          reviewedByInventoryAt={reviewedByInventoryAt}
+          reviewedByInventoryUserName={reviewedByInventoryUserName}
         />
       ),
     },
