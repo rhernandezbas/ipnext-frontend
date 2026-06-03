@@ -131,16 +131,17 @@ describe('TaskTabs', () => {
     vi.clearAllMocks();
   });
 
-  it('renders exactly 6 tabs in correct order with correct labels (no Adjuntos)', () => {
+  it('renders exactly 7 tabs in correct order with correct labels (no Adjuntos)', () => {
     render(<TaskTabs {...makeProps()} />);
     const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(6);
+    expect(tabs).toHaveLength(7);
     expect(tabs[0]).toHaveTextContent('Detalles');
     expect(tabs[1]).toHaveTextContent('Comentarios');
-    expect(tabs[2]).toHaveTextContent('Relacionado');
-    expect(tabs[3]).toHaveTextContent('Inventory');
-    expect(tabs[4]).toHaveTextContent('Registro de trabajo');
-    expect(tabs[5]).toHaveTextContent('Actividad');
+    expect(tabs[2]).toHaveTextContent('Auditoría IA');
+    expect(tabs[3]).toHaveTextContent('Relacionado');
+    expect(tabs[4]).toHaveTextContent('Inventory');
+    expect(tabs[5]).toHaveTextContent('Registro de trabajo');
+    expect(tabs[6]).toHaveTextContent('Actividad');
   });
 
   it('does not render an Adjuntos tab', () => {
@@ -202,7 +203,7 @@ describe('TaskTabs', () => {
     const user = userEvent.setup();
     render(<TaskTabs {...makeProps()} />);
     const tabs = screen.getAllByRole('tab');
-    await user.click(tabs[2]); // Relacionado
+    await user.click(tabs[3]); // Relacionado
     expect(screen.getByText(/no está vinculada a ningún ticket/i)).toBeInTheDocument();
   });
 
@@ -210,7 +211,7 @@ describe('TaskTabs', () => {
     const user = userEvent.setup();
     render(<TaskTabs {...makeProps({ ticketId: 42, ticketSubject: 'Sin internet' })} />);
     const tabs = screen.getAllByRole('tab');
-    await user.click(tabs[2]); // Relacionado
+    await user.click(tabs[3]); // Relacionado
     const link = screen.getByRole('link', { name: /#42/ });
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute('href', '/admin/tickets/42');
@@ -227,7 +228,7 @@ describe('TaskTabs', () => {
     );
 
     const tabs = screen.getAllByRole('tab');
-    await user.click(tabs[3]); // Inventory
+    await user.click(tabs[4]); // Inventory
 
     const checkbox = screen.getByRole('checkbox');
     expect(checkbox).not.toBeChecked();
@@ -241,7 +242,7 @@ describe('TaskTabs', () => {
     const user = userEvent.setup();
     render(<TaskTabs {...makeProps({ reviewedByInventory: true })} />);
     const tabs = screen.getAllByRole('tab');
-    await user.click(tabs[3]);
+    await user.click(tabs[4]);
     const checkbox = screen.getByRole('checkbox');
     expect(checkbox).toBeChecked();
   });
@@ -250,7 +251,7 @@ describe('TaskTabs', () => {
     const user = userEvent.setup();
     render(<TaskTabs {...makeProps()} />);
     const tabs = screen.getAllByRole('tab');
-    await user.click(tabs[4]);
+    await user.click(tabs[5]);
     expect(screen.getAllByText('Próximamente').length).toBeGreaterThan(0);
   });
 
@@ -258,7 +259,7 @@ describe('TaskTabs', () => {
     const user = userEvent.setup();
     render(<TaskTabs {...makeProps()} />);
     const tabs = screen.getAllByRole('tab');
-    await user.click(tabs[5]);
+    await user.click(tabs[6]);
     expect(screen.getAllByText('Próximamente').length).toBeGreaterThan(0);
   });
 });

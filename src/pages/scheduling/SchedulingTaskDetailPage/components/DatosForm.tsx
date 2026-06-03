@@ -110,6 +110,31 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
     }
   }, [customerContracts, initial.contractId, setValue]);
 
+  // Same hydration race for the Asignado + Proyecto selects: on a cold refresh
+  // the admins/projects queries resolve AFTER mount, so their <option>s don't
+  // exist yet and RHF's defaultValue silently falls back to the empty option.
+  // Re-apply the value once the options arrive (ref-guarded, runs once each,
+  // never clobbers a later manual selection). Fixes #2 (refresh drops both).
+  const hydratedAssigneeRef = useRef(false);
+  useEffect(() => {
+    if (hydratedAssigneeRef.current) return;
+    if (!initial.assigneeId) return;
+    if (admins.some(a => a.id === initial.assigneeId)) {
+      setValue('assigneeId', initial.assigneeId);
+      hydratedAssigneeRef.current = true;
+    }
+  }, [admins, initial.assigneeId, setValue]);
+
+  const hydratedProjectRef = useRef(false);
+  useEffect(() => {
+    if (hydratedProjectRef.current) return;
+    if (!initial.projectId) return;
+    if (projects.some(p => p.id === initial.projectId)) {
+      setValue('projectId', initial.projectId);
+      hydratedProjectRef.current = true;
+    }
+  }, [projects, initial.projectId, setValue]);
+
   // Watch projectId to compute the IClass warning inline.
   const currentProjectId = useWatch({ control, name: 'projectId' });
   const showIClassWarning = (iclassOrderCode ?? null) != null && currentProjectId !== originalProjectId;
