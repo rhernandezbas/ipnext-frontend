@@ -4,6 +4,8 @@ import { TaskDetailsTab } from './TaskDetailsTab';
 import { TaskCommentsTimeline } from './TaskCommentsTimeline';
 import { ComingSoonPanel } from './ComingSoonPanel';
 import { TaskInventorySuggestions } from './TaskInventorySuggestions';
+import { TaskAuditFeed } from './TaskAuditFeed';
+import { Can } from '@/components/auth/Can';
 import type { TaskDetailsTabProps } from './TaskDetailsTab';
 import styles from './TaskTabs.module.css';
 
@@ -22,6 +24,7 @@ export interface TaskTabsProps {
 const TAB_IDS = {
   detalles: 'detalles',
   comentarios: 'comentarios',
+  auditoriaIa: 'auditoria-ia',
   relacionado: 'relacionado',
   inventory: 'inventory',
   registroTrabajo: 'registro-trabajo',
@@ -110,6 +113,18 @@ export function TaskTabs({
       id: TAB_IDS.comentarios,
       label: 'Comentarios',
       content: <TaskCommentsTimeline taskId={commentsTaskId} />,
+    },
+    {
+      id: TAB_IDS.auditoriaIa,
+      label: 'Auditoría IA',
+      content: (
+        <Can
+          permission="scheduling.read"
+          fallback={<div className={styles.relEmptyState}>Sin permiso para ver la auditoría.</div>}
+        >
+          <TaskAuditFeed taskId={commentsTaskId} />
+        </Can>
+      ),
     },
     {
       id: TAB_IDS.relacionado,
