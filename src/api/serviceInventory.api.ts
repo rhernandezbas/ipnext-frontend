@@ -37,3 +37,11 @@ export const discardInventorySuggestion = (taskId: string, suggestionId: string)
   axiosClient
     .post<TaskInventorySuggestion>(`/scheduling/${taskId}/inventory/suggestions/${suggestionId}/discard`)
     .then(r => r.data);
+
+export const correctSuggestionType = (taskId: string, suggestionId: string, type: string) =>
+  axiosClient
+    .patch<ServiceInstalledItem>(
+      `/scheduling/${taskId}/inventory/suggestions/${suggestionId}/type`,
+      { type },
+    )
+    .then(r => r.data);

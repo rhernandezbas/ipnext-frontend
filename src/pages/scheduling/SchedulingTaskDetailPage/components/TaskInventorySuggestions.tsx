@@ -2,6 +2,7 @@ import {
   useTaskInventorySuggestions,
   useConfirmSuggestion,
   useDiscardSuggestion,
+  useCorrectSuggestionType,
 } from '@/hooks/useServiceInventory';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { InstalledItemType } from '@/types/serviceInventory';
@@ -10,6 +11,8 @@ import styles from './TaskInventorySuggestions.module.css';
 
 interface Props {
   taskId: string;
+  /** Contract id — threaded from TaskTabs for precise cache invalidation (AD-12bis). */
+  contractId?: string;
 }
 
 /**
@@ -18,10 +21,11 @@ interface Props {
  * a la vista) y confirma (→ inventario del contrato) o descarta. Se generan solas
  * cuando el closure-loop procesa una OS cerrada asociada a la tarea.
  */
-export function TaskInventorySuggestions({ taskId }: Props) {
+export function TaskInventorySuggestions({ taskId, contractId }: Props) {
   const { data, isLoading } = useTaskInventorySuggestions(taskId);
-  const confirm = useConfirmSuggestion(taskId);
+  const confirm = useConfirmSuggestion(taskId, contractId);
   const discard = useDiscardSuggestion(taskId);
+  const correctType = useCorrectSuggestionType(taskId, contractId);
   const { can } = useMyPermissions();
   const canWrite = can('scheduling.write');
 
@@ -63,6 +67,8 @@ export function TaskInventorySuggestions({ taskId }: Props) {
               canWrite={canWrite}
               onConfirm={() => {}}
               onDiscard={() => {}}
+              onCorrectType={(id, type) => correctType.mutate({ suggestionId: id, type })}
+              isCorrecting={correctType.isPending}
             />
           ))}
         </div>

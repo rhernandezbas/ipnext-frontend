@@ -71,4 +71,10 @@ export interface TaskInventorySuggestion {
   photoUrl: string | null;
   status: 'pending' | 'confirmed' | 'discarded';
   confirmedItemId: string | null;
+  /** Match against the active inventory of the contract (DEVICE only). Optional for graceful degradation (CC-2). */
+  match?: {
+    status: 'same_device' | 'same_type';
+    itemId: string;
+    serial: string | null;
+  } | null;
 }

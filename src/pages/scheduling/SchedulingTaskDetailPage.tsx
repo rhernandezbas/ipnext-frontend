@@ -359,6 +359,7 @@ export default function SchedulingTaskDetailPage() {
             reviewedByInventoryUserName={task.reviewedByInventoryUserName ?? null}
             ticketId={task.ticketId ?? null}
             ticketSubject={task.ticketSubject ?? null}
+            contractId={task.contractId ?? null}
           />
         </main>
 
