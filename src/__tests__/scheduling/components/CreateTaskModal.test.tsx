@@ -73,7 +73,7 @@ describe('CreateTaskModal', () => {
   }
 
   /** Helper: sets up mocks with a customer that has one contract, renders, and
-   *  picks both the customer and the contract so the form can be submitted. */
+   *  picks title + customer + contract + project + description so the form can be submitted. */
   async function setupWithFullForm(title = 'Cambiar router') {
     const customer = { id: 'c-full', name: 'FULL CUSTOMER', email: 'full@test.com' };
     useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
@@ -90,6 +90,8 @@ describe('CreateTaskModal', () => {
     fireEvent.click(await screen.findByText('FULL CUSTOMER'));
     const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
     fireEvent.change(contractSelect, { target: { value: '1' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'proj-1' } });
+    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'desc' } });
     return result;
   }
 
@@ -113,8 +115,14 @@ describe('CreateTaskModal', () => {
     fireEvent.click(await screen.findByText('BTN CUSTOMER'));
     await screen.findByRole('combobox', { name: /contrato/i });
     expect(btn).toBeDisabled();
-    // Pick contract — now enabled
+    // Pick contract — still disabled (no project, no description)
     fireEvent.change(screen.getByRole('combobox', { name: /contrato/i }), { target: { value: '2' } });
+    expect(btn).toBeDisabled();
+    // Pick project — still disabled (no description)
+    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'proj-1' } });
+    expect(btn).toBeDisabled();
+    // Add description — now enabled
+    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'desc' } });
     expect(btn).toBeEnabled();
   });
 
@@ -171,7 +179,7 @@ describe('CreateTaskModal', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
-  it('defaults to the first project WITH a workflow, skipping workflow-less ones', () => {
+  it('project select starts with empty placeholder (no project pre-selected, no auto-default)', () => {
     const mixed: Project[] = [
       { id: 'no-wf', title: 'Sin workflow', description: null, workflowId: null, createdAt: '', updatedAt: '' },
       ...projects,
@@ -179,7 +187,10 @@ describe('CreateTaskModal', () => {
     render(
       <CreateTaskModal projects={mixed} workflows={workflows} onClose={onClose} onCreate={onCreate} loading={false} />,
     );
-    // The "no workflow" warning should NOT appear — default selection landed on 'proj-1' (has workflow).
+    // The select must start empty — no auto-default, operator picks consciously.
+    const proyectoSelect = screen.getByRole('combobox', { name: /proyecto/i });
+    expect((proyectoSelect as HTMLSelectElement).value).toBe('');
+    // No workflow warning should NOT appear before a project is selected.
     expect(screen.queryByText(/no tiene un workflow asignado/i)).not.toBeInTheDocument();
   });
 
@@ -191,6 +202,8 @@ describe('CreateTaskModal', () => {
       <CreateTaskModal projects={noWf} workflows={workflows} onClose={onClose} onCreate={onCreate} loading={false} />,
     );
     fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea' } });
+    // The warning only appears after the user consciously picks a workflow-less project.
+    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'no-wf' } });
     expect(screen.getByText(/no tiene un workflow asignado/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /crear tarea/i })).toBeDisabled();
   });
@@ -365,6 +378,81 @@ describe('CreateTaskModal', () => {
     });
   });
 
+  // ─── NEW: project placeholder + description required ───────────────────────
+
+  it('project select defaults to empty (placeholder), no project pre-selected', () => {
+    setup();
+    // The Proyecto select must start with the placeholder option selected (value='')
+    const proyectoSelect = screen.getByRole('combobox', { name: /proyecto/i });
+    expect((proyectoSelect as HTMLSelectElement).value).toBe('');
+  });
+
+  it('keeps Crear tarea disabled until a project is selected', async () => {
+    // Setup: title + customer + contract + description present, project empty → disabled
+    const customer = { id: 'c-proj', name: 'PROJ CUSTOMER', email: 'proj@test.com' };
+    useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
+    useClientDetailMock.mockReturnValue({ data: { id: 'c-proj', name: 'PROJ CUSTOMER', address: 'Calle Proj 1' } });
+    useClientContractsMock.mockReturnValue({
+      data: [{ id: 50, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null }],
+      isLoading: false,
+    });
+    render(
+      <CreateTaskModal projects={projects} workflows={workflows} onClose={onClose} onCreate={onCreate} loading={false} />,
+    );
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea con todo menos proyecto' } });
+    fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Proj' } });
+    fireEvent.click(await screen.findByText('PROJ CUSTOMER'));
+    const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
+    fireEvent.change(contractSelect, { target: { value: '50' } });
+    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'descripción de prueba' } });
+
+    // Project still empty → disabled
+    const btn = screen.getByRole('button', { name: /crear tarea/i });
+    expect(btn).toBeDisabled();
+
+    // Pick the project → enabled
+    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'proj-1' } });
+    expect(btn).toBeEnabled();
+  });
+
+  it('keeps Crear tarea disabled until a description is entered', async () => {
+    // Setup: title + customer + contract + project present, description empty → disabled
+    const customer = { id: 'c-desc', name: 'DESC CUSTOMER', email: 'desc@test.com' };
+    useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
+    useClientDetailMock.mockReturnValue({ data: { id: 'c-desc', name: 'DESC CUSTOMER', address: 'Calle Desc 1' } });
+    useClientContractsMock.mockReturnValue({
+      data: [{ id: 51, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2500, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null }],
+      isLoading: false,
+    });
+    render(
+      <CreateTaskModal projects={projects} workflows={workflows} onClose={onClose} onCreate={onCreate} loading={false} />,
+    );
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea sin desc' } });
+    fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Desc' } });
+    fireEvent.click(await screen.findByText('DESC CUSTOMER'));
+    const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
+    fireEvent.change(contractSelect, { target: { value: '51' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'proj-1' } });
+
+    // Description still empty → disabled
+    const btn = screen.getByRole('button', { name: /crear tarea/i });
+    expect(btn).toBeDisabled();
+
+    // Type description → enabled
+    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'descripción requerida' } });
+    expect(btn).toBeEnabled();
+  });
+
+  it('shows required indicator (*) in the Descripción label', () => {
+    setup();
+    const descTextarea = screen.getByPlaceholderText('Detalles de la tarea…');
+    const descLabel = descTextarea.closest('label');
+    expect(descLabel).not.toBeNull();
+    expect(descLabel!.textContent).toMatch(/\*/);
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+
   describe('required field indicators', () => {
     it('shows required indicator (*) in the Título label', () => {
       setup();
@@ -440,7 +528,7 @@ describe('CreateTaskModal', () => {
       expect(screen.getByRole('button', { name: /crear tarea/i })).toBeDisabled();
     });
 
-    it('enables Crear tarea when title + client + contract are all present', async () => {
+    it('enables Crear tarea when title + client + contract + project + description are all present', async () => {
       const contracts = [
         { id: 88, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2500, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null },
       ];
@@ -453,6 +541,8 @@ describe('CreateTaskModal', () => {
 
       const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
       fireEvent.change(contractSelect, { target: { value: '88' } });
+      fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'proj-1' } });
+      fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'descripción requerida' } });
 
       expect(screen.getByRole('button', { name: /crear tarea/i })).toBeEnabled();
     });
@@ -493,6 +583,8 @@ describe('CreateTaskModal', () => {
 
       const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
       fireEvent.change(contractSelect, { target: { value: '99' } });
+      fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'proj-1' } });
+      fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'descripción requerida' } });
 
       fireEvent.click(screen.getByRole('button', { name: /crear tarea/i }));
       await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
@@ -549,12 +641,15 @@ describe('CreateTaskModal', () => {
         />,
       );
       const btn = screen.getByRole('button', { name: /crear tarea/i });
-      // Title + customer prefilled, but contract still empty → disabled (required-contract rule preserved)
+      // Title + customer + description prefilled, but contract + project still empty → disabled
       const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
       expect((contractSelect as HTMLSelectElement).value).toBe('');
       expect(btn).toBeDisabled();
-      // User picks the contract → enabled
+      // User picks the contract — still disabled (no project yet)
       fireEvent.change(contractSelect, { target: { value: '7' } });
+      expect(btn).toBeDisabled();
+      // User picks the project → enabled
+      fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'proj-1' } });
       expect(btn).toBeEnabled();
     });
 
@@ -578,6 +673,8 @@ describe('CreateTaskModal', () => {
       );
       const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
       fireEvent.change(contractSelect, { target: { value: '3' } });
+      fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'proj-1' } });
+      fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'descripción de la tarea' } });
       fireEvent.click(screen.getByRole('button', { name: /crear tarea/i }));
       await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
       expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ ticketId: 42 }));
