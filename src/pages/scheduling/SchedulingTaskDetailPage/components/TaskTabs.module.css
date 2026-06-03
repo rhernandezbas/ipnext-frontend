@@ -42,6 +42,29 @@
   flex-shrink: 0;
 }
 
+/* ── Inventory review badge ───────────────────────────────────────────────── */
+.inventoryReviewBadge {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #16a34a;
+}
+
+.inventoryToggleBtn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: #64748b;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-decoration: underline;
+}
+
+.inventoryToggleBtn:hover { color: #dc2626; }
+
 /* ── Relacionado panel ────────────────────────────────────────────────────── */
 .relEmptyState {
   padding: 1.5rem;

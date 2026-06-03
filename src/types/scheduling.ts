@@ -110,6 +110,14 @@ export interface ScheduledTask {
    *  Indicates that the inventory team has reviewed the task (RV). */
   reviewedByInventory: boolean;
 
+  /** ISO datetime when the task was marked as reviewed by inventory (F3 traceability).
+   *  Null when never reviewed or when the task was unmarked. */
+  reviewedByInventoryAt?: string | null;
+
+  /** Display name of the operator who last marked the task as reviewed (F3 traceability).
+   *  Null when not yet reviewed or traceability not available. */
+  reviewedByInventoryUserName?: string | null;
+
   /** IClass Service Order code — populated by the backend when a task is moved
    *  to the "Enviar a IClass" stage and the OS is created successfully.
    *  Null when the task has never been sent to IClass. */

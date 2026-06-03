@@ -121,6 +121,7 @@ const InventoryDashboardPage = lazy(() => import('@/pages/inventory/InventoryDas
 const InventoryItemsPage = lazy(() => import('@/pages/inventory/InventoryItemsPage'));
 const InventoryProductsPage = lazy(() => import('@/pages/inventory/InventoryProductsPage'));
 const InventorySupplyPage = lazy(() => import('@/pages/inventory/InventorySupplyPage'));
+const InventorySettingsPage = lazy(() => import('@/pages/inventory/InventorySettingsPage'));
 const VoiceCategoriesPage = lazy(() => import('@/pages/voice/VoiceCategoriesPage'));
 const VoiceProcessingPage = lazy(() => import('@/pages/voice/VoiceProcessingPage'));
 const VoiceRateTablesPage = lazy(() => import('@/pages/voice/VoiceRateTablesPage'));
@@ -261,6 +262,7 @@ export function App() {
                 <Route path="items" element={<RequirePermission permission="inventory.read"><InventoryItemsPage /></RequirePermission>} />
                 <Route path="products" element={<RequirePermission permission="inventory.read"><InventoryProductsPage /></RequirePermission>} />
                 <Route path="supply" element={<RequirePermission permission="inventory.read"><InventorySupplyPage /></RequirePermission>} />
+                <Route path="settings" element={<RequirePermission permission="inventory.read"><InventorySettingsPage /></RequirePermission>} />
               </Route>
 
               {/* ── Support (support.read) ─────────────────────────────────── */}

@@ -1,17 +1,16 @@
 import { useState } from 'react';
-import type { TaskInventorySuggestion, InstalledItemType } from '@/types/serviceInventory';
+import type { TaskInventorySuggestion } from '@/types/serviceInventory';
+import { useDeviceTypes } from '@/hooks/useDeviceTypes';
 import styles from './SuggestionCard.module.css';
 
-const TYPES: InstalledItemType[] = ['ONU', 'ROUTER', 'ANTENA', 'REPETIDOR', 'OTROS'];
-const toValidType = (t: string | null): InstalledItemType =>
-  t && (TYPES as string[]).includes(t) ? (t as InstalledItemType) : 'OTROS';
+const FALLBACK_TYPE = 'OTROS';
 
 const sourceLabel = (s: string): string =>
   s === 'OCR' ? 'OCR' : s === 'CHECKLIST_TEXT' ? 'texto' : 'IClass';
 
 interface Props {
   suggestion: TaskInventorySuggestion;
-  onConfirm: (id: string, type: InstalledItemType) => void;
+  onConfirm: (id: string, type: string) => void;
   onDiscard: (id: string) => void;
   isPending: boolean;
   canWrite: boolean;
@@ -19,15 +18,37 @@ interface Props {
 
 /**
  * One inventory suggestion. While `pending` it's editable: photo + type dropdown
- * (with qwen badge) + SN/MAC + Confirmar/Descartar. Once resolved (confirmed or
- * discarded) it keeps the SAME rich layout — photo, SN/MAC — but read-only: the
- * type is shown as static text (reflecting what was actually confirmed, e.g.
- * ANTENA, not the original scan) and the actions become a status badge.
+ * (options from the active DeviceType catalog ordered by sortOrder) + SN/MAC +
+ * Confirmar/Descartar. Once resolved (confirmed or discarded) it keeps the SAME
+ * rich layout — photo, SN/MAC — but read-only: the type is shown as static text
+ * (the raw deviceType stored, including possibly inactive types) and the actions
+ * become a status badge.
  */
 export function SuggestionCard({ suggestion: s, onConfirm, onDiscard, isPending, canWrite }: Props) {
+  const { data: deviceTypes = [], isLoading } = useDeviceTypes();
+
+  // Active types ordered by sortOrder (for the dropdown)
+  const activeTypes = deviceTypes
+    .filter(dt => dt.active)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  // Compute a valid initial type: prefer the suggestion's deviceType if it exists
+  // in the catalog (active or not); fall back to OTROS or the first active type.
+  const resolveInitialType = (raw: string | null): string => {
+    if (!raw) return activeTypes[0]?.name ?? FALLBACK_TYPE;
+    // If catalog not loaded yet, keep raw value
+    if (isLoading || deviceTypes.length === 0) return raw;
+    // Accept the value if it appears anywhere in the catalog (active or inactive)
+    const inCatalog = deviceTypes.some(dt => dt.name === raw);
+    if (inCatalog) return raw;
+    // Not in catalog — fall back to OTROS if present, else first active
+    const otros = activeTypes.find(dt => dt.name === FALLBACK_TYPE);
+    return otros?.name ?? activeTypes[0]?.name ?? FALLBACK_TYPE;
+  };
+
   const isDevice = s.kind === 'DEVICE';
   const resolved = s.status !== 'pending';
-  const [type, setType] = useState<InstalledItemType>(toValidType(s.deviceType));
+  const [type, setType] = useState<string>(() => resolveInitialType(s.deviceType));
   const qwenDiffers = !resolved && isDevice && !!s.qwenDeviceType && s.qwenDeviceType !== type;
 
   return (
@@ -45,18 +66,23 @@ export function SuggestionCard({ suggestion: s, onConfirm, onDiscard, isPending,
           <>
             <div className={styles.typeRow}>
               {resolved ? (
-                <span className={styles.typeStatic}>{toValidType(s.deviceType)}</span>
+                // Resolved: show the raw stored deviceType (may be inactive/legacy)
+                <span className={styles.typeStatic}>{s.deviceType ?? FALLBACK_TYPE}</span>
               ) : (
                 <select
                   className={styles.typeSelect}
                   aria-label="tipo de equipo"
                   value={type}
                   disabled={!canWrite}
-                  onChange={e => setType(e.target.value as InstalledItemType)}
+                  onChange={e => setType(e.target.value)}
                 >
-                  {TYPES.map(t => (
-                    <option key={t} value={t}>{t}</option>
+                  {activeTypes.map(dt => (
+                    <option key={dt.id} value={dt.name}>{dt.name}</option>
                   ))}
+                  {/* If the current value is not in active types (inactive/legacy), show it */}
+                  {!isLoading && activeTypes.length > 0 && !activeTypes.some(dt => dt.name === type) && (
+                    <option value={type}>{type}</option>
+                  )}
                 </select>
               )}
               {qwenDiffers && <span className={styles.qwenBadge}>qwen sugiere: {s.qwenDeviceType}</span>}

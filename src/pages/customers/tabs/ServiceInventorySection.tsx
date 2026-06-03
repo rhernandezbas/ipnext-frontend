@@ -1,17 +1,16 @@
 import { useState } from 'react';
 import { useServiceInstalledItems, useAddInstalledItem } from '@/hooks/useServiceInventory';
+import { useDeviceTypes } from '@/hooks/useDeviceTypes';
 import { Can } from '@/components/auth/Can';
 import type { InstalledItemType } from '@/types/serviceInventory';
 
-const TYPES: InstalledItemType[] = ['ONU', 'ROUTER', 'ANTENA', 'REPETIDOR', 'OTROS'];
+const FALLBACK_TYPES: InstalledItemType[] = ['ONU', 'ROUTER', 'ANTENA', 'REPETIDOR', 'OTROS'];
 
 interface Props {
   serviceId: string;
   /** Defer the query until the section is actually shown. */
   enabled?: boolean;
 }
-
-const EMPTY = { type: 'ROUTER' as InstalledItemType, serialNumber: '', mac: '', model: '', notes: '' };
 
 /**
  * "Equipos instalados" on a contract (Service). Lists the installed devices
@@ -22,11 +21,19 @@ const EMPTY = { type: 'ROUTER' as InstalledItemType, serialNumber: '', mac: '', 
 export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
   const { data, isLoading } = useServiceInstalledItems(serviceId, enabled);
   const addItem = useAddInstalledItem(serviceId);
+  const { data: deviceTypes = [], isLoading: typesLoading } = useDeviceTypes();
+
+  // Active types ordered by sortOrder; fall back to hardcoded list while loading
+  const activeTypes: InstalledItemType[] = !typesLoading && deviceTypes.length > 0
+    ? deviceTypes.filter(dt => dt.active).sort((a, b) => a.sortOrder - b.sortOrder).map(dt => dt.name)
+    : FALLBACK_TYPES;
+
+  const emptyForm = () => ({ type: activeTypes[0] ?? 'ROUTER', serialNumber: '', mac: '', model: '', notes: '' });
 
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState(EMPTY);
+  const [form, setForm] = useState(() => ({ type: 'ROUTER', serialNumber: '', mac: '', model: '', notes: '' }));
 
-  function field<K extends keyof typeof EMPTY>(k: K, v: string) {
+  function field<K extends keyof ReturnType<typeof emptyForm>>(k: K, v: string) {
     setForm(prev => ({ ...prev, [k]: v }));
   }
 
@@ -40,7 +47,7 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
         model: form.model || undefined,
         notes: form.notes || undefined,
       },
-      { onSuccess: () => { setShowForm(false); setForm(EMPTY); } },
+      { onSuccess: () => { setShowForm(false); setForm(emptyForm()); } },
     );
   }
 
@@ -60,7 +67,7 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
       {showForm && (
         <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem', padding: '0.5rem', border: '1px solid #ddd', borderRadius: 6 }}>
           <select value={form.type} onChange={e => field('type', e.target.value)} required>
-            {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            {activeTypes.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           <input type="text" placeholder="Serial (SN)" value={form.serialNumber} onChange={e => field('serialNumber', e.target.value)} />
           <input type="text" placeholder="MAC" value={form.mac} onChange={e => field('mac', e.target.value)} />

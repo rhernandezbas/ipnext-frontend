@@ -355,6 +355,8 @@ export default function SchedulingTaskDetailPage() {
             commentsTaskId={id!}
             reviewedByInventory={task.reviewedByInventory}
             onInventoryToggle={handleInventoryToggle}
+            reviewedByInventoryAt={task.reviewedByInventoryAt ?? null}
+            reviewedByInventoryUserName={task.reviewedByInventoryUserName ?? null}
             ticketId={task.ticketId ?? null}
             ticketSubject={task.ticketSubject ?? null}
           />
