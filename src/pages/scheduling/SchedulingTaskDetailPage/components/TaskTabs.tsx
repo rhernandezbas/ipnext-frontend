@@ -4,6 +4,7 @@ import { TaskDetailsTab } from './TaskDetailsTab';
 import { TaskCommentsTimeline } from './TaskCommentsTimeline';
 import { ComingSoonPanel } from './ComingSoonPanel';
 import { TaskInventorySuggestions } from './TaskInventorySuggestions';
+import { TaskMaterialConsumptions } from './TaskMaterialConsumptions';
 import { TaskAuditFeed } from './TaskAuditFeed';
 import { Can } from '@/components/auth/Can';
 import type { TaskDetailsTabProps } from './TaskDetailsTab';
@@ -111,6 +112,7 @@ function InventoryPanel({
         )}
       </div>
       <TaskInventorySuggestions taskId={taskId} />
+      <TaskMaterialConsumptions taskId={taskId} />
     </div>
   );
 }

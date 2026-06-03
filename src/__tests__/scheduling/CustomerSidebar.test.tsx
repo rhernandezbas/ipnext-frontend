@@ -12,6 +12,18 @@ vi.mock('@/hooks/useCustomers', () => ({
   useClientContracts: (id: string, enabled: boolean) => useClientContractsMock(id, enabled),
 }));
 
+// Mock ContractInventoryReadonly — has its own hooks, keep CustomerSidebar tests focused
+vi.mock(
+  '@/pages/scheduling/SchedulingTaskDetailPage/components/ContractInventoryReadonly',
+  () => ({
+    ContractInventoryReadonly: ({ contractId }: { contractId: string | null }) => (
+      <div data-testid="contract-inventory-readonly">
+        {contractId ? `Inventario de contrato ${contractId}` : 'Sin contrato asignado'}
+      </div>
+    ),
+  }),
+);
+
 import { CustomerSidebar } from '@/pages/scheduling/SchedulingTaskDetailPage/components/CustomerSidebar';
 
 // --- Test fixtures ---
@@ -134,11 +146,11 @@ describe('CustomerSidebar', () => {
     expect(screen.getByText(/contrato #42/i)).toBeInTheDocument();
   });
 
-  // ── Inventory tab → ComingSoonPanel ───────────────────────────────────────
-  it('Inventory tab shows ComingSoonPanel', () => {
+  // ── Inventory tab → ContractInventoryReadonly ─────────────────────────────
+  it('Inventory tab shows ContractInventoryReadonly', () => {
     renderSidebar();
     fireEvent.click(screen.getByRole('tab', { name: /inventario/i }));
-    expect(screen.getByText(/inventario del cliente/i)).toBeInTheDocument();
+    expect(screen.getByTestId('contract-inventory-readonly')).toBeInTheDocument();
   });
 
   // ── Documents tab → ComingSoonPanel ───────────────────────────────────────
