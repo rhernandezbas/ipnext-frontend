@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { TaskInventorySuggestion } from '@/types/serviceInventory';
 import { useDeviceTypes } from '@/hooks/useDeviceTypes';
+import { Can } from '@/components/auth/Can';
 import styles from './SuggestionCard.module.css';
 
 const FALLBACK_TYPE = 'OTROS';
@@ -14,6 +15,33 @@ interface Props {
   onDiscard: (id: string) => void;
   isPending: boolean;
   canWrite: boolean;
+  /** Called when the admin corrects the type of an already-confirmed DEVICE. */
+  onCorrectType?: (id: string, type: string) => void;
+  /** True while the PATCH correctSuggestionType mutation is in-flight. */
+  isCorrecting?: boolean;
+}
+
+/**
+ * Inline match badge — no permission gate (read-only, covered by listing gate).
+ * Shows in both pending and resolved variants.
+ */
+function MatchBadge({ match, deviceType }: {
+  match: NonNullable<TaskInventorySuggestion['match']>;
+  deviceType: string | null;
+}) {
+  if (match.status === 'same_device') {
+    return (
+      <span className={styles.matchBadgeWarning} data-testid="match-badge">
+        ⚠️ Ya instalado: el mismo equipo{match.serial ? ` · ${match.serial}` : ''}
+      </span>
+    );
+  }
+  // same_type
+  return (
+    <span className={styles.matchBadgeInfo} data-testid="match-badge">
+      Ya hay un/a {deviceType ?? FALLBACK_TYPE}
+    </span>
+  );
 }
 
 /**
@@ -23,8 +51,19 @@ interface Props {
  * rich layout — photo, SN/MAC — but read-only: the type is shown as static text
  * (the raw deviceType stored, including possibly inactive types) and the actions
  * become a status badge.
+ *
+ * For confirmed DEVICE cards, admins with `inventory.manage` see an inline type
+ * editor (toggle into edit mode → select + Guardar) that calls `onCorrectType`.
  */
-export function SuggestionCard({ suggestion: s, onConfirm, onDiscard, isPending, canWrite }: Props) {
+export function SuggestionCard({
+  suggestion: s,
+  onConfirm,
+  onDiscard,
+  isPending,
+  canWrite,
+  onCorrectType,
+  isCorrecting = false,
+}: Props) {
   const { data: deviceTypes = [], isLoading } = useDeviceTypes();
 
   // Active types ordered by sortOrder (for the dropdown)
@@ -51,6 +90,15 @@ export function SuggestionCard({ suggestion: s, onConfirm, onDiscard, isPending,
   const [type, setType] = useState<string>(() => resolveInitialType(s.deviceType));
   const qwenDiffers = !resolved && isDevice && !!s.qwenDeviceType && s.qwenDeviceType !== type;
 
+  // State for the inline type editor (resolved DEVICE variant, admin only)
+  const [editingType, setEditingType] = useState(false);
+  const [editType, setEditType] = useState<string>(s.deviceType ?? FALLBACK_TYPE);
+
+  const handleGuardar = () => {
+    onCorrectType?.(s.id, editType);
+    setEditingType(false);
+  };
+
   return (
     <div className={styles.card}>
       {isDevice && s.photoUrl ? (
@@ -66,8 +114,66 @@ export function SuggestionCard({ suggestion: s, onConfirm, onDiscard, isPending,
           <>
             <div className={styles.typeRow}>
               {resolved ? (
-                // Resolved: show the raw stored deviceType (may be inactive/legacy)
-                <span className={styles.typeStatic}>{s.deviceType ?? FALLBACK_TYPE}</span>
+                <>
+                  {/* Admin: inline type editor, gated by inventory.manage */}
+                  <Can
+                    permission="inventory.manage"
+                    fallback={
+                      // Non-admin: static span, unchanged
+                      <span className={styles.typeStatic}>{s.deviceType ?? FALLBACK_TYPE}</span>
+                    }
+                  >
+                    {editingType ? (
+                      <>
+                        <select
+                          className={styles.typeSelect}
+                          aria-label="tipo de equipo"
+                          value={editType}
+                          onChange={e => setEditType(e.target.value)}
+                        >
+                          {activeTypes.map(dt => (
+                            <option key={dt.id} value={dt.name}>{dt.name}</option>
+                          ))}
+                          {/* Include current value if not in active types (inactive/legacy) */}
+                          {!isLoading && activeTypes.length > 0 && !activeTypes.some(dt => dt.name === editType) && (
+                            <option value={editType}>{editType}</option>
+                          )}
+                        </select>
+                        <button
+                          type="button"
+                          className={styles.confirmBtn}
+                          onClick={handleGuardar}
+                          disabled={isCorrecting}
+                        >
+                          Guardar
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.discardBtn}
+                          onClick={() => setEditingType(false)}
+                          disabled={isCorrecting}
+                        >
+                          Cancelar
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className={styles.typeStatic}>{s.deviceType ?? FALLBACK_TYPE}</span>
+                        <button
+                          type="button"
+                          aria-label="Editar tipo"
+                          className={styles.discardBtn}
+                          onClick={() => {
+                            setEditType(s.deviceType ?? activeTypes[0]?.name ?? FALLBACK_TYPE);
+                            setEditingType(true);
+                          }}
+                        >
+                          Editar tipo
+                        </button>
+                      </>
+                    )}
+                  </Can>
+                </>
               ) : (
                 <select
                   className={styles.typeSelect}
@@ -98,6 +204,12 @@ export function SuggestionCard({ suggestion: s, onConfirm, onDiscard, isPending,
             {s.quantity != null && <span>× {s.quantity}{s.unit ? ` ${s.unit}` : ''}</span>}
           </div>
         )}
+
+        {/* Match badge — shown in both pending and resolved variants, no permission gate */}
+        {s.match != null && (
+          <MatchBadge match={s.match} deviceType={s.deviceType} />
+        )}
+
         <span className={styles.source}>{sourceLabel(s.source)}</span>
       </div>
 

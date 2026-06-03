@@ -90,6 +90,30 @@
   letter-spacing: 0.03em;
 }
 
+/* Match badges — no permission gate, read-only info */
+.matchBadgeWarning {
+  display: inline-block;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background: #fef9c3;
+  color: #854d0e;
+  border: 1px solid #fde047;
+  border-radius: var(--radius-full);
+  padding: 2px var(--space-2);
+  white-space: nowrap;
+}
+.matchBadgeInfo {
+  display: inline-block;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+  border-radius: var(--radius-full);
+  padding: 2px var(--space-2);
+  white-space: nowrap;
+}
+
 .actions { display: flex; gap: var(--space-2); }
 .confirmBtn,
 .discardBtn {

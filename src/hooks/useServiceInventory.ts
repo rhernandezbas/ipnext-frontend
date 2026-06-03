@@ -80,3 +80,19 @@ export function useDiscardSuggestion(taskId: string) {
     onSuccess: () => void qc.invalidateQueries({ queryKey: suggestionsKey(taskId) }),
   });
 }
+
+export function useCorrectSuggestionType(taskId: string, contractId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ suggestionId, type }: { suggestionId: string; type: string }) =>
+      api.correctSuggestionType(taskId, suggestionId, type),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: suggestionsKey(taskId) });
+      if (contractId) {
+        void qc.invalidateQueries({ queryKey: itemsKey(contractId) });
+      } else {
+        void qc.invalidateQueries({ queryKey: ['service-inventory'] });
+      }
+    },
+  });
+}

@@ -24,6 +24,8 @@ export interface TaskTabsProps {
   reviewedByInventoryAt?: string | null;
   /** Name of the user who marked the task as reviewed (F3 traceability). Optional for back-compat. */
   reviewedByInventoryUserName?: string | null;
+  /** Contract id — threaded to InventoryPanel for precise cache invalidation (AD-12bis). Optional for back-compat. */
+  contractId?: string | null;
 }
 
 const TAB_IDS = {
@@ -42,6 +44,7 @@ interface InventoryPanelProps {
   onInventoryToggle: (next: boolean) => void;
   reviewedByInventoryAt?: string | null;
   reviewedByInventoryUserName?: string | null;
+  contractId?: string | null;
 }
 
 /** Relacionado tab content — shows the originating ticket when the task was
@@ -74,6 +77,7 @@ function InventoryPanel({
   onInventoryToggle,
   reviewedByInventoryAt,
   reviewedByInventoryUserName,
+  contractId,
 }: InventoryPanelProps) {
   // Format the review badge text when reviewed
   const reviewBadge = (() => {
@@ -111,7 +115,7 @@ function InventoryPanel({
           </label>
         )}
       </div>
-      <TaskInventorySuggestions taskId={taskId} />
+      <TaskInventorySuggestions taskId={taskId} contractId={contractId ?? undefined} />
       <TaskMaterialConsumptions taskId={taskId} />
     </div>
   );
@@ -126,6 +130,7 @@ export function TaskTabs({
   ticketSubject,
   reviewedByInventoryAt,
   reviewedByInventoryUserName,
+  contractId,
 }: TaskTabsProps) {
   const [activeTab, setActiveTab] = useState<string>(TAB_IDS.detalles);
   const [mountedIds, setMountedIds] = useState<Set<string>>(
@@ -180,6 +185,7 @@ export function TaskTabs({
           onInventoryToggle={onInventoryToggle}
           reviewedByInventoryAt={reviewedByInventoryAt}
           reviewedByInventoryUserName={reviewedByInventoryUserName}
+          contractId={contractId}
         />
       ),
     },
