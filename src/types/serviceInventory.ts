@@ -12,6 +12,8 @@ export interface ServiceInstalledItem {
   source: string; // OCR | MANUAL | ICLASS
   sourceTaskId: string | null;
   addedByUserId: string | null;
+  /** Display name of the operator who approved it (resolved by the BE). */
+  addedByUserName: string | null;
   confirmedAt: string | null;
   status: InstalledItemStatus;
   notes: string | null;
