@@ -56,6 +56,24 @@
   white-space: nowrap;
 }
 
+/* Resolved card: type shown as static text instead of the editable <select>. */
+.typeStatic {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+/* Status badge replacing the action buttons once the suggestion is resolved. */
+.statusBadge {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-full);
+  padding: 2px var(--space-2);
+  white-space: nowrap;
+}
+.confirmedBadge { background: #dcfce7; color: #166534; }
+.discardedBadge { background: var(--color-gray-100); color: var(--color-gray-600); }
+
 .meta {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);

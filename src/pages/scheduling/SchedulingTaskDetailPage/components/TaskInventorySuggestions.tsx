@@ -56,10 +56,14 @@ export function TaskInventorySuggestions({ taskId }: Props) {
       {resolved.length > 0 && (
         <div className={styles.resolved}>
           {resolved.map(s => (
-            <div key={s.id} className={s.status === 'confirmed' ? styles.confirmed : styles.discarded}>
-              {s.status === 'confirmed' ? '✓' : '✕'} {s.deviceType ?? s.materialDesc ?? 'Item'}
-              {s.serialNumber ? ` · SN ${s.serialNumber}` : ''} — {s.status === 'confirmed' ? 'confirmado' : 'descartado'}
-            </div>
+            <SuggestionCard
+              key={s.id}
+              suggestion={s}
+              isPending={false}
+              canWrite={canWrite}
+              onConfirm={() => {}}
+              onDiscard={() => {}}
+            />
           ))}
         </div>
       )}

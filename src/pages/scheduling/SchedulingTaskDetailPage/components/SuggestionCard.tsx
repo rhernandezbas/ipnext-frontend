@@ -17,11 +17,18 @@ interface Props {
   canWrite: boolean;
 }
 
-/** One pending inventory suggestion: photo + type dropdown (with qwen badge) + SN/MAC + actions. */
+/**
+ * One inventory suggestion. While `pending` it's editable: photo + type dropdown
+ * (with qwen badge) + SN/MAC + Confirmar/Descartar. Once resolved (confirmed or
+ * discarded) it keeps the SAME rich layout — photo, SN/MAC — but read-only: the
+ * type is shown as static text (reflecting what was actually confirmed, e.g.
+ * ANTENA, not the original scan) and the actions become a status badge.
+ */
 export function SuggestionCard({ suggestion: s, onConfirm, onDiscard, isPending, canWrite }: Props) {
   const isDevice = s.kind === 'DEVICE';
+  const resolved = s.status !== 'pending';
   const [type, setType] = useState<InstalledItemType>(toValidType(s.deviceType));
-  const qwenDiffers = isDevice && !!s.qwenDeviceType && s.qwenDeviceType !== type;
+  const qwenDiffers = !resolved && isDevice && !!s.qwenDeviceType && s.qwenDeviceType !== type;
 
   return (
     <div className={styles.card}>
@@ -37,17 +44,21 @@ export function SuggestionCard({ suggestion: s, onConfirm, onDiscard, isPending,
         {isDevice ? (
           <>
             <div className={styles.typeRow}>
-              <select
-                className={styles.typeSelect}
-                aria-label="tipo de equipo"
-                value={type}
-                disabled={!canWrite}
-                onChange={e => setType(e.target.value as InstalledItemType)}
-              >
-                {TYPES.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
+              {resolved ? (
+                <span className={styles.typeStatic}>{toValidType(s.deviceType)}</span>
+              ) : (
+                <select
+                  className={styles.typeSelect}
+                  aria-label="tipo de equipo"
+                  value={type}
+                  disabled={!canWrite}
+                  onChange={e => setType(e.target.value as InstalledItemType)}
+                >
+                  {TYPES.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              )}
               {qwenDiffers && <span className={styles.qwenBadge}>qwen sugiere: {s.qwenDeviceType}</span>}
             </div>
             <div className={styles.meta}>
@@ -64,7 +75,13 @@ export function SuggestionCard({ suggestion: s, onConfirm, onDiscard, isPending,
         <span className={styles.source}>{sourceLabel(s.source)}</span>
       </div>
 
-      {canWrite && (
+      {resolved ? (
+        <span
+          className={`${styles.statusBadge} ${s.status === 'confirmed' ? styles.confirmedBadge : styles.discardedBadge}`}
+        >
+          {s.status === 'confirmed' ? '✓ Confirmado' : '✕ Descartado'}
+        </span>
+      ) : canWrite ? (
         <div className={styles.actions}>
           <button type="button" className={styles.confirmBtn} onClick={() => onConfirm(s.id, type)} disabled={isPending}>
             Confirmar
@@ -73,7 +90,7 @@ export function SuggestionCard({ suggestion: s, onConfirm, onDiscard, isPending,
             Descartar
           </button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
