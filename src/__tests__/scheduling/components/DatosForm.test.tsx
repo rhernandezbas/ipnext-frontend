@@ -222,6 +222,57 @@ describe('DatosForm', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Async hydration of selects (#2 — refresh loses Asignado + Proyecto)
+  // ---------------------------------------------------------------------------
+  describe('async hydration (#2 refresh bug)', () => {
+    it('hydrates the assignee select with initial.assigneeId once admins load async', async () => {
+      // On a cold refresh the RbacUsers query is still loading, so admins=[] and
+      // the matching <option> does not exist yet. RHF fixes defaultValues at mount
+      // and never re-applies them — the select sticks on "Sin asignar". It must
+      // re-sync once the options arrive.
+      const props = {
+        initial: { ...initialValues, assigneeId: 'admin-1' },
+        onSubmit,
+        isSaving: false,
+        partners: mockPartners,
+        projects: mockProjects,
+      };
+      const { rerender } = render(
+        <MemoryRouter><DatosForm {...props} admins={[]} /></MemoryRouter>
+      );
+      // Empty options at mount → select cannot show the value yet
+      expect((screen.getByLabelText(/asignado a/i) as HTMLSelectElement).value).toBe('');
+
+      // Admins arrive from the API
+      rerender(<MemoryRouter><DatosForm {...props} admins={mockAdmins} /></MemoryRouter>);
+
+      await waitFor(() => {
+        expect((screen.getByLabelText(/asignado a/i) as HTMLSelectElement).value).toBe('admin-1');
+      });
+    });
+
+    it('hydrates the project select with initial.projectId once projects load async', async () => {
+      const props = {
+        initial: { ...initialValues, projectId: 'proj-2' },
+        onSubmit,
+        isSaving: false,
+        admins: mockAdmins,
+        partners: mockPartners,
+      };
+      const { rerender } = render(
+        <MemoryRouter><DatosForm {...props} projects={[]} /></MemoryRouter>
+      );
+      expect((screen.getByLabelText(/proyecto/i) as HTMLSelectElement).value).toBe('');
+
+      rerender(<MemoryRouter><DatosForm {...props} projects={mockProjects} /></MemoryRouter>);
+
+      await waitFor(() => {
+        expect((screen.getByLabelText(/proyecto/i) as HTMLSelectElement).value).toBe('proj-2');
+      });
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Date/time validation (REQ-DATE-1..4)
   // ---------------------------------------------------------------------------
 
