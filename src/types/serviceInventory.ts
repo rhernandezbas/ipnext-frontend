@@ -42,6 +42,8 @@ export interface TaskInventorySuggestion {
   taskId: string;
   kind: 'DEVICE' | 'MATERIAL';
   deviceType: string | null;
+  /** Tipo que el modelo de visión infirió de la foto (badge "qwen sugiere"), o null. */
+  qwenDeviceType: string | null;
   serialNumber: string | null;
   mac: string | null;
   materialDesc: string | null;
