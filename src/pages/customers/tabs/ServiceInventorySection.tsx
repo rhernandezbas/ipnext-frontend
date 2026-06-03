@@ -76,7 +76,7 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
       ) : (
         <table style={{ fontSize: '0.8rem', width: '100%' }}>
           <thead>
-            <tr><th>Tipo</th><th>SN</th><th>MAC</th><th>Modelo</th><th>Origen</th><th>Estado</th></tr>
+            <tr><th>Tipo</th><th>SN</th><th>MAC</th><th>Modelo</th><th>Origen</th><th>Estado</th><th>Aprobado por</th></tr>
           </thead>
           <tbody>
             {items.map(it => (
@@ -87,6 +87,7 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
                 <td>{it.model ?? '—'}</td>
                 <td>{it.source}</td>
                 <td>{it.status}</td>
+                <td>{it.addedByUserName ? `${it.addedByUserName}${it.confirmedAt ? ` · ${new Date(it.confirmedAt).toLocaleDateString('es-AR')}` : ''}` : '—'}</td>
               </tr>
             ))}
           </tbody>
