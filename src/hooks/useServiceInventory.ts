@@ -51,8 +51,8 @@ export function useTaskInventorySuggestions(taskId: string | undefined, enabled 
 export function useConfirmSuggestion(taskId: string, contractId?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ suggestionId, type }: { suggestionId: string; type?: InstalledItemType }) =>
-      api.confirmInventorySuggestion(taskId, suggestionId, type),
+    mutationFn: ({ suggestionId, type, resolution }: { suggestionId: string; type?: InstalledItemType; resolution?: 'add' | 'link_existing' }) =>
+      api.confirmInventorySuggestion(taskId, suggestionId, type, resolution),
     onSuccess: (result: ConfirmSuggestionResult) => {
       void qc.invalidateQueries({ queryKey: suggestionsKey(taskId) });
       if (result.kind === 'DEVICE') {
@@ -68,6 +68,22 @@ export function useConfirmSuggestion(taskId: string, contractId?: string) {
         if (contractId) {
           void qc.invalidateQueries({ queryKey: itemsKey(contractId) });
         }
+      }
+    },
+  });
+}
+
+export function useReplaceSuggestion(taskId: string, contractId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ suggestionId, type }: { suggestionId: string; type?: InstalledItemType }) =>
+      api.replaceInventorySuggestion(taskId, suggestionId, type),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: suggestionsKey(taskId) });
+      if (contractId) {
+        void qc.invalidateQueries({ queryKey: itemsKey(contractId) });
+      } else {
+        void qc.invalidateQueries({ queryKey: ['service-inventory'] });
       }
     },
   });

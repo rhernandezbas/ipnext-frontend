@@ -194,6 +194,181 @@ describe('SuggestionCard — type editor (B4)', () => {
   });
 });
 
+// ── B5 — Button-by-match table tests ─────────────────────────────────────────
+describe('SuggestionCard — button-by-match (B5)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useMyPermissions).mockReturnValue({
+      permissions: ['*'],
+      roles: [],
+      user: null,
+      isLoading: false,
+      isError: false,
+      can: () => true,
+    });
+  });
+
+  it('same_device → shows "Marcar como ya instalado" and "Descartar", NO "Confirmar"', () => {
+    const onLinkExisting = vi.fn();
+    const onDiscard = vi.fn();
+
+    render(
+      <SuggestionCard
+        suggestion={makePendingDevice({ match: { status: 'same_device', itemId: 'item-1', serial: null } })}
+        onConfirm={noop}
+        onLinkExisting={onLinkExisting}
+        onDiscard={onDiscard}
+        isPending={false}
+        canWrite={true}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /marcar como ya instalado/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /descartar/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^confirmar$/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /agregar/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /reemplazar/i })).toBeNull();
+  });
+
+  it('same_device → "Marcar como ya instalado" calls onLinkExisting with suggestionId', async () => {
+    const user = userEvent.setup();
+    const onLinkExisting = vi.fn();
+
+    render(
+      <SuggestionCard
+        suggestion={makePendingDevice({ id: 'sug-link', match: { status: 'same_device', itemId: 'item-1', serial: null } })}
+        onConfirm={noop}
+        onLinkExisting={onLinkExisting}
+        onDiscard={noop}
+        isPending={false}
+        canWrite={true}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /marcar como ya instalado/i }));
+    expect(onLinkExisting).toHaveBeenCalledWith('sug-link');
+  });
+
+  it('same_type → shows "Agregar", "Reemplazar la actual" (with inventory.write), and "Descartar"', () => {
+    render(
+      <SuggestionCard
+        suggestion={makePendingDevice({ match: { status: 'same_type', itemId: 'item-2', serial: null } })}
+        onConfirm={noop}
+        onReplace={vi.fn()}
+        onDiscard={noop}
+        isPending={false}
+        canWrite={true}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /^agregar$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reemplazar la actual/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /descartar/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^confirmar$/i })).toBeNull();
+  });
+
+  it('same_type → "Agregar" calls onConfirm (resolution:add) with id+type', async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+
+    render(
+      <SuggestionCard
+        suggestion={makePendingDevice({ id: 'sug-add', match: { status: 'same_type', itemId: 'item-2', serial: null } })}
+        onConfirm={onConfirm}
+        onReplace={vi.fn()}
+        onDiscard={noop}
+        isPending={false}
+        canWrite={true}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /^agregar$/i }));
+    expect(onConfirm).toHaveBeenCalledWith('sug-add', 'ONU');
+  });
+
+  it('same_type → "Reemplazar la actual" calls onReplace with id+type', async () => {
+    const user = userEvent.setup();
+    const onReplace = vi.fn();
+
+    render(
+      <SuggestionCard
+        suggestion={makePendingDevice({ id: 'sug-replace', match: { status: 'same_type', itemId: 'item-2', serial: null } })}
+        onConfirm={noop}
+        onReplace={onReplace}
+        onDiscard={noop}
+        isPending={false}
+        canWrite={true}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /reemplazar la actual/i }));
+    expect(onReplace).toHaveBeenCalledWith('sug-replace', 'ONU');
+  });
+
+  it('same_type → "Reemplazar la actual" hidden when user lacks inventory.write', () => {
+    vi.mocked(useMyPermissions).mockReturnValue({
+      permissions: [],
+      roles: [],
+      user: null,
+      isLoading: false,
+      isError: false,
+      can: () => false,
+    });
+
+    render(
+      <SuggestionCard
+        suggestion={makePendingDevice({ match: { status: 'same_type', itemId: 'item-2', serial: null } })}
+        onConfirm={noop}
+        onReplace={vi.fn()}
+        onDiscard={noop}
+        isPending={false}
+        canWrite={false}
+      />,
+    );
+
+    // "Reemplazar la actual" is hidden (no inventory.write)
+    expect(screen.queryByRole('button', { name: /reemplazar la actual/i })).toBeNull();
+    // "Agregar" also hidden (canWrite=false)
+    expect(screen.queryByRole('button', { name: /^agregar$/i })).toBeNull();
+  });
+
+  it('no match (undefined) → shows "Confirmar" + "Descartar" (graceful degrade)', () => {
+    const suggestion = makePendingDevice();
+    delete (suggestion as Partial<typeof suggestion & { match?: unknown }>).match;
+
+    render(
+      <SuggestionCard
+        suggestion={suggestion}
+        onConfirm={noop}
+        onDiscard={noop}
+        isPending={false}
+        canWrite={true}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /^confirmar$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /descartar/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /marcar como ya instalado/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /agregar/i })).toBeNull();
+  });
+
+  it('match=null → shows "Confirmar" + "Descartar" (graceful degrade)', () => {
+    render(
+      <SuggestionCard
+        suggestion={makePendingDevice({ match: null })}
+        onConfirm={noop}
+        onDiscard={noop}
+        isPending={false}
+        canWrite={true}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /^confirmar$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /descartar/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /marcar como ya instalado/i })).toBeNull();
+  });
+});
+
 // ── B5 — Match badge tests ────────────────────────────────────────────────────
 describe('SuggestionCard — match badge (B5)', () => {
   beforeEach(() => {

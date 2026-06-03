@@ -15,6 +15,10 @@ interface Props {
   onDiscard: (id: string) => void;
   isPending: boolean;
   canWrite: boolean;
+  /** Called when same_device: links to existing item (resolution:'link_existing'). */
+  onLinkExisting?: (id: string) => void;
+  /** Called when same_type: replaces the matched item with this suggestion. */
+  onReplace?: (id: string, type: string) => void;
   /** Called when the admin corrects the type of an already-confirmed DEVICE. */
   onCorrectType?: (id: string, type: string) => void;
   /** True while the PATCH correctSuggestionType mutation is in-flight. */
@@ -61,6 +65,8 @@ export function SuggestionCard({
   onDiscard,
   isPending,
   canWrite,
+  onLinkExisting,
+  onReplace,
   onCorrectType,
   isCorrecting = false,
 }: Props) {
@@ -221,12 +227,54 @@ export function SuggestionCard({
         </span>
       ) : canWrite ? (
         <div className={styles.actions}>
-          <button type="button" className={styles.confirmBtn} onClick={() => onConfirm(s.id, type)} disabled={isPending}>
-            Confirmar
-          </button>
-          <button type="button" className={styles.discardBtn} onClick={() => onDiscard(s.id)} disabled={isPending}>
-            Descartar
-          </button>
+          {isDevice && s.match?.status === 'same_device' ? (
+            <>
+              <button
+                type="button"
+                className={styles.confirmBtn}
+                onClick={() => onLinkExisting?.(s.id)}
+                disabled={isPending}
+              >
+                Marcar como ya instalado
+              </button>
+              <button type="button" className={styles.discardBtn} onClick={() => onDiscard(s.id)} disabled={isPending}>
+                Descartar
+              </button>
+            </>
+          ) : isDevice && s.match?.status === 'same_type' ? (
+            <>
+              <button
+                type="button"
+                className={styles.confirmBtn}
+                onClick={() => onConfirm(s.id, type)}
+                disabled={isPending}
+              >
+                Agregar
+              </button>
+              <Can permission="inventory.write">
+                <button
+                  type="button"
+                  className={styles.discardBtn}
+                  onClick={() => onReplace?.(s.id, type)}
+                  disabled={isPending}
+                >
+                  Reemplazar la actual
+                </button>
+              </Can>
+              <button type="button" className={styles.discardBtn} onClick={() => onDiscard(s.id)} disabled={isPending}>
+                Descartar
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className={styles.confirmBtn} onClick={() => onConfirm(s.id, type)} disabled={isPending}>
+                Confirmar
+              </button>
+              <button type="button" className={styles.discardBtn} onClick={() => onDiscard(s.id)} disabled={isPending}>
+                Descartar
+              </button>
+            </>
+          )}
         </div>
       ) : null}
     </div>
