@@ -25,11 +25,27 @@ export const deleteInstalledItem = (contractId: string, itemId: string) =>
 export const listTaskInventorySuggestions = (taskId: string) =>
   axiosClient.get<TaskInventorySuggestion[]>(`/scheduling/${taskId}/inventory/suggestions`).then(r => r.data);
 
-export const confirmInventorySuggestion = (taskId: string, suggestionId: string, typeOverride?: InstalledItemType) =>
+export const confirmInventorySuggestion = (
+  taskId: string,
+  suggestionId: string,
+  typeOverride?: InstalledItemType,
+  resolution?: 'add' | 'link_existing',
+) =>
   axiosClient
     .post<ConfirmSuggestionResult>(
       `/scheduling/${taskId}/inventory/suggestions/${suggestionId}/confirm`,
-      typeOverride ? { type: typeOverride } : {},
+      {
+        ...(typeOverride ? { type: typeOverride } : {}),
+        ...(resolution ? { resolution } : {}),
+      },
+    )
+    .then(r => r.data);
+
+export const replaceInventorySuggestion = (taskId: string, suggestionId: string, type?: InstalledItemType) =>
+  axiosClient
+    .post<ConfirmSuggestionResult>(
+      `/scheduling/${taskId}/inventory/suggestions/${suggestionId}/replace`,
+      type ? { type } : {},
     )
     .then(r => r.data);
 

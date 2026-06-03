@@ -3,6 +3,7 @@ import {
   useConfirmSuggestion,
   useDiscardSuggestion,
   useCorrectSuggestionType,
+  useReplaceSuggestion,
 } from '@/hooks/useServiceInventory';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { InstalledItemType } from '@/types/serviceInventory';
@@ -24,6 +25,7 @@ interface Props {
 export function TaskInventorySuggestions({ taskId, contractId }: Props) {
   const { data, isLoading } = useTaskInventorySuggestions(taskId);
   const confirm = useConfirmSuggestion(taskId, contractId);
+  const replace = useReplaceSuggestion(taskId, contractId);
   const discard = useDiscardSuggestion(taskId);
   const correctType = useCorrectSuggestionType(taskId, contractId);
   const { can } = useMyPermissions();
@@ -50,9 +52,11 @@ export function TaskInventorySuggestions({ taskId, contractId }: Props) {
         <SuggestionCard
           key={s.id}
           suggestion={s}
-          isPending={confirm.isPending || discard.isPending}
+          isPending={confirm.isPending || discard.isPending || replace.isPending}
           canWrite={canWrite}
-          onConfirm={(id, type: InstalledItemType) => confirm.mutate({ suggestionId: id, type })}
+          onConfirm={(id, type: InstalledItemType) => confirm.mutate({ suggestionId: id, type, resolution: 'add' })}
+          onLinkExisting={id => confirm.mutate({ suggestionId: id, resolution: 'link_existing' })}
+          onReplace={(id, type: InstalledItemType) => replace.mutate({ suggestionId: id, type })}
           onDiscard={id => discard.mutate(id)}
         />
       ))}
