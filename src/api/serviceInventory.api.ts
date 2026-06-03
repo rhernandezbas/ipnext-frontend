@@ -4,6 +4,7 @@ import type {
   AddInstalledItemInput,
   UpdateInstalledItemInput,
   TaskInventorySuggestion,
+  InstalledItemType,
 } from '@/types/serviceInventory';
 
 // ── Contract installed items ────────────────────────────────────────────────
@@ -20,9 +21,12 @@ export const updateInstalledItem = (contractId: string, itemId: string, patch: U
 export const listTaskInventorySuggestions = (taskId: string) =>
   axiosClient.get<TaskInventorySuggestion[]>(`/scheduling/${taskId}/inventory/suggestions`).then(r => r.data);
 
-export const confirmInventorySuggestion = (taskId: string, suggestionId: string) =>
+export const confirmInventorySuggestion = (taskId: string, suggestionId: string, typeOverride?: InstalledItemType) =>
   axiosClient
-    .post<ServiceInstalledItem>(`/scheduling/${taskId}/inventory/suggestions/${suggestionId}/confirm`)
+    .post<ServiceInstalledItem>(
+      `/scheduling/${taskId}/inventory/suggestions/${suggestionId}/confirm`,
+      typeOverride ? { type: typeOverride } : {},
+    )
     .then(r => r.data);
 
 export const discardInventorySuggestion = (taskId: string, suggestionId: string) =>
