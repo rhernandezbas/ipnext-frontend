@@ -85,14 +85,9 @@ function toLocalInputString(date: Date): string {
  * default that doesn't exist.
  */
 export function CreateTaskModal({ projects, workflows, technicians = [], templates = [], onClose, onCreate, loading, initialValues }: Props) {
-  // Default to the first project that actually has a usable workflow — selecting
-  // a workflow-less project would leave the form unsubmittable for no visible reason.
-  const defaultProjectId =
-    projects.find(p => resolveFirstStageId(p, workflows))?.id ?? projects[0]?.id ?? '';
-
   const [templateId, setTemplateId] = useState('');
   const [title, setTitle] = useState(initialValues?.title ?? '');
-  const [projectId, setProjectId] = useState(defaultProjectId);
+  const [projectId, setProjectId] = useState('');
   const [customerId, setCustomerId] = useState<string | null>(initialValues?.customerId ?? null);
   const [customerName, setCustomerName] = useState<string | null>(initialValues?.customerName ?? null);
   // NOTE: contractId is INTENTIONALLY never seeded — the operator must pick the
@@ -205,7 +200,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     [workflows, selectedProject],
   );
 
-  const canSave = title.trim().length > 0 && !!firstStageId && !!customerId && !!contractId && !loading;
+  const canSave = title.trim().length > 0 && !!projectId && !!firstStageId && !!customerId && !!contractId && description.trim().length > 0 && !loading;
 
   function applyTemplate(id: string) {
     setTemplateId(id);
@@ -219,6 +214,10 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   }
 
   async function handleSave() {
+    if (!description.trim()) {
+      setError('La descripción es obligatoria.');
+      return;
+    }
     if (!firstStageId) {
       setError('El proyecto seleccionado no tiene estados configurados.');
       return;
@@ -344,7 +343,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
         )}
 
         <label className={styles.label}>
-          Descripción
+          Descripción <span className={styles.required} aria-hidden="true">*</span>
           <textarea
             className={styles.textarea}
             value={description}
@@ -366,8 +365,14 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
           </label>
 
           <label className={styles.label}>
-            Proyecto *
-            <select className={styles.select} value={projectId} onChange={e => setProjectId(e.target.value)}>
+            Proyecto <span className={styles.required} aria-hidden="true">*</span>
+            <select
+              className={styles.select}
+              value={projectId}
+              onChange={e => setProjectId(e.target.value)}
+              aria-label="Proyecto"
+            >
+              <option value="">— Seleccionar proyecto —</option>
               {projects.map(p => (
                 <option key={p.id} value={p.id}>{p.title}</option>
               ))}
