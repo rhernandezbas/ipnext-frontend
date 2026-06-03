@@ -6,6 +6,7 @@ import { ComingSoonPanel } from './ComingSoonPanel';
 import { TaskInventorySuggestions } from './TaskInventorySuggestions';
 import { TaskMaterialConsumptions } from './TaskMaterialConsumptions';
 import { TaskAuditFeed } from './TaskAuditFeed';
+import { TaskActivityFeed } from './TaskActivityFeed';
 import { Can } from '@/components/auth/Can';
 import type { TaskDetailsTabProps } from './TaskDetailsTab';
 import styles from './TaskTabs.module.css';
@@ -203,10 +204,9 @@ export function TaskTabs({
       id: TAB_IDS.actividad,
       label: 'Actividad',
       content: (
-        <ComingSoonPanel
-          title="Actividad"
-          description="Historial de cambios y auditoría de la tarea. Próximamente."
-        />
+        <Can permission="scheduling.read" fallback={<p>Sin permiso para ver la actividad.</p>}>
+          <TaskActivityFeed taskId={commentsTaskId} />
+        </Can>
       ),
     },
   ];
