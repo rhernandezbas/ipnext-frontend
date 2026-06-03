@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Tabs } from '@/components/molecules/Tabs/Tabs';
 import { DeviceTypesBody } from './settings/DeviceTypesBody';
+import { MaterialsBody } from './settings/MaterialsBody';
 import styles from './InventorySettingsPage.module.css';
 
 const TABS = [
   { id: 'equipos', label: 'Equipos', content: <DeviceTypesBody /> },
+  { id: 'materiales', label: 'Materiales', content: <MaterialsBody /> },
 ];
 
 const TAB_IDS = TABS.map(t => t.id);

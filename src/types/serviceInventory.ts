@@ -36,6 +36,24 @@ export interface UpdateInstalledItemInput {
   mac?: string | null;
 }
 
+/** Discriminated union returned by POST .../confirm — a device OR a material consumption. */
+export type ConfirmSuggestionResult =
+  | { kind: 'DEVICE'; item: ServiceInstalledItem }
+  | { kind: 'MATERIAL'; consumption: TaskMaterialConsumption };
+
+/** A recorded material consumption on a task. */
+export interface TaskMaterialConsumption {
+  id: string;
+  taskId: string;
+  materialCatalogId: string;
+  materialName: string;
+  quantity: number;
+  unit: string | null;
+  notes: string | null;
+  recordedByUserName: string | null;
+  createdAt: string;
+}
+
 /** A staged inventory suggestion on a task (the operator's checkboxes). */
 export interface TaskInventorySuggestion {
   id: string;

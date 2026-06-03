@@ -8,12 +8,15 @@ import { ContractCard } from './ContractCard';
 import { ReporterCard } from './ReporterCard';
 import { WatchersChips } from './WatchersChips';
 import { ComingSoonPanel } from './ComingSoonPanel';
+import { ContractInventoryReadonly } from './ContractInventoryReadonly';
 import styles from './CustomerSidebar.module.css';
 
 export interface CustomerSidebarProps {
   customerId: string | null;
   customerName: string | null;
   contractId: string | null;
+  /** Current task id — threaded for task-scoped material consumption summary. */
+  taskId?: string | null;
   reporterId: string | null;
   watcherIds: string[];
   admins: SchedulingAssignee[];
@@ -25,6 +28,7 @@ export function CustomerSidebar({
   customerId,
   customerName,
   contractId,
+  taskId = null,
   reporterId,
   watcherIds,
   admins,
@@ -81,10 +85,7 @@ export function CustomerSidebar({
       id: 'inventario',
       label: 'Inventario',
       content: (
-        <ComingSoonPanel
-          title="Inventario del cliente"
-          description="Equipos y materiales asignados. Próximamente."
-        />
+        <ContractInventoryReadonly contractId={contractId} taskId={taskId} />
       ),
     },
     {

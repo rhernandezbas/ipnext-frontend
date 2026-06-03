@@ -1,0 +1,26 @@
+.root { margin-top: var(--space-4, 1rem); display: flex; flex-direction: column; gap: var(--space-2, 0.5rem); }
+
+.header { display: flex; align-items: center; justify-content: space-between; }
+.title { font-size: var(--font-size-sm, 0.85rem); font-weight: 600; color: var(--color-text-primary, #0f172a); }
+
+.addBtn { border: none; background: none; cursor: pointer; font-size: 0.82rem; color: var(--color-accent, #6366f1); padding: 2px 6px; border-radius: 6px; }
+.addBtn:hover { background: #eef2ff; }
+
+.form { display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0.6rem; border: 1px solid var(--color-border, #e2e8f0); border-radius: 8px; }
+.select, .input { padding: 0.4rem 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; font-family: inherit; color: #0f172a; outline: none; }
+.select:focus, .input:focus { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.15); }
+.primaryBtn { padding: 0.4rem 0.9rem; border: none; background: #6366f1; color: #fff; border-radius: 6px; font-size: 0.85rem; cursor: pointer; }
+.primaryBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.muted { color: var(--color-text-secondary, #64748b); font-size: var(--font-size-sm, 0.82rem); padding: var(--space-2, 0.5rem) 0; margin: 0; }
+
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: var(--color-surface, #fff); border: 1px solid var(--color-border, #e2e8f0); border-radius: 8px; }
+.itemInfo { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.83rem; }
+.materialName { font-weight: 600; color: #0f172a; }
+.qty { color: #374151; }
+.notes { color: #64748b; font-style: italic; }
+.meta { color: #94a3b8; font-size: 0.78rem; }
+.removeBtn { border: none; background: none; cursor: pointer; font-size: 0.8rem; color: #dc2626; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+.removeBtn:hover { background: #fef2f2; }
+.removeBtn:disabled { opacity: 0.5; cursor: not-allowed; }

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '@/api/serviceInventory.api';
-import type { AddInstalledItemInput, UpdateInstalledItemInput, InstalledItemType } from '@/types/serviceInventory';
+import type { AddInstalledItemInput, UpdateInstalledItemInput, InstalledItemType, ConfirmSuggestionResult } from '@/types/serviceInventory';
 
 const itemsKey = (serviceId: string) => ['service-inventory', serviceId];
 const suggestionsKey = (taskId: string) => ['task-inventory-suggestions', taskId];
@@ -31,6 +31,14 @@ export function useUpdateInstalledItem(serviceId: string) {
   });
 }
 
+export function useRemoveInstalledItem(serviceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (itemId: string) => api.deleteInstalledItem(serviceId, itemId),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: itemsKey(serviceId) }),
+  });
+}
+
 // ── Task suggestions ────────────────────────────────────────────────────────
 export function useTaskInventorySuggestions(taskId: string | undefined, enabled = true) {
   return useQuery({
@@ -40,14 +48,27 @@ export function useTaskInventorySuggestions(taskId: string | undefined, enabled 
   });
 }
 
-export function useConfirmSuggestion(taskId: string) {
+export function useConfirmSuggestion(taskId: string, contractId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ suggestionId, type }: { suggestionId: string; type?: InstalledItemType }) =>
       api.confirmInventorySuggestion(taskId, suggestionId, type),
-    onSuccess: () => {
+    onSuccess: (result: ConfirmSuggestionResult) => {
       void qc.invalidateQueries({ queryKey: suggestionsKey(taskId) });
-      void qc.invalidateQueries({ queryKey: ['service-inventory'] });
+      if (result.kind === 'DEVICE') {
+        // Confirm added a device to the contract inventory
+        if (contractId) {
+          void qc.invalidateQueries({ queryKey: itemsKey(contractId) });
+        } else {
+          void qc.invalidateQueries({ queryKey: ['service-inventory'] });
+        }
+      } else {
+        // result.kind === 'MATERIAL' — confirm created a task material consumption
+        void qc.invalidateQueries({ queryKey: ['task-materials', taskId] });
+        if (contractId) {
+          void qc.invalidateQueries({ queryKey: itemsKey(contractId) });
+        }
+      }
     },
   });
 }

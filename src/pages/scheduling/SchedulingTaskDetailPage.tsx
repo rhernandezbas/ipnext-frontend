@@ -367,6 +367,7 @@ export default function SchedulingTaskDetailPage() {
             customerId={task.customerId}
             customerName={task.customerName}
             contractId={task.contractId}
+            taskId={id ?? null}
             reporterId={task.reporterId}
             watcherIds={task.watcherIds}
             admins={admins}

@@ -76,6 +76,16 @@ vi.mock(
   }),
 );
 
+// Mock TaskMaterialConsumptions — usa múltiples hooks, mantener ligero
+vi.mock(
+  '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskMaterialConsumptions',
+  () => ({
+    TaskMaterialConsumptions: () => (
+      <div data-testid="task-material-consumptions">Consumptions Stub</div>
+    ),
+  }),
+);
+
 import { TaskTabs } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs';
 import type { TaskTabsProps } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs';
 
