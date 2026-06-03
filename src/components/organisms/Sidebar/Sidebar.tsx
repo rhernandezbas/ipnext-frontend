@@ -148,6 +148,7 @@ const EMPRESA_ITEMS: NavParentItem[] = [
       { to: '/admin/inventory/items', label: 'Artículos' },
       { to: '/admin/inventory/products', label: 'Productos' },
       { to: '/admin/inventory/supply', label: 'Suministro' },
+      { to: '/admin/inventory/settings', label: 'Configuración' },
     ],
   },
   {
