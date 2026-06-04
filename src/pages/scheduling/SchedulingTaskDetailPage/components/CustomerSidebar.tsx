@@ -75,7 +75,7 @@ export function CustomerSidebar({
           <WatchersChips
             watcherIds={watcherIds}
             allAdmins={admins}
-            onChange={onWatchersChange}
+            onChange={ids => Promise.resolve(onWatchersChange(ids))}
             isSaving={isSavingWatchers}
           />
         </div>

@@ -34,6 +34,18 @@ vi.mock(
   }),
 );
 
+// Mock TaskActivityFeed — uses useInfiniteQuery; stub it like the other heavy tabs
+vi.mock(
+  '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskActivityFeed',
+  () => ({
+    TaskActivityFeed: ({ taskId }: { taskId: string }) => (
+      <div data-testid="task-activity-feed" data-task-id={taskId}>
+        Activity Feed Stub
+      </div>
+    ),
+  }),
+);
+
 // Mock DatosForm — it uses react-hook-form + hooks, keep it simple
 vi.mock(
   '@/pages/scheduling/SchedulingTaskDetailPage/components/DatosForm',
@@ -291,11 +303,11 @@ describe('TaskTabs', () => {
     expect(screen.getAllByText('Próximamente').length).toBeGreaterThan(0);
   });
 
-  it('Actividad renders ComingSoonPanel', async () => {
+  it('Actividad renders the activity feed', async () => {
     const user = userEvent.setup();
     render(<TaskTabs {...makeProps()} />);
     const tabs = screen.getAllByRole('tab');
     await user.click(tabs[6]);
-    expect(screen.getAllByText('Próximamente').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('task-activity-feed')).toBeInTheDocument();
   });
 });

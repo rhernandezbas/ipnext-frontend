@@ -7,7 +7,6 @@ import {
   useCreateInventoryUnit,
   useUpdateInventoryProduct,
   useDeleteInventoryProduct,
-  useDeleteInventoryUnit,
   useUpdateInventoryUnit,
 } from '@/hooks/useInventory';
 import type { InventoryProduct, InventoryUnit } from '@/types/inventory';
@@ -266,7 +265,7 @@ function EditProductModal({ product, onClose, onSubmit }: EditProductModalProps)
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSubmit({ name, sku, category, unitPrice: unitPrice ? Number(unitPrice) : null, minStock: Number(minStock), supplier });
+    onSubmit({ name, sku, category, unitPrice: unitPrice ? Number(unitPrice) : undefined, minStock: Number(minStock), supplier });
   }
 
   return (
@@ -335,7 +334,6 @@ export default function InventoryLegacyPage() {
   const { mutate: createUnit } = useCreateInventoryUnit();
   const { mutate: updateProduct } = useUpdateInventoryProduct();
   const { mutate: deleteProduct } = useDeleteInventoryProduct();
-  const { mutate: deleteUnit } = useDeleteInventoryUnit();
   const { mutate: updateUnit } = useUpdateInventoryUnit();
 
   // Summary stats (based on products catalog)

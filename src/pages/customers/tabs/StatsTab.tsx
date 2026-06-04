@@ -76,7 +76,7 @@ export function StatsTab(_props: Props) {
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
           <YAxis unit=" Mbps" tick={{ fontSize: 11 }} />
-          <Tooltip formatter={(v: number) => `${v} Mbps`} />
+          <Tooltip formatter={v => `${v} Mbps`} />
           <Legend />
           <Line
             type="monotone"
