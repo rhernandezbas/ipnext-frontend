@@ -42,7 +42,8 @@ function formatDate(dateStr: string | null): string {
 
 function OltsTab() {
   const { data: olts = [], isLoading } = useOlts();
-  const { data: allOnus = [] } = useOnus();
+  // keep the ONU query mounted (prefetch/cache) even though the list isn't read here
+  useOnus();
   const { mutate: createOlt, isPending: creatingOlt } = useCreateOlt();
 
   const [showOltModal, setShowOltModal] = useState(false);

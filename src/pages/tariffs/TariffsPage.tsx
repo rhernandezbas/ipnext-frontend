@@ -80,7 +80,7 @@ function NewPlanModal({ initialData, title, onClose, onSubmit }: PlanModalProps)
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSubmit({ name, type, downloadSpeed, uploadSpeed, price, billingCycle, status, description, subscriberCount: initialData?.subscriberCount ?? 0 });
+    onSubmit({ name, type, planSubtype: initialData?.planSubtype ?? 'internet', downloadSpeed, uploadSpeed, price, billingCycle, status, description, subscriberCount: initialData?.subscriberCount ?? 0 });
   }
 
   return (

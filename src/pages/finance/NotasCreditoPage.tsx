@@ -70,7 +70,7 @@ export default function NotasCreditoPage() {
   const [showForm, setShowForm] = useState(false);
   const [viewNote, setViewNote] = useState<CreditNote | null>(null);
   const [clientName, setClientName] = useState('');
-  const [clientId, setClientId] = useState('');
+  const [clientId] = useState('');
   const [amount, setAmount] = useState(0);
   const [reason, setReason] = useState('');
   const [relatedInvoiceId, setRelatedInvoiceId] = useState('');

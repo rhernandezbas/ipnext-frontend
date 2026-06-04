@@ -346,7 +346,7 @@ function PreviewModal({
 }) {
   let preview = body;
   variables.forEach(v => {
-    preview = preview.replaceAll(`{{${v.key}}}`, v.example);
+    preview = preview.split(`{{${v.key}}}`).join(v.example);
   });
 
   return (
@@ -2146,13 +2146,6 @@ function ScheduledTasksTab() {
 }
 
 // ── Integraciones Tab ──────────────────────────────────────────────────────
-
-interface IntegrationCard {
-  id: string;
-  name: string;
-  description: string;
-  connected: boolean;
-}
 
 function IntegrationStatusBadge({ connected }: { connected: boolean }) {
   return (

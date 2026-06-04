@@ -67,7 +67,7 @@ export default function ProformasPage() {
   const [showForm, setShowForm] = useState(false);
   const [viewProforma, setViewProforma] = useState<ProformaInvoice | null>(null);
   const [clientName, setClientName] = useState('');
-  const [clientId, setClientId] = useState('');
+  const [clientId] = useState('');
   const [itemDesc, setItemDesc] = useState('');
   const [itemQty, setItemQty] = useState(1);
   const [itemPrice, setItemPrice] = useState(0);
