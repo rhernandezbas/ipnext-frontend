@@ -1,6 +1,7 @@
 import axiosClient from './axios-client';
 import type { Ticket, TicketStats, CreateTicketData } from '@/types/ticket';
 import type { PaginatedResponse } from '@/types/api';
+import type { ScheduledTask, CreateTaskPayload } from '@/types/scheduling';
 
 export interface GetTicketsParams {
   page?: number;
@@ -78,6 +79,19 @@ export async function createTicket(data: CreateTicketData | CreateTicketInput): 
     return response.data;
   }
   const response = await axiosClient.post<Ticket>('/tickets', data);
+  return response.data;
+}
+
+/**
+ * Create a ScheduledTask FROM a ticket. The ticket id binds via the PATH
+ * (`POST /tickets/:id/tasks`), not the body (AD-7: not body-overridable), so the
+ * created task gets `ticketId` persisted. Returns the created task (with `id`).
+ */
+export async function createTaskFromTicket(
+  ticketId: number,
+  body: CreateTaskPayload
+): Promise<ScheduledTask> {
+  const response = await axiosClient.post<ScheduledTask>(`/tickets/${ticketId}/tasks`, body);
   return response.data;
 }
 

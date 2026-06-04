@@ -19,7 +19,7 @@ vi.mock('@/hooks/useRbacUsers');
 vi.mock('@/hooks/useProjects', () => ({ useProjects: () => ({ data: [] }) }));
 vi.mock('@/hooks/useWorkflows', () => ({ useWorkflows: () => ({ data: [] }) }));
 vi.mock('@/hooks/useTaskTemplates', () => ({ useTaskTemplates: () => ({ data: [] }) }));
-vi.mock('@/hooks/useScheduling', () => ({ useCreateTask: () => ({ mutateAsync: vi.fn(), isPending: false }) }));
+vi.mock('@/hooks/useScheduling', () => ({ useCreateTaskFromTicket: () => ({ mutateAsync: vi.fn(), isPending: false }) }));
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });

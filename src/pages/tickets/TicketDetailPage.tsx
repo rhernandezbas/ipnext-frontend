@@ -18,7 +18,7 @@ import { CreateTaskModal } from '@/pages/scheduling/SchedulingTasksPage/componen
 import { useProjects } from '@/hooks/useProjects';
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { useTaskTemplates } from '@/hooks/useTaskTemplates';
-import { useCreateTask } from '@/hooks/useScheduling';
+import { useCreateTaskFromTicket } from '@/hooks/useScheduling';
 import styles from './TicketDetailPage.module.css';
 
 const CLOSED_SLUGS = ['cerrado', 'closed'];
@@ -47,7 +47,7 @@ export default function TicketDetailPage() {
   const { data: workflows = [] } = useWorkflows();
   const { data: templates = [] } = useTaskTemplates();
   const technicians = allUsers.filter(u => u.roles.some(r => r.code === 'tecnico'));
-  const createTask = useCreateTask();
+  const createTaskFromTicket = useCreateTaskFromTicket();
 
   const [replyText, setReplyText] = useState('');
 
@@ -229,8 +229,13 @@ export default function TicketDetailPage() {
           technicians={technicians}
           templates={templates}
           onClose={() => setShowCreateTask(false)}
-          onCreate={data => createTask.mutateAsync(data)}
-          loading={createTask.isPending}
+          onCreate={async data => {
+            // #9: create via POST /tickets/:id/tasks so ticketId is persisted,
+            // then redirect to the new task's detail page.
+            const task = await createTaskFromTicket.mutateAsync({ ticketId: ticket.id, body: data });
+            navigate(`/admin/scheduling/tasks/${task.id}`);
+          }}
+          loading={createTaskFromTicket.isPending}
           initialValues={{
             title: ticket.subject,
             customerId: ticket.customerId ? String(ticket.customerId) : undefined,
