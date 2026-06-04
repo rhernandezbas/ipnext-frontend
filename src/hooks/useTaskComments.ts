@@ -16,7 +16,11 @@ export function useAddTaskComment(taskId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: AddTaskCommentInput) => api.addTaskComment(input),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: queryKey(taskId) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKey(taskId) });
+      // Refresh the activity feed (#10) — comments emit activity events.
+      void qc.invalidateQueries({ queryKey: ['task-activity', taskId] });
+    },
   });
 }
 
@@ -24,6 +28,10 @@ export function useDeleteTaskComment(taskId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (commentId: string) => api.deleteTaskComment(commentId),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: queryKey(taskId) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKey(taskId) });
+      // Refresh the activity feed (#10) — comments emit activity events.
+      void qc.invalidateQueries({ queryKey: ['task-activity', taskId] });
+    },
   });
 }
