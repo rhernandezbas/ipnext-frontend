@@ -5,10 +5,12 @@ vi.mock('@/hooks/useFeatureFlags', () => ({
   useFeatureFlag: vi.fn(),
   useSetFeatureFlag: vi.fn(),
 }));
-vi.mock('@/hooks/useIClassClosure', () => ({ useRunClosureBackfill: vi.fn() }));
+vi.mock('@/hooks/useIClassClosure', () => ({ useRunClosureBackfill: vi.fn(), useReprocessClosure: vi.fn() }));
+vi.mock('@/hooks/useMyPermissions', () => ({ useMyPermissions: vi.fn() }));
 
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
-import { useRunClosureBackfill } from '@/hooks/useIClassClosure';
+import { useRunClosureBackfill, useReprocessClosure } from '@/hooks/useIClassClosure';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { IClassClosureFlagBody } from '@/pages/scheduling/settings/IClassClosureFlagBody';
 
 const FLAG = 'iclass-closure-loop';
@@ -32,11 +34,19 @@ function mockFlag(enabled: boolean | null, loading = false, error = false) {
   } as never);
 }
 
+function mockPerms(can: (p: string | string[]) => boolean) {
+  vi.mocked(useMyPermissions).mockReturnValue({
+    user: null, roles: [], permissions: [], isLoading: false, isError: false, can,
+  } as never);
+}
+
 describe('IClassClosureFlagBody', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useSetFeatureFlag).mockReturnValue(idleMutation as never);
     vi.mocked(useRunClosureBackfill).mockReturnValue(idleMutation as never);
+    vi.mocked(useReprocessClosure).mockReturnValue(idleMutation as never);
+    mockPerms(() => true); // default: all permissions granted
   });
 
   it('renders loading state while the flag query is loading', () => {
@@ -101,5 +111,27 @@ describe('IClassClosureFlagBody', () => {
     fireEvent.click(screen.getByRole('button', { name: /reconciliar ahora/i }));
 
     expect(mutateAsync).toHaveBeenCalled();
+  });
+
+  it('runs the reprocess when "Reprocesar ahora" is clicked (iclass.manage granted)', () => {
+    mockFlag(true);
+    const mutateAsync = vi.fn().mockResolvedValue({ skipped: false, candidates: 0, processed: 0, noTask: 0 });
+    vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, mutateAsync } as never);
+
+    render(<IClassClosureFlagBody />);
+    fireEvent.click(screen.getByRole('button', { name: /reprocesar ahora/i }));
+
+    expect(mutateAsync).toHaveBeenCalled();
+  });
+
+  it('hides the reprocess section without the iclass.manage permission', () => {
+    mockFlag(true);
+    mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('iclass.manage'));
+
+    render(<IClassClosureFlagBody />);
+
+    expect(screen.queryByRole('button', { name: /reprocesar ahora/i })).not.toBeInTheDocument();
+    // the rest of the panel still renders
+    expect(screen.getByRole('button', { name: /reconciliar ahora/i })).toBeInTheDocument();
   });
 });

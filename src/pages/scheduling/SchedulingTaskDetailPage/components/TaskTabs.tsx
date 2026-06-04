@@ -96,24 +96,29 @@ function InventoryPanel({
         {reviewedByInventory && reviewBadge ? (
           <div className={styles.inventoryReviewBadge} data-testid="inventory-review-badge">
             {reviewBadge}
-            <button
-              type="button"
-              className={styles.inventoryToggleBtn}
-              onClick={() => onInventoryToggle(false)}
-            >
-              Desmarcar
-            </button>
+            {/* Badge stays visible to everyone; only inventory.write can untoggle. */}
+            <Can permission="inventory.write">
+              <button
+                type="button"
+                className={styles.inventoryToggleBtn}
+                onClick={() => onInventoryToggle(false)}
+              >
+                Desmarcar
+              </button>
+            </Can>
           </div>
         ) : (
-          <label className={styles.inventoryToggleLabel}>
-            <input
-              type="checkbox"
-              className={styles.inventoryCheckbox}
-              checked={reviewedByInventory}
-              onChange={(e) => onInventoryToggle(e.target.checked)}
-            />
-            <span>Revisado por inventario</span>
-          </label>
+          <Can permission="inventory.write">
+            <label className={styles.inventoryToggleLabel}>
+              <input
+                type="checkbox"
+                className={styles.inventoryCheckbox}
+                checked={reviewedByInventory}
+                onChange={(e) => onInventoryToggle(e.target.checked)}
+              />
+              <span>Revisado por inventario</span>
+            </label>
+          </Can>
         )}
       </div>
       <TaskInventorySuggestions taskId={taskId} contractId={contractId ?? undefined} />
