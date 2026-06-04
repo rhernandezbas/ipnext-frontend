@@ -6,6 +6,7 @@ import type { ClosureBackfillResult, ClosureReprocessResult } from '@/api/iclass
 import styles from './IClassSettings.module.css';
 
 const FLAG_KEY = 'iclass-closure-loop';
+const REPROCESS_FLAG_KEY = 'iclass-closure-reprocess';
 
 /**
  * Sub-tab "Cierre de OS" del back office de IClass.
@@ -21,6 +22,8 @@ export function IClassClosureFlagBody() {
   const [lastBackfill, setLastBackfill] = useState<ClosureBackfillResult | null>(null);
   const reprocess = useReprocessClosure();
   const [lastReprocess, setLastReprocess] = useState<ClosureReprocessResult | null>(null);
+  const reprocessFlag = useFeatureFlag(REPROCESS_FLAG_KEY);
+  const reprocessEnabled = reprocessFlag.data?.enabled ?? false;
 
   async function handleBackfill() {
     try {
@@ -36,6 +39,10 @@ export function IClassClosureFlagBody() {
     } catch {
       // surfaced via reprocess.isError banner
     }
+  }
+
+  function handleReprocessToggle() {
+    setFlag.mutate({ key: REPROCESS_FLAG_KEY, enabled: !reprocessEnabled });
   }
 
   if (isLoading) {
@@ -141,11 +148,26 @@ export function IClassClosureFlagBody() {
             <h2 className={styles.statusTitle}>Reprocesar side-effects pendientes</h2>
           </header>
           <p className={styles.statusDescription}>
-            Re-dispara solo los efectos pendientes (comentario, inventario, auditoría IA) de las OS ya espejadas, sin duplicar. Requiere que el flag "iclass-closure-reprocess" esté activo.
+            Re-dispara solo los efectos pendientes (comentario, inventario, auditoría IA) de las OS ya espejadas, sin duplicar. Aplica a cualquier OS cerrada con efectos faltantes, no solo a las que están en "Registrado en IClass".
           </p>
           <div className={styles.statusActionRow}>
-            <span className={styles.statusActionLabel}>Re-disparar efectos faltantes</span>
-            <button className={styles.btnSecondary} onClick={handleReprocess} disabled={reprocess.isPending}>
+            <span className={styles.statusActionLabel}>
+              {reprocessEnabled ? 'Desactivar reprocesamiento' : 'Activar reprocesamiento'}
+            </span>
+            <label className={styles.switch}>
+              <input
+                type="checkbox"
+                checked={reprocessEnabled}
+                disabled={setFlag.isPending}
+                onChange={handleReprocessToggle}
+                aria-label="Reprocesamiento de side-effects de cierre"
+              />
+              <span className={styles.switchTrack} aria-hidden="true" />
+            </label>
+          </div>
+          <div className={styles.statusActionRow}>
+            <span className={styles.statusActionLabel}>Re-disparar efectos faltantes ahora</span>
+            <button className={styles.btnSecondary} onClick={handleReprocess} disabled={reprocess.isPending || !reprocessEnabled}>
               {reprocess.isPending ? 'Reprocesando…' : 'Reprocesar ahora'}
             </button>
           </div>

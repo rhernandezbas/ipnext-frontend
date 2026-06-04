@@ -24,14 +24,25 @@ const idleMutation = {
   reset: vi.fn(),
 };
 
+const REPROCESS_FLAG = 'iclass-closure-reprocess';
+const REPROCESS_TOGGLE = /reprocesamiento de side-effects/i;
+
+/** Mock both closure flags independently (loop + reprocess), keyed by flag name. */
+function mockFlags(loop: boolean | null, reprocess: boolean | null = loop, loading = false, error = false) {
+  vi.mocked(useFeatureFlag).mockImplementation(((key: string) => {
+    const enabled = key === REPROCESS_FLAG ? reprocess : loop;
+    return {
+      data: enabled === null ? undefined : { key, enabled },
+      isLoading: loading,
+      isError: error,
+      isSuccess: !loading && !error && enabled !== null,
+      refetch: vi.fn(),
+    };
+  }) as never);
+}
+
 function mockFlag(enabled: boolean | null, loading = false, error = false) {
-  vi.mocked(useFeatureFlag).mockReturnValue({
-    data: enabled === null ? undefined : { key: FLAG, enabled },
-    isLoading: loading,
-    isError: error,
-    isSuccess: !loading && !error && enabled !== null,
-    refetch: vi.fn(),
-  } as never);
+  mockFlags(enabled, enabled, loading, error);
 }
 
 function mockPerms(can: (p: string | string[]) => boolean) {
@@ -133,5 +144,28 @@ describe('IClassClosureFlagBody', () => {
     expect(screen.queryByRole('button', { name: /reprocesar ahora/i })).not.toBeInTheDocument();
     // the rest of the panel still renders
     expect(screen.getByRole('button', { name: /reconciliar ahora/i })).toBeInTheDocument();
+  });
+
+  it('renders the reprocess toggle reflecting the iclass-closure-reprocess flag (independent of the loop flag)', () => {
+    mockFlags(true, false); // loop ON, reprocess OFF
+    render(<IClassClosureFlagBody />);
+    expect(screen.getByRole('checkbox', { name: REPROCESS_TOGGLE })).not.toBeChecked();
+  });
+
+  it('clicking the reprocess toggle flips the iclass-closure-reprocess flag', () => {
+    mockFlags(true, false);
+    const mutate = vi.fn();
+    vi.mocked(useSetFeatureFlag).mockReturnValue({ ...idleMutation, mutate } as never);
+
+    render(<IClassClosureFlagBody />);
+    fireEvent.click(screen.getByRole('checkbox', { name: REPROCESS_TOGGLE }));
+
+    expect(mutate).toHaveBeenCalledWith({ key: REPROCESS_FLAG, enabled: true });
+  });
+
+  it('disables "Reprocesar ahora" while the reprocess flag is OFF', () => {
+    mockFlags(true, false); // reprocess OFF
+    render(<IClassClosureFlagBody />);
+    expect(screen.getByRole('button', { name: /reprocesar ahora/i })).toBeDisabled();
   });
 });
