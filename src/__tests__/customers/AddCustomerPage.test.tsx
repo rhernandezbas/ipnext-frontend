@@ -65,7 +65,7 @@ describe('AddCustomerPage', () => {
   });
 
   it('calls createCustomer mutation on submit with correct data', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     mockMutateAsync.mockResolvedValue({});
     renderPage();
 
@@ -77,20 +77,23 @@ describe('AddCustomerPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Guardar cliente' }));
 
-    expect(mockMutateAsync).toHaveBeenCalledWith(
-      expect.objectContaining({
-        firstName: 'Carlos',
-        lastName: 'López',
-        email: 'carlos@test.com',
-        phone: '333-3333',
-        address: 'Av. Corrientes 1234',
-        status: 'active',
-      })
+    // handleSubmit is async — wait for the mutation call instead of asserting synchronously.
+    await waitFor(() =>
+      expect(mockMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          firstName: 'Carlos',
+          lastName: 'López',
+          email: 'carlos@test.com',
+          phone: '333-3333',
+          address: 'Av. Corrientes 1234',
+          status: 'active',
+        })
+      )
     );
   });
 
   it('navigates to /admin/customers/list on success', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     mockMutateAsync.mockResolvedValue({});
     renderPage();
 
@@ -107,7 +110,7 @@ describe('AddCustomerPage', () => {
   });
 
   it('shows error message on failure', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     mockMutateAsync.mockRejectedValue(new Error('Server error'));
     renderPage();
 
@@ -152,7 +155,7 @@ describe('AddCustomerPage', () => {
   });
 
   it('navigates to /admin/customers/list on Cancelar click', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Cancelar' }));
