@@ -9,6 +9,7 @@ export type ActivityType =
   | 'category_changed'
   | 'assigned' | 'unassigned'
   | 'reporter_changed'
+  | 'contract_changed' | 'customer_changed' | 'partner_changed'
   | 'watcher_added' | 'watcher_removed'
   | 'commented' | 'comment_deleted'
   | 'attachment_added' | 'attachment_removed'

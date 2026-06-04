@@ -42,6 +42,22 @@ describe('describeActivity', () => {
     expect(describeActivity(act({ type: 'unassigned' }))).toContain('quitó');
   });
 
+  it('shows the diff with names for project/customer/reporter changes', () => {
+    expect(
+      describeActivity(act({ type: 'project_changed', fromValue: 'p0', toValue: 'p1', metadata: { fromName: 'Fibra Norte', toName: 'Fibra Sur' } })),
+    ).toBe('cambió el proyecto: Fibra Norte → Fibra Sur');
+    expect(
+      describeActivity(act({ type: 'customer_changed', metadata: { fromName: 'Acme', toName: 'Globex' } })),
+    ).toBe('cambió el cliente: Acme → Globex');
+  });
+
+  it('describes contract/partner by presence (no resolvable name)', () => {
+    // the reported case: contract removed → "sin contrato"
+    expect(describeActivity(act({ type: 'contract_changed', fromValue: 'c0', toValue: null }))).toBe('quitó el contrato');
+    expect(describeActivity(act({ type: 'contract_changed', fromValue: null, toValue: 'c1' }))).toContain('asignó');
+    expect(describeActivity(act({ type: 'partner_changed', fromValue: 'x', toValue: 'y' }))).toBe('cambió el partner');
+  });
+
   it('falls back to a readable label for an unknown type', () => {
     expect(describeActivity(act({ type: 'some_future_event' }))).toBe('some future event');
   });

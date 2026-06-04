@@ -13,6 +13,17 @@ import { PROJECTS_KEY } from '@/hooks/useProjects';
 function invalidateTasksAndProjects(qc: ReturnType<typeof useQueryClient>) {
   void qc.invalidateQueries({ queryKey: ['scheduling-tasks'] });
   void qc.invalidateQueries({ queryKey: PROJECTS_KEY });
+  // Refresh the activity feed (#10) so changes show without a page reload.
+  void qc.invalidateQueries({ queryKey: ['task-activity'] });
+}
+
+/**
+ * Invalidate one task's detail view AND its activity feed (#10) — used by the
+ * checklist/inventory mutations so their events appear without a page reload.
+ */
+function invalidateTaskDetail(qc: ReturnType<typeof useQueryClient>, taskId: string) {
+  void qc.invalidateQueries({ queryKey: ['scheduling-task', taskId] });
+  void qc.invalidateQueries({ queryKey: ['task-activity', taskId] });
 }
 
 export function useTasks() {
@@ -151,7 +162,7 @@ export function useAddChecklistItem(taskId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (text: string) => api.addChecklistItem(taskId, text),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['scheduling-task', taskId] }),
+    onSuccess: () => invalidateTaskDetail(qc, taskId),
   });
 }
 
@@ -181,6 +192,8 @@ export function useToggleChecklistItem(taskId: string) {
       if (err) {
         void qc.invalidateQueries({ queryKey: ['scheduling-task', taskId] });
       }
+      // Always refresh the activity feed (#10) — the toggle emits an event.
+      void qc.invalidateQueries({ queryKey: ['task-activity', taskId] });
     },
   });
 }
@@ -190,7 +203,7 @@ export function useUpdateChecklistItem(taskId: string) {
   return useMutation({
     mutationFn: ({ itemId, text }: { itemId: string; text: string }) =>
       api.updateChecklistItem(taskId, itemId, text),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['scheduling-task', taskId] }),
+    onSuccess: () => invalidateTaskDetail(qc, taskId),
   });
 }
 
@@ -198,7 +211,7 @@ export function useRemoveChecklistItem(taskId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (itemId: string) => api.removeChecklistItem(taskId, itemId),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['scheduling-task', taskId] }),
+    onSuccess: () => invalidateTaskDetail(qc, taskId),
   });
 }
 
@@ -206,7 +219,7 @@ export function useReorderChecklist(taskId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (orderedIds: string[]) => api.reorderChecklist(taskId, orderedIds),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['scheduling-task', taskId] }),
+    onSuccess: () => invalidateTaskDetail(qc, taskId),
   });
 }
 
@@ -214,7 +227,7 @@ export function useAssignTemplateToTask(taskId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (templateId: string) => api.assignTemplateToTask(taskId, templateId),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['scheduling-task', taskId] }),
+    onSuccess: () => invalidateTaskDetail(qc, taskId),
   });
 }
 
@@ -222,7 +235,7 @@ export function useClearChecklist(taskId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api.clearChecklist(taskId),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['scheduling-task', taskId] }),
+    onSuccess: () => invalidateTaskDetail(qc, taskId),
   });
 }
 
@@ -235,7 +248,7 @@ export function useSetTaskInventoryReview() {
       api.setTaskInventoryReview(id, reviewed),
     onSuccess: (_result, { id }) => {
       void qc.invalidateQueries({ queryKey: ['scheduling-tasks'] });
-      void qc.invalidateQueries({ queryKey: ['scheduling-task', id] });
+      invalidateTaskDetail(qc, id);
     },
   });
 }
