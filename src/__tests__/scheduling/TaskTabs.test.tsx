@@ -98,8 +98,17 @@ vi.mock(
   }),
 );
 
+vi.mock('@/hooks/useMyPermissions', () => ({ useMyPermissions: vi.fn() }));
+
 import { TaskTabs } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs';
 import type { TaskTabsProps } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
+
+function mockPerms(can: (p: string | string[]) => boolean) {
+  vi.mocked(useMyPermissions).mockReturnValue({
+    user: null, roles: [], permissions: [], isLoading: false, isError: false, can,
+  } as never);
+}
 
 // ── Minimal valid props ────────────────────────────────────────────────────────
 const minimalDetailProps: TaskTabsProps['detailsProps'] = {
@@ -151,6 +160,7 @@ function makeProps(overrides?: Partial<TaskTabsProps>): TaskTabsProps {
 describe('TaskTabs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPerms(() => true); // default: all permissions granted
   });
 
   it('renders exactly 7 tabs in correct order with correct labels (no Adjuntos)', () => {
@@ -293,6 +303,23 @@ describe('TaskTabs', () => {
     await user.click(tabs[4]);
     await user.click(screen.getByText('Desmarcar'));
     expect(onInventoryToggle).toHaveBeenCalledWith(false);
+  });
+
+  it('Inventory: hides the toggle checkbox without inventory.write', async () => {
+    mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('inventory.write'));
+    const user = userEvent.setup();
+    render(<TaskTabs {...makeProps({ reviewedByInventory: false })} />);
+    await user.click(screen.getAllByRole('tab')[4]);
+    expect(screen.queryByRole('checkbox')).toBeNull();
+  });
+
+  it('Inventory: shows the read-only badge but hides Desmarcar without inventory.write', async () => {
+    mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('inventory.write'));
+    const user = userEvent.setup();
+    render(<TaskTabs {...makeProps({ reviewedByInventory: true })} />);
+    await user.click(screen.getAllByRole('tab')[4]);
+    expect(screen.getByTestId('inventory-review-badge')).toBeInTheDocument(); // badge stays visible
+    expect(screen.queryByText('Desmarcar')).toBeNull(); // but cannot untoggle
   });
 
   it('Registro de trabajo renders ComingSoonPanel', async () => {

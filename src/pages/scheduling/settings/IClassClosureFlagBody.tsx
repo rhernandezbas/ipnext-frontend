@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { Can } from '@/components/auth/Can';
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
-import { useRunClosureBackfill } from '@/hooks/useIClassClosure';
-import type { ClosureBackfillResult } from '@/api/iclassClosure.api';
+import { useRunClosureBackfill, useReprocessClosure } from '@/hooks/useIClassClosure';
+import type { ClosureBackfillResult, ClosureReprocessResult } from '@/api/iclassClosure.api';
 import styles from './IClassSettings.module.css';
 
 const FLAG_KEY = 'iclass-closure-loop';
@@ -18,12 +19,22 @@ export function IClassClosureFlagBody() {
   const setFlag = useSetFeatureFlag();
   const backfill = useRunClosureBackfill();
   const [lastBackfill, setLastBackfill] = useState<ClosureBackfillResult | null>(null);
+  const reprocess = useReprocessClosure();
+  const [lastReprocess, setLastReprocess] = useState<ClosureReprocessResult | null>(null);
 
   async function handleBackfill() {
     try {
       setLastBackfill(await backfill.mutateAsync());
     } catch {
       // surfaced via backfill.isError banner
+    }
+  }
+
+  async function handleReprocess() {
+    try {
+      setLastReprocess(await reprocess.mutateAsync());
+    } catch {
+      // surfaced via reprocess.isError banner
     }
   }
 
@@ -123,6 +134,40 @@ export function IClassClosureFlagBody() {
           <span><span className={styles.bannerTitle}>No se pudo reconciliar.</span> Reintentá en unos segundos.</span>
         </div>
       )}
+
+      <Can permission="iclass.manage">
+        <section className={styles.statusCard}>
+          <header className={styles.statusHeader}>
+            <h2 className={styles.statusTitle}>Reprocesar side-effects pendientes</h2>
+          </header>
+          <p className={styles.statusDescription}>
+            Re-dispara solo los efectos pendientes (comentario, inventario, auditoría IA) de las OS ya espejadas, sin duplicar. Requiere que el flag "iclass-closure-reprocess" esté activo.
+          </p>
+          <div className={styles.statusActionRow}>
+            <span className={styles.statusActionLabel}>Re-disparar efectos faltantes</span>
+            <button className={styles.btnSecondary} onClick={handleReprocess} disabled={reprocess.isPending}>
+              {reprocess.isPending ? 'Reprocesando…' : 'Reprocesar ahora'}
+            </button>
+          </div>
+        </section>
+
+        {lastReprocess && (lastReprocess.skipped ? (
+          <div className={`${styles.banner} ${styles.bannerError}`}>
+            <span><span className={styles.bannerTitle}>El flag de reprocesamiento está apagado.</span> Activá "iclass-closure-reprocess" para re-disparar los efectos.</span>
+          </div>
+        ) : (
+          <div className={`${styles.banner} ${styles.bannerSuccess}`}>
+            <span><span className={styles.bannerTitle}>{lastReprocess.processed} OS reprocesadas.</span>{' '}
+            {lastReprocess.candidates} candidatas · {lastReprocess.noTask} sin tarea vinculada.</span>
+          </div>
+        ))}
+
+        {reprocess.isError && (
+          <div className={`${styles.banner} ${styles.bannerError}`}>
+            <span><span className={styles.bannerTitle}>No se pudo reprocesar.</span> Reintentá en unos segundos.</span>
+          </div>
+        )}
+      </Can>
     </div>
   );
 }

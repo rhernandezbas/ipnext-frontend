@@ -5,3 +5,8 @@ import { iclassClosureApi } from '@/api/iclassClosure.api';
 export function useRunClosureBackfill() {
   return useMutation({ mutationFn: iclassClosureApi.backfill });
 }
+
+/** Re-fire pending closure side-effects (comment/inventory/audit) on mirrored SOs. */
+export function useReprocessClosure() {
+  return useMutation({ mutationFn: iclassClosureApi.reprocess });
+}
