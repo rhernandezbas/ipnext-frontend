@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ScheduledTask, TaskChecklistItem, TaskListFilter, CreateTaskPayload } from '@/types/scheduling';
 import * as api from '@/api/scheduling.api';
+import { createTaskFromTicket } from '@/api/tickets.api';
 import { PROJECTS_KEY } from '@/hooks/useProjects';
 
 /**
@@ -53,6 +54,20 @@ export function useCreateTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateTaskPayload) => api.createTask(data),
+    onSuccess: () => invalidateTasksAndProjects(qc),
+  });
+}
+
+/**
+ * Create a task FROM a ticket (#9). Hits POST /tickets/:id/tasks so the backend
+ * persists `ticketId` (the generic POST /scheduling drops it by design). Resolves
+ * with the created task so the caller can redirect to its detail page.
+ */
+export function useCreateTaskFromTicket() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ticketId, body }: { ticketId: number; body: CreateTaskPayload }) =>
+      createTaskFromTicket(ticketId, body),
     onSuccess: () => invalidateTasksAndProjects(qc),
   });
 }
