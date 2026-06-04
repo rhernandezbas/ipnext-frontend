@@ -25,6 +25,25 @@ function presenceDiff(noun: string, label: string, from: unknown, to: unknown): 
   return `cambió ${label}`;
 }
 
+function fmtDate(v: unknown): string {
+  if (v == null || v === '') return '—';
+  const d = new Date(String(v));
+  return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString('es-AR');
+}
+
+function preview(v: unknown, max = 60): string {
+  const s = val(v);
+  return s.length > max ? `${s.slice(0, max)}…` : s;
+}
+
+function dateFieldLabel(field: unknown): string {
+  return field === 'startDate' ? 'de inicio' : field === 'endDate' ? 'de fin' : '';
+}
+
+function addr(v: unknown): string {
+  return val((v as { address?: unknown } | null)?.address);
+}
+
 /**
  * Human-readable, Spanish description of a task activity entry. Stage/category
  * style events surface the from→to values (using metadata labels when present).
@@ -37,8 +56,12 @@ export function describeActivity(a: ActivityDto): string {
     case 'stage_changed': return `movió de etapa: ${val(m.fromStageName ?? a.fromValue)} → ${val(m.toStageName ?? a.toValue)}`;
     case 'priority_changed': return `cambió la prioridad: ${val(a.fromValue)} → ${val(a.toValue)}`;
     case 'category_changed': return `cambió la categoría: ${val(a.fromValue)} → ${val(a.toValue)}`;
-    case 'assigned': return 'asignó la tarea';
-    case 'unassigned': return 'quitó la asignación';
+    case 'assigned':
+      return a.fromValue == null
+        ? `asignó a ${val(m.toName ?? a.toValue)}`
+        : `reasignó: ${val(m.fromName ?? a.fromValue)} → ${val(m.toName ?? a.toValue)}`;
+    case 'unassigned':
+      return m.fromName ? `quitó la asignación de ${val(m.fromName)}` : 'quitó la asignación';
     case 'reporter_changed': return nameDiff('el reportante', m);
     case 'customer_changed': return nameDiff('el cliente', m);
     case 'contract_changed': return presenceDiff('un contrato', 'el contrato', a.fromValue, a.toValue);
@@ -50,13 +73,13 @@ export function describeActivity(a: ActivityDto): string {
     case 'attachment_added': return 'adjuntó un archivo';
     case 'attachment_removed': return 'quitó un archivo';
     case 'status_changed': return a.toValue ? 'cerró la tarea' : 'reabrió la tarea';
-    case 'due_date_changed': return `cambió la fecha (${val(m.field)})`;
-    case 'description_changed': return 'editó la descripción';
+    case 'due_date_changed': return `cambió la fecha ${dateFieldLabel(m.field)}: ${fmtDate(a.fromValue)} → ${fmtDate(a.toValue)}`;
+    case 'description_changed': return `editó la descripción: "${preview(a.toValue)}"`;
     case 'project_changed': return nameDiff('el proyecto', m);
-    case 'address_changed': return 'cambió la dirección';
+    case 'address_changed': return `cambió la dirección: ${addr(a.fromValue)} → ${addr(a.toValue)}`;
     case 'estimated_hours_changed': return `cambió las horas estimadas: ${val(a.fromValue)} → ${val(a.toValue)}`;
     case 'travel_time_changed': return 'cambió el tiempo de viaje';
-    case 'notes_changed': return 'editó las notas';
+    case 'notes_changed': return `editó las notas: "${preview(a.toValue)}"`;
     case 'inventory_review_changed': return a.toValue ? 'marcó revisado por inventario' : 'desmarcó la revisión de inventario';
     case 'sent_to_iclass': return 'envió la tarea a IClass';
     case 'checklist_item_added': return 'agregó un ítem al checklist';

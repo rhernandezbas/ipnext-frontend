@@ -58,6 +58,28 @@ describe('describeActivity', () => {
     expect(describeActivity(act({ type: 'partner_changed', fromValue: 'x', toValue: 'y' }))).toBe('cambió el partner');
   });
 
+  it('shows the technician name for assigned/unassigned (the reported case)', () => {
+    expect(
+      describeActivity(act({ type: 'assigned', fromValue: null, toValue: 'u1', metadata: { fromName: null, toName: 'Juan Pérez' } })),
+    ).toBe('asignó a Juan Pérez');
+    expect(
+      describeActivity(act({ type: 'assigned', fromValue: 'u0', toValue: 'u1', metadata: { fromName: 'Ana', toName: 'Juan' } })),
+    ).toBe('reasignó: Ana → Juan');
+    expect(
+      describeActivity(act({ type: 'unassigned', fromValue: 'u0', toValue: null, metadata: { fromName: 'Ana', toName: null } })),
+    ).toBe('quitó la asignación de Ana');
+  });
+
+  it('shows values for due date, address and description', () => {
+    expect(
+      describeActivity(act({ type: 'due_date_changed', fromValue: null, toValue: '2026-06-10T00:00:00Z', metadata: { field: 'startDate' } })),
+    ).toContain('de inicio');
+    expect(
+      describeActivity(act({ type: 'address_changed', fromValue: { address: 'Calle 1' }, toValue: { address: 'Calle 2' } })),
+    ).toBe('cambió la dirección: Calle 1 → Calle 2');
+    expect(describeActivity(act({ type: 'description_changed', toValue: 'nueva descripción' }))).toContain('nueva descripción');
+  });
+
   it('falls back to a readable label for an unknown type', () => {
     expect(describeActivity(act({ type: 'some_future_event' }))).toBe('some future event');
   });
