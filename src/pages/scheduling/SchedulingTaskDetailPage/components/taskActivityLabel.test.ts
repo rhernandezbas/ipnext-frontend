@@ -70,6 +70,18 @@ describe('describeActivity', () => {
     ).toBe('quitó la asignación de Ana');
   });
 
+  it('shows the watcher name for watcher_added/removed (#17), with fallback', () => {
+    expect(
+      describeActivity(act({ type: 'watcher_added', toValue: 'u1', metadata: { toName: 'Carla Ruiz' } })),
+    ).toBe('agregó a Carla Ruiz');
+    expect(
+      describeActivity(act({ type: 'watcher_removed', fromValue: 'u2', metadata: { fromName: 'Ana Gómez' } })),
+    ).toBe('quitó a Ana Gómez');
+    // sin nombre en metadata → degrada al texto genérico
+    expect(describeActivity(act({ type: 'watcher_added' }))).toBe('agregó un observador');
+    expect(describeActivity(act({ type: 'watcher_removed' }))).toBe('quitó un observador');
+  });
+
   it('shows values for due date, address and description', () => {
     expect(
       describeActivity(act({ type: 'due_date_changed', fromValue: null, toValue: '2026-06-10T00:00:00Z', metadata: { field: 'startDate' } })),

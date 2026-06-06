@@ -66,8 +66,8 @@ export function describeActivity(a: ActivityDto): string {
     case 'customer_changed': return nameDiff('el cliente', m);
     case 'contract_changed': return presenceDiff('un contrato', 'el contrato', a.fromValue, a.toValue);
     case 'partner_changed': return presenceDiff('un partner', 'el partner', a.fromValue, a.toValue);
-    case 'watcher_added': return 'agregó un observador';
-    case 'watcher_removed': return 'quitó un observador';
+    case 'watcher_added': return m.toName ? `agregó a ${val(m.toName)}` : 'agregó un observador';
+    case 'watcher_removed': return m.fromName ? `quitó a ${val(m.fromName)}` : 'quitó un observador';
     case 'commented': return 'comentó';
     case 'comment_deleted': return 'eliminó un comentario';
     case 'attachment_added': return 'adjuntó un archivo';
