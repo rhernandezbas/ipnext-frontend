@@ -23,7 +23,7 @@ import { IClassSettingsBody } from '@/pages/scheduling/settings/IClassSettingsBo
 describe('IClassSettingsBody', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders the five sub-tabs in order: Integración, Catálogo, Mapeo de proyectos, Cierre de OS, Mapeo de resultados', () => {
+  it('renders the four sub-tabs in order: Integración, Catálogo, Mapeo de proyectos, Cierre de OS (Mapeo de resultados absorbido en Cierre)', () => {
     render(<IClassSettingsBody />);
     const tabs = screen.getAllByRole('tab').map(t => t.textContent);
     expect(tabs).toEqual([
@@ -31,8 +31,9 @@ describe('IClassSettingsBody', () => {
       'Catálogo',
       'Mapeo de proyectos',
       'Cierre de OS',
-      'Mapeo de resultados',
     ]);
+    // ya no existe una sub-tab separada de "Mapeo de resultados"
+    expect(screen.queryByRole('tab', { name: 'Mapeo de resultados' })).not.toBeInTheDocument();
   });
 
   it('defaults to the Integración sub-tab', () => {
@@ -60,17 +61,11 @@ describe('IClassSettingsBody', () => {
     expect(screen.getByTestId('mapping-body')).toBeInTheDocument();
   });
 
-  it('clicking the Cierre de OS tab activates it and mounts its body', () => {
+  it('clicking the Cierre de OS tab mounts BOTH the closure body AND the result-code mapping (unified)', () => {
     render(<IClassSettingsBody />);
     fireEvent.click(screen.getByRole('tab', { name: 'Cierre de OS' }));
     expect(screen.getByRole('tab', { name: 'Cierre de OS' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('closure-body')).toBeInTheDocument();
-  });
-
-  it('clicking the Mapeo de resultados tab activates it and mounts its body', () => {
-    render(<IClassSettingsBody />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Mapeo de resultados' }));
-    expect(screen.getByRole('tab', { name: 'Mapeo de resultados' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('result-mapping-body')).toBeInTheDocument();
   });
 });

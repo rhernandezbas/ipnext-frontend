@@ -7,6 +7,7 @@ import styles from './IClassSettings.module.css';
 
 const FLAG_KEY = 'iclass-closure-loop';
 const REPROCESS_FLAG_KEY = 'iclass-closure-reprocess';
+const AUDIT_FLAG_KEY = 'iclass-audit';
 
 /**
  * Sub-tab "Cierre de OS" del back office de IClass.
@@ -24,6 +25,8 @@ export function IClassClosureFlagBody() {
   const [lastReprocess, setLastReprocess] = useState<ClosureReprocessResult | null>(null);
   const reprocessFlag = useFeatureFlag(REPROCESS_FLAG_KEY);
   const reprocessEnabled = reprocessFlag.data?.enabled ?? false;
+  const auditFlag = useFeatureFlag(AUDIT_FLAG_KEY);
+  const auditEnabled = auditFlag.data?.enabled ?? false;
 
   async function handleBackfill() {
     try {
@@ -43,6 +46,10 @@ export function IClassClosureFlagBody() {
 
   function handleReprocessToggle() {
     setFlag.mutate({ key: REPROCESS_FLAG_KEY, enabled: !reprocessEnabled });
+  }
+
+  function handleAuditToggle() {
+    setFlag.mutate({ key: AUDIT_FLAG_KEY, enabled: !auditEnabled });
   }
 
   if (isLoading) {
@@ -143,6 +150,34 @@ export function IClassClosureFlagBody() {
       )}
 
       <Can permission="iclass.manage">
+        <section className={styles.statusCard}>
+          <header className={styles.statusHeader}>
+            <h2 className={styles.statusTitle}>Auditoría de IA</h2>
+            <span className={`${styles.statusBadge} ${auditEnabled ? styles.statusBadgeOn : styles.statusBadgeOff}`}>
+              <span className={styles.statusBadgeDot} aria-hidden="true" />
+              {auditEnabled ? 'Activo' : 'Inactivo'}
+            </span>
+          </header>
+          <p className={styles.statusDescription}>
+            Cuando una OS cierra, un modelo de IA audita la calidad de la instalación (fotos, checklist, notas del técnico) y deja los hallazgos en la tarea. Apagado por defecto; prendelo cuando el modelo esté disponible.
+          </p>
+          <div className={styles.statusActionRow}>
+            <span className={styles.statusActionLabel}>
+              {auditEnabled ? 'Desactivar auditoría de IA' : 'Activar auditoría de IA'}
+            </span>
+            <label className={styles.switch}>
+              <input
+                type="checkbox"
+                checked={auditEnabled}
+                disabled={setFlag.isPending}
+                onChange={handleAuditToggle}
+                aria-label="Auditoría de IA en el cierre de OS"
+              />
+              <span className={styles.switchTrack} aria-hidden="true" />
+            </label>
+          </div>
+        </section>
+
         <section className={styles.statusCard}>
           <header className={styles.statusHeader}>
             <h2 className={styles.statusTitle}>Reprocesar side-effects pendientes</h2>

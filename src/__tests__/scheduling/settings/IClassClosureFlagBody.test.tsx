@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 vi.mock('@/hooks/useFeatureFlags', () => ({
@@ -26,11 +26,13 @@ const idleMutation = {
 
 const REPROCESS_FLAG = 'iclass-closure-reprocess';
 const REPROCESS_TOGGLE = /reprocesamiento de side-effects/i;
+const AUDIT_FLAG = 'iclass-audit';
+const AUDIT_TOGGLE = /auditor(í|i)a de ia/i;
 
-/** Mock both closure flags independently (loop + reprocess), keyed by flag name. */
-function mockFlags(loop: boolean | null, reprocess: boolean | null = loop, loading = false, error = false) {
+/** Mock the closure flags independently (loop + reprocess + audit), keyed by flag name. */
+function mockFlags(loop: boolean | null, reprocess: boolean | null = loop, audit: boolean | null = false, loading = false, error = false) {
   vi.mocked(useFeatureFlag).mockImplementation(((key: string) => {
-    const enabled = key === REPROCESS_FLAG ? reprocess : loop;
+    const enabled = key === REPROCESS_FLAG ? reprocess : key === AUDIT_FLAG ? audit : loop;
     return {
       data: enabled === null ? undefined : { key, enabled },
       isLoading: loading,
@@ -42,7 +44,7 @@ function mockFlags(loop: boolean | null, reprocess: boolean | null = loop, loadi
 }
 
 function mockFlag(enabled: boolean | null, loading = false, error = false) {
-  mockFlags(enabled, enabled, loading, error);
+  mockFlags(enabled, enabled, false, loading, error);
 }
 
 function mockPerms(can: (p: string | string[]) => boolean) {
@@ -76,7 +78,8 @@ describe('IClassClosureFlagBody', () => {
     mockFlag(false);
     render(<IClassClosureFlagBody />);
     expect(screen.getByRole('checkbox', { name: TOGGLE })).not.toBeChecked();
-    expect(screen.getByText('Inactivo')).toBeInTheDocument();
+    const closureCard = screen.getByText('Cierre automático de OS').closest('section')!;
+    expect(within(closureCard).getByText('Inactivo')).toBeInTheDocument();
   });
 
   it('renders toggle ON and the active badge when enabled', () => {
@@ -167,5 +170,31 @@ describe('IClassClosureFlagBody', () => {
     mockFlags(true, false); // reprocess OFF
     render(<IClassClosureFlagBody />);
     expect(screen.getByRole('button', { name: /reprocesar ahora/i })).toBeDisabled();
+  });
+
+  it('renders the audit toggle reflecting the iclass-audit flag (independent of loop/reprocess)', () => {
+    mockFlags(true, false, true); // loop ON, reprocess OFF, audit ON
+    render(<IClassClosureFlagBody />);
+    expect(screen.getByRole('checkbox', { name: AUDIT_TOGGLE })).toBeChecked();
+  });
+
+  it('clicking the audit toggle flips the iclass-audit flag', () => {
+    mockFlags(true, false, false); // audit OFF
+    const mutate = vi.fn();
+    vi.mocked(useSetFeatureFlag).mockReturnValue({ ...idleMutation, mutate } as never);
+
+    render(<IClassClosureFlagBody />);
+    fireEvent.click(screen.getByRole('checkbox', { name: AUDIT_TOGGLE }));
+
+    expect(mutate).toHaveBeenCalledWith({ key: AUDIT_FLAG, enabled: true });
+  });
+
+  it('hides the audit toggle without the iclass.manage permission', () => {
+    mockFlag(true);
+    mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('iclass.manage'));
+
+    render(<IClassClosureFlagBody />);
+
+    expect(screen.queryByRole('checkbox', { name: AUDIT_TOGGLE })).not.toBeInTheDocument();
   });
 });

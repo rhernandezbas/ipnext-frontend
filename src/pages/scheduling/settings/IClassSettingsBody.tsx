@@ -10,16 +10,17 @@ const SUB_TABS = [
   { id: 'integracion', label: 'Integración',          content: <IClassFlagBody /> },
   { id: 'catalogo',    label: 'Catálogo',             content: <IClassSoTypesCatalogBody /> },
   { id: 'mapeo',       label: 'Mapeo de proyectos',   content: <IClassProjectMappingBody /> },
-  { id: 'cierre',      label: 'Cierre de OS',         content: <IClassClosureFlagBody /> },
-  { id: 'resultados',  label: 'Mapeo de resultados',  content: <IClassResultCodeMappingBody /> },
+  { id: 'cierre',      label: 'Cierre de OS',         content: <><IClassClosureFlagBody /><IClassResultCodeMappingBody /></> },
 ];
 
 /**
  * Sub-tab "IClass" del SchedulingSettingsPage. Agrupa la administración de la
- * integración con IClass en tres sub-secciones (sub-tabs internas): Integración
- * (feature flag), Catálogo (SO types) y Mapeo de proyectos. Mount lazy: cada
- * sub-body se monta al primer visit y queda persistido para no perder estado
- * local (row status, summary banner, etc.) al alternar.
+ * integración con IClass en cuatro sub-secciones (sub-tabs internas): Integración
+ * (feature flag), Catálogo (SO types), Mapeo de proyectos y Cierre de OS. La de
+ * "Cierre de OS" unifica todo el flujo de cierre — flag del loop, reconciliar,
+ * reprocess, toggle del auditor IA y el mapeo de resultados — en una sola página.
+ * Mount lazy: cada sub-body se monta al primer visit y queda persistido para no
+ * perder estado local (row status, summary banner, etc.) al alternar.
  */
 export function IClassSettingsBody() {
   const [activeSub, setActiveSub] = useState('integracion');
