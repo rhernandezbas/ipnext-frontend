@@ -119,9 +119,8 @@ export default function TicketsListPage({ statusFilter }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Status tab state. Seeded from statusFilter (Archive locks to "closed") or
-  // the URL filter; tab clicks update both local state and the URL filter.
-  const [tabStatus, setTabStatus] = useState(statusFilter ?? filter.status ?? '');
+  // Status has a SINGLE source of truth: filter.status (URL-backed). The tabs and
+  // the filter-bar "Estado" select both read/write it, so they never desync.
   const [page, setPage] = useState(1);
 
   const confirm = useConfirm();
@@ -135,7 +134,7 @@ export default function TicketsListPage({ statusFilter }: Props) {
     useVisibleColumns(DEFAULT_VISIBLE_COLUMNS);
 
   // Archive page locks the status; otherwise tab/URL drive it.
-  const effectiveStatus = statusFilter ?? tabStatus ?? filter.status ?? '';
+  const effectiveStatus = statusFilter ?? filter.status ?? '';
 
   const { data, isLoading, refetch } = useTicketList({
     page,
@@ -149,7 +148,6 @@ export default function TicketsListPage({ statusFilter }: Props) {
   const totalPages = data ? Math.ceil(data.total / 25) : 1;
 
   function handleTabClick(statusName: string) {
-    setTabStatus(statusName);
     setPage(1);
     setFilter({ status: statusName || undefined });
   }
@@ -195,7 +193,7 @@ export default function TicketsListPage({ statusFilter }: Props) {
       {!isArchive && (
         <div className={tabStyles.tabs}>
           <button
-            className={`${tabStyles.tab} ${tabStatus === '' ? tabStyles.active : ''}`}
+            className={`${tabStyles.tab} ${effectiveStatus === '' ? tabStyles.active : ''}`}
             onClick={() => handleTabClick('')}
           >
             Todos
@@ -203,8 +201,8 @@ export default function TicketsListPage({ statusFilter }: Props) {
           {!statusesLoading && catalogStatuses.map(s => (
             <button
               key={s.id}
-              className={`${tabStyles.tab} ${tabStatus === s.name ? tabStyles.active : ''}`}
-              style={tabStatus === s.name ? { borderBottomColor: s.color } : undefined}
+              className={`${tabStyles.tab} ${effectiveStatus === s.name ? tabStyles.active : ''}`}
+              style={effectiveStatus === s.name ? { borderBottomColor: s.color } : undefined}
               onClick={() => handleTabClick(s.name)}
             >
               <span
