@@ -5,7 +5,7 @@ import { useWorkflow } from '@/hooks/useWorkflows';
 import { usePartners } from '@/hooks/usePartners';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { useTaskPriorities } from '@/hooks/useTaskPriorities';
-import type { TaskListFilter, TasksView } from '@/types/scheduling';
+import type { TaskListFilter, TasksView, TaskStageCategory } from '@/types/scheduling';
 import type { Project } from '@/types/project';
 import styles from './TaskFilterBar.module.css';
 
@@ -16,18 +16,30 @@ interface TaskFilterBarProps {
   onViewChange: (v: TasksView) => void;
 }
 
+const CATEGORY_OPTIONS: { cat: TaskStageCategory; label: string }[] = [
+  { cat: 'nuevo',      label: 'Nuevo' },
+  { cat: 'enProgreso', label: 'En progreso' },
+  { cat: 'hecho',      label: 'Hecho' },
+  { cat: 'cancelado',  label: 'Cancelado' },
+];
+
 function StageMultiSelect({
   workflowId,
   selectedIds,
   onChange,
+  stageCategory,
+  onCategoryChange,
 }: {
   workflowId: string | null | undefined;
   selectedIds: string[];
   onChange: (ids: string[]) => void;
+  stageCategory: TaskStageCategory | undefined;
+  onCategoryChange: (cat: TaskStageCategory | undefined) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { data: workflow } = useWorkflow(workflowId);
+  const categoryMode = !workflowId; // #12 — sin proyecto → filtrar por categoría (transversal)
 
   // Close on click outside
   useEffect(() => {
@@ -50,11 +62,13 @@ function StageMultiSelect({
 
   const totalSelected = selectedIds.length;
   const total = stages.length;
-  const label = total === 0
-    ? 'Estados'
-    : totalSelected === 0
-      ? 'Todos los estados'
-      : `${totalSelected} de ${total} seleccionados`;
+  const label = categoryMode
+    ? (stageCategory ? (CATEGORY_OPTIONS.find(c => c.cat === stageCategory)?.label ?? 'Estados') : 'Todos los estados')
+    : total === 0
+      ? 'Estados'
+      : totalSelected === 0
+        ? 'Todos los estados'
+        : `${totalSelected} de ${total} seleccionados`;
 
   function toggle(id: string) {
     if (selectedIds.includes(id)) {
@@ -76,24 +90,40 @@ function StageMultiSelect({
         {label} ▾
       </button>
       {open && (
-        <div className={styles.stageDropdown} role="listbox" aria-multiselectable="true">
-          {groups.map(group => group.items.length > 0 && (
-            <div key={group.cat} className={styles.stageGroup}>
-              <span className={styles.stageGroupLabel}>{group.label}</span>
-              {group.items.map(stage => (
-                <label key={stage.id} className={styles.stageOption}>
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(stage.id)}
-                    onChange={() => toggle(stage.id)}
-                  />
-                  {stage.name}
-                </label>
+        <div className={styles.stageDropdown} role="listbox" aria-multiselectable={!categoryMode}>
+          {categoryMode ? (
+            // #12 — sin proyecto: las 4 categorías de estado (selección única).
+            CATEGORY_OPTIONS.map(opt => (
+              <label key={opt.cat} className={styles.stageOption}>
+                <input
+                  type="checkbox"
+                  checked={stageCategory === opt.cat}
+                  onChange={() => onCategoryChange(stageCategory === opt.cat ? undefined : opt.cat)}
+                />
+                {opt.label}
+              </label>
+            ))
+          ) : (
+            <>
+              {groups.map(group => group.items.length > 0 && (
+                <div key={group.cat} className={styles.stageGroup}>
+                  <span className={styles.stageGroupLabel}>{group.label}</span>
+                  {group.items.map(stage => (
+                    <label key={stage.id} className={styles.stageOption}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(stage.id)}
+                        onChange={() => toggle(stage.id)}
+                      />
+                      {stage.name}
+                    </label>
+                  ))}
+                </div>
               ))}
-            </div>
-          ))}
-          {stages.length === 0 && (
-            <span className={styles.stageEmpty}>Seleccioná un proyecto para ver estados</span>
+              {stages.length === 0 && (
+                <span className={styles.stageEmpty}>Seleccioná un proyecto para ver estados</span>
+              )}
+            </>
           )}
         </div>
       )}
@@ -131,7 +161,7 @@ export function TaskFilterBar({ filter, view, onFilterChange, onViewChange }: Ta
         {/* Project select */}
         <select
           value={filter.projectId ?? ''}
-          onChange={e => onFilterChange({ projectId: e.target.value || undefined, stageIds: [] })}
+          onChange={e => onFilterChange({ projectId: e.target.value || undefined, stageIds: [], stageCategory: undefined })}
           className={styles.select}
           aria-label="Proyecto"
         >
@@ -146,6 +176,8 @@ export function TaskFilterBar({ filter, view, onFilterChange, onViewChange }: Ta
           workflowId={selectedProject?.workflowId}
           selectedIds={filter.stageIds ?? []}
           onChange={ids => onFilterChange({ stageIds: ids })}
+          stageCategory={filter.stageCategory}
+          onCategoryChange={cat => onFilterChange({ stageCategory: cat })}
         />
 
         {/* Partner select */}
@@ -264,6 +296,14 @@ function ActiveFilterChips({ filter, projects, partners, admins, onFilterChange 
     });
   }
 
+  if (filter.stageCategory) {
+    const catLabel = CATEGORY_OPTIONS.find(c => c.cat === filter.stageCategory)?.label ?? filter.stageCategory;
+    chips.push({
+      label: `Estado: ${catLabel}`,
+      onRemove: () => onFilterChange({ stageCategory: undefined }),
+    });
+  }
+
   if (filter.partnerId) {
     const partner = partners.find(p => p.id === filter.partnerId);
     chips.push({
@@ -312,7 +352,7 @@ function ActiveFilterChips({ filter, projects, partners, admins, onFilterChange 
         <button
           type="button"
           className={styles.clearAll}
-          onClick={() => onFilterChange({ projectId: undefined, stageIds: [], q: undefined, partnerId: undefined, assigneeId: undefined, priority: undefined })}
+          onClick={() => onFilterChange({ projectId: undefined, stageIds: [], stageCategory: undefined, q: undefined, partnerId: undefined, assigneeId: undefined, priority: undefined })}
         >
           Limpiar todo
         </button>
