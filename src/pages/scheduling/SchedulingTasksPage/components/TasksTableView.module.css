@@ -260,6 +260,17 @@
 .rvBtn:hover { opacity: 0.75; transform: scale(1.15); }
 .rvBtn:disabled { opacity: 0.4; cursor: progress; }
 
+/* #24 - read-only RV indicator (no inventory.write): same footprint as the
+   button so the column doesn't shift, but no pointer affordance. */
+.rvReadonly {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  cursor: default;
+}
+
 .rvDot {
   width: 12px;
   height: 12px;

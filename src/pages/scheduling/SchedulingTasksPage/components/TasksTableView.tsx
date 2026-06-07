@@ -37,14 +37,18 @@ export function PriorityPill({ priority, color }: { priority: string; color?: st
   );
 }
 
-/** Clickable indicator for the RV (Revisado por Inventario) column. */
+/** Clickable indicator for the RV (Revisado por Inventario) column.
+ *  #24 — toggling requires `inventory.write` (the BE route already enforces
+ *  it); without the permission the indicator stays visible but read-only. */
 function RvIndicator({
   taskId,
   reviewed,
+  canWrite,
   onToggle,
 }: {
   taskId: string;
   reviewed: boolean;
+  canWrite: boolean;
   onToggle: (id: string, next: boolean) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -57,6 +61,21 @@ function RvIndicator({
     } finally {
       setBusy(false);
     }
+  }
+
+  if (!canWrite) {
+    return (
+      <span
+        className={styles.rvReadonly}
+        role="img"
+        aria-label={reviewed ? 'RV: revisado' : 'RV: no revisado'}
+        data-reviewed={String(reviewed)}
+        title={reviewed ? 'Revisado por inventario' : 'No revisado (requiere permiso de inventario para cambiar)'}
+        onClick={e => e.stopPropagation()}
+      >
+        <span className={styles.rvDot} data-reviewed={String(reviewed)} aria-hidden="true" />
+      </span>
+    );
   }
 
   return (
@@ -311,6 +330,7 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
   const setInventoryReview = useSetTaskInventoryReview();
   useAuth(); // keep context subscription (auth:unauthorized event handling)
   const canBulkDelete = useCan('scheduling.bulk_delete');
+  const canInventoryWrite = useCan('inventory.write'); // #24 — gates the RV toggle
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -441,6 +461,7 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
         <RvIndicator
           taskId={t.id}
           reviewed={t.reviewedByInventory}
+          canWrite={canInventoryWrite}
           onToggle={(id, next) => setInventoryReview.mutateAsync({ id, reviewed: next })}
         />
       ) },
