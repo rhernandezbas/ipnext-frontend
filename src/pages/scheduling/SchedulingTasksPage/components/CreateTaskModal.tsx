@@ -299,7 +299,9 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
         )}
 
         <label className={styles.label}>
-          Título <span className={styles.required} aria-hidden="true">*</span>
+          {/* #21 — text + * share one wrapper: .label is a flex column, so as
+              separate children the asterisk stacked on its own line. */}
+          <span>Título <span className={styles.required} aria-hidden="true">*</span></span>
           <input
             className={styles.input}
             value={title}
@@ -310,7 +312,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
         </label>
 
         <div className={styles.label}>
-          Cliente <span className={styles.required} aria-hidden="true">*</span>
+          <span>Cliente <span className={styles.required} aria-hidden="true">*</span></span>
           <CustomerPicker
             value={customerId}
             valueName={customerName}
@@ -320,7 +322,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
 
         {customerId && (
           <label className={styles.label}>
-            Contrato <span className={styles.required} aria-hidden="true">*</span>
+            <span>Contrato <span className={styles.required} aria-hidden="true">*</span></span>
             <select
               className={styles.select}
               value={contractId ?? ''}
@@ -343,7 +345,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
         )}
 
         <label className={styles.label}>
-          Descripción <span className={styles.required} aria-hidden="true">*</span>
+          <span>Descripción <span className={styles.required} aria-hidden="true">*</span></span>
           <textarea
             className={styles.textarea}
             value={description}
@@ -365,7 +367,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
           </label>
 
           <label className={styles.label}>
-            Proyecto <span className={styles.required} aria-hidden="true">*</span>
+            <span>Proyecto <span className={styles.required} aria-hidden="true">*</span></span>
             <select
               className={styles.select}
               value={projectId}
