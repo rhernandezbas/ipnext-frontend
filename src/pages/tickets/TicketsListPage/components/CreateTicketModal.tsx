@@ -38,12 +38,15 @@ export function CreateTicketModal({ onClose, onCreate, loading }: CreateTicketMo
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate()) return;
+    // #28 follow-up — wire shape: `description` (the BE 400s without it),
+    // `assigneeId` as the RbacUser id string (Number(uuid) was NaN), and a
+    // clean null customerId ('' hit the FK).
     await onCreate({
       subject: subject.trim(),
-      message: message.trim(),
+      description: message.trim(),
       priority: (priority || 'medium') as CreateTicketData['priority'],
-      customerId: customerId ?? '',
-      assignedTo: assignedTo ? Number(assignedTo) : undefined,
+      customerId: customerId,
+      assigneeId: assignedTo || undefined,
     });
     onClose();
   }

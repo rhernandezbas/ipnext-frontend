@@ -179,14 +179,13 @@ export default function TicketDetailPage() {
             <div className={styles.sideRow}>
               <span className={styles.sideLabel}>Asignado a</span>
               <select
-                value={ticket.assignedTo != null ? String(ticket.assignedTo) : ''}
+                value={ticket.assigneeId ?? ''}
                 onChange={e => {
-                  const val = e.target.value;
-                  const user = allUsers.find(u => String(u.id) === val);
+                  // #28 follow-up — PATCH /tickets/:id with the RbacUser id
+                  // string; the legacy /assign call (Number(uuid) = NaN) 404'd.
                   assignTicket.mutate({
                     id: ticketId,
-                    assignedTo: user ? (Number(user.id) || null) : null,
-                    assignedToName: user?.name ?? null,
+                    assigneeId: e.target.value || null,
                   });
                 }}
                 disabled={assignTicket.isPending}
@@ -240,7 +239,7 @@ export default function TicketDetailPage() {
             title: ticket.subject,
             customerId: ticket.customerId ? String(ticket.customerId) : undefined,
             customerName: ticket.customerName ?? undefined,
-            description: ticket.message ?? undefined,
+            description: ticket.description ?? undefined,
             ticketId: ticket.id,
           }}
         />

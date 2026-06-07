@@ -28,10 +28,10 @@ const mockTickets: Ticket[] = [
     priority: 'high',
     status: 'open',
     type: null,
-    assignedToName: 'Juan',
-    assignedTo: null,
+    assigneeName: 'Juan',
+    assigneeId: null,
     reporter: null,
-    message: 'Sin internet',
+    description: 'Sin internet',
     tags: [],
     createdAt: '2024-01-01',
     updatedAt: '2024-01-02',
@@ -132,6 +132,13 @@ describe('TicketsListPage (Prominense re-skin)', () => {
     renderList();
     expect(screen.getByText('Problema de conexión')).toBeInTheDocument();
     expect(screen.getByText('Alice García')).toBeInTheDocument();
+  });
+
+  // #28 follow-up: the BE returns `assigneeName`, but the column used to read
+  // `assignedToName` (legacy mock contract) so it rendered empty for EVERY row.
+  it('renders the assignee name in the "Asignado a" column', () => {
+    renderList();
+    expect(screen.getByText('Juan')).toBeInTheDocument();
   });
 
   it('shows the empty message when there are no tickets', () => {

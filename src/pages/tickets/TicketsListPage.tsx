@@ -27,7 +27,7 @@ export const ALL_TICKET_COLUMNS: ColumnDef[] = [
   { key: 'reporter',       label: 'Reporter' },
   { key: 'priority',       label: 'Prioridad' },
   { key: 'status',         label: 'Estado' },
-  { key: 'assignedToName', label: 'Asignado a' },
+  { key: 'assigneeName', label: 'Asignado a' }, // #28 follow-up — the BE field is assigneeName
   { key: 'createdAt',      label: 'Creado de fecha y hora' },
 ];
 
@@ -56,7 +56,7 @@ const COLUMNS: Array<{ label: string; key: keyof Ticket | string; sortable?: boo
   { label: 'Reporter', key: 'reporter' },
   { label: 'Prioridad', key: 'priority', sortable: true, render: (row: Ticket) => <PriorityPill priority={row.priority} /> },
   { label: 'Estado', key: 'status', sortable: true },
-  { label: 'Asignado a', key: 'assignedToName' },
+  { label: 'Asignado a', key: 'assigneeName' }, // #28 follow-up
   { label: 'Creado de fecha y hora', key: 'createdAt', sortable: true },
 ];
 

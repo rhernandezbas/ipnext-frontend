@@ -69,14 +69,16 @@ export function getMockTicketStats(): TicketStats {
 }
 
 export async function createTicket(data: CreateTicketData | CreateTicketInput): Promise<Ticket> {
-  // Normalise CreateTicketInput → CreateTicketData when clientId/description are present
+  // Normalise CreateTicketInput → CreateTicketData when clientId/description are present.
+  // #28 follow-up — the BE body is { description, assigneeId }: `message` got a 400
+  // (missing description) and `Number(assignedTo)` was NaN for RbacUser uuid ids.
   if ('clientId' in data) {
     const payload: CreateTicketData = {
       subject: data.subject,
-      message: data.description,
+      description: data.description,
       priority: (data.priority === 'alta' ? 'high' : data.priority === 'media' ? 'medium' : 'low') as CreateTicketData['priority'],
       customerId: data.clientId,
-      assignedTo: data.assignedTo ? Number(data.assignedTo) : undefined,
+      assigneeId: data.assignedTo || undefined,
     };
     const response = await axiosClient.post<Ticket>('/tickets', payload);
     return response.data;

@@ -28,14 +28,14 @@ function makeQC() {
 const mockTicket: Ticket = {
   id: 1,
   subject: 'Problema de conexión a internet',
-  message: 'No tengo señal desde ayer.',
+  description: 'No tengo señal desde ayer.',
   status: 'open',
   priority: 'high',
   type: null,
   customerId: 42,
   customerName: 'Alice García',
-  assignedTo: 5,
-  assignedToName: 'Juan Técnico',
+  assigneeId: '5',
+  assigneeName: 'Juan Técnico',
   reporter: null,
   createdAt: '2024-01-15T10:00:00Z',
   updatedAt: '2024-01-15T10:00:00Z',
@@ -131,13 +131,27 @@ describe('TicketDetailPage (Prominense layout)', () => {
     expect(screen.getByRole('option', { name: 'Soporte' })).toBeInTheDocument();
   });
 
-  it('changing the assignment select calls assignTicket mutation', async () => {
+  // #28 follow-up: the select must bind the BE's `assigneeId` (string RbacUser
+  // id) — the legacy contract read `assignedTo:number`, which never exists, so
+  // the select always fell back to "Sin asignar".
+  it('the assignment select reflects the current assignee', () => {
+    renderPage();
+    const select = screen.getByRole('combobox', { name: /asignar a/i }) as HTMLSelectElement;
+    expect(select.value).toBe('5');
+  });
+
+  it('changing the assignment select calls assignTicket with assigneeId', async () => {
     const user = userEvent.setup();
     renderPage();
     await user.selectOptions(screen.getByRole('combobox', { name: /asignar a/i }), '6');
-    expect(mockMutate).toHaveBeenCalledWith(
-      expect.objectContaining({ id: '1', assignedTo: 6, assignedToName: 'Soporte' }),
-    );
+    expect(mockMutate).toHaveBeenCalledWith({ id: '1', assigneeId: '6' });
+  });
+
+  it('clearing the assignment select calls assignTicket with assigneeId null', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.selectOptions(screen.getByRole('combobox', { name: /asignar a/i }), '');
+    expect(mockMutate).toHaveBeenCalledWith({ id: '1', assigneeId: null });
   });
 
   it('renders reply messages and authors in the conversation', () => {

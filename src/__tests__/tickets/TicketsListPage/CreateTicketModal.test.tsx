@@ -102,7 +102,9 @@ describe('CreateTicketModal', () => {
     });
   });
 
-  it('calls onCreate with correct data when form is filled', async () => {
+  // #28 follow-up: the payload must match the BE wire shape — `description`
+  // (the BE 400s without it; `message` was the legacy mock field).
+  it('calls onCreate with the BE wire shape when form is filled', async () => {
     const { onCreate } = renderModal({});
     fireEvent.input(screen.getByLabelText(/asunto/i), { target: { value: 'Falla de red' } });
     fireEvent.input(screen.getByLabelText(/mensaje/i), { target: { value: 'Sin internet desde ayer' } });
@@ -112,7 +114,7 @@ describe('CreateTicketModal', () => {
       expect(onCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           subject: 'Falla de red',
-          message: 'Sin internet desde ayer',
+          description: 'Sin internet desde ayer',
           priority: 'high',
         })
       );
