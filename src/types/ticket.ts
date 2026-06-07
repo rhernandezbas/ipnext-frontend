@@ -12,6 +12,7 @@ export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export interface Ticket {
   id: number;
+  sequenceNumber: number;        // #11 — monotonic display number (#N), like tasks
   subject: string;
   message: string;
   status: TicketStatus;

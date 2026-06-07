@@ -42,17 +42,7 @@
   gap: 8px;
 }
 
-.body {
-  display: flex;
-  flex: 1;
-  gap: 16px;
-  align-items: flex-start;
-  min-height: 0;
-  min-width: 0;
-}
-
 .tableSection {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -62,22 +52,25 @@
   overflow: hidden;
 }
 
-/* Right-side filter panel — fixed width, docked next to the table. */
-.filterAside {
-  width: 280px;
-  flex-shrink: 0;
+/* ID + title links — accent, like the tasks list. */
+.idLink,
+.titleLink {
+  color: var(--color-accent);
+  font-weight: 600;
+  text-decoration: none;
 }
+.idLink:hover,
+.titleLink:hover { text-decoration: underline; }
 
-/* Responsive: on narrow screens the panel drops below the table full-width. */
-@media (max-width: 1024px) {
-  .body {
-    flex-direction: column;
-  }
-
-  .filterAside {
-    width: 100%;
-    order: -1; /* show filters above the table when stacked */
-  }
+/* Priority pill — color-coded (the background per priority comes from an inline style). */
+.priorityPill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  white-space: nowrap;
 }
 
 .btnPrimary {
