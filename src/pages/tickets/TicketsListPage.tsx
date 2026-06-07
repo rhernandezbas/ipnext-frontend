@@ -34,13 +34,19 @@ export const ALL_TICKET_COLUMNS: ColumnDef[] = [
 const DEFAULT_VISIBLE_COLUMNS = ALL_TICKET_COLUMNS.map(c => c.key);
 
 const COLUMNS: Array<{ label: string; key: keyof Ticket | string; sortable?: boolean; render?: (row: Ticket) => React.ReactNode }> = [
-  { label: 'ID', key: 'id' },
+  {
+    label: 'ID',
+    key: 'id',
+    render: (row: Ticket) => (
+      <Link to={`/admin/tickets/${row.id}`} className={styles.idLink}>#{row.sequenceNumber}</Link>
+    ),
+  },
   {
     label: 'Tema',
     key: 'subject',
     sortable: true,
     render: (row: Ticket) => (
-      <Link to={`/admin/tickets/${row.id}`} style={{ color: 'var(--color-primary, #2563eb)', textDecoration: 'none' }}>
+      <Link to={`/admin/tickets/${row.id}`} className={styles.titleLink}>
         {row.subject}
       </Link>
     ),
@@ -48,7 +54,7 @@ const COLUMNS: Array<{ label: string; key: keyof Ticket | string; sortable?: boo
   { label: 'Cliente/Cliente Potencial', key: 'customerName', sortable: true },
   { label: 'Tipo', key: 'type' },
   { label: 'Reporter', key: 'reporter' },
-  { label: 'Prioridad', key: 'priority', sortable: true },
+  { label: 'Prioridad', key: 'priority', sortable: true, render: (row: Ticket) => <PriorityPill priority={row.priority} /> },
   { label: 'Estado', key: 'status', sortable: true },
   { label: 'Asignado a', key: 'assignedToName' },
   { label: 'Creado de fecha y hora', key: 'createdAt', sortable: true },
@@ -71,6 +77,23 @@ function IconPlus() {
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
+  );
+}
+
+const PRIORITY_COLOR: Record<string, string> = {
+  low: '#64748b', medium: '#2563eb', high: '#f59e0b', critical: '#dc2626',
+};
+
+/** Priority pill, color-coded — mirrors the tasks list. */
+function PriorityPill({ priority }: { priority: string }) {
+  return (
+    <span
+      className={styles.priorityPill}
+      style={{ backgroundColor: PRIORITY_COLOR[priority] ?? '#94a3b8', color: '#fff' }}
+      aria-label={`Prioridad: ${priority}`}
+    >
+      {priority}
+    </span>
   );
 }
 
@@ -201,34 +224,30 @@ export default function TicketsListPage({ statusFilter }: Props) {
         </div>
       )}
 
-      {/* Body — table on the left, vertical filter panel docked on the right
-          (Prominense reference layout). */}
-      <div className={styles.body}>
-        <div className={styles.tableSection}>
-          <DataTable<Ticket>
-            columns={visibleTableColumns}
-            data={data?.data ?? []}
-            loading={isLoading}
-            emptyMessage="No hay tickets."
-            actions={canDeleteTicket ? [{
-              label: 'Eliminar',
-              onClick: async (row) => {
-                if (await confirm({ message: '¿Eliminar este ticket? Esta acción no se puede deshacer.', tone: 'danger', confirmLabel: 'Eliminar' })) {
-                  deleteTicket.mutate(String(row.id));
-                }
-              },
-            }] : []}
-          />
-          <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
-        </div>
+      {/* Filtros — barra horizontal arriba, como la lista de tareas. */}
+      <TicketFilterBar
+        filter={filter}
+        onFilterChange={p => { setFilter(p); setPage(1); }}
+        variant="horizontal"
+      />
 
-        <aside className={styles.filterAside} aria-label="Filtros de tickets">
-          <TicketFilterBar
-            filter={filter}
-            onFilterChange={p => { setFilter(p); setPage(1); }}
-            variant="vertical"
-          />
-        </aside>
+      {/* Tabla full-width abajo, espejando SchedulingTasksPage. */}
+      <div className={styles.tableSection}>
+        <DataTable<Ticket>
+          columns={visibleTableColumns}
+          data={data?.data ?? []}
+          loading={isLoading}
+          emptyMessage="No hay tickets."
+          actions={canDeleteTicket ? [{
+            label: 'Eliminar',
+            onClick: async (row) => {
+              if (await confirm({ message: '¿Eliminar este ticket? Esta acción no se puede deshacer.', tone: 'danger', confirmLabel: 'Eliminar' })) {
+                deleteTicket.mutate(String(row.id));
+              }
+            },
+          }] : []}
+        />
+        <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
       </div>
 
       {/* CreateTicketModal (?create=1 or header button) */}
