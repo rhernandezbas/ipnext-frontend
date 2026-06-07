@@ -51,7 +51,10 @@ export interface TaskChecklistItem {
   createdAt: string;
   updatedAt: string;
 }
-export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
+// #27 — the legacy TaskPriority union (low/normal/high/urgent) was removed:
+// priority is free text backed by the TaskPriority CATALOG (Baja/Normal/Alta/
+// Urgente, editable). Validating against the old union silently dropped every
+// real value. Use `string` + the catalog from useTaskPriorities.
 export type TaskCategory = 'installation' | 'repair' | 'maintenance' | 'inspection' | 'other';
 export type TaskStageCategory = 'nuevo' | 'enProgreso' | 'hecho' | 'cancelado';
 
