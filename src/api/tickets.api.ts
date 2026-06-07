@@ -21,6 +21,9 @@ export interface TicketsQuery {
   status?: string;
   priority?: string;
   customerId?: string;
+  assignedTo?: string;   // #25 — filtra por asignado (el BE lo mapea a assigneeId)
+  from?: string;         // #25 — createdAt >=
+  to?: string;           // #25 — createdAt <=
 }
 
 export interface CreateTicketInput {

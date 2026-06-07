@@ -143,6 +143,9 @@ export default function TicketsListPage({ statusFilter }: Props) {
     status: effectiveStatus || undefined,
     priority: filter.priority || undefined,
     customerId: filter.customerId || undefined,
+    assignedTo: filter.assignedTo || undefined, // #25
+    from: filter.from || undefined,
+    to: filter.to || undefined,
   });
 
   const totalPages = data ? Math.ceil(data.total / 25) : 1;
