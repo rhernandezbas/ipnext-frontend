@@ -128,3 +128,10 @@
 .discardBtn { color: var(--color-text-secondary); }
 .confirmBtn:disabled,
 .discardBtn:disabled { opacity: 0.5; cursor: default; }
+
+/* #18: hint shown when a suggestion lacks the minimum data to be confirmed. */
+.incompleteHint {
+  align-self: center;
+  font-size: var(--font-size-xs);
+  color: #b45309;
+}

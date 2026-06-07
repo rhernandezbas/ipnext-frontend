@@ -158,3 +158,23 @@ describe('SuggestionCard — resuelta (read-only)', () => {
     expect(screen.getByText('LEGACY_TYPE')).toBeInTheDocument();
   });
 });
+
+describe('SuggestionCard — min-data guard (#18)', () => {
+  it('DEVICE sin SN ni MAC → "Confirmar" deshabilitado + hint, "Descartar" habilitado', () => {
+    render(<SuggestionCard suggestion={sug({ serialNumber: null, mac: null })} onConfirm={noop} onDiscard={noop} isPending={false} canWrite />);
+    expect(screen.getByText('Confirmar')).toBeDisabled();
+    expect(screen.getByText(/falta sn o mac/i)).toBeInTheDocument();
+    expect(screen.getByText('Descartar')).toBeEnabled();
+  });
+
+  it('DEVICE con solo MAC → "Confirmar" habilitado', () => {
+    render(<SuggestionCard suggestion={sug({ serialNumber: null, mac: 'AABBCCDDEEFF' })} onConfirm={noop} onDiscard={noop} isPending={false} canWrite />);
+    expect(screen.getByText('Confirmar')).toBeEnabled();
+  });
+
+  it('MATERIAL sin descripción → "Confirmar" deshabilitado + hint', () => {
+    render(<SuggestionCard suggestion={sug({ kind: 'MATERIAL', deviceType: null, serialNumber: null, mac: null, materialDesc: null })} onConfirm={noop} onDiscard={noop} isPending={false} canWrite />);
+    expect(screen.getByText('Confirmar')).toBeDisabled();
+    expect(screen.getByText(/falta.*descripci/i)).toBeInTheDocument();
+  });
+});

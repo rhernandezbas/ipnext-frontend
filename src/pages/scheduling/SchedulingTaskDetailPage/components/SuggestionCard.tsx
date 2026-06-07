@@ -93,6 +93,11 @@ export function SuggestionCard({
 
   const isDevice = s.kind === 'DEVICE';
   const resolved = s.status !== 'pending';
+  // #18: a DEVICE needs SN or MAC; a MATERIAL needs a description. Otherwise confirming
+  // is blocked (the backend rejects it with 422 — this mirrors that fail-closed guard).
+  const incomplete = isDevice
+    ? (!s.serialNumber?.trim() && !s.mac?.trim())
+    : !s.materialDesc?.trim();
   const [type, setType] = useState<string>(() => resolveInitialType(s.deviceType));
   const qwenDiffers = !resolved && isDevice && !!s.qwenDeviceType && s.qwenDeviceType !== type;
 
@@ -227,13 +232,18 @@ export function SuggestionCard({
         </span>
       ) : canWrite ? (
         <div className={styles.actions}>
+          {incomplete && (
+            <span className={styles.incompleteHint}>
+              {isDevice ? 'Falta SN o MAC para confirmar' : 'Falta una descripción'}
+            </span>
+          )}
           {isDevice && s.match?.status === 'same_device' ? (
             <>
               <button
                 type="button"
                 className={styles.confirmBtn}
                 onClick={() => onLinkExisting?.(s.id)}
-                disabled={isPending}
+                disabled={isPending || incomplete}
               >
                 Marcar como ya instalado
               </button>
@@ -247,7 +257,7 @@ export function SuggestionCard({
                 type="button"
                 className={styles.confirmBtn}
                 onClick={() => onConfirm(s.id, type)}
-                disabled={isPending}
+                disabled={isPending || incomplete}
               >
                 Agregar
               </button>
@@ -256,7 +266,7 @@ export function SuggestionCard({
                   type="button"
                   className={styles.discardBtn}
                   onClick={() => onReplace?.(s.id, type)}
-                  disabled={isPending}
+                  disabled={isPending || incomplete}
                 >
                   Reemplazar la actual
                 </button>
@@ -267,7 +277,7 @@ export function SuggestionCard({
             </>
           ) : (
             <>
-              <button type="button" className={styles.confirmBtn} onClick={() => onConfirm(s.id, type)} disabled={isPending}>
+              <button type="button" className={styles.confirmBtn} onClick={() => onConfirm(s.id, type)} disabled={isPending || incomplete}>
                 Confirmar
               </button>
               <button type="button" className={styles.discardBtn} onClick={() => onDiscard(s.id)} disabled={isPending}>
