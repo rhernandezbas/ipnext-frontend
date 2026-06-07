@@ -28,11 +28,13 @@ const REPROCESS_FLAG = 'iclass-closure-reprocess';
 const REPROCESS_TOGGLE = /reprocesamiento de side-effects/i;
 const AUDIT_FLAG = 'iclass-audit';
 const AUDIT_TOGGLE = /auditor(í|i)a de ia/i;
+const AUTOCOMPLETE_FLAG = 'task-autocomplete';
+const AUTOCOMPLETE_TOGGLE = /auto-?completado de tareas/i;
 
-/** Mock the closure flags independently (loop + reprocess + audit), keyed by flag name. */
-function mockFlags(loop: boolean | null, reprocess: boolean | null = loop, audit: boolean | null = false, loading = false, error = false) {
+/** Mock the closure flags independently (loop + reprocess + audit + autocomplete), keyed by flag name. */
+function mockFlags(loop: boolean | null, reprocess: boolean | null = loop, audit: boolean | null = false, autocomplete: boolean | null = false, loading = false, error = false) {
   vi.mocked(useFeatureFlag).mockImplementation(((key: string) => {
-    const enabled = key === REPROCESS_FLAG ? reprocess : key === AUDIT_FLAG ? audit : loop;
+    const enabled = key === REPROCESS_FLAG ? reprocess : key === AUDIT_FLAG ? audit : key === AUTOCOMPLETE_FLAG ? autocomplete : loop;
     return {
       data: enabled === null ? undefined : { key, enabled },
       isLoading: loading,
@@ -44,7 +46,7 @@ function mockFlags(loop: boolean | null, reprocess: boolean | null = loop, audit
 }
 
 function mockFlag(enabled: boolean | null, loading = false, error = false) {
-  mockFlags(enabled, enabled, false, loading, error);
+  mockFlags(enabled, enabled, false, false, loading, error);
 }
 
 function mockPerms(can: (p: string | string[]) => boolean) {
@@ -196,5 +198,31 @@ describe('IClassClosureFlagBody', () => {
     render(<IClassClosureFlagBody />);
 
     expect(screen.queryByRole('checkbox', { name: AUDIT_TOGGLE })).not.toBeInTheDocument();
+  });
+
+  it('renders the autocomplete toggle reflecting the task-autocomplete flag', () => {
+    mockFlags(true, false, false, true); // autocomplete ON
+    render(<IClassClosureFlagBody />);
+    expect(screen.getByRole('checkbox', { name: AUTOCOMPLETE_TOGGLE })).toBeChecked();
+  });
+
+  it('clicking the autocomplete toggle flips the task-autocomplete flag', () => {
+    mockFlags(true, false, false, false); // autocomplete OFF
+    const mutate = vi.fn();
+    vi.mocked(useSetFeatureFlag).mockReturnValue({ ...idleMutation, mutate } as never);
+
+    render(<IClassClosureFlagBody />);
+    fireEvent.click(screen.getByRole('checkbox', { name: AUTOCOMPLETE_TOGGLE }));
+
+    expect(mutate).toHaveBeenCalledWith({ key: AUTOCOMPLETE_FLAG, enabled: true });
+  });
+
+  it('hides the autocomplete toggle without the iclass.manage permission', () => {
+    mockFlag(true);
+    mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('iclass.manage'));
+
+    render(<IClassClosureFlagBody />);
+
+    expect(screen.queryByRole('checkbox', { name: AUTOCOMPLETE_TOGGLE })).not.toBeInTheDocument();
   });
 });
