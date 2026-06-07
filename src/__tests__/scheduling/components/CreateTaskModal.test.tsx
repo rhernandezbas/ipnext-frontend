@@ -466,9 +466,38 @@ describe('CreateTaskModal', () => {
 
     it('shows required indicator (*) in the Cliente label', () => {
       setup();
-      // "Cliente" is rendered inside a div.label — find by its text and check for *.
-      const clienteLabel = screen.getByText(/cliente/i, { selector: '[class*="label"]' });
-      expect(clienteLabel.textContent).toMatch(/\*/);
+      // #21 — "Cliente *" lives in an inline wrapper span inside div.label.
+      const clienteWrapper = screen.getByText(
+        (_, el) => el?.tagName === 'SPAN' && /^Cliente\s*\*$/.test((el?.textContent ?? '').trim()),
+      );
+      expect(clienteWrapper.textContent).toMatch(/\*/);
+    });
+
+    // #21 — the .label is a flex COLUMN, so the bare text node and the
+    // <span>*</span> used to be two separate flex items: the asterisk stacked
+    // on its own line below the text. Text + asterisk must share ONE inline
+    // wrapper element (direct child of the label) to stay on the same line.
+    it('renders the asterisk INLINE with the label text, not as a separate flex item (#21)', () => {
+      setup();
+
+      const titleInput = screen.getByPlaceholderText('Título de la tarea');
+      const titleLabel = titleInput.closest('label')!;
+      const titleWrapper = Array.from(titleLabel.children).find(
+        el => el !== titleInput && /Título\s*\*/.test(el.textContent ?? ''),
+      );
+      expect(titleWrapper, 'Título: text + * must share one wrapper element').toBeDefined();
+
+      const projectSelect = screen.getByRole('combobox', { name: /proyecto/i });
+      const projectLabel = projectSelect.closest('label')!;
+      const projectWrapper = Array.from(projectLabel.children).find(
+        el => el !== projectSelect && /Proyecto\s*\*/.test(el.textContent ?? ''),
+      );
+      expect(projectWrapper, 'Proyecto: text + * must share one wrapper element').toBeDefined();
+
+      const clienteWrapper = screen.getByText(
+        (_, el) => el?.tagName === 'SPAN' && /^Cliente\s*\*$/.test((el?.textContent ?? '').trim()),
+      );
+      expect(clienteWrapper, 'Cliente: text + * must share one wrapper element').toBeDefined();
     });
 
     it('shows required indicator (*) in the Contrato label (when customer is selected)', async () => {

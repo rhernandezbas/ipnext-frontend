@@ -26,6 +26,7 @@ vi.mock('@/hooks/useAuth', () => ({
 
 import { TasksTableView } from '@/pages/scheduling/SchedulingTasksPage/components/TasksTableView';
 import { useAuth } from '@/hooks/useAuth';
+import { useCan } from '@/hooks/useMyPermissions';
 import type { ScheduledTask } from '@/types/scheduling';
 import type { AuthUser } from '@/types/auth';
 
@@ -101,5 +102,39 @@ describe('TasksTableView — RV (inventory review) column', () => {
     await waitFor(() =>
       expect(setInventoryReviewAsync).toHaveBeenCalledWith({ id: 't1', reviewed: false }),
     );
+  });
+
+  // #24 — the BE route (PATCH /:id/inventory-review) requires inventory.write;
+  // without it the FE used to show a clickable control that the BE rejected.
+  // The indicator must stay VISIBLE (the info matters) but read-only.
+  describe('without inventory.write (#24)', () => {
+    beforeEach(() => {
+      vi.mocked(useCan).mockImplementation((p: string) => p !== 'inventory.write');
+    });
+
+    it('renders a read-only indicator instead of a button', () => {
+      setup([makeTask({ reviewedByInventory: false })]);
+      expect(screen.queryByRole('button', { name: /RV:/i })).not.toBeInTheDocument();
+      const indicator = screen.getByRole('img', { name: /RV: no revisado/i });
+      expect(indicator).toHaveAttribute('data-reviewed', 'false');
+    });
+
+    it('shows the reviewed state read-only too', () => {
+      setup([makeTask({ reviewedByInventory: true })]);
+      const indicator = screen.getByRole('img', { name: /RV: revisado/i });
+      expect(indicator).toHaveAttribute('data-reviewed', 'true');
+    });
+
+    it('clicking the read-only indicator never calls the mutation', () => {
+      setup([makeTask({ reviewedByInventory: false })]);
+      fireEvent.click(screen.getByRole('img', { name: /RV: no revisado/i }));
+      expect(setInventoryReviewAsync).not.toHaveBeenCalled();
+    });
+  });
+
+  it('keeps the clickable button when the user HAS inventory.write (#24)', () => {
+    vi.mocked(useCan).mockReturnValue(true);
+    setup([makeTask({ reviewedByInventory: false })]);
+    expect(screen.getByRole('button', { name: /RV: no revisado/i })).toBeInTheDocument();
   });
 });
