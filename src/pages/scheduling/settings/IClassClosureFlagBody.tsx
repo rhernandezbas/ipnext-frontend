@@ -8,6 +8,7 @@ import styles from './IClassSettings.module.css';
 const FLAG_KEY = 'iclass-closure-loop';
 const REPROCESS_FLAG_KEY = 'iclass-closure-reprocess';
 const AUDIT_FLAG_KEY = 'iclass-audit';
+const AUTOCOMPLETE_FLAG_KEY = 'task-autocomplete';
 
 /**
  * Sub-tab "Cierre de OS" del back office de IClass.
@@ -27,6 +28,8 @@ export function IClassClosureFlagBody() {
   const reprocessEnabled = reprocessFlag.data?.enabled ?? false;
   const auditFlag = useFeatureFlag(AUDIT_FLAG_KEY);
   const auditEnabled = auditFlag.data?.enabled ?? false;
+  const autocompleteFlag = useFeatureFlag(AUTOCOMPLETE_FLAG_KEY);
+  const autocompleteEnabled = autocompleteFlag.data?.enabled ?? false;
 
   async function handleBackfill() {
     try {
@@ -50,6 +53,10 @@ export function IClassClosureFlagBody() {
 
   function handleAuditToggle() {
     setFlag.mutate({ key: AUDIT_FLAG_KEY, enabled: !auditEnabled });
+  }
+
+  function handleAutocompleteToggle() {
+    setFlag.mutate({ key: AUTOCOMPLETE_FLAG_KEY, enabled: !autocompleteEnabled });
   }
 
   if (isLoading) {
@@ -172,6 +179,34 @@ export function IClassClosureFlagBody() {
                 disabled={setFlag.isPending}
                 onChange={handleAuditToggle}
                 aria-label="Auditoría de IA en el cierre de OS"
+              />
+              <span className={styles.switchTrack} aria-hidden="true" />
+            </label>
+          </div>
+        </section>
+
+        <section className={styles.statusCard}>
+          <header className={styles.statusHeader}>
+            <h2 className={styles.statusTitle}>Auto-completado de tareas</h2>
+            <span className={`${styles.statusBadge} ${autocompleteEnabled ? styles.statusBadgeOn : styles.statusBadgeOff}`}>
+              <span className={styles.statusBadgeDot} aria-hidden="true" />
+              {autocompleteEnabled ? 'Activo' : 'Inactivo'}
+            </span>
+          </header>
+          <p className={styles.statusDescription}>
+            Un proceso periódico re-dispara automáticamente los efectos de cierre pendientes (comentario, auditoría, inventario) de las tareas incompletas. Apagado por defecto; misma maquinaria que "Reprocesar", pero automática.
+          </p>
+          <div className={styles.statusActionRow}>
+            <span className={styles.statusActionLabel}>
+              {autocompleteEnabled ? 'Desactivar auto-completado' : 'Activar auto-completado'}
+            </span>
+            <label className={styles.switch}>
+              <input
+                type="checkbox"
+                checked={autocompleteEnabled}
+                disabled={setFlag.isPending}
+                onChange={handleAutocompleteToggle}
+                aria-label="Auto-completado de tareas"
               />
               <span className={styles.switchTrack} aria-hidden="true" />
             </label>
