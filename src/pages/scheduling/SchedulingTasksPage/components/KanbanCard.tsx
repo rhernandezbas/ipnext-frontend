@@ -1,6 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import type { ScheduledTask, TaskPriority } from '@/types/scheduling';
+import type { ScheduledTask } from '@/types/scheduling';
 import { PriorityPill } from './TasksTableView';
 import styles from './KanbanCard.module.css';
 
@@ -45,7 +45,7 @@ export function KanbanCard({ task, isDragging = false }: KanbanCardProps) {
         <p className={styles.cardCustomer}>{task.customerName}</p>
       )}
       <div className={styles.cardMeta}>
-        <PriorityPill priority={task.priority as TaskPriority} />
+        <PriorityPill priority={task.priority} />
         <AssigneeAvatar name={task.assigneeName} />
       </div>
     </div>

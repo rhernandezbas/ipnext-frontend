@@ -11,13 +11,12 @@
  */
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import type { TaskListFilter, TasksView, TaskPriority, TaskStageCategory } from '@/types/scheduling';
+import type { TaskListFilter, TasksView, TaskStageCategory } from '@/types/scheduling';
 
-const VALID_PRIORITIES: TaskPriority[] = ['low', 'normal', 'high', 'urgent'];
-function parsePriority(raw: string | null): TaskPriority | undefined {
-  if (!raw) return undefined;
-  return (VALID_PRIORITIES as string[]).includes(raw) ? (raw as TaskPriority) : undefined;
-}
+// #27 — priority is a CATALOG name (TaskPriority catalog: Baja/Normal/Alta/
+// Urgente, operator-editable), NOT the legacy hardcoded enum. The old
+// whitelist (low/normal/high/urgent) dropped every real catalog value to
+// undefined, so the priority filter never reached the query.
 
 const VALID_CATEGORIES: TaskStageCategory[] = ['nuevo', 'enProgreso', 'hecho', 'cancelado'];
 function parseCategory(raw: string | null): TaskStageCategory | undefined {
@@ -43,7 +42,7 @@ export function useTasksFilterUrl(): TasksFilterUrlResult {
     partnerId:     searchParams.get('partnerId') ?? undefined,
     assigneeId:    searchParams.get('assigneeId') ?? undefined,
     customerId:    searchParams.get('customerId') ?? undefined,
-    priority:      parsePriority(searchParams.get('priority')),
+    priority:      searchParams.get('priority') ?? undefined,
     q:             searchParams.get('q') ?? undefined,
   };
 
@@ -72,7 +71,7 @@ export function useTasksFilterUrl(): TasksFilterUrlResult {
             partnerId:     'partnerId'     in patch ? patch.partnerId     : (prev.get('partnerId') ?? undefined),
             assigneeId:    'assigneeId'    in patch ? patch.assigneeId    : (prev.get('assigneeId') ?? undefined),
             customerId:    'customerId'    in patch ? patch.customerId    : (prev.get('customerId') ?? undefined),
-            priority:      'priority'      in patch ? patch.priority      : parsePriority(prev.get('priority')),
+            priority:      'priority'      in patch ? patch.priority      : (prev.get('priority') ?? undefined),
             q:             'q'             in patch ? patch.q             : (prev.get('q') ?? undefined),
           };
 
