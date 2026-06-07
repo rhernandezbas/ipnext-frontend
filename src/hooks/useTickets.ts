@@ -79,8 +79,11 @@ export function useAddTicketReply() {
 export function useAssignTicket() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, assignedTo, assignedToName }: { id: string; assignedTo: number | null; assignedToName: string | null }) =>
-      axiosClient.patch(`/tickets/${id}/assign`, { assignedTo, assignedToName }).then(r => r.data),
+    // #28 follow-up — the BE has no /assign route (404) and reads `assigneeId`
+    // (RbacUser id string) on PATCH /tickets/:id. The legacy call sent
+    // `assignedTo: Number(uuid)` = NaN, so assignment never persisted.
+    mutationFn: ({ id, assigneeId }: { id: string; assigneeId: string | null }) =>
+      axiosClient.patch(`/tickets/${id}`, { assigneeId }).then(r => r.data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['ticket', id] });
       qc.invalidateQueries({ queryKey: ['tickets'] });

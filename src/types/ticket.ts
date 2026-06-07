@@ -14,14 +14,17 @@ export interface Ticket {
   id: number;
   sequenceNumber: number;        // #11 — monotonic display number (#N), like tasks
   subject: string;
-  message: string;
+  description: string;           // #28 follow-up — the BE field is `description`, not `message`
   status: TicketStatus;
   priority: TicketPriority;
   type: string | null;
   customerId: number;
   customerName: string;
-  assignedTo: number | null;
-  assignedToName: string | null;
+  // #28 follow-up — the BE returns `assigneeId` (RbacUser id, string) and
+  // `assigneeName`; the legacy `assignedTo:number`/`assignedToName` never existed
+  // in the real payload, so assignment rendered empty everywhere.
+  assigneeId: string | null;
+  assigneeName: string | null;
   reporter: string | null;
   createdAt: string;
   updatedAt: string;
@@ -41,12 +44,14 @@ export interface TicketStats {
   unassigned: number;
 }
 
+// #28 follow-up — wire shape of POST /tickets: the BE requires `description`
+// (400 without it) and reads `assigneeId` (RbacUser id string).
 export interface CreateTicketData {
   subject: string;
-  message: string;
+  description: string;
   priority: TicketPriority;
-  customerId: string;
-  assignedTo?: number;
+  customerId: string | null;
+  assigneeId?: string;
   tags?: string[];
 }
 
