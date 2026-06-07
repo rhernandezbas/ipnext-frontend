@@ -55,7 +55,7 @@ const COLUMNS: Array<{ label: string; key: keyof Ticket | string; sortable?: boo
   { label: 'Tipo', key: 'type' },
   { label: 'Reporter', key: 'reporter' },
   { label: 'Prioridad', key: 'priority', sortable: true, render: (row: Ticket) => <PriorityPill priority={row.priority} /> },
-  { label: 'Estado', key: 'status', sortable: true },
+  { label: 'Estado', key: 'status', sortable: true, render: (row: Ticket) => <TicketStatusPill status={row.status} /> }, // #26
   { label: 'Asignado a', key: 'assigneeName' }, // #28 follow-up
   { label: 'Creado de fecha y hora', key: 'createdAt', sortable: true },
 ];
@@ -83,6 +83,26 @@ function IconPlus() {
 const PRIORITY_COLOR: Record<string, string> = {
   low: '#64748b', medium: '#2563eb', high: '#f59e0b', critical: '#dc2626',
 };
+
+// #26 — closed/cerrado get a stark black & white pill so they stand out.
+const CLOSED_SLUGS = ['cerrado', 'closed'];
+
+/** Status pill — catalog color for open states, black & white for closed. */
+function TicketStatusPill({ status }: { status: string }) {
+  const { data: statuses = [] } = useTicketStatuses();
+  const closed = CLOSED_SLUGS.includes(status.toLowerCase());
+  const color = statuses.find(s => s.name === status)?.color ?? '#94a3b8';
+  return (
+    <span
+      className={styles.statusPill}
+      style={closed ? undefined : { backgroundColor: color }}
+      data-variant={closed ? 'closed' : 'open'}
+      aria-label={`Estado: ${status}`}
+    >
+      {status}
+    </span>
+  );
+}
 
 /** Priority pill, color-coded — mirrors the tasks list. */
 function PriorityPill({ priority }: { priority: string }) {

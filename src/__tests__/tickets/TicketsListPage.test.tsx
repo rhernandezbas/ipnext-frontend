@@ -141,6 +141,36 @@ describe('TicketsListPage (Prominense re-skin)', () => {
     expect(screen.getByText('Juan')).toBeInTheDocument();
   });
 
+  // #26 — the status renders as a pill: catalog color for open states, and a
+  // distinctive BLACK & WHITE variant for closed/cerrado so they stand out.
+  it('renders the status as a pill colored from the catalog', () => {
+    renderList();
+    const pill = screen.getByLabelText('Estado: open');
+    expect(pill).toBeInTheDocument();
+    expect(pill).not.toHaveAttribute('data-variant', 'closed');
+  });
+
+  it('renders closed tickets with the black & white variant (#26)', () => {
+    vi.mocked(useTicketsModule.useTicketList).mockReturnValue({
+      data: { data: [{ ...mockTickets[0], id: 2, subject: 'Resuelto hace mucho', status: 'closed' }], total: 1 },
+      isLoading: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useTicketsModule.useTicketList>);
+    renderList();
+    const pill = screen.getByLabelText('Estado: closed');
+    expect(pill).toHaveAttribute('data-variant', 'closed');
+  });
+
+  it('treats the Spanish "cerrado" slug as closed too (#26)', () => {
+    vi.mocked(useTicketsModule.useTicketList).mockReturnValue({
+      data: { data: [{ ...mockTickets[0], id: 3, subject: 'Cerrado ES', status: 'cerrado' }], total: 1 },
+      isLoading: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useTicketsModule.useTicketList>);
+    renderList();
+    expect(screen.getByLabelText('Estado: cerrado')).toHaveAttribute('data-variant', 'closed');
+  });
+
   it('shows the empty message when there are no tickets', () => {
     vi.mocked(useTicketsModule.useTicketList).mockReturnValue({
       data: { data: [], total: 0 },
