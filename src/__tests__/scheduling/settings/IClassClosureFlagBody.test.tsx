@@ -5,11 +5,11 @@ vi.mock('@/hooks/useFeatureFlags', () => ({
   useFeatureFlag: vi.fn(),
   useSetFeatureFlag: vi.fn(),
 }));
-vi.mock('@/hooks/useIClassClosure', () => ({ useRunClosureBackfill: vi.fn(), useReprocessClosure: vi.fn() }));
+vi.mock('@/hooks/useIClassClosure', () => ({ useRunClosureBackfill: vi.fn(), useReprocessClosure: vi.fn(), usePendingCount: vi.fn() }));
 vi.mock('@/hooks/useMyPermissions', () => ({ useMyPermissions: vi.fn() }));
 
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
-import { useRunClosureBackfill, useReprocessClosure } from '@/hooks/useIClassClosure';
+import { useRunClosureBackfill, useReprocessClosure, usePendingCount } from '@/hooks/useIClassClosure';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { IClassClosureFlagBody } from '@/pages/scheduling/settings/IClassClosureFlagBody';
 
@@ -22,6 +22,13 @@ const idleMutation = {
   isPending: false,
   isError: false,
   reset: vi.fn(),
+};
+
+const idlePendingCount = {
+  data: { pending: 0 },
+  isLoading: false,
+  isError: false,
+  isSuccess: true,
 };
 
 const REPROCESS_FLAG = 'iclass-closure-reprocess';
@@ -61,6 +68,7 @@ describe('IClassClosureFlagBody', () => {
     vi.mocked(useSetFeatureFlag).mockReturnValue(idleMutation as never);
     vi.mocked(useRunClosureBackfill).mockReturnValue(idleMutation as never);
     vi.mocked(useReprocessClosure).mockReturnValue(idleMutation as never);
+    vi.mocked(usePendingCount).mockReturnValue(idlePendingCount as never);
     mockPerms(() => true); // default: all permissions granted
   });
 
@@ -224,5 +232,67 @@ describe('IClassClosureFlagBody', () => {
     render(<IClassClosureFlagBody />);
 
     expect(screen.queryByRole('checkbox', { name: AUTOCOMPLETE_TOGGLE })).not.toBeInTheDocument();
+  });
+
+  // ─── B2.1 — queued banner + pending-count + button disable ───────────────
+
+  it('shows "encolado" banner when reprocess mutation returns queued:true', async () => {
+    mockFlags(true, true);
+    const mutateAsync = vi.fn().mockResolvedValue({ queued: true });
+    vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, mutateAsync } as never);
+
+    render(<IClassClosureFlagBody />);
+    fireEvent.click(screen.getByRole('button', { name: /reprocesar ahora/i }));
+
+    await screen.findByText(/reprocesamiento encolado/i);
+  });
+
+  it('shows "en curso" banner when reprocess returns queued:false reason already-running', async () => {
+    mockFlags(true, true);
+    const mutateAsync = vi.fn().mockResolvedValue({ queued: false, reason: 'already-running' });
+    vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, mutateAsync } as never);
+
+    render(<IClassClosureFlagBody />);
+    fireEvent.click(screen.getByRole('button', { name: /reprocesar ahora/i }));
+
+    await screen.findByText(/ya hay un reprocesamiento en curso/i);
+  });
+
+  it('shows "deshabilitado" banner when reprocess returns queued:false reason flag-disabled', async () => {
+    mockFlags(true, true);
+    const mutateAsync = vi.fn().mockResolvedValue({ queued: false, reason: 'flag-disabled' });
+    vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, mutateAsync } as never);
+
+    render(<IClassClosureFlagBody />);
+    fireEvent.click(screen.getByRole('button', { name: /reprocesar ahora/i }));
+
+    await screen.findByText(/reprocesamiento deshabilitado/i);
+  });
+
+  it('shows "quedan N pendientes" when pending>0', () => {
+    mockFlags(true, true);
+    vi.mocked(usePendingCount).mockReturnValue({ ...idlePendingCount, data: { pending: 7 } } as never);
+
+    render(<IClassClosureFlagBody />);
+
+    expect(screen.getByText(/quedan 7 pendientes/i)).toBeInTheDocument();
+  });
+
+  it('disables the reprocess button while pending>0', () => {
+    mockFlags(true, true);
+    vi.mocked(usePendingCount).mockReturnValue({ ...idlePendingCount, data: { pending: 3 } } as never);
+
+    render(<IClassClosureFlagBody />);
+
+    expect(screen.getByRole('button', { name: /reprocesar ahora/i })).toBeDisabled();
+  });
+
+  it('disables the reprocess button while a queued run is in flight (isPending=true)', () => {
+    mockFlags(true, true);
+    vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, isPending: true } as never);
+
+    render(<IClassClosureFlagBody />);
+
+    expect(screen.getByRole('button', { name: /reprocesando/i })).toBeDisabled();
   });
 });
