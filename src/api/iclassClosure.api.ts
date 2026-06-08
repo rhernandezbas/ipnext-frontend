@@ -17,13 +17,15 @@ export interface ClosurePendingList {
   total: number;
 }
 
-export interface ClosureBackfillResult {
-  mirrored: number;
-  transitioned: number;
-  skippedNotClosed: number;
-  skippedNotOurs: number;
-  skippedUnchanged: number;
-}
+/**
+ * Response union from POST /closure/backfill (202).
+ * queued:true  — run was dispatched in the background.
+ * queued:false — a run is already in flight.
+ * (503 is surfaced as a thrown error by axios; handled separately in the UI.)
+ */
+export type BackfillTriggerResult =
+  | { queued: true }
+  | { queued: false; reason: 'already-running' };
 
 /**
  * Response union from POST /closure/reprocess (202).
@@ -48,7 +50,7 @@ export interface ClosureConfig {
 
 export const iclassClosureApi = {
   backfill: () =>
-    axiosClient.post<ClosureBackfillResult>('/admin/iclass/closure/backfill').then(r => r.data),
+    axiosClient.post<BackfillTriggerResult>('/admin/iclass/closure/backfill').then(r => r.data),
   reprocess: () =>
     axiosClient.post<ClosureReprocessQueued>('/admin/iclass/closure/reprocess').then(r => r.data),
   pendingCount: () =>

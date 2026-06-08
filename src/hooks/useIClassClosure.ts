@@ -2,7 +2,12 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { iclassClosureApi } from '@/api/iclassClosure.api';
 import type { ClosurePendingCount, ClosurePendingList } from '@/api/iclassClosure.api';
 
-/** Run the on-demand closure backfill (reconcile in-flight tasks against IClass). */
+/**
+ * Dispatch an async backfill run (POST /closure/backfill → 202).
+ * Returns BackfillTriggerResult: { queued: true } on dispatch,
+ * or { queued: false, reason: 'already-running' } when already running.
+ * 503 is surfaced as a thrown error; callers handle it via try/catch.
+ */
 export function useRunClosureBackfill() {
   return useMutation({ mutationFn: iclassClosureApi.backfill });
 }
