@@ -1,0 +1,179 @@
+/* ClosureProgressTable — product register, restrained color strategy
+   Follows DESIGN.md table conventions: 12px th, overflow:hidden, border-radius 12px */
+
+.wrapper {
+  border: 1px solid var(--color-border, #dee2e6);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  margin-top: var(--space-5, 20px);
+}
+
+.header {
+  padding: var(--space-4, 16px) var(--space-5, 20px) var(--space-3, 12px);
+  border-bottom: 1px solid var(--color-border, #dee2e6);
+  background: #f8f9fa;
+}
+
+.title {
+  font-size: var(--font-size-sm, 14px);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text, #212529);
+  margin: 0 0 2px;
+}
+
+.subtitle {
+  font-size: var(--font-size-xs, 12px);
+  color: var(--color-text-secondary, #6c757d);
+  margin: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.table th {
+  padding: 11px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-secondary, #6c757d);
+  background: #f8f9fa;
+  border-bottom: 1px solid var(--color-border, #dee2e6);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 12px 14px;
+  font-size: 13.5px;
+  color: var(--color-text, #212529);
+  border-bottom: 1px solid var(--color-border, #dee2e6);
+  vertical-align: middle;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr {
+  transition: background 100ms;
+}
+
+.table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+/* Column widths */
+.colId     { width: 110px; }
+.colStatus { width: 76px; text-align: center; }
+.colAttempts { width: 80px; text-align: center; }
+.colTask   { /* fills remaining space */ }
+
+/* Status badge — pill shape, semantic colour */
+.statusDone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full, 9999px);
+  background: #d1fae5;
+  color: #065f46;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.statusPending {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full, 9999px);
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* Attempts badge */
+.attempts {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-full, 9999px);
+  background: #f3f4f6;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Task link */
+.taskLink {
+  color: var(--color-primary, #0d6efd);
+  text-decoration: none;
+  font-size: 13.5px;
+}
+
+.taskLink:hover {
+  text-decoration: underline;
+}
+
+.seqNumber {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+/* Null task placeholder */
+.taskDash {
+  color: var(--color-text-secondary, #6c757d);
+  font-size: 13.5px;
+}
+
+/* iclassId monospace chip */
+.iclassId {
+  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+  font-size: 12.5px;
+  color: #374151;
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm, 4px);
+}
+
+/* Empty state — centered, informative */
+.emptyState {
+  padding: var(--space-10, 40px) var(--space-6, 24px);
+  text-align: center;
+}
+
+.emptyIcon {
+  font-size: 28px;
+  display: block;
+  margin-bottom: var(--space-3, 12px);
+  opacity: 0.35;
+}
+
+.emptyTitle {
+  font-size: var(--font-size-sm, 14px);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text, #212529);
+  margin: 0 0 4px;
+}
+
+.emptyText {
+  font-size: var(--font-size-xs, 12px);
+  color: var(--color-text-secondary, #6c757d);
+  margin: 0;
+}
+
+/* Loading */
+.loading {
+  padding: var(--space-6, 24px);
+  text-align: center;
+  font-size: var(--font-size-xs, 12px);
+  color: var(--color-text-secondary, #6c757d);
+}
