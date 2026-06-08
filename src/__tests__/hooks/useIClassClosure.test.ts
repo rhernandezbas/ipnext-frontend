@@ -9,11 +9,19 @@ vi.mock('@/api/iclassClosure.api', () => ({
     reprocess: vi.fn(),
     pendingCount: vi.fn(),
     pendingList: vi.fn(),
+    inFlightList: vi.fn(),
+    reconcileTask: vi.fn(),
   },
 }));
 
 import { iclassClosureApi } from '@/api/iclassClosure.api';
-import { useReprocessClosure, usePendingCount, usePendingList } from '@/hooks/useIClassClosure';
+import {
+  useReprocessClosure,
+  usePendingCount,
+  usePendingList,
+  useInFlightTasks,
+  useReconcileTask,
+} from '@/hooks/useIClassClosure';
 
 function makeWrapper() {
   const qc = new QueryClient({
@@ -192,5 +200,77 @@ describe('usePendingList', () => {
 
     // When total>0 the query is configured to keep refetching (interval = 5000)
     expect(iclassClosureApi.pendingList).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─── B1.1 useInFlightTasks — query returns InFlightTask[] ─────────────────────
+describe('useInFlightTasks', () => {
+  const task = {
+    id: 'task-1',
+    sequenceNumber: 101,
+    title: 'Instalar fibra',
+    customerName: 'ACME SA',
+    iclassOrderCode: 'OS-777',
+  };
+
+  it('returns the in-flight task list from the API', async () => {
+    vi.mocked(iclassClosureApi.inFlightList).mockResolvedValue({ items: [task] });
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useInFlightTasks(), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual({ items: [task] });
+  });
+
+  it('returns an empty list when nothing is in-flight', async () => {
+    vi.mocked(iclassClosureApi.inFlightList).mockResolvedValue({ items: [] });
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useInFlightTasks(), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual({ items: [] });
+  });
+});
+
+// ─── B1.1 useReconcileTask — mutation invalidates the in-flight query ─────────
+describe('useReconcileTask', () => {
+  const counts = {
+    mirrored: 1,
+    transitioned: 1,
+    skippedNotClosed: 0,
+    skippedNotOurs: 0,
+    skippedUnchanged: 0,
+    failed: 0,
+  };
+
+  it('calls reconcileTask(id) and resolves to the counts', async () => {
+    vi.mocked(iclassClosureApi.reconcileTask).mockResolvedValue(counts);
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useReconcileTask(), { wrapper });
+
+    let returnValue: unknown;
+    await act(async () => {
+      returnValue = await result.current.mutateAsync('task-1');
+    });
+
+    expect(iclassClosureApi.reconcileTask).toHaveBeenCalledWith('task-1');
+    expect(returnValue).toEqual(counts);
+  });
+
+  it('invalidates ["iclassClosure","inFlight"] on success so the list refetches', async () => {
+    vi.mocked(iclassClosureApi.reconcileTask).mockResolvedValue(counts);
+    const { qc, wrapper } = makeWrapper();
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+
+    const { result } = renderHook(() => useReconcileTask(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync('task-1');
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['iclassClosure', 'inFlight'] });
   });
 });

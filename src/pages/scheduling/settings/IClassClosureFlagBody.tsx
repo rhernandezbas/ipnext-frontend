@@ -150,6 +150,11 @@ export function IClassClosureFlagBody() {
             {backfill.isPending ? 'Reconciliando…' : 'Reconciliar ahora'}
           </button>
         </div>
+        <p className={styles.statusDescription}>
+          <Link to="/admin/scheduling/iclass/closure/reconcile">
+            Reconciliar OS in-flight una por una
+          </Link>
+        </p>
       </section>
 
       {lastBackfill && lastBackfill.queued && (
