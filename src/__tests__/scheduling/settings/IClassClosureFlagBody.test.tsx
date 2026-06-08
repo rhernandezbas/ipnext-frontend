@@ -108,6 +108,14 @@ describe('IClassClosureFlagBody', () => {
     expect(screen.getByText('Activo')).toBeInTheDocument();
   });
 
+  // Scenario: Reconcile page is reachable from IClassClosureFlagBody
+  it('renders a link to the reconcile in-flight page near the backfill card', () => {
+    mockFlag(true);
+    renderBody();
+    const link = screen.getByRole('link', { name: /reconciliar os in-flight/i });
+    expect(link).toHaveAttribute('href', '/admin/scheduling/iclass/closure/reconcile');
+  });
+
   it('clicking the toggle calls setFlag with the inverted boolean and the closure key', () => {
     mockFlag(false);
     const mutate = vi.fn();

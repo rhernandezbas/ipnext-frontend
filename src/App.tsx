@@ -119,6 +119,11 @@ const ClosurePendingPage = lazy(() =>
     default: m.ClosurePendingPage,
   }))
 );
+const ReconcileInFlightPage = lazy(() =>
+  import('@/pages/scheduling/ReconcileInFlightPage').then((m) => ({
+    default: m.ReconcileInFlightPage,
+  }))
+);
 // SchedulingTasksPage is a re-export shim pointing at the directory index (SchedulingTasksPage/index.tsx).
 // Route ordering is no longer load-bearing — RR6 ranking handles tasks vs tasks/:id automatically.
 const SchedulingTasksPage = lazy(() => import('@/pages/scheduling/SchedulingTasksPage'));
@@ -237,6 +242,7 @@ export function App() {
                 <Route path="task-priorities" element={<RequirePermission permission="scheduling.read"><SchedulingTaskPrioritiesPage /></RequirePermission>} />
                 <Route path="settings" element={<RequirePermission permission="scheduling.read"><SchedulingSettingsPage /></RequirePermission>} />
                 <Route path="iclass/closure/pending" element={<RequirePermission permission="iclass.manage"><ClosurePendingPage /></RequirePermission>} />
+                <Route path="iclass/closure/reconcile" element={<RequirePermission permission="iclass.manage"><ReconcileInFlightPage /></RequirePermission>} />
                 <Route path="tasks" element={<RequirePermission permission="scheduling.read"><SchedulingTasksPage /></RequirePermission>} />
                 <Route path="tasks/:id" element={<RequirePermission permission="scheduling.read"><SchedulingTaskDetailPage /></RequirePermission>} />
               </Route>

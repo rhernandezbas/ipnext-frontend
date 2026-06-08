@@ -48,6 +48,33 @@ export interface ClosureConfig {
   autocompleteIntervalMs: number;
 }
 
+/** A single task currently stuck in the `registered_in_iclass` stage. */
+export interface InFlightTask {
+  id: string;
+  sequenceNumber: number;
+  title: string;
+  customerName: string | null;
+  iclassOrderCode: string | null;
+}
+
+/** Response from GET /closure/in-flight (200). */
+export interface InFlightTaskList {
+  items: InFlightTask[];
+}
+
+/**
+ * Per-task reconcile counts from POST /closure/reconcile/:taskId (200).
+ * mirrored===0 && transitioned===0 means no recent closure was found for the SO.
+ */
+export interface ReconcileCounts {
+  mirrored: number;
+  transitioned: number;
+  skippedNotClosed: number;
+  skippedNotOurs: number;
+  skippedUnchanged: number;
+  failed: number;
+}
+
 export const iclassClosureApi = {
   backfill: () =>
     axiosClient.post<BackfillTriggerResult>('/admin/iclass/closure/backfill').then(r => r.data),
@@ -61,4 +88,10 @@ export const iclassClosureApi = {
     axiosClient.get<ClosureConfig>('/admin/iclass/closure/config').then(r => r.data),
   updateConfig: (patch: Partial<ClosureConfig>) =>
     axiosClient.put<ClosureConfig>('/admin/iclass/closure/config', patch).then(r => r.data),
+  inFlightList: () =>
+    axiosClient.get<InFlightTaskList>('/admin/iclass/closure/in-flight').then(r => r.data),
+  reconcileTask: (taskId: string) =>
+    axiosClient
+      .post<ReconcileCounts>(`/admin/iclass/closure/reconcile/${taskId}`)
+      .then(r => r.data),
 };
