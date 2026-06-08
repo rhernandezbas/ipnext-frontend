@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Can } from '@/components/auth/Can';
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
 import { useRunClosureBackfill, useReprocessClosure, usePendingCount } from '@/hooks/useIClassClosure';
-import type { ClosureBackfillResult, ClosureReprocessQueued } from '@/api/iclassClosure.api';
+import type { BackfillTriggerResult, ClosureReprocessQueued } from '@/api/iclassClosure.api';
 import styles from './IClassSettings.module.css';
 
 const FLAG_KEY = 'iclass-closure-loop';
@@ -21,7 +22,8 @@ export function IClassClosureFlagBody() {
   const { data, isLoading, isError, refetch } = useFeatureFlag(FLAG_KEY);
   const setFlag = useSetFeatureFlag();
   const backfill = useRunClosureBackfill();
-  const [lastBackfill, setLastBackfill] = useState<ClosureBackfillResult | null>(null);
+  const [lastBackfill, setLastBackfill] = useState<BackfillTriggerResult | null>(null);
+  const [backfillUnavailable, setBackfillUnavailable] = useState(false);
   const reprocess = useReprocessClosure();
   const [lastReprocess, setLastReprocess] = useState<ClosureReprocessQueued | null>(null);
   const { data: pendingData } = usePendingCount();
@@ -34,10 +36,16 @@ export function IClassClosureFlagBody() {
   const autocompleteEnabled = autocompleteFlag.data?.enabled ?? false;
 
   async function handleBackfill() {
+    setBackfillUnavailable(false);
+    setLastBackfill(null);
     try {
       setLastBackfill(await backfill.mutateAsync());
-    } catch {
-      // surfaced via backfill.isError banner
+    } catch (err: unknown) {
+      const e = err as { response?: { status?: number } };
+      if (e?.response?.status === 503) {
+        setBackfillUnavailable(true);
+      }
+      // other errors surfaced via backfill.isError banner
     }
   }
 
@@ -144,16 +152,25 @@ export function IClassClosureFlagBody() {
         </div>
       </section>
 
-      {lastBackfill && (
+      {lastBackfill && lastBackfill.queued && (
         <div className={`${styles.banner} ${styles.bannerSuccess}`}>
-          <span>
-            <span className={styles.bannerTitle}>{lastBackfill.transitioned} tareas movidas.</span>{' '}
-            {lastBackfill.mirrored} OS espejadas · {lastBackfill.skippedNotClosed} aún abiertas · {lastBackfill.skippedUnchanged} sin cambios.
-          </span>
+          <span><span className={styles.bannerTitle}>Reconciliación encolada.</span> El proceso corre en segundo plano.</span>
         </div>
       )}
 
-      {backfill.isError && (
+      {lastBackfill && !lastBackfill.queued && (
+        <div className={`${styles.banner} ${styles.bannerError}`}>
+          <span><span className={styles.bannerTitle}>Ya hay una reconciliación en curso.</span> Esperá a que termine antes de volver a dispararlo.</span>
+        </div>
+      )}
+
+      {backfillUnavailable && (
+        <div className={`${styles.banner} ${styles.bannerError}`}>
+          <span><span className={styles.bannerTitle}>No disponible.</span> El scheduler de reconciliación no está configurado.</span>
+        </div>
+      )}
+
+      {backfill.isError && !backfillUnavailable && (
         <div className={`${styles.banner} ${styles.bannerError}`}>
           <span><span className={styles.bannerTitle}>No se pudo reconciliar.</span> Reintentá en unos segundos.</span>
         </div>
@@ -240,7 +257,9 @@ export function IClassClosureFlagBody() {
           </div>
           {pending > 0 && (
             <p className={styles.statusDescription}>
-              Quedan {pending} pendientes
+              <Link to="/admin/scheduling/iclass/closure/pending">
+                Quedan {pending} pendientes
+              </Link>
             </p>
           )}
           <div className={styles.statusActionRow}>

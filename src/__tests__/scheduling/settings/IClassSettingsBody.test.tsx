@@ -88,13 +88,13 @@ describe('IClassSettingsBody', () => {
     expect(screen.queryByTestId('closure-progress-table')).not.toBeInTheDocument();
   });
 
-  // REQ-LIST-4 SC3: Procesamiento mounts IClassClosureFlagBody + ClosureProgressTable; NOT IClassResultCodeMappingBody
-  it('clicking Procesamiento mounts closure body AND progress table, NOT result-mapping', () => {
+  // B3.1 — REQ-BACKFILL-PENDING-PAGE-1: ClosureProgressTable NOT in Procesamiento sub-tab
+  it('B3.1 clicking Procesamiento mounts closure body but NOT the progress table (table moved to standalone page)', () => {
     renderSettings();
     fireEvent.click(screen.getByRole('tab', { name: 'Procesamiento' }));
     expect(screen.getByRole('tab', { name: 'Procesamiento' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('closure-body')).toBeInTheDocument();
-    expect(screen.getByTestId('closure-progress-table')).toBeInTheDocument();
+    expect(screen.queryByTestId('closure-progress-table')).not.toBeInTheDocument();
     expect(screen.queryByTestId('result-mapping-body')).not.toBeInTheDocument();
   });
 

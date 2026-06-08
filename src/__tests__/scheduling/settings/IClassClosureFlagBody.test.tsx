@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('@/hooks/useFeatureFlags', () => ({
   useFeatureFlag: vi.fn(),
@@ -62,6 +63,14 @@ function mockPerms(can: (p: string | string[]) => boolean) {
   } as never);
 }
 
+function renderBody() {
+  return render(
+    <MemoryRouter>
+      <IClassClosureFlagBody />
+    </MemoryRouter>,
+  );
+}
+
 describe('IClassClosureFlagBody', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -74,19 +83,19 @@ describe('IClassClosureFlagBody', () => {
 
   it('renders loading state while the flag query is loading', () => {
     mockFlag(null, true);
-    render(<IClassClosureFlagBody />);
+    renderBody();
     expect(screen.getByText(/cargando/i)).toBeInTheDocument();
   });
 
   it('renders error state with retry when the flag query errors', () => {
     mockFlag(null, false, true);
-    render(<IClassClosureFlagBody />);
+    renderBody();
     expect(screen.getByText(/no se pudo cargar/i)).toBeInTheDocument();
   });
 
   it('renders toggle OFF and the inactive badge when disabled', () => {
     mockFlag(false);
-    render(<IClassClosureFlagBody />);
+    renderBody();
     expect(screen.getByRole('checkbox', { name: TOGGLE })).not.toBeChecked();
     const closureCard = screen.getByText('Cierre automático de OS').closest('section')!;
     expect(within(closureCard).getByText('Inactivo')).toBeInTheDocument();
@@ -94,7 +103,7 @@ describe('IClassClosureFlagBody', () => {
 
   it('renders toggle ON and the active badge when enabled', () => {
     mockFlag(true);
-    render(<IClassClosureFlagBody />);
+    renderBody();
     expect(screen.getByRole('checkbox', { name: TOGGLE })).toBeChecked();
     expect(screen.getByText('Activo')).toBeInTheDocument();
   });
@@ -104,7 +113,7 @@ describe('IClassClosureFlagBody', () => {
     const mutate = vi.fn();
     vi.mocked(useSetFeatureFlag).mockReturnValue({ ...idleMutation, mutate } as never);
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
     fireEvent.click(screen.getByRole('checkbox', { name: TOGGLE }));
 
     expect(mutate).toHaveBeenCalledWith({ key: FLAG, enabled: true });
@@ -114,7 +123,7 @@ describe('IClassClosureFlagBody', () => {
     mockFlag(true);
     vi.mocked(useSetFeatureFlag).mockReturnValue({ ...idleMutation, isPending: true } as never);
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
     expect(screen.getByRole('checkbox', { name: TOGGLE })).toBeDisabled();
   });
 
@@ -122,19 +131,67 @@ describe('IClassClosureFlagBody', () => {
     mockFlag(true);
     vi.mocked(useSetFeatureFlag).mockReturnValue({ ...idleMutation, isError: true } as never);
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
     expect(screen.getByText(/no se pudo cambiar el estado/i)).toBeInTheDocument();
   });
 
   it('runs the backfill when "Reconciliar ahora" is clicked', () => {
     mockFlag(true);
-    const mutateAsync = vi.fn().mockResolvedValue({ mirrored: 0, transitioned: 0, skippedNotClosed: 0, skippedNotOurs: 0, skippedUnchanged: 0 });
+    const mutateAsync = vi.fn().mockResolvedValue({ queued: true });
     vi.mocked(useRunClosureBackfill).mockReturnValue({ ...idleMutation, mutateAsync } as never);
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
     fireEvent.click(screen.getByRole('button', { name: /reconciliar ahora/i }));
 
     expect(mutateAsync).toHaveBeenCalled();
+  });
+
+  // ─── B1.1 — banner: queued ────────────────────────────────────────────────
+  it('B1.1 shows "Reconciliación encolada" banner when backfill returns queued:true', async () => {
+    mockFlag(true);
+    const mutateAsync = vi.fn().mockResolvedValue({ queued: true });
+    vi.mocked(useRunClosureBackfill).mockReturnValue({ ...idleMutation, mutateAsync } as never);
+
+    renderBody();
+    fireEvent.click(screen.getByRole('button', { name: /reconciliar ahora/i }));
+
+    await screen.findByText(/reconciliación encolada/i);
+  });
+
+  // ─── B1.2 — banner: already-running ──────────────────────────────────────
+  it('B1.2 shows "Ya hay una reconciliación en curso" when backfill returns queued:false already-running', async () => {
+    mockFlag(true);
+    const mutateAsync = vi.fn().mockResolvedValue({ queued: false, reason: 'already-running' });
+    vi.mocked(useRunClosureBackfill).mockReturnValue({ ...idleMutation, mutateAsync } as never);
+
+    renderBody();
+    fireEvent.click(screen.getByRole('button', { name: /reconciliar ahora/i }));
+
+    await screen.findByText(/ya hay una reconciliación en curso/i);
+  });
+
+  // ─── B1.3 — banner: unavailable (503) ────────────────────────────────────
+  it('B1.3 shows "No disponible" when backfill throws with 503 unavailable', async () => {
+    mockFlag(true);
+    const mutateAsync = vi.fn().mockRejectedValue({ response: { status: 503, data: { reason: 'unavailable' } } });
+    vi.mocked(useRunClosureBackfill).mockReturnValue({ ...idleMutation, mutateAsync } as never);
+
+    renderBody();
+    fireEvent.click(screen.getByRole('button', { name: /reconciliar ahora/i }));
+
+    await screen.findByText(/no disponible/i);
+  });
+
+  // ─── B3.3 — pending count is a Link ──────────────────────────────────────
+  it('B3.3 renders pending count as a Link to /admin/scheduling/iclass/closure/pending', () => {
+    mockFlags(true, true);
+    vi.mocked(usePendingCount).mockReturnValue({ ...idlePendingCount, data: { pending: 5 } } as never);
+
+    renderBody();
+
+    const link = screen.getByRole('link', { name: /quedan 5 pendientes/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/admin/scheduling/iclass/closure/pending');
   });
 
   it('runs the reprocess when "Reprocesar ahora" is clicked (iclass.manage granted)', () => {
@@ -142,7 +199,7 @@ describe('IClassClosureFlagBody', () => {
     const mutateAsync = vi.fn().mockResolvedValue({ skipped: false, candidates: 0, processed: 0, noTask: 0 });
     vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, mutateAsync } as never);
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
     fireEvent.click(screen.getByRole('button', { name: /reprocesar ahora/i }));
 
     expect(mutateAsync).toHaveBeenCalled();
@@ -152,7 +209,7 @@ describe('IClassClosureFlagBody', () => {
     mockFlag(true);
     mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('iclass.manage'));
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
 
     expect(screen.queryByRole('button', { name: /reprocesar ahora/i })).not.toBeInTheDocument();
     // the rest of the panel still renders
@@ -161,7 +218,7 @@ describe('IClassClosureFlagBody', () => {
 
   it('renders the reprocess toggle reflecting the iclass-closure-reprocess flag (independent of the loop flag)', () => {
     mockFlags(true, false); // loop ON, reprocess OFF
-    render(<IClassClosureFlagBody />);
+    renderBody();
     expect(screen.getByRole('checkbox', { name: REPROCESS_TOGGLE })).not.toBeChecked();
   });
 
@@ -170,7 +227,7 @@ describe('IClassClosureFlagBody', () => {
     const mutate = vi.fn();
     vi.mocked(useSetFeatureFlag).mockReturnValue({ ...idleMutation, mutate } as never);
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
     fireEvent.click(screen.getByRole('checkbox', { name: REPROCESS_TOGGLE }));
 
     expect(mutate).toHaveBeenCalledWith({ key: REPROCESS_FLAG, enabled: true });
@@ -178,13 +235,13 @@ describe('IClassClosureFlagBody', () => {
 
   it('disables "Reprocesar ahora" while the reprocess flag is OFF', () => {
     mockFlags(true, false); // reprocess OFF
-    render(<IClassClosureFlagBody />);
+    renderBody();
     expect(screen.getByRole('button', { name: /reprocesar ahora/i })).toBeDisabled();
   });
 
   it('renders the audit toggle reflecting the iclass-audit flag (independent of loop/reprocess)', () => {
     mockFlags(true, false, true); // loop ON, reprocess OFF, audit ON
-    render(<IClassClosureFlagBody />);
+    renderBody();
     expect(screen.getByRole('checkbox', { name: AUDIT_TOGGLE })).toBeChecked();
   });
 
@@ -193,7 +250,7 @@ describe('IClassClosureFlagBody', () => {
     const mutate = vi.fn();
     vi.mocked(useSetFeatureFlag).mockReturnValue({ ...idleMutation, mutate } as never);
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
     fireEvent.click(screen.getByRole('checkbox', { name: AUDIT_TOGGLE }));
 
     expect(mutate).toHaveBeenCalledWith({ key: AUDIT_FLAG, enabled: true });
@@ -203,14 +260,14 @@ describe('IClassClosureFlagBody', () => {
     mockFlag(true);
     mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('iclass.manage'));
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
 
     expect(screen.queryByRole('checkbox', { name: AUDIT_TOGGLE })).not.toBeInTheDocument();
   });
 
   it('renders the autocomplete toggle reflecting the task-autocomplete flag', () => {
     mockFlags(true, false, false, true); // autocomplete ON
-    render(<IClassClosureFlagBody />);
+    renderBody();
     expect(screen.getByRole('checkbox', { name: AUTOCOMPLETE_TOGGLE })).toBeChecked();
   });
 
@@ -219,7 +276,7 @@ describe('IClassClosureFlagBody', () => {
     const mutate = vi.fn();
     vi.mocked(useSetFeatureFlag).mockReturnValue({ ...idleMutation, mutate } as never);
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
     fireEvent.click(screen.getByRole('checkbox', { name: AUTOCOMPLETE_TOGGLE }));
 
     expect(mutate).toHaveBeenCalledWith({ key: AUTOCOMPLETE_FLAG, enabled: true });
@@ -229,7 +286,7 @@ describe('IClassClosureFlagBody', () => {
     mockFlag(true);
     mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('iclass.manage'));
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
 
     expect(screen.queryByRole('checkbox', { name: AUTOCOMPLETE_TOGGLE })).not.toBeInTheDocument();
   });
@@ -241,7 +298,7 @@ describe('IClassClosureFlagBody', () => {
     const mutateAsync = vi.fn().mockResolvedValue({ queued: true });
     vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, mutateAsync } as never);
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
     fireEvent.click(screen.getByRole('button', { name: /reprocesar ahora/i }));
 
     await screen.findByText(/reprocesamiento encolado/i);
@@ -252,7 +309,7 @@ describe('IClassClosureFlagBody', () => {
     const mutateAsync = vi.fn().mockResolvedValue({ queued: false, reason: 'already-running' });
     vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, mutateAsync } as never);
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
     fireEvent.click(screen.getByRole('button', { name: /reprocesar ahora/i }));
 
     await screen.findByText(/ya hay un reprocesamiento en curso/i);
@@ -263,7 +320,7 @@ describe('IClassClosureFlagBody', () => {
     const mutateAsync = vi.fn().mockResolvedValue({ queued: false, reason: 'flag-disabled' });
     vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, mutateAsync } as never);
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
     fireEvent.click(screen.getByRole('button', { name: /reprocesar ahora/i }));
 
     await screen.findByText(/reprocesamiento deshabilitado/i);
@@ -273,7 +330,7 @@ describe('IClassClosureFlagBody', () => {
     mockFlags(true, true);
     vi.mocked(usePendingCount).mockReturnValue({ ...idlePendingCount, data: { pending: 7 } } as never);
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
 
     expect(screen.getByText(/quedan 7 pendientes/i)).toBeInTheDocument();
   });
@@ -282,7 +339,7 @@ describe('IClassClosureFlagBody', () => {
     mockFlags(true, true);
     vi.mocked(usePendingCount).mockReturnValue({ ...idlePendingCount, data: { pending: 3 } } as never);
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
 
     expect(screen.getByRole('button', { name: /reprocesar ahora/i })).toBeDisabled();
   });
@@ -291,7 +348,7 @@ describe('IClassClosureFlagBody', () => {
     mockFlags(true, true);
     vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, isPending: true } as never);
 
-    render(<IClassClosureFlagBody />);
+    renderBody();
 
     expect(screen.getByRole('button', { name: /reprocesando/i })).toBeDisabled();
   });

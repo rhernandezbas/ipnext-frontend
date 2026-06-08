@@ -5,7 +5,6 @@ import { IClassClosureFlagBody } from './IClassClosureFlagBody';
 import { IClassSoTypesCatalogBody } from './IClassSoTypesCatalogBody';
 import { IClassProjectMappingBody } from './IClassProjectMappingBody';
 import { IClassResultCodeMappingBody } from './IClassResultCodeMappingBody';
-import { ClosureProgressTable } from './ClosureProgressTable';
 import { ClosureIntervalConfig } from './ClosureIntervalConfig';
 
 const SUB_TABS = [
@@ -20,7 +19,6 @@ const SUB_TABS = [
       <>
         <IClassClosureFlagBody />
         <ClosureIntervalConfig />
-        <ClosureProgressTable />
       </>
     ),
   },
