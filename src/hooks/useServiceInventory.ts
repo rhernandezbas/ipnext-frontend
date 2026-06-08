@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '@/api/serviceInventory.api';
-import type { AddInstalledItemInput, UpdateInstalledItemInput, InstalledItemType, ConfirmSuggestionResult } from '@/types/serviceInventory';
+import type { AddInstalledItemInput, UpdateInstalledItemInput, InstalledItemType, ConfirmSuggestionResult, CreateManualSuggestionInput } from '@/types/serviceInventory';
 
 const itemsKey = (serviceId: string) => ['service-inventory', serviceId];
 const suggestionsKey = (taskId: string) => ['task-inventory-suggestions', taskId];
@@ -93,6 +93,14 @@ export function useDiscardSuggestion(taskId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (suggestionId: string) => api.discardInventorySuggestion(taskId, suggestionId),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: suggestionsKey(taskId) }),
+  });
+}
+
+export function useCreateManualSuggestion(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateManualSuggestionInput) => api.createManualSuggestion(taskId, input),
     onSuccess: () => void qc.invalidateQueries({ queryKey: suggestionsKey(taskId) }),
   });
 }

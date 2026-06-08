@@ -159,6 +159,40 @@ describe('SuggestionCard — resuelta (read-only)', () => {
   });
 });
 
+// ── B4.1: MANUAL sourceLabel ──────────────────────────────────────────────────
+describe('SuggestionCard — MANUAL sourceLabel (B4)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockDeviceTypes();
+  });
+
+  it("suggestion source='MANUAL' → badge text 'Manual'", () => {
+    render(
+      <SuggestionCard
+        suggestion={sug({ source: 'MANUAL' })}
+        onConfirm={noop}
+        onDiscard={noop}
+        isPending={false}
+        canWrite
+      />,
+    );
+    expect(screen.getByText('Manual')).toBeInTheDocument();
+  });
+
+  it("suggestion source='OCR' → badge text 'OCR' (triangulate — ensures MANUAL case is real logic, not default)", () => {
+    render(
+      <SuggestionCard
+        suggestion={sug({ source: 'OCR' })}
+        onConfirm={noop}
+        onDiscard={noop}
+        isPending={false}
+        canWrite
+      />,
+    );
+    expect(screen.getByText('OCR')).toBeInTheDocument();
+  });
+});
+
 describe('SuggestionCard — min-data guard (#18)', () => {
   it('DEVICE sin SN ni MAC → "Confirmar" deshabilitado + hint, "Descartar" habilitado', () => {
     render(<SuggestionCard suggestion={sug({ serialNumber: null, mac: null })} onConfirm={noop} onDiscard={noop} isPending={false} canWrite />);

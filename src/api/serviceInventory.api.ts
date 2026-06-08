@@ -6,6 +6,7 @@ import type {
   TaskInventorySuggestion,
   InstalledItemType,
   ConfirmSuggestionResult,
+  CreateManualSuggestionInput,
 } from '@/types/serviceInventory';
 
 // ── Contract installed items ────────────────────────────────────────────────
@@ -60,4 +61,9 @@ export const correctSuggestionType = (taskId: string, suggestionId: string, type
       `/scheduling/${taskId}/inventory/suggestions/${suggestionId}/type`,
       { type },
     )
+    .then(r => r.data);
+
+export const createManualSuggestion = (taskId: string, input: CreateManualSuggestionInput) =>
+  axiosClient
+    .post<TaskInventorySuggestion>(`/scheduling/${taskId}/inventory/suggestions`, input)
     .then(r => r.data);

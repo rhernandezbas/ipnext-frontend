@@ -4,6 +4,21 @@
   gap: var(--space-3);
 }
 
+.header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.addBtn {
+  font-size: var(--font-size-sm);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-surface);
+}
+
 .muted {
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
