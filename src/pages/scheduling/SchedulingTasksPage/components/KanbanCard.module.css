@@ -88,3 +88,25 @@
   text-align: center;
   color: #d1d5db;
 }
+
+/* ── RED / Network badge ─────────────────────────────────────────────────────
+ * Signals a network-node task. Uses OKLCH red — intentional and deliberate,
+ * not a flat red box. Pill shape, subtle warm background, rich fg.
+ * Positioned in the card meta row, same height as the priority pill.
+ */
+.networkBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: oklch(95.5% .08 25);
+  color: oklch(38% .2 25);
+  border: 1px solid oklch(88% .12 25);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+  flex-shrink: 0;
+}

@@ -39,6 +39,10 @@ export interface CreateTaskPayload {
   notes?: string | null;
   /** Originating ticket id when the task is created from a ticket (tickets-actions-be). */
   ticketId?: number | null;
+  /** Task kind — 'customer' (default) or 'network' (node-based task). */
+  kind?: 'customer' | 'network';
+  /** Network site id — required when kind === 'network'. */
+  networkSiteId?: string | null;
 }
 
 export interface TaskChecklistItem {
@@ -125,6 +129,15 @@ export interface ScheduledTask {
    *  to the "Enviar a IClass" stage and the OS is created successfully.
    *  Null when the task has never been sent to IClass. */
   iclassOrderCode: string | null;
+
+  /** Task kind — discriminates between customer tasks and network-node tasks. */
+  kind: 'customer' | 'network';
+
+  /** Network site id — populated when kind === 'network'. */
+  networkSiteId: string | null;
+
+  /** Network site display name (JOIN-derived) — populated when kind === 'network'. */
+  networkSiteName: string | null;
 
   /** Originating ticket id — set when the task was created from a ticket.
    *  Populated by the enriched GET /scheduling/:id DTO (tickets-actions-be).

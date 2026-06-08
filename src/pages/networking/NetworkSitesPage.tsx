@@ -57,6 +57,7 @@ function AddSiteModal({ onClose, onSubmit }: AddSiteModalProps) {
   const [type, setType] = useState<NetworkSite['type']>('nodo');
   const [uplink, setUplink] = useState('');
   const [description, setDescription] = useState('');
+  const [iclassNodeCode, setIclassNodeCode] = useState('');
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -67,6 +68,7 @@ function AddSiteModal({ onClose, onSubmit }: AddSiteModalProps) {
       deviceCount: 0,
       clientCount: 0,
       parentSiteId: null,
+      iclassNodeCode: iclassNodeCode.trim() || null,
     });
   }
 
@@ -107,6 +109,16 @@ function AddSiteModal({ onClose, onSubmit }: AddSiteModalProps) {
             <label htmlFor="site-description">Descripción</label>
             <input id="site-description" type="text" value={description} onChange={e => setDescription(e.target.value)} />
           </div>
+          <div className={styles.formGroup}>
+            <label htmlFor="site-iclass-node-code">Código IClass</label>
+            <input
+              id="site-iclass-node-code"
+              type="text"
+              value={iclassNodeCode}
+              onChange={e => setIclassNodeCode(e.target.value)}
+              placeholder="Ej: NODO-C-01"
+            />
+          </div>
           <div className={styles.modalActions}>
             <button type="button" className={styles.btnSecondary} onClick={onClose}>Cancelar</button>
             <button type="submit" className={styles.btnPrimary}>Guardar</button>
@@ -131,10 +143,11 @@ function EditSiteModal({ site, onClose, onSubmit }: EditSiteModalProps) {
   const [uplink, setUplink] = useState(site.uplink);
   const [description, setDescription] = useState(site.description);
   const [status, setStatus] = useState<NetworkSite['status']>(site.status);
+  const [iclassNodeCode, setIclassNodeCode] = useState(site.iclassNodeCode ?? '');
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSubmit({ name, address, city, type, uplink, description, status });
+    onSubmit({ name, address, city, type, uplink, description, status, iclassNodeCode: iclassNodeCode.trim() || null });
   }
 
   return (
@@ -181,6 +194,16 @@ function EditSiteModal({ site, onClose, onSubmit }: EditSiteModalProps) {
           <div className={styles.formGroup}>
             <label htmlFor="edit-site-description">Descripción</label>
             <input id="edit-site-description" type="text" value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+          <div className={styles.formGroup}>
+            <label htmlFor="edit-site-iclass-node-code">Código IClass</label>
+            <input
+              id="edit-site-iclass-node-code"
+              type="text"
+              value={iclassNodeCode}
+              onChange={e => setIclassNodeCode(e.target.value)}
+              placeholder="Ej: NODO-C-01"
+            />
           </div>
           <div className={styles.modalActions}>
             <button type="button" className={styles.btnSecondary} onClick={onClose}>Cancelar</button>
