@@ -1,5 +1,22 @@
 import axiosClient from './axios-client';
 
+/** A single pending service order side-effect item with linked task info. */
+export interface ClosurePendingItem {
+  iclassId: string;
+  scheduledTaskId: string | null;
+  commentPosted: boolean;
+  inventoryBuilt: boolean;
+  auditDone: boolean;
+  auditAttempts: number;
+  task: { id: string; sequenceNumber: number; title: string } | null;
+}
+
+/** Response from GET /closure/reprocess/pending-list (200). */
+export interface ClosurePendingList {
+  items: ClosurePendingItem[];
+  total: number;
+}
+
 export interface ClosureBackfillResult {
   mirrored: number;
   transitioned: number;
@@ -30,4 +47,6 @@ export const iclassClosureApi = {
     axiosClient.post<ClosureReprocessQueued>('/admin/iclass/closure/reprocess').then(r => r.data),
   pendingCount: () =>
     axiosClient.get<ClosurePendingCount>('/admin/iclass/closure/reprocess/pending-count').then(r => r.data),
+  pendingList: () =>
+    axiosClient.get<ClosurePendingList>('/admin/iclass/closure/reprocess/pending-list').then(r => r.data),
 };

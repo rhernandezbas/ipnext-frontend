@@ -5,20 +5,36 @@ import { IClassClosureFlagBody } from './IClassClosureFlagBody';
 import { IClassSoTypesCatalogBody } from './IClassSoTypesCatalogBody';
 import { IClassProjectMappingBody } from './IClassProjectMappingBody';
 import { IClassResultCodeMappingBody } from './IClassResultCodeMappingBody';
+import { ClosureProgressTable } from './ClosureProgressTable';
 
 const SUB_TABS = [
-  { id: 'integracion', label: 'Integración',          content: <IClassFlagBody /> },
-  { id: 'catalogo',    label: 'Catálogo',             content: <IClassSoTypesCatalogBody /> },
-  { id: 'mapeo',       label: 'Mapeo de proyectos',   content: <IClassProjectMappingBody /> },
-  { id: 'cierre',      label: 'Cierre de OS',         content: <><IClassClosureFlagBody /><IClassResultCodeMappingBody /></> },
+  { id: 'integracion',   label: 'Integración',        content: <IClassFlagBody /> },
+  { id: 'catalogo',      label: 'Catálogo',           content: <IClassSoTypesCatalogBody /> },
+  { id: 'mapeo',         label: 'Mapeo de proyectos', content: <IClassProjectMappingBody /> },
+  { id: 'mapeo-estado',  label: 'Mapeo de estado',    content: <IClassResultCodeMappingBody /> },
+  {
+    id: 'cierre',
+    label: 'Procesamiento',
+    content: (
+      <>
+        <IClassClosureFlagBody />
+        {/* TODO #30: slot para el control de intervalo de auto-completado */}
+        <ClosureProgressTable />
+      </>
+    ),
+  },
 ];
 
 /**
  * Sub-tab "IClass" del SchedulingSettingsPage. Agrupa la administración de la
- * integración con IClass en cuatro sub-secciones (sub-tabs internas): Integración
- * (feature flag), Catálogo (SO types), Mapeo de proyectos y Cierre de OS. La de
- * "Cierre de OS" unifica todo el flujo de cierre — flag del loop, reconciliar,
- * reprocess, toggle del auditor IA y el mapeo de resultados — en una sola página.
+ * integración con IClass en cinco sub-secciones (sub-tabs internas):
+ * - Integración: feature flag del loop de cierre
+ * - Catálogo: tipos de OS
+ * - Mapeo de proyectos: proyecto ↔ IClass
+ * - Mapeo de estado: mapeo de resultados (IClassResultCodeMappingBody)
+ * - Procesamiento: flag del loop + tabla de side-effects pendientes (ClosureProgressTable)
+ *
+ * El id `cierre` se preserva para compatibilidad con deep-links existentes.
  * Mount lazy: cada sub-body se monta al primer visit y queda persistido para no
  * perder estado local (row status, summary banner, etc.) al alternar.
  */

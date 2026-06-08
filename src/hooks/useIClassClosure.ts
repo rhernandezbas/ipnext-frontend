@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { iclassClosureApi } from '@/api/iclassClosure.api';
-import type { ClosurePendingCount } from '@/api/iclassClosure.api';
+import type { ClosurePendingCount, ClosurePendingList } from '@/api/iclassClosure.api';
 
 /** Run the on-demand closure backfill (reconcile in-flight tasks against IClass). */
 export function useRunClosureBackfill() {
@@ -27,6 +27,23 @@ export function usePendingCount() {
     refetchInterval: (query) => {
       const data = query.state.data;
       if (data && data.pending === 0) return false;
+      return 5000;
+    },
+  });
+}
+
+/**
+ * Polls GET /closure/reprocess/pending-list every 5 s while total > 0.
+ * Stops polling automatically when total reaches 0 (nothing pending).
+ * Mirrors usePendingCount stop-at-empty logic.
+ */
+export function usePendingList() {
+  return useQuery<ClosurePendingList>({
+    queryKey: ['iclassClosure', 'pendingList'],
+    queryFn: iclassClosureApi.pendingList,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data && data.total === 0) return false;
       return 5000;
     },
   });

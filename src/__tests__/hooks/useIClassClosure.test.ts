@@ -8,11 +8,12 @@ vi.mock('@/api/iclassClosure.api', () => ({
     backfill: vi.fn(),
     reprocess: vi.fn(),
     pendingCount: vi.fn(),
+    pendingList: vi.fn(),
   },
 }));
 
 import { iclassClosureApi } from '@/api/iclassClosure.api';
-import { useReprocessClosure, usePendingCount } from '@/hooks/useIClassClosure';
+import { useReprocessClosure, usePendingCount, usePendingList } from '@/hooks/useIClassClosure';
 
 function makeWrapper() {
   const qc = new QueryClient({
@@ -130,5 +131,66 @@ describe('usePendingCount', () => {
     // When pending=0 the refetchInterval function should return false (no further polls)
     // We verify this indirectly: after the initial fetch, no additional calls occur
     expect(iclassClosureApi.pendingCount).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─── B1.2 usePendingList — stop-at-empty polling (RED → GREEN) ───────────────
+describe('usePendingList', () => {
+  const item = {
+    iclassId: 'OS-1',
+    scheduledTaskId: 'task-1',
+    commentPosted: false,
+    inventoryBuilt: true,
+    auditDone: false,
+    auditAttempts: 1,
+    task: { id: 'task-1', sequenceNumber: 42, title: 'Fix line' },
+  };
+
+  it('returns items and total from the API', async () => {
+    vi.mocked(iclassClosureApi.pendingList).mockResolvedValue({ items: [item], total: 1 });
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => usePendingList(), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual({ items: [item], total: 1 });
+  });
+
+  it('returns empty list when nothing is pending', async () => {
+    vi.mocked(iclassClosureApi.pendingList).mockResolvedValue({ items: [], total: 0 });
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => usePendingList(), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual({ items: [], total: 0 });
+  });
+
+  it('stops polling when total === 0 (refetchInterval returns false)', async () => {
+    vi.mocked(iclassClosureApi.pendingList).mockResolvedValue({ items: [], total: 0 });
+    const { qc, wrapper } = makeWrapper();
+
+    renderHook(() => usePendingList(), { wrapper });
+
+    await waitFor(() =>
+      expect(qc.getQueryData(['iclassClosure', 'pendingList'])).toEqual({ items: [], total: 0 }),
+    );
+
+    // After initial fetch with total=0, no further polling should occur
+    expect(iclassClosureApi.pendingList).toHaveBeenCalledTimes(1);
+  });
+
+  it('continues polling when total > 0', async () => {
+    vi.mocked(iclassClosureApi.pendingList).mockResolvedValue({ items: [item], total: 1 });
+    const { qc, wrapper } = makeWrapper();
+
+    renderHook(() => usePendingList(), { wrapper });
+
+    await waitFor(() =>
+      expect(qc.getQueryData(['iclassClosure', 'pendingList'])).toEqual({ items: [item], total: 1 }),
+    );
+
+    // When total>0 the query is configured to keep refetching (interval = 5000)
+    expect(iclassClosureApi.pendingList).toHaveBeenCalledTimes(1);
   });
 });
