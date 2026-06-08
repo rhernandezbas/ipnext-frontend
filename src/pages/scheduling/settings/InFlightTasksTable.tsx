@@ -137,7 +137,14 @@ export function InFlightTasksTable() {
     <div className={styles.wrapper}>
       <div className={styles.header}>
         <div className={styles.headerText}>
-          <h4 className={styles.title}>Órdenes in-flight</h4>
+          <div className={styles.titleRow}>
+            <h4 className={styles.title}>Órdenes in-flight</h4>
+            {items.length > 0 && (
+              <span className={styles.countBadge} data-testid="in-flight-count">
+                <strong className={styles.countNum}>{items.length}</strong> en Registrado en IClass
+              </span>
+            )}
+          </div>
           <p className={styles.subtitle}>
             Tareas enviadas a IClass y a la espera de reconciliar su cierre
           </p>

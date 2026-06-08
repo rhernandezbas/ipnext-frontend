@@ -183,6 +183,51 @@ describe('InFlightTasksTable — empty state', () => {
   });
 });
 
+// Scenario 4: Non-empty list shows correct count (count === items.length)
+// Scenario 5: Empty list shows zero or hides count
+describe('InFlightTasksTable — in-flight count', () => {
+  it('shows the count badge equal to items.length when the list is non-empty', () => {
+    mockInFlight([task1, task2]);
+    mockReconcile();
+    mockBackfill();
+    renderTable();
+
+    const badge = screen.getByTestId('in-flight-count');
+    expect(badge).toHaveTextContent('2');
+    expect(badge).toHaveTextContent(/registrado en iclass/i);
+  });
+
+  it('does not claim a non-zero count when the list is empty (empty state shown)', () => {
+    mockInFlight([]);
+    mockReconcile();
+    mockBackfill();
+    renderTable();
+
+    // No count badge is rendered on empty; the empty state carries the message.
+    expect(screen.queryByTestId('in-flight-count')).not.toBeInTheDocument();
+    expect(screen.getByText(/no hay (os|órdenes).*in-flight/i)).toBeInTheDocument();
+  });
+
+  // Scenario 6: count tracks the rendered list after a refetch with fewer items
+  it('drops the count from N to N-1 when the list refetches with one fewer item', () => {
+    mockInFlight([task1, task2]);
+    mockReconcile();
+    mockBackfill();
+    const { rerender } = renderTable();
+
+    expect(screen.getByTestId('in-flight-count')).toHaveTextContent('2');
+
+    mockInFlight([task1]);
+    rerender(
+      <MemoryRouter>
+        <InFlightTasksTable />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('in-flight-count')).toHaveTextContent('1');
+  });
+});
+
 // Loading state
 describe('InFlightTasksTable — loading', () => {
   it('renders a loading message when isLoading is true', () => {
