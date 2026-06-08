@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Can } from '@/components/auth/Can';
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
-import { useRunClosureBackfill, useReprocessClosure } from '@/hooks/useIClassClosure';
-import type { ClosureBackfillResult, ClosureReprocessResult } from '@/api/iclassClosure.api';
+import { useRunClosureBackfill, useReprocessClosure, usePendingCount } from '@/hooks/useIClassClosure';
+import type { ClosureBackfillResult, ClosureReprocessQueued } from '@/api/iclassClosure.api';
 import styles from './IClassSettings.module.css';
 
 const FLAG_KEY = 'iclass-closure-loop';
@@ -23,7 +23,9 @@ export function IClassClosureFlagBody() {
   const backfill = useRunClosureBackfill();
   const [lastBackfill, setLastBackfill] = useState<ClosureBackfillResult | null>(null);
   const reprocess = useReprocessClosure();
-  const [lastReprocess, setLastReprocess] = useState<ClosureReprocessResult | null>(null);
+  const [lastReprocess, setLastReprocess] = useState<ClosureReprocessQueued | null>(null);
+  const { data: pendingData } = usePendingCount();
+  const pending = pendingData?.pending ?? 0;
   const reprocessFlag = useFeatureFlag(REPROCESS_FLAG_KEY);
   const reprocessEnabled = reprocessFlag.data?.enabled ?? false;
   const auditFlag = useFeatureFlag(AUDIT_FLAG_KEY);
@@ -41,7 +43,8 @@ export function IClassClosureFlagBody() {
 
   async function handleReprocess() {
     try {
-      setLastReprocess(await reprocess.mutateAsync());
+      const result = await reprocess.mutateAsync();
+      setLastReprocess(result);
     } catch {
       // surfaced via reprocess.isError banner
     }
@@ -235,24 +238,40 @@ export function IClassClosureFlagBody() {
               <span className={styles.switchTrack} aria-hidden="true" />
             </label>
           </div>
+          {pending > 0 && (
+            <p className={styles.statusDescription}>
+              Quedan {pending} pendientes
+            </p>
+          )}
           <div className={styles.statusActionRow}>
             <span className={styles.statusActionLabel}>Re-disparar efectos faltantes ahora</span>
-            <button className={styles.btnSecondary} onClick={handleReprocess} disabled={reprocess.isPending || !reprocessEnabled}>
+            <button
+              className={styles.btnSecondary}
+              onClick={handleReprocess}
+              disabled={reprocess.isPending || !reprocessEnabled || pending > 0}
+            >
               {reprocess.isPending ? 'Reprocesando…' : 'Reprocesar ahora'}
             </button>
           </div>
         </section>
 
-        {lastReprocess && (lastReprocess.skipped ? (
-          <div className={`${styles.banner} ${styles.bannerError}`}>
-            <span><span className={styles.bannerTitle}>El flag de reprocesamiento está apagado.</span> Activá "iclass-closure-reprocess" para re-disparar los efectos.</span>
-          </div>
-        ) : (
+        {lastReprocess && lastReprocess.queued && (
           <div className={`${styles.banner} ${styles.bannerSuccess}`}>
-            <span><span className={styles.bannerTitle}>{lastReprocess.processed} OS reprocesadas.</span>{' '}
-            {lastReprocess.candidates} candidatas · {lastReprocess.noTask} sin tarea vinculada.</span>
+            <span><span className={styles.bannerTitle}>Reprocesamiento encolado.</span> El proceso corre en segundo plano.</span>
           </div>
-        ))}
+        )}
+
+        {lastReprocess && !lastReprocess.queued && lastReprocess.reason === 'already-running' && (
+          <div className={`${styles.banner} ${styles.bannerError}`}>
+            <span><span className={styles.bannerTitle}>Ya hay un reprocesamiento en curso.</span> Esperá a que termine antes de volver a dispararlo.</span>
+          </div>
+        )}
+
+        {lastReprocess && !lastReprocess.queued && lastReprocess.reason === 'flag-disabled' && (
+          <div className={`${styles.banner} ${styles.bannerError}`}>
+            <span><span className={styles.bannerTitle}>Reprocesamiento deshabilitado.</span> Activá "iclass-closure-reprocess" para re-disparar los efectos.</span>
+          </div>
+        )}
 
         {reprocess.isError && (
           <div className={`${styles.banner} ${styles.bannerError}`}>
