@@ -6,6 +6,7 @@ import { IClassSoTypesCatalogBody } from './IClassSoTypesCatalogBody';
 import { IClassProjectMappingBody } from './IClassProjectMappingBody';
 import { IClassResultCodeMappingBody } from './IClassResultCodeMappingBody';
 import { ClosureProgressTable } from './ClosureProgressTable';
+import { ClosureIntervalConfig } from './ClosureIntervalConfig';
 
 const SUB_TABS = [
   { id: 'integracion',   label: 'Integración',        content: <IClassFlagBody /> },
@@ -18,7 +19,7 @@ const SUB_TABS = [
     content: (
       <>
         <IClassClosureFlagBody />
-        {/* TODO #30: slot para el control de intervalo de auto-completado */}
+        <ClosureIntervalConfig />
         <ClosureProgressTable />
       </>
     ),

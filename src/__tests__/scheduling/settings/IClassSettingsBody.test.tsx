@@ -21,6 +21,9 @@ vi.mock('@/pages/scheduling/settings/IClassResultCodeMappingBody', () => ({
 vi.mock('@/pages/scheduling/settings/ClosureProgressTable', () => ({
   ClosureProgressTable: () => <div data-testid="closure-progress-table" />,
 }));
+vi.mock('@/pages/scheduling/settings/ClosureIntervalConfig', () => ({
+  ClosureIntervalConfig: () => <div data-testid="closure-interval-config" />,
+}));
 
 import { IClassSettingsBody } from '@/pages/scheduling/settings/IClassSettingsBody';
 

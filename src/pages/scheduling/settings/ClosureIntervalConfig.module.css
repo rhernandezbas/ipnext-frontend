@@ -1,0 +1,81 @@
+/* ──────────────────────────────────────────────────────────────────────────
+ * ClosureIntervalConfig — local overrides on top of IClassSettings.module.css
+ * Tokens from DESIGN.md; no hardcoded values except semantic colors matched
+ * to the existing settings card palette.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/* Two-column grid for the number inputs */
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+/* Single label + input stack */
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Label style: 12px / 500 / uppercase — matches DESIGN.md form convention */
+.label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Number input: same height and border as the select control in IClassSettings */
+.numberInput {
+  height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  width: 100%;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  /* Suppress the browser spin arrows — keep numeric keyboard on mobile */
+  appearance: textfield;
+}
+
+.numberInput::-webkit-inner-spin-button,
+.numberInput::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.numberInput:hover {
+  border-color: var(--color-gray-300);
+}
+
+.numberInput:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+
+.numberInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Action row: keep the statusActionRow border-top, but align note left + button right */
+.actionRow {
+  align-items: center;
+}
+
+/* "Restart required" helper note — amber tint; distinct from statusDescription */
+.restartNote {
+  font-size: var(--font-size-xs);
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: var(--radius-sm);
+  padding: 4px var(--space-2);
+  margin: 0;
+  line-height: 1.4;
+}

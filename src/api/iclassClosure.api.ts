@@ -40,6 +40,12 @@ export interface ClosurePendingCount {
   pending: number;
 }
 
+/** Response/body for GET and PUT /closure/config (intervals in milliseconds). */
+export interface ClosureConfig {
+  closureIntervalMs: number;
+  autocompleteIntervalMs: number;
+}
+
 export const iclassClosureApi = {
   backfill: () =>
     axiosClient.post<ClosureBackfillResult>('/admin/iclass/closure/backfill').then(r => r.data),
@@ -49,4 +55,8 @@ export const iclassClosureApi = {
     axiosClient.get<ClosurePendingCount>('/admin/iclass/closure/reprocess/pending-count').then(r => r.data),
   pendingList: () =>
     axiosClient.get<ClosurePendingList>('/admin/iclass/closure/reprocess/pending-list').then(r => r.data),
+  getConfig: () =>
+    axiosClient.get<ClosureConfig>('/admin/iclass/closure/config').then(r => r.data),
+  updateConfig: (patch: Partial<ClosureConfig>) =>
+    axiosClient.put<ClosureConfig>('/admin/iclass/closure/config', patch).then(r => r.data),
 };
