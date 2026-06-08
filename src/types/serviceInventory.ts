@@ -54,6 +54,17 @@ export interface TaskMaterialConsumption {
   createdAt: string;
 }
 
+/** Input to create a manual inventory suggestion on a task. */
+export interface CreateManualSuggestionInput {
+  kind: 'DEVICE' | 'MATERIAL';
+  type?: string;
+  serialNumber?: string | null;
+  mac?: string | null;
+  materialDesc?: string | null;
+  quantity?: number | null;
+  unit?: string | null;
+}
+
 /** A staged inventory suggestion on a task (the operator's checkboxes). */
 export interface TaskInventorySuggestion {
   id: string;

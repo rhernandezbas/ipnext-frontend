@@ -6,8 +6,12 @@ import styles from './SuggestionCard.module.css';
 
 const FALLBACK_TYPE = 'OTROS';
 
-const sourceLabel = (s: string): string =>
-  s === 'OCR' ? 'OCR' : s === 'CHECKLIST_TEXT' ? 'texto' : 'IClass';
+const sourceLabel = (s: string): string => {
+  if (s === 'OCR') return 'OCR';
+  if (s === 'MANUAL') return 'Manual';
+  if (s === 'CHECKLIST_TEXT') return 'texto';
+  return 'IClass';
+};
 
 interface Props {
   suggestion: TaskInventorySuggestion;
