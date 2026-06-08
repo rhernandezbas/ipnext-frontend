@@ -41,10 +41,23 @@ export function KanbanCard({ task, isDragging = false }: KanbanCardProps) {
     >
       <span className={styles.cardSeq}>#{task.sequenceNumber}</span>
       <p className={styles.cardTitle}>{task.title}</p>
-      {task.customerName && (
-        <p className={styles.cardCustomer}>{task.customerName}</p>
+      {task.kind === 'network' ? (
+        <p className={styles.cardCustomer}>{task.networkSiteName ?? 'Nodo'}</p>
+      ) : (
+        task.customerName && (
+          <p className={styles.cardCustomer}>{task.customerName}</p>
+        )
       )}
       <div className={styles.cardMeta}>
+        {task.kind === 'network' && (
+          <span
+            className={styles.networkBadge}
+            data-testid="network-badge"
+            aria-label="Tarea de red"
+          >
+            {task.networkSiteName ?? 'RED'}
+          </span>
+        )}
         <PriorityPill priority={task.priority} />
         <AssigneeAvatar name={task.assigneeName} />
       </div>

@@ -11,6 +11,7 @@ import type { CreateTaskPayload } from '@/types/scheduling';
 import { useTaskPriorities } from '@/hooks/useTaskPriorities';
 import { useConfirm } from '@/context/ConfirmContext';
 import { CustomerPicker } from './CustomerPicker';
+import { NodeSelector } from '@/components/NodeSelector';
 import { applyTaskVariables } from '../../lib/taskVariables';
 import styles from './CreateTaskModal.module.css';
 
@@ -85,6 +86,11 @@ function toLocalInputString(date: Date): string {
  * default that doesn't exist.
  */
 export function CreateTaskModal({ projects, workflows, technicians = [], templates = [], onClose, onCreate, loading, initialValues }: Props) {
+  /** Task mode toggle: 'customer' (default) or 'network' (node-based RED task). */
+  const [taskMode, setTaskMode] = useState<'customer' | 'network'>('customer');
+  /** Selected network site id for network tasks. */
+  const [networkSiteId, setNetworkSiteId] = useState<string | null>(null);
+
   const [templateId, setTemplateId] = useState('');
   const [title, setTitle] = useState(initialValues?.title ?? '');
   const [projectId, setProjectId] = useState('');
@@ -178,6 +184,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     description.trim().length > 0 ||
     !!customerId ||
     !!contractId ||
+    !!networkSiteId ||
     assigneeId.length > 0 ||
     startDate.length > 0 ||
     endDate.length > 0 ||
@@ -200,7 +207,15 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     [workflows, selectedProject],
   );
 
-  const canSave = title.trim().length > 0 && !!projectId && !!firstStageId && !!customerId && !!contractId && description.trim().length > 0 && !loading;
+  const canSave =
+    title.trim().length > 0 &&
+    !!projectId &&
+    !!firstStageId &&
+    description.trim().length > 0 &&
+    !loading &&
+    (taskMode === 'customer'
+      ? !!customerId && !!contractId
+      : !!networkSiteId);
 
   function applyTemplate(id: string) {
     setTemplateId(id);
@@ -246,16 +261,13 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     const finalTitle = applyTaskVariables(title.trim(), vars);
     const finalDescription = description.trim() ? applyTaskVariables(description.trim(), vars) : null;
     try {
-      const payload: CreateTaskPayload = {
+      const basePayload = {
         title: finalTitle,
         projectId,
         stageId: firstStageId,
         priority,
         category,
         estimatedHours,
-        customerId: customerId || null,
-        customerName: customerName || null,
-        contractId: contractId || null,
         assigneeId: assigneeId || null,
         description: finalDescription,
         startDate: toIso(startDate),
@@ -263,6 +275,25 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
         address: address.trim() || null,
         notes: notes.trim() || null,
       };
+
+      const payload: CreateTaskPayload =
+        taskMode === 'network'
+          ? {
+              ...basePayload,
+              kind: 'network',
+              networkSiteId: networkSiteId || null,
+              customerId: null,
+              customerName: null,
+              contractId: null,
+            }
+          : {
+              ...basePayload,
+              kind: 'customer',
+              customerId: customerId || null,
+              customerName: customerName || null,
+              contractId: contractId || null,
+            };
+
       // Append ticketId ONLY when present so the payload stays clean for the
       // normal create flow (BE-graceful until tickets-actions-be ships).
       if (initialValues?.ticketId != null) {
@@ -282,7 +313,31 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   return (
     <div className={styles.overlay} data-testid="create-task-overlay" onClick={() => void handleBackdropClick()}>
       <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Nueva tarea" onClick={e => e.stopPropagation()}>
-        <h2 className={styles.title}>Nueva tarea</h2>
+        <div className={styles.modalHeader}>
+          <h2 className={styles.title}>Nueva tarea</h2>
+          {/* RED mode toggle — segmented control, customer ↔ nodo */}
+          <div className={styles.modeToggle} role="group" aria-label="Tipo de tarea">
+            <button
+              type="button"
+              className={styles.modeBtn}
+              data-active={taskMode === 'customer' ? 'true' : 'false'}
+              onClick={() => setTaskMode('customer')}
+              aria-pressed={taskMode === 'customer'}
+            >
+              Cliente
+            </button>
+            <button
+              type="button"
+              className={styles.modeBtn}
+              data-active={taskMode === 'network' ? 'true' : 'false'}
+              data-variant="network"
+              onClick={() => setTaskMode('network')}
+              aria-pressed={taskMode === 'network'}
+            >
+              Nodo RED
+            </button>
+          </div>
+        </div>
 
         {error && <p className={styles.error}>{error}</p>}
 
@@ -311,37 +366,46 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
           />
         </label>
 
-        <div className={styles.label}>
-          <span>Cliente <span className={styles.required} aria-hidden="true">*</span></span>
-          <CustomerPicker
-            value={customerId}
-            valueName={customerName}
-            onChange={(id, name) => { setCustomerId(id); setCustomerName(name); }}
-          />
-        </div>
+        {taskMode === 'customer' ? (
+          <>
+            <div className={styles.label}>
+              <span>Cliente <span className={styles.required} aria-hidden="true">*</span></span>
+              <CustomerPicker
+                value={customerId}
+                valueName={customerName}
+                onChange={(id, name) => { setCustomerId(id); setCustomerName(name); }}
+              />
+            </div>
 
-        {customerId && (
-          <label className={styles.label}>
-            <span>Contrato <span className={styles.required} aria-hidden="true">*</span></span>
-            <select
-              className={styles.select}
-              value={contractId ?? ''}
-              onChange={e => setContractId(e.target.value || null)}
-              disabled={contractsLoading || customerContracts.length === 0}
-            >
-              <option value="">
-                {contractsLoading ? '— Cargando contratos… —' : '— Sin contrato —'}
-              </option>
-              {customerContracts.map(s => (
-                <option key={s.id} value={String(s.id)}>
-                  {buildContractLabel(s)}
-                </option>
-              ))}
-            </select>
-            {!contractsLoading && customerContracts.length === 0 && (
-              <span className={styles.hint}>Este cliente no tiene contratos activos. No se puede crear la tarea.</span>
+            {customerId && (
+              <label className={styles.label}>
+                <span>Contrato <span className={styles.required} aria-hidden="true">*</span></span>
+                <select
+                  className={styles.select}
+                  value={contractId ?? ''}
+                  onChange={e => setContractId(e.target.value || null)}
+                  disabled={contractsLoading || customerContracts.length === 0}
+                >
+                  <option value="">
+                    {contractsLoading ? '— Cargando contratos… —' : '— Sin contrato —'}
+                  </option>
+                  {customerContracts.map(s => (
+                    <option key={s.id} value={String(s.id)}>
+                      {buildContractLabel(s)}
+                    </option>
+                  ))}
+                </select>
+                {!contractsLoading && customerContracts.length === 0 && (
+                  <span className={styles.hint}>Este cliente no tiene contratos activos. No se puede crear la tarea.</span>
+                )}
+              </label>
             )}
-          </label>
+          </>
+        ) : (
+          <div className={styles.label}>
+            <span>Nodo de red <span className={styles.required} aria-hidden="true">*</span></span>
+            <NodeSelector value={networkSiteId} onChange={setNetworkSiteId} />
+          </div>
         )}
 
         <label className={styles.label}>

@@ -58,6 +58,29 @@
 .priorityPill[data-priority="high"]   { background: var(--pill-high-bg);   color: var(--pill-high-fg); }
 .priorityPill[data-priority="urgent"] { background: var(--pill-urgent-bg); color: var(--pill-urgent-fg); }
 
+/* ── RED / Network badge (table title column) ────────────────────────────────
+ * Same visual system as KanbanCard.networkBadge.
+ * Inline, after the title link, vertically aligned.
+ */
+.networkBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  background: oklch(95.5% .08 25);
+  color: oklch(38% .2 25);
+  border: 1px solid oklch(88% .12 25);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.4;
+  flex-shrink: 0;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
 /* Pagination */
 .pagination {
   display: flex;

@@ -11,4 +11,6 @@ export interface NetworkSite {
   uplink: string;
   parentSiteId: string | null;
   description: string;
+  /** IClass mapping code — used by the IClass integration to identify this node. */
+  iclassNodeCode: string | null;
 }

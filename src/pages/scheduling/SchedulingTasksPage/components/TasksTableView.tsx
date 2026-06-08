@@ -411,6 +411,15 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
               Cerrada
             </span>
           )}
+          {t.kind === 'network' && (
+            <span
+              className={styles.networkBadge}
+              data-testid="network-badge"
+              aria-label="Tarea de red"
+            >
+              RED
+            </span>
+          )}
         </span>
       ) },
     { label: 'Estado',    key: 'stageCategory',  sortable: false,
