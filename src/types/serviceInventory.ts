@@ -20,6 +20,28 @@ export interface ServiceInstalledItem {
   createdAt: string;
 }
 
+/**
+ * A physical device installed on one of a client's contracts, decorated with
+ * the contract context needed to group it (EPIC #38 W2). Aggregated, read-only:
+ * returned by `GET /api/clients/:clientId/equipment`. Distinct from
+ * `ServiceInstalledItem` (per-contract, mutable) — this view spans all contracts.
+ */
+export interface ClientInstalledItem {
+  id: string;
+  type: InstalledItemType;
+  serialNumber: string | null;
+  mac: string | null;
+  model: string | null;
+  status: InstalledItemStatus;
+  source: string;
+  confirmedAt: string | null;
+  assetId: string | null;
+  // contract context (for grouping)
+  contractId: string;
+  contractPlan: string;
+  contractType: string;
+}
+
 export interface AddInstalledItemInput {
   type: InstalledItemType;
   serialNumber?: string;

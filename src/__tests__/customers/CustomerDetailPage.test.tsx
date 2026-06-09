@@ -12,6 +12,13 @@ import type { Customer } from '@/types/customer';
 vi.mock('@/hooks/useCustomers');
 vi.mock('@/hooks/useScheduling');
 vi.mock('@/hooks/useTickets');
+// The "Equipos" tab queries client equipment — stub the hook so the tab renders
+// without a live request.
+vi.mock('@/hooks/useServiceInventory', () => ({
+  useClientInstalledItems: vi.fn(() => ({ data: [], isLoading: false })),
+}));
+
+import { useCan } from '@/hooks/useMyPermissions';
 
 function makeQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -195,6 +202,23 @@ describe('CustomerDetailPage', () => {
     expect(screen.getByRole('tab', { name: 'Documentos' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Archivos' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Logs' })).toBeInTheDocument();
+  });
+
+  it('renders the "Equipos" tab for users with inventory.read', () => {
+    vi.mocked(useCan).mockReturnValue(true);
+    renderDetail();
+    expect(screen.getByRole('tab', { name: 'Equipos' })).toBeInTheDocument();
+  });
+
+  it('hides the "Equipos" tab when the user lacks inventory.read', () => {
+    // Deny ONLY inventory.read; everything else stays permissive so the rest
+    // of the page still renders.
+    vi.mocked(useCan).mockImplementation((perm?: string | string[]) => {
+      const perms = Array.isArray(perm) ? perm : perm ? [perm] : [];
+      return !perms.includes('inventory.read');
+    });
+    renderDetail();
+    expect(screen.queryByRole('tab', { name: 'Equipos' })).not.toBeInTheDocument();
   });
 
   it('renders Actividad tab button', () => {

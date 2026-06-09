@@ -4,6 +4,7 @@ import { Tabs } from '../../components/molecules/Tabs/Tabs';
 import { ConfirmModal } from '../../components/molecules/ConfirmModal/ConfirmModal';
 import { Button } from '../../components/atoms/Button/Button';
 import { Can } from '../../components/auth/Can';
+import { useCan } from '../../hooks/useMyPermissions';
 import { useClientDetail, useToggleClientStatus, useDeleteCustomer } from '../../hooks/useCustomers';
 import { useTasksByCustomer } from '../../hooks/useScheduling';
 import { useTicketsByCustomer } from '../../hooks/useTickets';
@@ -16,9 +17,10 @@ import { FilesTab } from './tabs/FilesTab';
 import { LogsTab } from './tabs/LogsTab';
 import { ActivityTab } from './tabs/ActivityTab';
 import { CommentsTab } from './tabs/CommentsTab';
+import { ClientEquipmentTab } from './tabs/ClientEquipmentTab';
 import styles from './CustomerDetailPage.module.css';
 
-const TAB_IDS = ['information', 'contracts', 'billing', 'statistics', 'documents', 'files', 'logs', 'actividad', 'comentarios'];
+const TAB_IDS = ['information', 'contracts', 'billing', 'statistics', 'documents', 'files', 'logs', 'equipos', 'actividad', 'comentarios'];
 const HASH_ALIASES: Record<string, string> = { services: 'contracts' };
 
 function formatBalance(b: number | undefined | null) {
@@ -69,6 +71,7 @@ export default function CustomerDetailPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [accionesOpen]);
 
+  const canViewEquipment = useCan('inventory.read');
   const { data: customer, isLoading } = useClientDetail(id);
   const toggleStatus = useToggleClientStatus();
   const deleteCustomer = useDeleteCustomer();
@@ -127,6 +130,17 @@ export default function CustomerDetailPage() {
       label: 'Logs',
       content: <LogsTab clientId={String(id)} active={activatedTabs.current.has('logs')} />,
     },
+    ...(canViewEquipment
+      ? [
+          {
+            id: 'equipos',
+            label: 'Equipos',
+            content: (
+              <ClientEquipmentTab clientId={String(id)} active={activatedTabs.current.has('equipos')} />
+            ),
+          },
+        ]
+      : []),
     {
       id: 'actividad',
       label: 'Actividad',
