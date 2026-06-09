@@ -1,6 +1,7 @@
 import axiosClient from './axios-client';
 import type {
   ServiceInstalledItem,
+  ClientInstalledItem,
   AddInstalledItemInput,
   UpdateInstalledItemInput,
   TaskInventorySuggestion,
@@ -12,6 +13,13 @@ import type {
 // ── Contract installed items ────────────────────────────────────────────────
 export const listServiceInstalledItems = (contractId: string) =>
   axiosClient.get<ServiceInstalledItem[]>(`/contracts/${contractId}/inventory`).then(r => r.data);
+
+// ── Client-wide installed items (aggregated across contracts) ────────────────
+// BE wraps the array in `{ items: [...] }`; tolerate a bare array too.
+export const listClientEquipment = (clientId: string) =>
+  axiosClient
+    .get<ClientInstalledItem[] | { items: ClientInstalledItem[] }>(`/clients/${clientId}/equipment`)
+    .then(r => (Array.isArray(r.data) ? r.data : r.data.items ?? []));
 
 export const addInstalledItem = (contractId: string, input: AddInstalledItemInput) =>
   axiosClient.post<ServiceInstalledItem>(`/contracts/${contractId}/inventory`, input).then(r => r.data);

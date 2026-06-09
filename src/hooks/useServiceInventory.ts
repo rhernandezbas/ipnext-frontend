@@ -4,6 +4,30 @@ import type { AddInstalledItemInput, UpdateInstalledItemInput, InstalledItemType
 
 const itemsKey = (serviceId: string) => ['service-inventory', serviceId];
 const suggestionsKey = (taskId: string) => ['task-inventory-suggestions', taskId];
+const clientEquipmentKey = (clientId: string) => ['client-equipment', clientId];
+
+// ── Client-wide installed items (aggregated across contracts) ────────────────
+/**
+ * All equipment installed across a client's contracts (EPIC #38 W2), read-only.
+ * GC-7: if the BE route is not yet deployed (404), degrade to an empty list so
+ * the "Equipos" tab shows its empty state instead of an error. Other errors
+ * propagate as `isError`.
+ */
+export function useClientInstalledItems(clientId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: clientEquipmentKey(clientId ?? ''),
+    queryFn: async () => {
+      try {
+        return await api.listClientEquipment(clientId!);
+      } catch (err: unknown) {
+        const status = (err as { response?: { status?: number } }).response?.status;
+        if (status === 404) return [];
+        throw err;
+      }
+    },
+    enabled: !!clientId && enabled,
+  });
+}
 
 // ── Contract installed items ────────────────────────────────────────────────
 export function useServiceInstalledItems(serviceId: string | undefined, enabled = true) {
