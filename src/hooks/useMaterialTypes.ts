@@ -18,7 +18,7 @@ export function useCreateMaterialType() {
 export function useUpdateMaterialType() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name?: string; label?: string | null; unit?: string | null; active?: boolean; sortOrder?: number } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; label?: string | null; unit?: string | null; active?: boolean; sortOrder?: number; minStock?: number } }) =>
       materialTypesApi.update(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });

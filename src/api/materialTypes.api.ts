@@ -5,9 +5,9 @@ const BASE = '/inventory/material-types';
 
 export const materialTypesApi = {
   list: () => axiosClient.get<MaterialType[]>(BASE).then(r => r.data),
-  create: (data: { name: string; label?: string | null; unit?: string | null; active?: boolean; sortOrder?: number }) =>
+  create: (data: { name: string; label?: string | null; unit?: string | null; active?: boolean; sortOrder?: number; minStock?: number }) =>
     axiosClient.post<MaterialType>(BASE, data).then(r => r.data),
-  update: (id: string, data: { name?: string; label?: string | null; unit?: string | null; active?: boolean; sortOrder?: number }) =>
+  update: (id: string, data: { name?: string; label?: string | null; unit?: string | null; active?: boolean; sortOrder?: number; minStock?: number }) =>
     axiosClient.put<MaterialType>(`${BASE}/${id}`, data).then(r => r.data),
   delete: (id: string) => axiosClient.delete(`${BASE}/${id}`),
 };

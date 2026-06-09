@@ -14,7 +14,7 @@ interface ModalProps {
   initial?: MaterialType;
   nextSortOrder: number;
   onClose: () => void;
-  onSave: (data: { name: string; label: string | null; unit: string | null; active: boolean; sortOrder: number }) => Promise<void>;
+  onSave: (data: { name: string; label: string | null; unit: string | null; active: boolean; sortOrder: number; minStock: number }) => Promise<void>;
   loading: boolean;
 }
 
@@ -24,6 +24,7 @@ function MaterialModal({ initial, nextSortOrder, onClose, onSave, loading }: Mod
   const [unit, setUnit] = useState(initial?.unit ?? '');
   const [active, setActive] = useState(initial?.active ?? true);
   const [sortOrder, setSortOrder] = useState(initial?.sortOrder ?? nextSortOrder);
+  const [minStock, setMinStock] = useState(initial?.minStock ?? 0);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSave() {
@@ -35,6 +36,7 @@ function MaterialModal({ initial, nextSortOrder, onClose, onSave, loading }: Mod
         unit: unit.trim() || null,
         active,
         sortOrder: Number(sortOrder),
+        minStock: Number(minStock),
       });
       onClose();
     } catch (err: unknown) {
@@ -91,6 +93,18 @@ function MaterialModal({ initial, nextSortOrder, onClose, onSave, loading }: Mod
             onChange={e => setSortOrder(Number(e.target.value))}
           />
         </label>
+        <Can permission="inventory.manage">
+          <label className={styles.label}>
+            Stock mínimo
+            <input
+              className={styles.input}
+              type="number"
+              min={0}
+              value={minStock}
+              onChange={e => setMinStock(Number(e.target.value))}
+            />
+          </label>
+        </Can>
         <label className={styles.checkboxLabel}>
           <input
             type="checkbox"
@@ -123,11 +137,11 @@ export function MaterialsBody() {
 
   const nextSortOrder = materialTypes.reduce((max, mt) => Math.max(max, mt.sortOrder), 0) + 1;
 
-  async function handleCreate(data: { name: string; label: string | null; unit: string | null; active: boolean; sortOrder: number }) {
+  async function handleCreate(data: { name: string; label: string | null; unit: string | null; active: boolean; sortOrder: number; minStock: number }) {
     await createMutation.mutateAsync(data);
   }
 
-  async function handleEdit(data: { name: string; label: string | null; unit: string | null; active: boolean; sortOrder: number }) {
+  async function handleEdit(data: { name: string; label: string | null; unit: string | null; active: boolean; sortOrder: number; minStock: number }) {
     if (!editing) return;
     await updateMutation.mutateAsync({ id: editing.id, data });
     setEditing(null);
@@ -171,6 +185,7 @@ export function MaterialsBody() {
                 <th>Unidad</th>
                 <th>Activo</th>
                 <th>Orden</th>
+                <th>Stock mín.</th>
                 <th></th>
               </tr>
             </thead>
@@ -182,6 +197,7 @@ export function MaterialsBody() {
                   <td className={styles.desc}>{mt.unit ?? '—'}</td>
                   <td>{mt.active ? 'Sí' : 'No'}</td>
                   <td className={styles.desc}>{mt.sortOrder}</td>
+                  <td className={styles.desc}>{mt.minStock}</td>
                   <td className={styles.actions}>
                     <Can permission="inventory.manage">
                       <button className={styles.linkBtn} onClick={() => setEditing(mt)}>Editar</button>
