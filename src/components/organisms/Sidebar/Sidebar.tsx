@@ -150,6 +150,7 @@ const EMPRESA_ITEMS: NavParentItem[] = [
       { to: '/admin/inventory/supply', label: 'Suministro' },
       { to: '/admin/inventory/returns', label: 'Devoluciones' },
       { to: '/admin/inventory/deductions', label: 'Descuentos pendientes' },
+      { to: '/admin/inventory/settings#camionetas', label: 'Camionetas' },
       { to: '/admin/inventory/settings', label: 'Configuración' },
     ],
   },
