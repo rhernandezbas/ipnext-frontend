@@ -5,6 +5,7 @@ export interface MaterialType {
   unit: string | null;
   active: boolean;
   sortOrder: number;
+  minStock: number;
   createdAt: string;
   updatedAt: string;
 }

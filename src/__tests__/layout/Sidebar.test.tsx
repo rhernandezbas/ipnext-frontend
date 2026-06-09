@@ -72,15 +72,16 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: /rate tables/i })).toBeInTheDocument();
   });
 
-  it('Inventario has Dashboard, Artículos, Productos sub-items', () => {
+  it('Inventario has Dashboard sub-item (World A retired: no Artículos/Productos/Suministro)', () => {
     renderSidebar('/admin/inventory/dashboard');
-    expect(screen.getByRole('link', { name: /artículos/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /productos/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^dashboard$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /artículos/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /productos/i })).not.toBeInTheDocument();
   });
 
-  it('Inventario has Suministro sub-item', () => {
+  it('Inventario does not have Suministro sub-item (World A retired)', () => {
     renderSidebar('/admin/inventory/dashboard');
-    expect(screen.getByRole('link', { name: /suministro/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /suministro/i })).not.toBeInTheDocument();
   });
 
   it('EMPRESA renders Gestión de red as independent collapsible', () => {

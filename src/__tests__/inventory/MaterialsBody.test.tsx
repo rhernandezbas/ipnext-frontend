@@ -26,6 +26,7 @@ const mockMT = (over: Partial<MaterialType> = {}): MaterialType => ({
   unit: 'm',
   active: true,
   sortOrder: 1,
+  minStock: 0,
   createdAt: '2026-06-01T00:00:00.000Z',
   updatedAt: '2026-06-01T00:00:00.000Z',
   ...over,
@@ -58,7 +59,7 @@ describe('MaterialsBody', () => {
     vi.mocked(useConfirm).mockReturnValue(vi.fn().mockResolvedValue(true));
   });
 
-  it('renders table with Nombre/Etiqueta/Unidad/Activo/Orden columns', () => {
+  it('renders table with Nombre/Etiqueta/Unidad/Activo/Orden/Stock mín. columns', () => {
     mockHooks();
     render(<MaterialsBody />);
     expect(screen.getByText('Nombre')).toBeInTheDocument();
@@ -66,6 +67,13 @@ describe('MaterialsBody', () => {
     expect(screen.getByText('Unidad')).toBeInTheDocument();
     expect(screen.getByText('Activo')).toBeInTheDocument();
     expect(screen.getByText('Orden')).toBeInTheDocument();
+    expect(screen.getByText('Stock mín.')).toBeInTheDocument();
+  });
+
+  it('shows minStock value in table row', () => {
+    mockHooks({ data: [mockMT({ minStock: 10 })] });
+    render(<MaterialsBody />);
+    expect(screen.getByText('10')).toBeInTheDocument();
   });
 
   it('renders a row for each material type', () => {

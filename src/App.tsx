@@ -60,7 +60,6 @@ const NotFoundPage = lazy(() =>
 );
 
 const GestionRedPage = lazy(() => import('@/pages/networking/GestionRedPage'));
-const InventoryLegacyPage = lazy(() => import('@/pages/inventory/InventoryLegacyPage'));
 const VoiceLegacyPage = lazy(() => import('@/pages/voice/VoiceLegacyPage'));
 const TariffsPage = lazy(() => import('@/pages/tariffs/TariffsPage'));
 const NetworkSitesPage = lazy(() => import('@/pages/networking/NetworkSitesPage'));
@@ -128,9 +127,6 @@ const ReconcileInFlightPage = lazy(() =>
 // Route ordering is no longer load-bearing — RR6 ranking handles tasks vs tasks/:id automatically.
 const SchedulingTasksPage = lazy(() => import('@/pages/scheduling/SchedulingTasksPage'));
 const InventoryDashboardPage = lazy(() => import('@/pages/inventory/InventoryDashboardPage'));
-const InventoryItemsPage = lazy(() => import('@/pages/inventory/InventoryItemsPage'));
-const InventoryProductsPage = lazy(() => import('@/pages/inventory/InventoryProductsPage'));
-const InventorySupplyPage = lazy(() => import('@/pages/inventory/InventorySupplyPage'));
 const InventorySettingsPage = lazy(() => import('@/pages/inventory/InventorySettingsPage'));
 const InventoryDepotPage = lazy(() => import('@/pages/inventory/InventoryDepotPage'));
 const InventoryTechnicianPage = lazy(() => import('@/pages/inventory/InventoryTechnicianPage'));
@@ -274,16 +270,12 @@ export function App() {
 
               {/* ── Inventory (inventory.read) ─────────────────────────────── */}
               <Route path="inventory">
-                <Route path="list" element={<RequirePermission permission="inventory.read"><InventoryLegacyPage /></RequirePermission>} />
                 <Route path="dashboard" element={<RequirePermission permission="inventory.read"><InventoryDashboardPage /></RequirePermission>} />
-                <Route path="items" element={<RequirePermission permission="inventory.read"><InventoryItemsPage /></RequirePermission>} />
-                <Route path="products" element={<RequirePermission permission="inventory.read"><InventoryProductsPage /></RequirePermission>} />
                 <Route path="depot" element={<RequirePermission permission="inventory.read"><InventoryDepotPage /></RequirePermission>} />
                 <Route path="technicians/:id" element={<RequirePermission permission="inventory.read"><InventoryTechnicianPage /></RequirePermission>} />
                 <Route path="vehicles/:id" element={<RequirePermission permission="inventory.read"><InventoryVehiclePage /></RequirePermission>} />
                 <Route path="returns" element={<RequirePermission permission="inventory.read"><InventoryReturnsPendingPage /></RequirePermission>} />
                 <Route path="deductions" element={<RequirePermission permission="inventory.read"><InventoryDeductionsPendingPage /></RequirePermission>} />
-                <Route path="supply" element={<RequirePermission permission="inventory.read"><InventorySupplyPage /></RequirePermission>} />
                 <Route path="settings" element={<RequirePermission permission="inventory.read"><InventorySettingsPage /></RequirePermission>} />
               </Route>
 

@@ -238,21 +238,9 @@ vi.mock('@/pages/tariffs/TarifasHuaweiGroupsPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:TarifasHuaweiGroups]'),
 }));
 
-// Inventory
-vi.mock('@/pages/inventory/InventoryLegacyPage', () => ({
-  default: () => React.createElement('div', null, '[PAGE:Inventario]'),
-}));
+// Inventory (World A retired: InventoryLegacyPage/Items/Products/Supply deleted)
 vi.mock('@/pages/inventory/InventoryDashboardPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:InventoryDashboard]'),
-}));
-vi.mock('@/pages/inventory/InventoryItemsPage', () => ({
-  default: () => React.createElement('div', null, '[PAGE:InventoryItems]'),
-}));
-vi.mock('@/pages/inventory/InventoryProductsPage', () => ({
-  default: () => React.createElement('div', null, '[PAGE:InventoryProducts]'),
-}));
-vi.mock('@/pages/inventory/InventorySupplyPage', () => ({
-  default: () => React.createElement('div', null, '[PAGE:InventorySupply]'),
 }));
 
 // Voice
@@ -445,12 +433,8 @@ const directCases: Array<{ url: string; marker: string }> = [
   { url: '/admin/tariffs/one-time', marker: '[PAGE:TarifasUnico]' },
   { url: '/admin/tariffs/bundles', marker: '[PAGE:TarifasPaquetes]' },
   { url: '/admin/tariffs/huawei-groups', marker: '[PAGE:TarifasHuaweiGroups]' },
-  // Inventory (legacy + new)
-  { url: '/admin/inventory/list', marker: '[PAGE:Inventario]' },
+  // Inventory (World A retired: list/items/products/supply routes removed)
   { url: '/admin/inventory/dashboard', marker: '[PAGE:InventoryDashboard]' },
-  { url: '/admin/inventory/items', marker: '[PAGE:InventoryItems]' },
-  { url: '/admin/inventory/products', marker: '[PAGE:InventoryProducts]' },
-  { url: '/admin/inventory/supply', marker: '[PAGE:InventorySupply]' },
   // Voice
   { url: '/admin/voice', marker: '[PAGE:Voz]' },
   { url: '/admin/voice/categories', marker: '[PAGE:VoiceCategories]' },
