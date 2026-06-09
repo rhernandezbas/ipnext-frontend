@@ -132,6 +132,7 @@ const InventoryItemsPage = lazy(() => import('@/pages/inventory/InventoryItemsPa
 const InventoryProductsPage = lazy(() => import('@/pages/inventory/InventoryProductsPage'));
 const InventorySupplyPage = lazy(() => import('@/pages/inventory/InventorySupplyPage'));
 const InventorySettingsPage = lazy(() => import('@/pages/inventory/InventorySettingsPage'));
+const InventoryDepotPage = lazy(() => import('@/pages/inventory/InventoryDepotPage'));
 const VoiceCategoriesPage = lazy(() => import('@/pages/voice/VoiceCategoriesPage'));
 const VoiceProcessingPage = lazy(() => import('@/pages/voice/VoiceProcessingPage'));
 const VoiceRateTablesPage = lazy(() => import('@/pages/voice/VoiceRateTablesPage'));
@@ -273,6 +274,7 @@ export function App() {
                 <Route path="dashboard" element={<RequirePermission permission="inventory.read"><InventoryDashboardPage /></RequirePermission>} />
                 <Route path="items" element={<RequirePermission permission="inventory.read"><InventoryItemsPage /></RequirePermission>} />
                 <Route path="products" element={<RequirePermission permission="inventory.read"><InventoryProductsPage /></RequirePermission>} />
+                <Route path="depot" element={<RequirePermission permission="inventory.read"><InventoryDepotPage /></RequirePermission>} />
                 <Route path="supply" element={<RequirePermission permission="inventory.read"><InventorySupplyPage /></RequirePermission>} />
                 <Route path="settings" element={<RequirePermission permission="inventory.read"><InventorySettingsPage /></RequirePermission>} />
               </Route>
