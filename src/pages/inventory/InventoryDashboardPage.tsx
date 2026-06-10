@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Tabs } from '@/components/molecules/Tabs/Tabs';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import { useInventoryOverview, useInventoryMovements, useInventoryAlerts } from '@/hooks/useInventoryDashboard';
@@ -72,13 +73,27 @@ function ClienteSection({ group }: { group: OverviewGroupDTO }) {
   );
 }
 
-function GenericSection({ group }: { group: OverviewGroupDTO }) {
+/**
+ * Generic section for TECNICO and CAMIONETA groups.
+ *
+ * `linkTo`: destination for the "Ver todos" header link.
+ *   - TECNICO rows link to /admin/inventory/technicians (the list page).
+ *     The OverviewLocationDTO only carries `locationId` (StockLocation id),
+ *     NOT the technician's user id, so we cannot build direct per-technician
+ *     links here. A follow-up BE task is needed to extend OverviewLocationDTO
+ *     with technicianId/vehicleId. Until then, we link to the list.
+ *   - CAMIONETA rows link to /admin/inventory/settings#camionetas (config).
+ */
+function GenericSection({ group, linkTo }: { group: OverviewGroupDTO; linkTo?: string }) {
   const label = TYPE_LABELS[group.type] ?? group.type;
   if (group.locationCount === 0) {
     return (
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <h3 className={styles.sectionTitle}>{label}</h3>
+          {linkTo && (
+            <Link to={linkTo} className={styles.sectionLink}>Ver todos</Link>
+          )}
         </div>
         <p className={styles.emptyMuted}>Sin stock</p>
       </section>
@@ -89,6 +104,9 @@ function GenericSection({ group }: { group: OverviewGroupDTO }) {
       <div className={styles.sectionHeader}>
         <h3 className={styles.sectionTitle}>{label}</h3>
         <span className={styles.sectionMeta}>{group.locationCount} ubicaciones · {group.totalAssets} equipos · {group.totalMaterialQty} materiales</span>
+        {linkTo && (
+          <Link to={linkTo} className={styles.sectionLink}>Ver todos</Link>
+        )}
       </div>
       <div className={styles.locationList}>
         {group.locations.map(loc => (
@@ -114,8 +132,12 @@ function UbicacionesTab({ overview }: { overview: InventoryOverviewDTO }) {
     <div className={styles.tabContent}>
       {deposito && <DepositoSection group={deposito} />}
       {cliente && <ClienteSection group={cliente} />}
-      {tecnico && <GenericSection group={tecnico} />}
-      {camioneta && <GenericSection group={camioneta} />}
+      {/* TECNICO: OverviewLocationDTO lacks technicianId — link to list, not per-id.
+          Follow-up BE task needed to extend DTO with technicianId. */}
+      {tecnico && <GenericSection group={tecnico} linkTo="/admin/inventory/technicians" />}
+      {/* CAMIONETA: similarly no vehicleId in DTO — link to settings#camionetas.
+          Follow-up BE task needed to extend DTO with vehicleId. */}
+      {camioneta && <GenericSection group={camioneta} linkTo="/admin/inventory/settings#camionetas" />}
     </div>
   );
 }

@@ -129,6 +129,8 @@ const SchedulingTasksPage = lazy(() => import('@/pages/scheduling/SchedulingTask
 const InventoryDashboardPage = lazy(() => import('@/pages/inventory/InventoryDashboardPage'));
 const InventorySettingsPage = lazy(() => import('@/pages/inventory/InventorySettingsPage'));
 const InventoryDepotPage = lazy(() => import('@/pages/inventory/InventoryDepotPage'));
+// InventoryTechniciansPage is the list page (W5b); must be registered BEFORE :id.
+const InventoryTechniciansPage = lazy(() => import('@/pages/inventory/InventoryTechniciansPage'));
 const InventoryTechnicianPage = lazy(() => import('@/pages/inventory/InventoryTechnicianPage'));
 const InventoryVehiclePage = lazy(() => import('@/pages/inventory/InventoryVehiclePage'));
 const InventoryReturnsPendingPage = lazy(() => import('@/pages/inventory/InventoryReturnsPendingPage'));
@@ -272,6 +274,8 @@ export function App() {
               <Route path="inventory">
                 <Route path="dashboard" element={<RequirePermission permission="inventory.read"><InventoryDashboardPage /></RequirePermission>} />
                 <Route path="depot" element={<RequirePermission permission="inventory.read"><InventoryDepotPage /></RequirePermission>} />
+                {/* technicians list (W5b) — MUST come before :id or RR6 won't match the literal */}
+                <Route path="technicians" element={<RequirePermission permission="inventory.read"><InventoryTechniciansPage /></RequirePermission>} />
                 <Route path="technicians/:id" element={<RequirePermission permission="inventory.read"><InventoryTechnicianPage /></RequirePermission>} />
                 <Route path="vehicles/:id" element={<RequirePermission permission="inventory.read"><InventoryVehiclePage /></RequirePermission>} />
                 <Route path="returns" element={<RequirePermission permission="inventory.read"><InventoryReturnsPendingPage /></RequirePermission>} />

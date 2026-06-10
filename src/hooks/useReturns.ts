@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getPendingReturns, confirmReturn, discardReturn } from '@/api/returns.api';
+import { getPendingReturns, confirmReturn, discardReturn, getReturnsByTask } from '@/api/returns.api';
 import type { ConfirmReturnInput } from '@/types/returns';
 
 export const PENDING_RETURNS_QUERY_KEY = ['inventory', 'returns', 'pending'] as const;
@@ -30,6 +30,23 @@ export function useConfirmReturn() {
     mutationFn: ({ id, input }: { id: string; input: ConfirmReturnInput }) =>
       confirmReturn(id, input),
     onSuccess: () => void qc.invalidateQueries({ queryKey: PENDING_RETURNS_QUERY_KEY }),
+  });
+}
+
+/**
+ * Returns staged for a specific task (all statuses).
+ *
+ * GET /api/inventory/returns/by-task/:taskId
+ * Used by the Inventory tab of the task detail page to surface a status pill.
+ * Only fetched when `enabled` is true — the caller gates this on the presence
+ * of an iclassOrderCode (the task went through closure and might have returns).
+ */
+export function useReturnsByTask(taskId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['inventory', 'returns', 'by-task', taskId] as const,
+    queryFn: () => getReturnsByTask(taskId),
+    staleTime: 30_000,
+    enabled: !!taskId && enabled,
   });
 }
 

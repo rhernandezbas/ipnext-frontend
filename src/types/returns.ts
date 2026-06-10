@@ -26,7 +26,7 @@ export interface ReturnSuggestion {
   id: string;
   serviceOrderId: string;
   taskId?: string | null;
-  serialNumber: string;
+  serialNumber: string | null;
   mac?: string | null;
   deviceType?: string | null;
   /** The installed asset this serial matched, or null when it needs review. */
