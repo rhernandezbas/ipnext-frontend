@@ -202,7 +202,7 @@ describe('IClassClosureFlagBody', () => {
     expect(link).toHaveAttribute('href', '/admin/scheduling/iclass/closure/pending');
   });
 
-  it('runs the reprocess when "Reprocesar ahora" is clicked (iclass.manage granted)', () => {
+  it('runs the reprocess when "Reprocesar ahora" is clicked (admin.flags granted)', () => {
     mockFlag(true);
     const mutateAsync = vi.fn().mockResolvedValue({ skipped: false, candidates: 0, processed: 0, noTask: 0 });
     vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, mutateAsync } as never);
@@ -213,9 +213,22 @@ describe('IClassClosureFlagBody', () => {
     expect(mutateAsync).toHaveBeenCalled();
   });
 
-  it('hides the reprocess section without the iclass.manage permission', () => {
+  it('hides the main closure-loop toggle without the admin.flags permission', () => {
     mockFlag(true);
-    mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('iclass.manage'));
+    mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('admin.flags'));
+
+    renderBody();
+
+    expect(screen.queryByRole('checkbox', { name: TOGGLE })).not.toBeInTheDocument();
+    // badge and description still rendered
+    expect(screen.getByText('Activo')).toBeInTheDocument();
+    // reconcile button still accessible (it's not a flag toggle)
+    expect(screen.getByRole('button', { name: /reconciliar ahora/i })).toBeInTheDocument();
+  });
+
+  it('hides the reprocess section without the admin.flags permission', () => {
+    mockFlag(true);
+    mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('admin.flags'));
 
     renderBody();
 
@@ -264,9 +277,9 @@ describe('IClassClosureFlagBody', () => {
     expect(mutate).toHaveBeenCalledWith({ key: AUDIT_FLAG, enabled: true });
   });
 
-  it('hides the audit toggle without the iclass.manage permission', () => {
+  it('hides the audit toggle without the admin.flags permission', () => {
     mockFlag(true);
-    mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('iclass.manage'));
+    mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('admin.flags'));
 
     renderBody();
 
@@ -290,9 +303,9 @@ describe('IClassClosureFlagBody', () => {
     expect(mutate).toHaveBeenCalledWith({ key: AUTOCOMPLETE_FLAG, enabled: true });
   });
 
-  it('hides the autocomplete toggle without the iclass.manage permission', () => {
+  it('hides the autocomplete toggle without the admin.flags permission', () => {
     mockFlag(true);
-    mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('iclass.manage'));
+    mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('admin.flags'));
 
     renderBody();
 

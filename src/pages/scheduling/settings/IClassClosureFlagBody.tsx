@@ -114,21 +114,23 @@ export function IClassClosureFlagBody() {
             : 'El cierre de una OS en IClass no afecta a las tareas locales. Activá para cerrar el loop: las OS cerradas mueven su tarea al estado que mapeaste.'}
         </p>
 
-        <div className={styles.statusActionRow}>
-          <span className={styles.statusActionLabel}>
-            {enabled ? 'Desactivar cierre automático' : 'Activar cierre automático'}
-          </span>
-          <label className={styles.switch}>
-            <input
-              type="checkbox"
-              checked={enabled}
-              disabled={setFlag.isPending}
-              onChange={handleToggle}
-              aria-label="Cierre automático de OS de IClass"
-            />
-            <span className={styles.switchTrack} aria-hidden="true" />
-          </label>
-        </div>
+        <Can permission="admin.flags">
+          <div className={styles.statusActionRow}>
+            <span className={styles.statusActionLabel}>
+              {enabled ? 'Desactivar cierre automático' : 'Activar cierre automático'}
+            </span>
+            <label className={styles.switch}>
+              <input
+                type="checkbox"
+                checked={enabled}
+                disabled={setFlag.isPending}
+                onChange={handleToggle}
+                aria-label="Cierre automático de OS de IClass"
+              />
+              <span className={styles.switchTrack} aria-hidden="true" />
+            </label>
+          </div>
+        </Can>
       </section>
 
       {setFlag.isError && (
@@ -181,7 +183,7 @@ export function IClassClosureFlagBody() {
         </div>
       )}
 
-      <Can permission="iclass.manage">
+      <Can permission="admin.flags">
         <section className={styles.statusCard}>
           <header className={styles.statusHeader}>
             <h2 className={styles.statusTitle}>Auditoría de IA</h2>

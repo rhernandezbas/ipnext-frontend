@@ -37,6 +37,7 @@ vi.mock('@/context/ConfirmContext', () => ({
 }));
 
 import { GestionRealSyncBody } from '@/pages/customers/settings/GestionRealSyncBody';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
 
 // Mutation / setFlag handles reused across tests.
 let mutateSpy: ReturnType<typeof vi.fn>;
@@ -287,5 +288,40 @@ describe('Estado — sync status', () => {
     );
     render(<GestionRealSyncBody />);
     expect(screen.getByText('Nunca')).toBeInTheDocument();
+  });
+});
+
+// ── Permission gate (admin.flags) ────────────────────────────────────────────
+
+describe('GestionRealSyncBody — admin.flags permission gate (sync toggle)', () => {
+  it('hides the sync toggle when user lacks admin.flags, other config still visible', () => {
+    vi.mocked(useMyPermissions).mockReturnValue({
+      permissions: [],
+      roles: [],
+      user: null,
+      isLoading: false,
+      isError: false,
+      can: () => false,
+    } as never);
+
+    render(<GestionRealSyncBody />);
+
+    expect(screen.queryByRole('checkbox', { name: /activar sincronización/i })).not.toBeInTheDocument();
+    // The Guardar button and form fields are still rendered
+    expect(screen.getByRole('button', { name: /guardar/i })).toBeInTheDocument();
+  });
+
+  it('shows the sync toggle when user has admin.flags', () => {
+    vi.mocked(useMyPermissions).mockReturnValue({
+      permissions: ['*'],
+      roles: [],
+      user: null,
+      isLoading: false,
+      isError: false,
+      can: () => true,
+    } as never);
+
+    render(<GestionRealSyncBody />);
+    expect(screen.getByRole('checkbox', { name: /activar sincronización/i })).toBeInTheDocument();
   });
 });
