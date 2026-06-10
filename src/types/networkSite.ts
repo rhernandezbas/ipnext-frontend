@@ -1,3 +1,12 @@
+/** Live UISP info joined from the mirror (batch, no N+1). null = not linked to any UISP site. */
+export interface NetworkSiteUispInfo {
+  status: string;
+  deviceCount: number;
+  outageCount: number;
+  lastSyncAt: string; // ISO string over the wire
+  missingSince: string | null; // ISO string or null
+}
+
 export interface NetworkSite {
   id: string;
   name: string;
@@ -15,4 +24,6 @@ export interface NetworkSite {
   iclassNodeCode: string | null;
   /** Optional link to a UISP mirror site (uispId TEXT). null = not linked. */
   uispSiteId: string | null;
+  /** UISP live info joined from mirror. Present when API returns enriched list. */
+  uisp?: NetworkSiteUispInfo | null;
 }

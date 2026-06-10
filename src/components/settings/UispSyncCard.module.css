@@ -245,6 +245,12 @@
   border: 1px solid #fecaca;
 }
 
+.bannerInfo {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
 .bannerTitle {
   font-weight: var(--font-weight-semibold);
 }

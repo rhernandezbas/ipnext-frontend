@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useNetworkSites, useCreateNetworkSite, useUpdateNetworkSite, useDeleteNetworkSite } from '@/hooks/useNetworkSites';
 import { useUispSites } from '@/hooks/useUispSites';
-import type { NetworkSite } from '@/types/networkSite';
+import type { NetworkSite, NetworkSiteUispInfo } from '@/types/networkSite';
 import { Can } from '@/components/auth/Can';
 import { useCan } from '@/hooks/useMyPermissions';
 import { useConfirm } from '@/context/ConfirmContext';
@@ -251,6 +252,51 @@ function EditSiteModal({ site, onClose, onSubmit, updateError }: EditSiteModalPr
   );
 }
 
+// ── UISP-derived column helpers ─────────────────────────────────────────────
+
+function UispStatusCell({ uisp, siteId }: { uisp: NetworkSiteUispInfo | null | undefined; siteId: string }) {
+  if (!uisp) {
+    return <span data-testid={`uisp-status-${siteId}`}>—</span>;
+  }
+  const cssMap: Record<string, string> = {
+    active: styles.uispBadgeActive,
+    inactive: styles.uispBadgeInactive,
+    unknown: styles.uispBadgeUnknown,
+  };
+  const labelMap: Record<string, string> = {
+    active: 'Activo',
+    inactive: 'Inactivo',
+    unknown: 'Desconocido',
+  };
+  const cls = cssMap[uisp.status] ?? styles.uispBadgeUnknown;
+  const label = labelMap[uisp.status] ?? uisp.status;
+  return (
+    <span data-testid={`uisp-status-${siteId}`} className={`${styles.uispBadge} ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+function UispDevicesCell({ uisp, siteId }: { uisp: NetworkSiteUispInfo | null | undefined; siteId: string }) {
+  if (!uisp) {
+    return <span data-testid={`uisp-devices-${siteId}`}>—</span>;
+  }
+  return (
+    <span data-testid={`uisp-devices-${siteId}`}>
+      {uisp.deviceCount}
+      {uisp.missingSince && (
+        <span
+          data-testid={`uisp-missing-${siteId}`}
+          className={`${styles.uispBadge} ${styles.uispBadgeMissing}`}
+          style={{ marginLeft: '0.4rem' }}
+        >
+          no visto
+        </span>
+      )}
+    </span>
+  );
+}
+
 const columns = [
   { label: 'Nombre', key: 'name' as keyof NetworkSite },
   { label: 'Ciudad', key: 'city' as keyof NetworkSite },
@@ -267,6 +313,31 @@ const columns = [
   { label: 'Dispositivos', key: 'deviceCount' as keyof NetworkSite },
   { label: 'Clientes', key: 'clientCount' as keyof NetworkSite },
   { label: 'Uplink', key: 'uplink' as keyof NetworkSite },
+  {
+    label: 'Estado UISP',
+    key: 'uisp' as keyof NetworkSite,
+    render: (row: NetworkSite) => <UispStatusCell uisp={row.uisp} siteId={row.id} />,
+  },
+  {
+    label: 'Equipos UISP',
+    key: 'uisp' as keyof NetworkSite,
+    render: (row: NetworkSite) => <UispDevicesCell uisp={row.uisp} siteId={row.id} />,
+  },
+  {
+    label: 'Nodo UISP',
+    key: 'uispSiteId' as keyof NetworkSite,
+    render: (row: NetworkSite) =>
+      row.uispSiteId ? (
+        <Link
+          to={`/admin/networking/nodes/${row.uispSiteId}`}
+          className={styles.uispLink}
+        >
+          Ver nodo UISP
+        </Link>
+      ) : (
+        <span data-testid={`uisp-link-${row.id}`}>—</span>
+      ),
+  },
 ];
 
 export default function NetworkSitesPage() {

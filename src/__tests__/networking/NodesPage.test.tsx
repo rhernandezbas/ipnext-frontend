@@ -559,7 +559,7 @@ describe('UispSyncCard', () => {
     expect(dashes.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('shows "already-running" reason when sync returns queued:false', async () => {
+  it('202 queued:true → "Sync encolado correctamente." success message', async () => {
     mockPerms(() => true);
     vi.mocked(useUispSyncStatus).mockReturnValue({
       data: makeSyncStatus(),
@@ -569,7 +569,7 @@ describe('UispSyncCard', () => {
     vi.mocked(useTriggerUispSync).mockReturnValue({
       ...idleMutation,
       isSuccess: true,
-      data: { queued: false, reason: 'already-running' },
+      data: { queued: true },
     } as never);
     vi.mocked(useFeatureFlag).mockReturnValue({
       data: { key: 'uisp-sync', enabled: true },
@@ -578,6 +578,137 @@ describe('UispSyncCard', () => {
 
     render(<UispSyncCard />);
 
-    expect(screen.getByText(/ya está en ejecución/i)).toBeInTheDocument();
+    expect(screen.getByText(/sync encolado correctamente/i)).toBeInTheDocument();
+  });
+
+  // ── 409 UX fix tests (RED → GREEN) ──────────────────────────────────────
+
+  it('409 already-running → amber informative banner (NOT generic error)', () => {
+    mockPerms(() => true);
+    vi.mocked(useUispSyncStatus).mockReturnValue({
+      data: makeSyncStatus(),
+      isLoading: false,
+      isError: false,
+    } as never);
+    const err = Object.assign(new Error('409'), {
+      response: { status: 409, data: { queued: false, reason: 'already-running' } },
+    });
+    vi.mocked(useTriggerUispSync).mockReturnValue({
+      ...idleMutation,
+      isError: true,
+      error: err,
+    } as never);
+    vi.mocked(useFeatureFlag).mockReturnValue({
+      data: { key: 'uisp-sync', enabled: true },
+      isLoading: false, isError: false, isSuccess: true, refetch: vi.fn(),
+    } as never);
+
+    render(<UispSyncCard />);
+
+    // Must show the informative already-running message
+    expect(screen.getByText(/ya hay una sincronización en curso/i)).toBeInTheDocument();
+    // Must NOT show the generic error banner
+    expect(screen.queryByText(/error al disparar el sync/i)).not.toBeInTheDocument();
+  });
+
+  it('409 flag-disabled → informative banner about flag (NOT generic error)', () => {
+    mockPerms(() => true);
+    vi.mocked(useUispSyncStatus).mockReturnValue({
+      data: makeSyncStatus(),
+      isLoading: false,
+      isError: false,
+    } as never);
+    const err = Object.assign(new Error('409'), {
+      response: { status: 409, data: { queued: false, reason: 'flag-disabled' } },
+    });
+    vi.mocked(useTriggerUispSync).mockReturnValue({
+      ...idleMutation,
+      isError: true,
+      error: err,
+    } as never);
+    vi.mocked(useFeatureFlag).mockReturnValue({
+      data: { key: 'uisp-sync', enabled: false },
+      isLoading: false, isError: false, isSuccess: true, refetch: vi.fn(),
+    } as never);
+
+    render(<UispSyncCard />);
+
+    expect(screen.getByText(/sync automático está desactivado/i)).toBeInTheDocument();
+    expect(screen.queryByText(/error al disparar el sync/i)).not.toBeInTheDocument();
+  });
+
+  it('network error (non-409) → generic error banner', () => {
+    mockPerms(() => true);
+    vi.mocked(useUispSyncStatus).mockReturnValue({
+      data: makeSyncStatus(),
+      isLoading: false,
+      isError: false,
+    } as never);
+    const err = Object.assign(new Error('Network Error'), {
+      response: undefined,
+    });
+    vi.mocked(useTriggerUispSync).mockReturnValue({
+      ...idleMutation,
+      isError: true,
+      error: err,
+    } as never);
+    vi.mocked(useFeatureFlag).mockReturnValue({
+      data: { key: 'uisp-sync', enabled: true },
+      isLoading: false, isError: false, isSuccess: true, refetch: vi.fn(),
+    } as never);
+
+    render(<UispSyncCard />);
+
+    expect(screen.getByText(/error al disparar el sync/i)).toBeInTheDocument();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NodesPage 409 UX fix tests
+// ═══════════════════════════════════════════════════════════════════════════
+describe('NodesPage — 409 trigger UX', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPerms(() => true);
+    vi.mocked(useUispSyncStatus).mockReturnValue({
+      data: makeSyncStatus(),
+      isLoading: false,
+      isError: false,
+    } as never);
+    vi.mocked(useUispSites).mockReturnValue({
+      data: { sites: [] },
+      isLoading: false,
+      isError: false,
+    } as never);
+  });
+
+  it('409 already-running → informative banner in NodesPage (NOT generic error)', () => {
+    const err = Object.assign(new Error('409'), {
+      response: { status: 409, data: { queued: false, reason: 'already-running' } },
+    });
+    vi.mocked(useTriggerUispSync).mockReturnValue({
+      ...idleMutation,
+      isError: true,
+      error: err,
+    } as never);
+
+    render(<MemoryRouter><NodesPage /></MemoryRouter>);
+
+    expect(screen.getByText(/ya hay una sincronización en curso/i)).toBeInTheDocument();
+  });
+
+  it('409 flag-disabled → informative banner in NodesPage (NOT generic error)', () => {
+    const err = Object.assign(new Error('409'), {
+      response: { status: 409, data: { queued: false, reason: 'flag-disabled' } },
+    });
+    vi.mocked(useTriggerUispSync).mockReturnValue({
+      ...idleMutation,
+      isError: true,
+      error: err,
+    } as never);
+
+    render(<MemoryRouter><NodesPage /></MemoryRouter>);
+
+    expect(screen.getByText(/sync automático está desactivado/i)).toBeInTheDocument();
   });
 });
