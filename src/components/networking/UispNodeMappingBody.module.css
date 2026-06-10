@@ -196,6 +196,24 @@
   color: var(--color-status-late);
 }
 
+/* === IClass readiness badge ================================================ */
+
+.iclassBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  background: #fef3c7;
+  color: #92400e;
+  white-space: nowrap;
+  cursor: default;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
 /* === Empty state =========================================================== */
 
 .emptyState {
