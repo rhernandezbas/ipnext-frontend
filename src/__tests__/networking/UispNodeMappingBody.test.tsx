@@ -230,7 +230,7 @@ describe('UispNodeMappingBody', () => {
   });
 
   // SCEN-FE-NM-10
-  it('SCEN-FE-NM-10: shows iclassNodeCode or "—" when null', () => {
+  it('SCEN-FE-NM-10: shows iclassNodeCode in editable input or empty when null', () => {
     const sites = [
       makeSite({ id: 's1', name: 'A', iclassNodeCode: 'NODO-01' }),
       makeSite({ id: 's2', name: 'B', iclassNodeCode: null }),
@@ -238,10 +238,12 @@ describe('UispNodeMappingBody', () => {
     setupMocks(sites, []);
     render(<UispNodeMappingBody />);
 
-    expect(screen.getByText('NODO-01')).toBeInTheDocument();
-    // s2 has null code → shows "—"
-    const cells = screen.getAllByText('—');
-    expect(cells.length).toBeGreaterThan(0);
+    // s1 has a code — input shows the value
+    const inputS1 = screen.getByTestId('iclass-code-input-s1') as HTMLInputElement;
+    expect(inputS1.value).toBe('NODO-01');
+    // s2 has null code — input is empty
+    const inputS2 = screen.getByTestId('iclass-code-input-s2') as HTMLInputElement;
+    expect(inputS2.value).toBe('');
   });
 
   // SCEN-FE-NM-11
