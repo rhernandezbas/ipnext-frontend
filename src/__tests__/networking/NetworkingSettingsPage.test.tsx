@@ -25,11 +25,16 @@ vi.mock('@/hooks/useMyPermissions', () => ({
 vi.mock('@/hooks/useUispSites', () => ({
   useUispSites: vi.fn(),
 }));
+vi.mock('@/hooks/useNetworkSites', () => ({
+  useNetworkSites: vi.fn(),
+  usePatchNetworkSite: vi.fn(),
+}));
 
 import { useUispSyncStatus, useTriggerUispSync } from '@/hooks/useUispSyncStatus';
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
 import { useMyPermissions, useCan } from '@/hooks/useMyPermissions';
 import { useUispSites } from '@/hooks/useUispSites';
+import { useNetworkSites, usePatchNetworkSite } from '@/hooks/useNetworkSites';
 import NetworkingSettingsPage from '@/pages/networking/NetworkingSettingsPage';
 
 function setupHooks(permissions: string[] = ['uisp.read']) {
@@ -77,6 +82,19 @@ function setupHooks(permissions: string[] = ['uisp.read']) {
     isLoading: false,
     isError: false,
   } as ReturnType<typeof useUispSites>);
+
+  vi.mocked(useNetworkSites).mockReturnValue({
+    data: [],
+    isLoading: false,
+  } as ReturnType<typeof useNetworkSites>);
+
+  vi.mocked(usePatchNetworkSite).mockReturnValue({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn().mockResolvedValue({}),
+    isPending: false,
+    isError: false,
+    reset: vi.fn(),
+  } as never);
 }
 
 function renderPage() {
@@ -116,7 +134,7 @@ describe('NetworkingSettingsPage', () => {
   it('renders fallback when user lacks uisp.read', () => {
     setupHooks([]);
     renderPage();
-    // Both UISP config and Nodos sections show the no-permission fallback
+    // UISP sync card + mapping body + nodes list — all three Can sections fallback
     const fallbacks = screen.getAllByText(/no tenés permiso/i);
     expect(fallbacks.length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText(/sincronización uisp/i)).not.toBeInTheDocument();
@@ -150,7 +168,7 @@ describe('NetworkingSettingsPage', () => {
   it('renders fallback in nodes section when user lacks uisp.read', () => {
     setupHooks([]);
     renderPage();
-    // Both sections show the no-permission fallback
+    // Three Can sections (UISP card + mapping + nodes list) show the no-permission fallback
     const fallbacks = screen.getAllByText(/no tenés permiso/i);
     expect(fallbacks.length).toBeGreaterThanOrEqual(2);
     // Table should not be present

@@ -1,5 +1,6 @@
 import { Can } from '@/components/auth/Can';
 import { UispSyncCard } from '@/components/settings/UispSyncCard';
+import { UispNodeMappingBody } from '@/components/networking/UispNodeMappingBody';
 import { UispNodesList } from '@/components/networking/UispNodesList';
 import styles from './NetworkingSettingsPage.module.css';
 
@@ -22,6 +23,17 @@ export default function NetworkingSettingsPage() {
         <h2 className={styles.sectionHeading}>UISP</h2>
         <Can permission="uisp.read" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
           <UispSyncCard />
+        </Can>
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionHeading}>Mapeo de nodos</h2>
+        <p className={styles.sectionDescription}>
+          Vinculá cada network site con su nodo de UISP. El auto-import crea y vincula los nuevos
+          automáticamente; acá corregís o vinculás los creados a mano.
+        </p>
+        <Can permission="uisp.read" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
+          <UispNodeMappingBody />
         </Can>
       </section>
 

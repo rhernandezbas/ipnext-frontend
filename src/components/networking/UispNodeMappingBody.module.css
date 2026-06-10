@@ -1,0 +1,223 @@
+/* ── UispNodeMappingBody — catálogo de mapeo NetworkSite ↔ nodo UISP ── */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* === Search input ========================================================== */
+
+.searchInput {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  min-width: 240px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+
+/* === Table ================================================================= */
+
+.tableWrap {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.table thead {
+  background: var(--color-gray-50);
+}
+
+.table th {
+  padding: 11px 14px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-secondary);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.table tbody tr:hover {
+  background: var(--color-surface-hover);
+}
+
+.tableLoading,
+.tableEmpty {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+/* === Name cell ============================================================= */
+
+.nameCell {
+  font-weight: var(--font-weight-medium);
+}
+
+.siteName {
+  color: var(--color-text-primary);
+}
+
+/* === Code cell ============================================================= */
+
+.codeCell {
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* === Select (mapping dropdown) ============================================= */
+
+.select {
+  width: 100%;
+  height: 36px;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface)
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%236c757d' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>")
+    no-repeat right 10px center;
+  appearance: none;
+  font-size: 13.5px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  min-width: 180px;
+}
+
+.select:hover {
+  border-color: var(--color-gray-300);
+}
+
+.select:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+
+.select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.selectUnmapped {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+/* === Status badges ========================================================= */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.statusActive {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.statusInactive {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.statusUnknown {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* === Row status icons ====================================================== */
+
+.rowStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+}
+
+.rowStatusSaving {
+  color: var(--color-text-secondary);
+}
+
+.rowStatusSaved {
+  color: var(--color-company-green);
+  font-weight: var(--font-weight-bold);
+}
+
+.rowStatusError {
+  color: var(--color-status-late);
+}
+
+/* === Empty state =========================================================== */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+}
+
+.emptyStateTitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.emptyStateText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+  max-width: 360px;
+  line-height: 1.55;
+}

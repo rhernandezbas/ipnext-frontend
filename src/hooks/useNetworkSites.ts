@@ -23,6 +23,15 @@ export function useUpdateNetworkSite() {
   });
 }
 
+export function usePatchNetworkSite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<NetworkSite> }) =>
+      api.patchNetworkSite(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['network-sites'] }),
+  });
+}
+
 export function useDeleteNetworkSite() {
   const qc = useQueryClient();
   return useMutation({
