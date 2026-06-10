@@ -153,6 +153,7 @@ const ContractsListPage = lazy(() => import('@/pages/contracts/ContractsListPage
 const ServiceTechnologiesPage = lazy(() => import('@/pages/contracts/ServiceTechnologiesPage'));
 const NodesPage = lazy(() => import('@/pages/networking/NodesPage'));
 const NodeDetailPage = lazy(() => import('@/pages/networking/NodeDetailPage'));
+const NetworkingSettingsPage = lazy(() => import('@/pages/networking/NetworkingSettingsPage'));
 
 export function App() {
   return (
@@ -229,6 +230,7 @@ export function App() {
                 <Route path="topology" element={<RequirePermission permission="network.read"><NetworkTopologyPage /></RequirePermission>} />
                 <Route path="nodes" element={<RequirePermission permission="uisp.read"><NodesPage /></RequirePermission>} />
                 <Route path="nodes/:uispId" element={<RequirePermission permission="uisp.read"><NodeDetailPage /></RequirePermission>} />
+                <Route path="settings" element={<RequirePermission permission="network.read"><NetworkingSettingsPage /></RequirePermission>} />
               </Route>
               {/* ── Scheduling (scheduling.read) ───────────────────────────── */}
               <Route path="scheduling">

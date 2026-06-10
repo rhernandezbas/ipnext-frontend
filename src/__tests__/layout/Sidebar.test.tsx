@@ -146,6 +146,18 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: /topología/i })).toBeInTheDocument();
   });
 
+  it('Gestión de red does NOT have a Nodos sidebar entry (concept moved to config embeds)', () => {
+    renderSidebar('/admin/networking/network-sites');
+    const nodosLink = screen.queryByRole('link', { name: /^nodos$/i });
+    expect(nodosLink).not.toBeInTheDocument();
+  });
+
+  it('Gestión de red has Configuración sub-item linking to /admin/networking/settings', () => {
+    renderSidebar('/admin/networking/settings');
+    const configLink = screen.getByRole('link', { name: 'Configuración', hidden: false });
+    expect(configLink).toHaveAttribute('href', '/admin/networking/settings');
+  });
+
   it('Voz has CDR sub-item', () => {
     renderSidebar('/admin/voice/cdr');
     expect(screen.getByRole('link', { name: /^CDR$/i })).toBeInTheDocument();

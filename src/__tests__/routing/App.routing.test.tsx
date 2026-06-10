@@ -182,6 +182,9 @@ vi.mock('@/pages/gpon/GponPage', () => ({
 vi.mock('@/pages/radius/RadiusSessionsPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:RadiusSessions]'),
 }));
+vi.mock('@/pages/networking/NetworkingSettingsPage', () => ({
+  default: () => React.createElement('div', null, '[PAGE:NetworkingSettings]'),
+}));
 
 // Scheduling
 vi.mock('@/pages/scheduling/SchedulingDashboardPage', () => ({
@@ -414,6 +417,7 @@ const directCases: Array<{ url: string; marker: string }> = [
   { url: '/admin/networking/topology', marker: '[PAGE:NetworkTopology]' },
   { url: '/admin/networking/gpon', marker: '[PAGE:Gpon]' },
   { url: '/admin/networking/radius-sessions', marker: '[PAGE:RadiusSessions]' },
+  { url: '/admin/networking/settings', marker: '[PAGE:NetworkingSettings]' },
   // Scheduling
   { url: '/admin/scheduling/dashboard', marker: '[PAGE:SchedulingDashboard]' },
   { url: '/admin/scheduling/projects', marker: '[PAGE:SchedulingProjects]' },

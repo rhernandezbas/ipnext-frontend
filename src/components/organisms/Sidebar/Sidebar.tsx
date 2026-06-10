@@ -123,7 +123,7 @@ const EMPRESA_ITEMS: NavParentItem[] = [
       { to: '/admin/networking/ipv4-networks', label: 'Redes IPv4' },
       { to: '/admin/networking/ipv6-networks', label: 'Redes IPv6' },
       { to: '/admin/networking/topology', label: 'Topología' },
-      { to: '/admin/networking/nodes', label: 'Nodos', requiredPermission: 'uisp.read' },
+      { to: '/admin/networking/settings', label: 'Configuración' },
     ],
   },
   {
