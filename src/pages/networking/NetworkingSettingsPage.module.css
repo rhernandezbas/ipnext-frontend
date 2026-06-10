@@ -6,3 +6,4 @@
 .section { display: flex; flex-direction: column; gap: 12px; }
 .sectionHeading { font-size: 15px; font-weight: 700; color: var(--color-text-primary, #0f172a); margin: 0; }
 .noPermission { font-size: 14px; color: var(--color-text-secondary, #6b7280); margin: 0; }
+.sectionDescription { font-size: 13px; color: var(--color-text-secondary, #6b7280); margin: 0; line-height: 1.55; }

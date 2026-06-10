@@ -10,5 +10,9 @@ export const createNetworkSite = (data: Omit<NetworkSite, 'id'>) =>
 export const updateNetworkSite = (id: string, data: Partial<NetworkSite>) =>
   axiosClient.put<NetworkSite>(`/network-sites/${id}`, data).then(r => r.data);
 
+/** PATCH — partial update (used for UISP linking, etc.) */
+export const patchNetworkSite = (id: string, data: Partial<NetworkSite>) =>
+  axiosClient.put<NetworkSite>(`/network-sites/${id}`, data).then(r => r.data);
+
 export const deleteNetworkSite = (id: string) =>
   axiosClient.delete(`/network-sites/${id}`);
