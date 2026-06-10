@@ -13,4 +13,6 @@ export interface NetworkSite {
   description: string;
   /** IClass mapping code — used by the IClass integration to identify this node. */
   iclassNodeCode: string | null;
+  /** Optional link to a UISP mirror site (uispId TEXT). null = not linked. */
+  uispSiteId: string | null;
 }
