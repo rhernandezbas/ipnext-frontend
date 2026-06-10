@@ -92,6 +92,25 @@ export const assignTemplateToTask = (taskId: string, templateId: string) =>
 export const clearChecklist = (taskId: string) =>
   axiosClient.delete(`${BASE}/${taskId}/checklist`);
 
+// ── Manual equipment retirement (#39) ───────────────────────────────────────
+
+export interface RetiredItemResult {
+  itemId: string;
+  status: 'removed';
+  assetId: string | null;
+  movementId: string | null;
+}
+
+export interface RetireEquipmentResult {
+  retired: RetiredItemResult[];
+  skipped: { itemId: string; reason: 'already-removed' | 'asset-in-depot' }[];
+}
+
+export const retireEquipment = (taskId: string, itemIds: string[]) =>
+  axiosClient
+    .post<RetireEquipmentResult>(`${BASE}/${taskId}/inventory/retire`, { itemIds })
+    .then(r => r.data);
+
 // ── Inventory review ─────────────────────────────────────────────────────────
 
 export const setTaskInventoryReview = (taskId: string, reviewed: boolean) =>

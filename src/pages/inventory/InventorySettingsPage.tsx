@@ -4,6 +4,7 @@ import { AutomationsBody } from './settings/AutomationsBody';
 import { DeviceTypesBody } from './settings/DeviceTypesBody';
 import { MaterialsBody } from './settings/MaterialsBody';
 import { VehiclesBody } from './settings/VehiclesBody';
+import { RetirementProjectsBody } from './settings/RetirementProjectsBody';
 import styles from './InventorySettingsPage.module.css';
 
 const TABS = [
@@ -11,6 +12,7 @@ const TABS = [
   { id: 'materiales', label: 'Materiales', content: <MaterialsBody /> },
   { id: 'camionetas', label: 'Camionetas', content: <VehiclesBody /> },
   { id: 'automatizaciones', label: 'Automatizaciones', content: <AutomationsBody /> },
+  { id: 'proyectos-retiro', label: 'Proyectos de retiro', content: <RetirementProjectsBody /> },
 ];
 
 const TAB_IDS = TABS.map(t => t.id);

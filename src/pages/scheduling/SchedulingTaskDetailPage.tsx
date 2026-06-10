@@ -361,6 +361,7 @@ export default function SchedulingTaskDetailPage() {
             ticketSubject={task.ticketSubject ?? null}
             contractId={task.contractId ?? null}
             iclassOrderCode={task.iclassOrderCode ?? null}
+            projectAllowsRetirement={task.projectAllowsRetirement ?? false}
           />
         </main>
 

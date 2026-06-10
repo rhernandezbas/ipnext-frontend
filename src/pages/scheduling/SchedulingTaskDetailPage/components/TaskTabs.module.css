@@ -150,3 +150,55 @@
 .returnLink:hover {
   text-decoration: underline;
 }
+
+/* ── Retire equipment button (#39) ─────────────────────────────────────────── */
+.retireRow {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0 0.5rem 0;
+}
+
+.retireBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--c-primary, #3b82f6);
+  background: transparent;
+  color: var(--c-primary, #3b82f6);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.retireBtn:hover:not(:disabled) {
+  background: oklch(0.95 0.04 250);
+}
+
+.retireBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Retire inline feedback messages ─────────────────────────────────────── */
+.retireMsgSuccess,
+.retireMsgError {
+  padding: 0.5rem 0.875rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.retireMsgSuccess {
+  background: oklch(0.92 0.08 155);
+  color: oklch(0.28 0.12 150);
+  border: 1px solid oklch(0.82 0.1 155);
+}
+
+.retireMsgError {
+  background: oklch(0.95 0.05 25);
+  color: oklch(0.35 0.15 25);
+  border: 1px solid oklch(0.88 0.08 25);
+}

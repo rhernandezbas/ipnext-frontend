@@ -10,6 +10,9 @@ import { TaskAuditFeed } from './TaskAuditFeed';
 import { TaskActivityFeed } from './TaskActivityFeed';
 import { Can } from '@/components/auth/Can';
 import { useReturnsByTask } from '@/hooks/useReturns';
+import { useServiceInstalledItems } from '@/hooks/useServiceInventory';
+import { useRetireEquipment } from '@/hooks/useRetireEquipment';
+import { RetireEquipmentModal } from './RetireEquipmentModal';
 import type { TaskDetailsTabProps } from './TaskDetailsTab';
 import type { ReturnSuggestionStatus } from '@/types/returns';
 import styles from './TaskTabs.module.css';
@@ -36,6 +39,12 @@ export interface TaskTabsProps {
    * staged returns. Optional for back-compat with tasks that pre-date W4.
    */
   iclassOrderCode?: string | null;
+  /**
+   * Whether the task's project has manual equipment retirement enabled (#39).
+   * When true + contractId present + inventory.write permission: shows "Retirar equipos" button.
+   * Optional for back-compat with tasks from projects that pre-date #39.
+   */
+  projectAllowsRetirement?: boolean;
 }
 
 const TAB_IDS = {
@@ -57,6 +66,10 @@ interface InventoryPanelProps {
   contractId?: string | null;
   /** Gate for the by-task returns fetch. Truthy when the task has an IClass OS. */
   iclassOrderCode?: string | null;
+  /** When true + contractId + inventory.write: shows the "Retirar equipos" button (#39). */
+  projectAllowsRetirement?: boolean;
+  /** Callback to surface success/error toasts to the parent page. */
+  onToast?: (msg: string, type?: 'success' | 'error') => void;
 }
 
 const RETURN_STATUS_CONFIG: Record<ReturnSuggestionStatus, { label: string; variant: 'amber' | 'green' | 'gray' }> = {
@@ -90,6 +103,18 @@ function RelacionadoPanel({ ticketId, ticketSubject }: { ticketId?: number | nul
   );
 }
 
+/** Maps retire error codes to human-readable Spanish messages. */
+function mapRetireError(err: unknown): string {
+  const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code;
+  switch (code) {
+    case 'PROJECT_NOT_RETIREMENT': return 'Proyecto no habilitado para retiro de equipos.';
+    case 'TASK_HAS_NO_CONTRACT':   return 'La tarea no tiene un contrato asignado.';
+    case 'EQUIPMENT_NOT_ON_CONTRACT': return 'El equipo no pertenece a este contrato.';
+    case 'RETIRE_ALREADY_DONE':    return 'Ese equipo ya fue retirado al depósito.';
+    default: return 'Error al retirar equipos. Intentá de nuevo.';
+  }
+}
+
 function InventoryPanel({
   taskId,
   reviewedByInventory,
@@ -98,12 +123,44 @@ function InventoryPanel({
   reviewedByInventoryUserName,
   contractId,
   iclassOrderCode,
+  projectAllowsRetirement,
+  onToast,
 }: InventoryPanelProps) {
+  const [retireOpen, setRetireOpen] = useState(false);
+  const [retireMsg, setRetireMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
   // Gate: only fetch returns when the task has an IClass OS (went through closure).
   // Tasks without an OS code can never have staged returns (W4 only stages on
   // RETIRO closure). This avoids a gratuitous 200-empty-array fetch on every task.
   const returnsEnabled = !!iclassOrderCode;
   const { data: taskReturns } = useReturnsByTask(taskId, returnsEnabled);
+
+  // Retire feature: fetch active contract items for the picker (#39).
+  // Enabled only when both gates (projectAllowsRetirement + contractId) are set.
+  const retireGate = !!projectAllowsRetirement && !!contractId;
+  const { data: installedItems = [] } = useServiceInstalledItems(
+    contractId ?? undefined,
+    retireGate,
+  );
+  const retire = useRetireEquipment(contractId);
+
+  function showRetireMsg(text: string, type: 'success' | 'error') {
+    setRetireMsg({ text, type });
+    onToast?.(text, type);
+    setTimeout(() => setRetireMsg(null), 5000);
+  }
+
+  async function handleRetireConfirm(itemIds: string[]) {
+    try {
+      const result = await retire.mutateAsync({ taskId, itemIds });
+      setRetireOpen(false);
+      const n = result.retired.length;
+      showRetireMsg(`${n} equipo${n !== 1 ? 's' : ''} retirado${n !== 1 ? 's' : ''} al depósito`, 'success');
+    } catch (err) {
+      setRetireOpen(false);
+      showRetireMsg(mapRetireError(err), 'error');
+    }
+  }
   // Format the review badge text when reviewed
   const reviewBadge = (() => {
     if (!reviewedByInventory) return null;
@@ -116,6 +173,39 @@ function InventoryPanel({
 
   return (
     <div className={styles.inventoryPanel}>
+      {/* Retire equipment button — gated by projectAllowsRetirement + contractId + inventory.write */}
+      {retireGate && (
+        <Can permission="inventory.write">
+          <div className={styles.retireRow}>
+            <button
+              type="button"
+              className={styles.retireBtn}
+              onClick={() => setRetireOpen(true)}
+              disabled={retire.isPending}
+            >
+              Retirar equipos
+            </button>
+          </div>
+          <RetireEquipmentModal
+            open={retireOpen}
+            items={installedItems}
+            isPending={retire.isPending}
+            onConfirm={handleRetireConfirm}
+            onCancel={() => setRetireOpen(false)}
+          />
+        </Can>
+      )}
+      {/* Inline feedback after retire action */}
+      {retireMsg && (
+        <div
+          className={retireMsg.type === 'success' ? styles.retireMsgSuccess : styles.retireMsgError}
+          role="status"
+          aria-live="polite"
+          data-testid="retire-feedback"
+        >
+          {retireMsg.text}
+        </div>
+      )}
       <div className={styles.inventoryToggleRow}>
         {reviewedByInventory && reviewBadge ? (
           <div className={styles.inventoryReviewBadge} data-testid="inventory-review-badge">
@@ -189,6 +279,7 @@ export function TaskTabs({
   reviewedByInventoryUserName,
   contractId,
   iclassOrderCode,
+  projectAllowsRetirement,
 }: TaskTabsProps) {
   const [activeTab, setActiveTab] = useState<string>(TAB_IDS.detalles);
   const [mountedIds, setMountedIds] = useState<Set<string>>(
@@ -245,6 +336,7 @@ export function TaskTabs({
           reviewedByInventoryUserName={reviewedByInventoryUserName}
           contractId={contractId}
           iclassOrderCode={iclassOrderCode}
+          projectAllowsRetirement={projectAllowsRetirement}
         />
       ),
     },

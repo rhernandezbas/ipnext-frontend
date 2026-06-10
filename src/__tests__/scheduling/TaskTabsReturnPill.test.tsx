@@ -89,8 +89,9 @@ import { useReturnsByTask } from '@/hooks/useReturns';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { ReturnSuggestion } from '@/types/returns';
 
-// ── Mock service inventory hooks (used by TaskInventorySuggestions) ──────────
+// ── Mock service inventory hooks (used by TaskInventorySuggestions + InventoryPanel) ──────────
 vi.mock('@/hooks/useServiceInventory', () => ({
+  useServiceInstalledItems: vi.fn(() => ({ data: [], isLoading: false })),
   useTaskInventorySuggestions: vi.fn(() => ({ data: [], isLoading: false })),
   useConfirmSuggestion: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useDiscardSuggestion: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
@@ -98,6 +99,11 @@ vi.mock('@/hooks/useServiceInventory', () => ({
   useReplaceSuggestion: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useAddInstalledItem: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useCreateManualSuggestion: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+}));
+
+// ── Mock retire equipment hook (#39) ─────────────────────────────────────────
+vi.mock('@/hooks/useRetireEquipment', () => ({
+  useRetireEquipment: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
 }));
 
 // ── Mock task materials consumptions hook ─────────────────────────────────────
