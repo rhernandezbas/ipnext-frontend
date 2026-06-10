@@ -38,13 +38,32 @@ export default function NodesPage() {
         </div>
       </div>
 
-      {triggerSync.isSuccess && triggerSync.data && !triggerSync.data.queued && (
-        <div className={styles.banner}>
-          {triggerSync.data.reason === 'already-running'
-            ? 'El sync ya está en ejecución, esperá que termine.'
-            : 'El sync está desactivado. Activá el flag uisp-sync para ejecutarlo.'}
-        </div>
-      )}
+      {triggerSync.isError && (() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const err = triggerSync.error as any;
+        const status = err?.response?.status;
+        const reason = err?.response?.data?.reason;
+
+        if (status === 409 && reason === 'already-running') {
+          return (
+            <div className={styles.banner} role="status">
+              <strong>Ya hay una sincronización en curso.</strong>{' '}
+              El estado se actualiza al terminar.
+            </div>
+          );
+        }
+
+        if (status === 409 && reason === 'flag-disabled') {
+          return (
+            <div className={styles.banner} role="status">
+              <strong>El sync automático está desactivado.</strong>{' '}
+              Activá el flag uisp-sync para ejecutarlo.
+            </div>
+          );
+        }
+
+        return null;
+      })()}
 
       <UispNodesList />
     </div>

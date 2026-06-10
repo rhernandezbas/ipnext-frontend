@@ -140,14 +140,6 @@ export function UispSyncCard() {
               {triggerSync.isPending ? 'Sincronizando…' : 'Sincronizar ahora'}
             </button>
 
-            {triggerSync.isSuccess && triggerSync.data && !triggerSync.data.queued && (
-              <p className={styles.triggerReason}>
-                {triggerSync.data.reason === 'already-running'
-                  ? 'El sync ya está en ejecución, esperá que termine.'
-                  : 'El sync está desactivado. Activá el flag para ejecutarlo.'}
-              </p>
-            )}
-
             {triggerSync.isSuccess && triggerSync.data?.queued && (
               <p className={styles.triggerSuccess}>
                 Sync encolado correctamente.
@@ -166,14 +158,43 @@ export function UispSyncCard() {
         </div>
       )}
 
-      {triggerSync.isError && (
-        <div className={`${styles.banner} ${styles.bannerError}`}>
-          <span>
-            <span className={styles.bannerTitle}>Error al disparar el sync.</span>{' '}
-            Reintentá en unos segundos.
-          </span>
-        </div>
-      )}
+      {triggerSync.isError && (() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const err = triggerSync.error as any;
+        const status = err?.response?.status;
+        const reason = err?.response?.data?.reason;
+
+        if (status === 409 && reason === 'already-running') {
+          return (
+            <div className={`${styles.banner} ${styles.bannerInfo}`} role="status">
+              <span>
+                <span className={styles.bannerTitle}>Ya hay una sincronización en curso.</span>{' '}
+                El estado se actualiza al terminar.
+              </span>
+            </div>
+          );
+        }
+
+        if (status === 409 && reason === 'flag-disabled') {
+          return (
+            <div className={`${styles.banner} ${styles.bannerInfo}`} role="status">
+              <span>
+                <span className={styles.bannerTitle}>El sync automático está desactivado.</span>{' '}
+                Activá el toggle para sincronizar.
+              </span>
+            </div>
+          );
+        }
+
+        return (
+          <div className={`${styles.banner} ${styles.bannerError}`} role="alert">
+            <span>
+              <span className={styles.bannerTitle}>Error al disparar el sync.</span>{' '}
+              Reintentá en unos segundos.
+            </span>
+          </div>
+        );
+      })()}
     </div>
   );
 }
