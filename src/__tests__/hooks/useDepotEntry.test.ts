@@ -1,8 +1,13 @@
 /**
  * Tests for useAddDepotAsset and useLoadDepotMaterial (EPIC #38 depot stock entry).
  * RED → GREEN: these tests were written before implementation.
+ *
+ * Deflake note: mutate() fires inside act(); the settle-wait uses testing-library's
+ * act-aware waitFor OUTSIDE act. vi.waitFor inside act deadlocks (React batches the
+ * state updates until act exits), and a non-throwing callback never waited at all —
+ * that was the original under-load flake.
  */
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type { ReactNode } from 'react';
@@ -37,10 +42,8 @@ describe('useAddDepotAsset', () => {
 
     const { result } = renderHook(() => useAddDepotAsset(), { wrapper });
 
-    await act(async () => {
-      result.current.mutate({ deviceTypeId: 'dt-1', serialNumber: 'SN-001' });
-      await vi.waitFor(() => result.current.isSuccess);
-    });
+    act(() => { result.current.mutate({ deviceTypeId: 'dt-1', serialNumber: 'SN-001' }); });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(depotEntryApi.addAsset).toHaveBeenCalledWith({
       deviceTypeId: 'dt-1',
@@ -54,10 +57,8 @@ describe('useAddDepotAsset', () => {
 
     const { result } = renderHook(() => useAddDepotAsset(), { wrapper });
 
-    await act(async () => {
-      result.current.mutate({ deviceTypeId: 'dt-1', serialNumber: 'SN-001' });
-      await vi.waitFor(() => result.current.isError);
-    });
+    act(() => { result.current.mutate({ deviceTypeId: 'dt-1', serialNumber: 'SN-001' }); });
+    await waitFor(() => expect(result.current.isError).toBe(true));
 
     expect(result.current.isError).toBe(true);
   });
@@ -70,10 +71,8 @@ describe('useLoadDepotMaterial', () => {
 
     const { result } = renderHook(() => useLoadDepotMaterial(), { wrapper });
 
-    await act(async () => {
-      result.current.mutate({ materialCatalogId: 'mc-1', qty: 50 });
-      await vi.waitFor(() => result.current.isSuccess);
-    });
+    act(() => { result.current.mutate({ materialCatalogId: 'mc-1', qty: 50 }); });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(depotEntryApi.loadMaterial).toHaveBeenCalledWith({
       materialCatalogId: 'mc-1',
@@ -87,10 +86,8 @@ describe('useLoadDepotMaterial', () => {
 
     const { result } = renderHook(() => useLoadDepotMaterial(), { wrapper });
 
-    await act(async () => {
-      result.current.mutate({ materialCatalogId: 'mc-1', qty: -5 });
-      await vi.waitFor(() => result.current.isError);
-    });
+    act(() => { result.current.mutate({ materialCatalogId: 'mc-1', qty: -5 }); });
+    await waitFor(() => expect(result.current.isError).toBe(true));
 
     expect(result.current.isError).toBe(true);
   });
