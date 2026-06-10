@@ -145,6 +145,7 @@ const EMPRESA_ITEMS: NavParentItem[] = [
     requiredPermission: 'inventory.read', // /admin/inventory/* → inventory.read
     children: [
       { to: '/admin/inventory/dashboard', label: 'Dashboard' },
+      { to: '/admin/inventory/depot', label: 'Depósito' },
       { to: '/admin/inventory/returns', label: 'Devoluciones' },
       { to: '/admin/inventory/deductions', label: 'Descuentos pendientes' },
       { to: '/admin/inventory/settings', label: 'Configuración' },
