@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useNetworkSites, useCreateNetworkSite, useUpdateNetworkSite, useDeleteNetworkSite } from '@/hooks/useNetworkSites';
@@ -7,6 +7,7 @@ import type { NetworkSite, NetworkSiteUispInfo } from '@/types/networkSite';
 import { Can } from '@/components/auth/Can';
 import { useCan } from '@/hooks/useMyPermissions';
 import { useConfirm } from '@/context/ConfirmContext';
+import { iclassReadiness } from '@/utils/iclassReadiness';
 import styles from './NetworkSitesPage.module.css';
 
 const TYPE_LABELS: Record<NetworkSite['type'], string> = {
@@ -297,8 +298,31 @@ function UispDevicesCell({ uisp, siteId }: { uisp: NetworkSiteUispInfo | null | 
   );
 }
 
+function IClassReadinessBadge({ site }: { site: NetworkSite }) {
+  const { ready, missing } = iclassReadiness(site);
+  if (ready) return null;
+  return (
+    <span
+      data-testid={`iclass-readiness-${site.id}`}
+      className={styles.iclassBadge}
+      title={`Faltan: ${missing.join(', ')}`}
+    >
+      Faltan datos IClass
+    </span>
+  );
+}
+
 const columns = [
-  { label: 'Nombre', key: 'name' as keyof NetworkSite },
+  {
+    label: 'Nombre',
+    key: 'name' as keyof NetworkSite,
+    render: (row: NetworkSite) => (
+      <span>
+        {row.name}
+        <IClassReadinessBadge site={row} />
+      </span>
+    ),
+  },
   { label: 'Ciudad', key: 'city' as keyof NetworkSite },
   {
     label: 'Tipo',
@@ -343,6 +367,7 @@ const columns = [
 export default function NetworkSitesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingSite, setEditingSite] = useState<NetworkSite | null>(null);
+  const [onlyIncomplete, setOnlyIncomplete] = useState(false);
   const { data: sites = [], isLoading } = useNetworkSites();
   const { mutate: createSite } = useCreateNetworkSite();
   const { mutate: updateSite, isError: updateIsError, error: updateError } = useUpdateNetworkSite();
@@ -353,6 +378,11 @@ export default function NetworkSitesPage() {
   const total = sites.length;
   const active = sites.filter((s) => s.status === 'active').length;
   const maintenance = sites.filter((s) => s.status === 'maintenance').length;
+
+  const visibleSites = useMemo(
+    () => onlyIncomplete ? sites.filter(s => !iclassReadiness(s).ready) : sites,
+    [sites, onlyIncomplete],
+  );
 
   async function handleDelete(row: NetworkSite) {
     if (await confirm({ message: `¿Eliminar sitio "${row.name}"?`, tone: 'danger', confirmLabel: 'Eliminar' })) {
@@ -393,9 +423,21 @@ export default function NetworkSitesPage() {
         </div>
       </div>
 
+      <div className={styles.filterRow}>
+        <label className={styles.incompleteFilterLabel}>
+          <input
+            type="checkbox"
+            checked={onlyIncomplete}
+            onChange={e => setOnlyIncomplete(e.target.checked)}
+            aria-label="Solo incompletos"
+          />
+          Solo incompletos
+        </label>
+      </div>
+
       <DataTable
         columns={columns}
-        data={sites}
+        data={visibleSites}
         loading={isLoading}
         actions={actions}
         emptyMessage="No se encontraron sitios de red."

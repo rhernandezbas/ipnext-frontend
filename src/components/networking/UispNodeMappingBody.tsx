@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNetworkSites, usePatchNetworkSite } from '@/hooks/useNetworkSites';
 import { useUispSites } from '@/hooks/useUispSites';
+import { iclassReadiness } from '@/utils/iclassReadiness';
 import styles from './UispNodeMappingBody.module.css';
 
 type RowStatus = 'saving' | 'saved' | 'error';
@@ -122,10 +123,20 @@ export function UispNodeMappingBody() {
               {visible.map(site => {
                 const status = rowStatus[site.id];
                 const currentValue = site.uispSiteId ?? '';
+                const readiness = iclassReadiness(site);
                 return (
                   <tr key={site.id}>
                     <td className={styles.nameCell}>
                       <span className={styles.siteName}>{site.name}</span>
+                      {!readiness.ready && (
+                        <span
+                          data-testid={`iclass-readiness-${site.id}`}
+                          className={styles.iclassBadge}
+                          title={`Faltan: ${readiness.missing.join(', ')}`}
+                        >
+                          Faltan datos IClass
+                        </span>
+                      )}
                     </td>
                     <td className={styles.codeCell}>
                       {site.iclassNodeCode ?? '—'}
