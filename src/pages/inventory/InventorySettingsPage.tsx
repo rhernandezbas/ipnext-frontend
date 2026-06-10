@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Tabs } from '@/components/molecules/Tabs/Tabs';
+import { AutomationsBody } from './settings/AutomationsBody';
 import { DeviceTypesBody } from './settings/DeviceTypesBody';
 import { MaterialsBody } from './settings/MaterialsBody';
 import { VehiclesBody } from './settings/VehiclesBody';
@@ -9,6 +10,7 @@ const TABS = [
   { id: 'equipos', label: 'Equipos', content: <DeviceTypesBody /> },
   { id: 'materiales', label: 'Materiales', content: <MaterialsBody /> },
   { id: 'camionetas', label: 'Camionetas', content: <VehiclesBody /> },
+  { id: 'automatizaciones', label: 'Automatizaciones', content: <AutomationsBody /> },
 ];
 
 const TAB_IDS = TABS.map(t => t.id);
