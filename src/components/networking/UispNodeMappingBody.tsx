@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNetworkSites, usePatchNetworkSite } from '@/hooks/useNetworkSites';
 import { useUispSites } from '@/hooks/useUispSites';
 import { iclassReadiness } from '@/utils/iclassReadiness';
@@ -38,6 +38,9 @@ export function UispNodeMappingBody() {
 
   const [search, setSearch] = useState('');
   const [rowStatus, setRowStatus] = useState<Record<string, RowStatus>>({});
+  // Local draft values for the iclassNodeCode input, keyed by siteId.
+  // Initialized lazily on first edit; falls back to site.iclassNodeCode ?? ''.
+  const [codeDraft, setCodeDraft] = useState<Record<string, string>>({});
 
   const uispSites = uispData?.sites ?? [];
 
@@ -65,6 +68,28 @@ export function UispNodeMappingBody() {
       setRowStatus(s => ({ ...s, [siteId]: 'error' }));
     }
   }
+
+  const handleCodeSave = useCallback(async (siteId: string, draft: string, original: string | null) => {
+    const trimmed = draft.trim();
+    const next = trimmed === '' ? null : trimmed;
+    const prev = original ?? null;
+    // Only save if value actually changed
+    if (next === prev) return;
+    setRowStatus(s => ({ ...s, [siteId]: 'saving' }));
+    try {
+      await patch.mutateAsync({ id: siteId, data: { iclassNodeCode: next } });
+      setRowStatus(s => ({ ...s, [siteId]: 'saved' }));
+      setTimeout(() => {
+        setRowStatus(s => {
+          const copy = { ...s };
+          delete copy[siteId];
+          return copy;
+        });
+      }, 2000);
+    } catch {
+      setRowStatus(s => ({ ...s, [siteId]: 'error' }));
+    }
+  }, [patch]);
 
   if (sitesLoading) {
     return (
@@ -139,7 +164,31 @@ export function UispNodeMappingBody() {
                       )}
                     </td>
                     <td className={styles.codeCell}>
-                      {site.iclassNodeCode ?? '—'}
+                      <input
+                        data-testid={`iclass-code-input-${site.id}`}
+                        type="text"
+                        className={styles.codeInput}
+                        value={codeDraft[site.id] ?? (site.iclassNodeCode ?? '')}
+                        placeholder="—"
+                        disabled={status === 'saving'}
+                        aria-label={`Código IClass para ${site.name}`}
+                        onChange={e => setCodeDraft(d => ({ ...d, [site.id]: e.target.value }))}
+                        onBlur={() => handleCodeSave(
+                          site.id,
+                          codeDraft[site.id] ?? (site.iclassNodeCode ?? ''),
+                          site.iclassNodeCode,
+                        )}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.currentTarget.blur();
+                            handleCodeSave(
+                              site.id,
+                              codeDraft[site.id] ?? (site.iclassNodeCode ?? ''),
+                              site.iclassNodeCode,
+                            );
+                          }
+                        }}
+                      />
                     </td>
                     <td>
                       <select
