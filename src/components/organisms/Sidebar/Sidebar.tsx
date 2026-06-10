@@ -146,6 +146,7 @@ const EMPRESA_ITEMS: NavParentItem[] = [
     children: [
       { to: '/admin/inventory/dashboard', label: 'Dashboard' },
       { to: '/admin/inventory/depot', label: 'Depósito' },
+      { to: '/admin/inventory/technicians', label: 'Técnicos' },
       { to: '/admin/inventory/returns', label: 'Devoluciones' },
       { to: '/admin/inventory/deductions', label: 'Descuentos pendientes' },
       { to: '/admin/inventory/settings', label: 'Configuración' },

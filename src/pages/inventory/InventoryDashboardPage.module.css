@@ -64,6 +64,19 @@
   color: oklch(0.55 0.01 250);
 }
 
+.sectionLink {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  color: oklch(0.45 0.14 265);
+  text-decoration: none;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.sectionLink:hover {
+  text-decoration: underline;
+}
+
 /* ─── Depósito highlighted card ───────────────────── */
 
 .depositoCard {

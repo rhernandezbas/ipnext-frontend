@@ -360,6 +360,7 @@ export default function SchedulingTaskDetailPage() {
             ticketId={task.ticketId ?? null}
             ticketSubject={task.ticketSubject ?? null}
             contractId={task.contractId ?? null}
+            iclassOrderCode={task.iclassOrderCode ?? null}
           />
         </main>
 

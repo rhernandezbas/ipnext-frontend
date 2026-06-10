@@ -85,7 +85,7 @@ function ReturnRow({
   const matched = suggestion.status === 'pending' && suggestion.matchedAssetId !== null;
 
   return (
-    <li className={styles.row} aria-label={suggestion.serialNumber}>
+    <li className={styles.row} aria-label={suggestion.serialNumber ?? undefined}>
       <div className={styles.rowMain}>
         <span className={styles.serial}>{suggestion.serialNumber}</span>
         <span className={styles.meta}>

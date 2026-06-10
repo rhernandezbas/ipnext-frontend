@@ -100,6 +100,15 @@ vi.mock(
 
 vi.mock('@/hooks/useMyPermissions', () => ({ useMyPermissions: vi.fn() }));
 
+// Mock useReturns — added when FIX 3 introduced useReturnsByTask into InventoryPanel.
+// Existing tests don't exercise return pills; stub the hook to return empty data.
+vi.mock('@/hooks/useReturns', () => ({
+  useReturnsByTask: vi.fn(() => ({ data: [], isLoading: false, isError: false })),
+  usePendingReturns: vi.fn(() => ({ data: [], isLoading: false })),
+  useConfirmReturn: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useDiscardReturn: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+}));
+
 import { TaskTabs } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs';
 import type { TaskTabsProps } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs';
 import { useMyPermissions } from '@/hooks/useMyPermissions';

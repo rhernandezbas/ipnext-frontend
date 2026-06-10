@@ -16,6 +16,18 @@ import type { ReturnSuggestion, ConfirmReturnInput } from '@/types/returns';
 export const getPendingReturns = (): Promise<ReturnSuggestion[]> =>
   axiosClient.get<ReturnSuggestion[]>('/inventory/returns/pending').then(r => r.data);
 
+/**
+ * List return suggestions staged for a specific task.
+ *
+ * GET /api/inventory/returns/by-task/:taskId
+ * Returns all statuses (pending|needs_review|confirmed|discarded) scoped to the task.
+ * Used by the task detail inventory panel to surface a "Devolución pendiente" pill.
+ */
+export const getReturnsByTask = (taskId: string): Promise<ReturnSuggestion[]> =>
+  axiosClient
+    .get<ReturnSuggestion[]>(`/inventory/returns/by-task/${taskId}`)
+    .then(r => r.data);
+
 /** Confirm a suggestion. Fires the RETURN ledger movement for return/link. */
 export const confirmReturn = (id: string, input: ConfirmReturnInput): Promise<void> =>
   axiosClient.post(`/inventory/returns/${id}/confirm`, input).then(() => undefined);

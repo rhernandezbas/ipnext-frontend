@@ -102,3 +102,51 @@
 }
 
 .relLink:hover { text-decoration: underline; }
+
+/* ── Return status pills (FIX 3) ─────────────────────────────────────────── */
+.returnPillRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.returnPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* amber — pending / needs_review */
+.returnPillamber {
+  background: oklch(0.95 0.06 80);
+  color: oklch(0.42 0.12 65);
+}
+
+/* green — confirmed */
+.returnPillgreen {
+  background: oklch(0.92 0.08 155);
+  color: oklch(0.32 0.12 150);
+}
+
+/* gray — discarded */
+.returnPillgray {
+  background: oklch(0.93 0.005 250);
+  color: oklch(0.45 0.01 250);
+}
+
+.returnLink {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: oklch(0.45 0.14 265);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.returnLink:hover {
+  text-decoration: underline;
+}
