@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useNetworkSites, useCreateNetworkSite, useUpdateNetworkSite, useDeleteNetworkSite } from '@/hooks/useNetworkSites';
+import { useUispSites } from '@/hooks/useUispSites';
 import type { NetworkSite } from '@/types/networkSite';
 import { Can } from '@/components/auth/Can';
 import { useCan } from '@/hooks/useMyPermissions';
@@ -69,6 +70,7 @@ function AddSiteModal({ onClose, onSubmit }: AddSiteModalProps) {
       clientCount: 0,
       parentSiteId: null,
       iclassNodeCode: iclassNodeCode.trim() || null,
+      uispSiteId: null,
     });
   }
 
@@ -133,9 +135,11 @@ interface EditSiteModalProps {
   site: NetworkSite;
   onClose: () => void;
   onSubmit: (data: Partial<NetworkSite>) => void;
+  /** 422 error from the update mutation, if any */
+  updateError?: { isAxiosError?: boolean; response?: { status: number; data?: { code?: string } } } | null;
 }
 
-function EditSiteModal({ site, onClose, onSubmit }: EditSiteModalProps) {
+function EditSiteModal({ site, onClose, onSubmit, updateError }: EditSiteModalProps) {
   const [name, setName] = useState(site.name);
   const [address, setAddress] = useState(site.address);
   const [city, setCity] = useState(site.city);
@@ -144,16 +148,35 @@ function EditSiteModal({ site, onClose, onSubmit }: EditSiteModalProps) {
   const [description, setDescription] = useState(site.description);
   const [status, setStatus] = useState<NetworkSite['status']>(site.status);
   const [iclassNodeCode, setIclassNodeCode] = useState(site.iclassNodeCode ?? '');
+  const [uispSiteId, setUispSiteId] = useState(site.uispSiteId ?? '');
+
+  const { data: uispData } = useUispSites();
+  const uispSites = uispData?.sites ?? [];
+
+  // Check if the error is a 422 UISP_SITE_NOT_FOUND
+  const isUispError =
+    updateError?.isAxiosError &&
+    updateError.response?.status === 422 &&
+    updateError.response?.data?.code === 'UISP_SITE_NOT_FOUND';
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSubmit({ name, address, city, type, uplink, description, status, iclassNodeCode: iclassNodeCode.trim() || null });
+    onSubmit({
+      name, address, city, type, uplink, description, status,
+      iclassNodeCode: iclassNodeCode.trim() || null,
+      uispSiteId: uispSiteId || null,
+    });
   }
 
   return (
     <div className={styles.overlay}>
       <div className={styles.modal} role="dialog" aria-modal="true">
         <h2 className={styles.modalTitle}>Editar sitio</h2>
+        {isUispError && (
+          <div className={styles.errorBanner} role="alert">
+            El nodo UISP seleccionado no existe en el mirror. Sincronizá primero o verificá el ID.
+          </div>
+        )}
         <form onSubmit={handleSubmit}>
           <div className={styles.formGroup}>
             <label htmlFor="edit-site-name">Nombre</label>
@@ -205,6 +228,19 @@ function EditSiteModal({ site, onClose, onSubmit }: EditSiteModalProps) {
               placeholder="Ej: NODO-C-01"
             />
           </div>
+          <div className={styles.formGroup}>
+            <label htmlFor="edit-site-uisp-site">Nodo UISP (opcional)</label>
+            <select
+              id="edit-site-uisp-site"
+              value={uispSiteId}
+              onChange={e => setUispSiteId(e.target.value)}
+            >
+              <option value="">— Sin vincular —</option>
+              {uispSites.map(s => (
+                <option key={s.uispId} value={s.uispId}>{s.name}</option>
+              ))}
+            </select>
+          </div>
           <div className={styles.modalActions}>
             <button type="button" className={styles.btnSecondary} onClick={onClose}>Cancelar</button>
             <button type="submit" className={styles.btnPrimary}>Guardar</button>
@@ -238,14 +274,14 @@ export default function NetworkSitesPage() {
   const [editingSite, setEditingSite] = useState<NetworkSite | null>(null);
   const { data: sites = [], isLoading } = useNetworkSites();
   const { mutate: createSite } = useCreateNetworkSite();
-  const { mutate: updateSite } = useUpdateNetworkSite();
+  const { mutate: updateSite, isError: updateIsError, error: updateError } = useUpdateNetworkSite();
   const { mutate: deleteSite } = useDeleteNetworkSite();
   const canManageSites = useCan('network.manage_sites');
   const confirm = useConfirm();
 
   const total = sites.length;
-  const active = sites.filter(s => s.status === 'active').length;
-  const maintenance = sites.filter(s => s.status === 'maintenance').length;
+  const active = sites.filter((s) => s.status === 'active').length;
+  const maintenance = sites.filter((s) => s.status === 'maintenance').length;
 
   async function handleDelete(row: NetworkSite) {
     if (await confirm({ message: `¿Eliminar sitio "${row.name}"?`, tone: 'danger', confirmLabel: 'Eliminar' })) {
@@ -305,7 +341,13 @@ export default function NetworkSitesPage() {
         <EditSiteModal
           site={editingSite}
           onClose={() => setEditingSite(null)}
-          onSubmit={data => { updateSite({ id: editingSite.id, data }); setEditingSite(null); }}
+          onSubmit={data => {
+            updateSite(
+              { id: editingSite.id, data },
+              { onSuccess: () => setEditingSite(null) },
+            );
+          }}
+          updateError={updateIsError ? (updateError as EditSiteModalProps['updateError']) : null}
         />
       )}
     </div>

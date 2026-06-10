@@ -24,6 +24,7 @@ import {
 } from '@/hooks/useSettings';
 import type { SystemSettings, EmailSettings, MessageTemplate, PaymentMethod, TemplateVariable, Webhook, WebhookEvent, ClientPortalSettings } from '@/types/settings';
 import { Can } from '@/components/auth/Can';
+import { UispSyncCard } from '@/components/settings/UispSyncCard';
 import styles from './SettingsPage.module.css';
 
 type Tab = 'sistema' | 'correo' | 'plantillas' | 'tokens' | 'finanzas' | 'webhooks' | 'respaldo' | 'portal-cliente' | 'notificaciones' | 'politicas-red' | 'addons' | 'system-logs' | 'scheduled-tasks' | 'integraciones';
@@ -2211,6 +2212,10 @@ function IntegracionesTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div>
+        <h2 style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '1rem' }}>Red</h2>
+        <UispSyncCard />
+      </div>
       <IntegrationSection title="Contabilidad">
         <IntegrationCardUI name="QuickBooks" connected={quickbooksConnected}>
           <p style={{ fontSize: '0.75rem', color: '#6b7280' }}>Sincronización de facturas y pagos con QuickBooks Online</p>
