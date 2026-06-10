@@ -1,0 +1,190 @@
+/* RetireEquipmentModal — multi-select picker for equipment retirement (#39) */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: oklch(0 0 0 / 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+}
+
+.dialog {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-xl, 0 20px 40px oklch(0 0 0 / 0.18));
+  width: min(520px, 94vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4, 1rem) var(--space-5, 1.25rem);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: var(--font-size-base, 1rem);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-primary, #0f172a);
+  margin: 0;
+}
+
+.closeBtn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--color-text-secondary, #64748b);
+  padding: 4px 6px;
+  border-radius: var(--radius-sm, 4px);
+  line-height: 1;
+}
+
+.closeBtn:hover {
+  background: var(--color-surface-alt, #f1f5f9);
+}
+
+.selectAll {
+  padding: var(--space-3, 0.75rem) var(--space-5, 1.25rem);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  flex-shrink: 0;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2, 0.5rem) 0;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.listItem {
+  padding: var(--space-2, 0.5rem) var(--space-5, 1.25rem);
+}
+
+.listItem:hover {
+  background: var(--color-surface-alt, #f8fafc);
+}
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 0.75rem);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkRow input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: var(--color-primary, #3b82f6);
+  flex-shrink: 0;
+}
+
+.selectAllLabel {
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-text-secondary, #475569);
+}
+
+.itemInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  flex-wrap: wrap;
+}
+
+.itemType {
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-text-primary, #0f172a);
+}
+
+.itemDetail {
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--color-text-secondary, #64748b);
+  font-family: var(--font-mono, monospace);
+}
+
+.itemModel {
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--color-text-secondary, #64748b);
+}
+
+.empty {
+  padding: var(--space-6, 1.5rem) var(--space-5, 1.25rem);
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-text-secondary, #64748b);
+  text-align: center;
+}
+
+.summary {
+  padding: var(--space-3, 0.75rem) var(--space-5, 1.25rem);
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-text-primary, #0f172a);
+  background: oklch(0.96 0.03 240);
+  border-top: 1px solid var(--color-border, #e2e8f0);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3, 0.75rem);
+  padding: var(--space-4, 1rem) var(--space-5, 1.25rem);
+  border-top: 1px solid var(--color-border, #e2e8f0);
+  flex-shrink: 0;
+}
+
+.cancelBtn {
+  padding: var(--space-2, 0.5rem) var(--space-4, 1rem);
+  border: 1px solid var(--color-border, #e2e8f0);
+  background: var(--color-surface, #fff);
+  border-radius: var(--radius-md, 6px);
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-text-primary, #0f172a);
+  cursor: pointer;
+}
+
+.cancelBtn:hover:not(:disabled) {
+  background: var(--color-surface-alt, #f1f5f9);
+}
+
+.cancelBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.confirmBtn {
+  padding: var(--space-2, 0.5rem) var(--space-4, 1rem);
+  border: none;
+  background: var(--color-primary, #3b82f6);
+  color: oklch(0.99 0.005 250);
+  border-radius: var(--radius-md, 6px);
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-semibold, 600);
+  cursor: pointer;
+}
+
+.confirmBtn:hover:not(:disabled) {
+  background: oklch(0.48 0.18 250);
+}
+
+.confirmBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

@@ -146,6 +146,11 @@ export interface ScheduledTask {
   /** Snapshot of the originating ticket's subject (tickets-actions-be). */
   ticketSubject?: string | null;
 
+  /** Whether the task's project has the retirement feature enabled (#39).
+   *  Populated by the enriched GET /scheduling/:id DTO.
+   *  Optional for back-compat with tasks that pre-date #39. */
+  projectAllowsRetirement?: boolean;
+
   // Timestamps — backend always returns ISO strings (post-change-1)
   createdAt: string;
   updatedAt: string;

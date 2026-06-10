@@ -17,7 +17,8 @@ export const projectsApi = {
     visible?: boolean;
     workflowId?: string | null;
     iclassSoTypeId?: string | null;
+    allowsEquipmentRetirement?: boolean;
   }) =>
-    axiosClient.put<Project>(`/projects/${id}`, data).then(r => r.data),
+    axiosClient.patch<Project>(`/projects/${id}`, data).then(r => r.data),
   delete: (id: string) => axiosClient.delete(`/projects/${id}`),
 };

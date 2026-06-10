@@ -4,6 +4,8 @@ export interface Project {
   description: string | null;
   workflowId: string | null;
   visible?: boolean;
+  /** Whether this project allows manual equipment retirement (#39). */
+  allowsEquipmentRetirement?: boolean;
   createdAt: string;
   updatedAt: string;
   taskCounts?: {

@@ -109,6 +109,23 @@ vi.mock('@/hooks/useReturns', () => ({
   useDiscardReturn: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
 }));
 
+// Mock new hooks added in #39 — retire equipment feature.
+// Existing tests don't exercise retirement; stub to avoid QueryClient requirement.
+vi.mock('@/hooks/useServiceInventory', () => ({
+  useServiceInstalledItems: vi.fn(() => ({ data: [], isLoading: false })),
+  useTaskInventorySuggestions: vi.fn(() => ({ data: [], isLoading: false })),
+  useConfirmSuggestion: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useDiscardSuggestion: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useCorrectSuggestionType: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useReplaceSuggestion: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useAddInstalledItem: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useCreateManualSuggestion: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+}));
+
+vi.mock('@/hooks/useRetireEquipment', () => ({
+  useRetireEquipment: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+}));
+
 import { TaskTabs } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs';
 import type { TaskTabsProps } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs';
 import { useMyPermissions } from '@/hooks/useMyPermissions';

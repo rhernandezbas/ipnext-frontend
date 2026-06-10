@@ -36,6 +36,7 @@ export function useUpdateProject() {
         visible?: boolean;
         workflowId?: string | null;
         iclassSoTypeId?: string | null;
+        allowsEquipmentRetirement?: boolean;
       };
     }) => projectsApi.update(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
