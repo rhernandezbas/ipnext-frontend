@@ -15,6 +15,8 @@ vi.mock('@/hooks/useFeatureFlags', () => ({
   useFeatureFlag: vi.fn(),
   useSetFeatureFlag: vi.fn(),
 }));
+// Note: useMyPermissions is globally mocked in src/test/setup.ts (permissive by default).
+// Tests that need to exercise the denied path import and override it explicitly.
 
 import {
   useGestionRealConfig,
@@ -24,6 +26,7 @@ import {
 } from '@/hooks/useGestionRealIngest';
 import { useProjects } from '@/hooks/useProjects';
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { GestionRealBody } from '@/pages/scheduling/settings/GestionRealBody';
 import type { IngestConfigDTO, IngestStatusDTO, NeedsReviewTaskDTO } from '@/types/gestionRealIngest';
 import type { Project } from '@/types/project';
@@ -538,6 +541,40 @@ describe('GestionRealBody', () => {
       expect(screen.getByText(/datos inválidos/i)).toBeInTheDocument();
       fireEvent.change(screen.getByLabelText(/ventana/i), { target: { value: '9' } });
       expect(reset).toHaveBeenCalled();
+    });
+  });
+
+  // ── Permission gate (admin.flags) ──────────────────────────────────────────
+  describe('admin.flags permission gate (ingesta toggle)', () => {
+    it('hides the ingesta toggle when user lacks admin.flags, other config still visible', () => {
+      vi.mocked(useMyPermissions).mockReturnValue({
+        permissions: [],
+        roles: [],
+        user: null,
+        isLoading: false,
+        isError: false,
+        can: () => false,
+      } as never);
+
+      renderBody();
+
+      expect(screen.queryByRole('checkbox', { name: /activar ingesta de gestión real/i })).not.toBeInTheDocument();
+      // The form fields and save button are still rendered
+      expect(screen.getByLabelText(/intervalo/i)).toBeInTheDocument();
+    });
+
+    it('shows the ingesta toggle when user has admin.flags', () => {
+      vi.mocked(useMyPermissions).mockReturnValue({
+        permissions: ['*'],
+        roles: [],
+        user: null,
+        isLoading: false,
+        isError: false,
+        can: () => true,
+      } as never);
+
+      renderBody();
+      expect(screen.getByRole('checkbox', { name: /activar ingesta de gestión real/i })).toBeInTheDocument();
     });
   });
 });

@@ -5,8 +5,10 @@ vi.mock('@/hooks/useFeatureFlags', () => ({
   useFeatureFlag: vi.fn(),
   useSetFeatureFlag: vi.fn(),
 }));
+vi.mock('@/hooks/useMyPermissions', () => ({ useMyPermissions: vi.fn() }));
 
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { IClassFlagBody } from '@/pages/scheduling/settings/IClassFlagBody';
 
 const idleMutation = {
@@ -27,10 +29,17 @@ function mockFlag(enabled: boolean | null, loading = false, error = false) {
   } as never);
 }
 
+function mockPerms(can: (p: string | string[]) => boolean) {
+  vi.mocked(useMyPermissions).mockReturnValue({
+    user: null, roles: [], permissions: [], isLoading: false, isError: false, can,
+  } as never);
+}
+
 describe('IClassFlagBody', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useSetFeatureFlag).mockReturnValue(idleMutation as never);
+    mockPerms(() => true); // default: all permissions granted
   });
 
   it('renders loading state while the flag query is loading', () => {
@@ -86,5 +95,27 @@ describe('IClassFlagBody', () => {
 
     render(<IClassFlagBody />);
     expect(screen.getByText(/no se pudo cambiar el estado/i)).toBeInTheDocument();
+  });
+
+  // ── Permission gate (admin.flags) ──────────────────────────────────────
+
+  it('hides the toggle switch when user lacks admin.flags, but the status badge is still visible', () => {
+    mockFlag(true);
+    mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('admin.flags'));
+
+    render(<IClassFlagBody />);
+
+    expect(screen.queryByRole('checkbox', { name: /integración con iclass/i })).not.toBeInTheDocument();
+    // badge still visible
+    expect(screen.getByText('Activa')).toBeInTheDocument();
+  });
+
+  it('shows the toggle switch when user has admin.flags', () => {
+    mockFlag(false);
+    mockPerms(() => true);
+
+    render(<IClassFlagBody />);
+
+    expect(screen.getByRole('checkbox', { name: /integración con iclass/i })).toBeInTheDocument();
   });
 });

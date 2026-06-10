@@ -84,7 +84,7 @@ export function AutomationsBody() {
           <Link to="/admin/inventory/returns">Ver devoluciones pendientes</Link>
         </p>
 
-        <Can permission="inventory.manage">
+        <Can permission="admin.flags">
           <div className={styles.statusActionRow}>
             <span className={styles.statusActionLabel}>
               {returnsEnabled ? 'Desactivar devoluciones por retiro' : 'Activar devoluciones por retiro'}
@@ -134,7 +134,7 @@ export function AutomationsBody() {
           <Link to="/admin/inventory/deductions">Ver descuentos pendientes</Link>
         </p>
 
-        <Can permission="inventory.manage">
+        <Can permission="admin.flags">
           <div className={styles.statusActionRow}>
             <span className={styles.statusActionLabel}>
               {deductEnabled ? 'Desactivar descuento de materiales' : 'Activar descuento de materiales'}

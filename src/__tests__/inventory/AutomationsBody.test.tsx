@@ -215,11 +215,11 @@ describe('AutomationsBody', () => {
     expect(screen.getByText(/no se pudo cambiar el estado de la automatización/i)).toBeInTheDocument();
   });
 
-  // ── Permission gate (inventory.manage) ──────────────────────────────────
+  // ── Permission gate (admin.flags) ───────────────────────────────────────
 
-  it('hides toggles when user lacks inventory.manage permission, but state is still visible', () => {
+  it('hides toggles when user lacks admin.flags permission, but state badges are still visible', () => {
     mockFlags(true, true);
-    mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('inventory.manage'));
+    mockPerms((p) => !(Array.isArray(p) ? p : [p]).includes('admin.flags'));
 
     renderBody();
 
@@ -231,7 +231,7 @@ describe('AutomationsBody', () => {
     expect(badges).toHaveLength(2);
   });
 
-  it('shows toggles when user has inventory.manage permission', () => {
+  it('shows toggles when user has admin.flags permission', () => {
     mockFlags(false, false);
     mockPerms(() => true);
 

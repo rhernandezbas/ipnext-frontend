@@ -1,3 +1,4 @@
+import { Can } from '@/components/auth/Can';
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
 import styles from './IClassSettings.module.css';
 
@@ -57,21 +58,23 @@ export function IClassFlagBody() {
             : 'Las tareas que pases a la etapa "Enviar a IClass" sólo cambian de etapa. No se envía nada al panel IClass.'}
         </p>
 
-        <div className={styles.statusActionRow}>
-          <span className={styles.statusActionLabel}>
-            {enabled ? 'Desactivar integración' : 'Activar integración'}
-          </span>
-          <label className={styles.switch}>
-            <input
-              type="checkbox"
-              checked={enabled}
-              disabled={setFlag.isPending}
-              onChange={handleToggle}
-              aria-label="Integración con IClass"
-            />
-            <span className={styles.switchTrack} aria-hidden="true" />
-          </label>
-        </div>
+        <Can permission="admin.flags">
+          <div className={styles.statusActionRow}>
+            <span className={styles.statusActionLabel}>
+              {enabled ? 'Desactivar integración' : 'Activar integración'}
+            </span>
+            <label className={styles.switch}>
+              <input
+                type="checkbox"
+                checked={enabled}
+                disabled={setFlag.isPending}
+                onChange={handleToggle}
+                aria-label="Integración con IClass"
+              />
+              <span className={styles.switchTrack} aria-hidden="true" />
+            </label>
+          </div>
+        </Can>
       </section>
 
       {setFlag.isError && (

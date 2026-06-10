@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSyncConfig, useUpdateSyncConfig, useResyncAll } from '@/hooks/useGestionRealSyncConfig';
+import { Can } from '@/components/auth/Can';
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
 import { useGestionRealSyncStatus } from '@/hooks/useGestionRealSync';
 import { useClientStats } from '@/hooks/useCustomers';
@@ -159,19 +160,21 @@ function ConfigSection() {
     <section className={styles.section}>
       <h3 className={styles.sectionTitle}>Configuración</h3>
       <div className={styles.card}>
-        <div className={styles.toggleRow}>
-          <span className={styles.fieldLabel}>Activar sincronización de Gestión Real</span>
-          <label className={styles.switch}>
-            <input
-              type="checkbox"
-              checked={flagEnabled}
-              disabled={setFlag.isPending}
-              onChange={e => handleToggleFlag(e.target.checked)}
-              aria-label="Activar sincronización de Gestión Real"
-            />
-            <span className={styles.switchTrack} aria-hidden="true" />
-          </label>
-        </div>
+        <Can permission="admin.flags">
+          <div className={styles.toggleRow}>
+            <span className={styles.fieldLabel}>Activar sincronización de Gestión Real</span>
+            <label className={styles.switch}>
+              <input
+                type="checkbox"
+                checked={flagEnabled}
+                disabled={setFlag.isPending}
+                onChange={e => handleToggleFlag(e.target.checked)}
+                aria-label="Activar sincronización de Gestión Real"
+              />
+              <span className={styles.switchTrack} aria-hidden="true" />
+            </label>
+          </div>
+        </Can>
 
         {!flagEnabled && (
           <span className={styles.fieldHint}>La sincronización está desactivada.</span>

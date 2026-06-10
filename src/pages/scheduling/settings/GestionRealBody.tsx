@@ -7,6 +7,7 @@ import {
   useGestionRealNeedsReview,
 } from '@/hooks/useGestionRealIngest';
 import { useProjects } from '@/hooks/useProjects';
+import { Can } from '@/components/auth/Can';
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
 import {
   INTERVAL_PRESETS_MIN,
@@ -174,19 +175,21 @@ function ConfigSection() {
     <section className={styles.section}>
       <h3 className={styles.sectionTitle}>Configuración</h3>
       <div className={styles.card}>
-        <div className={styles.toggleRow}>
-          <span className={styles.fieldLabel}>Activar ingesta de Gestión Real</span>
-          <label className={styles.switch}>
-            <input
-              type="checkbox"
-              checked={flagEnabled}
-              disabled={setFlag.isPending}
-              onChange={e => handleToggleFlag(e.target.checked)}
-              aria-label="Activar ingesta de Gestión Real"
-            />
-            <span className={styles.switchTrack} aria-hidden="true" />
-          </label>
-        </div>
+        <Can permission="admin.flags">
+          <div className={styles.toggleRow}>
+            <span className={styles.fieldLabel}>Activar ingesta de Gestión Real</span>
+            <label className={styles.switch}>
+              <input
+                type="checkbox"
+                checked={flagEnabled}
+                disabled={setFlag.isPending}
+                onChange={e => handleToggleFlag(e.target.checked)}
+                aria-label="Activar ingesta de Gestión Real"
+              />
+              <span className={styles.switchTrack} aria-hidden="true" />
+            </label>
+          </div>
+        </Can>
 
         {!flagEnabled && !enableGuardTripped && (
           <span className={styles.fieldHint}>La ingesta está desactivada.</span>
