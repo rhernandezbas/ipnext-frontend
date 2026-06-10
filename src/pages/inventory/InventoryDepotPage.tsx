@@ -1,18 +1,27 @@
+import { useState } from 'react';
 import { useDepotStock } from '@/hooks/useDepotStock';
+import { Can } from '@/components/auth/Can';
+import { AddDepotAssetModal } from '@/components/inventory/AddDepotAssetModal';
+import { LoadDepotMaterialModal } from '@/components/inventory/LoadDepotMaterialModal';
 import type { DepotAssetDTO, DepotMaterialDTO } from '@/types/depot';
 import styles from './InventoryDepotPage.module.css';
 
 /**
- * Read-only view of what's sitting in the depot (DEPOSITO) right now: available
- * equipment and stocked materials (EPIC #38, Wave 3). No mutations — movements
- * arrive in Wave 4.
+ * Read + write view of the depot (DEPOSITO): available equipment and stocked
+ * materials (EPIC #38, Wave 3 → depot stock entry).
  *
- * In production the depot is currently empty, so the two contextual empty states
- * are the primary UX. Each one explains *why* the section is empty and what will
- * fill it, rather than a generic "no data" line.
+ * Operators with `inventory.write` can:
+ * - "Agregar equipo" → `AddDepotAssetModal` (POST /api/inventory/depot/assets)
+ * - "Cargar material" → `LoadDepotMaterialModal` (POST /api/inventory/depot/materials)
+ *
+ * Empty states invite to load stock when `inventory.write` is held; remain
+ * informational-only otherwise.
  */
 export default function InventoryDepotPage() {
   const { data, isLoading, isError } = useDepotStock();
+
+  const [assetModalOpen, setAssetModalOpen] = useState(false);
+  const [materialModalOpen, setMaterialModalOpen] = useState(false);
 
   const assets = data?.assets ?? [];
   const materials = data?.materials ?? [];
@@ -21,9 +30,29 @@ export default function InventoryDepotPage() {
     <div className={styles.page}>
       <header className={styles.header}>
         <p className={styles.breadcrumb}>Inventario</p>
-        <h1 className={styles.title}>Depósito</h1>
+        <div className={styles.titleRow}>
+          <h1 className={styles.title}>Depósito</h1>
+          <Can permission="inventory.write">
+            <div className={styles.headerActions}>
+              <button
+                type="button"
+                className={styles.actionBtn}
+                onClick={() => setAssetModalOpen(true)}
+              >
+                Agregar equipo
+              </button>
+              <button
+                type="button"
+                className={styles.actionBtnPrimary}
+                onClick={() => setMaterialModalOpen(true)}
+              >
+                Cargar material
+              </button>
+            </div>
+          </Can>
+        </div>
         <p className={styles.subtitle}>
-          Equipos y materiales disponibles hoy en el depósito. Solo lectura.
+          Equipos y materiales disponibles hoy en el depósito.
         </p>
       </header>
 
@@ -46,11 +75,31 @@ export default function InventoryDepotPage() {
         {isLoading ? (
           <p className={styles.loading}>Cargando equipos…</p>
         ) : assets.length === 0 ? (
-          <EmptyState
-            icon={<EquipmentIcon />}
-            title="Sin equipos en el depósito"
-            body="Acá vas a ver los equipos disponibles a medida que vuelvan al depósito por retiros desde una tarea. Esa devolución llega con los movimientos de la Wave 4."
-          />
+          <Can
+            permission="inventory.write"
+            fallback={
+              <EmptyState
+                icon={<EquipmentIcon />}
+                title="Sin equipos en el depósito"
+                body="Acá vas a ver los equipos disponibles cuando se registre stock en el depósito."
+              />
+            }
+          >
+            <EmptyState
+              icon={<EquipmentIcon />}
+              title="Sin equipos en el depósito"
+              body="El depósito está vacío. Cargá equipos o materiales para empezar."
+              action={
+                <button
+                  type="button"
+                  className={styles.emptyAction}
+                  onClick={() => setAssetModalOpen(true)}
+                >
+                  Agregar equipo
+                </button>
+              }
+            />
+          </Can>
         ) : (
           <ul className={styles.assetList}>
             {assets.map(asset => (
@@ -73,11 +122,31 @@ export default function InventoryDepotPage() {
         {isLoading ? (
           <p className={styles.loading}>Cargando materiales…</p>
         ) : materials.length === 0 ? (
-          <EmptyState
-            icon={<MaterialIcon />}
-            title="Sin materiales en stock"
-            body="El stock de materiales va a aparecer acá cuando se cargue stock al depósito. Por ahora no hay existencias registradas."
-          />
+          <Can
+            permission="inventory.write"
+            fallback={
+              <EmptyState
+                icon={<MaterialIcon />}
+                title="Sin materiales en stock"
+                body="El stock de materiales va a aparecer acá cuando se registren existencias en el depósito."
+              />
+            }
+          >
+            <EmptyState
+              icon={<MaterialIcon />}
+              title="Sin materiales en stock"
+              body="El depósito está vacío. Cargá equipos o materiales para empezar."
+              action={
+                <button
+                  type="button"
+                  className={styles.emptyAction}
+                  onClick={() => setMaterialModalOpen(true)}
+                >
+                  Cargar material
+                </button>
+              }
+            />
+          </Can>
         ) : (
           <ul className={styles.materialList}>
             {materials.map(material => (
@@ -86,6 +155,15 @@ export default function InventoryDepotPage() {
           </ul>
         )}
       </section>
+
+      <AddDepotAssetModal
+        open={assetModalOpen}
+        onClose={() => setAssetModalOpen(false)}
+      />
+      <LoadDepotMaterialModal
+        open={materialModalOpen}
+        onClose={() => setMaterialModalOpen(false)}
+      />
     </div>
   );
 }
@@ -123,10 +201,12 @@ function EmptyState({
   icon,
   title,
   body,
+  action,
 }: {
   icon: React.ReactNode;
   title: string;
   body: string;
+  action?: React.ReactNode;
 }) {
   return (
     <div className={styles.empty}>
@@ -135,6 +215,7 @@ function EmptyState({
       </span>
       <p className={styles.emptyTitle}>{title}</p>
       <p className={styles.emptyBody}>{body}</p>
+      {action && <div className={styles.emptyActionWrap}>{action}</div>}
     </div>
   );
 }

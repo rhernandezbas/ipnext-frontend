@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -7,6 +8,30 @@ import type { DepotStockDTO } from '@/types/depot';
 
 vi.mock('@/hooks/useDepotStock', () => ({
   useDepotStock: vi.fn(),
+  DEPOT_STOCK_QUERY_KEY: ['inventory', 'depot'],
+}));
+
+vi.mock('@/hooks/useMyPermissions', () => ({
+  useMyPermissions: vi.fn(),
+}));
+
+// Shallow-mock the modals so we don't need their dependencies in page tests
+vi.mock('@/components/inventory/AddDepotAssetModal', () => ({
+  AddDepotAssetModal: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
+    open ? (
+      <div role="dialog" aria-label="Agregar equipo">
+        <button onClick={onClose}>Cerrar asset modal</button>
+      </div>
+    ) : null,
+}));
+
+vi.mock('@/components/inventory/LoadDepotMaterialModal', () => ({
+  LoadDepotMaterialModal: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
+    open ? (
+      <div role="dialog" aria-label="Cargar material">
+        <button onClick={onClose}>Cerrar material modal</button>
+      </div>
+    ) : null,
 }));
 
 import { useDepotStock } from '@/hooks/useDepotStock';
@@ -35,6 +60,34 @@ const populated: DepotStockDTO = {
 
 const emptyDepot: DepotStockDTO = { assets: [], materials: [], depotLocationId: null };
 
+function withWrite() {
+  vi.mocked(useMyPermissions).mockReturnValue({
+    permissions: ['inventory.read', 'inventory.write'],
+    roles: [],
+    user: null,
+    isLoading: false,
+    isError: false,
+    can: (perm: string | string[]) => {
+      const perms = Array.isArray(perm) ? perm : [perm];
+      return perms.some(p => ['inventory.read', 'inventory.write', '*'].includes(p));
+    },
+  } as never);
+}
+
+function withoutWrite() {
+  vi.mocked(useMyPermissions).mockReturnValue({
+    permissions: ['inventory.read'],
+    roles: [],
+    user: null,
+    isLoading: false,
+    isError: false,
+    can: (perm: string | string[]) => {
+      const perms = Array.isArray(perm) ? perm : [perm];
+      return perms.some(p => p === 'inventory.read');
+    },
+  } as never);
+}
+
 function renderPage(node: ReactNode = <InventoryDepotPage />) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -46,7 +99,10 @@ function renderPage(node: ReactNode = <InventoryDepotPage />) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  withWrite();
 });
+
+// ─── Populated depot ──────────────────────────────────────────────────────────
 
 describe('InventoryDepotPage — populated', () => {
   beforeEach(() => {
@@ -72,27 +128,81 @@ describe('InventoryDepotPage — populated', () => {
   });
 });
 
-describe('InventoryDepotPage — empty depot (contextual empty states)', () => {
+// ─── Empty depot ──────────────────────────────────────────────────────────────
+
+describe('InventoryDepotPage — empty depot with inventory.write', () => {
   beforeEach(() => {
     vi.mocked(useDepotStock).mockReturnValue({
       data: emptyDepot,
       isLoading: false,
       isError: false,
     } as never);
+    withWrite();
   });
 
-  it('shows an equipment empty state that mentions returns to the depot (retiros, Wave 4)', () => {
+  it('shows the updated empty state inviting to load stock', () => {
     renderPage();
-    const section = screen.getByRole('region', { name: /equipos disponibles/i });
-    expect(within(section).getByText(/retiro/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/El depósito está vacío/i).length).toBeGreaterThan(0);
   });
 
-  it('shows a materials empty state that mentions stock appearing once materials are stocked', () => {
+  it('shows "Agregar equipo" button in the header for users with inventory.write', () => {
     renderPage();
-    const section = screen.getByRole('region', { name: /materiales/i });
-    expect(within(section).getByText(/cuando se cargue stock/i)).toBeInTheDocument();
+    // Multiple buttons may exist (header + empty state) — we just need at least one
+    expect(screen.getAllByRole('button', { name: /Agregar equipo/i }).length).toBeGreaterThan(0);
+  });
+
+  it('shows "Cargar material" button in the header for users with inventory.write', () => {
+    renderPage();
+    expect(screen.getAllByRole('button', { name: /Cargar material/i }).length).toBeGreaterThan(0);
+  });
+
+  it('opens the AddDepotAssetModal when "Agregar equipo" header button is clicked', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    // Click the header button (first one with this name)
+    const buttons = screen.getAllByRole('button', { name: /Agregar equipo/i });
+    await user.click(buttons[0]);
+
+    expect(screen.getByRole('dialog', { name: /Agregar equipo/i })).toBeInTheDocument();
+  });
+
+  it('opens the LoadDepotMaterialModal when "Cargar material" header button is clicked', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const buttons = screen.getAllByRole('button', { name: /Cargar material/i });
+    await user.click(buttons[0]);
+
+    expect(screen.getByRole('dialog', { name: /Cargar material/i })).toBeInTheDocument();
   });
 });
+
+describe('InventoryDepotPage — empty depot WITHOUT inventory.write', () => {
+  beforeEach(() => {
+    vi.mocked(useDepotStock).mockReturnValue({
+      data: emptyDepot,
+      isLoading: false,
+      isError: false,
+    } as never);
+    withoutWrite();
+  });
+
+  it('does NOT show the "Agregar equipo" or "Cargar material" header buttons', () => {
+    renderPage();
+    expect(screen.queryByRole('button', { name: /Agregar equipo/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Cargar material/i })).not.toBeInTheDocument();
+  });
+
+  it('shows an informational empty state without action buttons in sections', () => {
+    renderPage();
+    // Sections exist but have no "Agregar" / "Cargar" action buttons inside
+    const buttons = screen.queryAllByRole('button');
+    expect(buttons.length).toBe(0);
+  });
+});
+
+// ─── Permission gating ────────────────────────────────────────────────────────
 
 describe('InventoryDepotPage — permission gating', () => {
   it('renders NoPermissionPage instead of the depot when the user lacks inventory.read', () => {
