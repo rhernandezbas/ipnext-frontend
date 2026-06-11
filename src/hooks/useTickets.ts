@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTickets, getTicketsByCustomer, getTicketStats, createTicket, TicketsQuery, CreateTicketInput } from '../api/tickets.api';
 import axiosClient from '../api/axios-client';
-import type { Ticket, TicketReply, CreateTicketData } from '../types/ticket';
+import type { Ticket, CreateTicketData } from '../types/ticket';
 
 export function useTicketList(query: TicketsQuery) {
   return useQuery({
@@ -54,24 +54,6 @@ export function useUpdateTicketStatus() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['ticket', id] });
       qc.invalidateQueries({ queryKey: ['tickets'] });
-    },
-  });
-}
-
-export function useTicketReplies(id: string) {
-  return useQuery<TicketReply[]>({
-    queryKey: ['ticket-replies', id],
-    queryFn: () => axiosClient.get(`/tickets/${id}/replies`).then(r => r.data),
-  });
-}
-
-export function useAddTicketReply() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, message }: { id: string; message: string }) =>
-      axiosClient.post(`/tickets/${id}/replies`, { message, authorId: 1, authorName: 'Admin' }).then(r => r.data),
-    onSuccess: (_, { id }) => {
-      qc.invalidateQueries({ queryKey: ['ticket-replies', id] });
     },
   });
 }

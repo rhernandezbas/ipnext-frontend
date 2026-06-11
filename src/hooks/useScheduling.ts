@@ -77,7 +77,7 @@ export function useCreateTask() {
 export function useCreateTaskFromTicket() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ ticketId, body }: { ticketId: number; body: CreateTaskPayload }) =>
+    mutationFn: ({ ticketId, body }: { ticketId: string; body: CreateTaskPayload }) =>
       createTaskFromTicket(ticketId, body),
     onSuccess: () => invalidateTasksAndProjects(qc),
   });

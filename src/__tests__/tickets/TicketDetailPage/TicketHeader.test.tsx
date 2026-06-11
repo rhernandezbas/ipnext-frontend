@@ -16,13 +16,14 @@ const mockStatuses = [
 ];
 
 const mockTicket: Ticket = {
-  id: 42,
+  id: 'tk-42',
+  sequenceNumber: 42,
   subject: 'Falla de luz',
   description: 'Sin servicio',
   status: 'abierto',
   priority: 'high',
   type: null,
-  customerId: 7,
+  customerId: '7',
   customerName: 'Empresa SA',
   assigneeId: null,
   assigneeName: null,
@@ -72,7 +73,7 @@ describe('TicketHeader', () => {
     } as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
   });
 
-  it('renders breadcrumb with ticket id', () => {
+  it('renders breadcrumb with the ticket sequence number', () => {
     renderHeader();
     expect(screen.getByText(/soporte.*tickets.*42/i)).toBeInTheDocument();
   });

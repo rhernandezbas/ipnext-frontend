@@ -1,0 +1,102 @@
+.sidebar {
+  position: sticky;
+  top: var(--space-4);
+  align-self: start;
+}
+
+.sideCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sideCardTitle {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-1);
+}
+
+.sideRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.sideLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.sideLink {
+  color: var(--color-primary);
+  text-decoration: none;
+  text-align: right;
+}
+
+.sideLink:hover {
+  text-decoration: underline;
+}
+
+.sideSelect {
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  padding: 5px var(--space-2);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  max-width: 160px;
+}
+
+.sideSelect:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.statusBadge {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-gray-100);
+  color: var(--color-text-primary);
+  text-transform: capitalize;
+}
+
+.priorityBadge {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-gray-100);
+  color: var(--color-text-primary);
+}
+
+.priorityLow {
+  background: hsl(210 16% 93%);
+  color: hsl(210 12% 38%);
+}
+
+.priorityMedium {
+  background: hsl(43 96% 90%);
+  color: hsl(35 80% 32%);
+}
+
+.priorityHigh {
+  background: hsl(25 95% 90%);
+  color: hsl(18 80% 38%);
+}
+
+.priorityCritical {
+  background: hsl(0 80% 94%);
+  color: hsl(0 65% 42%);
+}
