@@ -88,10 +88,10 @@ describe('SchedulingSettingsPage', () => {
     expect(screen.queryByRole('heading', { level: 1, name: 'Prioridades' })).not.toBeInTheDocument();
   });
 
-  it('renders the six config tabs in order', () => {
+  it('renders the config tabs in order', () => {
     renderPage();
     const tabs = screen.getAllByRole('tab').map(t => t.textContent);
-    expect(tabs).toEqual(['Categorías', 'Prioridades', 'Estados', 'Plantillas', 'IClass', 'Gestión Real']);
+    expect(tabs).toEqual(['Categorías', 'Prioridades', 'Estados', 'Plantillas', 'Proyectos de red', 'IClass', 'Gestión Real']);
   });
 
   it('switches to the IClass tab and shows its host (the Integración sub-tab is default)', () => {

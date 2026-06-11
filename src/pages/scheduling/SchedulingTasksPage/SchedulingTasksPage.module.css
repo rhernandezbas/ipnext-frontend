@@ -44,6 +44,21 @@
   gap: 8px;
 }
 
+/* Day-1 guidance banner (#40 FIX-1) — subtle, informational. Mirrors the
+   scheduling settings banner tokens so it reads as part of the design system. */
+.infoBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md, 8px);
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--color-accent-soft, #eff6ff);
+  color: var(--color-accent, #1d4ed8);
+  border: 1px solid var(--color-accent-border, #bfdbfe);
+}
+
 /* Body: filter bar above, table/kanban in a card below */
 .body {
   display: flex;

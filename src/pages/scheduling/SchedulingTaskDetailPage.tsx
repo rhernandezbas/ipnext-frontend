@@ -333,6 +333,7 @@ export default function SchedulingTaskDetailPage() {
                 admins: technicians,
                 partners,
                 projects,
+                kind: task.kind,
                 iclassOrderCode: task.iclassOrderCode ?? null,
                 originalProjectId: task.projectId,
                 onDirtyChange: setFormDirty,

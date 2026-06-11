@@ -16,7 +16,10 @@ vi.mock('@/hooks/useMyPermissions');
 vi.mock('@/hooks/useRbacUsers');
 // The "Crear tarea" path mounts CreateTaskModal lazily; stub the data hooks it
 // (and the page) rely on so the detail page renders without real network.
-vi.mock('@/hooks/useProjects', () => ({ useProjects: () => ({ data: [] }) }));
+// useProjects is a controllable mock so a test can inject network-tagged
+// projects and assert they are filtered out of the create modal (#40 FIX-2).
+const useProjectsMock = vi.fn(() => ({ data: [] as unknown[] }));
+vi.mock('@/hooks/useProjects', () => ({ useProjects: () => useProjectsMock() }));
 vi.mock('@/hooks/useWorkflows', () => ({ useWorkflows: () => ({ data: [] }) }));
 vi.mock('@/hooks/useTaskTemplates', () => ({ useTaskTemplates: () => ({ data: [] }) }));
 vi.mock('@/hooks/useScheduling', () => ({ useCreateTaskFromTicket: () => ({ mutateAsync: vi.fn(), isPending: false }) }));
@@ -79,6 +82,8 @@ function renderPage(ticketId = '1') {
 describe('TicketDetailPage (Prominense layout)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks wipes the implementation — restore the empty-projects default.
+    useProjectsMock.mockReturnValue({ data: [] });
 
     vi.mocked(useTicketsModule.useTicket).mockReturnValue({ data: mockTicket, isLoading: false } as ReturnType<typeof useTicketsModule.useTicket>);
     vi.mocked(useTicketsModule.useTicketReplies).mockReturnValue({ data: mockReplies, isLoading: false } as ReturnType<typeof useTicketsModule.useTicketReplies>);
@@ -210,6 +215,28 @@ describe('TicketDetailPage (Prominense layout)', () => {
     // Modal opened — its title input is seeded with the ticket subject.
     expect((await screen.findByPlaceholderText('Título de la tarea') as HTMLInputElement).value)
       .toBe('Problema de conexión a internet');
+  });
+
+  // ── #40 FIX-2: the ticket "Crear tarea" flow is a CUSTOMER flow. Network
+  // projects must NOT reach the project <select> — the page filters them with
+  // !isNetworkProject. A network project leaking through lets the operator
+  // dispatch a create the backend rejects (422).
+  it('does NOT offer network projects in the create modal (regression #40)', async () => {
+    const user = userEvent.setup();
+    useProjectsMock.mockReturnValue({
+      data: [
+        { id: 'cp-1', title: 'INSTALACION', description: null, workflowId: 'wf-1', isNetworkProject: false, createdAt: '', updatedAt: '' },
+        { id: 'np-1', title: 'RED - FIBRA', description: null, workflowId: 'wf-1', isNetworkProject: true, createdAt: '', updatedAt: '' },
+      ],
+    });
+    renderPage();
+    await user.click(screen.getByRole('button', { name: /acciones/i }));
+    await user.click(screen.getByRole('menuitem', { name: /crear tarea/i }));
+    await screen.findByPlaceholderText('Título de la tarea');
+
+    // The customer project is offered; the network-tagged project is NOT.
+    expect(screen.getByRole('option', { name: 'INSTALACION' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'RED - FIBRA' })).not.toBeInTheDocument();
   });
 
   it('shows loading state while the ticket is loading', () => {

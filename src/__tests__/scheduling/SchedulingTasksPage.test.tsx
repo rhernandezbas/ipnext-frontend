@@ -191,6 +191,21 @@ describe('SchedulingTasksPage', () => {
     } as ReturnType<typeof useWorkflow>);
   });
 
+  // ── FIX-1: the network-projects hint must NEVER appear on the customer page.
+  //   Its predicate is !isNetworkProject; the hint is gated on kind==='network'.
+  it('never shows the network-projects hint, even with zero projects', () => {
+    vi.mocked(useProjects).mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as ReturnType<typeof useProjects>);
+    render(
+      <Wrapper>
+        <SchedulingTasksPage />
+      </Wrapper>
+    );
+    expect(screen.queryByText(/No hay proyectos de red configurados/i)).not.toBeInTheDocument();
+  });
+
   // ── 11.2: page renders in table view by default ─────────────────────────
   it('renders in table view by default (REQ-PAGE-2)', () => {
     render(

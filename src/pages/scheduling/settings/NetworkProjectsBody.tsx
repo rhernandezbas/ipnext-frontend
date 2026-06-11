@@ -1,0 +1,122 @@
+import { useState } from 'react';
+import { useProjects, useUpdateProject } from '@/hooks/useProjects';
+import { Can } from '@/components/auth/Can';
+import styles from './NetworkProjectsBody.module.css';
+
+type RowStatus = 'saving' | 'saved' | 'error';
+
+/**
+ * Sub-tab "Proyectos de red" — lista de proyectos con toggle por fila (#40).
+ * Marca un proyecto como proyecto de red: sus tareas son kind='network' y queda
+ * disponible en el modal de la página Tareas Nodos (y excluido del modal cliente).
+ * Auto-save inline via PATCH /api/projects/:id { isNetworkProject }.
+ * Gateado por scheduling.manage: sin el permiso, la tabla es read-only.
+ */
+export function NetworkProjectsBody() {
+  const { data: projects, isLoading } = useProjects('all');
+  const update = useUpdateProject();
+  const [rowStatus, setRowStatus] = useState<Record<string, RowStatus>>({});
+
+  async function handleToggle(projectId: string, current: boolean) {
+    const next = !current;
+    setRowStatus(s => ({ ...s, [projectId]: 'saving' }));
+    try {
+      await update.mutateAsync({ id: projectId, data: { isNetworkProject: next } });
+      setRowStatus(s => ({ ...s, [projectId]: 'saved' }));
+      setTimeout(() => {
+        setRowStatus(s => {
+          const copy = { ...s };
+          delete copy[projectId];
+          return copy;
+        });
+      }, 2000);
+    } catch {
+      setRowStatus(s => ({ ...s, [projectId]: 'error' }));
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className={styles.tableWrap}>
+        <p className={styles.tableLoading}>Cargando…</p>
+      </div>
+    );
+  }
+
+  const visible = projects ?? [];
+
+  if (visible.length === 0) {
+    return (
+      <div className={styles.tableWrap}>
+        <div className={styles.emptyState}>
+          <p className={styles.emptyStateTitle}>Sin proyectos</p>
+          <p className={styles.emptyStateText}>No hay proyectos configurados.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.section}>
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th style={{ width: '55%' }}>Proyecto</th>
+              <th>Proyecto de red</th>
+              <th style={{ width: '3rem' }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map(p => {
+              const status = rowStatus[p.id];
+              const enabled = p.isNetworkProject ?? false;
+              return (
+                <tr key={p.id}>
+                  <td>
+                    <div className={styles.projectCell}>
+                      {p.visible === false && <span className={styles.hiddenDot} title="Proyecto oculto" />}
+                      <span className={styles.projectName}>{p.title}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <Can
+                      permission="scheduling.manage"
+                      fallback={
+                        <span className={styles.readOnlyValue}>
+                          {enabled ? 'Habilitado' : 'Deshabilitado'}
+                        </span>
+                      }
+                    >
+                      <label className={styles.toggleLabel} aria-label={`Proyecto de red para ${p.title}`}>
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          onChange={() => void handleToggle(p.id, enabled)}
+                          disabled={status === 'saving'}
+                          className={styles.toggleCheckbox}
+                        />
+                        <span>{enabled ? 'Habilitado' : 'Deshabilitado'}</span>
+                      </label>
+                    </Can>
+                  </td>
+                  <td>
+                    {status === 'saving' && (
+                      <span className={`${styles.rowStatus} ${styles.rowStatusSaving}`} aria-label="Guardando">⏳</span>
+                    )}
+                    {status === 'saved' && (
+                      <span className={`${styles.rowStatus} ${styles.rowStatusSaved}`} aria-label="Guardado">✓</span>
+                    )}
+                    {status === 'error' && (
+                      <span className={`${styles.rowStatus} ${styles.rowStatusError}`} aria-label="Error" title="No se pudo guardar">⚠</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

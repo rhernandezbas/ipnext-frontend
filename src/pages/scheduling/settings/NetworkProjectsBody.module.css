@@ -1,0 +1,123 @@
+/* NetworkProjectsBody — Scheduling settings sub-tab "Proyectos de red" (#40) */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 1rem);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-lg, 8px);
+}
+
+.tableLoading {
+  padding: var(--space-6, 1.5rem);
+  color: var(--color-text-secondary, #64748b);
+  font-size: var(--font-size-sm, 0.875rem);
+  text-align: center;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm, 0.875rem);
+}
+
+.table th {
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+  text-align: left;
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-secondary, #475569);
+  background: var(--color-surface-alt, #f8fafc);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+  border-bottom: 1px solid var(--color-border, #f1f5f9);
+  color: var(--color-text-primary, #0f172a);
+  vertical-align: middle;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.projectCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+}
+
+.hiddenDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: oklch(0.72 0.15 55);
+  flex-shrink: 0;
+}
+
+.projectName {
+  font-weight: var(--font-weight-medium, 500);
+}
+
+.toggleLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-text-primary, #0f172a);
+}
+
+.toggleCheckbox {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: var(--color-primary, #3b82f6);
+  flex-shrink: 0;
+}
+
+.toggleCheckbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.readOnlyValue {
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-text-secondary, #64748b);
+}
+
+.rowStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  font-size: 0.875rem;
+}
+
+.rowStatusSaving { color: var(--color-text-secondary, #64748b); }
+.rowStatusSaved  { color: oklch(0.54 0.18 145); }
+.rowStatusError  { color: oklch(0.54 0.2 25); }
+
+.emptyState {
+  padding: var(--space-8, 2rem) var(--space-6, 1.5rem);
+  text-align: center;
+}
+
+.emptyStateTitle {
+  font-size: var(--font-size-base, 1rem);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-primary, #0f172a);
+  margin: 0 0 var(--space-2, 0.5rem);
+}
+
+.emptyStateText {
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-text-secondary, #64748b);
+  margin: 0;
+}

@@ -18,6 +18,8 @@ export interface TaskDetailsTabProps {
     admins: SchedulingAssignee[];
     partners: Partner[];
     projects?: Project[];
+    /** Task kind (#40) — filters the project select to the matching kind. */
+    kind?: 'customer' | 'network';
     iclassOrderCode?: string | null;
     originalProjectId?: string | null;
     onDirtyChange?: (isDirty: boolean) => void;
@@ -64,6 +66,7 @@ export function TaskDetailsTab({
         admins={datosForm.admins}
         partners={datosForm.partners}
         projects={datosForm.projects}
+        kind={datosForm.kind}
         iclassOrderCode={datosForm.iclassOrderCode}
         originalProjectId={datosForm.originalProjectId}
         onDirtyChange={datosForm.onDirtyChange}

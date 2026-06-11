@@ -223,7 +223,7 @@ export default function TicketDetailPage() {
           only when the BE supports it (graceful). */}
       {showCreateTask && (
         <CreateTaskModal
-          projects={projects}
+          projects={projects.filter(p => !p.isNetworkProject)}
           workflows={workflows}
           technicians={technicians}
           templates={templates}

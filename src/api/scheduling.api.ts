@@ -19,6 +19,7 @@ function buildFilterParams(filter?: TaskListFilter): Record<string, string | str
   if (filter?.priority)   params['priority']     = filter.priority;
   if (filter?.from)       params['from']         = filter.from;
   if (filter?.to)         params['to']           = filter.to;
+  if (filter?.kind)       params['kind']         = filter.kind;
   return params;
 }
 

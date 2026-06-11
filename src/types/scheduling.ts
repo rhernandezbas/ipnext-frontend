@@ -11,6 +11,9 @@ export interface TaskListFilter {
   q?:          string;
   from?:       string;  // ISO datetime — filter tasks where startDate >= from
   to?:         string;  // ISO datetime — filter tasks where startDate <= to
+  /** Task kind — 'customer' or 'network' (#40). Page constant on the Nodos page,
+   *  not URL state. Omitted ⇒ backend returns all kinds. */
+  kind?:       'customer' | 'network';
 }
 
 export type TasksView = 'table' | 'kanban';

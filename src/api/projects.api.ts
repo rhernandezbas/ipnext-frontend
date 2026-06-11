@@ -18,6 +18,7 @@ export const projectsApi = {
     workflowId?: string | null;
     iclassSoTypeId?: string | null;
     allowsEquipmentRetirement?: boolean;
+    isNetworkProject?: boolean;
   }) =>
     axiosClient.patch<Project>(`/projects/${id}`, data).then(r => r.data),
   delete: (id: string) => axiosClient.delete(`/projects/${id}`),

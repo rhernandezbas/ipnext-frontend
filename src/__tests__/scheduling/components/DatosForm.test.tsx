@@ -27,6 +27,12 @@ const mockProjects: Project[] = [
   { id: 'proj-2', title: 'Proyecto Alpha', description: null, workflowId: null, createdAt: '', updatedAt: '' },
 ];
 
+// Mixed list for the kind-filter tests (#40 FIX-3): one customer + one network.
+const mixedProjects: Project[] = [
+  { id: 'cust-1', title: 'Instalación', description: null, workflowId: null, isNetworkProject: false, createdAt: '', updatedAt: '' },
+  { id: 'net-1', title: 'Red - fibra', description: null, workflowId: null, isNetworkProject: true, createdAt: '', updatedAt: '' },
+];
+
 const initialValues = {
   projectId: null,
   assigneeId: 'admin-1',
@@ -424,6 +430,174 @@ describe('DatosForm', () => {
       await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(
         expect.objectContaining({ projectId: 'proj-1' })
       ));
+    });
+
+    // ── #40 FIX-3: the edit-form project select must filter by the task's kind,
+    // mirroring the create modal + the BE UpdateTask guard. Editing a customer
+    // task must NOT offer network projects (and vice-versa) — otherwise the
+    // operator can reassign a customer task to "Red - fibra" and trip the 422.
+    describe('kind filtering (FIX-3)', () => {
+      it('customer task: options EXCLUDE network-flagged projects', () => {
+        render(
+          <MemoryRouter>
+            <DatosForm
+              initial={{ ...initialValues, projectId: 'cust-1' }}
+              onSubmit={onSubmit}
+              isSaving={false}
+              admins={mockAdmins}
+              partners={mockPartners}
+              projects={mixedProjects}
+              kind="customer"
+            />
+          </MemoryRouter>
+        );
+        const options = Array.from((screen.getByLabelText(/proyecto/i) as HTMLSelectElement).options).map(o => o.text);
+        expect(options).toContain('Instalación');
+        expect(options).not.toContain('Red - fibra');
+      });
+
+      it('network task: options are ONLY network-flagged projects', () => {
+        render(
+          <MemoryRouter>
+            <DatosForm
+              initial={{ ...initialValues, projectId: 'net-1' }}
+              onSubmit={onSubmit}
+              isSaving={false}
+              admins={mockAdmins}
+              partners={mockPartners}
+              projects={mixedProjects}
+              kind="network"
+            />
+          </MemoryRouter>
+        );
+        const options = Array.from((screen.getByLabelText(/proyecto/i) as HTMLSelectElement).options).map(o => o.text);
+        expect(options).toContain('Red - fibra');
+        expect(options).not.toContain('Instalación');
+      });
+
+      it('no kind given: shows all projects (back-compat)', () => {
+        render(
+          <MemoryRouter>
+            <DatosForm
+              initial={{ ...initialValues, projectId: 'cust-1' }}
+              onSubmit={onSubmit}
+              isSaving={false}
+              admins={mockAdmins}
+              partners={mockPartners}
+              projects={mixedProjects}
+            />
+          </MemoryRouter>
+        );
+        const options = Array.from((screen.getByLabelText(/proyecto/i) as HTMLSelectElement).options).map(o => o.text);
+        expect(options).toContain('Instalación');
+        expect(options).toContain('Red - fibra');
+      });
+    });
+
+    // ── #40 FIX-3 (focused re-review): when the task's CURRENT project is
+    // excluded by the kind filter (e.g. a customer task whose project was later
+    // flagged isNetworkProject=true), the bare filter hides it and the select
+    // shows the placeholder while RHF silently holds the stale id → saving ANY
+    // field re-submits the flagged projectId → BE 422 INVALID_PROJECT_KIND.
+    // The current project must stay VISIBLE (pinned with a "(fuera de tipo)"
+    // suffix) so the value remains valid/selectable and the user can re-pick.
+    describe('current project out-of-filter pinning (FIX-3 re-review)', () => {
+      // Two flagged network projects + one customer project. A customer task is
+      // currently on net-1 (out of its filter); net-2 must stay excluded.
+      const reviewProjects: Project[] = [
+        { id: 'cust-1', title: 'Instalación', description: null, workflowId: null, isNetworkProject: false, createdAt: '', updatedAt: '' },
+        { id: 'net-1', title: 'Red - fibra', description: null, workflowId: null, isNetworkProject: true, createdAt: '', updatedAt: '' },
+        { id: 'net-2', title: 'Red - troncal', description: null, workflowId: null, isNetworkProject: true, createdAt: '', updatedAt: '' },
+      ];
+
+      it('customer task whose current project is flagged network: pins it, keeps value, excludes the other flagged projects', () => {
+        render(
+          <MemoryRouter>
+            <DatosForm
+              initial={{ ...initialValues, projectId: 'net-1' }}
+              onSubmit={onSubmit}
+              isSaving={false}
+              admins={mockAdmins}
+              partners={mockPartners}
+              projects={reviewProjects}
+              kind="customer"
+            />
+          </MemoryRouter>
+        );
+        const select = screen.getByLabelText(/proyecto/i) as HTMLSelectElement;
+        // The DOM select shows the real current value (not the placeholder).
+        expect(select.value).toBe('net-1');
+        const options = Array.from(select.options).map(o => o.text);
+        // The current project is pinned with the suffix.
+        expect(options).toContain('Red - fibra (fuera de tipo)');
+        // Customer projects still offered.
+        expect(options).toContain('Instalación');
+        // The OTHER flagged project is still excluded.
+        expect(options).not.toContain('Red - troncal');
+        expect(options).not.toContain('Red - troncal (fuera de tipo)');
+      });
+
+      it('network task whose current project is NOT flagged: pins it with suffix and keeps value', () => {
+        render(
+          <MemoryRouter>
+            <DatosForm
+              initial={{ ...initialValues, projectId: 'cust-1' }}
+              onSubmit={onSubmit}
+              isSaving={false}
+              admins={mockAdmins}
+              partners={mockPartners}
+              projects={reviewProjects}
+              kind="network"
+            />
+          </MemoryRouter>
+        );
+        const select = screen.getByLabelText(/proyecto/i) as HTMLSelectElement;
+        expect(select.value).toBe('cust-1');
+        const options = Array.from(select.options).map(o => o.text);
+        expect(options).toContain('Instalación (fuera de tipo)');
+        // Network projects still offered.
+        expect(options).toContain('Red - fibra');
+        expect(options).toContain('Red - troncal');
+      });
+
+      it('normal case: current project within filter → no "(fuera de tipo)" option anywhere', () => {
+        render(
+          <MemoryRouter>
+            <DatosForm
+              initial={{ ...initialValues, projectId: 'cust-1' }}
+              onSubmit={onSubmit}
+              isSaving={false}
+              admins={mockAdmins}
+              partners={mockPartners}
+              projects={reviewProjects}
+              kind="customer"
+            />
+          </MemoryRouter>
+        );
+        const options = Array.from((screen.getByLabelText(/proyecto/i) as HTMLSelectElement).options).map(o => o.text);
+        expect(options.some(o => /fuera de tipo/i.test(o))).toBe(false);
+      });
+
+      it('saving without touching the project keeps the original (out-of-filter) projectId — no silent change', async () => {
+        const user = userEvent.setup();
+        render(
+          <MemoryRouter>
+            <DatosForm
+              initial={{ ...initialValues, projectId: 'net-1' }}
+              onSubmit={onSubmit}
+              isSaving={false}
+              admins={mockAdmins}
+              partners={mockPartners}
+              projects={reviewProjects}
+              kind="customer"
+            />
+          </MemoryRouter>
+        );
+        await user.click(screen.getByRole('button', { name: /guardar cambios/i }));
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(
+          expect.objectContaining({ projectId: 'net-1' })
+        ));
+      });
     });
 
     it('hydrates select with initial projectId', () => {
