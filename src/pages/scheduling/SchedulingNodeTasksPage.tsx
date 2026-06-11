@@ -9,6 +9,9 @@ import { TasksPageBase } from './SchedulingTasksPage/TasksPageBase';
  *  - the project select shows only `isNetworkProject === true` projects.
  *  - independent column-visibility namespace ('nodeTasks') so it doesn't clash
  *    with the customer Tareas page.
+ *  - the Cliente column is hidden structurally (#40b fix-b): node tasks have no
+ *    customer, so the column is dropped from the table AND the ColumnSelector
+ *    (not just toggled off) so it can never resurface.
  */
 export default function SchedulingNodeTasksPage() {
   return (
@@ -19,6 +22,7 @@ export default function SchedulingNodeTasksPage() {
       projectPredicate={p => p.isNetworkProject === true}
       columnsStorageKey="scheduling-node-tasks-visible-columns"
       emptyMessage="No hay tareas de nodos para mostrar."
+      hiddenColumns={['customerName']}
     />
   );
 }

@@ -7,6 +7,7 @@ import { useTaskTemplates } from '@/hooks/useTaskTemplates';
 import { useTaskPriorities } from '@/hooks/useTaskPriorities';
 import type { Project } from '@/types/project';
 import { TaskFilterBar } from './components/TaskFilterBar';
+import { useMemo } from 'react';
 import { TasksTableView, ALL_TASK_COLUMNS } from './components/TasksTableView';
 import { TasksKanbanView } from './components/TasksKanbanView';
 import { ColumnSelector } from './components/ColumnSelector';
@@ -15,8 +16,6 @@ import { useTasksFilterUrl } from './hooks/useTasksFilterUrl';
 import { useVisibleColumns } from './hooks/useVisibleColumns';
 import { Can } from '@/components/auth/Can';
 import styles from './SchedulingTasksPage.module.css';
-
-const DEFAULT_VISIBLE_COLUMNS = ALL_TASK_COLUMNS.map(c => c.key);
 
 // ── SVG Icons (mirror of SchedulingProjectsPage for design consistency) ───────
 function IconRefresh() {
@@ -55,6 +54,11 @@ export interface TasksPageBaseProps {
   /** Empty-state copy for the table (#40 FIX-4). Defaults to the generic
    *  "No hay tareas para mostrar." when omitted. */
   emptyMessage?: string;
+  /** Column keys to exclude STRUCTURALLY from this page (#40b fix-b). Excluded
+   *  columns are removed from the ColumnSelector catalog (not toggleable) and
+   *  from the visible set — the table never renders them. Used by the Nodos page
+   *  to drop the Cliente column, meaningless for node tasks. */
+  hiddenColumns?: string[];
 }
 
 /**
@@ -62,7 +66,17 @@ export interface TasksPageBaseProps {
  * Tareas Nodos page are both thin wrappers around this component — bulk-move,
  * column visibility and refetch logic stay a single fix-point (#40).
  */
-export function TasksPageBase({ title, kind, modalDefaultMode, projectPredicate, columnsStorageKey, emptyMessage }: TasksPageBaseProps) {
+export function TasksPageBase({ title, kind, modalDefaultMode, projectPredicate, columnsStorageKey, emptyMessage, hiddenColumns }: TasksPageBaseProps) {
+  // Structural column exclusion (#40b fix-b): drop hidden keys from the catalog
+  // BEFORE it reaches the ColumnSelector or the default visible set, so they are
+  // neither shown nor toggleable. Memoised on the (stable) hiddenColumns identity.
+  const hiddenSet = useMemo(() => new Set(hiddenColumns ?? []), [hiddenColumns]);
+  const pageColumns = useMemo(
+    () => ALL_TASK_COLUMNS.filter(c => !hiddenSet.has(c.key)),
+    [hiddenSet],
+  );
+  const defaultVisibleColumns = useMemo(() => pageColumns.map(c => c.key), [pageColumns]);
+
   const { filter, view, setFilter, setView } = useTasksFilterUrl();
   // stageCategory is a CLIENT-side filter — the backend doesn't know about it.
   const { stageCategory, ...backendFilter } = filter;
@@ -107,7 +121,14 @@ export function TasksPageBase({ title, kind, modalDefaultMode, projectPredicate,
     : [];
 
   // Column visibility — persisted in localStorage, only meaningful in table view
-  const { visible: visibleColumns, toggle: toggleColumn, reorder: reorderColumns, reset: resetColumns } = useVisibleColumns(DEFAULT_VISIBLE_COLUMNS, columnsStorageKey);
+  const { visible: visibleColumnsRaw, toggle: toggleColumn, reorder: reorderColumns, reset: resetColumns } = useVisibleColumns(defaultVisibleColumns, columnsStorageKey);
+  // Guard against a hidden key resurfacing from a stored preference (e.g. a user
+  // who customised columns before the column was hidden): filter the persisted
+  // visible set against the page catalog so excluded columns can never render.
+  const visibleColumns = useMemo(
+    () => visibleColumnsRaw.filter(k => !hiddenSet.has(k)),
+    [visibleColumnsRaw, hiddenSet],
+  );
 
   return (
     <div className={styles.page}>
@@ -120,7 +141,7 @@ export function TasksPageBase({ title, kind, modalDefaultMode, projectPredicate,
         <div className={styles.headerRight}>
           {view === 'table' && (
             <ColumnSelector
-              columns={ALL_TASK_COLUMNS}
+              columns={pageColumns}
               visible={visibleColumns}
               onToggle={toggleColumn}
               onReorder={reorderColumns}

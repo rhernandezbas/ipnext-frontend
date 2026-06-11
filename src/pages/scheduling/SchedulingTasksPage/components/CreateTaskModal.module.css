@@ -146,68 +146,6 @@
   flex-wrap: wrap;
 }
 
-/* Segmented track */
-.modeToggle {
-  display: inline-flex;
-  background: #f1f5f9;
-  border-radius: 9999px;
-  padding: 3px;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-/* Each segment button */
-.modeBtn {
-  height: 26px;
-  padding: 0 14px;
-  border: none;
-  border-radius: 9999px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  background: transparent;
-  color: #64748b;
-  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
-  white-space: nowrap;
-}
-
-.modeBtn:hover:not([data-active='true']) {
-  background: #e2e8f0;
-  color: #334155;
-}
-
-/* Customer mode active state — neutral */
-.modeBtn[data-active='true']:not([data-variant='network']) {
-  background: #fff;
-  color: #0f172a;
-  box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.06);
-}
-
-/* Network/Nodo active state — deliberate RED accent
- * OKLCH: oklch(40% .22 25) ≈ #c0392b-family; chroma pulled in at 0.22 for richness
- * without garish saturation. White text ensures AA contrast (ratio ≈ 7:1).
- */
-.modeBtn[data-variant='network'][data-active='true'] {
-  background: oklch(40% .22 25);
-  color: #fff;
-  box-shadow: 0 1px 3px oklch(40% .22 25 / .35), 0 0 0 1px oklch(36% .2 25);
-}
-
-.modeBtn[data-variant='network'][data-active='false'] {
-  color: oklch(40% .22 25);
-  font-weight: 500;
-}
-
-.modeBtn[data-variant='network'][data-active='false']:hover {
-  background: oklch(97% .05 25);
-  color: oklch(36% .22 25);
-}
-
-.modeBtn:focus-visible {
-  outline: 2px solid oklch(40% .22 25);
-  outline-offset: 2px;
-}
-
 /* Static badge shown when the mode is LOCKED by the parent page (Tareas Nodos).
  * Mirrors the network active segment so the locked context reads identically to
  * the toggled-on state, minus the interaction affordance. */
