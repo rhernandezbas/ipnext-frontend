@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   useGigaredCustomerAccount,
   useGigaredSummary,
@@ -11,12 +11,15 @@ import {
 import { useClientContracts } from '@/hooks/useCustomers';
 import { Can } from '@/components/auth/Can';
 import { GigaredNotConfigured } from '@/components/molecules/GigaredNotConfigured/GigaredNotConfigured';
-import type { GigaredAccount, AddTvServiceResult, RemoveTvServiceResult } from '@/types/gigared';
 import type { Contract } from '@/types/customer';
-import styles from './TvTab.module.css';
+import type { GigaredAccount, AddTvServiceResult, RemoveTvServiceResult } from '@/types/gigared';
+import styles from './GigaredPanel.module.css';
 
-interface TvTabProps {
+interface GigaredPanelProps {
   customerId: string;
+  /** The contract this panel manages. Add/remove pack mutations target THIS id. */
+  contractId: string;
+  onClose: () => void;
 }
 
 /** Read the BE error `code` from a query error, if present. */
@@ -31,46 +34,98 @@ function errorDetail(err: unknown): string | null {
   return e?.response?.data?.detail ?? null;
 }
 
-/** Contracts whose service lines include an active "TV" line — the DELETE target. */
-function tvContracts(contracts: Contract[]): Contract[] {
-  return contracts.filter((c) => (c.services ?? []).some((s) => s.name === 'TV'));
+/** Read the HTTP status from a query error, if present. */
+function errorStatus(err: unknown): number | null {
+  const e = err as { response?: { status?: number } };
+  return e?.response?.status ?? null;
 }
 
-export function TvTab({ customerId }: TvTabProps) {
+/** A contract OWNS the TV item when its services include an active 'TV' line. */
+function ownsTv(c: Contract): boolean {
+  return c.services.some((s) => s.name === 'TV' && s.status === 'active');
+}
+
+/**
+ * Gigared TV management panel (#47b). Extracted from the former TvTab — TV is
+ * now managed FROM THE CONTRACT, so the panel is scoped to a single
+ * `{customerId, contractId}`. Pack add/remove target that contract directly
+ * (the BE reconcile creates/inactivates the local ContractService item), so
+ * there is no contract picker here.
+ *
+ * Renders as a modal over the contract card. Three states:
+ *   not-configured (banner) / not-linked (link CIC + register) / linked
+ *   (pack add/remove + OTT toggle + account info).
+ */
+export function GigaredPanel({ customerId, contractId, onClose }: GigaredPanelProps) {
   const accountQuery = useGigaredCustomerAccount(customerId);
   const code = accountQuery.isError ? errorCode(accountQuery.error) : null;
+  const status = accountQuery.isError ? errorStatus(accountQuery.error) : null;
 
+  // F1 — derive the OWNER contract. A single contract owns the TV item per
+  // account: if any contract already holds the active local 'TV' line, ALL
+  // mutations target IT regardless of which card opened the panel. On first
+  // activation (no owner yet), the opening contract (`contractId`) defines it.
+  const contractsQuery = useClientContracts(customerId, true);
+  const ownerContract = (contractsQuery.data ?? []).find(ownsTv) ?? null;
+  const effectiveContractId = ownerContract?.id ?? contractId;
+  // Show the "lives elsewhere" hint only when the owner is a DIFFERENT contract
+  // than the one that opened the panel.
+  const ownerElsewhere = ownerContract && ownerContract.id !== contractId ? ownerContract : null;
+
+  let body: React.ReactNode;
   if (code === 'GIGARED_NOT_CONFIGURED') {
-    return (
-      <div className={styles.tab}>
-        <GigaredNotConfigured />
+    body = <GigaredNotConfigured />;
+  } else if (accountQuery.isLoading) {
+    body = <p className={styles.loading}>Cargando…</p>;
+  } else if (accountQuery.isError && status === 403) {
+    // F3 — explicit permission failure: NOT the transient retry path.
+    body = (
+      <div className={`${styles.banner} ${styles.bannerError}`}>
+        <span>No tenés permiso para gestionar TV.</span>
       </div>
     );
-  }
-
-  if (accountQuery.isLoading) {
-    return <div className={styles.tab}><p className={styles.loading}>Cargando…</p></div>;
-  }
-
-  if (accountQuery.isError && !accountQuery.data) {
-    return (
-      <div className={styles.tab}>
-        <div className={`${styles.banner} ${styles.bannerError}`}>
-          <span>No se pudo cargar la información de TV. Reintentá en unos segundos.</span>
-        </div>
+  } else if (accountQuery.isError && !accountQuery.data) {
+    body = (
+      <div className={`${styles.banner} ${styles.bannerError}`}>
+        <span>No se pudo cargar la información de TV. Reintentá en unos segundos.</span>
       </div>
     );
-  }
-
-  const { linked, account } = accountQuery.data ?? { linked: false, account: null };
-
-  return (
-    <div className={styles.tab}>
-      {linked && account ? (
-        <LinkedView customerId={customerId} account={account} />
+  } else {
+    const { linked, account } = accountQuery.data ?? { linked: false, account: null };
+    body =
+      linked && account ? (
+        <LinkedView
+          customerId={customerId}
+          contractId={effectiveContractId}
+          account={account}
+          ownerElsewhere={ownerElsewhere}
+        />
       ) : (
         <UnlinkedView customerId={customerId} />
-      )}
+      );
+  }
+
+  return (
+    <div
+      className={styles.backdrop}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="gigared-panel-title"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <h2 id="gigared-panel-title" className={styles.panelTitle}>
+            TV — Gigared
+          </h2>
+          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Cerrar">
+            ×
+          </button>
+        </div>
+        <div className={styles.panelBody}>{body}</div>
+      </div>
     </div>
   );
 }
@@ -243,43 +298,60 @@ function UnlinkedView({ customerId }: { customerId: string }) {
 
 // ── State 3: linked ─────────────────────────────────────────────────────────
 
-function LinkedView({ customerId, account }: { customerId: string; account: GigaredAccount }) {
+function LinkedView({
+  customerId,
+  contractId,
+  account,
+  ownerElsewhere,
+}: {
+  customerId: string;
+  contractId: string;
+  account: GigaredAccount;
+  /** F1 — set when the TV item lives in a DIFFERENT contract than the opener. */
+  ownerElsewhere: Contract | null;
+}) {
   const summaryQuery = useGigaredSummary();
-  const contractsQuery = useClientContracts(customerId, true);
   const addService = useAddTvService(customerId);
   const removeService = useRemoveTvService(customerId);
   const setOtt = useSetOtt(customerId);
 
   const [serviceId, setServiceId] = useState('');
-  const [contractId, setContractId] = useState('');
   const [addError, setAddError] = useState<string | null>(null);
-  const [syncNotice, setSyncNotice] = useState<{ serviceId: string; contractId: string } | null>(null);
+  const [syncNotice, setSyncNotice] = useState<{ serviceId: string } | null>(null);
   const [ottError, setOttError] = useState<string | null>(null);
 
-  // Remove flow: the modal carries the gigared service id and the contractId
-  // it will DELETE against. removeSyncNotice tracks a 207 local-sync failure.
+  // F4 — the OTT "será habilitado" hint is informational; auto-dismiss it so it
+  // does not linger across re-renders. Track a local "show" flag the success
+  // sets and a timeout clears.
+  const [ottHintVisible, setOttHintVisible] = useState(false);
+
+  // Remove flow: the modal carries the gigared service id; the DELETE targets
+  // THIS contract. removeSyncNotice tracks a 207 local-sync failure.
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
-  const [removeContractId, setRemoveContractId] = useState('');
-  const [removeSyncNotice, setRemoveSyncNotice] =
-    useState<{ serviceId: string; contractId: string } | null>(null);
+  const [removeSyncNotice, setRemoveSyncNotice] = useState<{ serviceId: string } | null>(null);
 
   const partnerServices = summaryQuery.data?.services ?? [];
-  const contracts = contractsQuery.data ?? [];
 
-  // Contracts that actually carry a TV service line — the only valid DELETE
-  // targets. NEVER the add-form state and NEVER an arbitrary contracts[0].
-  const eligibleContracts = useMemo(() => tvContracts(contracts), [contracts]);
+  // F4 — when the OTT toggle succeeds, show the hint and auto-dismiss it ~5s
+  // later (or when an error supersedes it). Reset cleanly on unmount.
+  useEffect(() => {
+    if (setOtt.isSuccess && !ottError) {
+      setOttHintVisible(true);
+      const t = setTimeout(() => setOttHintVisible(false), 5000);
+      return () => clearTimeout(t);
+    }
+    setOttHintVisible(false);
+  }, [setOtt.isSuccess, ottError]);
 
-  async function doAdd(svc: string, ct: string) {
+  async function doAdd(svc: string) {
     setAddError(null);
     try {
-      const result: AddTvServiceResult = await addService.mutateAsync({ serviceId: svc, contractId: ct });
+      const result: AddTvServiceResult = await addService.mutateAsync({ serviceId: svc, contractId });
       if (result.local === 'failed') {
-        setSyncNotice({ serviceId: svc, contractId: ct });
+        setSyncNotice({ serviceId: svc });
       } else {
         setSyncNotice(null);
         setServiceId('');
-        setContractId('');
       }
     } catch (err) {
       const c = errorCode(err);
@@ -295,13 +367,13 @@ function LinkedView({ customerId, account }: { customerId: string; account: Giga
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!serviceId || !contractId || addService.isPending) return;
-    await doAdd(serviceId, contractId);
+    if (!serviceId || addService.isPending) return;
+    await doAdd(serviceId);
   }
 
   async function handleRetrySync() {
     if (!syncNotice) return;
-    await doAdd(syncNotice.serviceId, syncNotice.contractId);
+    await doAdd(syncNotice.serviceId);
   }
 
   async function handleToggleOtt(next: boolean) {
@@ -314,16 +386,10 @@ function LinkedView({ customerId, account }: { customerId: string; account: Giga
     }
   }
 
-  function openRemove(svc: { id: string; name: string }) {
-    // Default the DELETE to the FIRST contract that carries a TV service.
-    setRemoveContractId(eligibleContracts[0]?.id ?? '');
-    setRemoveTarget(svc);
-  }
-
-  async function doRemove(svcId: string, ct: string) {
-    const result: RemoveTvServiceResult = await removeService.mutateAsync({ serviceId: svcId, contractId: ct });
+  async function doRemove(svcId: string) {
+    const result: RemoveTvServiceResult = await removeService.mutateAsync({ serviceId: svcId, contractId });
     if (result.local === 'failed') {
-      setRemoveSyncNotice({ serviceId: svcId, contractId: ct });
+      setRemoveSyncNotice({ serviceId: svcId });
     } else {
       setRemoveSyncNotice(null);
     }
@@ -331,19 +397,24 @@ function LinkedView({ customerId, account }: { customerId: string; account: Giga
 
   async function confirmRemove() {
     if (!removeTarget) return;
-    await doRemove(removeTarget.id, removeContractId);
+    await doRemove(removeTarget.id);
     setRemoveTarget(null);
   }
 
   async function handleRetryRemoveSync() {
     if (!removeSyncNotice) return;
-    await doRemove(removeSyncNotice.serviceId, removeSyncNotice.contractId);
+    await doRemove(removeSyncNotice.serviceId);
   }
 
   const ottEnabled = account.ott?.status === 'active';
 
   return (
     <div className={styles.linked}>
+      {ownerElsewhere && (
+        <div className={`${styles.banner} ${styles.bannerInfo}`}>
+          <span>La TV vive en el contrato {ownerElsewhere.name ?? ownerElsewhere.plan}.</span>
+        </div>
+      )}
       <section className={styles.card}>
         <h4 className={styles.cardTitle}>Cuenta de TV</h4>
         <dl className={styles.accountGrid}>
@@ -379,7 +450,7 @@ function LinkedView({ customerId, account }: { customerId: string; account: Giga
                   <button
                     type="button"
                     className={styles.btnLinkDanger}
-                    onClick={() => openRemove({ id: s.id, name: s.name })}
+                    onClick={() => setRemoveTarget({ id: s.id, name: s.name })}
                   >
                     Quitar
                   </button>
@@ -409,37 +480,21 @@ function LinkedView({ customerId, account }: { customerId: string; account: Giga
 
         <Can permission="tv.write">
           <form className={styles.addForm} onSubmit={handleAdd}>
-            <div className={styles.formGrid}>
-              <div className={styles.field}>
-                <label className={styles.fieldLabel} htmlFor="tv-add-service">Agregar servicio</label>
-                <select
-                  id="tv-add-service"
-                  className={styles.select}
-                  value={serviceId}
-                  onChange={(e) => setServiceId(e.target.value)}
-                >
-                  <option value="">Elegí un servicio…</option>
-                  {partnerServices.map((ps) => (
-                    <option key={ps.id} value={ps.id} disabled={ps.qtyAvailable === 0}>
-                      {ps.name}{ps.qtyAvailable === 0 ? ' (sin cupo)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className={styles.field}>
-                <label className={styles.fieldLabel} htmlFor="tv-add-contract">Contrato</label>
-                <select
-                  id="tv-add-contract"
-                  className={styles.select}
-                  value={contractId}
-                  onChange={(e) => setContractId(e.target.value)}
-                >
-                  <option value="">Elegí un contrato…</option>
-                  {contracts.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name ?? c.plan}</option>
-                  ))}
-                </select>
-              </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="tv-add-service">Agregar servicio</label>
+              <select
+                id="tv-add-service"
+                className={styles.select}
+                value={serviceId}
+                onChange={(e) => setServiceId(e.target.value)}
+              >
+                <option value="">Elegí un servicio…</option>
+                {partnerServices.map((ps) => (
+                  <option key={ps.id} value={ps.id} disabled={ps.qtyAvailable === 0}>
+                    {ps.name}{ps.qtyAvailable === 0 ? ' (sin cupo)' : ''}
+                  </option>
+                ))}
+              </select>
             </div>
             {addError && (
               <div className={`${styles.banner} ${styles.bannerError}`}><span>{addError}</span></div>
@@ -448,7 +503,7 @@ function LinkedView({ customerId, account }: { customerId: string; account: Giga
               <button
                 type="submit"
                 className={styles.btnPrimary}
-                disabled={!serviceId || !contractId || addService.isPending}
+                disabled={!serviceId || addService.isPending}
               >
                 {addService.isPending ? 'Agregando…' : 'Agregar'}
               </button>
@@ -476,7 +531,7 @@ function LinkedView({ customerId, account }: { customerId: string; account: Giga
           {ottError && (
             <div className={`${styles.banner} ${styles.bannerError}`}><span>{ottError}</span></div>
           )}
-          {!ottError && setOtt.isSuccess && (
+          {!ottError && ottHintVisible && (
             <p className={styles.emptyHint}>El cambio será habilitado en los próximos minutos.</p>
           )}
           {account.ott && (
@@ -490,7 +545,7 @@ function LinkedView({ customerId, account }: { customerId: string; account: Giga
 
       {removeTarget && (
         <div
-          className={styles.backdrop}
+          className={styles.confirmBackdrop}
           role="dialog"
           aria-modal="true"
           aria-labelledby="tv-remove-title"
@@ -501,21 +556,6 @@ function LinkedView({ customerId, account }: { customerId: string; account: Giga
             <p className={styles.emptyHint}>
               ¿Quitar "{removeTarget.name}"? Se desactivará en Gigared.
             </p>
-            {eligibleContracts.length > 1 && (
-              <div className={styles.field}>
-                <label className={styles.fieldLabel} htmlFor="tv-remove-contract">Contrato</label>
-                <select
-                  id="tv-remove-contract"
-                  className={styles.select}
-                  value={removeContractId}
-                  onChange={(e) => setRemoveContractId(e.target.value)}
-                >
-                  {eligibleContracts.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name ?? c.plan}</option>
-                  ))}
-                </select>
-              </div>
-            )}
             <div className={styles.formActions}>
               <button
                 type="button"

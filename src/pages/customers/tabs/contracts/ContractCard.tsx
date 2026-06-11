@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
 import { CLIENT_STATUS_LABELS } from '@/pages/customers/clientStatusLabels';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
+import { useGigaredConfig } from '@/hooks/useGigared';
 import type { Contract } from '@/types/customer';
 import { ServiceInventorySection } from '../ServiceInventorySection';
 import { InlineNameEdit } from './InlineNameEdit';
 import { ContractServiceChips } from './ContractServiceChips';
 import { ServicePickerMenu } from './ServicePickerMenu';
+import { GigaredPanel } from './GigaredPanel';
 import styles from './ContractCard.module.css';
 
 interface Props {
@@ -39,6 +42,16 @@ export function ContractCard({ contract, clientId, active }: Props) {
   const canWrite = can('clients.write');
   const display = contract.name ?? contract.plan;
   const variant = badgeStatus(contract.status);
+
+  // #47b — TV is managed from the contract. When Gigared is configured AND
+  // enabled, picking the TV catalog entry (or clicking the TV chip) opens the
+  // GigaredPanel scoped to THIS contract instead of creating a plain item.
+  // F3 — but only when the user can READ TV: without tv.read the chip stays
+  // static and the picker does NOT divert (plain item path).
+  const canReadTv = can('tv.read');
+  const { data: gigaredConfig } = useGigaredConfig();
+  const gigaredActive = !!gigaredConfig?.configured && !!gigaredConfig?.enabled && canReadTv;
+  const [tvPanelOpen, setTvPanelOpen] = useState(false);
 
   return (
     <article className={styles.card}>
@@ -94,12 +107,15 @@ export function ContractCard({ contract, clientId, active }: Props) {
             contractId={contract.id}
             clientId={clientId}
             services={contract.services}
+            onOpenTvManagement={gigaredActive ? () => setTvPanelOpen(true) : undefined}
           />
           {canWrite && (
             <ServicePickerMenu
               contractId={contract.id}
               clientId={clientId}
               services={contract.services}
+              divertTv={gigaredActive}
+              onPickTv={() => setTvPanelOpen(true)}
             />
           )}
         </div>
@@ -108,6 +124,14 @@ export function ContractCard({ contract, clientId, active }: Props) {
       <div className={styles.equipment}>
         <ServiceInventorySection serviceId={contract.id} enabled={active} />
       </div>
+
+      {tvPanelOpen && (
+        <GigaredPanel
+          customerId={clientId}
+          contractId={contract.id}
+          onClose={() => setTvPanelOpen(false)}
+        />
+      )}
     </article>
   );
 }

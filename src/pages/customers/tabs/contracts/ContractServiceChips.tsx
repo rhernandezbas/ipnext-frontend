@@ -8,6 +8,17 @@ interface Props {
   contractId: string;
   clientId: string;
   services: ContractService[];
+  /**
+   * #47b — when provided, clicking the TV chip opens the Gigared management
+   * panel instead of toggling the chip's active/inactive status. Other chips
+   * keep their toggle behaviour.
+   */
+  onOpenTvManagement?: () => void;
+}
+
+/** A service line is the Gigared TV line when its `name` is exactly 'TV'. */
+function isTvService(name: string): boolean {
+  return name === 'TV';
 }
 
 /**
@@ -15,7 +26,7 @@ interface Props {
  * active/inactive status; the "×" removes it behind a confirm. Read-only
  * (static chips) without `clients.write`.
  */
-export function ContractServiceChips({ contractId, clientId, services }: Props) {
+export function ContractServiceChips({ contractId, clientId, services, onOpenTvManagement }: Props) {
   const { can } = useMyPermissions();
   const canWrite = can('clients.write');
   const confirm = useConfirm();
@@ -38,6 +49,38 @@ export function ContractServiceChips({ contractId, clientId, services }: Props) 
       {services.map((svc) => {
         const text = svc.label ?? svc.name;
         const stateClass = svc.status === 'active' ? styles.active : styles.inactive;
+        const isTvLine = isTvService(svc.name);
+        const isTv = isTvLine && !!onOpenTvManagement;
+
+        // #47b — the TV chip opens the Gigared panel (management mode) when
+        // `onOpenTvManagement` is provided (Gigared active AND tv.read). The
+        // panel itself gates write actions.
+        if (isTv) {
+          return (
+            <span key={svc.id} className={`${styles.chip} ${stateClass}`}>
+              <button
+                type="button"
+                className={styles.chipToggle}
+                onClick={onOpenTvManagement}
+                title="Gestionar TV"
+              >
+                {text}
+              </button>
+            </span>
+          );
+        }
+
+        // F3 — without the panel handler (no tv.read), the TV line is ALWAYS a
+        // static chip: it must never become a plain toggle/remove chip, even
+        // with clients.write — TV is managed exclusively through the panel.
+        if (isTvLine) {
+          return (
+            <span key={svc.id} className={`${styles.chip} ${stateClass}`}>
+              {text}
+            </span>
+          );
+        }
+
         if (!canWrite) {
           return (
             <span key={svc.id} className={`${styles.chip} ${stateClass}`}>
