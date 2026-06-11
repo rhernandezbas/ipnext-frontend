@@ -1,0 +1,79 @@
+.wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.addBtn {
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  background: none;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.addBtn:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-secondary);
+}
+
+.addBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  min-width: 180px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.item:hover {
+  background: var(--color-surface-hover);
+}
+
+.emptyItem {
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.toast {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  min-width: 180px;
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--badge-late-fg);
+  background: var(--badge-late-bg);
+  border: 1px solid var(--badge-late-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}

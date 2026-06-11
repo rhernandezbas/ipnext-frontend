@@ -3,6 +3,7 @@ import { Tabs } from '@/components/molecules/Tabs/Tabs';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { GestionRealSyncBody } from './settings/GestionRealSyncBody';
 import { ServiceTechnologiesBody } from '../contracts/ServiceTechnologiesBody';
+import { ServiceCatalogBody } from './settings/ServiceCatalogBody';
 import styles from './CustomersSettingsPage.module.css';
 
 /**
@@ -20,6 +21,9 @@ export default function CustomersSettingsPage() {
     { id: 'gr-sync', label: 'Sincronización GR', content: <GestionRealSyncBody /> },
     ...(can('contracts.read')
       ? [{ id: 'tecnologias', label: 'Tecnologías', content: <ServiceTechnologiesBody /> }]
+      : []),
+    ...(can('clients.manage')
+      ? [{ id: 'servicios', label: 'Servicios', content: <ServiceCatalogBody /> }]
       : []),
   ];
   const tabIds = tabs.map((t) => t.id);

@@ -84,7 +84,7 @@ describe('CreateTaskModal', () => {
     useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
     useClientDetailMock.mockReturnValue({ data: { id: 'c-full', name: 'FULL CUSTOMER', address: 'Calle Full 1' } });
     useClientContractsMock.mockReturnValue({
-      data: [{ id: 1, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null }],
+      data: [{ id: '1', plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, description: '', address: null }],
       isLoading: false,
     });
     const result = render(
@@ -105,7 +105,7 @@ describe('CreateTaskModal', () => {
     useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
     useClientDetailMock.mockReturnValue({ data: { id: 'c-btn', name: 'BTN CUSTOMER', address: 'Calle 1' } });
     useClientContractsMock.mockReturnValue({
-      data: [{ id: 2, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null }],
+      data: [{ id: '2', plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, description: '', address: null }],
       isLoading: false,
     });
     setup();
@@ -281,7 +281,7 @@ describe('CreateTaskModal', () => {
     useClientDetailMock.mockReturnValue({ data: { id: 'c-10', name: 'PEREZ MARIO', address: 'Calle Cliente 100' } });
     useClientContractsMock.mockReturnValue({
       data: [
-        { id: 55, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: 'Av. Servicio 999' },
+        { id: '55', plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, description: '', address: 'Av. Servicio 999' },
       ],
     });
 
@@ -307,7 +307,7 @@ describe('CreateTaskModal', () => {
     useClientDetailMock.mockReturnValue({ data: { id: 'c-11', name: 'GOMEZ ANA', address: 'Calle Fallback 50' } });
     useClientContractsMock.mockReturnValue({
       data: [
-        { id: 66, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null },
+        { id: '66', plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, description: '', address: null },
       ],
     });
 
@@ -398,7 +398,7 @@ describe('CreateTaskModal', () => {
     useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
     useClientDetailMock.mockReturnValue({ data: { id: 'c-proj', name: 'PROJ CUSTOMER', address: 'Calle Proj 1' } });
     useClientContractsMock.mockReturnValue({
-      data: [{ id: 50, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null }],
+      data: [{ id: '50', plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, description: '', address: null }],
       isLoading: false,
     });
     render(
@@ -426,7 +426,7 @@ describe('CreateTaskModal', () => {
     useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
     useClientDetailMock.mockReturnValue({ data: { id: 'c-desc', name: 'DESC CUSTOMER', address: 'Calle Desc 1' } });
     useClientContractsMock.mockReturnValue({
-      data: [{ id: 51, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2500, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null }],
+      data: [{ id: '51', plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2500, startDate: '2024-01-01', endDate: null, description: '', address: null }],
       isLoading: false,
     });
     render(
@@ -547,7 +547,7 @@ describe('CreateTaskModal', () => {
 
     it('keeps Crear tarea disabled when title + client are present but contract is missing', async () => {
       const contracts = [
-        { id: 77, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null },
+        { id: '77', plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, description: '', address: null },
       ];
       setupWithCustomer(contracts);
 
@@ -564,7 +564,7 @@ describe('CreateTaskModal', () => {
 
     it('enables Crear tarea when title + client + contract + project + description are all present', async () => {
       const contracts = [
-        { id: 88, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2500, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null },
+        { id: '88', plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2500, startDate: '2024-01-01', endDate: null, description: '', address: null },
       ];
       setupWithCustomer(contracts);
 
@@ -606,7 +606,7 @@ describe('CreateTaskModal', () => {
 
     it('submit passes contractId to onCreate when client + contract are selected', async () => {
       const contracts = [
-        { id: 99, plan: 'Plan 200Mbps', type: 'internet', status: 'active', price: 4000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: 'Servicio Calle 9' },
+        { id: '99', plan: 'Plan 200Mbps', type: 'internet', status: 'active', price: 4000, startDate: '2024-01-01', endDate: null, description: '', address: 'Servicio Calle 9' },
       ];
       setupWithCustomer(contracts);
 
@@ -661,7 +661,7 @@ describe('CreateTaskModal', () => {
       useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
       useClientDetailMock.mockReturnValue({ data: { id: 'c-init2', name: 'INIT TWO', address: 'Calle X' } });
       useClientContractsMock.mockReturnValue({
-        data: [{ id: 7, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null }],
+        data: [{ id: '7', plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, description: '', address: null }],
         isLoading: false,
       });
       render(
@@ -692,7 +692,7 @@ describe('CreateTaskModal', () => {
       useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
       useClientDetailMock.mockReturnValue({ data: { id: 'c-tk', name: 'TK CUSTOMER', address: 'Calle TK' } });
       useClientContractsMock.mockReturnValue({
-        data: [{ id: 3, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null }],
+        data: [{ id: '3', plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, description: '', address: null }],
         isLoading: false,
       });
       render(

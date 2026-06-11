@@ -9,6 +9,7 @@ import { useDeviceTypes } from '@/hooks/useDeviceTypes';
 import { Can } from '@/components/auth/Can';
 import { useConfirm } from '@/context/ConfirmContext';
 import type { InstalledItemType, ServiceInstalledItem } from '@/types/serviceInventory';
+import styles from './ServiceInventorySection.module.css';
 
 const FALLBACK_TYPES: InstalledItemType[] = ['ONU', 'ROUTER', 'ANTENA', 'REPETIDOR', 'OTROS'];
 
@@ -100,9 +101,9 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
   const items = data ?? [];
 
   return (
-    <div style={{ marginTop: '0.75rem', paddingLeft: '0.5rem', borderLeft: '3px solid #e5e7eb' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-        <strong style={{ fontSize: '0.85rem', color: '#374151' }}>Equipos instalados</strong>
+    <div className={styles.section}>
+      <div className={styles.header}>
+        <strong className={styles.heading}>Equipos instalados</strong>
         <Can permission="inventory.write">
           <button type="button" onClick={() => setShowForm(s => !s)}>
             {showForm ? 'Cancelar' : 'Agregar SN al contrato'}
@@ -111,7 +112,7 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem', padding: '0.5rem', border: '1px solid #ddd', borderRadius: 6 }}>
+        <form onSubmit={handleSubmit} className={styles.form}>
           <select value={form.type} onChange={e => field('type', e.target.value)} required>
             {activeTypes.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -123,7 +124,7 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
       )}
 
       {editingItem && (
-        <form onSubmit={handleEditSubmit} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem', padding: '0.5rem', border: '1px solid #6366f1', borderRadius: 6 }}>
+        <form onSubmit={handleEditSubmit} className={`${styles.form} ${styles.formEditing}`}>
           <select value={editForm.type} onChange={e => editField('type', e.target.value)} required>
             {activeTypes.map(t => <option key={t} value={t}>{t}</option>)}
             {editForm.type && !activeTypes.includes(editForm.type) && (
@@ -139,11 +140,11 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
       )}
 
       {isLoading ? (
-        <p style={{ fontSize: '0.8rem', color: '#6b7280' }}>Cargando equipos…</p>
+        <p className={styles.muted}>Cargando equipos…</p>
       ) : items.length === 0 ? (
-        <p style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Sin equipos cargados en este contrato.</p>
+        <p className={styles.muted}>Sin equipos cargados en este contrato.</p>
       ) : (
-        <table style={{ fontSize: '0.8rem', width: '100%' }}>
+        <table className={styles.table}>
           <thead>
             <tr><th>Tipo</th><th>SN</th><th>MAC</th><th>Modelo</th><th>Origen</th><th>Estado</th><th>Aprobado por</th><th></th></tr>
           </thead>
@@ -159,8 +160,8 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
                 <td>{it.addedByUserName ? `${it.addedByUserName}${it.confirmedAt ? ` · ${new Date(it.confirmedAt).toLocaleDateString('es-AR')}` : ''}` : '—'}</td>
                 <td>
                   <Can permission="inventory.write">
-                    <button type="button" onClick={() => openEdit(it)} style={{ marginRight: '0.25rem', background: 'none', border: 'none', cursor: 'pointer', color: '#6366f1' }}>Editar</button>
-                    <button type="button" onClick={() => handleRemove(it)} disabled={removeItem.isPending} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626' }}>Quitar</button>
+                    <button type="button" onClick={() => openEdit(it)} className={styles.linkBtn}>Editar</button>
+                    <button type="button" onClick={() => handleRemove(it)} disabled={removeItem.isPending} className={styles.linkDanger}>Quitar</button>
                   </Can>
                 </td>
               </tr>

@@ -62,7 +62,7 @@ describe('CustomerSidebar', () => {
     // Default: contracts list with one matching contract (id = 42 → Number)
     useClientContractsMock.mockReturnValue({
       data: [
-        { id: 42, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: 'Av. Test 123' },
+        { id: '42', plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, description: '', address: 'Av. Test 123' },
       ],
     });
   });
@@ -138,7 +138,7 @@ describe('CustomerSidebar', () => {
   it('renders gracefully when no contract matches contractId', () => {
     useClientContractsMock.mockReturnValue({
       data: [
-        { id: 99, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null },
+        { id: '99', plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, description: '', address: null },
       ],
     });
     renderSidebar({ contractId: '42' }); // 99 ≠ 42 → no match

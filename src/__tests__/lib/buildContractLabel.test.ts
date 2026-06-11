@@ -43,4 +43,10 @@ describe('buildContractLabel', () => {
     expect(buildContractLabel({ id: 9, plan: 'Plan X', address: '', technology: '' }))
       .toBe('Plan X');
   });
+
+  // Case 8: UUID string id (CTU-1.2) — id widened to string | number
+  it('accepts a UUID string id and renders it in the fallback', () => {
+    expect(buildContractLabel({ id: 'c1', plan: null, address: 'Av. Test', technology: 'FTTH' }))
+      .toBe('Contrato #c1');
+  });
 });

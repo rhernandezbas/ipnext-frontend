@@ -1,5 +1,6 @@
 export interface ContractLabelInput {
-  id: number;
+  /** UUID string (real contracts) or legacy numeric id — both render in `Contrato #${id}`. */
+  id: string | number;
   plan: string | null | undefined;
   address?: string | null;
   technology?: string | null;

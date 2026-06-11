@@ -1,0 +1,113 @@
+import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
+import { CLIENT_STATUS_LABELS } from '@/pages/customers/clientStatusLabels';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
+import type { Contract } from '@/types/customer';
+import { ServiceInventorySection } from '../ServiceInventorySection';
+import { InlineNameEdit } from './InlineNameEdit';
+import { ContractServiceChips } from './ContractServiceChips';
+import { ServicePickerMenu } from './ServicePickerMenu';
+import styles from './ContractCard.module.css';
+
+interface Props {
+  contract: Contract;
+  clientId: string;
+  active: boolean;
+}
+
+type BadgeStatus = 'active' | 'late' | 'blocked' | 'inactive' | 'baja';
+
+/** Map the GR customer status onto a StatusBadge presentation variant. */
+function badgeStatus(status: string): BadgeStatus {
+  switch (status) {
+    case 'active':
+      return 'active';
+    case 'blocked':
+      return 'blocked';
+    case 'baja':
+      return 'baja';
+    default:
+      return 'inactive';
+  }
+}
+
+function formatDateRange(start: string, end: string | null): string {
+  return end ? `${start} → ${end}` : `Desde ${start}`;
+}
+
+export function ContractCard({ contract, clientId, active }: Props) {
+  const { can } = useMyPermissions();
+  const canWrite = can('clients.write');
+  const display = contract.name ?? contract.plan;
+  const variant = badgeStatus(contract.status);
+
+  return (
+    <article className={styles.card}>
+      <div className={styles.header}>
+        <div className={styles.titleRow}>
+          <InlineNameEdit
+            contractId={contract.id}
+            display={display}
+            name={contract.name}
+            clientId={clientId}
+          />
+          <StatusBadge status={variant} label={CLIENT_STATUS_LABELS[contract.status]} />
+        </div>
+      </div>
+
+      <div className={styles.metadata}>
+        {contract.name && (
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>Plan</span>
+            <span className={styles.fieldValue}>{contract.plan}</span>
+          </div>
+        )}
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>Instalación</span>
+          <span className={styles.fieldValue}>{contract.address || '—'}</span>
+        </div>
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>IP</span>
+          <span className={styles.fieldValue}>{contract.ip || '—'}</span>
+        </div>
+        {contract.technology && (
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>Tecnología</span>
+            <span className={styles.fieldValue}>{contract.technology}</span>
+          </div>
+        )}
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>Vigencia</span>
+          <span className={styles.fieldValue}>{formatDateRange(contract.startDate, contract.endDate)}</span>
+        </div>
+      </div>
+
+      <div className={styles.services}>
+        <div className={styles.sectionLabel}>Servicios</div>
+        <div className={styles.chips}>
+          {contract.services.length === 0 && !canWrite && (
+            <span className={styles.emptyHint}>Sin servicios.</span>
+          )}
+          {contract.services.length === 0 && canWrite && (
+            <span className={styles.emptyHint}>Agregá un servicio.</span>
+          )}
+          <ContractServiceChips
+            contractId={contract.id}
+            clientId={clientId}
+            services={contract.services}
+          />
+          {canWrite && (
+            <ServicePickerMenu
+              contractId={contract.id}
+              clientId={clientId}
+              services={contract.services}
+            />
+          )}
+        </div>
+      </div>
+
+      <div className={styles.equipment}>
+        <ServiceInventorySection serviceId={contract.id} enabled={active} />
+      </div>
+    </article>
+  );
+}

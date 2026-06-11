@@ -1,5 +1,5 @@
 import axiosClient from './axios-client';
-import type { Customer, CustomerSummary, Contract, LogEntry, CreateCustomerData, UpdateCustomerData, AddContractData, UpdateContractData } from '@/types/customer';
+import type { Customer, CustomerSummary, Contract, LogEntry, CreateCustomerData, UpdateCustomerData } from '@/types/customer';
 import type { Invoice } from '@/types/billing';
 import type { PaginatedResponse } from '@/types/api';
 
@@ -75,9 +75,6 @@ export async function getClientContracts(id: string): Promise<Contract[]> {
   return response.data;
 }
 
-/** @deprecated Use getClientContracts */
-export const getClientServices = getClientContracts;
-
 export async function getClientInvoices(id: string): Promise<Invoice[]> {
   const response = await axiosClient.get<Invoice[]>(`/clients/${id}/invoices`);
   return response.data;
@@ -151,32 +148,14 @@ export async function uploadClientDocument(
   return response.data;
 }
 
-export async function addClientContract(clientId: string, data: AddContractData): Promise<Contract> {
-  const response = await axiosClient.post<Contract>(`/clients/${clientId}/contracts`, data);
+/**
+ * Rename a contract (#43). The id is a UUID string, used verbatim. An empty
+ * name is normalised to `null` by the backend (clears the override).
+ */
+export async function patchContractName(id: string, name: string | null): Promise<{ id: string; name: string | null }> {
+  const response = await axiosClient.patch<{ id: string; name: string | null }>(`/contracts/${id}`, { name });
   return response.data;
 }
-
-export async function updateClientContract(
-  clientId: string,
-  contractId: number,
-  data: UpdateContractData
-): Promise<Contract> {
-  const response = await axiosClient.patch<Contract>(`/clients/${clientId}/contracts/${contractId}`, data);
-  return response.data;
-}
-
-export async function deleteClientContract(clientId: string, contractId: number): Promise<void> {
-  await axiosClient.delete(`/clients/${clientId}/contracts/${contractId}`);
-}
-
-/** @deprecated Use addClientContract */
-export const addClientService = addClientContract;
-/** @deprecated Use updateClientContract */
-export const updateClientService = (clientId: string, serviceId: number, data: UpdateContractData) =>
-  updateClientContract(clientId, serviceId, data);
-/** @deprecated Use deleteClientContract */
-export const deleteClientService = (clientId: string, serviceId: number) =>
-  deleteClientContract(clientId, serviceId);
 
 export interface ClientFile {
   id: number;

@@ -1,0 +1,84 @@
+/* Equipos instalados — extracted 1:1 from inline styles (#42 Phase 3).
+   The old `border-left: 3px solid` side-stripe is intentionally GONE
+   (impeccable absolute ban); a top border separates the section instead. */
+
+.section {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-gray-100);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.heading {
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.form {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.formEditing {
+  border-color: var(--color-primary);
+}
+
+.muted {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.table {
+  font-size: 12px;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-gray-100);
+}
+
+.table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--color-gray-100);
+  color: var(--color-text-primary);
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.linkBtn,
+.linkDanger {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.linkBtn {
+  color: var(--color-primary);
+  margin-right: var(--space-1);
+}
+
+.linkDanger {
+  color: var(--badge-late-fg);
+}

@@ -159,7 +159,7 @@ describe('CreateTaskModal — customer payload unchanged (#40b fix-a)', () => {
     });
     useClientDetailMock.mockReturnValue({ data: { id: 'c-net', name: 'NET CUSTOMER', address: 'Calle Test 1' } });
     useClientContractsMock.mockReturnValue({
-      data: [{ id: 5, plan: 'Plan 100', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: null }],
+      data: [{ id: '5', plan: 'Plan 100', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, description: '', address: null }],
       isLoading: false,
     });
     const { onCreate } = setup();
