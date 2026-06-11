@@ -9,9 +9,13 @@ import {
   useSetOtt,
 } from '@/hooks/useGigared';
 import { useClientContracts } from '@/hooks/useCustomers';
+import { useRemoveContractService, useAddContractService } from '@/hooks/useContractServices';
+import { useServiceCatalog } from '@/hooks/useServiceCatalog';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
+import { useConfirm } from '@/context/ConfirmContext';
 import { Can } from '@/components/auth/Can';
 import { GigaredNotConfigured } from '@/components/molecules/GigaredNotConfigured/GigaredNotConfigured';
-import type { Contract } from '@/types/customer';
+import type { Contract, ContractService } from '@/types/customer';
 import type { GigaredAccount, AddTvServiceResult, RemoveTvServiceResult } from '@/types/gigared';
 import styles from './GigaredPanel.module.css';
 
@@ -45,6 +49,11 @@ function ownsTv(c: Contract): boolean {
   return c.services.some((s) => s.name === 'TV' && s.status === 'active');
 }
 
+/** The active local 'TV' ContractService line on a contract, if any. */
+function localTvLine(c: Contract): ContractService | null {
+  return c.services.find((s) => s.name === 'TV' && s.status === 'active') ?? null;
+}
+
 /**
  * Gigared TV management panel (#47b). Extracted from the former TvTab — TV is
  * now managed FROM THE CONTRACT, so the panel is scoped to a single
@@ -72,7 +81,13 @@ export function GigaredPanel({ customerId, contractId, onClose }: GigaredPanelPr
   // than the one that opened the panel.
   const ownerElsewhere = ownerContract && ownerContract.id !== contractId ? ownerContract : null;
 
+  // #47c Fix 2 — the local 'TV' ContractService line (the #43 item) lives on the
+  // owner contract. When present, the panel exposes a "remove local item" action
+  // regardless of link state.
+  const localLine = ownerContract ? localTvLine(ownerContract) : null;
+
   let body: React.ReactNode;
+  let showLocalSection = false;
   if (code === 'GIGARED_NOT_CONFIGURED') {
     body = <GigaredNotConfigured />;
   } else if (accountQuery.isLoading) {
@@ -92,6 +107,7 @@ export function GigaredPanel({ customerId, contractId, onClose }: GigaredPanelPr
     );
   } else {
     const { linked, account } = accountQuery.data ?? { linked: false, account: null };
+    showLocalSection = true;
     body =
       linked && account ? (
         <LinkedView
@@ -101,7 +117,7 @@ export function GigaredPanel({ customerId, contractId, onClose }: GigaredPanelPr
           ownerElsewhere={ownerElsewhere}
         />
       ) : (
-        <UnlinkedView customerId={customerId} />
+        <UnlinkedView customerId={customerId} contractId={contractId} hasLocalTv={!!localLine} />
       );
   }
 
@@ -124,15 +140,95 @@ export function GigaredPanel({ customerId, contractId, onClose }: GigaredPanelPr
             ×
           </button>
         </div>
-        <div className={styles.panelBody}>{body}</div>
+        <div className={styles.panelBody}>
+          {body}
+          {showLocalSection && localLine && ownerContract && (
+            <LocalItemSection
+              customerId={customerId}
+              contractId={ownerContract.id}
+              line={localLine}
+              linked={!!accountQuery.data?.linked}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
+// ── #47c Fix 2: local TV item removal ───────────────────────────────────────
+
+/**
+ * The local 'TV' ContractService line (#43) on the owner contract. Removing it
+ * deletes ONLY the local item via the contract-services endpoint — it does NOT
+ * touch Gigared. Gated by `clients.write` (the same permission the contract
+ * chips use), NOT `tv.write`. Invalidation of ['client-contracts'] is handled by
+ * the useRemoveContractService hook.
+ */
+function LocalItemSection({
+  customerId,
+  contractId,
+  line,
+  linked,
+}: {
+  customerId: string;
+  contractId: string;
+  line: ContractService;
+  linked: boolean;
+}) {
+  const { can } = useMyPermissions();
+  const confirm = useConfirm();
+  const remove = useRemoveContractService(customerId);
+
+  if (!can('clients.write')) return null;
+
+  async function handleRemove() {
+    const ok = await confirm({
+      message: linked
+        ? '¿Quitar el ítem TV local de este contrato? No toca la cuenta Gigared — solo elimina el ítem del contrato.'
+        : '¿Quitar el ítem TV local de este contrato?',
+      tone: 'danger',
+      confirmLabel: 'Quitar',
+    });
+    if (!ok) return;
+    await remove.mutateAsync({ contractId, id: line.id });
+  }
+
+  return (
+    <section className={styles.card}>
+      <h4 className={styles.cardTitle}>Ítem local</h4>
+      {linked && (
+        <p className={styles.emptyHint}>
+          Esto no toca Gigared: solo elimina el ítem TV del contrato.
+        </p>
+      )}
+      <div className={styles.formActions}>
+        <button
+          type="button"
+          className={styles.btnLinkDanger}
+          onClick={handleRemove}
+          disabled={remove.isPending}
+        >
+          {remove.isPending ? 'Quitando…' : 'Quitar el ítem TV de este contrato'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 // ── State 2: not linked ─────────────────────────────────────────────────────
 
-function UnlinkedView({ customerId }: { customerId: string }) {
+function UnlinkedView({
+  customerId,
+  contractId,
+  hasLocalTv,
+}: {
+  customerId: string;
+  /** The contract that opened the panel — target for the local-only add. */
+  contractId: string;
+  /** True when a local 'TV' item already exists (then the add action is moot). */
+  hasLocalTv: boolean;
+}) {
   const link = useLinkCic(customerId);
   const register = useRegisterAccount(customerId);
 
@@ -143,6 +239,24 @@ function UnlinkedView({ customerId }: { customerId: string }) {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', cic: '' });
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [registerOk, setRegisterOk] = useState(false);
+
+  // #47c Fix 3 — escape hatch: add ONLY the local TV item (no Gigared). Reuses
+  // the #43 add endpoint with the 'TV' catalog entry, like the picker's plain
+  // path. Gated by clients.write (the contract-item permission via <Can>).
+  const { data: catalog = [] } = useServiceCatalog(true);
+  const addLocal = useAddContractService(customerId);
+  const tvCatalogId = catalog.find((c) => c.name === 'TV')?.id ?? null;
+  const [addLocalError, setAddLocalError] = useState<string | null>(null);
+
+  async function handleAddLocal() {
+    if (!tvCatalogId || addLocal.isPending) return;
+    setAddLocalError(null);
+    try {
+      await addLocal.mutateAsync({ contractId, payload: { serviceCatalogId: tvCatalogId } });
+    } catch {
+      setAddLocalError('No se pudo agregar el ítem local. Reintentá.');
+    }
+  }
 
   async function handleLink(e: React.FormEvent) {
     e.preventDefault();
@@ -193,6 +307,28 @@ function UnlinkedView({ customerId }: { customerId: string }) {
         <p className={styles.emptyHint}>
           Vinculá una cuenta existente por su CIC o registrá una cuenta nueva en Gigared.
         </p>
+        {/* #47c Fix 3 — make it explicit nothing was created. If the operator
+            picked TV but does not want Gigared, offer the local-only item. */}
+        <p className={styles.emptyHint}>
+          Si cerrás sin vincular ni registrar, no se agregó nada a este contrato.
+        </p>
+        {!hasLocalTv && tvCatalogId && (
+          <Can permission="clients.write">
+            <div className={styles.formActions}>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={handleAddLocal}
+                disabled={addLocal.isPending}
+              >
+                {addLocal.isPending ? 'Agregando…' : 'Agregar solo el ítem local (sin Gigared)'}
+              </button>
+            </div>
+          </Can>
+        )}
+        {addLocalError && (
+          <div className={`${styles.banner} ${styles.bannerError}`}><span>{addLocalError}</span></div>
+        )}
       </div>
 
       <form className={styles.card} onSubmit={handleLink}>

@@ -16,6 +16,13 @@ vi.mock('@/hooks/useGigared', () => ({
 vi.mock('@/hooks/useCustomers', () => ({
   useClientContracts: vi.fn(),
 }));
+vi.mock('@/hooks/useContractServices', () => ({
+  useRemoveContractService: vi.fn(),
+  useAddContractService: vi.fn(),
+}));
+vi.mock('@/hooks/useServiceCatalog', () => ({
+  useServiceCatalog: vi.fn(),
+}));
 
 import {
   useGigaredCustomerAccount,
@@ -27,7 +34,10 @@ import {
   useSetOtt,
 } from '@/hooks/useGigared';
 import { useClientContracts } from '@/hooks/useCustomers';
+import { useRemoveContractService, useAddContractService } from '@/hooks/useContractServices';
+import { useServiceCatalog } from '@/hooks/useServiceCatalog';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
+import { useConfirm } from '@/context/ConfirmContext';
 import { GigaredPanel } from '@/pages/customers/tabs/contracts/GigaredPanel';
 import type { Contract, ContractService } from '@/types/customer';
 
@@ -72,6 +82,13 @@ const registerMutate = vi.fn();
 const removeMutate = vi.fn();
 const ottMutate = vi.fn();
 const onClose = vi.fn();
+// #47c — local ContractService item mutations (the #43 endpoints) reused inside
+// the panel: remove the local TV line, and add a plain local TV item.
+const removeLocalMutate = vi.fn();
+const addLocalMutate = vi.fn();
+
+// A TV entry in the service catalog (drives Fix 3's "add only the local item").
+const tvCatalogEntry = { id: 'sc-tv', name: 'TV', label: 'TV', active: true };
 
 // ── Contract fixtures for F1 (cross-contract TV ownership) ──────────────────
 const tvService = (over: Partial<ContractService> = {}): ContractService => ({
@@ -135,6 +152,19 @@ function mockQuery(over: {
     isPending: false,
   } as unknown as ReturnType<typeof useRemoveTvService>);
   vi.mocked(useSetOtt).mockReturnValue({ mutateAsync: ottMutate, isPending: false } as unknown as ReturnType<typeof useSetOtt>);
+
+  vi.mocked(useRemoveContractService).mockReturnValue({
+    mutateAsync: removeLocalMutate.mockResolvedValue(undefined),
+    isPending: false,
+  } as unknown as ReturnType<typeof useRemoveContractService>);
+  vi.mocked(useAddContractService).mockReturnValue({
+    mutateAsync: addLocalMutate.mockResolvedValue(undefined),
+    isPending: false,
+  } as unknown as ReturnType<typeof useAddContractService>);
+  vi.mocked(useServiceCatalog).mockReturnValue({
+    data: [tvCatalogEntry],
+    isLoading: false,
+  } as unknown as ReturnType<typeof useServiceCatalog>);
 }
 
 function renderPanel() {
@@ -156,6 +186,8 @@ describe('GigaredPanel', () => {
       isError: false,
       can: () => true,
     } as unknown as ReturnType<typeof useMyPermissions>);
+    // clearAllMocks wipes the global setup impl — re-arm the auto-confirm.
+    vi.mocked(useConfirm).mockReturnValue(vi.fn().mockResolvedValue(true));
   });
 
   it('renders as a dialog (modal) with a close control', () => {
@@ -330,7 +362,9 @@ describe('GigaredPanel', () => {
         contracts: [contract('ct-A', [tvService()]), contract('ct-9', [])],
       });
       renderPanel(); // contractId="ct-9"
-      await user.click(screen.getByRole('button', { name: /quitar/i }));
+      // Exact "Quitar" → the Gigared service line button (the #47c local-item
+      // remove button reads "Quitar el ítem TV de este contrato").
+      await user.click(screen.getByRole('button', { name: /^quitar$/i }));
       const dialogs = screen.getAllByRole('dialog');
       const confirm = dialogs[dialogs.length - 1];
       const { within } = await import('@testing-library/react');
@@ -519,6 +553,154 @@ describe('GigaredPanel', () => {
       await waitFor(() =>
         expect(screen.getByText(/ese cic ya está vinculado a otro cliente/i)).toBeInTheDocument(),
       );
+    });
+  });
+
+  // ── #47c Fix 2: remove the LOCAL TV item from the contract ──────────────────
+  // The local TV ContractService line lives on the owner contract. The panel
+  // exposes an "Ítem local" section to remove it via the #43 endpoint
+  // (useRemoveContractService → DELETE /contracts/:id/services/:lineId), gated by
+  // clients.write (the chips' permission), NOT tv.write.
+  describe('Fix 2 — remove local TV item', () => {
+    it('not-linked + owner contract holds the local TV line → shows the remove action', () => {
+      mockQuery({
+        account: { linked: false, account: null },
+        contracts: [contract('ct-9', [tvService({ id: 'cs-tv' })])],
+      });
+      renderPanel(); // contractId="ct-9"
+      expect(
+        screen.getByRole('button', { name: /quitar el ítem tv de este contrato/i }),
+      ).toBeInTheDocument();
+    });
+
+    it('clicking the local-remove action fires useRemoveContractService for the owner line', async () => {
+      const user = userEvent.setup();
+      mockQuery({
+        account: { linked: false, account: null },
+        contracts: [contract('ct-9', [tvService({ id: 'cs-tv' })])],
+      });
+      renderPanel(); // contractId="ct-9"
+      await user.click(
+        screen.getByRole('button', { name: /quitar el ítem tv de este contrato/i }),
+      );
+      await waitFor(() =>
+        expect(removeLocalMutate).toHaveBeenCalledWith({ contractId: 'ct-9', id: 'cs-tv' }),
+      );
+    });
+
+    it('cancelling the confirm does NOT remove the local item', async () => {
+      const user = userEvent.setup();
+      vi.mocked(useConfirm).mockReturnValue(vi.fn().mockResolvedValue(false));
+      mockQuery({
+        account: { linked: false, account: null },
+        contracts: [contract('ct-9', [tvService({ id: 'cs-tv' })])],
+      });
+      renderPanel();
+      await user.click(
+        screen.getByRole('button', { name: /quitar el ítem tv de este contrato/i }),
+      );
+      await waitFor(() => expect(useConfirm).toHaveBeenCalled());
+      expect(removeLocalMutate).not.toHaveBeenCalled();
+    });
+
+    it('no local TV item on any contract → the local-remove action is absent', () => {
+      mockQuery({
+        account: { linked: false, account: null },
+        contracts: [contract('ct-9', [])],
+      });
+      renderPanel();
+      expect(
+        screen.queryByRole('button', { name: /quitar el ítem tv de este contrato/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('linked + local item present → remove action visible with a "no toca Gigared" warning', () => {
+      mockQuery({
+        account: { linked: true, account: linkedAccount },
+        contracts: [contract('ct-9', [tvService({ id: 'cs-tv' })])],
+      });
+      renderPanel();
+      expect(
+        screen.getByRole('button', { name: /quitar el ítem tv de este contrato/i }),
+      ).toBeInTheDocument();
+      // It must be clear this only removes the local item, not the Gigared pack.
+      expect(screen.getByText(/no toca gigared/i)).toBeInTheDocument();
+    });
+
+    it('without clients.write the local-remove action is hidden', () => {
+      vi.mocked(useMyPermissions).mockReturnValue({
+        permissions: [],
+        roles: [],
+        user: null,
+        isLoading: false,
+        isError: false,
+        can: (p: string | string[]) => {
+          const perms = Array.isArray(p) ? p : [p];
+          return perms.every((x) => x !== 'clients.write');
+        },
+      } as unknown as ReturnType<typeof useMyPermissions>);
+      mockQuery({
+        account: { linked: false, account: null },
+        contracts: [contract('ct-9', [tvService({ id: 'cs-tv' })])],
+      });
+      renderPanel();
+      expect(
+        screen.queryByRole('button', { name: /quitar el ítem tv de este contrato/i }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  // ── #47c Fix 3: in the unlinked state, add ONLY the local item (no Gigared) ──
+  describe('Fix 3 — add only the local item from the unlinked state', () => {
+    it('not-linked → hint clarifies nothing is created until you act', () => {
+      mockQuery({ account: { linked: false, account: null }, contracts: [contract('ct-9', [])] });
+      renderPanel();
+      expect(screen.getByText(/no se agregó nada/i)).toBeInTheDocument();
+    });
+
+    it('the secondary action creates the plain local ContractService for TV', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: false, account: null }, contracts: [contract('ct-9', [])] });
+      renderPanel(); // contractId="ct-9"
+      await user.click(
+        screen.getByRole('button', { name: /agregar solo el ítem local/i }),
+      );
+      await waitFor(() =>
+        expect(addLocalMutate).toHaveBeenCalledWith({
+          contractId: 'ct-9',
+          payload: { serviceCatalogId: 'sc-tv' },
+        }),
+      );
+    });
+
+    it('when the contract already owns the local TV item, the add action is hidden', () => {
+      mockQuery({
+        account: { linked: false, account: null },
+        contracts: [contract('ct-9', [tvService({ id: 'cs-tv' })])],
+      });
+      renderPanel();
+      expect(
+        screen.queryByRole('button', { name: /agregar solo el ítem local/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('without clients.write the add-local action is hidden', () => {
+      vi.mocked(useMyPermissions).mockReturnValue({
+        permissions: [],
+        roles: [],
+        user: null,
+        isLoading: false,
+        isError: false,
+        can: (p: string | string[]) => {
+          const perms = Array.isArray(p) ? p : [p];
+          return perms.every((x) => x !== 'clients.write');
+        },
+      } as unknown as ReturnType<typeof useMyPermissions>);
+      mockQuery({ account: { linked: false, account: null }, contracts: [contract('ct-9', [])] });
+      renderPanel();
+      expect(
+        screen.queryByRole('button', { name: /agregar solo el ítem local/i }),
+      ).not.toBeInTheDocument();
     });
   });
 });

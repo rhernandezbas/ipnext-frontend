@@ -135,4 +135,26 @@ describe('GigaredAccountsPage', () => {
     renderPage();
     expect(screen.getByText(/sin cuentas/i)).toBeInTheDocument();
   });
+
+  // Fix #47c-1 — the partner API caps pagination_limit at 20 (verified live
+  // 2026-06-11: >20 returns 400 "La paginación tiene un límite de 20 cuentas").
+  // The page MUST request at most 20 per page or the list errors out always.
+  it('requests the accounts hook with paginationLimit capped at 20', () => {
+    mockHooks();
+    renderPage();
+    expect(useGigaredAccounts).toHaveBeenCalledWith(
+      expect.objectContaining({ paginationLimit: 20 }),
+    );
+  });
+
+  it('a full page (20 rows) implies a next page', () => {
+    const full = Array.from({ length: 20 }, (_, i) => ({
+      ...accounts[0],
+      cic: `cic-${i}`,
+    }));
+    mockHooks({ accountsData: { accounts: full } });
+    renderPage();
+    // With a full page the Pagination must expose a "next" affordance.
+    expect(screen.getByRole('button', { name: /siguiente|next|›|»/i })).toBeInTheDocument();
+  });
 });

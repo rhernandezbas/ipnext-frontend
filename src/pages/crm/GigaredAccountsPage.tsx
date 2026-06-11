@@ -6,7 +6,9 @@ import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import type { GigaredAccount, GigaredAccountStatus, ListAccountsFilter } from '@/types/gigared';
 import styles from './GigaredAccountsPage.module.css';
 
-const PAGE_SIZE = 25;
+// The partner API caps pagination_limit at 20 — verified live 2026-06-11
+// (>20 returns 400 "La paginación tiene un límite de 20 cuentas").
+const PAGE_SIZE = 20;
 
 /** Read the BE error `code` from a query error, if present. */
 function errorCode(err: unknown): string | null {
