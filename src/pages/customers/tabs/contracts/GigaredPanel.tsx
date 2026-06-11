@@ -16,6 +16,7 @@ import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { useConfirm } from '@/context/ConfirmContext';
 import { Can } from '@/components/auth/Can';
 import { GigaredNotConfigured } from '@/components/molecules/GigaredNotConfigured/GigaredNotConfigured';
+import { LinkAccountPickerModal } from './LinkAccountPickerModal';
 import type { Contract, ContractService } from '@/types/customer';
 import type {
   GigaredAccount,
@@ -49,15 +50,6 @@ function splitName(name: string): { firstName: string; lastName: string } {
   const [rawLast, ...rest] = tokens;
   // Local convention is "APELLIDO NOMBRE(S)"; tolerate "APELLIDO, NOMBRE".
   return { lastName: rawLast.replace(/,$/, ''), firstName: rest.join(' ') };
-}
-
-/** Picker label: "APELLIDO NOMBRE — CIC 000… (pack, pack)". */
-function accountLabel(a: GigaredAccount): string {
-  const name = [a.lastName, a.firstName].filter(Boolean).join(' ') || 'Sin nombre';
-  const packs = a.services.map((s) => s.name).join(', ');
-  return packs
-    ? `${name} — CIC ${a.cic} (${packs})`
-    : `${name} — CIC ${a.cic}`;
 }
 
 /** Read the BE error `code` from a query error, if present. */
@@ -282,20 +274,15 @@ function UnlinkedView({
   const link = useLinkCic(customerId);
   const register = useRegisterAccount(customerId);
 
-  // #47e A — link picker: paginated registered accounts, filtered to the
-  // UNLINKED ones (internalId null/empty). The operator picks a CIC instead of
-  // typing it; a manual toggle falls back to the free-text input.
+  // #47g-2 — link picker MODAL: paginated registered accounts, filtered to the
+  // UNLINKED ones (internalId null/empty). A trigger opens a presentable modal;
+  // picking a row selects the account (held as `selectedAccount` for the form
+  // summary) and closes. A manual toggle falls back to the free-text CIC input.
   const linkAccountsQuery = useGigaredAllAccounts('registered');
   const unlinkedAccounts = (linkAccountsQuery.data ?? []).filter((a) => !a.internalId);
-  const [pickerQuery, setPickerQuery] = useState('');
   const [linkManual, setLinkManual] = useState(false);
-
-  const filteredAccounts = unlinkedAccounts.filter((a) => {
-    const q = pickerQuery.trim().toLowerCase();
-    if (!q) return true;
-    const name = [a.lastName, a.firstName].filter(Boolean).join(' ').toLowerCase();
-    return name.includes(q) || a.cic.toLowerCase().includes(q);
-  });
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<GigaredAccount | null>(null);
 
   const [cic, setCic] = useState('');
   const [linkError, setLinkError] = useState<string | null>(null);
@@ -352,12 +339,18 @@ function UnlinkedView({
       setLinkSyncNotice(result.local === 'failed');
     } catch (err) {
       const c = errorCode(err);
+      const detail = errorDetail(err);
+      // #47g-3 — the BE now sends `detail` on every gigared error. Mapped codes
+      // keep their precise copy; anything else surfaces the partner detail
+      // ("No se pudo vincular: {detail}") with a generic fallback.
       setLinkError(
         c === 'CIC_NOT_FOUND'
           ? 'El CIC no existe en Gigared.'
           : c === 'CIC_ALREADY_LINKED'
             ? 'Ese CIC ya está vinculado a otro cliente.'
-            : 'No se pudo vincular la cuenta. Reintentá.',
+            : detail
+              ? `No se pudo vincular: ${detail}`
+              : 'No se pudo vincular la cuenta. Reintentá.',
       );
     }
   }
@@ -390,10 +383,14 @@ function UnlinkedView({
       // surface the partner's detail verbatim, with a generic fallback.
       const c = errorCode(err);
       const detail = errorDetail(err);
+      // #47g-3 — surface the partner `detail` whenever it comes (422 reject OR
+      // 502/503 upstream), with a generic fallback when it does not.
       setRegisterError(
         c === 'GIGARED_REJECTED'
           ? (detail ?? 'Gigared rechazó el registro. Revisá los datos.')
-          : 'No se pudo registrar la cuenta. Reintentá.',
+          : detail
+            ? `No se pudo registrar: ${detail}`
+            : 'No se pudo registrar la cuenta. Reintentá.',
       );
     }
   }
@@ -449,74 +446,70 @@ function UnlinkedView({
               className={styles.btnLink}
               onClick={() => setLinkManual(false)}
             >
-              Elegir de la lista
+              Elegir cuenta de la lista
             </button>
           </>
-        ) : linkAccountsQuery.isLoading ? (
-          <p className={styles.emptyHint}>Cargando cuentas disponibles…</p>
-        ) : linkAccountsQuery.isError ? (
-          <div className={`${styles.banner} ${styles.bannerError}`}>
-            <span>No se pudieron cargar las cuentas.</span>
+        ) : selectedAccount ? (
+          // A row was picked in the modal — show it as a summary the operator can
+          // confirm or change, instead of a buried select value.
+          <div className={styles.pickedSummary}>
+            <div className={styles.pickedInfo}>
+              <span className={styles.pickedName}>
+                {[selectedAccount.lastName, selectedAccount.firstName].filter(Boolean).join(' ') ||
+                  'Sin nombre'}
+              </span>
+              <span className={styles.pickedMeta}>
+                CIC {selectedAccount.cic}
+                {selectedAccount.services.length > 0 &&
+                  ` · ${selectedAccount.services.map((s) => s.name).join(' · ')}`}
+              </span>
+            </div>
             <button
               type="button"
               className={styles.btnLink}
-              onClick={() => linkAccountsQuery.refetch()}
+              onClick={() => setPickerOpen(true)}
             >
-              Reintentar
+              Cambiar
             </button>
           </div>
-        ) : unlinkedAccounts.length === 0 ? (
-          <>
-            <p className={styles.emptyHint}>
-              No quedan cuentas disponibles para vincular.
-            </p>
-            <button
-              type="button"
-              className={styles.btnLink}
-              onClick={() => setLinkManual(true)}
-            >
-              Ingresar CIC manualmente
-            </button>
-          </>
         ) : (
           <>
-            <div className={styles.field}>
-              <label className={styles.fieldLabel} htmlFor="tv-link-search">Buscar cuenta</label>
-              <input
-                id="tv-link-search"
-                className={styles.input}
-                value={pickerQuery}
-                onChange={(e) => setPickerQuery(e.target.value)}
-                placeholder="Nombre o CIC…"
-              />
-            </div>
-            <div className={styles.field}>
-              <label className={styles.fieldLabel} htmlFor="tv-link-picker">Elegí una cuenta</label>
-              <select
-                id="tv-link-picker"
-                className={styles.select}
-                value={cic}
-                onChange={(e) => setCic(e.target.value)}
-                size={Math.min(Math.max(filteredAccounts.length + 1, 2), 6)}
+            <p className={styles.emptyHint}>
+              Elegí una cuenta registrada que todavía no esté vinculada.
+            </p>
+            <div className={styles.linkPickerActions}>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => setPickerOpen(true)}
               >
-                {/* Placeholder evita el mismatch visual: sin esto el browser resalta la
-                    primera opción aunque el estado siga vacío. */}
-                <option value="">— Elegí una cuenta —</option>
-                {filteredAccounts.map((a) => (
-                  <option key={a.cic} value={a.cic}>
-                    {accountLabel(a)}
-                  </option>
-                ))}
-              </select>
+                Elegir cuenta de la lista
+              </button>
+              <button
+                type="button"
+                className={styles.btnLink}
+                onClick={() => setLinkManual(true)}
+              >
+                Ingresar CIC manualmente
+              </button>
             </div>
-            <button
-              type="button"
-              className={styles.btnLink}
-              onClick={() => setLinkManual(true)}
-            >
-              Ingresar CIC manualmente
-            </button>
           </>
+        )}
+
+        {pickerOpen && (
+          <LinkAccountPickerModal
+            accounts={unlinkedAccounts}
+            loading={linkAccountsQuery.isLoading}
+            error={linkAccountsQuery.isError}
+            onRetry={() => linkAccountsQuery.refetch()}
+            onPick={(a) => {
+              setSelectedAccount(a);
+              setCic(a.cic);
+              setLinkError(null);
+              setPickerOpen(false);
+            }}
+            onClose={() => setPickerOpen(false)}
+          />
         )}
 
         {linkError && (
@@ -686,6 +679,7 @@ function LinkedView({
   // THIS contract. removeSyncNotice tracks a 207 local-sync failure.
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
   const [removeSyncNotice, setRemoveSyncNotice] = useState<{ serviceId: string } | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const partnerServices = summaryQuery.data?.services ?? [];
 
@@ -712,12 +706,17 @@ function LinkedView({
       }
     } catch (err) {
       const c = errorCode(err);
+      const detail = errorDetail(err);
+      // #47g-3 — mapped codes keep their copy; anything else surfaces the
+      // partner detail ("No se pudo agregar: {detail}").
       setAddError(
         c === 'CONTRACT_NOT_FOUND'
           ? 'El contrato elegido no es válido para este cliente.'
           : c === 'TV_CATALOG_MISSING'
             ? 'Falta el servicio "TV" en el catálogo. Configuralo primero.'
-            : 'No se pudo agregar el servicio. Reintentá.',
+            : detail
+              ? `No se pudo agregar: ${detail}`
+              : 'No se pudo agregar el servicio. Reintentá.',
       );
     }
   }
@@ -738,8 +737,14 @@ function LinkedView({
     setOttError(null);
     try {
       await setOtt.mutateAsync({ enabled: next });
-    } catch {
-      setOttError('No se pudo cambiar el OTT. Reintentá en unos segundos.');
+    } catch (err) {
+      // #47g-3 — surface the partner detail when it comes.
+      const detail = errorDetail(err);
+      setOttError(
+        detail
+          ? `No se pudo cambiar el OTT: ${detail}`
+          : 'No se pudo cambiar el OTT. Reintentá en unos segundos.',
+      );
     }
   }
 
@@ -754,8 +759,21 @@ function LinkedView({
 
   async function confirmRemove() {
     if (!removeTarget) return;
-    await doRemove(removeTarget.id);
-    setRemoveTarget(null);
+    setRemoveError(null);
+    try {
+      await doRemove(removeTarget.id);
+      setRemoveTarget(null);
+    } catch (err) {
+      // #47g-3 — a hard remove failure (not the 207 local-sync path) surfaces the
+      // partner detail with a generic fallback. Keep the confirm dialog open so
+      // the operator sees the error in context.
+      const detail = errorDetail(err);
+      setRemoveError(
+        detail
+          ? `No se pudo quitar: ${detail}`
+          : 'No se pudo quitar el servicio. Reintentá.',
+      );
+    }
   }
 
   async function handleRetryRemoveSync() {
@@ -906,18 +924,21 @@ function LinkedView({
           role="dialog"
           aria-modal="true"
           aria-labelledby="tv-remove-title"
-          onMouseDown={(e) => { if (e.target === e.currentTarget) setRemoveTarget(null); }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) { setRemoveTarget(null); setRemoveError(null); } }}
         >
           <div className={styles.dialog}>
             <h2 id="tv-remove-title" className={styles.cardTitle}>Quitar servicio de TV</h2>
             <p className={styles.emptyHint}>
               ¿Quitar "{removeTarget.name}"? Se desactivará en Gigared.
             </p>
+            {removeError && (
+              <div className={`${styles.banner} ${styles.bannerError}`}><span>{removeError}</span></div>
+            )}
             <div className={styles.formActions}>
               <button
                 type="button"
                 className={styles.btnSecondary}
-                onClick={() => setRemoveTarget(null)}
+                onClick={() => { setRemoveTarget(null); setRemoveError(null); }}
                 disabled={removeService.isPending}
               >
                 Cancelar

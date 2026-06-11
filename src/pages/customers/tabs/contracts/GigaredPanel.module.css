@@ -167,6 +167,44 @@
   gap: var(--space-3);
 }
 
+/* #47g-2 — link picker trigger + picked-account summary */
+
+.linkPickerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.pickedSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-gray-50);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.pickedInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.pickedName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.pickedMeta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
 .collapseToggle {
   display: flex;
   align-items: center;

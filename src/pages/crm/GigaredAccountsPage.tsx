@@ -16,6 +16,12 @@ function errorCode(err: unknown): string | null {
   return e?.response?.data?.code ?? null;
 }
 
+/** Read the partner-supplied `detail` string from a BE error body, if present. */
+function errorDetail(err: unknown): string | null {
+  const e = err as { response?: { data?: { detail?: string } } };
+  return e?.response?.data?.detail ?? null;
+}
+
 type Row = GigaredAccount & { id: string };
 
 const COLUMNS = [
@@ -88,6 +94,7 @@ export default function GigaredAccountsPage() {
   const accountsQuery = useGigaredAccounts(filters);
 
   const code = accountsQuery.isError ? errorCode(accountsQuery.error) : null;
+  const detail = accountsQuery.isError ? errorDetail(accountsQuery.error) : null;
 
   if (code === 'GIGARED_NOT_CONFIGURED') {
     return (
@@ -100,9 +107,28 @@ export default function GigaredAccountsPage() {
 
   const accounts = accountsQuery.data?.accounts ?? [];
   const rows: Row[] = accounts.map((a) => ({ ...a, id: a.cic }));
-  // Server-side pagination: a full page implies there may be a next page.
+
+  // Bug #47g-1 — REAL totalPages from the summary the page already has. The
+  // partner list endpoint gives no total, but the summary does. Without a free
+  // -text filter the count maps cleanly: status=registered → registered,
+  // status=unregistered → unregistered, no status → total. An email/account_id
+  // filter narrows the set in a way the summary can't predict, so there we fall
+  // back to the hasNext heuristic (a full page implies one more page).
+  const hasTextFilter = !!email || !!accountId;
+  const summaryCount = summaryQuery.data
+    ? status === 'registered'
+      ? summaryQuery.data.accounts.registered
+      : status === 'unregistered'
+        ? summaryQuery.data.accounts.unregistered
+        : summaryQuery.data.accounts.total
+    : null;
   const hasNext = accounts.length === PAGE_SIZE;
-  const totalPages = hasNext ? page + 1 : page;
+  const totalPages =
+    !hasTextFilter && summaryCount !== null
+      ? Math.max(1, Math.ceil(summaryCount / PAGE_SIZE))
+      : hasNext
+        ? page + 1
+        : page;
 
   return (
     <div className={styles.page}>
@@ -142,7 +168,7 @@ export default function GigaredAccountsPage() {
 
       {code === 'GIGARED_UNAVAILABLE' ? (
         <div className={`${styles.banner} ${styles.bannerError}`}>
-          <span>Gigared no responde en este momento.</span>
+          <span>{detail ?? 'Gigared no responde en este momento.'}</span>
           <button type="button" className={styles.btnLink} onClick={() => accountsQuery.refetch()}>
             Reintentar
           </button>
