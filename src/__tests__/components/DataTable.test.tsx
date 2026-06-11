@@ -136,6 +136,75 @@ describe('DataTable', () => {
     });
   });
 
+  describe('controlled selection (selectedIds)', () => {
+    function rowCheckboxes() {
+      // [0] is the header select-all; rows follow.
+      return screen.getAllByRole('checkbox').slice(1) as HTMLInputElement[];
+    }
+
+    it('checks exactly the rows named in selectedIds', () => {
+      render(<DataTable columns={columns} data={data} selectable selectedIds={['2']} />);
+      const [a, b, c] = rowCheckboxes();
+      expect(a.checked).toBe(false); // id 1
+      expect(b.checked).toBe(true);  // id 2
+      expect(c.checked).toBe(false); // id 3
+    });
+
+    it('re-renders to reflect a NEW selectedIds value (controlled, not internal)', () => {
+      const { rerender } = render(
+        <DataTable columns={columns} data={data} selectable selectedIds={['1', '2', '3']} />,
+      );
+      expect(rowCheckboxes().every(cb => cb.checked)).toBe(true);
+
+      // Parent narrows the selection to only id 2 — the table MUST follow.
+      rerender(<DataTable columns={columns} data={data} selectable selectedIds={['2']} />);
+      const [a, b, c] = rowCheckboxes();
+      expect(a.checked).toBe(false);
+      expect(b.checked).toBe(true);
+      expect(c.checked).toBe(false);
+    });
+
+    it('clearing selectedIds unchecks every row', () => {
+      const { rerender } = render(
+        <DataTable columns={columns} data={data} selectable selectedIds={['1', '2', '3']} />,
+      );
+      rerender(<DataTable columns={columns} data={data} selectable selectedIds={[]} />);
+      expect(rowCheckboxes().some(cb => cb.checked)).toBe(false);
+      // Header select-all also unchecked.
+      const [selectAll] = screen.getAllByRole('checkbox') as HTMLInputElement[];
+      expect(selectAll.checked).toBe(false);
+    });
+
+    it('toggling a row in controlled mode notifies the parent (does not self-manage)', async () => {
+      const user = userEvent.setup();
+      const onSelectionChange = vi.fn();
+      render(
+        <DataTable
+          columns={columns}
+          data={data}
+          selectable
+          selectedIds={['1']}
+          onSelectionChange={onSelectionChange}
+        />,
+      );
+      const [a] = rowCheckboxes(); // id 1, currently checked
+      await user.click(a);
+      // Parent is told to drop id 1; the component does not flip its own state.
+      const lastCall = onSelectionChange.mock.calls.at(-1)![0];
+      expect(lastCall).toEqual([]);
+    });
+
+    it('uncontrolled (no selectedIds prop) still self-manages selection', async () => {
+      const user = userEvent.setup();
+      const onSelectionChange = vi.fn();
+      render(<DataTable columns={columns} data={data} selectable onSelectionChange={onSelectionChange} />);
+      const [a] = rowCheckboxes();
+      await user.click(a);
+      expect(a.checked).toBe(true); // internal state flipped
+      expect(onSelectionChange).toHaveBeenCalledWith(['1']);
+    });
+  });
+
   describe('totals row', () => {
     it('renders totals row in tfoot when totals prop provided', () => {
       const { container } = render(

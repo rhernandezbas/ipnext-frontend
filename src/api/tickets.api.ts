@@ -108,11 +108,6 @@ export async function updateTicket(
   return response.data;
 }
 
-export async function closeTicket(id: string): Promise<Ticket> {
-  const response = await axiosClient.post<Ticket>(`/tickets/${id}/close`);
-  return response.data;
-}
-
 export async function getArchivedTickets(
   params: GetTicketsParams = {}
 ): Promise<PaginatedResponse<Ticket>> {

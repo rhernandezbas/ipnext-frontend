@@ -1,0 +1,220 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ── Links ──────────────────────────────────────────────────────────────────── */
+.idLink,
+.titleLink {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+.idLink:hover,
+.titleLink:hover { text-decoration: underline; }
+
+/* ── Pills (#26 — intact) ─────────────────────────────────────────────────────
+   Catalog color for open states (inline background); closed gets a stark
+   black & white variant so archived tickets stand out at a glance. */
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  color: #fff;
+}
+.statusPill[data-variant='closed'] {
+  background: #111 !important;
+  color: #fff;
+  border: 1px solid #111;
+}
+.priorityPill {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+/* ── Bulk action bar (inline panel, AD-6) ─────────────────────────────────────
+   Full 1px border + surface fill — NO side-stripes, NO gradients. */
+.bulkBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+}
+.bulkLabel {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.bulkCount {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  flex: 1;
+}
+.bulkBtn {
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+.bulkBtn:hover:not(:disabled) { opacity: 0.88; }
+.bulkBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.bulkDeleteBtn {
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-status-late);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+.bulkDeleteBtn:hover:not(:disabled) { opacity: 0.88; }
+.bulkDeleteBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.bulkClear {
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+.bulkClear:hover { color: var(--color-text-primary); border-color: var(--color-gray-300); }
+
+/* ── Picker dialog ────────────────────────────────────────────────────────────
+   Light surface (matches the page register — not the dark tasks dialog). */
+.dialogOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 18, 20, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.dialog {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  min-width: 360px;
+  max-width: 480px;
+  box-shadow: var(--shadow-lg);
+}
+.dialogTitle {
+  margin: 0 0 var(--space-4) 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.dialogLabel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+.dialogSelect {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+}
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.btnPrimary {
+  background: var(--color-accent);
+  color: var(--color-white);
+  border: none;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+.btnPrimary:hover:not(:disabled) { opacity: 0.88; }
+.btnPrimary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btnSecondary {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.btnSecondary:hover:not(:disabled) { color: var(--color-text-primary); border-color: var(--color-gray-300); }
+
+/* ── Empty states ─────────────────────────────────────────────────────────────
+   Differentiated copy: no tickets (CTA crear) vs. no results (Limpiar filtros). */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-12) var(--space-6);
+  text-align: center;
+}
+.emptyTitle {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.emptyHint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  max-width: 42ch;
+}
+
+/* ── Toast ────────────────────────────────────────────────────────────────────
+   Fixed bottom-right, auto-dismissed after a bulk run. */
+.toast {
+  position: fixed;
+  bottom: var(--space-6);
+  right: var(--space-6);
+  z-index: 1100;
+  background: var(--color-gray-800);
+  color: var(--color-white);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  box-shadow: var(--shadow-lg);
+}
