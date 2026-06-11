@@ -62,6 +62,7 @@ const CRM_ITEMS: NavParentItem[] = [
       { to: '/admin/crm/leads', label: 'Lista' },
       { to: '/admin/crm/quotes', label: 'Presupuestos' },
       { to: '/admin/crm/map', label: 'Mapas' },
+      { to: '/admin/crm/tv', label: 'TV', requiredPermission: 'tv.read' },
     ],
   },
   {

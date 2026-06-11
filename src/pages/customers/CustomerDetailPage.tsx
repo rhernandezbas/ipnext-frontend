@@ -18,9 +18,10 @@ import { LogsTab } from './tabs/LogsTab';
 import { ActivityTab } from './tabs/ActivityTab';
 import { CommentsTab } from './tabs/CommentsTab';
 import { ClientEquipmentTab } from './tabs/ClientEquipmentTab';
+import { TvTab } from './tabs/TvTab';
 import styles from './CustomerDetailPage.module.css';
 
-const TAB_IDS = ['information', 'contracts', 'billing', 'statistics', 'documents', 'files', 'logs', 'equipos', 'actividad', 'comentarios'];
+const TAB_IDS = ['information', 'contracts', 'billing', 'statistics', 'documents', 'files', 'logs', 'equipos', 'tv', 'actividad', 'comentarios'];
 const HASH_ALIASES: Record<string, string> = { services: 'contracts' };
 
 function formatBalance(b: number | undefined | null) {
@@ -72,6 +73,7 @@ export default function CustomerDetailPage() {
   }, [accionesOpen]);
 
   const canViewEquipment = useCan('inventory.read');
+  const canViewTv = useCan('tv.read');
   const { data: customer, isLoading } = useClientDetail(id);
   const toggleStatus = useToggleClientStatus();
   const deleteCustomer = useDeleteCustomer();
@@ -138,6 +140,15 @@ export default function CustomerDetailPage() {
             content: (
               <ClientEquipmentTab clientId={String(id)} active={activatedTabs.current.has('equipos')} />
             ),
+          },
+        ]
+      : []),
+    ...(canViewTv
+      ? [
+          {
+            id: 'tv',
+            label: 'TV',
+            content: <TvTab customerId={String(id)} />,
           },
         ]
       : []),
