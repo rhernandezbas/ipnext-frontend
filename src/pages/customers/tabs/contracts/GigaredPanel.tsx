@@ -70,6 +70,13 @@ function errorStatus(err: unknown): number | null {
   return e?.response?.status ?? null;
 }
 
+/**
+ * #47h — account password rule (FROZEN wire contract): lowercase letters +
+ * digits, 8 to 64 chars. Empty is VALID (the BE generates one); only NON-empty
+ * text that breaks the pattern is rejected.
+ */
+const PASSWORD_RE = /^[a-z0-9]{8,64}$/;
+
 /** A contract OWNS the TV item when its services include an active 'TV' line. */
 function ownsTv(c: Contract): boolean {
   return c.services.some((s) => s.name === 'TV' && s.status === 'active');
@@ -309,6 +316,20 @@ function UnlinkedView({
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [registerOk, setRegisterOk] = useState(false);
 
+  // #47h — optional account password. Empty is valid (BE generates one); only a
+  // non-empty value that breaks ^[a-z0-9]{8,64}$ blocks the submit. The toggle
+  // flips the input between password (hidden) and text (shown).
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const passwordInvalid = password !== '' && !PASSWORD_RE.test(password);
+
+  // Gigared form 1:1 — activation email toggle. Default CHECKED; the BE generates
+  // a password and the customer sets it from the email. Sent ALWAYS explicit on
+  // the POST. When UNCHECKED with no password, the customer would be locked out:
+  // warn (do not block — the operator may set the password out-of-band later).
+  const [sendActivationEmail, setSendActivationEmail] = useState(true);
+  const noLoginWarning = !sendActivationEmail && password === '';
+
   // #47c Fix 3 — escape hatch: add ONLY the local TV item (no Gigared). Reuses
   // the #43 add endpoint with the 'TV' catalog entry, like the picker's plain
   // path. Gated by clients.write (the contract-item permission via <Can>).
@@ -370,12 +391,24 @@ function UnlinkedView({
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     if (register.isPending) return;
+    // #47h — block the submit while a non-empty password breaks the rule. Empty
+    // is fine: the field is simply omitted from the payload.
+    if (passwordInvalid) return;
     setRegisterError(null);
     setRegisterOk(false);
     try {
-      await register.mutateAsync({ ...form });
+      // Send password ONLY when present; empty → omit it so the BE generates one.
+      // sendActivationEmail travels ALWAYS explicit (Gigared form 1:1).
+      await register.mutateAsync(
+        password
+          ? { ...form, password, sendActivationEmail }
+          : { ...form, sendActivationEmail },
+      );
       // Drop the local form state after submit — never keep PII around.
       setForm({ firstName: '', lastName: '', email: '', cic: '' });
+      setPassword('');
+      setShowPassword(false);
+      setSendActivationEmail(true);
       setRegisterOk(true);
     } catch (err) {
       // The partner returns 422 GIGARED_REJECTED with a human `detail` (e.g.
@@ -619,7 +652,64 @@ function UnlinkedView({
                   </>
                 )}
               </div>
+
+              {/* #47h — optional account password. Helper is ALWAYS visible; live
+                  validation flags a non-empty value that breaks the rule. */}
+              <div className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor="tv-reg-password">
+                  Contraseña (opcional)
+                </label>
+                <div className={styles.passwordRow}>
+                  <input
+                    id="tv-reg-password"
+                    type={showPassword ? 'text' : 'password'}
+                    className={styles.input}
+                    value={password}
+                    autoComplete="new-password"
+                    aria-invalid={passwordInvalid}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className={styles.btnLink}
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    onClick={() => setShowPassword((s) => !s)}
+                  >
+                    {showPassword ? 'Ocultar' : 'Mostrar'}
+                  </button>
+                </div>
+                <p className={passwordInvalid ? styles.fieldError : styles.emptyHint}>
+                  Solo letras minúsculas y números (8 a 64). Si la dejás vacía, se
+                  genera una automáticamente y el cliente la define desde el email
+                  de activación.
+                </p>
+              </div>
             </div>
+
+            {/* Gigared form 1:1 — activation email toggle. Default checked; sent
+                ALWAYS explicit. Unchecked + empty password → non-blocking warning. */}
+            <div className={styles.checkboxRow}>
+              <label className={styles.checkboxLabel} htmlFor="tv-reg-activation">
+                <input
+                  id="tv-reg-activation"
+                  type="checkbox"
+                  className={styles.checkbox}
+                  checked={sendActivationEmail}
+                  onChange={(e) => setSendActivationEmail(e.target.checked)}
+                />
+                Enviar email de activación al cliente
+              </label>
+              <p className={styles.emptyHint}>
+                El cliente recibe un email para activar su cuenta y definir su contraseña.
+              </p>
+            </div>
+            {noLoginWarning && (
+              <div className={`${styles.banner} ${styles.bannerWarning}`}>
+                <span>
+                  Sin email de activación y sin contraseña, el cliente no podrá ingresar.
+                </span>
+              </div>
+            )}
             {registerError && (
               <div className={`${styles.banner} ${styles.bannerError}`}><span>{registerError}</span></div>
             )}
@@ -633,7 +723,7 @@ function UnlinkedView({
                 <button
                   type="submit"
                   className={styles.btnPrimary}
-                  disabled={register.isPending || !form.firstName || !form.lastName || !form.email || !form.cic}
+                  disabled={register.isPending || passwordInvalid || !form.firstName || !form.lastName || !form.email || !form.cic}
                 >
                   {register.isPending ? 'Registrando…' : 'Registrar'}
                 </button>

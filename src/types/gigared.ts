@@ -108,6 +108,19 @@ export interface RegisterAccountPayload {
   lastName: string;
   email: string;
   cic: string;
+  /**
+   * #47h — optional account password. When present it MUST match
+   * `^[a-z0-9]{8,64}$` (lowercase letters + digits, 8–64 chars). Omitted entirely
+   * when the operator leaves the field empty: the BE then generates a valid one
+   * and sends the activation email so the customer sets it themselves.
+   */
+  password?: string;
+  /**
+   * Gigared form 1:1 — whether the customer gets an activation email to set their
+   * own password. The BE defaults to true; the FE sends it ALWAYS explicit
+   * (true/false) so the operator's intent is never ambiguous.
+   */
+  sendActivationEmail?: boolean;
 }
 
 export interface AddTvServicePayload {
