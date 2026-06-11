@@ -206,6 +206,21 @@ describe('CustomerDetailPage', () => {
     expect(screen.queryByRole('tab', { name: 'Equipos' })).not.toBeInTheDocument();
   });
 
+  it('renders the "TV" tab for users with tv.read', () => {
+    vi.mocked(useCan).mockReturnValue(true);
+    renderDetail();
+    expect(screen.getByRole('tab', { name: 'TV' })).toBeInTheDocument();
+  });
+
+  it('hides the "TV" tab when the user lacks tv.read', () => {
+    vi.mocked(useCan).mockImplementation((perm?: string | string[]) => {
+      const perms = Array.isArray(perm) ? perm : perm ? [perm] : [];
+      return !perms.includes('tv.read');
+    });
+    renderDetail();
+    expect(screen.queryByRole('tab', { name: 'TV' })).not.toBeInTheDocument();
+  });
+
   it('renders Actividad tab button', () => {
     renderDetail();
     expect(screen.getByRole('tab', { name: 'Actividad' })).toBeInTheDocument();

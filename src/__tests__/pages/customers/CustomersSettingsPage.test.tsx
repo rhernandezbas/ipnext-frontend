@@ -39,6 +39,16 @@ vi.mock('@/hooks/useServiceCatalog', () => ({
 vi.mock('@/context/ConfirmContext', () => ({
   useConfirm: () => grSyncHandles.confirmFn,
 }));
+// GigaredTvBody hooks — only exercised when the Gigared TV tab mounts.
+vi.mock('@/hooks/useGigared', () => ({
+  useGigaredConfig: () => ({
+    data: { configured: false, apiKeyLast4: null, baseUrl: 'https://x', enabled: false, updatedAt: null },
+    isLoading: false,
+    isError: false,
+  }),
+  useUpdateGigaredConfig: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+vi.mock('@/api/gigared.api', () => ({ gigaredApi: { getSummary: vi.fn() } }));
 
 const permHandle = vi.hoisted(() => ({ can: (_: string | string[]) => true }));
 vi.mock('@/hooks/useMyPermissions', () => ({
@@ -127,5 +137,28 @@ describe('CustomersSettingsPage', () => {
     expect(screen.getByRole('tab', { name: 'Servicios' })).toHaveAttribute('aria-selected', 'true');
     // ServiceCatalogBody empty state proves the body mounted.
     expect(screen.getByText(/no hay servicios/i)).toBeInTheDocument();
+  });
+
+  // --- #47: Gigared TV tab gated by tv.manage ---
+  it('shows the "Gigared TV" tab when the user has tv.manage', () => {
+    renderPage();
+    expect(screen.getByRole('tab', { name: 'Gigared TV' })).toBeInTheDocument();
+  });
+
+  it('hides the "Gigared TV" tab when the user lacks tv.manage', () => {
+    permHandle.can = (p) => {
+      const perms = Array.isArray(p) ? p : [p];
+      return !perms.includes('tv.manage');
+    };
+    renderPage();
+    expect(screen.queryByRole('tab', { name: 'Gigared TV' })).not.toBeInTheDocument();
+  });
+
+  it('deep-link #gigared activates the Gigared TV tab and mounts the body', () => {
+    window.location.hash = '#gigared';
+    renderPage();
+    expect(screen.getByRole('tab', { name: 'Gigared TV' })).toHaveAttribute('aria-selected', 'true');
+    // GigaredTvBody status text proves the body mounted.
+    expect(screen.getByText(/sin configurar/i)).toBeInTheDocument();
   });
 });

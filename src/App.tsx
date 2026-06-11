@@ -21,6 +21,8 @@ const CustomersSettingsPage = lazy(() => import('@/pages/customers/CustomersSett
 
 const CustomerDetailPage = lazy(() => import('@/pages/customers/CustomerDetailPage'));
 
+const GigaredAccountsPage = lazy(() => import('@/pages/crm/GigaredAccountsPage'));
+
 const TicketsDashboardPage = lazy(() => import('@/pages/tickets/TicketsDashboardPage'));
 const TicketsListPage = lazy(() => import('@/pages/tickets/TicketsListPage'));
 const TicketsArchivePage = lazy(() => import('@/pages/tickets/TicketsArchivePage'));
@@ -305,6 +307,7 @@ export function App() {
                 <Route path="dashboard" element={<RequirePermission permission="crm.read"><CrmDashboardPage /></RequirePermission>} />
                 <Route path="quotes" element={<RequirePermission permission="crm.read"><CrmQuotesPage /></RequirePermission>} />
                 <Route path="map" element={<RequirePermission permission="crm.read"><CrmMapPage /></RequirePermission>} />
+                <Route path="tv" element={<RequirePermission permission="tv.read"><GigaredAccountsPage /></RequirePermission>} />
               </Route>
 
               {/* ── Contracts (contracts.read) — 2 routes ─────────────────── */}
