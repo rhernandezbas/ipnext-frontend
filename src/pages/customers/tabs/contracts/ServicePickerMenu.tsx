@@ -9,6 +9,20 @@ interface Props {
   clientId: string;
   /** Already-attached services — their catalog ids are filtered out. */
   services: ContractService[];
+  /**
+   * #47b — when true, picking the TV catalog entry opens the Gigared panel
+   * instead of creating a plain ContractService (the BE reconcile creates the
+   * local item when a pack is added). When false/omitted, TV behaves like any
+   * other service: a plain item is created plus an informative hint.
+   */
+  divertTv?: boolean;
+  /** Called when the TV entry is picked AND `divertTv` is true. */
+  onPickTv?: () => void;
+}
+
+/** A catalog entry is the Gigared TV service when its `name` is exactly 'TV'. */
+function isTvEntry(name: string): boolean {
+  return name === 'TV';
 }
 
 /** Maps a mutation error onto a user-facing message (mapError pattern). */
@@ -25,7 +39,7 @@ function mapAddError(err: unknown): string {
  * Lists active catalog entries not yet attached. Closes on outside click.
  * A duplicate (409 CONTRACT_SERVICE_DUPLICATE) surfaces an inline toast.
  */
-export function ServicePickerMenu({ contractId, clientId, services }: Props) {
+export function ServicePickerMenu({ contractId, clientId, services, divertTv, onPickTv }: Props) {
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -52,10 +66,21 @@ export function ServicePickerMenu({ contractId, clientId, services }: Props) {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  async function handlePick(serviceCatalogId: string) {
+  async function handlePick(serviceCatalogId: string, name: string) {
     setOpen(false);
+    // #47b — TV with Gigared active opens the panel; the pack add (and its
+    // reconcile-created local item) happens there, NOT as a plain add here.
+    if (isTvEntry(name) && divertTv) {
+      onPickTv?.();
+      return;
+    }
     try {
       await addService.mutateAsync({ contractId, payload: { serviceCatalogId } });
+      // TV without an active Gigared integration falls back to a plain local
+      // item — make the operator aware the integration did not run.
+      if (isTvEntry(name)) {
+        showToast('Se agregó el ítem local; la integración Gigared no está activa.');
+      }
     } catch (err: unknown) {
       showToast(mapAddError(err));
     }
@@ -77,7 +102,7 @@ export function ServicePickerMenu({ contractId, clientId, services }: Props) {
                   type="button"
                   role="menuitem"
                   className={styles.item}
-                  onClick={() => handlePick(opt.id)}
+                  onClick={() => handlePick(opt.id, opt.name)}
                 >
                   {opt.label ?? opt.name}
                 </button>

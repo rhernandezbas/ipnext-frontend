@@ -16,6 +16,12 @@ vi.mock('@/hooks/useContractServices', () => ({
 vi.mock('@/hooks/useServiceCatalog', () => ({
   useServiceCatalog: vi.fn(),
 }));
+// #47b — ContractCard reads the Gigared config to decide whether the TV catalog
+// pick / chip diverts to the panel. Default: integration OFF (plain item path),
+// which preserves the existing #42 behaviour these tests assert.
+vi.mock('@/hooks/useGigared', () => ({
+  useGigaredConfig: vi.fn(() => ({ data: { configured: false, enabled: false }, isLoading: false })),
+}));
 // ServiceInventorySection has its own deep hook tree; stub it out here.
 vi.mock('@/pages/customers/tabs/ServiceInventorySection', () => ({
   ServiceInventorySection: ({ serviceId }: { serviceId: string }) => (

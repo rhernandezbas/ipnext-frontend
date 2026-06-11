@@ -182,6 +182,8 @@ export function App() {
                 <Route path="view/:id" element={<RequirePermission permission="clients.read"><CustomerDetailPage /></RequirePermission>} />
                 <Route path="view/:id/edit" element={<RequirePermission permission="clients.read"><EditCustomerPage /></RequirePermission>} />
                 <Route path="settings" element={<RequirePermission permission="clients.read"><CustomersSettingsPage /></RequirePermission>} />
+                {/* TV (Gigared accounts) lives in the Clientes section (#47b). tv.read intact. */}
+                <Route path="tv" element={<RequirePermission permission="tv.read"><GigaredAccountsPage /></RequirePermission>} />
                 {/* CATCH-ALL — RR6 ranking ensures specific paths above win over :id.
                     Natural /admin/customers/:id redirects to canonical /view/:id. */}
                 <Route path=":id" element={<CustomerIdRedirect />} />
@@ -307,7 +309,6 @@ export function App() {
                 <Route path="dashboard" element={<RequirePermission permission="crm.read"><CrmDashboardPage /></RequirePermission>} />
                 <Route path="quotes" element={<RequirePermission permission="crm.read"><CrmQuotesPage /></RequirePermission>} />
                 <Route path="map" element={<RequirePermission permission="crm.read"><CrmMapPage /></RequirePermission>} />
-                <Route path="tv" element={<RequirePermission permission="tv.read"><GigaredAccountsPage /></RequirePermission>} />
               </Route>
 
               {/* ── Contracts (contracts.read) — 2 routes ─────────────────── */}
