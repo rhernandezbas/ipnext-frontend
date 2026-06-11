@@ -10,7 +10,7 @@
  * SCEN-FE-NM-07: 422 UISP_SITE_NOT_FOUND → error indicator on that row
  * SCEN-FE-NM-08: client-side search filters rows
  * SCEN-FE-NM-09: empty state when no network sites
- * SCEN-FE-NM-10: shows iclassNodeCode (read-only) or "—" when null
+ * SCEN-FE-NM-10: shows iclassNodeCode via the validated node select
  * SCEN-FE-NM-11: shows uisp.status badge or "—" when uisp is null
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -23,12 +23,18 @@ vi.mock('@/hooks/useNetworkSites', () => ({
 vi.mock('@/hooks/useUispSites', () => ({
   useUispSites: vi.fn(),
 }));
+vi.mock('@/hooks/useIClassNodes', () => ({
+  useIClassNodes: vi.fn(),
+  useSyncIClassNodes: vi.fn(),
+}));
 
 import { useNetworkSites, usePatchNetworkSite } from '@/hooks/useNetworkSites';
 import { useUispSites } from '@/hooks/useUispSites';
+import { useIClassNodes, useSyncIClassNodes } from '@/hooks/useIClassNodes';
 import { UispNodeMappingBody } from '@/components/networking/UispNodeMappingBody';
 import type { NetworkSite } from '@/types/networkSite';
 import type { UispSiteRow } from '@/types/uisp';
+import type { IClassNode } from '@/types/iclassNode';
 
 // ── Factories ────────────────────────────────────────────────────────────────
 
@@ -77,7 +83,7 @@ const idleUpdate = {
 function setupMocks(
   sites: NetworkSite[],
   uispSites: UispSiteRow[] = [],
-  opts: { sitesLoading?: boolean } = {},
+  opts: { sitesLoading?: boolean; nodes?: IClassNode[] } = {},
 ) {
   vi.mocked(useNetworkSites).mockReturnValue({
     data: opts.sitesLoading ? undefined : sites,
@@ -88,6 +94,21 @@ function setupMocks(
     data: { sites: uispSites },
     isLoading: false,
   } as ReturnType<typeof useUispSites>);
+
+  vi.mocked(useIClassNodes).mockReturnValue({
+    data: opts.nodes ?? [],
+    isLoading: false,
+  } as ReturnType<typeof useIClassNodes>);
+
+  vi.mocked(useSyncIClassNodes).mockReturnValue({
+    ...idleUpdate,
+    isPending: false,
+  } as never);
+}
+
+// The UISP mapping select (one per row); distinct from the IClass node select.
+function uispSelect(siteName = 'Nodo Central') {
+  return screen.getByLabelText(`Nodo UISP para ${siteName}`) as HTMLSelectElement;
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -105,8 +126,7 @@ describe('UispNodeMappingBody', () => {
     setupMocks(sites, uispSites);
     render(<UispNodeMappingBody />);
 
-    const select = screen.getByRole('combobox') as HTMLSelectElement;
-    expect(select.value).toBe('u1');
+    expect(uispSelect().value).toBe('u1');
   });
 
   // SCEN-FE-NM-02
@@ -115,8 +135,7 @@ describe('UispNodeMappingBody', () => {
     setupMocks(sites, [makeUispSite()]);
     render(<UispNodeMappingBody />);
 
-    const select = screen.getByRole('combobox') as HTMLSelectElement;
-    expect(select.value).toBe('');
+    expect(uispSelect().value).toBe('');
   });
 
   // SCEN-FE-NM-03
@@ -132,7 +151,7 @@ describe('UispNodeMappingBody', () => {
     setupMocks(sites, uispSites);
     render(<UispNodeMappingBody />);
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'u2' } });
+    fireEvent.change(uispSelect(), { target: { value: 'u2' } });
 
     await waitFor(() => {
       expect(mutateAsync).toHaveBeenCalledWith({ id: 's1', data: { uispSiteId: 'u2' } });
@@ -149,7 +168,7 @@ describe('UispNodeMappingBody', () => {
     setupMocks(sites, uispSites);
     render(<UispNodeMappingBody />);
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });
+    fireEvent.change(uispSelect(), { target: { value: '' } });
 
     await waitFor(() => {
       expect(mutateAsync).toHaveBeenCalledWith({ id: 's1', data: { uispSiteId: null } });
@@ -166,7 +185,7 @@ describe('UispNodeMappingBody', () => {
     setupMocks(sites, [makeUispSite({ uispId: 'u1' })]);
     render(<UispNodeMappingBody />);
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'u1' } });
+    fireEvent.change(uispSelect(), { target: { value: 'u1' } });
 
     await waitFor(() => expect(screen.getByLabelText(/guardando/i)).toBeInTheDocument());
     resolve({});
@@ -181,7 +200,7 @@ describe('UispNodeMappingBody', () => {
     setupMocks(sites, [makeUispSite({ uispId: 'u1' })]);
     render(<UispNodeMappingBody />);
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'u1' } });
+    fireEvent.change(uispSelect(), { target: { value: 'u1' } });
 
     await waitFor(() => expect(screen.getByLabelText(/guardado/i)).toBeInTheDocument());
   });
@@ -198,7 +217,7 @@ describe('UispNodeMappingBody', () => {
     setupMocks(sites, [makeUispSite({ uispId: 'u1' })]);
     render(<UispNodeMappingBody />);
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'u1' } });
+    fireEvent.change(uispSelect(), { target: { value: 'u1' } });
 
     await waitFor(() => expect(screen.getByLabelText(/error/i)).toBeInTheDocument());
   });
@@ -230,20 +249,23 @@ describe('UispNodeMappingBody', () => {
   });
 
   // SCEN-FE-NM-10
-  it('SCEN-FE-NM-10: shows iclassNodeCode in editable input or empty when null', () => {
+  it('SCEN-FE-NM-10: shows iclassNodeCode via the node select (matched node selected, unassigned empty)', () => {
     const sites = [
-      makeSite({ id: 's1', name: 'A', iclassNodeCode: 'NODO-01' }),
+      makeSite({ id: 's1', name: 'A', iclassNodeCode: 'Mercedes' }),
       makeSite({ id: 's2', name: 'B', iclassNodeCode: null }),
     ];
-    setupMocks(sites, []);
+    const nodes: IClassNode[] = [
+      { id: 'n-merc', nodeId: 1, code: 'Mercedes', description: 'Mercedes', active: true, selectable: true, lastSyncedAt: null },
+    ];
+    setupMocks(sites, [], { nodes });
     render(<UispNodeMappingBody />);
 
-    // s1 has a code — input shows the value
-    const inputS1 = screen.getByTestId('iclass-code-input-s1') as HTMLInputElement;
-    expect(inputS1.value).toBe('NODO-01');
-    // s2 has null code — input is empty
-    const inputS2 = screen.getByTestId('iclass-code-input-s2') as HTMLInputElement;
-    expect(inputS2.value).toBe('');
+    // s1 has a matched code — select shows the node uuid
+    const selectS1 = screen.getByTestId('iclass-node-select-s1') as HTMLSelectElement;
+    expect(selectS1.value).toBe('n-merc');
+    // s2 has null code — select is unassigned (empty value)
+    const selectS2 = screen.getByTestId('iclass-node-select-s2') as HTMLSelectElement;
+    expect(selectS2.value).toBe('');
   });
 
   // SCEN-FE-NM-11

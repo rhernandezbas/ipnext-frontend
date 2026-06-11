@@ -1,7 +1,9 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useNetworkSites, usePatchNetworkSite } from '@/hooks/useNetworkSites';
 import { useUispSites } from '@/hooks/useUispSites';
+import { useIClassNodes, useSyncIClassNodes } from '@/hooks/useIClassNodes';
 import { iclassReadiness } from '@/utils/iclassReadiness';
+import type { IClassNode, IClassNodeSyncResult } from '@/types/iclassNode';
 import styles from './UispNodeMappingBody.module.css';
 
 type RowStatus = 'saving' | 'saved' | 'error';
@@ -29,20 +31,38 @@ function UispStatusBadge({ status }: { status: string }) {
 /**
  * Catálogo de mapeo NetworkSite ↔ nodo UISP.
  * Patrón: tabla + select por fila + auto-save + estados por fila saving/saved/error.
- * Calcado de IClassProjectMappingBody.
+ * La columna "Código IClass" es un <select> validado contra el catálogo de nodos
+ * IClass (active && selectable). Un valor legacy free-text que no matchea ningún
+ * `code` se muestra como opción deshabilitada "{code} (sin validar)".
  */
 export function UispNodeMappingBody() {
   const { data: sites, isLoading: sitesLoading } = useNetworkSites();
   const { data: uispData } = useUispSites();
+  const { data: nodes } = useIClassNodes();
   const patch = usePatchNetworkSite();
+  const sync = useSyncIClassNodes();
 
   const [search, setSearch] = useState('');
   const [rowStatus, setRowStatus] = useState<Record<string, RowStatus>>({});
-  // Local draft values for the iclassNodeCode input, keyed by siteId.
-  // Initialized lazily on first edit; falls back to site.iclassNodeCode ?? ''.
-  const [codeDraft, setCodeDraft] = useState<Record<string, string>>({});
+  const [syncResult, setSyncResult] = useState<IClassNodeSyncResult | null>(null);
 
   const uispSites = uispData?.sites ?? [];
+  // Full catalog (incl. inactive / non-selectable nodes) — used for code matching so a
+  // deactivated node still resolves (M1). The dropdown only offers the eligible subset.
+  const catalog = useMemo<IClassNode[]>(() => nodes ?? [], [nodes]);
+  const eligible = useMemo(
+    () => catalog.filter(n => n.active && n.selectable),
+    [catalog],
+  );
+
+  // code → catalog node (for preselecting a site's legacy iclassNodeCode by uuid).
+  // Matches against the FULL catalog so an inactive node is recognized, not treated
+  // as unknown free-text.
+  const nodeByCode = useMemo(() => {
+    const m = new Map<string, IClassNode>();
+    for (const n of catalog) m.set(n.code, n);
+    return m;
+  }, [catalog]);
 
   const visible = useMemo(() => {
     const all = sites ?? [];
@@ -51,12 +71,9 @@ export function UispNodeMappingBody() {
     return all.filter(s => s.name.toLowerCase().includes(q));
   }, [sites, search]);
 
-  async function handleChange(siteId: string, rawValue: string) {
-    const uispSiteId = rawValue === '' ? null : rawValue;
-    setRowStatus(s => ({ ...s, [siteId]: 'saving' }));
-    try {
-      await patch.mutateAsync({ id: siteId, data: { uispSiteId } });
-      setRowStatus(s => ({ ...s, [siteId]: 'saved' }));
+  function flashStatus(siteId: string, status: RowStatus) {
+    setRowStatus(s => ({ ...s, [siteId]: status }));
+    if (status === 'saved') {
       setTimeout(() => {
         setRowStatus(s => {
           const copy = { ...s };
@@ -64,32 +81,39 @@ export function UispNodeMappingBody() {
           return copy;
         });
       }, 2000);
-    } catch {
-      setRowStatus(s => ({ ...s, [siteId]: 'error' }));
     }
   }
 
-  const handleCodeSave = useCallback(async (siteId: string, draft: string, original: string | null) => {
-    const trimmed = draft.trim();
-    const next = trimmed === '' ? null : trimmed;
-    const prev = original ?? null;
-    // Only save if value actually changed
-    if (next === prev) return;
-    setRowStatus(s => ({ ...s, [siteId]: 'saving' }));
+  async function handleUispChange(siteId: string, rawValue: string) {
+    const uispSiteId = rawValue === '' ? null : rawValue;
+    flashStatus(siteId, 'saving');
     try {
-      await patch.mutateAsync({ id: siteId, data: { iclassNodeCode: next } });
-      setRowStatus(s => ({ ...s, [siteId]: 'saved' }));
-      setTimeout(() => {
-        setRowStatus(s => {
-          const copy = { ...s };
-          delete copy[siteId];
-          return copy;
-        });
-      }, 2000);
+      await patch.mutateAsync({ id: siteId, data: { uispSiteId } });
+      flashStatus(siteId, 'saved');
     } catch {
-      setRowStatus(s => ({ ...s, [siteId]: 'error' }));
+      flashStatus(siteId, 'error');
     }
-  }, [patch]);
+  }
+
+  async function handleNodeChange(siteId: string, rawValue: string) {
+    const iclassNodeId = rawValue === '' ? null : rawValue;
+    flashStatus(siteId, 'saving');
+    try {
+      await patch.mutateAsync({ id: siteId, data: { iclassNodeId } });
+      flashStatus(siteId, 'saved');
+    } catch {
+      flashStatus(siteId, 'error');
+    }
+  }
+
+  async function handleSync() {
+    try {
+      const result = await sync.mutateAsync();
+      setSyncResult(result);
+    } catch {
+      // surfaced via sync.isError banner below
+    }
+  }
 
   if (sitesLoading) {
     return (
@@ -126,7 +150,31 @@ export function UispNodeMappingBody() {
           onChange={e => setSearch(e.target.value)}
           aria-label="Buscar network site"
         />
+        <div className={styles.toolbarRight}>
+          <button
+            type="button"
+            className={styles.syncButton}
+            onClick={handleSync}
+            disabled={sync.isPending}
+          >
+            {sync.isPending ? 'Sincronizando…' : 'Sincronizar desde IClass'}
+          </button>
+        </div>
       </div>
+
+      {syncResult && (
+        <div className={`${styles.banner} ${styles.bannerSuccess}`} role="status">
+          <span className={styles.bannerTitle}>Sincronizados {syncResult.synced} nodos.</span>
+          {' '}
+          {syncResult.created} nuevos · {syncResult.updated} actualizados · {syncResult.reactivated} reactivados · {syncResult.deactivated} desactivados.
+        </div>
+      )}
+
+      {sync.isError && (
+        <div className={`${styles.banner} ${styles.bannerError}`} role="alert">
+          <span className={styles.bannerTitle}>No se pudo sincronizar el catálogo.</span> Reintentá en unos segundos.
+        </div>
+      )}
 
       {visible.length === 0 && search ? (
         <div className={styles.tableWrap}>
@@ -147,8 +195,24 @@ export function UispNodeMappingBody() {
             <tbody>
               {visible.map(site => {
                 const status = rowStatus[site.id];
-                const currentValue = site.uispSiteId ?? '';
+                const currentUisp = site.uispSiteId ?? '';
                 const readiness = iclassReadiness(site);
+
+                const code = site.iclassNodeCode;
+                const matched = code ? nodeByCode.get(code) : undefined;
+                // A match is "eligible" only if it is active && selectable — i.e. a real
+                // option in the dropdown. An inactive/non-selectable match is recognized
+                // (not unknown) but cannot be picked.
+                const matchedEligible = !!matched && matched.active && matched.selectable;
+                // value: eligible node uuid, else the legacy sentinel, or '' (unassigned)
+                const legacyValue = code ? `__legacy__:${code}` : '';
+                const nodeValue = matchedEligible ? matched!.id : legacyValue;
+                // No catalog match at all → truly unknown free-text → "(sin validar)".
+                const isUnvalidated = !!code && !matched;
+                // Matched a node that is no longer eligible (deactivated / grouping) →
+                // distinct "(inactivo en IClass)" disabled option (M1).
+                const isInactiveMatch = !!matched && !matchedEligible;
+
                 return (
                   <tr key={site.id}>
                     <td className={styles.nameCell}>
@@ -164,37 +228,35 @@ export function UispNodeMappingBody() {
                       )}
                     </td>
                     <td className={styles.codeCell}>
-                      <input
-                        data-testid={`iclass-code-input-${site.id}`}
-                        type="text"
-                        className={styles.codeInput}
-                        value={codeDraft[site.id] ?? (site.iclassNodeCode ?? '')}
-                        placeholder="—"
+                      <select
+                        data-testid={`iclass-node-select-${site.id}`}
+                        className={`${styles.select} ${nodeValue === '' ? styles.selectUnmapped : ''}`}
+                        value={nodeValue}
                         disabled={status === 'saving'}
                         aria-label={`Código IClass para ${site.name}`}
-                        onChange={e => setCodeDraft(d => ({ ...d, [site.id]: e.target.value }))}
-                        onBlur={() => handleCodeSave(
-                          site.id,
-                          codeDraft[site.id] ?? (site.iclassNodeCode ?? ''),
-                          site.iclassNodeCode,
+                        onChange={e => handleNodeChange(site.id, e.target.value)}
+                      >
+                        <option value="">— Sin asignar —</option>
+                        {isUnvalidated && (
+                          <option value={legacyValue} disabled>
+                            {code} (sin validar)
+                          </option>
                         )}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            e.currentTarget.blur();
-                            handleCodeSave(
-                              site.id,
-                              codeDraft[site.id] ?? (site.iclassNodeCode ?? ''),
-                              site.iclassNodeCode,
-                            );
-                          }
-                        }}
-                      />
+                        {isInactiveMatch && (
+                          <option value={legacyValue} disabled>
+                            {code} (inactivo en IClass)
+                          </option>
+                        )}
+                        {eligible.map(n => (
+                          <option key={n.id} value={n.id}>{n.code}</option>
+                        ))}
+                      </select>
                     </td>
                     <td>
                       <select
-                        className={`${styles.select} ${currentValue === '' ? styles.selectUnmapped : ''}`}
-                        value={currentValue}
-                        onChange={e => handleChange(site.id, e.target.value)}
+                        className={`${styles.select} ${currentUisp === '' ? styles.selectUnmapped : ''}`}
+                        value={currentUisp}
+                        onChange={e => handleUispChange(site.id, e.target.value)}
                         disabled={status === 'saving'}
                         aria-label={`Nodo UISP para ${site.name}`}
                       >
