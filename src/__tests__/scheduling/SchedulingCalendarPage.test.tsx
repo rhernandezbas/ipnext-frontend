@@ -364,6 +364,39 @@ describe('SchedulingCalendarPage — create modal', () => {
   });
 });
 
+// ── #41 — dismissed tasks must not appear on the calendar ──────────────────────
+// The calendar omits `status` from its query, so the backend returns ALL general
+// statuses (open + closed + dismissed). A dismissed task is "fuera de la vista":
+// it must be filtered out client-side. Closed tasks STAY (useful history of
+// completed visits). Open tasks obviously stay.
+describe('SchedulingCalendarPage — hides dismissed tasks (#41)', () => {
+  it('omits a dismissed task but keeps closed and open ones (month view)', () => {
+    renderWithRouter(
+      '/admin/scheduling/calendars?view=month&date=2026-05-01',
+      [
+        makeTask({ id: 'open-1', title: 'Tarea abierta', generalStatus: 'open', startDate: '2026-05-20T09:00:00Z' }),
+        makeTask({ id: 'closed-1', title: 'Tarea cerrada', generalStatus: 'closed', startDate: '2026-05-20T11:00:00Z' }),
+        makeTask({ id: 'dismissed-1', title: 'Tarea descartada', generalStatus: 'dismissed', startDate: '2026-05-20T13:00:00Z' }),
+      ]
+    );
+
+    expect(screen.getByText('Tarea abierta')).toBeInTheDocument();
+    expect(screen.getByText('Tarea cerrada')).toBeInTheDocument();
+    expect(screen.queryByText('Tarea descartada')).not.toBeInTheDocument();
+  });
+
+  it('keeps a task whose generalStatus field is absent (legacy fixture tolerance)', () => {
+    // A task object missing generalStatus (old fixture / partial payload) must NOT
+    // be dropped — the filter only excludes EXPLICITLY dismissed tasks.
+    const legacy = makeTask({ id: 'legacy-1', title: 'Tarea legacy', startDate: '2026-05-20T09:00:00Z' });
+    delete (legacy as { generalStatus?: unknown }).generalStatus;
+
+    renderWithRouter('/admin/scheduling/calendars?view=month&date=2026-05-01', [legacy]);
+
+    expect(screen.getByText('Tarea legacy')).toBeInTheDocument();
+  });
+});
+
 // ── REQ-RESOURCE-SOURCE ────────────────────────────────────────────────────────
 // Root cause fix: calendar resources must be built from RbacUser (same source as
 // task.assigneeId), NOT from Admin. Assigned tasks must appear in the correct row.
