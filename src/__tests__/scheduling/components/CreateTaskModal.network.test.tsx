@@ -1,7 +1,14 @@
 /**
- * CreateTaskModal — network mode tests (#29)
- * Tests the RED toggle, NodeSelector visibility, canSave logic, and payload shape
- * for the network-task (kind: 'network') branch.
+ * CreateTaskModal — customer-context tests (#40b fix-a)
+ *
+ * The RED mode toggle (#29) is SUPERSEDED: node tasks are created ONLY from the
+ * Tareas Nodos page (modal locked via defaultMode='network'). In customer
+ * context (no defaultMode) the modal must be customer-ONLY:
+ *   - the Cliente/Nodo RED toggle is GONE
+ *   - there is NO path to network mode (NodeSelector never reachable)
+ *   - the customer payload (kind:'customer') is unchanged
+ *
+ * The defaultMode='network' lock behaviour lives in CreateTaskModalNetworkMode.test.tsx.
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -54,21 +61,6 @@ const mockNetworkSites: NetworkSite[] = [
     parentSiteId: null,
     description: 'Test node',
     iclassNodeCode: 'ALPHA-01',
-  },
-  {
-    id: 'ns-beta',
-    name: 'Nodo Beta',
-    address: 'Av. Siempre Viva 742',
-    city: 'Pilar',
-    coordinates: null,
-    type: 'nodo',
-    status: 'active',
-    deviceCount: 3,
-    clientCount: 40,
-    uplink: '500 Mbps',
-    parentSiteId: null,
-    description: 'Test node 2',
-    iclassNodeCode: null,
   },
 ];
 
@@ -126,104 +118,40 @@ function setup() {
   return { onClose, onCreate, ...result };
 }
 
-/** Activate network mode via the toggle */
-function switchToNetworkMode() {
-  fireEvent.click(screen.getByRole('button', { name: /nodo|red/i }));
-}
-
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('CreateTaskModal — network mode toggle', () => {
+describe('CreateTaskModal — customer context has no network toggle (#40b fix-a)', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders a toggle to switch between customer and network modes', () => {
+  it('does NOT render the Cliente/Nodo RED mode toggle', () => {
     setup();
-    // The toggle must have two options: one for customer mode, one for network/nodo
-    expect(screen.getByRole('button', { name: /cliente/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /nodo|red/i })).toBeInTheDocument();
+    // The segmented control (role=group, aria-label "Tipo de tarea") must be gone.
+    expect(screen.queryByRole('group', { name: /tipo de tarea/i })).not.toBeInTheDocument();
+    // And neither toggle button exists (the "Nodo RED" toggle in particular).
+    expect(screen.queryByRole('button', { name: /^nodo red$/i })).not.toBeInTheDocument();
   });
 
-  it('starts in customer mode — CustomerPicker is visible', () => {
+  it('does NOT render the static "Nodo RED" badge either (customer context, not locked)', () => {
     setup();
-    // CustomerPicker renders the search input
+    expect(screen.queryByLabelText(/tipo de tarea: nodo red/i)).not.toBeInTheDocument();
+  });
+
+  it('shows the CustomerPicker — customer mode is the only mode', () => {
+    setup();
     expect(screen.getByPlaceholderText(/buscar cliente/i)).toBeInTheDocument();
   });
 
-  it('switches to network mode — CustomerPicker disappears, NodeSelector appears', () => {
+  it('never exposes the NodeSelector (no path to network mode)', () => {
     setup();
-    switchToNetworkMode();
-    expect(screen.queryByPlaceholderText(/buscar cliente/i)).not.toBeInTheDocument();
-    // NodeSelector search input
-    expect(screen.getByPlaceholderText(/buscar nodo/i)).toBeInTheDocument();
-  });
-
-  it('hides the contract select in network mode', () => {
-    setup();
-    switchToNetworkMode();
-    expect(screen.queryByRole('combobox', { name: /contrato/i })).not.toBeInTheDocument();
-  });
-
-  it('switching back to customer mode restores CustomerPicker', () => {
-    setup();
-    switchToNetworkMode();
-    // Switch back to customer mode
-    fireEvent.click(screen.getByRole('button', { name: /cliente/i }));
-    expect(screen.getByPlaceholderText(/buscar cliente/i)).toBeInTheDocument();
+    // NodeSelector search input must never be reachable in customer context.
     expect(screen.queryByPlaceholderText(/buscar nodo/i)).not.toBeInTheDocument();
   });
 });
 
-describe('CreateTaskModal — network mode canSave', () => {
+describe('CreateTaskModal — customer payload unchanged (#40b fix-a)', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('disables Crear tarea in network mode when no node is selected', () => {
-    setup();
-    switchToNetworkMode();
-    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Nodo task' } });
-    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'proj-1' } });
-    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'desc' } });
-    // No node selected yet
-    expect(screen.getByRole('button', { name: /crear tarea/i })).toBeDisabled();
-  });
-
-  it('enables Crear tarea in network mode when title + project + description + node are all filled', async () => {
-    setup();
-    switchToNetworkMode();
-    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Nodo task' } });
-    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'proj-1' } });
-    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'desc' } });
-    // Select a node
-    fireEvent.click(screen.getByRole('option', { name: /Nodo Alpha/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /crear tarea/i })).toBeEnabled(),
-    );
-  });
-});
-
-describe('CreateTaskModal — network mode payload', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('submits kind:network payload with networkSiteId and no customerId/contractId', async () => {
-    const { onCreate } = setup();
-    switchToNetworkMode();
-    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'RED task' } });
-    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'proj-1' } });
-    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'instalar antena' } });
-    // Select node
-    fireEvent.click(screen.getByRole('option', { name: /Nodo Alpha/i }));
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /crear tarea/i })).toBeEnabled(),
-    );
-    fireEvent.click(screen.getByRole('button', { name: /crear tarea/i }));
-    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
-    const payload = onCreate.mock.calls[0][0];
-    expect(payload.kind).toBe('network');
-    expect(payload.networkSiteId).toBe('ns-alpha');
-    expect(payload.customerId).toBeNull();
-    expect(payload.contractId).toBeNull();
-  });
-
-  it('customer mode still submits kind:customer payload', async () => {
+  it('submits kind:customer payload with customerId/contractId and no networkSiteId', async () => {
     const customer = { id: 'c-net', name: 'NET CUSTOMER', email: 'net@test.com' };
     useClientListMock.mockReturnValue({
       data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 },
@@ -235,7 +163,6 @@ describe('CreateTaskModal — network mode payload', () => {
       isLoading: false,
     });
     const { onCreate } = setup();
-    // Stay in customer mode (default)
     fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Customer task' } });
     fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Net' } });
     fireEvent.click(await screen.findByText('NET CUSTOMER'));

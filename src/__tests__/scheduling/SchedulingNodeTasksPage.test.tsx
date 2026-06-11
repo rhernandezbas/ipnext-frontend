@@ -31,11 +31,18 @@ vi.mock('@dnd-kit/utilities', () => ({ CSS: { Translate: { toString: vi.fn(() =>
 // emptyMessage (#40 FIX-4).
 const tasksTableProps = vi.fn();
 vi.mock('@/pages/scheduling/SchedulingTasksPage/components/TasksTableView', () => ({
-  TasksTableView: (props: { emptyMessage?: string }) => {
+  TasksTableView: (props: { emptyMessage?: string; visibleColumnKeys?: string[] }) => {
     tasksTableProps(props);
     return React.createElement('div', { 'data-testid': 'tasks-table' }, props.emptyMessage ?? 'table');
   },
-  ALL_TASK_COLUMNS: [{ key: 'seq', label: '#' }],
+  // Mirror the real catalog closely enough that the Cliente column exclusion
+  // (#40b fix-b) is exercised: it MUST include 'customerName'.
+  ALL_TASK_COLUMNS: [
+    { key: 'sequenceNumber', label: '#' },
+    { key: 'title', label: 'Título' },
+    { key: 'customerName', label: 'Cliente' },
+    { key: 'address', label: 'Dirección' },
+  ],
 }));
 vi.mock('@/pages/scheduling/SchedulingTasksPage/components/TaskFilterBar', () => ({
   TaskFilterBar: () => React.createElement('div', { 'data-testid': 'task-filter-bar' }),
@@ -43,8 +50,12 @@ vi.mock('@/pages/scheduling/SchedulingTasksPage/components/TaskFilterBar', () =>
 vi.mock('@/pages/scheduling/SchedulingTasksPage/components/TasksKanbanView', () => ({
   TasksKanbanView: () => React.createElement('div', { 'data-testid': 'tasks-kanban' }),
 }));
+const columnSelectorProps = vi.fn();
 vi.mock('@/pages/scheduling/SchedulingTasksPage/components/ColumnSelector', () => ({
-  ColumnSelector: () => React.createElement('div', { 'data-testid': 'column-selector' }),
+  ColumnSelector: (props: { columns?: { key: string }[]; visible?: string[] }) => {
+    columnSelectorProps(props);
+    return React.createElement('div', { 'data-testid': 'column-selector' });
+  },
 }));
 
 const useFilteredTasksMock = vi.fn();
@@ -139,6 +150,52 @@ describe('SchedulingNodeTasksPage', () => {
     // Only the network project must appear as an option.
     expect(screen.getByRole('option', { name: 'RED - FIBRA' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'INSTALACION' })).not.toBeInTheDocument();
+  });
+
+  // ── #40b fix-b: the Cliente column is meaningless for node tasks and must be
+  //   STRUCTURALLY excluded — not toggleable, not in the visible set, not in the
+  //   ColumnSelector catalog.
+  describe('Cliente column hidden on the Nodos table (#40b fix-b)', () => {
+    beforeEach(() => {
+      // Ensure no stored prefs re-introduce the column from a prior visit.
+      window.localStorage.clear();
+    });
+
+    it('never passes customerName in visibleColumnKeys to the table', () => {
+      render(<Wrapper><SchedulingNodeTasksPage /></Wrapper>);
+      const lastProps = tasksTableProps.mock.calls.at(-1)?.[0] as { visibleColumnKeys?: string[] };
+      expect(lastProps.visibleColumnKeys).toBeDefined();
+      expect(lastProps.visibleColumnKeys).not.toContain('customerName');
+    });
+
+    it('excludes customerName from the ColumnSelector catalog (not toggleable)', () => {
+      render(<Wrapper><SchedulingNodeTasksPage /></Wrapper>);
+      const lastProps = columnSelectorProps.mock.calls.at(-1)?.[0] as { columns?: { key: string }[]; visible?: string[] };
+      expect(lastProps.columns?.some(c => c.key === 'customerName')).toBe(false);
+      expect(lastProps.visible).not.toContain('customerName');
+    });
+
+    it('still shows other columns (e.g. title) — only Cliente is hidden', () => {
+      render(<Wrapper><SchedulingNodeTasksPage /></Wrapper>);
+      const lastProps = tasksTableProps.mock.calls.at(-1)?.[0] as { visibleColumnKeys?: string[] };
+      expect(lastProps.visibleColumnKeys).toContain('title');
+    });
+
+    // Regression: a user who visited the Nodos page BEFORE the column was hidden
+    // could have 'customerName' persisted in the nodos column-visibility store.
+    // The structural guard must filter it out at render time so it can never
+    // resurface from a stale preference.
+    it('keeps customerName hidden even when a stale localStorage pref includes it', () => {
+      window.localStorage.setItem(
+        'scheduling-node-tasks-visible-columns',
+        JSON.stringify(['sequenceNumber', 'title', 'customerName', 'address']),
+      );
+      render(<Wrapper><SchedulingNodeTasksPage /></Wrapper>);
+      const lastProps = tasksTableProps.mock.calls.at(-1)?.[0] as { visibleColumnKeys?: string[] };
+      expect(lastProps.visibleColumnKeys).not.toContain('customerName');
+      // Other stored columns still survive — only the hidden key is dropped.
+      expect(lastProps.visibleColumnKeys).toContain('title');
+    });
   });
 
   // ── FIX-4: nodos-specific empty message (REQ-NTP-6) ────────────────────────

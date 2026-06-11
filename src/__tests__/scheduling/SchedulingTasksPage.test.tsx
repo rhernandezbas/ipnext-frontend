@@ -191,6 +191,20 @@ describe('SchedulingTasksPage', () => {
     } as ReturnType<typeof useWorkflow>);
   });
 
+  // ── #40b fix-c: the customer Tareas page must send kind='customer' so node
+  //   tasks never leak into the client list. Without it the page sent no kind
+  //   param and network tasks appeared here.
+  it("fetches tasks with kind='customer' merged into the filter (#40b fix-c)", () => {
+    render(
+      <Wrapper>
+        <SchedulingTasksPage />
+      </Wrapper>
+    );
+    expect(useFilteredTasks).toHaveBeenCalled();
+    const lastArg = vi.mocked(useFilteredTasks).mock.calls.at(-1)?.[0];
+    expect(lastArg).toMatchObject({ kind: 'customer' });
+  });
+
   // ── FIX-1: the network-projects hint must NEVER appear on the customer page.
   //   Its predicate is !isNetworkProject; the hint is gated on kind==='network'.
   it('never shows the network-projects hint, even with zero projects', () => {

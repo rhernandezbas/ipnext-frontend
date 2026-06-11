@@ -148,6 +148,16 @@ export default function SchedulingProjectsPage() {
   const [sortCol, setSortCol] = useState<SortCol>('id');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
+  // Drill-down target for a project. The customer Tareas list filters
+  // kind='customer', so a NETWORK project (its tasks are kind='network') would
+  // land on a zero-row list there — route it to the Nodos page instead. The
+  // optional stageCategory is preserved across both targets.
+  function projectTasksHref(p: Project, stageCategory?: 'nuevo' | 'enProgreso' | 'hecho') {
+    const base = p.isNetworkProject ? '/admin/scheduling/nodos' : '/admin/scheduling/tasks';
+    const qs = stageCategory ? `?projectId=${p.id}&stageCategory=${stageCategory}` : `?projectId=${p.id}`;
+    return `${base}${qs}`;
+  }
+
   function handleSort(col: SortCol) {
     if (col === sortCol) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortCol(col); setSortDir('asc'); }
@@ -310,7 +320,7 @@ export default function SchedulingProjectsPage() {
                       <td className={styles.titleCell}>
                         <button
                           className={styles.titleLink}
-                          onClick={() => navigate(`/admin/scheduling/tasks?projectId=${p.id}`)}
+                          onClick={() => navigate(projectTasksHref(p))}
                         >
                           {p.title}
                         </button>
@@ -320,7 +330,7 @@ export default function SchedulingProjectsPage() {
                         <button
                           className={styles.countLink}
                           title="Ver tareas nuevas de este proyecto"
-                          onClick={() => navigate(`/admin/scheduling/tasks?projectId=${p.id}&stageCategory=nuevo`)}
+                          onClick={() => navigate(projectTasksHref(p, 'nuevo'))}
                         >
                           {p.taskCounts?.nuevo ?? 0}
                         </button>
@@ -329,7 +339,7 @@ export default function SchedulingProjectsPage() {
                         <button
                           className={styles.countLink}
                           title="Ver tareas en progreso de este proyecto"
-                          onClick={() => navigate(`/admin/scheduling/tasks?projectId=${p.id}&stageCategory=enProgreso`)}
+                          onClick={() => navigate(projectTasksHref(p, 'enProgreso'))}
                         >
                           {p.taskCounts?.enProgreso ?? 0}
                         </button>
@@ -338,7 +348,7 @@ export default function SchedulingProjectsPage() {
                         <button
                           className={styles.countLink}
                           title="Ver tareas terminadas de este proyecto"
-                          onClick={() => navigate(`/admin/scheduling/tasks?projectId=${p.id}&stageCategory=hecho`)}
+                          onClick={() => navigate(projectTasksHref(p, 'hecho'))}
                         >
                           {p.taskCounts?.hecho ?? 0}
                         </button>
@@ -353,7 +363,7 @@ export default function SchedulingProjectsPage() {
                             <button
                               className={styles.actionBtn}
                               title="Ver tareas"
-                              onClick={() => navigate(`/admin/scheduling/tasks?projectId=${p.id}`)}
+                              onClick={() => navigate(projectTasksHref(p))}
                             >
                               <IconExternalLink />
                             </button>

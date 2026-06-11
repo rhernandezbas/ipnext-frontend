@@ -91,10 +91,12 @@ function toLocalInputString(date: Date): string {
  * default that doesn't exist.
  */
 export function CreateTaskModal({ projects, workflows, technicians = [], templates = [], onClose, onCreate, loading, initialValues, defaultMode }: Props) {
-  /** When a defaultMode is provided the mode is LOCKED (toggle hidden). */
+  /** When a defaultMode is provided the mode is LOCKED and a "Nodo RED" badge is
+   *  shown. Node tasks are created ONLY from the Tareas Nodos page (#40b fix-a). */
   const modeLocked = defaultMode != null;
-  /** Task mode toggle: 'customer' (default) or 'network' (node-based RED task). */
-  const [taskMode, setTaskMode] = useState<'customer' | 'network'>(defaultMode ?? 'customer');
+  /** Task mode: 'customer' (default) or 'network'. No longer user-togglable — the
+   *  network branch is reached only via defaultMode='network' from the Nodos page. */
+  const taskMode: 'customer' | 'network' = defaultMode ?? 'customer';
   /** Selected network site id for network tasks. */
   const [networkSiteId, setNetworkSiteId] = useState<string | null>(null);
 
@@ -341,35 +343,15 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
       <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Nueva tarea" onClick={e => e.stopPropagation()}>
         <div className={styles.modalHeader}>
           <h2 className={styles.title}>Nueva tarea</h2>
-          {/* RED mode toggle — segmented control, customer ↔ nodo. Hidden when the
-              mode is locked by the parent page (Tareas Nodos), where a static
-              badge replaces it so the operator knows the context. */}
-          {modeLocked ? (
+          {/* RED mode badge — node tasks are created ONLY from the Tareas Nodos
+              page, which locks the mode (defaultMode='network'). A static badge
+              shows the context. In customer context (no defaultMode) the modal is
+              customer-ONLY: no toggle, no path to network mode (#40b fix-a, was the
+              #29 segmented control). */}
+          {modeLocked && (
             <span className={styles.modeBadge} data-variant="network" aria-label="Tipo de tarea: Nodo RED">
               Nodo RED
             </span>
-          ) : (
-            <div className={styles.modeToggle} role="group" aria-label="Tipo de tarea">
-              <button
-                type="button"
-                className={styles.modeBtn}
-                data-active={taskMode === 'customer' ? 'true' : 'false'}
-                onClick={() => setTaskMode('customer')}
-                aria-pressed={taskMode === 'customer'}
-              >
-                Cliente
-              </button>
-              <button
-                type="button"
-                className={styles.modeBtn}
-                data-active={taskMode === 'network' ? 'true' : 'false'}
-                data-variant="network"
-                onClick={() => setTaskMode('network')}
-                aria-pressed={taskMode === 'network'}
-              >
-                Nodo RED
-              </button>
-            </div>
           )}
         </div>
 

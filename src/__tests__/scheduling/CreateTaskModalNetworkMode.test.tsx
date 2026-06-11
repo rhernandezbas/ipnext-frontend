@@ -136,6 +136,43 @@ describe('CreateTaskModal address prefill from NetworkSite (REQ-NTP-5)', () => {
   });
 });
 
+describe('CreateTaskModal network submit payload (REQ-NTP-3)', () => {
+  it('emits kind="network" + networkSiteId (and nulled customer fields) on Crear tarea', async () => {
+    render(
+      <CreateTaskModal
+        projects={networkProjects}
+        workflows={workflows}
+        defaultMode="network"
+        onClose={onClose}
+        onCreate={onCreate}
+        loading={false}
+      />,
+    );
+
+    // Required fields for a valid network create: title, description, project, site.
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Mantenimiento POP' } });
+    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'Revisión de equipo' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'np-1' } });
+    fireEvent.click(screen.getByText('POP Centro'));
+
+    const submit = screen.getByRole('button', { name: /crear tarea/i });
+    await waitFor(() => expect(submit).toBeEnabled());
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'network',
+        networkSiteId: 'site-1',
+        projectId: 'np-1',
+        customerId: null,
+        customerName: null,
+        contractId: null,
+      }),
+    );
+  });
+});
+
 describe('CreateTaskModal empty network-project hint (REQ-NTP-4)', () => {
   it('shows a network hint when no projects are available in network mode', () => {
     render(
