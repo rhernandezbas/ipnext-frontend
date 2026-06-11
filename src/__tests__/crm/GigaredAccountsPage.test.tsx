@@ -33,9 +33,10 @@ function mockHooks(over: {
   accountsData?: ListAccountsResult;
   accountsError?: unknown;
   accountsLoading?: boolean;
+  summaryData?: GigaredSummary;
 } = {}) {
   vi.mocked(useGigaredSummary).mockReturnValue({
-    data: summary,
+    data: over.summaryData ?? summary,
     isLoading: false,
     isError: false,
   } as ReturnType<typeof useGigaredSummary>);
@@ -130,6 +131,18 @@ describe('GigaredAccountsPage', () => {
     expect(screen.getByRole('button', { name: /reintentar/i })).toBeInTheDocument();
   });
 
+  // #47g-3 — the BE now sends `detail` on the upstream errors too. The page must
+  // surface it on the unavailable banner instead of the bare generic message.
+  it('shows the partner detail on 502 GIGARED_UNAVAILABLE when present', () => {
+    mockHooks({
+      accountsError: {
+        response: { status: 502, data: { code: 'GIGARED_UNAVAILABLE', detail: 'Gigared devolvió 502' } },
+      },
+    });
+    renderPage();
+    expect(screen.getByText(/gigared devolvió 502/i)).toBeInTheDocument();
+  });
+
   it('shows an empty state when there are no accounts', () => {
     mockHooks({ accountsData: { accounts: [] } });
     renderPage();
@@ -147,14 +160,77 @@ describe('GigaredAccountsPage', () => {
     );
   });
 
-  it('a full page (20 rows) implies a next page', () => {
+  it('a full page (20 rows) under a text filter implies a next page', async () => {
+    const user = userEvent.setup();
     const full = Array.from({ length: 20 }, (_, i) => ({
       ...accounts[0],
       cic: `cic-${i}`,
     }));
+    // The default fixture summary has total=7 (→ 1 real page), so to exercise the
+    // hasNext heuristic we need a text filter active (summary no longer applies).
     mockHooks({ accountsData: { accounts: full } });
     renderPage();
-    // With a full page the Pagination must expose a "next" affordance.
-    expect(screen.getByRole('button', { name: /siguiente|next|›|»/i })).toBeInTheDocument();
+    await user.type(screen.getByPlaceholderText(/email/i), 'x@y.com');
+    // With a full page + a text filter the Pagination must expose a "next" affordance.
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /siguiente|next|›|»/i })).toBeInTheDocument(),
+    );
+  });
+
+  // Bug #47g-1 — totalPages REAL from the summary the page already has, instead
+  // of the hasNext heuristic. The partner list endpoint gives no total, but the
+  // summary does: registered/unregistered/total. Without a status filter the
+  // pager spans ceil(total/20); with a status it spans ceil(thatCount/20). Only
+  // when an email/account_id filter is active (the summary no longer applies)
+  // does it fall back to the hasNext heuristic.
+  describe('#47g-1 — real totalPages from summary', () => {
+    const bigSummary: GigaredSummary = {
+      accounts: { registered: 45, unregistered: 25, total: 70 },
+      services: [],
+    };
+    // A full page of rows so the hasNext heuristic alone would say "page + 1" (2).
+    const fullPage = Array.from({ length: 20 }, (_, i) => ({ ...accounts[0], cic: `cic-${i}` }));
+
+    it('no status filter → pager spans ceil(total/20) = 4 pages', () => {
+      mockHooks({ summaryData: bigSummary, accountsData: { accounts: fullPage } });
+      renderPage();
+      // ceil(70/20) = 4. The last page button (4) must be reachable.
+      expect(screen.getByRole('button', { name: '4' })).toBeInTheDocument();
+      // The heuristic would have capped at 2 — make sure we exceed it.
+      expect(screen.queryByRole('button', { name: '3' })).toBeInTheDocument();
+    });
+
+    it('status=registered → pager spans ceil(registered/20) = 3 pages', async () => {
+      const user = userEvent.setup();
+      mockHooks({ summaryData: bigSummary, accountsData: { accounts: fullPage } });
+      renderPage();
+      await user.selectOptions(screen.getByLabelText(/estado/i), 'registered');
+      // ceil(45/20) = 3.
+      await waitFor(() => expect(screen.getByRole('button', { name: '3' })).toBeInTheDocument());
+      expect(screen.queryByRole('button', { name: '4' })).not.toBeInTheDocument();
+    });
+
+    it('status=unregistered → pager spans ceil(unregistered/20) = 2 pages', async () => {
+      const user = userEvent.setup();
+      mockHooks({ summaryData: bigSummary, accountsData: { accounts: fullPage } });
+      renderPage();
+      await user.selectOptions(screen.getByLabelText(/estado/i), 'unregistered');
+      // ceil(25/20) = 2.
+      await waitFor(() => expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument());
+      expect(screen.queryByRole('button', { name: '3' })).not.toBeInTheDocument();
+    });
+
+    it('with an email filter active → falls back to the hasNext heuristic', async () => {
+      const user = userEvent.setup();
+      mockHooks({ summaryData: bigSummary, accountsData: { accounts: fullPage } });
+      renderPage();
+      await user.type(screen.getByPlaceholderText(/email/i), 'x@y.com');
+      // On page 1 with a full page the heuristic says totalPages = 2, NOT 4.
+      // Wait for the debounce to collapse the pager from 4 (summary) down to 2.
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: '4' })).not.toBeInTheDocument(),
+      );
+      expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument();
+    });
   });
 });

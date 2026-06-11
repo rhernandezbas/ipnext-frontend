@@ -748,13 +748,106 @@ describe('GigaredPanel', () => {
     });
   });
 
-  // ── #47e A: CIC picker for VINCULAR ─────────────────────────────────────────
-  // The "Vincular cuenta existente" form offers a SEARCHABLE list of registered
-  // accounts that are not yet linked (internalId null/empty). Picking one fills
-  // the CIC and the existing Vincular flow runs with that value. A manual escape
-  // hatch toggles back to the free-text CIC input.
-  describe('#47e A — link CIC picker', () => {
-    it('lists only registered+unlinked accounts as options', () => {
+  // ── #47g-3: surface the partner `detail` on EVERY gigared error ─────────────
+  // The BE now sends `detail` on ALL gigared errors (422/502/503), not just the
+  // 422 register reject. Link/add/remove/ott must show "{generic}: {detail}" when
+  // a detail comes, falling back to the generic message when it does not.
+  describe('#47g-3 — partner detail on every error', () => {
+    it('link error with detail → shows the detail', async () => {
+      const user = userEvent.setup();
+      linkMutate.mockRejectedValue({
+        response: { status: 502, data: { code: 'GIGARED_UNAVAILABLE', detail: 'Gigared timeout (502)' } },
+      });
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /ingresar cic manualmente/i }));
+      await user.type(screen.getByLabelText(/^cic$/i), '123');
+      await user.click(screen.getByRole('button', { name: /vincular/i }));
+      await waitFor(() => expect(screen.getByText(/gigared timeout \(502\)/i)).toBeInTheDocument());
+    });
+
+    it('add error with detail → shows the detail', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      addMutate.mockReset().mockRejectedValue({
+        response: { status: 503, data: { code: 'GIGARED_UNAVAILABLE', detail: 'Servicio no disponible' } },
+      });
+      renderPanel();
+      await user.selectOptions(screen.getByLabelText(/agregar servicio/i), 's2');
+      await user.click(screen.getByRole('button', { name: /agregar$/i }));
+      await waitFor(() => expect(screen.getByText(/servicio no disponible/i)).toBeInTheDocument());
+    });
+
+    it('OTT error with detail → shows the detail', async () => {
+      const user = userEvent.setup();
+      ottMutate.mockRejectedValue({
+        response: { status: 502, data: { code: 'GIGARED_UNAVAILABLE', detail: 'OTT upstream caído' } },
+      });
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel();
+      await user.click(screen.getByLabelText(/ott/i));
+      await waitFor(() => expect(screen.getByText(/ott upstream caído/i)).toBeInTheDocument());
+    });
+
+    it('remove error with detail → shows the detail in the confirm dialog', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      removeMutate.mockReset().mockRejectedValue({
+        response: { status: 502, data: { code: 'GIGARED_UNAVAILABLE', detail: 'No se pudo dar de baja' } },
+      });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /quitar/i }));
+      const dialogs = screen.getAllByRole('dialog');
+      const confirm = dialogs[dialogs.length - 1];
+      const { within } = await import('@testing-library/react');
+      await user.click(within(confirm).getByRole('button', { name: /^quitar$/i }));
+      await waitFor(() => expect(screen.getByText(/no se pudo dar de baja/i)).toBeInTheDocument());
+    });
+
+    it('register error with detail (non-422) → shows the detail', async () => {
+      const user = userEvent.setup();
+      registerMutate.mockRejectedValue({
+        response: { status: 503, data: { code: 'GIGARED_UNAVAILABLE', detail: 'Gigared no responde ahora' } },
+      });
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      await user.type(screen.getByLabelText(/nombre/i), 'Ana');
+      await user.type(screen.getByLabelText(/apellido/i), 'García');
+      await user.type(screen.getByLabelText(/email/i), 'a@b.com');
+      await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
+      await user.type(screen.getByLabelText(/^cic$/i), '0001');
+      await user.click(screen.getByRole('button', { name: /^registrar$/i }));
+      await waitFor(() => expect(screen.getByText(/gigared no responde ahora/i)).toBeInTheDocument());
+    });
+  });
+
+  // ── #47g-2: VINCULAR account picker is now a MODAL ──────────────────────────
+  // The bad inline select-list becomes a presentable modal: title "Vincular
+  // cuenta de Gigared", a search input (autofocus), clickable rows (name
+  // prominent; CIC + packs secondary). Click a row → it selects AND closes,
+  // leaving the chosen account visible as a summary with a "Cambiar" button. Esc
+  // and click-outside close. The modal carries loading / empty / error states.
+  // The "Ingresar CIC manualmente" fallback stays available OUTSIDE the modal.
+  describe('#47g-2 — link account picker modal', () => {
+    /** Open the picker modal from the unlinked link form. */
+    async function openPicker(user: ReturnType<typeof userEvent.setup>) {
+      await user.click(screen.getByRole('button', { name: /elegir cuenta de la lista|buscar cuenta para vincular/i }));
+    }
+
+    it('a trigger opens the modal titled "Vincular cuenta de Gigared"', async () => {
+      const user = userEvent.setup();
+      mockQuery({
+        account: { linked: false, account: null },
+        allAccounts: { registered: [pickAccount({ cic: '0000000123', firstName: 'JUAN', lastName: 'PEREZ' })] },
+      });
+      renderPanel();
+      await openPicker(user);
+      expect(screen.getByRole('heading', { name: /vincular cuenta de gigared/i })).toBeInTheDocument();
+    });
+
+    it('lists only registered+unlinked accounts as clickable rows', async () => {
+      const user = userEvent.setup();
       mockQuery({
         account: { linked: false, account: null },
         allAccounts: {
@@ -766,15 +859,15 @@ describe('GigaredPanel', () => {
         },
       });
       renderPanel();
-      const picker = screen.getByLabelText(/elegí una cuenta/i);
-      expect(picker).toBeInTheDocument();
-      // The unlinked one is offered…
-      expect(screen.getByText(/PEREZ JUAN/i)).toBeInTheDocument();
+      await openPicker(user);
+      // The unlinked one is offered as a clickable row…
+      expect(screen.getByRole('button', { name: /PEREZ JUAN/i })).toBeInTheDocument();
       // …the linked one is excluded.
       expect(screen.queryByText(/OTRO CLIENTE/i)).not.toBeInTheDocument();
     });
 
-    it('option label shows "APELLIDO NOMBRE — CIC … (packs)"', () => {
+    it('a row shows the name prominent with CIC + packs secondary', async () => {
+      const user = userEvent.setup();
       mockQuery({
         account: { linked: false, account: null },
         allAccounts: {
@@ -782,12 +875,13 @@ describe('GigaredPanel', () => {
         },
       });
       renderPanel();
-      const opt = screen.getByText(/PEREZ JUAN/i);
-      expect(opt.textContent).toMatch(/0000000123/);
-      expect(opt.textContent).toMatch(/Gigared Play Full/i);
+      await openPicker(user);
+      const row = screen.getByRole('button', { name: /PEREZ JUAN/i });
+      expect(row.textContent).toMatch(/0000000123/);
+      expect(row.textContent).toMatch(/Gigared Play Full/i);
     });
 
-    it('filters the list client-side by text (name or CIC)', async () => {
+    it('filters the rows client-side by text (name or CIC)', async () => {
       const user = userEvent.setup();
       mockQuery({
         account: { linked: false, account: null },
@@ -799,36 +893,66 @@ describe('GigaredPanel', () => {
         },
       });
       renderPanel();
+      await openPicker(user);
       await user.type(screen.getByLabelText(/buscar cuenta/i), 'gomez');
-      expect(screen.getByText(/GOMEZ MARIA/i)).toBeInTheDocument();
-      expect(screen.queryByText(/PEREZ JUAN/i)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /GOMEZ MARIA/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /PEREZ JUAN/i })).not.toBeInTheDocument();
     });
 
-    it('choosing an account → Vincular fires linkCic with that CIC', async () => {
+    it('clicking a row selects it, CLOSES the modal, and shows it in the form', async () => {
+      const user = userEvent.setup();
+      mockQuery({
+        account: { linked: false, account: null },
+        allAccounts: { registered: [pickAccount({ cic: '0000000123', firstName: 'JUAN', lastName: 'PEREZ' })] },
+      });
+      renderPanel();
+      await openPicker(user);
+      await user.click(screen.getByRole('button', { name: /PEREZ JUAN/i }));
+      // The modal title is gone (modal closed)…
+      await waitFor(() =>
+        expect(screen.queryByRole('heading', { name: /vincular cuenta de gigared/i })).not.toBeInTheDocument(),
+      );
+      // …and the chosen account is visible in the form, with a "Cambiar" control.
+      expect(screen.getByText(/0000000123/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /cambiar/i })).toBeInTheDocument();
+    });
+
+    it('choosing a row → Vincular fires linkCic with that CIC', async () => {
       const user = userEvent.setup();
       linkMutate.mockResolvedValue({ account: linkedAccount });
       mockQuery({
         account: { linked: false, account: null },
-        allAccounts: {
-          registered: [pickAccount({ cic: '0000000123', firstName: 'JUAN', lastName: 'PEREZ' })],
-        },
+        allAccounts: { registered: [pickAccount({ cic: '0000000123', firstName: 'JUAN', lastName: 'PEREZ' })] },
       });
       renderPanel();
-      await user.selectOptions(screen.getByLabelText(/elegí una cuenta/i), '0000000123');
+      await openPicker(user);
+      await user.click(screen.getByRole('button', { name: /PEREZ JUAN/i }));
       await user.click(screen.getByRole('button', { name: /^vincular$/i }));
       await waitFor(() =>
         expect(linkMutate).toHaveBeenCalledWith({ cic: '0000000123', contractId: 'ct-9' }),
       );
     });
 
-    it('manual fallback toggle reveals the free-text CIC input and still links', async () => {
+    it('Esc closes the modal without selecting', async () => {
+      const user = userEvent.setup();
+      mockQuery({
+        account: { linked: false, account: null },
+        allAccounts: { registered: [pickAccount({ cic: '0000000123', firstName: 'JUAN', lastName: 'PEREZ' })] },
+      });
+      renderPanel();
+      await openPicker(user);
+      await user.keyboard('{Escape}');
+      await waitFor(() =>
+        expect(screen.queryByRole('heading', { name: /vincular cuenta de gigared/i })).not.toBeInTheDocument(),
+      );
+    });
+
+    it('manual fallback (outside the modal) reveals the free-text CIC input and still links', async () => {
       const user = userEvent.setup();
       linkMutate.mockResolvedValue({ account: linkedAccount });
       mockQuery({
         account: { linked: false, account: null },
-        allAccounts: {
-          registered: [pickAccount({ cic: '0000000123' })],
-        },
+        allAccounts: { registered: [pickAccount({ cic: '0000000123' })] },
       });
       renderPanel();
       await user.click(screen.getByRole('button', { name: /ingresar cic manualmente/i }));
@@ -840,25 +964,31 @@ describe('GigaredPanel', () => {
       );
     });
 
-    it('empty picker → shows a "no quedan cuentas" message', () => {
-      mockQuery({
-        account: { linked: false, account: null },
-        allAccounts: { registered: [] },
-      });
+    it('empty list → the modal shows "No quedan cuentas disponibles para vincular"', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: false, account: null }, allAccounts: { registered: [] } });
       renderPanel();
-      expect(screen.getByText(/no quedan cuentas disponibles/i)).toBeInTheDocument();
+      await openPicker(user);
+      expect(
+        screen.getByText(/no quedan cuentas disponibles para vincular/i),
+      ).toBeInTheDocument();
     });
 
-    it('picker loading → shows a loading hint', () => {
+    it('loading → the modal shows a loading hint', async () => {
+      const user = userEvent.setup();
       mockQuery({ account: { linked: false, account: null }, allAccountsLoading: true });
       renderPanel();
+      await openPicker(user);
       expect(screen.getByText(/cargando cuentas/i)).toBeInTheDocument();
     });
 
-    it('picker error → shows an error with a retry control', () => {
+    it('error → the modal shows an error with a retry control', async () => {
+      const user = userEvent.setup();
       mockQuery({ account: { linked: false, account: null }, allAccountsError: true });
       renderPanel();
+      await openPicker(user);
       expect(screen.getByText(/no se pudieron cargar las cuentas/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /reintentar/i })).toBeInTheDocument();
     });
   });
 
