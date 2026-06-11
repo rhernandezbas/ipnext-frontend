@@ -29,12 +29,17 @@ vi.mock('@/hooks/useNetworkSites', () => ({
   useNetworkSites: vi.fn(),
   usePatchNetworkSite: vi.fn(),
 }));
+vi.mock('@/hooks/useIClassNodes', () => ({
+  useIClassNodes: vi.fn(),
+  useSyncIClassNodes: vi.fn(),
+}));
 
 import { useUispSyncStatus, useTriggerUispSync } from '@/hooks/useUispSyncStatus';
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
 import { useMyPermissions, useCan } from '@/hooks/useMyPermissions';
 import { useUispSites } from '@/hooks/useUispSites';
 import { useNetworkSites, usePatchNetworkSite } from '@/hooks/useNetworkSites';
+import { useIClassNodes, useSyncIClassNodes } from '@/hooks/useIClassNodes';
 import NetworkingSettingsPage from '@/pages/networking/NetworkingSettingsPage';
 
 function setupHooks(permissions: string[] = ['uisp.read']) {
@@ -91,6 +96,19 @@ function setupHooks(permissions: string[] = ['uisp.read']) {
   vi.mocked(usePatchNetworkSite).mockReturnValue({
     mutate: vi.fn(),
     mutateAsync: vi.fn().mockResolvedValue({}),
+    isPending: false,
+    isError: false,
+    reset: vi.fn(),
+  } as never);
+
+  vi.mocked(useIClassNodes).mockReturnValue({
+    data: [],
+    isLoading: false,
+  } as ReturnType<typeof useIClassNodes>);
+
+  vi.mocked(useSyncIClassNodes).mockReturnValue({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn().mockResolvedValue({ synced: 0, created: 0, updated: 0, reactivated: 0, deactivated: 0 }),
     isPending: false,
     isError: false,
     reset: vi.fn(),

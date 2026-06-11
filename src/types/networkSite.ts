@@ -22,6 +22,11 @@ export interface NetworkSite {
   description: string;
   /** IClass mapping code — used by the IClass integration to identify this node. */
   iclassNodeCode: string | null;
+  /**
+   * Patch-only: the catalog node uuid to assign. Never returned by GET.
+   * On PUT the BE resolves it to `iclassNodeCode` + `city`; `null` clears the link.
+   */
+  iclassNodeId?: string | null;
   /** Optional link to a UISP mirror site (uispId TEXT). null = not linked. */
   uispSiteId: string | null;
   /** UISP live info joined from mirror. Present when API returns enriched list. */

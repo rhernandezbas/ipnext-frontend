@@ -14,9 +14,14 @@ vi.mock('@/hooks/useNetworkSites', () => ({
 vi.mock('@/hooks/useUispSites', () => ({
   useUispSites: vi.fn(),
 }));
+vi.mock('@/hooks/useIClassNodes', () => ({
+  useIClassNodes: vi.fn(),
+  useSyncIClassNodes: vi.fn(),
+}));
 
 import { useNetworkSites, usePatchNetworkSite } from '@/hooks/useNetworkSites';
 import { useUispSites } from '@/hooks/useUispSites';
+import { useIClassNodes, useSyncIClassNodes } from '@/hooks/useIClassNodes';
 import { UispNodeMappingBody } from '@/components/networking/UispNodeMappingBody';
 import type { NetworkSite } from '@/types/networkSite';
 
@@ -59,6 +64,16 @@ function setupMocks(sites: NetworkSite[]) {
     data: { sites: [] },
     isLoading: false,
   } as ReturnType<typeof useUispSites>);
+
+  vi.mocked(useIClassNodes).mockReturnValue({
+    data: [],
+    isLoading: false,
+  } as ReturnType<typeof useIClassNodes>);
+
+  vi.mocked(useSyncIClassNodes).mockReturnValue({
+    ...idleUpdate,
+    isPending: false,
+  } as never);
 }
 
 describe('UispNodeMappingBody — IClass Readiness badge', () => {
