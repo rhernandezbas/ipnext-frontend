@@ -18,9 +18,17 @@ vi.mock('@/hooks/useAuth', () => ({
   useAuth: vi.fn(),
 }));
 
+// Mock axios-client so listTasks() can be asserted for its outgoing params
+// without hitting the network (#41 REQ-FILTER-7).
+const schedulingGet = vi.fn();
+vi.mock('@/api/axios-client', () => ({
+  default: { get: (...args: unknown[]) => schedulingGet(...args) },
+}));
+
 import { TasksTableView } from '@/pages/scheduling/SchedulingTasksPage/components/TasksTableView';
+import { listTasks } from '@/api/scheduling.api';
 import { useAuth } from '@/hooks/useAuth';
-import { useCan } from '@/hooks/useMyPermissions';
+import { useCan, useMyPermissions } from '@/hooks/useMyPermissions';
 import type { ScheduledTask } from '@/types/scheduling';
 import type { Workflow } from '@/types/workflow';
 import type { Project } from '@/types/project';
@@ -43,7 +51,8 @@ const task = {
   isClosed: false,
 } as unknown as ScheduledTask;
 
-const closedTask: ScheduledTask = { ...task, isClosed: true };
+const closedTask: ScheduledTask = { ...task, generalStatus: 'closed', isClosed: true } as ScheduledTask;
+const dismissedTask: ScheduledTask = { ...task, generalStatus: 'dismissed' } as ScheduledTask;
 
 const adminUser: AuthUser = { id: 1, username: 'admin', email: 'a@b.com', displayName: 'Admin', role: 'admin', permissions: [] };
 const regularUser: AuthUser = { id: 2, username: 'user', email: 'u@b.com', displayName: 'User', role: 'technician', permissions: [] };
@@ -86,21 +95,25 @@ describe('TasksTableView — inline estado selector', () => {
   });
 });
 
-describe('TasksTableView — closed task indicator', () => {
+describe('TasksTableView — status indicator (#41)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useAuth).mockReturnValue({ user: regularUser, isLoading: false, login: vi.fn(), logout: vi.fn() });
   });
 
-  it('shows the "Cerrada" badge when isClosed is true', () => {
+  it('shows the "Cerrada" pill for a closed task', () => {
     setup([closedTask], ['title']);
-    expect(screen.getByTestId('closed-badge')).toBeInTheDocument();
-    expect(screen.getByTestId('closed-badge')).toHaveTextContent('Cerrada');
+    expect(screen.getByTestId('task-status-badge')).toHaveTextContent('Cerrada');
   });
 
-  it('does NOT show the "Cerrada" badge when isClosed is false', () => {
-    setup([task], ['title']);
-    expect(screen.queryByTestId('closed-badge')).not.toBeInTheDocument();
+  it('shows the "Descartada" pill for a dismissed task', () => {
+    setup([dismissedTask], ['title']);
+    expect(screen.getByTestId('task-status-badge')).toHaveTextContent('Descartada');
+  });
+
+  it('does NOT show a status pill for an open task', () => {
+    setup([{ ...task, generalStatus: 'open' } as ScheduledTask], ['title']);
+    expect(screen.queryByTestId('task-status-badge')).not.toBeInTheDocument();
   });
 });
 
@@ -158,5 +171,92 @@ describe('TasksTableView — bulk actions', () => {
     selectFirstRow();
     fireEvent.click(screen.getByTestId('bulk-delete-btn'));
     await waitFor(() => expect(deleteAsync).toHaveBeenCalledWith('t1'));
+  });
+});
+
+describe('TasksTableView — bulk close gating + error handling (#41)', () => {
+  function selectAllRows() {
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[0]); // [0] is "select all"
+  }
+  function selectFirstRow() {
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[1]);
+  }
+
+  const task2 = { ...task, id: 't2', sequenceNumber: 2 } as unknown as ScheduledTask;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    closeAsync.mockResolvedValue(undefined);
+    deleteAsync.mockResolvedValue(undefined);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(useCan).mockImplementation(() => true);
+    // Restore the default permissive useMyPermissions after vi.clearAllMocks().
+    vi.mocked(useMyPermissions).mockReturnValue({
+      permissions: ['*'], roles: [], user: null,
+      isLoading: false, isError: false, can: () => true,
+    });
+    vi.mocked(useAuth).mockReturnValue({ user: regularUser, isLoading: false, login: vi.fn(), logout: vi.fn() });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('does NOT render the bulk "Cerrar" button without scheduling.write', () => {
+    // The <Can> guard reads useMyPermissions().can — NOT useCan. Override the
+    // permissions hook to deny scheduling.write (grant everything else).
+    vi.mocked(useMyPermissions).mockReturnValue({
+      permissions: [], roles: [], user: null, isLoading: false, isError: false,
+      can: (perm) => {
+        const list = Array.isArray(perm) ? perm : [perm];
+        return !list.includes('scheduling.write');
+      },
+    });
+    setup();
+    selectFirstRow();
+    expect(screen.queryByTestId('bulk-close-btn')).not.toBeInTheDocument();
+  });
+
+  it('renders the bulk "Cerrar" button when scheduling.write is granted', () => {
+    setup();
+    selectFirstRow();
+    expect(screen.getByTestId('bulk-close-btn')).toBeInTheDocument();
+  });
+
+  it('shows an error toast and keeps the selection when a close in the loop fails', async () => {
+    // First task closes ok, second rejects → toast + selection NOT cleared.
+    closeAsync.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('boom'));
+    setup([task, task2], ['sequenceNumber']);
+    selectAllRows();
+    expect(screen.getByTestId('bulk-close-btn')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('bulk-close-btn'));
+
+    // Error toast surfaces the count of tasks that could not be closed.
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(/No se pudieron cerrar 1 tarea/i),
+    );
+    // Selection is NOT cleared: the bulk bar (and its count) stays visible.
+    expect(screen.getByTestId('bulk-action-bar')).toBeInTheDocument();
+    expect(screen.getByTestId('bulk-close-btn')).toBeInTheDocument();
+  });
+});
+
+describe('listTasks — outgoing status param (#41, REQ-FILTER-7)', () => {
+  it('serializes status=open into the request params', async () => {
+    schedulingGet.mockResolvedValue({ data: [] });
+    await listTasks({ kind: 'project', status: 'open' });
+    expect(schedulingGet).toHaveBeenCalledWith('/scheduling', {
+      params: expect.objectContaining({ status: 'open' }),
+    });
+  });
+
+  it('serializes status=all into the request params for the "Todos" option', async () => {
+    schedulingGet.mockResolvedValue({ data: [] });
+    await listTasks({ status: 'all' });
+    expect(schedulingGet).toHaveBeenCalledWith('/scheduling', {
+      params: expect.objectContaining({ status: 'all' }),
+    });
   });
 });

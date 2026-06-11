@@ -6,9 +6,10 @@ import {
   useUpdateTask,
   useMoveTaskToStage,
   useDeleteTask,
-  useCloseTask,
+  useSetTaskGeneralStatus,
   useSetTaskInventoryReview,
 } from '@/hooks/useScheduling';
+import { useConfirm } from '@/context/ConfirmContext';
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { usePartners } from '@/hooks/usePartners';
@@ -19,7 +20,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/useMyPermissions';
 import { useIClassSendFeedback } from '@/hooks/useIClassSendFeedback';
 import { IClassSendResultModal } from '@/components/molecules/IClassSendResultModal/IClassSendResultModal';
-import type { ScheduledTask } from '@/types/scheduling';
+import type { ScheduledTask, TaskGeneralStatus } from '@/types/scheduling';
 import { applyTaskVariables } from './lib/taskVariables';
 import { TaskHeader } from './SchedulingTaskDetailPage/components/TaskHeader';
 import { TaskTabs } from './SchedulingTaskDetailPage/components/TaskTabs';
@@ -76,7 +77,8 @@ export default function SchedulingTaskDetailPage() {
   const updateTask = useUpdateTask();
   const moveToStage = useMoveTaskToStage();
   const deleteTask = useDeleteTask();
-  const closeTask = useCloseTask();
+  const setGeneralStatus = useSetTaskGeneralStatus();
+  const confirm = useConfirm();
   const setInventoryReview = useSetTaskInventoryReview();
   const iclass = useIClassSendFeedback();
   // Last stageId attempted — used by the IClass modal's "Reintentar" CTA.
@@ -240,16 +242,32 @@ export default function SchedulingTaskDetailPage() {
     navigate('/admin/scheduling/projects');
   }, [task, deleteTask, navigate]);
 
-  const handleClose = useCallback(async () => {
+  const STATUS_TOAST: Record<TaskGeneralStatus, string> = {
+    open: 'Tarea reabierta',
+    closed: 'Tarea cerrada',
+    dismissed: 'Tarea descartada',
+  };
+
+  const handleSetStatus = useCallback(async (status: TaskGeneralStatus) => {
     if (!task) return;
-    const nextClosed = !task.isClosed;
+    // Dismiss is the only destructive transition (drops the task out of the main
+    // views and stops IClass reconciliation) — confirm it first.
+    if (status === 'dismissed') {
+      const ok = await confirm({
+        title: 'Descartar tarea',
+        message: '¿Descartar esta tarea? Saldrá de las vistas principales y dejará de reconciliarse con IClass.',
+        confirmLabel: 'Descartar',
+        tone: 'danger',
+      });
+      if (!ok) return;
+    }
     try {
-      await closeTask.mutateAsync({ id: task.id, isClosed: nextClosed });
-      showToast(nextClosed ? 'Tarea cerrada' : 'Tarea reabierta');
+      await setGeneralStatus.mutateAsync({ id: task.id, status });
+      showToast(STATUS_TOAST[status]);
     } catch (err) {
       showToast(mapError(err), 'error');
     }
-  }, [task, closeTask]);
+  }, [task, setGeneralStatus, confirm]);
 
   const handleLocationChange = useCallback(
     (next: { address: string | null; coordinates: { lat: number; lng: number } | null }) => {
@@ -305,7 +323,7 @@ export default function SchedulingTaskDetailPage() {
     coordinates: task.coordinates,
   };
 
-  const isSaving = updateTask.isPending || moveToStage.isPending || deleteTask.isPending || closeTask.isPending;
+  const isSaving = updateTask.isPending || moveToStage.isPending || deleteTask.isPending || setGeneralStatus.isPending;
 
   return (
     <div className={styles.page}>
@@ -317,7 +335,7 @@ export default function SchedulingTaskDetailPage() {
         onStageMove={handleStageMove}
         onPriorityChange={handlePriorityChange}
         onDelete={() => setDeleteConfirm(true)}
-        onClose={() => void handleClose()}
+        onSetStatus={(status) => void handleSetStatus(status)}
         isAdmin={canDelete}
         isSaving={isSaving}
       />

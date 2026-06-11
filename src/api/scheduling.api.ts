@@ -1,5 +1,5 @@
 import axiosClient from './axios-client';
-import type { ScheduledTask, TaskChecklistItem, TaskListFilter, CreateTaskPayload } from '@/types/scheduling';
+import type { ScheduledTask, TaskChecklistItem, TaskListFilter, CreateTaskPayload, TaskGeneralStatus } from '@/types/scheduling';
 
 const BASE = '/scheduling';
 
@@ -20,6 +20,8 @@ function buildFilterParams(filter?: TaskListFilter): Record<string, string | str
   if (filter?.from)       params['from']         = filter.from;
   if (filter?.to)         params['to']           = filter.to;
   if (filter?.kind)       params['kind']         = filter.kind;
+  // #41 — the FE always sends an explicit general-status filter (default 'open').
+  if (filter?.status)     params['status']       = filter.status;
   return params;
 }
 
@@ -41,6 +43,15 @@ export const deleteTask = (id: string) =>
 /** @deprecated use stageCategory flow; kept for legacy compatibility */
 export const updateTaskStatus = (id: string, status: string) =>
   axiosClient.patch<ScheduledTask>(`${BASE}/${id}/status`, { status }).then(r => r.data);
+
+/**
+ * Set a task's general status (#41) — open / closed / dismissed.
+ * POST /scheduling/:id/status (auth + scheduling.write). Idempotent: re-sending
+ * the current status returns 200 without recording an activity. Returns the full
+ * task DTO with the derived `isClosed`.
+ */
+export const setTaskGeneralStatus = (id: string, status: TaskGeneralStatus) =>
+  axiosClient.post<ScheduledTask>(`${BASE}/${id}/status`, { status }).then(r => r.data);
 
 export const moveTaskToStage = (id: string, stageId: string) =>
   axiosClient.patch<ScheduledTask>(`${BASE}/${id}/stage`, { stageId }).then(r => r.data);

@@ -9,6 +9,7 @@ vi.mock('@/api/scheduling.api', () => ({
   updateTaskStatus: vi.fn(),
   moveTaskToStage: vi.fn(),
   bulkMoveToStage: vi.fn(),
+  setTaskGeneralStatus: vi.fn(),
 }));
 
 import * as api from '@/api/scheduling.api';
@@ -121,7 +122,8 @@ describe('scheduling mutations invalidate projects query', () => {
   });
 
   it('useCloseTask invalidates [projects] on success', async () => {
-    vi.mocked(api.updateTask).mockResolvedValue({ ...mockTask });
+    // #41 — useCloseTask now writes via the general-status endpoint, not PUT.
+    vi.mocked(api.setTaskGeneralStatus).mockResolvedValue({ ...mockTask });
     const { wrapper, invalidateSpy } = createHarness();
     const { result } = renderHook(() => useCloseTask(), { wrapper });
     result.current.mutate({ id: 'task-1', isClosed: true });

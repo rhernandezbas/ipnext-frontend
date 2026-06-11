@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ScheduledTask } from '@/types/scheduling';
+import type { ScheduledTask, TaskGeneralStatus } from '@/types/scheduling';
 import type { WorkflowStage } from '@/types/workflow';
 import type { TaskPriority } from '@/types/taskPriority';
 import { StageSelect } from '@/components/molecules/StageSelect/StageSelect';
@@ -17,8 +17,9 @@ interface TaskHeaderProps {
   onStageMove: (stageId: string) => Promise<void>;
   onPriorityChange: (priority: string) => Promise<void>;
   onDelete: () => void;
-  /** Called when the user requests closing (or re-opening) the task. */
-  onClose: () => void;
+  /** Set the task's general status (#41) — close / dismiss / reopen. The detail
+   *  page wires this to useSetTaskGeneralStatus (dismiss goes through a confirm). */
+  onSetStatus: (status: TaskGeneralStatus) => void;
   /** When true the "Eliminar" action is shown in the kebab menu. */
   isAdmin: boolean;
   isSaving: boolean;
@@ -32,7 +33,7 @@ export function TaskHeader({
   onStageMove,
   onPriorityChange,
   onDelete,
-  onClose,
+  onSetStatus,
   isAdmin,
   isSaving,
 }: TaskHeaderProps) {
@@ -139,9 +140,14 @@ export function TaskHeader({
             {task.title}
           </h1>
         )}
-        {task.isClosed && (
-          <span className={styles.closedBadge} data-testid="task-closed-badge" aria-label="Tarea cerrada">
-            Cerrada
+        {task.generalStatus !== 'open' && (
+          <span
+            className={styles.closedBadge}
+            data-testid="task-status-badge"
+            data-status={task.generalStatus}
+            aria-label={task.generalStatus === 'closed' ? 'Tarea cerrada' : 'Tarea descartada'}
+          >
+            {task.generalStatus === 'closed' ? 'Cerrada' : 'Descartada'}
           </span>
         )}
         {titleError && <span className={styles.titleError} role="alert">{titleError}</span>}
@@ -175,16 +181,46 @@ export function TaskHeader({
           </button>
           {kebabOpen && (
             <ul className={styles.kebabMenu} role="menu">
-              <li>
-                <button
-                  role="menuitem"
-                  className={styles.kebabItem}
-                  onClick={() => { setKebabOpen(false); onClose(); }}
-                  data-testid="kebab-close"
-                >
-                  {task.isClosed ? 'Reabrir tarea' : 'Cerrar tarea'}
-                </button>
-              </li>
+              {/* General-status actions (#41) — gated by scheduling.write. The
+                  available actions depend on the current status. */}
+              <Can permission="scheduling.write">
+                {task.generalStatus !== 'open' && (
+                  <li>
+                    <button
+                      role="menuitem"
+                      className={styles.kebabItem}
+                      onClick={() => { setKebabOpen(false); onSetStatus('open'); }}
+                      data-testid="kebab-reopen"
+                    >
+                      Reabrir tarea
+                    </button>
+                  </li>
+                )}
+                {task.generalStatus !== 'closed' && (
+                  <li>
+                    <button
+                      role="menuitem"
+                      className={styles.kebabItem}
+                      onClick={() => { setKebabOpen(false); onSetStatus('closed'); }}
+                      data-testid="kebab-close"
+                    >
+                      Cerrar tarea
+                    </button>
+                  </li>
+                )}
+                {task.generalStatus !== 'dismissed' && (
+                  <li>
+                    <button
+                      role="menuitem"
+                      className={`${styles.kebabItem} ${styles.kebabItemDanger}`}
+                      onClick={() => { setKebabOpen(false); onSetStatus('dismissed'); }}
+                      data-testid="kebab-dismiss"
+                    >
+                      Descartar tarea
+                    </button>
+                  </li>
+                )}
+              </Can>
               {isAdmin && (
                 <li>
                   <button

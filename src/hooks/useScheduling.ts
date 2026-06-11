@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { ScheduledTask, TaskChecklistItem, TaskListFilter, CreateTaskPayload } from '@/types/scheduling';
+import type { ScheduledTask, TaskChecklistItem, TaskListFilter, CreateTaskPayload, TaskGeneralStatus } from '@/types/scheduling';
 import * as api from '@/api/scheduling.api';
 import { createTaskFromTicket } from '@/api/tickets.api';
 import { PROJECTS_KEY } from '@/hooks/useProjects';
@@ -104,15 +104,34 @@ export function useDeleteTask() {
 }
 
 /**
- * Close (or re-open) a task by setting the `isClosed` flag.
- * Uses the same PUT /scheduling/:id endpoint as useUpdateTask —
- * it is a separate hook so callers can track its pending state independently.
+ * Set a task's general status (#41) — open / closed / dismissed.
+ * Hits POST /scheduling/:id/status (gated by scheduling.write on the BE).
+ * Invalidates the task lists, the task detail + its activity feed, and the
+ * projects aggregates (task counts move with the status).
+ */
+export function useSetTaskGeneralStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: TaskGeneralStatus }) =>
+      api.setTaskGeneralStatus(id, status),
+    onSuccess: (_result, { id }) => {
+      invalidateTasksAndProjects(qc);
+      invalidateTaskDetail(qc, id);
+    },
+  });
+}
+
+/**
+ * Close (or re-open) a task. Re-implemented over the general-status endpoint
+ * (#41): `isClosed:true → status 'closed'`, `isClosed:false → status 'open'`.
+ * The `{ id, isClosed }` signature is kept INTACT so existing call sites
+ * (TaskHeader / TasksTableView bulk close) need no changes.
  */
 export function useCloseTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, isClosed }: { id: string; isClosed: boolean }) =>
-      api.updateTask(id, { isClosed }),
+      api.setTaskGeneralStatus(id, isClosed ? 'closed' : 'open'),
     onSuccess: (_result, { id }) => {
       invalidateTasksAndProjects(qc);
       void qc.invalidateQueries({ queryKey: ['scheduling-task', id] });

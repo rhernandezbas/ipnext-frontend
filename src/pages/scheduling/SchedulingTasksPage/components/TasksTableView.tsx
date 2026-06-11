@@ -101,7 +101,10 @@ interface BulkActionBarProps {
   onClear: () => void;
   onMoveStage: (ids: string[], stageId: string) => Promise<void>;
   onDelete: (ids: string[]) => Promise<void>;
-  onClose: (ids: string[]) => Promise<void>;
+  /** Bulk close. Returns the number of tasks that FAILED to close (0 = full
+   *  success). Never rejects — failures are reported via the return value so the
+   *  bar can keep the selection and the parent can toast. */
+  onClose: (ids: string[]) => Promise<number>;
   isAdmin: boolean;
 }
 
@@ -129,8 +132,10 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
     if (!(await confirm({ message: `¿Cerrar ${selectedIds.length} tarea(s)?`, confirmLabel: 'Cerrar' }))) return;
     setBusy(true);
     try {
-      await onClose(selectedIds);
-      onClear();
+      // onClose never rejects: it returns the count of tasks that failed. Only
+      // clear the selection on a clean run so the operator can retry the rest.
+      const failed = await onClose(selectedIds);
+      if (failed === 0) onClear();
     } finally {
       setBusy(false);
     }
@@ -167,15 +172,17 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
             Mover estado
           </button>
         </Can>
-        <button
-          type="button"
-          className={styles.bulkCloseBtn}
-          onClick={() => void handleClose()}
-          disabled={busy}
-          data-testid="bulk-close-btn"
-        >
-          Cerrar
-        </button>
+        <Can permission="scheduling.write">
+          <button
+            type="button"
+            className={styles.bulkCloseBtn}
+            onClick={() => void handleClose()}
+            disabled={busy}
+            data-testid="bulk-close-btn"
+          >
+            Cerrar
+          </button>
+        </Can>
         {isAdmin && (
           <button
             type="button"
@@ -404,14 +411,23 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
         </Link>
       ) },
     { label: 'Título',    key: 'title',          sortable: true,
-      render: (t: ScheduledTask) => (
-        <span className={t.isClosed ? styles.closedRow : undefined}>
+      render: (t: ScheduledTask) => {
+        // #41 — pill by generalStatus (closed / dismissed). Fall back to the
+        // legacy isClosed flag for fixtures/DTOs that pre-date generalStatus.
+        const status = t.generalStatus ?? (t.isClosed ? 'closed' : 'open');
+        return (
+        <span className={status !== 'open' ? styles.closedRow : undefined}>
           <Link to={`/admin/scheduling/tasks/${t.id}`} className={styles.titleLink} title={t.title}>
             {t.title}
           </Link>
-          {t.isClosed && (
-            <span className={styles.closedBadge} data-testid="closed-badge" aria-label="Tarea cerrada">
-              Cerrada
+          {status !== 'open' && (
+            <span
+              className={styles.closedBadge}
+              data-testid="task-status-badge"
+              data-status={status}
+              aria-label={status === 'closed' ? 'Tarea cerrada' : 'Tarea descartada'}
+            >
+              {status === 'closed' ? 'Cerrada' : 'Descartada'}
             </span>
           )}
           {t.kind === 'network' && (
@@ -424,7 +440,8 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
             </span>
           )}
         </span>
-      ) },
+        );
+      } },
     { label: 'Estado',    key: 'stageCategory',  sortable: false,
       render: (t: ScheduledTask) => (
         <StageSelect
@@ -501,9 +518,23 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
         onClear={() => setSelectedIds([])}
         onMoveStage={handleBulkMove}
         onClose={async (ids) => {
+          // Sequential close. The status endpoint requires scheduling.write, so
+          // a single rejection used to abort the loop silently AND leak an
+          // unhandled rejection. Now we catch per-task, count failures, toast,
+          // and return the count so the bar keeps the selection on partial fail.
+          let failed = 0;
           for (const id of ids) {
-            await closeTask.mutateAsync({ id, isClosed: true });
+            try {
+              await closeTask.mutateAsync({ id, isClosed: true });
+            } catch (err) {
+              failed++;
+              console.error('Failed to close task', id, err);
+            }
           }
+          if (failed > 0) {
+            showBulkToast(`No se pudieron cerrar ${failed} tarea${failed !== 1 ? 's' : ''}.`);
+          }
+          return failed;
         }}
         onDelete={async (ids) => {
           for (const id of ids) {

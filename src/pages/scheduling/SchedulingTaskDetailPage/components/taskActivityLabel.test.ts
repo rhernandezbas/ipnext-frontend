@@ -32,9 +32,21 @@ describe('describeActivity', () => {
     expect(text).toContain('En progreso');
   });
 
-  it('distinguishes close vs reopen for status_changed', () => {
+  it('distinguishes close vs reopen for status_changed (legacy boolean payloads)', () => {
     expect(describeActivity(act({ type: 'status_changed', toValue: true }))).toContain('cerró');
     expect(describeActivity(act({ type: 'status_changed', toValue: false }))).toContain('reabrió');
+  });
+
+  it('renders string status_changed payloads (#41): closed / open / dismissed', () => {
+    expect(describeActivity(act({ type: 'status_changed', fromValue: 'open', toValue: 'closed' }))).toBe('cerró la tarea');
+    expect(describeActivity(act({ type: 'status_changed', fromValue: 'closed', toValue: 'open' }))).toBe('reabrió la tarea');
+    expect(describeActivity(act({ type: 'status_changed', fromValue: 'open', toValue: 'dismissed' }))).toBe('descartó la tarea');
+    expect(describeActivity(act({ type: 'status_changed', fromValue: 'dismissed', toValue: 'open' }))).toBe('reabrió la tarea');
+  });
+
+  it('does not crash on a legacy boolean status_changed payload (#41)', () => {
+    expect(() => describeActivity(act({ type: 'status_changed', fromValue: false, toValue: true }))).not.toThrow();
+    expect(describeActivity(act({ type: 'status_changed', fromValue: false, toValue: true }))).toBe('cerró la tarea');
   });
 
   it('distinguishes assigned vs unassigned', () => {

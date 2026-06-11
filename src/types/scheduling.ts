@@ -1,3 +1,8 @@
+// ── General status (#41) ─────────────────────────────────────────────────────
+/** Task general status. `generalStatus` is the source of truth; `isClosed` is a
+ *  derived facade (`isClosed === (generalStatus === 'closed')`). */
+export type TaskGeneralStatus = 'open' | 'closed' | 'dismissed';
+
 // ── Filter types ─────────────────────────────────────────────────────────────
 export interface TaskListFilter {
   projectId?:  string;
@@ -14,6 +19,10 @@ export interface TaskListFilter {
   /** Task kind — 'customer' or 'network' (#40). Page constant on the Nodos page,
    *  not URL state. Omitted ⇒ backend returns all kinds. */
   kind?:       'customer' | 'network';
+  /** General-status filter (#41). 'all' returns open + closed + dismissed.
+   *  The FE always sends an explicit value (default 'open'); omitting it is a
+   *  BE back-compat contract for non-FE callers (omitted ≡ all). */
+  status?:     TaskGeneralStatus | 'all';
 }
 
 export type TasksView = 'table' | 'kanban';
@@ -111,7 +120,11 @@ export interface ScheduledTask {
   // Defaults to [] when the task has no items. Type is non-nullable.
   checklist: TaskChecklistItem[];
 
-  /** Closed flag — set via PUT /scheduling/:id with { isClosed: true }.
+  /** General status (#41) — source of truth for open / closed / dismissed.
+   *  Set via POST /scheduling/:id/status. `isClosed` is derived from this. */
+  generalStatus: TaskGeneralStatus;
+
+  /** Closed flag — derived facade over `generalStatus` (`=== 'closed'`).
    *  A closed task is NOT deleted; it is hidden from active views.
    *  Only admins / superadmins can physically delete tasks. */
   isClosed?: boolean;

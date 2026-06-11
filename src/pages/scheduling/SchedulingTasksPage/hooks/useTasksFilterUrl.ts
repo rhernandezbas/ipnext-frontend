@@ -11,7 +11,7 @@
  */
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import type { TaskListFilter, TasksView, TaskStageCategory } from '@/types/scheduling';
+import type { TaskListFilter, TasksView, TaskStageCategory, TaskGeneralStatus } from '@/types/scheduling';
 
 // #27 — priority is a CATALOG name (TaskPriority catalog: Baja/Normal/Alta/
 // Urgente, operator-editable), NOT the legacy hardcoded enum. The old
@@ -22,6 +22,15 @@ const VALID_CATEGORIES: TaskStageCategory[] = ['nuevo', 'enProgreso', 'hecho', '
 function parseCategory(raw: string | null): TaskStageCategory | undefined {
   if (!raw) return undefined;
   return (VALID_CATEGORIES as string[]).includes(raw) ? (raw as TaskStageCategory) : undefined;
+}
+
+// #41 — general-status filter. Default 'open'; the URL OMITS the param when open
+// (clean URLs, D9). An absent or invalid value re-derives to 'open' on read.
+const VALID_STATUSES: Array<TaskGeneralStatus | 'all'> = ['open', 'closed', 'dismissed', 'all'];
+export const DEFAULT_STATUS: TaskGeneralStatus | 'all' = 'open';
+function parseStatus(raw: string | null): TaskGeneralStatus | 'all' {
+  if (!raw) return DEFAULT_STATUS;
+  return (VALID_STATUSES as string[]).includes(raw) ? (raw as TaskGeneralStatus | 'all') : DEFAULT_STATUS;
 }
 
 export interface TasksFilterUrlResult {
@@ -44,6 +53,7 @@ export function useTasksFilterUrl(): TasksFilterUrlResult {
     customerId:    searchParams.get('customerId') ?? undefined,
     priority:      searchParams.get('priority') ?? undefined,
     q:             searchParams.get('q') ?? undefined,
+    status:        parseStatus(searchParams.get('status')),
   };
 
   const view = (searchParams.get('view') ?? 'table') as TasksView;
@@ -73,6 +83,7 @@ export function useTasksFilterUrl(): TasksFilterUrlResult {
             customerId:    'customerId'    in patch ? patch.customerId    : (prev.get('customerId') ?? undefined),
             priority:      'priority'      in patch ? patch.priority      : (prev.get('priority') ?? undefined),
             q:             'q'             in patch ? patch.q             : (prev.get('q') ?? undefined),
+            status:        'status'        in patch ? patch.status        : parseStatus(prev.get('status')),
           };
 
           if (merged.projectId)     next.set('projectId', merged.projectId);
@@ -85,6 +96,8 @@ export function useTasksFilterUrl(): TasksFilterUrlResult {
           if (merged.customerId)    next.set('customerId', merged.customerId);
           if (merged.priority)      next.set('priority', merged.priority);
           if (merged.q)             next.set('q', merged.q);
+          // #41 — omit when 'open' (the default); any other value persists (D9).
+          if (merged.status && merged.status !== DEFAULT_STATUS) next.set('status', merged.status);
 
           return next;
         },
