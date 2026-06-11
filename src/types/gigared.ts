@@ -82,6 +82,25 @@ export interface CustomerAccountResult {
 // ── Mutations ──────────────────────────────────────────────────────────────
 export interface LinkCicPayload {
   cic: string;
+  /**
+   * #47f — the contract that OWNS the local TV reconcile. The BE links the CIC
+   * and reconciles the local 'TV' ContractService onto THIS contract. First
+   * activation defines the owner; optional so link-only callers still work.
+   */
+  contractId?: string;
+}
+
+/**
+ * #47f — link response. The BE links the CIC (always) and MAY reconcile the
+ * local 'TV' item onto `contractId`. `local` mirrors the add/remove pattern:
+ * 'synced' = the local item was created, 'failed' = link OK but the local
+ * reconcile failed (HTTP 207 → amber + retry; the retry re-posts, idempotent).
+ * Absent when no `contractId` was sent (pure link, nothing to reconcile).
+ */
+export interface LinkCicResult {
+  account: GigaredAccount;
+  local?: 'synced' | 'failed';
+  localError?: string;
 }
 
 export interface RegisterAccountPayload {

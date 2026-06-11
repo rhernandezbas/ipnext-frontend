@@ -123,6 +123,9 @@ export function useLinkCic(customerId: string) {
       qc.invalidateQueries({ queryKey: accountKey(customerId) });
       qc.invalidateQueries({ queryKey: SUMMARY_KEY });
       qc.invalidateQueries({ queryKey: ACCOUNTS_ROOT });
+      // #47f — the link reconciles the local 'TV' ContractService onto the owner
+      // contract, so the customer ContractsTab must refresh for the chip to show.
+      qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
     },
   });
 }

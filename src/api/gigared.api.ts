@@ -8,6 +8,7 @@ import type {
   CustomerAccountResult,
   GigaredAccount,
   LinkCicPayload,
+  LinkCicResult,
   RegisterAccountPayload,
   AddTvServicePayload,
   AddTvServiceResult,
@@ -56,8 +57,8 @@ export const gigaredApi = {
     return r.data;
   },
 
-  async linkCic(customerId: string, body: LinkCicPayload): Promise<{ account: GigaredAccount }> {
-    const r = await axiosClient.post<{ account: GigaredAccount }>(
+  async linkCic(customerId: string, body: LinkCicPayload): Promise<LinkCicResult> {
+    const r = await axiosClient.post<LinkCicResult>(
       `${BASE}/customers/${customerId}/link`,
       body,
     );

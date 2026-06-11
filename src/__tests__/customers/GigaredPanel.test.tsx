@@ -258,7 +258,7 @@ describe('GigaredPanel', () => {
     expect(screen.getByRole('button', { name: /registrar cuenta nueva/i })).toBeInTheDocument();
   });
 
-  it('state 2: submitting the link form calls linkCic with the CIC', async () => {
+  it('state 2: submitting the link form calls linkCic with the CIC and contractId', async () => {
     const user = userEvent.setup();
     linkMutate.mockResolvedValue({ account: linkedAccount });
     mockQuery({ account: { linked: false, account: null } });
@@ -266,7 +266,11 @@ describe('GigaredPanel', () => {
     await user.click(screen.getByRole('button', { name: /ingresar cic manualmente/i }));
     await user.type(screen.getByLabelText(/^cic$/i), '0000000001');
     await user.click(screen.getByRole('button', { name: /vincular/i }));
-    await waitFor(() => expect(linkMutate).toHaveBeenCalledWith({ cic: '0000000001' }));
+    // #47f — the link carries the effective (owner) contractId so the BE
+    // reconciles the local TV item onto it.
+    await waitFor(() =>
+      expect(linkMutate).toHaveBeenCalledWith({ cic: '0000000001', contractId: 'ct-9' }),
+    );
   });
 
   it('state 2: 404 CIC_NOT_FOUND → "El CIC no existe en Gigared"', async () => {
@@ -812,7 +816,9 @@ describe('GigaredPanel', () => {
       renderPanel();
       await user.selectOptions(screen.getByLabelText(/elegí una cuenta/i), '0000000123');
       await user.click(screen.getByRole('button', { name: /^vincular$/i }));
-      await waitFor(() => expect(linkMutate).toHaveBeenCalledWith({ cic: '0000000123' }));
+      await waitFor(() =>
+        expect(linkMutate).toHaveBeenCalledWith({ cic: '0000000123', contractId: 'ct-9' }),
+      );
     });
 
     it('manual fallback toggle reveals the free-text CIC input and still links', async () => {
@@ -829,7 +835,9 @@ describe('GigaredPanel', () => {
       const input = screen.getByLabelText(/^cic$/i);
       await user.type(input, '0000000777');
       await user.click(screen.getByRole('button', { name: /^vincular$/i }));
-      await waitFor(() => expect(linkMutate).toHaveBeenCalledWith({ cic: '0000000777' }));
+      await waitFor(() =>
+        expect(linkMutate).toHaveBeenCalledWith({ cic: '0000000777', contractId: 'ct-9' }),
+      );
     });
 
     it('empty picker → shows a "no quedan cuentas" message', () => {
@@ -933,6 +941,60 @@ describe('GigaredPanel', () => {
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
       expect(screen.getByLabelText(/apellido/i)).toHaveValue('');
       expect(screen.getByLabelText(/nombre/i)).toHaveValue('');
+    });
+  });
+
+  // ── #47f: link reconciles the local TV item onto the owner contract ─────────
+  // The link now carries the EFFECTIVE contractId (the owner) so the BE
+  // reconciles the local 'TV' ContractService. A 207 (local:'failed') surfaces
+  // the same amber + retry pattern as the add; the retry re-posts the link
+  // (idempotent).
+  describe('#47f — link reconciles local TV item', () => {
+    it('(a) link carries the OWNER contractId when a contract already owns TV', async () => {
+      const user = userEvent.setup();
+      linkMutate.mockResolvedValue({ account: linkedAccount, local: 'synced' });
+      // ct-A holds the local TV line → it is the owner; panel opened from ct-9.
+      mockQuery({
+        account: { linked: false, account: null },
+        contracts: [contract('ct-A', [tvService()]), contract('ct-9', [])],
+      });
+      renderPanel(); // contractId="ct-9"
+      await user.click(screen.getByRole('button', { name: /ingresar cic manualmente/i }));
+      await user.type(screen.getByLabelText(/^cic$/i), '0000000001');
+      await user.click(screen.getByRole('button', { name: /vincular/i }));
+      await waitFor(() =>
+        expect(linkMutate).toHaveBeenCalledWith({ cic: '0000000001', contractId: 'ct-A' }),
+      );
+    });
+
+    it('(b) 207 local failed on link → amber notice with retry; retry re-posts the link', async () => {
+      const user = userEvent.setup();
+      linkMutate.mockResolvedValue({ account: linkedAccount, local: 'failed', localError: 'db down' });
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /ingresar cic manualmente/i }));
+      await user.type(screen.getByLabelText(/^cic$/i), '0000000001');
+      await user.click(screen.getByRole('button', { name: /vincular/i }));
+      await waitFor(() => expect(screen.getByText(/falló el registro local/i)).toBeInTheDocument());
+      const retry = screen.getByRole('button', { name: /reintentar/i });
+      expect(retry).toBeInTheDocument();
+      // The retry re-posts the same link (idempotent) with the same contractId.
+      await user.click(retry);
+      await waitFor(() =>
+        expect(linkMutate).toHaveBeenLastCalledWith({ cic: '0000000001', contractId: 'ct-9' }),
+      );
+    });
+
+    it('(b2) link with local:synced → no amber notice', async () => {
+      const user = userEvent.setup();
+      linkMutate.mockResolvedValue({ account: linkedAccount, local: 'synced' });
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /ingresar cic manualmente/i }));
+      await user.type(screen.getByLabelText(/^cic$/i), '0000000001');
+      await user.click(screen.getByRole('button', { name: /vincular/i }));
+      await waitFor(() => expect(linkMutate).toHaveBeenCalled());
+      expect(screen.queryByText(/falló el registro local/i)).not.toBeInTheDocument();
     });
   });
 });

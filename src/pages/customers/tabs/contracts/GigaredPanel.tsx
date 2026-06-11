@@ -17,7 +17,12 @@ import { useConfirm } from '@/context/ConfirmContext';
 import { Can } from '@/components/auth/Can';
 import { GigaredNotConfigured } from '@/components/molecules/GigaredNotConfigured/GigaredNotConfigured';
 import type { Contract, ContractService } from '@/types/customer';
-import type { GigaredAccount, AddTvServiceResult, RemoveTvServiceResult } from '@/types/gigared';
+import type {
+  GigaredAccount,
+  AddTvServiceResult,
+  RemoveTvServiceResult,
+  LinkCicResult,
+} from '@/types/gigared';
 import styles from './GigaredPanel.module.css';
 
 interface GigaredPanelProps {
@@ -149,6 +154,7 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
         <UnlinkedView
           customerId={customerId}
           contractId={contractId}
+          effectiveContractId={effectiveContractId}
           customer={customer}
           hasLocalTv={!!localLine}
         />
@@ -255,12 +261,19 @@ function LocalItemSection({
 function UnlinkedView({
   customerId,
   contractId,
+  effectiveContractId,
   customer,
   hasLocalTv,
 }: {
   customerId: string;
   /** The contract that opened the panel — target for the local-only add. */
   contractId: string;
+  /**
+   * #47f — the OWNER contract for the TV reconcile. The link carries THIS id so
+   * the BE reconciles the local 'TV' item onto it (first activation defines the
+   * owner; falls back to the opener when no contract owns TV yet).
+   */
+  effectiveContractId: string;
   /** #47e B — the Prominense customer, source of the register prefill. */
   customer?: { name: string; email: string };
   /** True when a local 'TV' item already exists (then the add action is moot). */
@@ -286,6 +299,9 @@ function UnlinkedView({
 
   const [cic, setCic] = useState('');
   const [linkError, setLinkError] = useState<string | null>(null);
+  // #47f — a 207 on the link (account linked, local reconcile failed). Surfaces
+  // the same amber + retry pattern as the add; the retry re-posts the link.
+  const [linkSyncNotice, setLinkSyncNotice] = useState(false);
 
   // #47e B — register CIC picker: paginated UNREGISTERED accounts (Gigared
   // requires an existing, unregistered CIC). Manual toggle falls back to a
@@ -324,12 +340,16 @@ function UnlinkedView({
     }
   }
 
-  async function handleLink(e: React.FormEvent) {
-    e.preventDefault();
-    if (!cic || link.isPending) return;
+  async function doLink(cicValue: string) {
     setLinkError(null);
     try {
-      await link.mutateAsync({ cic });
+      // #47f — the link carries the OWNER contractId so the BE reconciles the
+      // local 'TV' item onto it. A 207 (local:'failed') surfaces amber + retry.
+      const result: LinkCicResult = await link.mutateAsync({
+        cic: cicValue,
+        contractId: effectiveContractId,
+      });
+      setLinkSyncNotice(result.local === 'failed');
     } catch (err) {
       const c = errorCode(err);
       setLinkError(
@@ -340,6 +360,18 @@ function UnlinkedView({
             : 'No se pudo vincular la cuenta. Reintentá.',
       );
     }
+  }
+
+  async function handleLink(e: React.FormEvent) {
+    e.preventDefault();
+    if (!cic || link.isPending) return;
+    await doLink(cic);
+  }
+
+  // #47f — the retry re-posts the same link; the BE link+reconcile is idempotent.
+  async function handleRetryLinkSync() {
+    if (!cic || link.isPending) return;
+    await doLink(cic);
   }
 
   async function handleRegister(e: React.FormEvent) {
@@ -489,6 +521,14 @@ function UnlinkedView({
 
         {linkError && (
           <div className={`${styles.banner} ${styles.bannerError}`}><span>{linkError}</span></div>
+        )}
+        {linkSyncNotice && (
+          <div className={`${styles.banner} ${styles.bannerWarning}`}>
+            <span>Cuenta vinculada en Gigared; falló el registro local.</span>
+            <button type="button" className={styles.btnLink} onClick={handleRetryLinkSync}>
+              Reintentar
+            </button>
+          </div>
         )}
         <Can permission="tv.write">
           <div className={styles.formActions}>
