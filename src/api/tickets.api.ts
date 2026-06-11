@@ -44,7 +44,7 @@ export async function getTickets(
   return response.data;
 }
 
-export async function getTicketById(id: number): Promise<Ticket> {
+export async function getTicketById(id: string): Promise<Ticket> {
   const response = await axiosClient.get<Ticket>(`/tickets/${id}`);
   return response.data;
 }
@@ -93,7 +93,7 @@ export async function createTicket(data: CreateTicketData | CreateTicketInput): 
  * created task gets `ticketId` persisted. Returns the created task (with `id`).
  */
 export async function createTaskFromTicket(
-  ticketId: number,
+  ticketId: string,
   body: CreateTaskPayload
 ): Promise<ScheduledTask> {
   const response = await axiosClient.post<ScheduledTask>(`/tickets/${ticketId}/tasks`, body);
@@ -101,14 +101,14 @@ export async function createTaskFromTicket(
 }
 
 export async function updateTicket(
-  id: number,
+  id: string,
   data: Partial<Omit<Ticket, 'id' | 'createdAt' | 'updatedAt'>>
 ): Promise<Ticket> {
   const response = await axiosClient.patch<Ticket>(`/tickets/${id}`, data);
   return response.data;
 }
 
-export async function closeTicket(id: number): Promise<Ticket> {
+export async function closeTicket(id: string): Promise<Ticket> {
   const response = await axiosClient.post<Ticket>(`/tickets/${id}/close`);
   return response.data;
 }

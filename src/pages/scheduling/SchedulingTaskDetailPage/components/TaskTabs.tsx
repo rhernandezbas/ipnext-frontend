@@ -24,7 +24,7 @@ export interface TaskTabsProps {
   onInventoryToggle: (next: boolean) => void;
   /** Originating ticket id — from the enriched GET /scheduling/:id DTO
    *  (tickets-actions-be). Optional so existing callers + degraded mode work. */
-  ticketId?: number | null;
+  ticketId?: string | null;
   /** Snapshot of the originating ticket's subject. */
   ticketSubject?: string | null;
   /** ISO datetime when inventory review was done (F3 traceability). Optional for back-compat. */
@@ -82,7 +82,7 @@ const RETURN_STATUS_CONFIG: Record<ReturnSuggestionStatus, { label: string; vari
 /** Relacionado tab content — shows the originating ticket when the task was
  *  created from one, otherwise an empty state. BE-graceful: when ticketId is
  *  absent (BE not deployed / standalone task), only the empty state renders. */
-function RelacionadoPanel({ ticketId, ticketSubject }: { ticketId?: number | null; ticketSubject?: string | null }) {
+function RelacionadoPanel({ ticketId, ticketSubject }: { ticketId?: string | null; ticketSubject?: string | null }) {
   if (!ticketId) {
     return (
       <div className={styles.relEmptyState}>

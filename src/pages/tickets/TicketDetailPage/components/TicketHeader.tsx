@@ -103,7 +103,7 @@ export function TicketHeader({
         >
           ◀
         </button>
-        <span className={styles.breadcrumbText}>Soporte / Tickets / #{ticket.id}</span>
+        <span className={styles.breadcrumbText}>Soporte / Tickets / #{ticket.sequenceNumber}</span>
       </div>
 
       <div className={styles.titleRow}>

@@ -50,7 +50,7 @@ export interface CreateTaskPayload {
   address?: string | null;
   notes?: string | null;
   /** Originating ticket id when the task is created from a ticket (tickets-actions-be). */
-  ticketId?: number | null;
+  ticketId?: string | null;
   /** Task kind — 'customer' (default) or 'network' (node-based task). */
   kind?: 'customer' | 'network';
   /** Network site id — required when kind === 'network'. */
@@ -158,7 +158,7 @@ export interface ScheduledTask {
   /** Originating ticket id — set when the task was created from a ticket.
    *  Populated by the enriched GET /scheduling/:id DTO (tickets-actions-be).
    *  Optional so existing fixtures and the degraded (BE-not-deployed) mode work. */
-  ticketId?: number | null;
+  ticketId?: string | null;
   /** Snapshot of the originating ticket's subject (tickets-actions-be). */
   ticketSubject?: string | null;
 

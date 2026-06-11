@@ -43,7 +43,7 @@ export interface CreateTaskInitialValues {
   /** Pre-selected assignee id (e.g. the technician row of a calendar slot). */
   assigneeId?: string;
   /** Originating ticket id, appended to the payload as-is (BE-graceful). */
-  ticketId?: number | null;
+  ticketId?: string | null;
 }
 
 interface Props {
