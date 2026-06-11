@@ -15,6 +15,11 @@ interface Props {
   contract: Contract;
   clientId: string;
   active: boolean;
+  /**
+   * The Prominense customer (#47e). Threaded to the GigaredPanel so its
+   * "Registrar cuenta nueva" form prefills name/email from the real client.
+   */
+  customer?: { name: string; email: string };
 }
 
 type BadgeStatus = 'active' | 'late' | 'blocked' | 'inactive' | 'baja';
@@ -37,7 +42,7 @@ function formatDateRange(start: string, end: string | null): string {
   return end ? `${start} → ${end}` : `Desde ${start}`;
 }
 
-export function ContractCard({ contract, clientId, active }: Props) {
+export function ContractCard({ contract, clientId, active, customer }: Props) {
   const { can } = useMyPermissions();
   const canWrite = can('clients.write');
   const display = contract.name ?? contract.plan;
@@ -129,6 +134,7 @@ export function ContractCard({ contract, clientId, active }: Props) {
         <GigaredPanel
           customerId={clientId}
           contractId={contract.id}
+          customer={customer}
           onClose={() => setTvPanelOpen(false)}
         />
       )}

@@ -7,6 +7,7 @@ import type { GigaredAccount, CustomerAccountResult, GigaredSummary } from '@/ty
 vi.mock('@/hooks/useGigared', () => ({
   useGigaredCustomerAccount: vi.fn(),
   useGigaredSummary: vi.fn(),
+  useGigaredAllAccounts: vi.fn(),
   useLinkCic: vi.fn(),
   useRegisterAccount: vi.fn(),
   useAddTvService: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock('@/hooks/useServiceCatalog', () => ({
 import {
   useGigaredCustomerAccount,
   useGigaredSummary,
+  useGigaredAllAccounts,
   useLinkCic,
   useRegisterAccount,
   useAddTvService,
@@ -123,7 +125,21 @@ function mockQuery(over: {
   addResult?: unknown;
   removeResult?: unknown;
   contracts?: Contract[];
+  /** Picker accounts keyed by the status the hook is called with. */
+  allAccounts?: Partial<Record<'registered' | 'unregistered', GigaredAccount[]>>;
+  allAccountsLoading?: boolean;
+  allAccountsError?: boolean;
 } = {}) {
+  // The panel calls useGigaredAllAccounts('registered') for the link picker and
+  // useGigaredAllAccounts('unregistered') for the register-CIC select. Return a
+  // list keyed by the status argument so both selects get the right data.
+  vi.mocked(useGigaredAllAccounts).mockImplementation((status: 'registered' | 'unregistered') => ({
+    data: over.allAccounts?.[status] ?? [],
+    isLoading: !!over.allAccountsLoading,
+    isError: !!over.allAccountsError,
+    refetch: vi.fn(),
+  }) as unknown as ReturnType<typeof useGigaredAllAccounts>);
+
   vi.mocked(useClientContracts).mockReturnValue({
     data: over.contracts ?? [],
     isLoading: false,
@@ -167,12 +183,33 @@ function mockQuery(over: {
   } as unknown as ReturnType<typeof useServiceCatalog>);
 }
 
-function renderPanel() {
+function renderPanel(customer?: { name: string; email: string }) {
   return render(
     <MemoryRouter>
-      <GigaredPanel customerId="cust-1" contractId="ct-9" onClose={onClose} />
+      <GigaredPanel
+        customerId="cust-1"
+        contractId="ct-9"
+        onClose={onClose}
+        customer={customer}
+      />
     </MemoryRouter>,
   );
+}
+
+/** A registered, UNLINKED account (internalId null) — eligible for the picker. */
+function pickAccount(over: Partial<GigaredAccount> = {}): GigaredAccount {
+  return {
+    cic: '0000000123',
+    gigaredId: 'g-123',
+    email: null,
+    firstName: 'JUAN',
+    lastName: 'PEREZ',
+    registrationDate: null,
+    services: [{ id: 'p1', name: 'Gigared Play Full' }],
+    internalId: null,
+    ott: null,
+    ...over,
+  };
 }
 
 describe('GigaredPanel', () => {
@@ -216,7 +253,7 @@ describe('GigaredPanel', () => {
   it('state 2: not linked → shows link form and collapsible register form', () => {
     mockQuery({ account: { linked: false, account: null } });
     renderPanel();
-    expect(screen.getByLabelText(/cic/i)).toBeInTheDocument();
+    // The link form now defaults to the picker; its Vincular button is present.
     expect(screen.getByRole('button', { name: /vincular/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /registrar cuenta nueva/i })).toBeInTheDocument();
   });
@@ -226,7 +263,8 @@ describe('GigaredPanel', () => {
     linkMutate.mockResolvedValue({ account: linkedAccount });
     mockQuery({ account: { linked: false, account: null } });
     renderPanel();
-    await user.type(screen.getByLabelText(/cic/i), '0000000001');
+    await user.click(screen.getByRole('button', { name: /ingresar cic manualmente/i }));
+    await user.type(screen.getByLabelText(/^cic$/i), '0000000001');
     await user.click(screen.getByRole('button', { name: /vincular/i }));
     await waitFor(() => expect(linkMutate).toHaveBeenCalledWith({ cic: '0000000001' }));
   });
@@ -236,7 +274,8 @@ describe('GigaredPanel', () => {
     linkMutate.mockRejectedValue({ response: { status: 404, data: { code: 'CIC_NOT_FOUND' } } });
     mockQuery({ account: { linked: false, account: null } });
     renderPanel();
-    await user.type(screen.getByLabelText(/cic/i), '999');
+    await user.click(screen.getByRole('button', { name: /ingresar cic manualmente/i }));
+    await user.type(screen.getByLabelText(/^cic$/i), '999');
     await user.click(screen.getByRole('button', { name: /vincular/i }));
     await waitFor(() => expect(screen.getByText(/el cic no existe en gigared/i)).toBeInTheDocument());
   });
@@ -252,8 +291,8 @@ describe('GigaredPanel', () => {
     await user.type(screen.getByLabelText(/nombre/i), 'Ana');
     await user.type(screen.getByLabelText(/apellido/i), 'García');
     await user.type(screen.getByLabelText(/email/i), 'a@b.com');
-    const cics = screen.getAllByLabelText(/cic/i);
-    await user.type(cics[cics.length - 1], '0001');
+    await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
+    await user.type(screen.getByLabelText(/^cic$/i), '0001');
     await user.click(screen.getByRole('button', { name: /^registrar$/i }));
     await waitFor(() =>
       expect(screen.getByText(/el email ya está en uso en gigared/i)).toBeInTheDocument(),
@@ -535,8 +574,8 @@ describe('GigaredPanel', () => {
       await user.type(screen.getByLabelText(/nombre/i), 'Ana');
       await user.type(screen.getByLabelText(/apellido/i), 'García');
       await user.type(screen.getByLabelText(/email/i), 'a@b.com');
-      const cics = screen.getAllByLabelText(/cic/i);
-      await user.type(cics[cics.length - 1], '0001');
+      await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
+      await user.type(screen.getByLabelText(/^cic$/i), '0001');
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
         expect(screen.getByText(/se envió el email de activación/i)).toBeInTheDocument(),
@@ -548,7 +587,8 @@ describe('GigaredPanel', () => {
       linkMutate.mockRejectedValue({ response: { status: 409, data: { code: 'CIC_ALREADY_LINKED' } } });
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
-      await user.type(screen.getByLabelText(/cic/i), '123');
+      await user.click(screen.getByRole('button', { name: /ingresar cic manualmente/i }));
+      await user.type(screen.getByLabelText(/^cic$/i), '123');
       await user.click(screen.getByRole('button', { name: /vincular/i }));
       await waitFor(() =>
         expect(screen.getByText(/ese cic ya está vinculado a otro cliente/i)).toBeInTheDocument(),
@@ -701,6 +741,198 @@ describe('GigaredPanel', () => {
       expect(
         screen.queryByRole('button', { name: /agregar solo el ítem local/i }),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  // ── #47e A: CIC picker for VINCULAR ─────────────────────────────────────────
+  // The "Vincular cuenta existente" form offers a SEARCHABLE list of registered
+  // accounts that are not yet linked (internalId null/empty). Picking one fills
+  // the CIC and the existing Vincular flow runs with that value. A manual escape
+  // hatch toggles back to the free-text CIC input.
+  describe('#47e A — link CIC picker', () => {
+    it('lists only registered+unlinked accounts as options', () => {
+      mockQuery({
+        account: { linked: false, account: null },
+        allAccounts: {
+          registered: [
+            pickAccount({ cic: '0000000123', firstName: 'JUAN', lastName: 'PEREZ' }),
+            // already linked (internalId set) → must NOT appear in the picker
+            pickAccount({ cic: '0000000999', firstName: 'OTRO', lastName: 'CLIENTE', internalId: 'cust-7' }),
+          ],
+        },
+      });
+      renderPanel();
+      const picker = screen.getByLabelText(/elegí una cuenta/i);
+      expect(picker).toBeInTheDocument();
+      // The unlinked one is offered…
+      expect(screen.getByText(/PEREZ JUAN/i)).toBeInTheDocument();
+      // …the linked one is excluded.
+      expect(screen.queryByText(/OTRO CLIENTE/i)).not.toBeInTheDocument();
+    });
+
+    it('option label shows "APELLIDO NOMBRE — CIC … (packs)"', () => {
+      mockQuery({
+        account: { linked: false, account: null },
+        allAccounts: {
+          registered: [pickAccount({ firstName: 'JUAN', lastName: 'PEREZ', cic: '0000000123' })],
+        },
+      });
+      renderPanel();
+      const opt = screen.getByText(/PEREZ JUAN/i);
+      expect(opt.textContent).toMatch(/0000000123/);
+      expect(opt.textContent).toMatch(/Gigared Play Full/i);
+    });
+
+    it('filters the list client-side by text (name or CIC)', async () => {
+      const user = userEvent.setup();
+      mockQuery({
+        account: { linked: false, account: null },
+        allAccounts: {
+          registered: [
+            pickAccount({ cic: '0000000123', firstName: 'JUAN', lastName: 'PEREZ' }),
+            pickAccount({ cic: '0000000456', firstName: 'MARIA', lastName: 'GOMEZ' }),
+          ],
+        },
+      });
+      renderPanel();
+      await user.type(screen.getByLabelText(/buscar cuenta/i), 'gomez');
+      expect(screen.getByText(/GOMEZ MARIA/i)).toBeInTheDocument();
+      expect(screen.queryByText(/PEREZ JUAN/i)).not.toBeInTheDocument();
+    });
+
+    it('choosing an account → Vincular fires linkCic with that CIC', async () => {
+      const user = userEvent.setup();
+      linkMutate.mockResolvedValue({ account: linkedAccount });
+      mockQuery({
+        account: { linked: false, account: null },
+        allAccounts: {
+          registered: [pickAccount({ cic: '0000000123', firstName: 'JUAN', lastName: 'PEREZ' })],
+        },
+      });
+      renderPanel();
+      await user.selectOptions(screen.getByLabelText(/elegí una cuenta/i), '0000000123');
+      await user.click(screen.getByRole('button', { name: /^vincular$/i }));
+      await waitFor(() => expect(linkMutate).toHaveBeenCalledWith({ cic: '0000000123' }));
+    });
+
+    it('manual fallback toggle reveals the free-text CIC input and still links', async () => {
+      const user = userEvent.setup();
+      linkMutate.mockResolvedValue({ account: linkedAccount });
+      mockQuery({
+        account: { linked: false, account: null },
+        allAccounts: {
+          registered: [pickAccount({ cic: '0000000123' })],
+        },
+      });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /ingresar cic manualmente/i }));
+      const input = screen.getByLabelText(/^cic$/i);
+      await user.type(input, '0000000777');
+      await user.click(screen.getByRole('button', { name: /^vincular$/i }));
+      await waitFor(() => expect(linkMutate).toHaveBeenCalledWith({ cic: '0000000777' }));
+    });
+
+    it('empty picker → shows a "no quedan cuentas" message', () => {
+      mockQuery({
+        account: { linked: false, account: null },
+        allAccounts: { registered: [] },
+      });
+      renderPanel();
+      expect(screen.getByText(/no quedan cuentas disponibles/i)).toBeInTheDocument();
+    });
+
+    it('picker loading → shows a loading hint', () => {
+      mockQuery({ account: { linked: false, account: null }, allAccountsLoading: true });
+      renderPanel();
+      expect(screen.getByText(/cargando cuentas/i)).toBeInTheDocument();
+    });
+
+    it('picker error → shows an error with a retry control', () => {
+      mockQuery({ account: { linked: false, account: null }, allAccountsError: true });
+      renderPanel();
+      expect(screen.getByText(/no se pudieron cargar las cuentas/i)).toBeInTheDocument();
+    });
+  });
+
+  // ── #47e B: register prefilled from the Prominense customer ──────────────────
+  // The register form prefills firstName/lastName/email from the customer prop.
+  // Name split heuristic (local "APELLIDO NOMBRE(S)"): first token → lastName,
+  // the rest → firstName. The CIC field is a select over UNREGISTERED accounts.
+  describe('#47e B — register prefill from customer', () => {
+    it('prefills lastName/firstName from the customer name ("DAMONTE JIMENA")', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel({ name: 'DAMONTE JIMENA', email: 'jimena@example.com' });
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      expect(screen.getByLabelText(/apellido/i)).toHaveValue('DAMONTE');
+      expect(screen.getByLabelText(/nombre/i)).toHaveValue('JIMENA');
+      expect(screen.getByLabelText(/email/i)).toHaveValue('jimena@example.com');
+    });
+
+    it('multi-token name → first token is lastName, rest is firstName', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel({ name: 'GONZALEZ MARIA LAURA', email: 'ml@example.com' });
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      expect(screen.getByLabelText(/apellido/i)).toHaveValue('GONZALEZ');
+      expect(screen.getByLabelText(/nombre/i)).toHaveValue('MARIA LAURA');
+    });
+
+    it('the prefilled fields stay editable', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel({ name: 'DAMONTE JIMENA', email: 'jimena@example.com' });
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      const last = screen.getByLabelText(/apellido/i);
+      await user.clear(last);
+      await user.type(last, 'OTRO');
+      expect(last).toHaveValue('OTRO');
+    });
+
+    it('register CIC is a select over UNREGISTERED accounts', async () => {
+      const user = userEvent.setup();
+      registerMutate.mockResolvedValue({ account: linkedAccount });
+      mockQuery({
+        account: { linked: false, account: null },
+        allAccounts: {
+          unregistered: [
+            pickAccount({ cic: '0000000900', firstName: 'LIBRE', lastName: 'CIC', services: [] }),
+          ],
+        },
+      });
+      renderPanel({ name: 'DAMONTE JIMENA', email: 'jimena@example.com' });
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      await user.selectOptions(screen.getByLabelText(/cic disponible/i), '0000000900');
+      await user.click(screen.getByRole('button', { name: /^registrar$/i }));
+      await waitFor(() =>
+        expect(registerMutate).toHaveBeenCalledWith({
+          firstName: 'JIMENA',
+          lastName: 'DAMONTE',
+          email: 'jimena@example.com',
+          cic: '0000000900',
+        }),
+      );
+    });
+
+    it('register CIC manual fallback toggle reveals the free-text input', async () => {
+      const user = userEvent.setup();
+      mockQuery({
+        account: { linked: false, account: null },
+        allAccounts: { unregistered: [pickAccount({ cic: '0000000900' })] },
+      });
+      renderPanel({ name: 'DAMONTE JIMENA', email: 'jimena@example.com' });
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
+      expect(screen.getByLabelText(/^cic$/i)).toBeInTheDocument();
+    });
+
+    it('no customer prop → fields render empty (no crash)', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      expect(screen.getByLabelText(/apellido/i)).toHaveValue('');
+      expect(screen.getByLabelText(/nombre/i)).toHaveValue('');
     });
   });
 });

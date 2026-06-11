@@ -103,7 +103,13 @@ export default function CustomerDetailPage() {
     {
       id: 'contracts',
       label: 'Contratos',
-      content: <ContractsTab clientId={String(id)} active={activatedTabs.current.has('contracts')} />,
+      content: (
+        <ContractsTab
+          clientId={String(id)}
+          active={activatedTabs.current.has('contracts')}
+          customer={{ name: customer.name, email: customer.email }}
+        />
+      ),
     },
     {
       id: 'billing',

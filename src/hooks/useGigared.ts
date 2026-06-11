@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { gigaredApi } from '@/api/gigared.api';
 import type {
   ListAccountsFilter,
+  GigaredAccount,
+  GigaredAccountStatus,
   UpdateGigaredConfigPayload,
   LinkCicPayload,
   RegisterAccountPayload,
@@ -29,6 +31,14 @@ export const SUMMARY_KEY = [...ROOT, 'summary'] as const;
 const ACCOUNTS_ROOT = [...ROOT, 'accounts'] as const;
 export const accountsKey = (filters: ListAccountsFilter) => [...ACCOUNTS_ROOT, filters] as const;
 export const accountKey = (customerId: string) => [...ROOT, 'account', customerId] as const;
+export const allAccountsKey = (status: GigaredAccountStatus) =>
+  [...ROOT, 'all-accounts', status] as const;
+
+// The partner API caps pagination_limit at 20 (verified live 2026-06-11). To get
+// the FULL set for the contract picker we page through it. Cap the loop so a
+// runaway partner can't hang the UI.
+const PAGE_LIMIT = 20;
+const MAX_PAGES = 10;
 
 // ── Config ────────────────────────────────────────────────────────────────
 
@@ -64,6 +74,34 @@ export function useGigaredAccounts(filters: ListAccountsFilter) {
   return useQuery({
     queryKey: accountsKey(filters),
     queryFn: () => gigaredApi.listAccounts(filters),
+  });
+}
+
+/**
+ * Fetch ALL accounts for a given status by paging through the capped list
+ * endpoint (#47e). Used by the contract picker so an operator can choose a CIC
+ * from a list instead of typing it. Loops until a short page (< PAGE_LIMIT) or
+ * MAX_PAGES, then flattens. Cached per status with a generous staleTime so
+ * re-opening the panel does not re-hit the partner.
+ */
+export function useGigaredAllAccounts(status: GigaredAccountStatus, enabled = true) {
+  return useQuery({
+    queryKey: allAccountsKey(status),
+    queryFn: async () => {
+      const all: GigaredAccount[] = [];
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const { accounts } = await gigaredApi.listAccounts({
+          status,
+          paginationLimit: PAGE_LIMIT,
+          paginationOffset: page * PAGE_LIMIT,
+        });
+        all.push(...accounts);
+        if (accounts.length < PAGE_LIMIT) break;
+      }
+      return all;
+    },
+    enabled,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
