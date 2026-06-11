@@ -37,6 +37,12 @@ const mockTask: ScheduledTask = {
   travelTimeTo: null,
   travelTimeFrom: null,
   checklist: [],
+  reviewedByInventory: false,
+  iclassOrderCode: null,
+  kind: 'customer',
+  networkSiteId: null,
+  networkSiteName: null,
+  generalStatus: 'open',
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
 };
@@ -55,7 +61,7 @@ function renderHeader(props: Partial<Parameters<typeof TaskHeader>[0]> = {}) {
     onStageMove: vi.fn().mockResolvedValue(undefined),
     onPriorityChange: vi.fn().mockResolvedValue(undefined),
     onDelete: vi.fn(),
-    onClose: vi.fn(),
+    onSetStatus: vi.fn(),
     isAdmin: false,
     isSaving: false,
     ...props,
@@ -132,30 +138,74 @@ describe('TaskHeader', () => {
     expect(screen.getByTestId('kebab-menu')).toBeInTheDocument();
   });
 
-  it('shows "Cerrar tarea" in kebab menu for open task', async () => {
+  // ── General status actions (#41) ─────────────────────────────────────────
+  it('open task shows "Cerrar tarea" and "Descartar tarea"', async () => {
     const user = userEvent.setup();
-    renderHeader({ onTitleSave, onStageMove, onPriorityChange, onDelete, isAdmin: false });
+    renderHeader({ task: { ...mockTask, generalStatus: 'open' } });
     await user.click(screen.getByTestId('kebab-menu'));
     expect(screen.getByTestId('kebab-close')).toHaveTextContent('Cerrar tarea');
+    expect(screen.getByTestId('kebab-dismiss')).toHaveTextContent('Descartar tarea');
+    expect(screen.queryByTestId('kebab-reopen')).not.toBeInTheDocument();
   });
 
-  it('shows "Reabrir tarea" in kebab menu for closed task', async () => {
+  it('closed task shows "Reabrir tarea" and "Descartar tarea"', async () => {
     const user = userEvent.setup();
-    const closedTask = { ...mockTask, isClosed: true };
-    renderHeader({ task: closedTask, onTitleSave, onStageMove, onPriorityChange, onDelete, isAdmin: false });
+    renderHeader({ task: { ...mockTask, generalStatus: 'closed', isClosed: true } });
     await user.click(screen.getByTestId('kebab-menu'));
-    expect(screen.getByTestId('kebab-close')).toHaveTextContent('Reabrir tarea');
+    expect(screen.getByTestId('kebab-reopen')).toHaveTextContent('Reabrir tarea');
+    expect(screen.getByTestId('kebab-dismiss')).toHaveTextContent('Descartar tarea');
+    expect(screen.queryByTestId('kebab-close')).not.toBeInTheDocument();
   });
 
-  it('shows "Cerrada" badge when task.isClosed is true', () => {
-    const closedTask = { ...mockTask, isClosed: true };
-    renderHeader({ task: closedTask });
-    expect(screen.getByTestId('task-closed-badge')).toBeInTheDocument();
+  it('dismissed task shows "Reabrir tarea" and "Cerrar tarea"', async () => {
+    const user = userEvent.setup();
+    renderHeader({ task: { ...mockTask, generalStatus: 'dismissed' } });
+    await user.click(screen.getByTestId('kebab-menu'));
+    expect(screen.getByTestId('kebab-reopen')).toHaveTextContent('Reabrir tarea');
+    expect(screen.getByTestId('kebab-close')).toHaveTextContent('Cerrar tarea');
+    expect(screen.queryByTestId('kebab-dismiss')).not.toBeInTheDocument();
   });
 
-  it('does NOT show "Cerrada" badge for open task', () => {
-    renderHeader({ task: mockTask });
-    expect(screen.queryByTestId('task-closed-badge')).not.toBeInTheDocument();
+  it('calls onSetStatus("closed") when "Cerrar tarea" is clicked on an open task', async () => {
+    const user = userEvent.setup();
+    const onSetStatus = vi.fn();
+    renderHeader({ task: { ...mockTask, generalStatus: 'open' }, onSetStatus });
+    await user.click(screen.getByTestId('kebab-menu'));
+    await user.click(screen.getByTestId('kebab-close'));
+    expect(onSetStatus).toHaveBeenCalledWith('closed');
+  });
+
+  it('calls onSetStatus("dismissed") when "Descartar tarea" is clicked', async () => {
+    const user = userEvent.setup();
+    const onSetStatus = vi.fn();
+    renderHeader({ task: { ...mockTask, generalStatus: 'open' }, onSetStatus });
+    await user.click(screen.getByTestId('kebab-menu'));
+    await user.click(screen.getByTestId('kebab-dismiss'));
+    expect(onSetStatus).toHaveBeenCalledWith('dismissed');
+  });
+
+  it('calls onSetStatus("open") when "Reabrir tarea" is clicked on a dismissed task', async () => {
+    const user = userEvent.setup();
+    const onSetStatus = vi.fn();
+    renderHeader({ task: { ...mockTask, generalStatus: 'dismissed' }, onSetStatus });
+    await user.click(screen.getByTestId('kebab-menu'));
+    await user.click(screen.getByTestId('kebab-reopen'));
+    expect(onSetStatus).toHaveBeenCalledWith('open');
+  });
+
+  it('shows "Cerrada" badge for a closed task', () => {
+    renderHeader({ task: { ...mockTask, generalStatus: 'closed', isClosed: true } });
+    expect(screen.getByTestId('task-status-badge')).toHaveTextContent('Cerrada');
+  });
+
+  it('shows "Descartada" badge for a dismissed task', () => {
+    renderHeader({ task: { ...mockTask, generalStatus: 'dismissed' } });
+    expect(screen.getByTestId('task-status-badge')).toHaveTextContent('Descartada');
+  });
+
+  it('does NOT show a status badge for an open task', () => {
+    renderHeader({ task: { ...mockTask, generalStatus: 'open' } });
+    expect(screen.queryByTestId('task-status-badge')).not.toBeInTheDocument();
   });
 
   it('hides "Eliminar tarea" in kebab menu for non-admin', async () => {

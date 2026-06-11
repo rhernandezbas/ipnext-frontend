@@ -40,6 +40,18 @@ function dateFieldLabel(field: unknown): string {
   return field === 'startDate' ? 'de inicio' : field === 'endDate' ? 'de fin' : '';
 }
 
+/**
+ * #41 — `status_changed` now carries STRING values ('open' | 'closed' |
+ * 'dismissed'). Legacy events persisted before #41 carry booleans
+ * (`true` ≡ closed, `false` ≡ open) and MUST still render without crashing.
+ */
+function statusChangedLabel(toValue: unknown): string {
+  if (toValue === 'dismissed') return 'descartó la tarea';
+  if (toValue === 'closed' || toValue === true) return 'cerró la tarea';
+  // 'open' | false | anything else → treated as a reopen.
+  return 'reabrió la tarea';
+}
+
 function addr(v: unknown): string {
   return val((v as { address?: unknown } | null)?.address);
 }
@@ -72,7 +84,7 @@ export function describeActivity(a: ActivityDto): string {
     case 'comment_deleted': return 'eliminó un comentario';
     case 'attachment_added': return 'adjuntó un archivo';
     case 'attachment_removed': return 'quitó un archivo';
-    case 'status_changed': return a.toValue ? 'cerró la tarea' : 'reabrió la tarea';
+    case 'status_changed': return statusChangedLabel(a.toValue);
     case 'due_date_changed': return `cambió la fecha ${dateFieldLabel(m.field)}: ${fmtDate(a.fromValue)} → ${fmtDate(a.toValue)}`;
     case 'description_changed': return `editó la descripción: "${preview(a.toValue)}"`;
     case 'project_changed': return nameDiff('el proyecto', m);

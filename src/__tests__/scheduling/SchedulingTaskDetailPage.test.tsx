@@ -13,6 +13,7 @@ vi.mock('@/hooks/useScheduling', () => ({
   useMoveTaskToStage: vi.fn(),
   useDeleteTask: vi.fn(),
   useCloseTask: vi.fn(() => noopMutationFactory()),
+  useSetTaskGeneralStatus: vi.fn(() => noopMutationFactory()),
   useSetTaskInventoryReview: vi.fn(() => noopMutationFactory()),
   useAddChecklistItem: vi.fn(() => noopMutationFactory()),
   useToggleChecklistItem: vi.fn(() => noopMutationFactory()),
@@ -173,7 +174,7 @@ vi.mock('@tiptap/react', () => ({
 
 vi.mock('@tiptap/starter-kit', () => ({ default: {} }));
 
-import { useTask, useUpdateTask, useMoveTaskToStage, useDeleteTask, useCloseTask, useSetTaskInventoryReview } from '@/hooks/useScheduling';
+import { useTask, useUpdateTask, useMoveTaskToStage, useDeleteTask, useCloseTask, useSetTaskGeneralStatus, useSetTaskInventoryReview } from '@/hooks/useScheduling';
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { usePartners } from '@/hooks/usePartners';
@@ -213,6 +214,10 @@ const mockTask: ScheduledTask = {
   checklist: [],
   reviewedByInventory: false,
   iclassOrderCode: null,
+  kind: 'customer',
+  networkSiteId: null,
+  networkSiteName: null,
+  generalStatus: 'open',
   createdAt: '2026-05-01T00:00:00Z',
   updatedAt: '2026-05-01T00:00:00Z',
 };
@@ -274,6 +279,7 @@ function setupMocks(overrides?: { taskData?: Partial<ScheduledTask> | null; isLo
   vi.mocked(useMoveTaskToStage).mockReturnValue(noopMutation as ReturnType<typeof useMoveTaskToStage>);
   vi.mocked(useDeleteTask).mockReturnValue(noopMutation as ReturnType<typeof useDeleteTask>);
   vi.mocked(useCloseTask).mockReturnValue(noopMutation as ReturnType<typeof useCloseTask>);
+  vi.mocked(useSetTaskGeneralStatus).mockReturnValue(noopMutation as ReturnType<typeof useSetTaskGeneralStatus>);
   vi.mocked(useSetTaskInventoryReview).mockReturnValue(noopMutation as ReturnType<typeof useSetTaskInventoryReview>);
   vi.mocked(useAuth).mockReturnValue({ user: { id: 1, username: 'admin', email: 'a@b.com', displayName: 'Admin', role: 'admin', permissions: [] } });
 
@@ -405,7 +411,7 @@ describe('SchedulingTaskDetailPage', () => {
     });
   });
 
-  it('shows "Cerrar tarea" option in kebab menu for an open task', async () => {
+  it('shows "Cerrar tarea" option in kebab menu for an open task (#41)', async () => {
     setupMocks();
     const { fireEvent: fe } = await import('@testing-library/react');
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
@@ -414,31 +420,32 @@ describe('SchedulingTaskDetailPage', () => {
     });
     fe.click(screen.getByTestId('kebab-menu'));
     expect(screen.getByTestId('kebab-close')).toHaveTextContent('Cerrar tarea');
+    expect(screen.getByTestId('kebab-dismiss')).toHaveTextContent('Descartar tarea');
   });
 
-  it('shows "Reabrir tarea" option in kebab menu for a closed task', async () => {
-    setupMocks({ taskData: { isClosed: true } });
+  it('shows "Reabrir tarea" option in kebab menu for a closed task (#41)', async () => {
+    setupMocks({ taskData: { generalStatus: 'closed', isClosed: true } });
     const { fireEvent: fe } = await import('@testing-library/react');
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
     await waitFor(() => {
       expect(screen.getByTestId('kebab-menu')).toBeInTheDocument();
     });
     fe.click(screen.getByTestId('kebab-menu'));
-    expect(screen.getByTestId('kebab-close')).toHaveTextContent('Reabrir tarea');
+    expect(screen.getByTestId('kebab-reopen')).toHaveTextContent('Reabrir tarea');
   });
 
-  it('shows "Cerrada" badge in header when task is closed', async () => {
-    setupMocks({ taskData: { isClosed: true } });
+  it('shows "Cerrada" badge in header when task is closed (#41)', async () => {
+    setupMocks({ taskData: { generalStatus: 'closed', isClosed: true } });
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
     await waitFor(() => {
-      expect(screen.getByTestId('task-closed-badge')).toBeInTheDocument();
+      expect(screen.getByTestId('task-status-badge')).toHaveTextContent('Cerrada');
     });
   });
 
-  it('calls useCloseTask with isClosed:true when "Cerrar tarea" is clicked', async () => {
+  it('calls useSetTaskGeneralStatus with "closed" when "Cerrar tarea" is clicked (#41)', async () => {
     setupMocks();
-    const closeTaskMutateAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useCloseTask).mockReturnValue({ ...noopMutation, mutateAsync: closeTaskMutateAsync } as ReturnType<typeof useCloseTask>);
+    const setStatusMutateAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useSetTaskGeneralStatus).mockReturnValue({ ...noopMutation, mutateAsync: setStatusMutateAsync } as ReturnType<typeof useSetTaskGeneralStatus>);
     const { fireEvent: fe } = await import('@testing-library/react');
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
     await waitFor(() => {
@@ -447,7 +454,24 @@ describe('SchedulingTaskDetailPage', () => {
     fe.click(screen.getByTestId('kebab-menu'));
     fe.click(screen.getByTestId('kebab-close'));
     await waitFor(() => {
-      expect(closeTaskMutateAsync).toHaveBeenCalledWith({ id: 'task-1', isClosed: true });
+      expect(setStatusMutateAsync).toHaveBeenCalledWith({ id: 'task-1', status: 'closed' });
+    });
+  });
+
+  it('dismiss routes through a confirm before calling useSetTaskGeneralStatus (#41)', async () => {
+    setupMocks();
+    const setStatusMutateAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useSetTaskGeneralStatus).mockReturnValue({ ...noopMutation, mutateAsync: setStatusMutateAsync } as ReturnType<typeof useSetTaskGeneralStatus>);
+    // Confirm auto-resolves true via the global setup mock.
+    const { fireEvent: fe } = await import('@testing-library/react');
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => {
+      expect(screen.getByTestId('kebab-menu')).toBeInTheDocument();
+    });
+    fe.click(screen.getByTestId('kebab-menu'));
+    fe.click(screen.getByTestId('kebab-dismiss'));
+    await waitFor(() => {
+      expect(setStatusMutateAsync).toHaveBeenCalledWith({ id: 'task-1', status: 'dismissed' });
     });
   });
 

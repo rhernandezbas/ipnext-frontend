@@ -107,4 +107,70 @@ describe('useTasksFilterUrl', () => {
     expect(result.current.filter.projectId).toBe('p1');
     expect(result.current.filter.partnerId).toBe('pa2');
   });
+
+  // ── General status filter (#41) ─────────────────────────────────────────────
+  describe('general status (#41)', () => {
+    it('defaults status to "open" when no status param is present', () => {
+      const { result } = renderHook(() => useTasksFilterUrl(), {
+        wrapper: wrapperFor('/admin/scheduling/tasks'),
+      });
+      expect(result.current.filter.status).toBe('open');
+    });
+
+    it('reads status=closed from the URL', () => {
+      const { result } = renderHook(() => useTasksFilterUrl(), {
+        wrapper: wrapperFor('/admin/scheduling/tasks?status=closed'),
+      });
+      expect(result.current.filter.status).toBe('closed');
+    });
+
+    it('reads status=all from the URL', () => {
+      const { result } = renderHook(() => useTasksFilterUrl(), {
+        wrapper: wrapperFor('/admin/scheduling/tasks?status=all'),
+      });
+      expect(result.current.filter.status).toBe('all');
+    });
+
+    it('falls back to "open" for an invalid status param', () => {
+      const { result } = renderHook(() => useTasksFilterUrl(), {
+        wrapper: wrapperFor('/admin/scheduling/tasks?status=garbage'),
+      });
+      expect(result.current.filter.status).toBe('open');
+    });
+
+    it('round-trips status=dismissed through setFilter', () => {
+      const { result } = renderHook(() => useTasksFilterUrl(), {
+        wrapper: wrapperFor('/admin/scheduling/tasks'),
+      });
+      act(() => result.current.setFilter({ status: 'dismissed' }));
+      expect(result.current.filter.status).toBe('dismissed');
+    });
+
+    it('omits status from the URL when it is "open" (re-derived on read)', () => {
+      const { result } = renderHook(() => useTasksFilterUrl(), {
+        wrapper: wrapperFor('/admin/scheduling/tasks?status=closed'),
+      });
+      // Switching back to open must clear the URL param but still read as open.
+      act(() => result.current.setFilter({ status: 'open' }));
+      expect(result.current.filter.status).toBe('open');
+    });
+
+    it('preserves status when another filter changes', () => {
+      const { result } = renderHook(() => useTasksFilterUrl(), {
+        wrapper: wrapperFor('/admin/scheduling/tasks?status=closed'),
+      });
+      act(() => result.current.setFilter({ q: 'fibra' }));
+      expect(result.current.filter.status).toBe('closed');
+      expect(result.current.filter.q).toBe('fibra');
+    });
+
+    it('clearFilter resets status back to the default "open"', () => {
+      const { result } = renderHook(() => useTasksFilterUrl(), {
+        wrapper: wrapperFor('/admin/scheduling/tasks?status=dismissed&projectId=p1'),
+      });
+      act(() => result.current.clearFilter());
+      expect(result.current.filter.status).toBe('open');
+      expect(result.current.filter.projectId).toBeUndefined();
+    });
+  });
 });

@@ -5,7 +5,7 @@ import { useWorkflow } from '@/hooks/useWorkflows';
 import { usePartners } from '@/hooks/usePartners';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { useTaskPriorities } from '@/hooks/useTaskPriorities';
-import type { TaskListFilter, TasksView, TaskStageCategory } from '@/types/scheduling';
+import type { TaskListFilter, TasksView, TaskStageCategory, TaskGeneralStatus } from '@/types/scheduling';
 import type { Project } from '@/types/project';
 import styles from './TaskFilterBar.module.css';
 
@@ -22,6 +22,18 @@ const CATEGORY_OPTIONS: { cat: TaskStageCategory; label: string }[] = [
   { cat: 'hecho',      label: 'Hecho' },
   { cat: 'cancelado',  label: 'Cancelado' },
 ];
+
+// #41 — general-status filter. 'open' is the default (the URL omits it), so it
+// never produces a chip. The label is shared by the select and the chip.
+const STATUS_OPTIONS: { value: TaskGeneralStatus | 'all'; label: string }[] = [
+  { value: 'open',      label: 'Abiertas' },
+  { value: 'closed',    label: 'Cerradas' },
+  { value: 'dismissed', label: 'Descartadas' },
+  { value: 'all',       label: 'Todas' },
+];
+const STATUS_LABEL: Record<TaskGeneralStatus | 'all', string> = {
+  open: 'Abiertas', closed: 'Cerradas', dismissed: 'Descartadas', all: 'Todas',
+};
 
 function StageMultiSelect({
   workflowId,
@@ -219,6 +231,18 @@ export function TaskFilterBar({ filter, view, onFilterChange, onViewChange }: Ta
           ))}
         </select>
 
+        {/* General-status select (#41) — default Abiertas. */}
+        <select
+          value={filter.status ?? 'open'}
+          onChange={e => onFilterChange({ status: e.target.value as TaskGeneralStatus | 'all' })}
+          className={styles.select}
+          aria-label="Estado general"
+        >
+          {STATUS_OPTIONS.map(o => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+
         {/* Search input */}
         <input
           type="search"
@@ -331,6 +355,14 @@ function ActiveFilterChips({ filter, projects, partners, admins, onFilterChange 
     chips.push({ label: `"${filter.q}"`, onRemove: () => onFilterChange({ q: undefined }) });
   }
 
+  // #41 — only non-default statuses surface a chip; removing it returns to open.
+  if (filter.status && filter.status !== 'open') {
+    chips.push({
+      label: `Estado general: ${STATUS_LABEL[filter.status]}`,
+      onRemove: () => onFilterChange({ status: 'open' }),
+    });
+  }
+
   if (chips.length === 0) return null;
 
   return (
@@ -352,7 +384,7 @@ function ActiveFilterChips({ filter, projects, partners, admins, onFilterChange 
         <button
           type="button"
           className={styles.clearAll}
-          onClick={() => onFilterChange({ projectId: undefined, stageIds: [], stageCategory: undefined, q: undefined, partnerId: undefined, assigneeId: undefined, priority: undefined })}
+          onClick={() => onFilterChange({ projectId: undefined, stageIds: [], stageCategory: undefined, q: undefined, partnerId: undefined, assigneeId: undefined, priority: undefined, status: 'open' })}
         >
           Limpiar todo
         </button>
