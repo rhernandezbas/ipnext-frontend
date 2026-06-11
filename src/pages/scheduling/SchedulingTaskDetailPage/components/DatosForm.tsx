@@ -37,6 +37,11 @@ interface DatosFormProps {
   partners: Partner[];
   /** Projects available for reassignment — parent fetches via useProjects() */
   projects?: Project[];
+  /** Task kind (#40) — filters the project select so a customer task only ever
+   *  offers customer projects and a network task only ever offers network ones.
+   *  Mirrors the create modal + the BE UpdateTask guard. Omitted ⇒ no filter
+   *  (back-compat with callers that pre-date #40). */
+  kind?: 'customer' | 'network';
   /** IClass OS code — if set and projectId changes, shows an inline warning */
   iclassOrderCode?: string | null;
   /** The project that was set when the task was last saved (used for warning) */
@@ -71,7 +76,40 @@ function toIso(local: string): string | null {
   }
 }
 
-export function DatosForm({ initial, onSubmit, isSaving, admins, partners, projects = [], iclassOrderCode, originalProjectId, onDirtyChange }: DatosFormProps) {
+export function DatosForm({ initial, onSubmit, isSaving, admins, partners, projects = [], kind, iclassOrderCode, originalProjectId, onDirtyChange }: DatosFormProps) {
+  // Filter the project select by the task's kind (#40 FIX-3). A customer task
+  // only ever offers customer projects; a network task only ever offers network
+  // ones. Omitted kind ⇒ no filter (back-compat). Mirror of CreateTaskModal +
+  // the BE UpdateTask guard, so reassignment can never trip the 422.
+  const selectableProjects =
+    kind === 'network'
+      ? projects.filter(p => p.isNetworkProject === true)
+      : kind === 'customer'
+        ? projects.filter(p => !p.isNetworkProject)
+        : projects;
+
+  // Keep the task's CURRENT project VISIBLE even when the kind filter excludes
+  // it. Without this, a customer task whose project was later flagged
+  // isNetworkProject=true (or a network task whose project lost the flag) would
+  // render the placeholder while RHF silently holds the stale id — saving any
+  // field re-submits the out-of-kind projectId and the BE answers 422
+  // INVALID_PROJECT_KIND, leaving the task un-editable with an empty-looking
+  // field. We pin the current project to the option list marked "(fuera de
+  // tipo)" so the value stays selectable/valid and the user can consciously
+  // re-pick a valid one. The option is NOT disabled on purpose: the value must
+  // remain a legal select value so the DOM and the form stay in sync.
+  const currentProjectInList = initial.projectId
+    ? projects.find(p => p.id === initial.projectId)
+    : undefined;
+  const currentProjectExcluded =
+    currentProjectInList != null &&
+    !selectableProjects.some(p => p.id === currentProjectInList.id);
+  const projectOptions: Array<{ id: string; label: string }> = [
+    ...selectableProjects.map(p => ({ id: p.id, label: p.title })),
+    ...(currentProjectExcluded && currentProjectInList
+      ? [{ id: currentProjectInList.id, label: `${currentProjectInList.title} (fuera de tipo)` }]
+      : []),
+  ];
   // Fetch contracts for the customer assigned to the task (if any)
   const { data: customerContracts = [] } = useClientContracts(
     initial.customerId ?? '',
@@ -238,8 +276,8 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
               {...register('projectId', { required: 'Proyecto requerido' })}
             >
               <option value="">Seleccionar proyecto…</option>
-              {[...projects].sort((a, b) => a.title.localeCompare(b.title)).map(p => (
-                <option key={p.id} value={p.id}>{p.title}</option>
+              {[...projectOptions].sort((a, b) => a.label.localeCompare(b.label)).map(p => (
+                <option key={p.id} value={p.id}>{p.label}</option>
               ))}
             </select>
             {showIClassWarning && (

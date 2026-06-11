@@ -6,6 +6,7 @@ import { WorkflowStatesBody } from './settings/WorkflowStatesBody';
 import { TaskTemplatesBody } from './settings/TaskTemplatesBody';
 import { IClassSettingsBody } from './settings/IClassSettingsBody';
 import { GestionRealBody } from './settings/GestionRealBody';
+import { NetworkProjectsBody } from './settings/NetworkProjectsBody';
 import styles from './SchedulingTaskCategoriesPage.module.css';
 
 const TABS = [
@@ -13,6 +14,7 @@ const TABS = [
   { id: 'prioridades',       label: 'Prioridades',        content: <TaskPrioritiesBody /> },
   { id: 'estados',           label: 'Estados',            content: <WorkflowStatesBody /> },
   { id: 'plantillas',        label: 'Plantillas',         content: <TaskTemplatesBody /> },
+  { id: 'proyectos-red',     label: 'Proyectos de red',   content: <NetworkProjectsBody /> },
   { id: 'iclass',            label: 'IClass',             content: <IClassSettingsBody /> },
   { id: 'gestion-real',      label: 'Gestión Real',       content: <GestionRealBody /> },
 ];

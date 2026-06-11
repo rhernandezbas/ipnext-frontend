@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useClientDetail, useClientContracts } from '@/hooks/useCustomers';
 import { buildContractLabel } from '@/lib/buildContractLabel';
 import { useTaskCategories } from '@/hooks/useTaskCategories';
+import { useNetworkSites } from '@/hooks/useNetworkSites';
 import type { Project } from '@/types/project';
 import type { Workflow } from '@/types/workflow';
 
@@ -54,6 +55,10 @@ interface Props {
   onCreate: (data: CreateTaskPayload) => Promise<unknown>;
   loading: boolean;
   initialValues?: CreateTaskInitialValues;
+  /** When set, the modal opens in this mode AND the mode toggle is hidden (mode
+   *  locked). Used by the Tareas Nodos page to force network mode. Absent ⇒
+   *  current behaviour (toggle visible, starts in 'customer'). */
+  defaultMode?: 'customer' | 'network';
 }
 
 /** First stage (lowest order) of the project's workflow, or undefined if the
@@ -85,9 +90,11 @@ function toLocalInputString(date: Date): string {
  * valid stageId, so we resolve one here instead of relying on a server-side
  * default that doesn't exist.
  */
-export function CreateTaskModal({ projects, workflows, technicians = [], templates = [], onClose, onCreate, loading, initialValues }: Props) {
+export function CreateTaskModal({ projects, workflows, technicians = [], templates = [], onClose, onCreate, loading, initialValues, defaultMode }: Props) {
+  /** When a defaultMode is provided the mode is LOCKED (toggle hidden). */
+  const modeLocked = defaultMode != null;
   /** Task mode toggle: 'customer' (default) or 'network' (node-based RED task). */
-  const [taskMode, setTaskMode] = useState<'customer' | 'network'>('customer');
+  const [taskMode, setTaskMode] = useState<'customer' | 'network'>(defaultMode ?? 'customer');
   /** Selected network site id for network tasks. */
   const [networkSiteId, setNetworkSiteId] = useState<string | null>(null);
 
@@ -132,6 +139,25 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
       if (!contractId && customerDetail.address) setAddress(customerDetail.address);
     }
   }, [customerId, customerDetail, contractId]);
+
+  // ── Network-site address prefill (#40) ───────────────────────────────────────
+  // When a NetworkSite is selected in network mode, prefill the address from the
+  // already-cached site list (same query key NodeSelector fetches — zero new
+  // endpoints). Ref-guarded (mirror of filledForCustomer) so a manual edit is
+  // never clobbered on re-render/background refetch. Editable.
+  const { data: networkSites = [] } = useNetworkSites();
+  const filledForSite = useRef<string | null>(null);
+  useEffect(() => {
+    if (taskMode !== 'network') return;
+    if (!networkSiteId) { filledForSite.current = null; return; }
+    if (filledForSite.current === networkSiteId) return;
+    const site = networkSites.find(s => s.id === networkSiteId);
+    if (!site) return;
+    filledForSite.current = networkSiteId;
+    // site.address may be empty — only the address pre-fills (city is metadata,
+    // not part of the work address). Empty address ⇒ leave the field empty.
+    setAddress(site.address ?? '');
+  }, [taskMode, networkSiteId, networkSites]);
 
   // When a contract is explicitly chosen, autofill address from the contract
   // (contract > customer precedence). If the contract has no address, fall back
@@ -315,28 +341,36 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
       <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Nueva tarea" onClick={e => e.stopPropagation()}>
         <div className={styles.modalHeader}>
           <h2 className={styles.title}>Nueva tarea</h2>
-          {/* RED mode toggle — segmented control, customer ↔ nodo */}
-          <div className={styles.modeToggle} role="group" aria-label="Tipo de tarea">
-            <button
-              type="button"
-              className={styles.modeBtn}
-              data-active={taskMode === 'customer' ? 'true' : 'false'}
-              onClick={() => setTaskMode('customer')}
-              aria-pressed={taskMode === 'customer'}
-            >
-              Cliente
-            </button>
-            <button
-              type="button"
-              className={styles.modeBtn}
-              data-active={taskMode === 'network' ? 'true' : 'false'}
-              data-variant="network"
-              onClick={() => setTaskMode('network')}
-              aria-pressed={taskMode === 'network'}
-            >
+          {/* RED mode toggle — segmented control, customer ↔ nodo. Hidden when the
+              mode is locked by the parent page (Tareas Nodos), where a static
+              badge replaces it so the operator knows the context. */}
+          {modeLocked ? (
+            <span className={styles.modeBadge} data-variant="network" aria-label="Tipo de tarea: Nodo RED">
               Nodo RED
-            </button>
-          </div>
+            </span>
+          ) : (
+            <div className={styles.modeToggle} role="group" aria-label="Tipo de tarea">
+              <button
+                type="button"
+                className={styles.modeBtn}
+                data-active={taskMode === 'customer' ? 'true' : 'false'}
+                onClick={() => setTaskMode('customer')}
+                aria-pressed={taskMode === 'customer'}
+              >
+                Cliente
+              </button>
+              <button
+                type="button"
+                className={styles.modeBtn}
+                data-active={taskMode === 'network' ? 'true' : 'false'}
+                data-variant="network"
+                onClick={() => setTaskMode('network')}
+                aria-pressed={taskMode === 'network'}
+              >
+                Nodo RED
+              </button>
+            </div>
+          )}
         </div>
 
         {error && <p className={styles.error}>{error}</p>}
@@ -437,12 +471,20 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
               value={projectId}
               onChange={e => setProjectId(e.target.value)}
               aria-label="Proyecto"
+              disabled={projects.length === 0}
             >
               <option value="">— Seleccionar proyecto —</option>
               {projects.map(p => (
                 <option key={p.id} value={p.id}>{p.title}</option>
               ))}
             </select>
+            {projects.length === 0 && (
+              <span className={styles.hint}>
+                {taskMode === 'network'
+                  ? 'No hay proyectos de red configurados. Marcá un proyecto en Scheduling → Configuración → Proyectos de red.'
+                  : 'No hay proyectos disponibles.'}
+              </span>
+            )}
           </label>
         </div>
 

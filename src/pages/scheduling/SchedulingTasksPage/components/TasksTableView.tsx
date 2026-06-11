@@ -253,6 +253,9 @@ interface TasksTableViewProps {
   admins?: SchedulingAssignee[];
   /** Column keys that should be rendered. When undefined, all columns are shown. */
   visibleColumnKeys?: string[];
+  /** Empty-state copy for the table (#40 FIX-4). Lets sibling pages override the
+   *  default with a page-specific message (e.g. "No hay tareas de nodos…"). */
+  emptyMessage?: string;
 }
 
 /** Full list of columns the table knows how to render — used both by the
@@ -276,7 +279,7 @@ export const ALL_TASK_COLUMNS: { key: string; label: string }[] = [
 
 const PAGE_SIZES = [10, 25, 50, 100];
 
-export function TasksTableView({ tasks, loading = false, availableStages = [], projects = [], workflows = [], priorities = [], admins = [], visibleColumnKeys }: TasksTableViewProps) {
+export function TasksTableView({ tasks, loading = false, availableStages = [], projects = [], workflows = [], priorities = [], admins = [], visibleColumnKeys, emptyMessage = 'No hay tareas para mostrar.' }: TasksTableViewProps) {
   const navigate = useNavigate();
   const moveToStage = useMoveTaskToStage();
   const bulkMoveToStage = useBulkMoveTasksToStage();
@@ -516,7 +519,7 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
         actions={ACTIONS}
         selectable
         onSelectionChange={setSelectedIds}
-        emptyMessage="No hay tareas para mostrar."
+        emptyMessage={emptyMessage}
       />
 
       {/* Pagination */}

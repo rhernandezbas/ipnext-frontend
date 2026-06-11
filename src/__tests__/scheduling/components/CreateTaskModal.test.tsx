@@ -23,6 +23,11 @@ vi.mock('@/hooks/useTaskPriorities', () => ({
     { id: 'p3', name: 'Alta', color: '#f59e0b', weight: 3 },
   ] }),
 }));
+// #40 — the modal reads useNetworkSites() for the network-mode address prefill.
+// Stub it (empty list) so this isolated unit test needs no QueryClientProvider.
+vi.mock('@/hooks/useNetworkSites', () => ({
+  useNetworkSites: () => ({ data: [], isLoading: false }),
+}));
 
 import { CreateTaskModal } from '@/pages/scheduling/SchedulingTasksPage/components/CreateTaskModal';
 import { useConfirm } from '@/context/ConfirmContext';

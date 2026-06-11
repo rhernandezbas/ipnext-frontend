@@ -329,7 +329,7 @@ export default function SchedulingCalendarPage() {
           fire a create without one (the source of the old uncaught 400). */}
       {showCreateModal && (
         <CreateTaskModal
-          projects={projects}
+          projects={projects.filter(p => !p.isNetworkProject)}
           workflows={workflows}
           technicians={technicians}
           templates={templates}

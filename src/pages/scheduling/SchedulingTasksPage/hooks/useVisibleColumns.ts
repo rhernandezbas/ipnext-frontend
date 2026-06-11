@@ -9,9 +9,16 @@ import { useCallback, useEffect, useState } from 'react';
  * toggles its inclusion in the array; the table only renders columns whose
  * `key` is present.
  */
-const STORAGE_KEY = 'scheduling-tasks-visible-columns';
+const DEFAULT_STORAGE_KEY = 'scheduling-tasks-visible-columns';
 
-export function useVisibleColumns(defaultKeys: string[]) {
+/**
+ * @param defaultKeys catalog of columns shown by default.
+ * @param storageKey  localStorage namespace. Defaults to the Tareas page key so
+ *   existing behaviour is unchanged. Pass a distinct key (e.g. 'nodeTasks') so
+ *   sibling pages keep independent column preferences (#40).
+ */
+export function useVisibleColumns(defaultKeys: string[], storageKey: string = DEFAULT_STORAGE_KEY) {
+  const STORAGE_KEY = storageKey;
   const [visible, setVisible] = useState<string[]>(() => {
     if (typeof window === 'undefined') return defaultKeys;
     try {
@@ -42,7 +49,7 @@ export function useVisibleColumns(defaultKeys: string[]) {
     } catch {
       // Ignore quota / privacy-mode errors — the UI still works in memory.
     }
-  }, [visible]);
+  }, [visible, STORAGE_KEY]);
 
   const toggle = useCallback((key: string) => {
     setVisible(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));

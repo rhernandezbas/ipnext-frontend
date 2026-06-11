@@ -208,4 +208,22 @@
   outline-offset: 2px;
 }
 
+/* Static badge shown when the mode is LOCKED by the parent page (Tareas Nodos).
+ * Mirrors the network active segment so the locked context reads identically to
+ * the toggled-on state, minus the interaction affordance. */
+.modeBadge {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 14px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: oklch(40% .22 25);
+  color: #fff;
+  box-shadow: 0 1px 3px oklch(40% .22 25 / .35), 0 0 0 1px oklch(36% .2 25);
+}
+
 

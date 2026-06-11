@@ -3,7 +3,7 @@
  * Uses MemoryRouter for URL control. All external hooks are mocked.
  * Change: scheduling-calendar-view, Phase 10
  */
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -311,6 +311,56 @@ describe('SchedulingCalendarPage — create modal', () => {
     fireEvent.click(addBtns[0]);
     // The full modal has a Cliente field; the old stub only had a Título input.
     expect(screen.getByPlaceholderText(/buscar cliente/i)).toBeInTheDocument();
+  });
+
+  // ── #40 FIX-2: network projects must NOT leak into the calendar create modal.
+  // The calendar create flow is a CUSTOMER flow (no kind toggle); a network
+  // project reaching the project <select> would let the operator dispatch a
+  // create the backend rejects (422). The page filters with !isNetworkProject.
+  it('does NOT offer network projects in the create modal (regression #40)', () => {
+    // Arrange: projects mix — one customer, one network-tagged. Tasks empty.
+    vi.mocked(useFilteredTasks).mockReturnValue({
+      data: [],
+      isLoading: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useFilteredTasks>);
+    vi.mocked(useTechnicians).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useTechnicians>);
+    vi.mocked(useRbacUsers).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useRbacUsers>);
+    vi.mocked(useProjects).mockReturnValue({
+      data: [
+        { id: 'cp-1', title: 'INSTALACION', description: null, workflowId: 'wf-1', isNetworkProject: false, createdAt: '', updatedAt: '' },
+        { id: 'np-1', title: 'RED - FIBRA', description: null, workflowId: 'wf-1', isNetworkProject: true, createdAt: '', updatedAt: '' },
+      ],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useProjects>);
+
+    const qc = makeQc();
+    render(
+      React.createElement(
+        QueryClientProvider,
+        { client: qc },
+        React.createElement(
+          MemoryRouter,
+          { initialEntries: ['/admin/scheduling/calendars'] },
+          React.createElement(Routes, null,
+            React.createElement(Route, {
+              path: '/admin/scheduling/calendars',
+              element: React.createElement(SchedulingCalendarPage),
+            })
+          )
+        )
+      )
+    );
+
+    const addBtns = screen.getAllByRole('button', { name: /Añadir tarea/i });
+    fireEvent.click(addBtns[0]);
+
+    // Scope to the modal dialog — the page also has a filter panel with its own
+    // project select, which would double-match by role+name otherwise.
+    const dialog = within(screen.getByRole('dialog'));
+    // The customer project is offered; the network-tagged project is NOT.
+    expect(dialog.getByRole('option', { name: 'INSTALACION' })).toBeInTheDocument();
+    expect(dialog.queryByRole('option', { name: 'RED - FIBRA' })).not.toBeInTheDocument();
   });
 });
 
