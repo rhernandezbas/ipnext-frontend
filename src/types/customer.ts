@@ -1,14 +1,40 @@
 export type CustomerStatus = 'active' | 'inactive' | 'blocked' | 'new' | 'baja';
 
+/** A service line attached to a contract (#43). */
+export interface ContractService {
+  id: string;
+  serviceCatalogId: string;
+  name: string;
+  label: string | null;
+  status: 'active' | 'inactive';
+  notes: string | null;
+  createdAt: string;
+}
+
+/** An entry in the service catalog ABM (#43). */
+export interface ServiceCatalogEntry {
+  id: string;
+  name: string;
+  label: string | null;
+  active: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Contract {
-  id: number;
+  /** UUID string from Prisma — used verbatim as a path param, no coercion. */
+  id: string;
+  /** Operator-editable display name; falls back to `plan` when null. */
+  name?: string | null;
   type: string;
   plan: string;
   status: CustomerStatus;
   price: number;
   startDate: string;
   endDate: string | null;
-  ipAddress: string | null;
+  /** Installation IP from GR (#43 drift fix — replaces the old `ipAddress`). */
+  ip?: string | null;
   description: string;
   /** Installation address from GR (available after task-service-location change). */
   address?: string | null;
@@ -18,10 +44,9 @@ export interface Contract {
   lng?: number | null;
   /** Technology from the ServiceTechnology catalog (e.g. FTTH, HFC). */
   technology?: string | null;
+  /** Service lines attached to the contract, eager-loaded with the list (#43). */
+  services: ContractService[];
 }
-
-/** @deprecated Use Contract instead */
-export type Service = Contract;
 
 export interface LogEntry {
   id: number;
@@ -44,8 +69,6 @@ export interface Customer {
   createdAt: string;
   updatedAt: string;
   contracts: Contract[];
-  /** @deprecated Use contracts instead */
-  services?: Contract[];
   logs: LogEntry[];
   // Optional fields surfaced by the Postgres adapter (Splynx Customer module)
   city?: string;
@@ -93,24 +116,3 @@ export interface UpdateCustomerData {
   phone?: string;
   address?: string;
 }
-
-export interface AddContractData {
-  type: string;
-  plan: string;
-  ipAddress?: string;
-  status?: string;
-  startDate?: string;
-}
-
-export interface UpdateContractData {
-  type?: string;
-  plan?: string;
-  ipAddress?: string;
-  status?: string;
-  endDate?: string;
-}
-
-/** @deprecated Use AddContractData */
-export type AddServiceData = AddContractData;
-/** @deprecated Use UpdateContractData */
-export type UpdateServiceData = UpdateContractData;

@@ -172,8 +172,8 @@ describe('DatosForm', () => {
     // Contracts arrive from the API after mount
     useClientContractsMock.mockReturnValue({
       data: [
-        { id: 77, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: '' },
-        { id: 88, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: '' },
+        { id: '77', plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, description: '', address: '' },
+        { id: '88', plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, description: '', address: '' },
       ],
     });
     rerender(
@@ -191,8 +191,8 @@ describe('DatosForm', () => {
   it('autofills address from selected contract when contract has address', async () => {
     useClientContractsMock.mockReturnValue({
       data: [
-        { id: 77, plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: 'Av. Servicio 2000' },
-        { id: 88, plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, ipAddress: null, description: '', address: 'Calle Otra 50' },
+        { id: '77', plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, description: '', address: 'Av. Servicio 2000' },
+        { id: '88', plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, description: '', address: 'Calle Otra 50' },
       ],
     });
 

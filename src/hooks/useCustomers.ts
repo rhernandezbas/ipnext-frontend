@@ -13,9 +13,7 @@ import {
   updateClientStatus,
   getClientDocuments,
   uploadClientDocument,
-  addClientContract,
-  updateClientContract,
-  deleteClientContract,
+  patchContractName,
   getClientFiles,
   uploadClientFile,
   getOnlineSessions,
@@ -31,7 +29,7 @@ import type {
   ClientFile,
   OnlineSession,
 } from '../api/customers.api';
-import type { CreateCustomerData, UpdateCustomerData, AddContractData, UpdateContractData } from '../types/customer';
+import type { CreateCustomerData, UpdateCustomerData } from '../types/customer';
 
 export type { ClientsQuery, LogsQuery, ClientComment, ClientDocument, ClientFile, OnlineSession };
 
@@ -70,9 +68,6 @@ export function useClientContracts(id: string, enabled: boolean) {
     enabled,
   });
 }
-
-/** @deprecated Use useClientContracts */
-export const useClientServices = useClientContracts;
 
 export function useClientInvoices(id: string, enabled: boolean) {
   return useQuery({
@@ -161,59 +156,16 @@ export function useUploadDocument() {
   });
 }
 
-export function useAddContract() {
+/**
+ * Rename a contract (#43). Invalidates the client-contracts list so the new
+ * name surfaces. The contract id is a UUID string, used verbatim.
+ */
+export function useUpdateContractName(clientId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ clientId, data }: { clientId: string; data: AddContractData }) =>
-      addClientContract(clientId, data),
-    onSuccess: (_, { clientId }) => {
-      qc.invalidateQueries({ queryKey: ['client-contracts', clientId] });
-    },
-  });
-}
-
-export function useUpdateContract() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ clientId, contractId, data }: { clientId: string; contractId: number; data: UpdateContractData }) =>
-      updateClientContract(clientId, contractId, data),
-    onSuccess: (_, { clientId }) => {
-      qc.invalidateQueries({ queryKey: ['client-contracts', clientId] });
-    },
-  });
-}
-
-export function useDeleteContract() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ clientId, contractId }: { clientId: string; contractId: number }) =>
-      deleteClientContract(clientId, contractId),
-    onSuccess: (_, { clientId }) => {
-      qc.invalidateQueries({ queryKey: ['client-contracts', clientId] });
-    },
-  });
-}
-
-/** @deprecated Use useAddContract */
-export const useAddService = useAddContract;
-/** @deprecated Use useUpdateContract */
-export function useUpdateService() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ clientId, serviceId, data }: { clientId: string; serviceId: number; data: UpdateContractData }) =>
-      updateClientContract(clientId, serviceId, data),
-    onSuccess: (_, { clientId }) => {
-      qc.invalidateQueries({ queryKey: ['client-contracts', clientId] });
-    },
-  });
-}
-/** @deprecated Use useDeleteContract */
-export function useDeleteService() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ clientId, serviceId }: { clientId: string; serviceId: number }) =>
-      deleteClientContract(clientId, serviceId),
-    onSuccess: (_, { clientId }) => {
+    mutationFn: ({ contractId, name }: { contractId: string; name: string | null }) =>
+      patchContractName(contractId, name),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['client-contracts', clientId] });
     },
   });

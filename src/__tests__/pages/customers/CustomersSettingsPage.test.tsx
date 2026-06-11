@@ -29,6 +29,13 @@ vi.mock('@/hooks/useGestionRealSync', () => ({
 vi.mock('@/hooks/useCustomers', () => ({
   useClientStats: () => grSyncHandles.clientStats,
 }));
+// ServiceCatalogBody (servicios tab) hooks — only exercised when that tab mounts.
+vi.mock('@/hooks/useServiceCatalog', () => ({
+  useServiceCatalog: () => ({ data: [], isLoading: false }),
+  useCreateServiceCatalog: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateServiceCatalog: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteServiceCatalog: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
 vi.mock('@/context/ConfirmContext', () => ({
   useConfirm: () => grSyncHandles.confirmFn,
 }));
@@ -97,5 +104,28 @@ describe('CustomersSettingsPage', () => {
     renderPage();
     expect(screen.getByRole('tab', { name: 'Sincronización GR' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByLabelText(/activar sincronización/i)).toBeInTheDocument();
+  });
+
+  // --- CTU-9: Servicios tab gated by clients.manage ---
+  it('shows the "Servicios" tab when the user has clients.manage', () => {
+    renderPage();
+    expect(screen.getByRole('tab', { name: 'Servicios' })).toBeInTheDocument();
+  });
+
+  it('hides the "Servicios" tab when the user lacks clients.manage', () => {
+    permHandle.can = (p) => {
+      const perms = Array.isArray(p) ? p : [p];
+      return !perms.includes('clients.manage');
+    };
+    renderPage();
+    expect(screen.queryByRole('tab', { name: 'Servicios' })).not.toBeInTheDocument();
+  });
+
+  it('deep-link #servicios activates the Servicios tab and mounts the catalog body', () => {
+    window.location.hash = '#servicios';
+    renderPage();
+    expect(screen.getByRole('tab', { name: 'Servicios' })).toHaveAttribute('aria-selected', 'true');
+    // ServiceCatalogBody empty state proves the body mounted.
+    expect(screen.getByText(/no hay servicios/i)).toBeInTheDocument();
   });
 });

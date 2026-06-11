@@ -96,21 +96,6 @@ function mockAllHooks() {
     isPending: false,
   } as unknown as ReturnType<typeof useClientsModule.useUploadDocument>);
 
-  vi.mocked(useClientsModule.useAddContract).mockReturnValue({
-    mutate: vi.fn(),
-    isPending: false,
-  } as unknown as ReturnType<typeof useClientsModule.useAddContract>);
-
-  vi.mocked(useClientsModule.useUpdateContract).mockReturnValue({
-    mutate: vi.fn(),
-    isPending: false,
-  } as unknown as ReturnType<typeof useClientsModule.useUpdateContract>);
-
-  vi.mocked(useClientsModule.useDeleteContract).mockReturnValue({
-    mutate: vi.fn(),
-    isPending: false,
-  } as unknown as ReturnType<typeof useClientsModule.useDeleteContract>);
-
   vi.mocked(useClientsModule.useClientFiles).mockReturnValue({
     data: [],
     isLoading: false,
