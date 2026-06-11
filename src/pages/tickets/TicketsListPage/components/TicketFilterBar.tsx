@@ -16,9 +16,13 @@ interface TicketFilterBarProps {
   /** Layout: 'horizontal' (top bar, default) or 'vertical' (right-side panel,
    *  matching the Prominense reference — controls stacked with labels). */
   variant?: 'horizontal' | 'vertical';
+  /** When false, the bar omits its inline ActiveFilterChips — used by the
+   *  disclosure (#46), which renders the chips OUTSIDE the collapsible panel so
+   *  they stay visible while it's closed. Defaults to true (origin behavior). */
+  showChips?: boolean;
 }
 
-export function TicketFilterBar({ filter, onFilterChange, variant = 'horizontal' }: TicketFilterBarProps) {
+export function TicketFilterBar({ filter, onFilterChange, variant = 'horizontal', showChips = true }: TicketFilterBarProps) {
   const { data: statuses = [] } = useTicketStatuses();
   const { data: allUsers = [] } = useRbacUsers();
 
@@ -139,9 +143,17 @@ export function TicketFilterBar({ filter, onFilterChange, variant = 'horizontal'
         </label>
       </div>
 
-      <ActiveFilterChips filter={filter} statuses={statuses} users={allUsers} onFilterChange={onFilterChange} />
+      {showChips && (
+        <ActiveFilterChips filter={filter} statuses={statuses} users={allUsers} onFilterChange={onFilterChange} />
+      )}
     </div>
   );
+}
+
+/** Count of filter keys currently set — drives the disclosure's badge (#46). */
+export function countActiveFilters(filter: TicketFilter): number {
+  return (['status', 'priority', 'assignedTo', 'q', 'customerId', 'from', 'to'] as const)
+    .filter(k => filter[k] != null && filter[k] !== '').length;
 }
 
 interface ActiveFilterChipsProps {
@@ -151,7 +163,7 @@ interface ActiveFilterChipsProps {
   onFilterChange: (patch: Partial<TicketFilter>) => void;
 }
 
-function ActiveFilterChips({ filter, statuses, users, onFilterChange }: ActiveFilterChipsProps) {
+export function ActiveFilterChips({ filter, statuses, users, onFilterChange }: ActiveFilterChipsProps) {
   const chips: Array<{ label: string; onRemove: () => void }> = [];
 
   if (filter.status) {

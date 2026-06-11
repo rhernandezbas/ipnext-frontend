@@ -171,14 +171,17 @@ describe('TicketsListPage (Prominense re-skin)', () => {
     expect(screen.getByLabelText('Estado: cerrado')).toHaveAttribute('data-variant', 'closed');
   });
 
-  it('shows the empty message when there are no tickets', () => {
+  it('shows the no-tickets empty state when there are no tickets and no filters (#46)', () => {
     vi.mocked(useTicketsModule.useTicketList).mockReturnValue({
       data: { data: [], total: 0 },
       isLoading: false,
       refetch: vi.fn(),
     } as unknown as ReturnType<typeof useTicketsModule.useTicketList>);
     renderList();
-    expect(screen.getByText('No hay tickets.')).toBeInTheDocument();
+    // #46 — differentiated empty states; with no active filters this is the
+    // "no tickets todavía" copy (the "Limpiar filtros" variant is covered in
+    // TicketsTableView.permissions.test.tsx).
+    expect(screen.getByText(/No hay tickets todav/i)).toBeInTheDocument();
   });
 
   it('renders a "Todos" tab plus one tab per catalog status', () => {
@@ -218,12 +221,12 @@ describe('TicketsListPage (Prominense re-skin)', () => {
     expect(lastCall.status).toBe('closed');
   });
 
-  it('renders the row Eliminar action when the user has tickets.delete', () => {
+  it('wires delete through TicketsTableView when the user has tickets.delete (#46)', () => {
     renderList();
-    // DataTable renders an actions trigger per row; the delete label is present.
+    // #46 — deletion moved from a row kebab action to the bulk action bar inside
+    // TicketsTableView. The row still renders; the delete hook is wired by the
+    // table view (bulk behavior is covered in TicketsTableView.permissions.test).
     expect(screen.getByText('Problema de conexión')).toBeInTheDocument();
-    // The delete action is wired (canDeleteTicket=true). Presence of the row is
-    // sufficient here; the action handler is covered by the DataTable tests.
     expect(useTicketsModule.useDeleteTicket).toHaveBeenCalled();
   });
 });

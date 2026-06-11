@@ -1,15 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Pagination } from '../../components/molecules/Pagination/Pagination';
-import { DataTable } from '../../components/organisms/DataTable/DataTable';
-import { useTicketList, useDeleteTicket, useCreateTicket } from '../../hooks/useTickets';
+import { useTicketList, useCreateTicket } from '../../hooks/useTickets';
 import { useTicketStatuses } from '../../hooks/useTicketStatuses';
-import { Ticket } from '../../types/ticket';
-import { useCan } from '../../hooks/useMyPermissions';
-import { useConfirm } from '@/context/ConfirmContext';
 import { Can } from '@/components/auth/Can';
 import { ColumnSelector, type ColumnDef } from '@/pages/scheduling/SchedulingTasksPage/components/ColumnSelector';
-import { TicketFilterBar } from './TicketsListPage/components/TicketFilterBar';
+import { TicketFilterDisclosure } from './TicketsListPage/components/TicketFilterDisclosure';
+import { TicketsTableView } from './TicketsListPage/components/TicketsTableView';
 import { CreateTicketModal } from './TicketsListPage/components/CreateTicketModal';
 import { useTicketsFilterUrl } from './TicketsListPage/hooks/useTicketsFilterUrl';
 import { useVisibleColumns } from './TicketsListPage/hooks/useVisibleColumns';
@@ -33,33 +30,6 @@ export const ALL_TICKET_COLUMNS: ColumnDef[] = [
 
 const DEFAULT_VISIBLE_COLUMNS = ALL_TICKET_COLUMNS.map(c => c.key);
 
-const COLUMNS: Array<{ label: string; key: keyof Ticket | string; sortable?: boolean; render?: (row: Ticket) => React.ReactNode }> = [
-  {
-    label: 'ID',
-    key: 'id',
-    render: (row: Ticket) => (
-      <Link to={`/admin/tickets/${row.id}`} className={styles.idLink}>#{row.sequenceNumber}</Link>
-    ),
-  },
-  {
-    label: 'Tema',
-    key: 'subject',
-    sortable: true,
-    render: (row: Ticket) => (
-      <Link to={`/admin/tickets/${row.id}`} className={styles.titleLink}>
-        {row.subject}
-      </Link>
-    ),
-  },
-  { label: 'Cliente/Cliente Potencial', key: 'customerName', sortable: true },
-  { label: 'Tipo', key: 'type' },
-  { label: 'Reporter', key: 'reporter' },
-  { label: 'Prioridad', key: 'priority', sortable: true, render: (row: Ticket) => <PriorityPill priority={row.priority} /> },
-  { label: 'Estado', key: 'status', sortable: true, render: (row: Ticket) => <TicketStatusPill status={row.status} /> }, // #26
-  { label: 'Asignado a', key: 'assigneeName' }, // #28 follow-up
-  { label: 'Creado de fecha y hora', key: 'createdAt', sortable: true },
-];
-
 // ── SVG Icons ──────────────────────────────────────────────────────────────────
 function IconRefresh() {
   return (
@@ -77,43 +47,6 @@ function IconPlus() {
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
-  );
-}
-
-const PRIORITY_COLOR: Record<string, string> = {
-  low: '#64748b', medium: '#2563eb', high: '#f59e0b', critical: '#dc2626',
-};
-
-// #26 — closed/cerrado get a stark black & white pill so they stand out.
-const CLOSED_SLUGS = ['cerrado', 'closed'];
-
-/** Status pill — catalog color for open states, black & white for closed. */
-function TicketStatusPill({ status }: { status: string }) {
-  const { data: statuses = [] } = useTicketStatuses();
-  const closed = CLOSED_SLUGS.includes(status.toLowerCase());
-  const color = statuses.find(s => s.name === status)?.color ?? '#94a3b8';
-  return (
-    <span
-      className={styles.statusPill}
-      style={closed ? undefined : { backgroundColor: color }}
-      data-variant={closed ? 'closed' : 'open'}
-      aria-label={`Estado: ${status}`}
-    >
-      {status}
-    </span>
-  );
-}
-
-/** Priority pill, color-coded — mirrors the tasks list. */
-function PriorityPill({ priority }: { priority: string }) {
-  return (
-    <span
-      className={styles.priorityPill}
-      style={{ backgroundColor: PRIORITY_COLOR[priority] ?? '#94a3b8', color: '#fff' }}
-      aria-label={`Prioridad: ${priority}`}
-    >
-      {priority}
-    </span>
   );
 }
 
@@ -143,10 +76,7 @@ export default function TicketsListPage({ statusFilter }: Props) {
   // the filter-bar "Estado" select both read/write it, so they never desync.
   const [page, setPage] = useState(1);
 
-  const confirm = useConfirm();
-  const deleteTicket = useDeleteTicket();
   const createTicket = useCreateTicket();
-  const canDeleteTicket = useCan('tickets.delete');
   const { data: catalogStatuses = [], isLoading: statusesLoading } = useTicketStatuses();
 
   // Column visibility (localStorage-backed, key: tickets-visible-columns).
@@ -180,7 +110,21 @@ export default function TicketsListPage({ statusFilter }: Props) {
     setCreateOpen(false);
   }
 
-  const visibleTableColumns = COLUMNS.filter(c => visibleColumns.includes(c.key as string));
+  // Active-filter detection drives the differentiated empty state. The status
+  // chip is excluded on the Archive page (it's locked, not a user choice).
+  const filterKeys = ['priority', 'assignedTo', 'q', 'customerId', 'from', 'to'] as const;
+  const hasActiveFilters =
+    (!statusFilter && !!filter.status) ||
+    filterKeys.some(k => filter[k] != null && filter[k] !== '');
+
+  function clearFilters() {
+    setPage(1);
+    setFilter({
+      ...(statusFilter ? {} : { status: undefined }),
+      priority: undefined, assignedTo: undefined, q: undefined,
+      customerId: undefined, from: undefined, to: undefined,
+    });
+  }
 
   const isArchive = statusFilter === 'closed';
 
@@ -245,30 +189,25 @@ export default function TicketsListPage({ statusFilter }: Props) {
         </div>
       )}
 
-      {/* Filtros — barra horizontal arriba, como la lista de tareas. */}
-      <TicketFilterBar
+      {/* Filtros — panel colapsable (cerrado por defecto) con chips persistentes
+          afuera. El status del Archive queda fuera del disclosure (locked). */}
+      <TicketFilterDisclosure
         filter={filter}
         onFilterChange={p => { setFilter(p); setPage(1); }}
-        variant="horizontal"
       />
 
-      {/* Tabla full-width abajo, espejando SchedulingTasksPage. */}
+      {/* Tabla + acciones masivas + estados vacíos, espejando SchedulingTasksPage. */}
       <div className={styles.tableSection}>
-        <DataTable<Ticket>
-          columns={visibleTableColumns}
-          data={data?.data ?? []}
+        <TicketsTableView
+          tickets={data?.data ?? []}
           loading={isLoading}
-          emptyMessage="No hay tickets."
-          actions={canDeleteTicket ? [{
-            label: 'Eliminar',
-            onClick: async (row) => {
-              if (await confirm({ message: '¿Eliminar este ticket? Esta acción no se puede deshacer.', tone: 'danger', confirmLabel: 'Eliminar' })) {
-                deleteTicket.mutate(String(row.id));
-              }
-            },
-          }] : []}
+          visibleColumnKeys={visibleColumns}
+          hasActiveFilters={hasActiveFilters}
+          onClearFilters={clearFilters}
         />
-        <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+        {(data?.data?.length ?? 0) > 0 && (
+          <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+        )}
       </div>
 
       {/* CreateTicketModal (?create=1 or header button) */}

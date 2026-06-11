@@ -24,6 +24,13 @@ interface DataTableProps<T extends { id: string | number }> {
   renderExpanded?: (row: T) => ReactNode;
   emptyMessage?: string;
   selectable?: boolean;
+  /**
+   * Controlled selection. When provided, the table reflects exactly these ids
+   * and does NOT manage its own selection state — toggles are reported via
+   * `onSelectionChange` and the parent owns the truth. Omit it to keep the
+   * legacy uncontrolled behavior (internal state).
+   */
+  selectedIds?: string[];
   onSelectionChange?: (selectedIds: string[]) => void;
   totals?: Record<string, ReactNode>;
 }
@@ -40,13 +47,23 @@ export function DataTable<T extends { id: string | number }>({
   renderExpanded,
   emptyMessage = 'No hay datos para mostrar.',
   selectable = false,
+  selectedIds: controlledSelectedIds,
   onSelectionChange,
   totals,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [expandedRows, setExpandedRows] = useState<Set<string | number>>(new Set());
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [internalSelectedIds, setInternalSelectedIds] = useState<Set<string>>(new Set());
+
+  // Controlled when a `selectedIds` prop is passed; otherwise self-managed.
+  const isControlled = controlledSelectedIds !== undefined;
+  const selectedIds = isControlled ? new Set(controlledSelectedIds) : internalSelectedIds;
+
+  function commitSelection(next: Set<string>) {
+    if (!isControlled) setInternalSelectedIds(next);
+    onSelectionChange?.([...next]);
+  }
 
   function handleSort(key: string) {
     if (sortKey === key) {
@@ -67,21 +84,17 @@ export function DataTable<T extends { id: string | number }>({
   }
 
   function toggleRow(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      onSelectionChange?.([...next]);
-      return next;
-    });
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    commitSelection(next);
   }
 
   function toggleAll() {
     const allIds = data.map((r) => String(r.id));
     const allSelected = allIds.every((id) => selectedIds.has(id));
     const next = allSelected ? new Set<string>() : new Set(allIds);
-    setSelectedIds(next);
-    onSelectionChange?.([...next]);
+    commitSelection(next);
   }
 
   const sorted = [...data].sort((a, b) => {
