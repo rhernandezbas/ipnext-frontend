@@ -176,21 +176,24 @@ describe('gigaredApi.setOtt', () => {
   });
 });
 
-// ── #47k — cancel TV (dar de baja) ──────────────────────────────────────────
+// ── #47k/#64 — cancel TV (dar de baja): la API devuelve { status, data } ─────
 describe('gigaredApi.cancelTv', () => {
-  it('POSTs /gigared/customers/:id/cancel with { contractId } and returns the result', async () => {
+  it('POSTs /gigared/customers/:id/cancel with { contractId } and returns { status, data }', async () => {
     const payload: CancelTvResult = {
       removed: ['s1', 's2'],
       failed: [],
       ottDisabled: true,
       local: 'synced',
+      renew: { oldCic: '0000000001', newCic: '0000000002' },
+      unlinked: true,
+      renewAttempted: true,
     };
-    vi.mocked(axiosClient.post).mockResolvedValue({ data: payload });
+    vi.mocked(axiosClient.post).mockResolvedValue({ status: 200, data: payload });
     const result = await gigaredApi.cancelTv('cust-1', { contractId: 'ct-9' });
     expect(axiosClient.post).toHaveBeenCalledWith('/gigared/customers/cust-1/cancel', {
       contractId: 'ct-9',
     });
-    expect(result).toEqual(payload);
+    expect(result).toEqual({ status: 200, data: payload });
   });
 
   it('passes a 207 partial shape through verbatim (removed + failed + flags)', async () => {
@@ -199,9 +202,12 @@ describe('gigaredApi.cancelTv', () => {
       failed: [{ id: 's2', detail: 'partner timeout' }],
       ottDisabled: false,
       local: 'failed',
+      renew: null,
+      unlinked: false,
+      renewAttempted: true,
     };
-    vi.mocked(axiosClient.post).mockResolvedValue({ data: payload });
+    vi.mocked(axiosClient.post).mockResolvedValue({ status: 207, data: payload });
     const result = await gigaredApi.cancelTv('cust-1', { contractId: 'ct-9' });
-    expect(result).toEqual(payload);
+    expect(result).toEqual({ status: 207, data: payload });
   });
 });
