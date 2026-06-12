@@ -204,7 +204,7 @@ export function UispNodeMappingBody() {
               <tr>
                 <th>Network site</th>
                 <th>Código</th>
-                <th>Localidad</th>
+                <th title="Código de localidad enviado a IClass">Localidad (código IClass)</th>
                 <th>Dirección</th>
                 <th>Nodo UISP</th>
                 <th>Estado</th>
@@ -253,7 +253,7 @@ export function UispNodeMappingBody() {
                       <span
                         data-testid={`fixed-code-${site.id}`}
                         className={styles.fixedCodeBadge}
-                        title="Código fijo del sitio (no editable)"
+                        title="Identidad interna del sitio — no se envía a IClass"
                       >
                         {site.fixedCode}
                       </span>
@@ -264,7 +264,7 @@ export function UispNodeMappingBody() {
                         className={`${styles.select} ${nodeValue === '' ? styles.selectUnmapped : ''}`}
                         value={nodeValue}
                         disabled={status === 'saving'}
-                        aria-label={`Código IClass para ${site.name}`}
+                        aria-label={`Localidad (código IClass) para ${site.name}`}
                         onChange={e => handleNodeChange(site.id, e.target.value)}
                       >
                         <option value="">— Sin asignar —</option>

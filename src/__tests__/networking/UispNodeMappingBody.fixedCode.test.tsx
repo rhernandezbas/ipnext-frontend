@@ -145,4 +145,32 @@ describe('UispNodeMappingBody — fixedCode column + addressDisplay (#51)', () =
     expect(screen.getByTestId('site-address-s7')).toHaveTextContent('—');
     expect(screen.queryByTestId('address-uisp-hint-s7')).toBeNull();
   });
+
+  // SCEN-FE-FC-05 — #51 fix wave: labels sin ambigüedad Código interno vs Localidad IClass
+  it('SCEN-FE-FC-05: badge Código aclara que es identidad interna y no se envía a IClass', () => {
+    setupMocks([makeSite({ id: 's7' })]);
+    render(<UispNodeMappingBody />);
+    expect(screen.getByTestId('fixed-code-s7')).toHaveAttribute(
+      'title',
+      'Identidad interna del sitio — no se envía a IClass',
+    );
+  });
+
+  // SCEN-FE-FC-06
+  it('SCEN-FE-FC-06: header de la columna de localidad explicita que es el código IClass', () => {
+    setupMocks([makeSite({ id: 's7' })]);
+    render(<UispNodeMappingBody />);
+    expect(
+      screen.getByRole('columnheader', { name: 'Localidad (código IClass)' }),
+    ).toBeInTheDocument();
+  });
+
+  // SCEN-FE-FC-07 — aria-label del select alineado con el header visible
+  it('SCEN-FE-FC-07: el select de localidad usa aria-label "Localidad (código IClass) para {name}"', () => {
+    setupMocks([makeSite({ id: 's7', name: 'Nodo Test' })]);
+    render(<UispNodeMappingBody />);
+    expect(
+      screen.getByLabelText('Localidad (código IClass) para Nodo Test'),
+    ).toBeInTheDocument();
+  });
 });
