@@ -7,6 +7,9 @@ import type { GigaredAccount, GigaredSummary } from '@/types/gigared';
 vi.mock('@/hooks/useGigared', () => ({
   useGigaredSummary: vi.fn(),
   useGigaredAllAccounts: vi.fn(),
+  // #61 fix wave — the page imports this constant for the cap notice; the mock
+  // must expose the real value (200) or the import resolves to undefined.
+  MAX_FETCHED_ACCOUNTS: 200,
 }));
 
 import { useGigaredSummary, useGigaredAllAccounts } from '@/hooks/useGigared';
@@ -184,11 +187,45 @@ describe('GigaredAccountsPage', () => {
     }, { timeout: 1000 });
   });
 
+  // #61 fix wave — copy-paste of a CIC often drags a trailing space ("2354 ").
+  // The term must be trimmed or it matches nothing.
+  it('trims the search term so a trailing space still matches (#61 fix wave)', async () => {
+    const user = userEvent.setup();
+    mockHooks();
+    renderPage();
+    await user.type(
+      screen.getByPlaceholderText(/buscar por nombre, cic o email/i),
+      '  0000000002  ',
+    );
+    await waitFor(() => {
+      expect(screen.getByText('0000000002')).toBeInTheDocument(); // matched despite spaces
+      expect(screen.queryByText('0000000001')).not.toBeInTheDocument();
+    }, { timeout: 1000 });
+  });
+
   it('no search term → all accounts visible', () => {
     mockHooks();
     renderPage();
     expect(screen.getByText('0000000001')).toBeInTheDocument();
     expect(screen.getByText('0000000002')).toBeInTheDocument();
+  });
+
+  // ── #61 fix wave — honest cap notice ───────────────────────────────────────
+  // The full-fetch loop stops at 200 accounts (MAX_PAGES*PAGE_LIMIT). When the
+  // list comes back exactly full, the page warns the filter searches a subset.
+  it('shows a cap notice when the fetched list hits 200 accounts (#61 fix wave)', () => {
+    const capped = Array.from({ length: 200 }, (_, i) => ({
+      ...accounts[0], cic: `cic-${i}`, email: `u${i}@t.com`,
+    }));
+    mockHooks({ allAccountsData: capped });
+    renderPage();
+    expect(screen.getByText(/primeras 200 cuentas/i)).toBeInTheDocument();
+  });
+
+  it('does NOT show the cap notice below the 200 limit', () => {
+    mockHooks(); // 2 accounts
+    renderPage();
+    expect(screen.queryByText(/primeras 200 cuentas/i)).not.toBeInTheDocument();
   });
 
   // ── Status filter — still parametrizes useGigaredAllAccounts ───────────────

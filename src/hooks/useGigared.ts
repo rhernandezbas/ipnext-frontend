@@ -30,16 +30,30 @@ const ROOT = ['gigared'] as const;
 export const CONFIG_KEY = [...ROOT, 'config'] as const;
 export const SUMMARY_KEY = [...ROOT, 'summary'] as const;
 const ACCOUNTS_ROOT = [...ROOT, 'accounts'] as const;
+// #61 fix wave — the TV page (GigaredAccountsPage) reads the FULL list under
+// ['gigared','all-accounts',status] via useGigaredAllAccounts, NOT under
+// ACCOUNTS_ROOT. Any mutation that changes a row's internalId, status, services
+// or OTT must invalidate THIS root too, or the page shows stale rows for up to
+// the 5-min staleTime. Partial-prefix key → invalidates every status variant.
+export const ALL_ACCOUNTS_ROOT = [...ROOT, 'all-accounts'] as const;
 export const accountsKey = (filters: ListAccountsFilter) => [...ACCOUNTS_ROOT, filters] as const;
 export const accountKey = (customerId: string) => [...ROOT, 'account', customerId] as const;
 export const allAccountsKey = (status: GigaredAccountStatus) =>
-  [...ROOT, 'all-accounts', status] as const;
+  [...ALL_ACCOUNTS_ROOT, status] as const;
 
 // The partner API caps pagination_limit at 20 (verified live 2026-06-11). To get
-// the FULL set for the contract picker we page through it. Cap the loop so a
+// the set for the contract picker / TV list we page through it. Cap the loop so a
 // runaway partner can't hang the UI.
+//
+// #61 fix wave — HONEST CAP: MAX_PAGES * PAGE_LIMIT = 200 accounts. If a partner
+// has MORE than 200 accounts of a given status, this returns ONLY the first 200
+// and the client-side filter in GigaredAccountsPage therefore searches a SUBSET,
+// not the whole catalogue. The page surfaces a subtle notice when the cap is hit
+// (see GigaredAccountsPage's "first N accounts" banner). Raising the cap or moving
+// to a server-side LIKE search is the real fix when account counts grow.
 const PAGE_LIMIT = 20;
 const MAX_PAGES = 10;
+export const MAX_FETCHED_ACCOUNTS = PAGE_LIMIT * MAX_PAGES; // 200 — page reads this for the cap notice
 
 // ── Config ────────────────────────────────────────────────────────────────
 
@@ -124,6 +138,7 @@ export function useLinkCic(customerId: string) {
       qc.invalidateQueries({ queryKey: accountKey(customerId) });
       qc.invalidateQueries({ queryKey: SUMMARY_KEY });
       qc.invalidateQueries({ queryKey: ACCOUNTS_ROOT });
+      qc.invalidateQueries({ queryKey: ALL_ACCOUNTS_ROOT });
       // #47f — the link reconciles the local 'TV' ContractService onto the owner
       // contract, so the customer ContractsTab must refresh for the chip to show.
       qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
@@ -139,6 +154,7 @@ export function useRegisterAccount(customerId: string) {
       qc.invalidateQueries({ queryKey: accountKey(customerId) });
       qc.invalidateQueries({ queryKey: SUMMARY_KEY });
       qc.invalidateQueries({ queryKey: ACCOUNTS_ROOT });
+      qc.invalidateQueries({ queryKey: ALL_ACCOUNTS_ROOT });
     },
   });
 }
@@ -150,6 +166,7 @@ export function useAddTvService(customerId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: accountKey(customerId) });
       qc.invalidateQueries({ queryKey: SUMMARY_KEY });
+      qc.invalidateQueries({ queryKey: ALL_ACCOUNTS_ROOT });
       qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
     },
   });
@@ -163,6 +180,7 @@ export function useRemoveTvService(customerId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: accountKey(customerId) });
       qc.invalidateQueries({ queryKey: SUMMARY_KEY });
+      qc.invalidateQueries({ queryKey: ALL_ACCOUNTS_ROOT });
       qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
     },
   });
@@ -174,6 +192,8 @@ export function useSetOtt(customerId: string) {
     mutationFn: (body: SetOttPayload) => gigaredApi.setOtt(customerId, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: accountKey(customerId) });
+      // #61 fix wave — the TV list has an OTT column; toggling OTT must refresh it.
+      qc.invalidateQueries({ queryKey: ALL_ACCOUNTS_ROOT });
     },
   });
 }
@@ -188,6 +208,7 @@ export function useCancelTv(customerId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: accountKey(customerId) });
       qc.invalidateQueries({ queryKey: SUMMARY_KEY });
+      qc.invalidateQueries({ queryKey: ALL_ACCOUNTS_ROOT });
       qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
     },
   });

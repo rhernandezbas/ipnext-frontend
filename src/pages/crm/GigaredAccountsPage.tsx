@@ -1,14 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useGigaredSummary, useGigaredAllAccounts } from '@/hooks/useGigared';
+import { useGigaredSummary, useGigaredAllAccounts, MAX_FETCHED_ACCOUNTS } from '@/hooks/useGigared';
 import { GigaredNotConfigured } from '@/components/molecules/GigaredNotConfigured/GigaredNotConfigured';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import type { GigaredAccount, GigaredAccountStatus } from '@/types/gigared';
 import styles from './GigaredAccountsPage.module.css';
 
-// #61 — client-side pagination over the fully-fetched list.
+// #61 — client-side pagination over the fetched list.
 // PAGE_SIZE matches the partner cap (20) so each page slice feels natural.
+//
+// #61 fix wave — NOTE: the list is NOT guaranteed to be the full catalogue. The
+// fetch loop in useGigaredAllAccounts stops at MAX_FETCHED_ACCOUNTS (200) per
+// status, so with more accounts the client-side filter searches a SUBSET. We
+// surface that honestly via a cap notice instead of claiming a "fully-fetched"
+// list. Server-side LIKE is the real fix when counts grow past the cap.
 const PAGE_SIZE = 20;
 
 /** Read the BE error `code` from a query error, if present. */
@@ -120,10 +126,20 @@ export default function GigaredAccountsPage() {
     return merged;
   }, [status, registeredQuery.data, unregisteredQuery.data]);
 
+  // #61 fix wave — the fetch loop caps at MAX_FETCHED_ACCOUNTS per status. If any
+  // active query returned exactly that many rows it was probably truncated, so the
+  // filter is running over a subset. Warn honestly. (Edge: a partner with exactly
+  // 200 shows the notice harmlessly — better a false positive than a silent subset.)
+  const capHit =
+    (registeredQuery.data?.length ?? 0) >= MAX_FETCHED_ACCOUNTS ||
+    (unregisteredQuery.data?.length ?? 0) >= MAX_FETCHED_ACCOUNTS;
+
   // #61 — client-side filter: case-insensitive substring over name, CIC, email.
   const filteredAccounts = useMemo(() => {
-    if (!search) return allAccounts;
-    const term = search.toLowerCase();
+    // #61 fix wave — trim so a copy-pasted CIC with stray spaces ("2354 ") still
+    // matches; an all-whitespace term collapses to empty and shows everything.
+    const term = search.trim().toLowerCase();
+    if (!term) return allAccounts;
     return allAccounts.filter((a) => {
       const name = `${a.firstName ?? ''} ${a.lastName ?? ''}`.trim().toLowerCase();
       const cic = a.cic.toLowerCase();
@@ -189,8 +205,10 @@ export default function GigaredAccountsPage() {
             type="button"
             className={styles.btnLink}
             onClick={() => {
-              registeredQuery.refetch();
-              unregisteredQuery.refetch();
+              // #61 fix wave — only refetch the queries that are actually enabled
+              // for the current status; refetching a disabled query is wasted work.
+              if (status === '' || status === 'registered') registeredQuery.refetch();
+              if (status === '' || status === 'unregistered') unregisteredQuery.refetch();
             }}
           >
             Reintentar
@@ -198,6 +216,12 @@ export default function GigaredAccountsPage() {
         </div>
       ) : (
         <>
+          {capHit && (
+            <div className={`${styles.banner} ${styles.bannerNotice}`}>
+              Mostrando las primeras {MAX_FETCHED_ACCOUNTS} cuentas. El buscador
+              filtra sobre ese subconjunto.
+            </div>
+          )}
           <DataTable
             columns={COLUMNS}
             data={rows}
