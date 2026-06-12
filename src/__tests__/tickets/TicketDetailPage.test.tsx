@@ -42,6 +42,8 @@ const mockTicket: Ticket = {
   customerName: 'Alice García',
   assigneeId: '5',
   assigneeName: 'Juan Técnico',
+  reporterId: '7',
+  reporterName: 'María Creadora',
   reporter: null,
   tasks: [],
   createdAt: '2024-01-15T10:00:00Z',
@@ -171,11 +173,15 @@ describe('TicketDetailPage (Prominense layout)', () => {
     expect(select.value).toBe('open');
   });
 
-  it('changing the StatusSelect calls updateStatus mutation', async () => {
+  // #48 — the header StatusSelect is now controlled by the page's local draft
+  // state; changing it stages the value (no immediate mutation). Persistence
+  // happens only through the unified GUARDAR button in the Detalles panel.
+  it('changing the StatusSelect does NOT mutate immediately (staged for unified save)', async () => {
     const user = userEvent.setup();
     renderPage();
     await user.selectOptions(screen.getByRole('combobox', { name: /estado/i }), 'resolved');
-    expect(mockMutateAsync).toHaveBeenCalledWith({ id: 'abc-123', status: 'resolved' });
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+    expect(mockMutate).not.toHaveBeenCalled();
   });
 
   it('renders customerName in the Detalles sidebar', () => {
@@ -183,24 +189,129 @@ describe('TicketDetailPage (Prominense layout)', () => {
     expect(screen.getByText('Alice García')).toBeInTheDocument();
   });
 
+  // #48 — Reporter is a read-only display of the creator's name (reporterName).
+  it('renders the reporter name (reporterName) in the Detalles sidebar', () => {
+    renderPage();
+    expect(screen.getByText('María Creadora')).toBeInTheDocument();
+  });
+
+  it('renders "—" for the reporter when reporterName is null', () => {
+    vi.mocked(useTicketsModule.useTicket).mockReturnValue(
+      { data: { ...mockTicket, reporterName: null }, isLoading: false } as ReturnType<typeof useTicketsModule.useTicket>,
+    );
+    renderPage();
+    const reporterRow = screen.getByText('Reporter').closest('div') as HTMLElement;
+    expect(reporterRow.textContent).toContain('—');
+  });
+
+  it('renders the assignment select with Sin asignar + RBAC users', () => {
+    renderPage();
+    const select = screen.getByRole('combobox', { name: /asignar a/i });
+    expect(select).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Sin asignar' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Soporte' })).toBeInTheDocument();
+  });
+
+  // #28 follow-up: the select must bind the BE's `assigneeId` (string RbacUser
+  // id) — the legacy contract read `assignedTo:number`, which never exists, so
+  // the select always fell back to "Sin asignar".
   it('the assignment select reflects the current assignee', () => {
     renderPage();
     const select = screen.getByRole('combobox', { name: /asignar a/i }) as HTMLSelectElement;
     expect(select.value).toBe('5');
   });
 
-  it('changing the assignment select calls assignTicket with assigneeId', async () => {
+  // #48 — assignment no longer mutates on change; it stages into the draft.
+  it('changing the assignment select does NOT mutate immediately (staged)', async () => {
     const user = userEvent.setup();
     renderPage();
     await user.selectOptions(screen.getByRole('combobox', { name: /asignar a/i }), '6');
-    expect(mockMutate).toHaveBeenCalledWith({ id: 'abc-123', assigneeId: '6' });
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
-  it('clearing the assignment select calls assignTicket with assigneeId null', async () => {
+  // #48 — the unified GUARDAR persists assignee + status + priority in ONE
+  // updateTicket call (PATCH /tickets/:id).
+  it('GUARDAR persists assignee + status + priority in a single updateTicket call', async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.selectOptions(screen.getByRole('combobox', { name: /asignar a/i }), '');
-    expect(mockMutate).toHaveBeenCalledWith({ id: 'abc-123', assigneeId: null });
+    await user.selectOptions(screen.getByRole('combobox', { name: /asignar a/i }), '6');
+    await user.selectOptions(screen.getByRole('combobox', { name: /estado/i }), 'pending');
+    await user.selectOptions(screen.getByRole('combobox', { name: /prioridad/i }), 'low');
+    await user.click(screen.getByRole('button', { name: /guardar/i }));
+    await waitFor(() =>
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        id: 'abc-123',
+        data: { assigneeId: '6', status: 'pending', priority: 'low' },
+      }),
+    );
+  });
+
+  it('GUARDAR is disabled when there are no pending changes', () => {
+    renderPage();
+    expect(screen.getByRole('button', { name: /guardar/i })).toBeDisabled();
+  });
+
+  it('GUARDAR becomes enabled after a change is staged', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.selectOptions(screen.getByRole('combobox', { name: /prioridad/i }), 'low');
+    expect(screen.getByRole('button', { name: /guardar/i })).toBeEnabled();
+  });
+
+  // #48 fix-wave (H1) — the draft must be keyed by ticket.id. The :id route does
+  // NOT remount the component on back/forward; if ticket B happens to share A's
+  // assignee/status/priority, the seed effect (keyed only on those values) would
+  // not re-fire and A's STAGED-but-unsaved draft could be GUARDADO over B.
+  it('re-seeds the draft when the ticket id changes even if the field values match', async () => {
+    const user = userEvent.setup();
+
+    const ticketA = { ...mockTicket, id: 'A-1', assigneeId: '5', status: 'open' as const, priority: 'high' as const };
+    // Same assignee/status/priority as A, different id — the dangerous case.
+    const ticketB = { ...mockTicket, id: 'B-2', assigneeId: '5', status: 'open' as const, priority: 'high' as const };
+
+    vi.mocked(useTicketsModule.useTicket).mockReturnValue({ data: ticketA, isLoading: false } as ReturnType<typeof useTicketsModule.useTicket>);
+    const { rerender } = renderPage('A-1');
+
+    // Stage a dirty draft on A (change the status away from 'open').
+    await user.selectOptions(screen.getByRole('combobox', { name: /estado/i }), 'pending');
+    expect(screen.getByRole('button', { name: /guardar/i })).toBeEnabled();
+
+    // Navigate to B WITHOUT remounting: same element, the mock now yields B.
+    vi.mocked(useTicketsModule.useTicket).mockReturnValue({ data: ticketB, isLoading: false } as ReturnType<typeof useTicketsModule.useTicket>);
+    rerender(
+      <QueryClientProvider client={makeQC()}>
+        <MemoryRouter initialEntries={['/admin/tickets/B-2']}>
+          <Routes>
+            <Route path="/admin/tickets/:id" element={<TicketDetailPage />} />
+            <Route path="/admin/tickets/opened" element={<div>Lista de Tickets</div>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    // The draft must have reset to B's values → status select back to 'open',
+    // GUARDAR disabled (isDirty=false). The dirty draft from A must NOT survive.
+    await waitFor(() => {
+      const select = screen.getByRole('combobox', { name: /estado/i }) as HTMLSelectElement;
+      expect(select.value).toBe('open');
+    });
+    expect(screen.getByRole('button', { name: /guardar/i })).toBeDisabled();
+  });
+
+  // #48 fix-wave (M2) — a failed GUARDAR (e.g. 422 TICKET_STATUS_NOT_FOUND, part
+  // of the contract) must surface a visible error, not vanish as an unhandled
+  // rejection.
+  it('shows a visible error when GUARDAR fails', async () => {
+    const user = userEvent.setup();
+    mockMutateAsync.mockRejectedValueOnce({
+      response: { data: { error: 'Status "ghost" is not in the ticket status catalog', code: 'TICKET_STATUS_NOT_FOUND' } },
+    });
+    renderPage();
+    await user.selectOptions(screen.getByRole('combobox', { name: /prioridad/i }), 'low');
+    await user.click(screen.getByRole('button', { name: /guardar/i }));
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/no se pudo|error|catalog/i);
   });
 
   it('inline subject edit calls updateTicket mutation', async () => {

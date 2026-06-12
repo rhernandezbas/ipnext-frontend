@@ -33,6 +33,11 @@ export interface Ticket {
   // in the real payload, so assignment rendered empty everywhere.
   assigneeId: string | null;
   assigneeName: string | null;
+  // #48 — quien creo el ticket. reporterName es JOIN-derived (RbacUser.name) del BE.
+  // `reporter` (solo nombre) queda DEPRECADO en favor de reporterName.
+  reporterId: string | null;
+  reporterName: string | null;
+  /** @deprecated #48 — usar reporterName. Conservado por compat hasta confirmar consumidores. */
   reporter: string | null;
   /** ScheduledTasks created from this ticket (#44 — enriched GET /tickets/:id). */
   tasks?: RelatedTask[];

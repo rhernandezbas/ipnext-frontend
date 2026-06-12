@@ -225,7 +225,9 @@ const ALL_COLUMNS: Array<{ label: string; key: string; sortable?: boolean; rende
     render: (t) => <Link to={`/admin/tickets/${t.id}`} className={styles.titleLink}>{t.subject}</Link> },
   { label: 'Cliente/Cliente Potencial', key: 'customerName', sortable: true },
   { label: 'Tipo', key: 'type' },
-  { label: 'Reporter', key: 'reporter' },
+  // #48 (M1): the BE sends `reporterName` on the list (deprecated `reporter` is
+  // no longer populated). Read the live field, fall back to '—' when null.
+  { label: 'Reporter', key: 'reporterName', render: (t) => t.reporterName ?? '—' },
   { label: 'Prioridad', key: 'priority', sortable: true, render: (t) => <PriorityPill priority={t.priority} /> },
   { label: 'Estado', key: 'status', sortable: true, render: (t) => <TicketStatusPill status={t.status} /> },
   { label: 'Asignado a', key: 'assigneeName' },

@@ -73,10 +73,22 @@ export function useAssignTicket() {
   });
 }
 
+// #48 — unified save: PATCH /tickets/:id accepts assigneeId + status + priority
+// (plus subject/description) in one request. `description` is the real BE field
+// (the legacy `message` never existed in the payload). The BE validates `status`
+// against the catalog (422 if unknown).
+export interface UpdateTicketData {
+  subject?: string;
+  description?: string;
+  priority?: string;
+  assigneeId?: string | null;
+  status?: string;
+}
+
 export function useUpdateTicket() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { subject?: string; message?: string; priority?: string } }) =>
+    mutationFn: ({ id, data }: { id: string; data: UpdateTicketData }) =>
       axiosClient.patch(`/tickets/${id}`, data).then(r => r.data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['ticket', id] });
