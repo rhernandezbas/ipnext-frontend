@@ -2,14 +2,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import type { GigaredAccount, GigaredSummary, ListAccountsResult } from '@/types/gigared';
+import type { GigaredAccount, GigaredSummary } from '@/types/gigared';
 
 vi.mock('@/hooks/useGigared', () => ({
   useGigaredSummary: vi.fn(),
-  useGigaredAccounts: vi.fn(),
+  useGigaredAllAccounts: vi.fn(),
 }));
 
-import { useGigaredSummary, useGigaredAccounts } from '@/hooks/useGigared';
+import { useGigaredSummary, useGigaredAllAccounts } from '@/hooks/useGigared';
 import GigaredAccountsPage from '@/pages/crm/GigaredAccountsPage';
 
 const accounts: GigaredAccount[] = [
@@ -30,10 +30,11 @@ const summary: GigaredSummary = {
   services: [{ id: 's1', name: 'Play Full', qtyAvailable: 3, qtyUsed: 2, qtyPurchased: 5 }],
 };
 
+// useGigaredAllAccounts returns GigaredAccount[] directly (not wrapped).
 function mockHooks(over: {
-  accountsData?: ListAccountsResult;
-  accountsError?: unknown;
-  accountsLoading?: boolean;
+  allAccountsData?: GigaredAccount[];
+  allAccountsError?: unknown;
+  allAccountsLoading?: boolean;
   summaryData?: GigaredSummary;
 } = {}) {
   vi.mocked(useGigaredSummary).mockReturnValue({
@@ -42,13 +43,13 @@ function mockHooks(over: {
     isError: false,
   } as ReturnType<typeof useGigaredSummary>);
 
-  vi.mocked(useGigaredAccounts).mockReturnValue({
-    data: over.accountsData ?? { accounts },
-    isLoading: over.accountsLoading ?? false,
-    isError: !!over.accountsError,
-    error: over.accountsError,
+  vi.mocked(useGigaredAllAccounts).mockReturnValue({
+    data: over.allAccountsData ?? accounts,
+    isLoading: over.allAccountsLoading ?? false,
+    isError: !!over.allAccountsError,
+    error: over.allAccountsError,
     refetch: vi.fn(),
-  } as unknown as ReturnType<typeof useGigaredAccounts>);
+  } as unknown as ReturnType<typeof useGigaredAllAccounts>);
 }
 
 function renderPage() {
@@ -92,16 +93,13 @@ describe('GigaredAccountsPage', () => {
       const disabled = [
         { ...accounts[0], ott: { ...accounts[0].ott!, status: 'disabled' as const } },
       ];
-      mockHooks({ accountsData: { accounts: disabled } });
+      mockHooks({ allAccountsData: disabled });
       renderPage();
       expect(screen.queryByText('Activo')).not.toBeInTheDocument();
     });
   });
 
   // ── #47j Fix 3: the name links to the customer view when linked ──────────────
-  // When an account has internalId (it is linked to a Prominense customer), the
-  // Nombre cell is a Link to /admin/customers/view/{internalId}. Without it, the
-  // name is plain text.
   describe('#47j Fix 3 — name hyperlinks the linked customer', () => {
     it('linked account → name is a link to /admin/customers/view/{internalId}', () => {
       mockHooks();
@@ -121,9 +119,6 @@ describe('GigaredAccountsPage', () => {
   });
 
   // ── #47j Fix 4: the summary service copy is human, not "0/102" ───────────────
-  // The cryptic "{available}/{purchased}" becomes "En uso {used} de {purchased}"
-  // with a "{available} disponibles" sub. When available is 0 it warns "sin cupo
-  // disponible".
   describe('#47j Fix 4 — readable service usage copy', () => {
     it('renders "En uso {used} de {purchased}" with available sub', () => {
       // summary service: used 2, purchased 5, available 3.
@@ -145,63 +140,100 @@ describe('GigaredAccountsPage', () => {
     });
   });
 
-  it('passes the email filter to the accounts hook (debounced)', async () => {
+  // ── #61 — single LIKE search input ──────────────────────────────────────────
+  // The 2 old inputs (email + CIC) are GONE. ONE input replaces them.
+  it('renders a single search input with correct placeholder', () => {
+    mockHooks();
+    renderPage();
+    expect(screen.getByPlaceholderText(/buscar por nombre, cic o email/i)).toBeInTheDocument();
+    // The OLD separate inputs must NOT be present.
+    expect(screen.queryByPlaceholderText(/filtrar por email/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/cic o id interno/i)).not.toBeInTheDocument();
+  });
+
+  it('filters by NAME substring (case-insensitive) after debounce', async () => {
     const user = userEvent.setup();
     mockHooks();
     renderPage();
-    await user.type(screen.getByPlaceholderText(/email/i), 'a@b.com');
-    await waitFor(
-      () =>
-        expect(useGigaredAccounts).toHaveBeenCalledWith(
-          expect.objectContaining({ email: 'a@b.com' }),
-        ),
-      { timeout: 1000 },
-    );
+    await user.type(screen.getByPlaceholderText(/buscar por nombre, cic o email/i), 'ana');
+    await waitFor(() => {
+      expect(screen.getByText('0000000001')).toBeInTheDocument(); // Ana García matched
+      expect(screen.queryByText('0000000002')).not.toBeInTheDocument(); // Beto filtered out
+    }, { timeout: 1000 });
   });
 
-  it('H2: passes the CIC filter to the accounts hook as accountId (debounced)', async () => {
+  it('filters by CIC substring (case-insensitive) after debounce', async () => {
     const user = userEvent.setup();
     mockHooks();
     renderPage();
-    await user.type(screen.getByLabelText(/cic o id interno/i), 'CIC123');
-    await waitFor(
-      () =>
-        expect(useGigaredAccounts).toHaveBeenCalledWith(
-          expect.objectContaining({ accountId: 'CIC123' }),
-        ),
-      { timeout: 1000 },
-    );
+    await user.type(screen.getByPlaceholderText(/buscar por nombre, cic o email/i), '0000000002');
+    await waitFor(() => {
+      expect(screen.getByText('0000000002')).toBeInTheDocument(); // matched
+      expect(screen.queryByText('0000000001')).not.toBeInTheDocument(); // filtered out
+    }, { timeout: 1000 });
   });
 
-  it('passes the status filter to the accounts hook', async () => {
+  it('filters by EMAIL substring (case-insensitive) after debounce', async () => {
+    const user = userEvent.setup();
+    mockHooks();
+    renderPage();
+    await user.type(screen.getByPlaceholderText(/buscar por nombre, cic o email/i), 'a@b.com');
+    await waitFor(() => {
+      expect(screen.getByText('a@b.com')).toBeInTheDocument(); // Ana matched
+      expect(screen.queryByText('b@b.com')).not.toBeInTheDocument(); // Beto filtered out
+    }, { timeout: 1000 });
+  });
+
+  it('no search term → all accounts visible', () => {
+    mockHooks();
+    renderPage();
+    expect(screen.getByText('0000000001')).toBeInTheDocument();
+    expect(screen.getByText('0000000002')).toBeInTheDocument();
+  });
+
+  // ── Status filter — still parametrizes useGigaredAllAccounts ───────────────
+  it('passes status=registered to useGigaredAllAccounts', async () => {
     const user = userEvent.setup();
     mockHooks();
     renderPage();
     await user.selectOptions(screen.getByLabelText(/estado/i), 'registered');
     await waitFor(() =>
-      expect(useGigaredAccounts).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'registered' }),
+      expect(useGigaredAllAccounts).toHaveBeenCalledWith(
+        'registered',
+        true,
       ),
     );
   });
 
-  it('shows the not-configured banner on 503 GIGARED_NOT_CONFIGURED', () => {
-    mockHooks({ accountsError: { response: { status: 503, data: { code: 'GIGARED_NOT_CONFIGURED' } } } });
+  it('passes status=unregistered to useGigaredAllAccounts', async () => {
+    const user = userEvent.setup();
+    mockHooks();
+    renderPage();
+    await user.selectOptions(screen.getByLabelText(/estado/i), 'unregistered');
+    await waitFor(() =>
+      expect(useGigaredAllAccounts).toHaveBeenCalledWith(
+        'unregistered',
+        true,
+      ),
+    );
+  });
+
+  // ── Error states ──────────────────────────────────────────────────────────
+  it('shows the not-configured banner on GIGARED_NOT_CONFIGURED', () => {
+    mockHooks({ allAccountsError: { response: { status: 503, data: { code: 'GIGARED_NOT_CONFIGURED' } } } });
     renderPage();
     expect(screen.getByText(/no está configurada/i)).toBeInTheDocument();
   });
 
-  it('shows a retry notice on 503 GIGARED_UNAVAILABLE', () => {
-    mockHooks({ accountsError: { response: { status: 503, data: { code: 'GIGARED_UNAVAILABLE' } } } });
+  it('shows a retry notice on GIGARED_UNAVAILABLE', () => {
+    mockHooks({ allAccountsError: { response: { status: 503, data: { code: 'GIGARED_UNAVAILABLE' } } } });
     renderPage();
     expect(screen.getByRole('button', { name: /reintentar/i })).toBeInTheDocument();
   });
 
-  // #47g-3 — the BE now sends `detail` on the upstream errors too. The page must
-  // surface it on the unavailable banner instead of the bare generic message.
-  it('shows the partner detail on 502 GIGARED_UNAVAILABLE when present', () => {
+  it('shows the partner detail on GIGARED_UNAVAILABLE when present', () => {
     mockHooks({
-      accountsError: {
+      allAccountsError: {
         response: { status: 502, data: { code: 'GIGARED_UNAVAILABLE', detail: 'Gigared devolvió 502' } },
       },
     });
@@ -210,93 +242,52 @@ describe('GigaredAccountsPage', () => {
   });
 
   it('shows an empty state when there are no accounts', () => {
-    mockHooks({ accountsData: { accounts: [] } });
+    mockHooks({ allAccountsData: [] });
     renderPage();
     expect(screen.getByText(/sin cuentas/i)).toBeInTheDocument();
   });
 
-  // Fix #47c-1 — the partner API caps pagination_limit at 20 (verified live
-  // 2026-06-11: >20 returns 400 "La paginación tiene un límite de 20 cuentas").
-  // The page MUST request at most 20 per page or the list errors out always.
-  it('requests the accounts hook with paginationLimit capped at 20', () => {
-    mockHooks();
+  // ── #61 — client-side pagination ──────────────────────────────────────────
+  // PAGE_SIZE=20. Filtered list drives totalPages = ceil(filtered.length / 20).
+  it('client-side pagination: 2 accounts → 1 page (no pagination buttons)', () => {
+    mockHooks(); // 2 accounts → ceil(2/20)=1
     renderPage();
-    expect(useGigaredAccounts).toHaveBeenCalledWith(
-      expect.objectContaining({ paginationLimit: 20 }),
-    );
+    // With 1 page there should be no numbered pagination buttons (only page 1 which
+    // the Pagination component may or may not render — just verify no page 2).
+    expect(screen.queryByRole('button', { name: '2' })).not.toBeInTheDocument();
   });
 
-  it('a full page (20 rows) under a text filter implies a next page', async () => {
-    const user = userEvent.setup();
-    const full = Array.from({ length: 20 }, (_, i) => ({
+  it('client-side pagination: 21 unfiltered accounts → 2 pages', () => {
+    const big = Array.from({ length: 21 }, (_, i) => ({
       ...accounts[0],
       cic: `cic-${i}`,
+      email: `user${i}@test.com`,
     }));
-    // The default fixture summary has total=7 (→ 1 real page), so to exercise the
-    // hasNext heuristic we need a text filter active (summary no longer applies).
-    mockHooks({ accountsData: { accounts: full } });
+    mockHooks({ allAccountsData: big });
     renderPage();
-    await user.type(screen.getByPlaceholderText(/email/i), 'x@y.com');
-    // With a full page + a text filter the Pagination must expose a "next" affordance.
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /siguiente|next|›|»/i })).toBeInTheDocument(),
-    );
+    // ceil(21/20)=2 → page 2 button visible.
+    expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '3' })).not.toBeInTheDocument();
   });
 
-  // Bug #47g-1 — totalPages REAL from the summary the page already has, instead
-  // of the hasNext heuristic. The partner list endpoint gives no total, but the
-  // summary does: registered/unregistered/total. Without a status filter the
-  // pager spans ceil(total/20); with a status it spans ceil(thatCount/20). Only
-  // when an email/account_id filter is active (the summary no longer applies)
-  // does it fall back to the hasNext heuristic.
-  describe('#47g-1 — real totalPages from summary', () => {
-    const bigSummary: GigaredSummary = {
-      accounts: { registered: 45, unregistered: 25, total: 70 },
-      services: [],
-    };
-    // A full page of rows so the hasNext heuristic alone would say "page + 1" (2).
-    const fullPage = Array.from({ length: 20 }, (_, i) => ({ ...accounts[0], cic: `cic-${i}` }));
-
-    it('no status filter → pager spans ceil(total/20) = 4 pages', () => {
-      mockHooks({ summaryData: bigSummary, accountsData: { accounts: fullPage } });
-      renderPage();
-      // ceil(70/20) = 4. The last page button (4) must be reachable.
-      expect(screen.getByRole('button', { name: '4' })).toBeInTheDocument();
-      // The heuristic would have capped at 2 — make sure we exceed it.
-      expect(screen.queryByRole('button', { name: '3' })).toBeInTheDocument();
-    });
-
-    it('status=registered → pager spans ceil(registered/20) = 3 pages', async () => {
-      const user = userEvent.setup();
-      mockHooks({ summaryData: bigSummary, accountsData: { accounts: fullPage } });
-      renderPage();
-      await user.selectOptions(screen.getByLabelText(/estado/i), 'registered');
-      // ceil(45/20) = 3.
-      await waitFor(() => expect(screen.getByRole('button', { name: '3' })).toBeInTheDocument());
-      expect(screen.queryByRole('button', { name: '4' })).not.toBeInTheDocument();
-    });
-
-    it('status=unregistered → pager spans ceil(unregistered/20) = 2 pages', async () => {
-      const user = userEvent.setup();
-      mockHooks({ summaryData: bigSummary, accountsData: { accounts: fullPage } });
-      renderPage();
-      await user.selectOptions(screen.getByLabelText(/estado/i), 'unregistered');
-      // ceil(25/20) = 2.
-      await waitFor(() => expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument());
-      expect(screen.queryByRole('button', { name: '3' })).not.toBeInTheDocument();
-    });
-
-    it('with an email filter active → falls back to the hasNext heuristic', async () => {
-      const user = userEvent.setup();
-      mockHooks({ summaryData: bigSummary, accountsData: { accounts: fullPage } });
-      renderPage();
-      await user.type(screen.getByPlaceholderText(/email/i), 'x@y.com');
-      // On page 1 with a full page the heuristic says totalPages = 2, NOT 4.
-      // Wait for the debounce to collapse the pager from 4 (summary) down to 2.
-      await waitFor(() =>
-        expect(screen.queryByRole('button', { name: '4' })).not.toBeInTheDocument(),
-      );
-      expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument();
-    });
+  it('client-side pagination: filter reduces pages', async () => {
+    const user = userEvent.setup();
+    // 21 accounts: only the first has name "Ana García" (from fixture accounts[0])
+    const big = Array.from({ length: 21 }, (_, i) => ({
+      ...accounts[0],
+      cic: `cic-${i}`,
+      firstName: i === 0 ? 'Ana' : 'Other',
+      lastName: i === 0 ? 'García' : `User${i}`,
+      email: `user${i}@test.com`,
+    }));
+    mockHooks({ allAccountsData: big });
+    renderPage();
+    // Before filter: 2 pages
+    expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument();
+    // Type in search — "Ana" matches only 1 account → 1 page
+    await user.type(screen.getByPlaceholderText(/buscar por nombre, cic o email/i), 'Ana');
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: '2' })).not.toBeInTheDocument();
+    }, { timeout: 1000 });
   });
 });
