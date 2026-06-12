@@ -4,6 +4,7 @@ import { useGigaredSummary, useGigaredAllAccounts, MAX_FETCHED_ACCOUNTS } from '
 import { GigaredNotConfigured } from '@/components/molecules/GigaredNotConfigured/GigaredNotConfigured';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
+import { StatusBadge } from '@/components/atoms/StatusBadge';
 import type { GigaredAccount, GigaredAccountStatus } from '@/types/gigared';
 import styles from './GigaredAccountsPage.module.css';
 
@@ -67,9 +68,24 @@ const COLUMNS = [
   },
   {
     key: 'ott',
-    label: 'OTT',
-    // #47j Fix 1 — normalized OTT status is 'enabled' | 'disabled' | null.
-    render: (r: Row) => (r.ott?.status === 'enabled' ? 'Activo' : '—'),
+    label: 'Estado',
+    // #62 — human-readable TV state pill derived from ott.status.
+    // Mapping (design locked):
+    //   enabled  → "Activa"    green  (StatusBadge status="active")
+    //   disabled → "Suspendida" gray  (StatusBadge status="inactive")
+    //   null/absent → "Sin OTT" gray  (StatusBadge status="inactive")
+    // Decision: gray (inactive) for both disabled and null — visually distinct
+    // from green "Activa" and text makes state unambiguous. No amber variant
+    // added: "inactive" gray is clean and avoids design-system churn.
+    render: (r: Row) => {
+      if (r.ott?.status === 'enabled') {
+        return <StatusBadge status="active" label="Activa" />;
+      }
+      if (r.ott?.status === 'disabled') {
+        return <StatusBadge status="inactive" label="Suspendida" />;
+      }
+      return <StatusBadge status="inactive" label="Sin OTT" />;
+    },
   },
 ];
 

@@ -85,11 +85,13 @@ describe('GigaredAccountsPage', () => {
   });
 
   // ── #47j Fix 1: the OTT column reads the FROZEN 'enabled' status ─────────────
+  // NOTE: #62 converted the raw OTT column into the "Estado" pill. These tests
+  // are updated to match the new labels (Activa / Suspendida / Sin OTT).
   describe('#47j Fix 1 — OTT column reflects normalized status', () => {
-    it("status 'enabled' → renders 'Activo'", () => {
+    it("status 'enabled' → renders 'Activa'", () => {
       mockHooks();
       renderPage();
-      expect(screen.getByText('Activo')).toBeInTheDocument();
+      expect(screen.getByText('Activa')).toBeInTheDocument();
     });
 
     it("status 'disabled' → renders the dash", () => {
@@ -98,7 +100,50 @@ describe('GigaredAccountsPage', () => {
       ];
       mockHooks({ allAccountsData: disabled });
       renderPage();
-      expect(screen.queryByText('Activo')).not.toBeInTheDocument();
+      expect(screen.queryByText('Activa')).not.toBeInTheDocument();
+    });
+  });
+
+  // ── #62 — Estado pill column ──────────────────────────────────────────────
+  describe('#62 — Estado column renders TV state as pill', () => {
+    it("ott.status 'enabled' → pill 'Activa'", () => {
+      // accounts[0] has ott.status = 'enabled'
+      mockHooks();
+      renderPage();
+      expect(screen.getByText('Activa')).toBeInTheDocument();
+    });
+
+    it("ott.status 'disabled' → pill 'Suspendida'", () => {
+      const withDisabled = [
+        { ...accounts[0], ott: { ...accounts[0].ott!, status: 'disabled' as const } },
+        accounts[1],
+      ];
+      mockHooks({ allAccountsData: withDisabled });
+      renderPage();
+      expect(screen.getByText('Suspendida')).toBeInTheDocument();
+      expect(screen.queryByText('Activa')).not.toBeInTheDocument();
+    });
+
+    it('ott === null → pill "Sin OTT"', () => {
+      // accounts[1] has ott = null
+      mockHooks();
+      renderPage();
+      expect(screen.getByText('Sin OTT')).toBeInTheDocument();
+    });
+
+    it('ott.status === null → pill "Sin OTT"', () => {
+      const withNullStatus = [
+        { ...accounts[0], ott: { ...accounts[0].ott!, status: null } },
+      ];
+      mockHooks({ allAccountsData: withNullStatus });
+      renderPage();
+      expect(screen.getByText('Sin OTT')).toBeInTheDocument();
+    });
+
+    it('Estado column header is visible', () => {
+      mockHooks();
+      renderPage();
+      expect(screen.getByText('Estado')).toBeInTheDocument();
     });
   });
 
