@@ -1117,10 +1117,13 @@ function LinkedView({
             <p className={styles.emptyHint}>El cambio será habilitado en los próximos minutos.</p>
           )}
           {account.ott && (
+            // #60: solo mostramos las licencias (pantallas fijas/móviles). El contador
+            // registeredDevices viene roto upstream — siempre 0 en las 87 cuentas
+            // registradas (verificado 2026-06-12) y la API de Gigared no expone lista
+            // de dispositivos. El campo sigue llegando en el contrato BE; no lo mostramos.
             <p className={styles.emptyHint}>
               Puede ver en hasta {plural(account.ott.stationaryLicenses, 'pantalla fija', 'pantallas fijas')}{' '}
-              y {plural(account.ott.mobileLicenses, 'móvil', 'móviles')} ·{' '}
-              {plural(account.ott.registeredDevices, 'dispositivo registrado', 'dispositivos registrados')}
+              y {plural(account.ott.mobileLicenses, 'móvil', 'móviles')}
             </p>
           )}
         </section>
