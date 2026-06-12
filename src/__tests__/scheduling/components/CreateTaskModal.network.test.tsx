@@ -61,11 +61,21 @@ const mockNetworkSites: NetworkSite[] = [
     parentSiteId: null,
     description: 'Test node',
     iclassNodeCode: 'ALPHA-01',
+    uispSiteId: null,
   },
 ];
 
 vi.mock('@/hooks/useNetworkSites', () => ({
   useNetworkSites: () => ({ data: mockNetworkSites, isLoading: false }),
+}));
+
+vi.mock('@/hooks/useIClassNodes', () => ({
+  useIClassNodes: () => ({
+    data: [
+      { id: 'n1', nodeId: 1, code: 'Tigre', description: 'Tigre node', active: true, selectable: true, lastSyncedAt: null },
+      { id: 'n2', nodeId: 2, code: 'Rosario', description: 'Rosario node', active: true, selectable: true, lastSyncedAt: null },
+    ],
+  }),
 }));
 
 // ── Imports (after mocks) ─────────────────────────────────────────────────────

@@ -55,6 +55,8 @@ export interface CreateTaskPayload {
   kind?: 'customer' | 'network';
   /** Network site id — required when kind === 'network'. */
   networkSiteId?: string | null;
+  /** IClass city/locality code — required when kind === 'network' (#54). */
+  iclassCityCode?: string | null;
 }
 
 export interface TaskChecklistItem {
@@ -154,6 +156,9 @@ export interface ScheduledTask {
 
   /** Network site display name (JOIN-derived) — populated when kind === 'network'. */
   networkSiteName: string | null;
+
+  /** IClass city/locality code — set when kind === 'network' (#54). */
+  iclassCityCode: string | null;
 
   /** Originating ticket id — set when the task was created from a ticket.
    *  Populated by the enriched GET /scheduling/:id DTO (tickets-actions-be).

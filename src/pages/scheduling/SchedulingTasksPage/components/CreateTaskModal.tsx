@@ -3,6 +3,7 @@ import { useClientDetail, useClientContracts } from '@/hooks/useCustomers';
 import { buildContractLabel } from '@/lib/buildContractLabel';
 import { useTaskCategories } from '@/hooks/useTaskCategories';
 import { useNetworkSites } from '@/hooks/useNetworkSites';
+import { useIClassNodes } from '@/hooks/useIClassNodes';
 import type { Project } from '@/types/project';
 import type { Workflow } from '@/types/workflow';
 
@@ -99,6 +100,8 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   const taskMode: 'customer' | 'network' = defaultMode ?? 'customer';
   /** Selected network site id for network tasks. */
   const [networkSiteId, setNetworkSiteId] = useState<string | null>(null);
+  /** Selected IClass city/locality code — required in network mode (#54). */
+  const [iclassCityCode, setIclassCityCode] = useState<string | null>(null);
 
   const [templateId, setTemplateId] = useState('');
   const [title, setTitle] = useState(initialValues?.title ?? '');
@@ -142,12 +145,20 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     }
   }, [customerId, customerDetail, contractId]);
 
-  // ── Network-site address prefill (#40) ───────────────────────────────────────
+  // ── Network-site address + locality prefill (#40, #54) ───────────────────────
   // When a NetworkSite is selected in network mode, prefill the address from the
   // already-cached site list (same query key NodeSelector fetches — zero new
-  // endpoints). Ref-guarded (mirror of filledForCustomer) so a manual edit is
-  // never clobbered on re-render/background refetch. Editable.
+  // endpoints). Also default the Localidad to the site's city when present.
+  // Ref-guarded (mirror of filledForCustomer) so a manual edit is never clobbered
+  // on re-render/background refetch.
   const { data: networkSites = [] } = useNetworkSites();
+  // IClass node catalog for the Localidad dropdown (#54).
+  const { data: iclassNodes = [] } = useIClassNodes();
+  // Only active & selectable nodes are eligible options.
+  const eligibleNodes = useMemo(
+    () => iclassNodes.filter(n => n.active && n.selectable),
+    [iclassNodes],
+  );
   const filledForSite = useRef<string | null>(null);
   useEffect(() => {
     if (taskMode !== 'network') return;
@@ -156,9 +167,11 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     const site = networkSites.find(s => s.id === networkSiteId);
     if (!site) return;
     filledForSite.current = networkSiteId;
-    // site.address may be empty — only the address pre-fills (city is metadata,
-    // not part of the work address). Empty address ⇒ leave the field empty.
+    // site.address may be empty — only pre-fill when non-empty.
     setAddress(site.address ?? '');
+    // Default locality to site.city when present (#54). If site.city isn't in
+    // the eligible list the dropdown still reflects it (rendered as extra option).
+    if (site.city) setIclassCityCode(site.city);
   }, [taskMode, networkSiteId, networkSites]);
 
   // When a contract is explicitly chosen, autofill address from the contract
@@ -243,7 +256,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     !loading &&
     (taskMode === 'customer'
       ? !!customerId && !!contractId
-      : !!networkSiteId && address.trim().length > 0);
+      : !!networkSiteId && address.trim().length > 0 && !!iclassCityCode && iclassCityCode.trim().length > 0);
 
   function applyTemplate(id: string) {
     setTemplateId(id);
@@ -310,6 +323,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
               ...basePayload,
               kind: 'network',
               networkSiteId: networkSiteId || null,
+              iclassCityCode: iclassCityCode || null,
               customerId: null,
               customerName: null,
               contractId: null,
@@ -418,10 +432,32 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
             )}
           </>
         ) : (
-          <div className={styles.label}>
-            <span>Nodo de red <span className={styles.required} aria-hidden="true">*</span></span>
-            <NodeSelector value={networkSiteId} onChange={setNetworkSiteId} />
-          </div>
+          <>
+            <div className={styles.label}>
+              <span>Nodo de red <span className={styles.required} aria-hidden="true">*</span></span>
+              <NodeSelector value={networkSiteId} onChange={setNetworkSiteId} />
+            </div>
+            <label className={styles.label}>
+              <span>Localidad <span className={styles.required} aria-hidden="true">*</span></span>
+              <select
+                className={styles.select}
+                value={iclassCityCode ?? ''}
+                onChange={e => setIclassCityCode(e.target.value || null)}
+                aria-label="Localidad"
+              >
+                <option value="">— Seleccionar localidad —</option>
+                {/* If the current value is set but not in the eligible list (e.g. site.city
+                    that doesn't match an active node), render it as an extra option so the
+                    select reflects the stored value rather than showing a blank. */}
+                {iclassCityCode && !eligibleNodes.some(n => n.code === iclassCityCode) && (
+                  <option value={iclassCityCode}>{iclassCityCode}</option>
+                )}
+                {eligibleNodes.map(n => (
+                  <option key={n.id} value={n.code}>{n.code}</option>
+                ))}
+              </select>
+            </label>
+          </>
         )}
 
         <label className={styles.label}>

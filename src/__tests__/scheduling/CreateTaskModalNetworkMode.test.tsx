@@ -5,10 +5,12 @@
  *  - REQ-NTP-5: selecting a NetworkSite prefills the address (editable); a site
  *    with empty address leaves the field empty.
  *  - REQ-NTP-4 (empty hint): no projects → project select shows a network hint.
+ *  - REQ-54: required "Localidad" dropdown (IClass node code) in network mode.
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type { NetworkSite } from '@/types/networkSite';
+import type { IClassNode } from '@/types/iclassNode';
 
 // CustomerPicker uses useCustomers — stub so the modal renders without QueryClient.
 vi.mock('@/hooks/useCustomers', () => ({
@@ -27,6 +29,18 @@ const useNetworkSitesMock = vi.fn();
 vi.mock('@/hooks/useNetworkSites', () => ({
   useNetworkSites: () => useNetworkSitesMock(),
 }));
+
+const useIClassNodesMock = vi.fn();
+vi.mock('@/hooks/useIClassNodes', () => ({
+  useIClassNodes: () => useIClassNodesMock(),
+}));
+
+// IClass node fixtures: Springfield matches the makeSite city; Rosario is another eligible node.
+const iclassNodes: IClassNode[] = [
+  { id: 'n1', nodeId: 1, code: 'Springfield', description: 'Springfield node', active: true, selectable: true, lastSyncedAt: null },
+  { id: 'n2', nodeId: 2, code: 'Rosario', description: 'Rosario node', active: true, selectable: true, lastSyncedAt: null },
+  { id: 'n3', nodeId: 3, code: 'Inactive', description: 'Not selectable', active: false, selectable: false, lastSyncedAt: null },
+];
 
 import { CreateTaskModal } from '@/pages/scheduling/SchedulingTasksPage/components/CreateTaskModal';
 import type { Project } from '@/types/project';
@@ -60,6 +74,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   onCreate.mockResolvedValue(undefined);
   useNetworkSitesMock.mockReturnValue({ data: [makeSite()], isLoading: false });
+  useIClassNodesMock.mockReturnValue({ data: iclassNodes });
 });
 
 describe('CreateTaskModal defaultMode="network" (REQ-NTP-3)', () => {
@@ -238,5 +253,114 @@ describe('CreateTaskModal empty network-project hint (REQ-NTP-4)', () => {
       />,
     );
     expect(screen.getByText(/no hay proyectos de red configurados/i)).toBeInTheDocument();
+  });
+});
+
+// ── REQ-54: required Localidad dropdown ──────────────────────────────────────
+
+describe('CreateTaskModal — Localidad dropdown in network mode (REQ-54)', () => {
+  function setupNetwork(sites = [makeSite()]) {
+    useNetworkSitesMock.mockReturnValue({ data: sites, isLoading: false });
+    return render(
+      <CreateTaskModal
+        projects={networkProjects}
+        workflows={workflows}
+        defaultMode="network"
+        onClose={onClose}
+        onCreate={onCreate}
+        loading={false}
+      />,
+    );
+  }
+
+  // ── TC-1: Localidad select is present with eligible options ──────────────
+  it('renders a "Localidad" select with required asterisk and eligible IClass node options', () => {
+    setupNetwork();
+    // The label text "Localidad" must be visible
+    expect(screen.getByText(/^localidad$/i)).toBeInTheDocument();
+    // The select has options from the eligible nodes (Springfield, Rosario — not Inactive)
+    const select = screen.getByRole('combobox', { name: /localidad/i });
+    expect(select).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Springfield' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Rosario' })).toBeInTheDocument();
+    // Inactive node must NOT appear as an option
+    expect(screen.queryByRole('option', { name: 'Inactive' })).not.toBeInTheDocument();
+    // Required asterisk (aria-hidden="true") next to Localidad
+    const label = screen.getByText(/^localidad$/i).closest('label') ?? screen.getByText(/^localidad$/i).parentElement;
+    expect(label?.querySelector('[aria-hidden="true"]')).toBeInTheDocument();
+  });
+
+  // ── TC-2: With all required fields (incl. locality) -> button enabled ────
+  it('enables "Crear tarea" when node, address, locality, title, description, project are filled', async () => {
+    setupNetwork();
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Mantenimiento' } });
+    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'Descripción' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'np-1' } });
+    // Select the site -> address autofills; locality also autofills (city=Springfield matches a node)
+    fireEvent.click(screen.getByText('POP Centro'));
+    // Select locality manually if not auto-filled
+    const localidadSelect = screen.getByRole('combobox', { name: /localidad/i });
+    await waitFor(() => expect(localidadSelect).toHaveValue('Springfield'));
+    const submit = screen.getByRole('button', { name: /crear tarea/i });
+    await waitFor(() => expect(submit).toBeEnabled());
+  });
+
+  // ── TC-3: Clearing locality disables submit ──────────────────────────────
+  it('disables "Crear tarea" when locality is cleared (even with everything else filled)', async () => {
+    setupNetwork();
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Mantenimiento' } });
+    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'Descripción' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'np-1' } });
+    fireEvent.click(screen.getByText('POP Centro'));
+    const localidadSelect = screen.getByRole('combobox', { name: /localidad/i });
+    await waitFor(() => expect(localidadSelect).toHaveValue('Springfield'));
+    // Clear locality
+    fireEvent.change(localidadSelect, { target: { value: '' } });
+    const submit = screen.getByRole('button', { name: /crear tarea/i });
+    expect(submit).toBeDisabled();
+  });
+
+  // ── TC-4: Payload includes iclassCityCode ────────────────────────────────
+  it('includes iclassCityCode in the payload on submit', async () => {
+    setupNetwork();
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Mantenimiento' } });
+    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'Descripción' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'np-1' } });
+    fireEvent.click(screen.getByText('POP Centro'));
+    const localidadSelect = screen.getByRole('combobox', { name: /localidad/i });
+    await waitFor(() => expect(localidadSelect).toHaveValue('Springfield'));
+    // Change to Rosario
+    fireEvent.change(localidadSelect, { target: { value: 'Rosario' } });
+    const submit = screen.getByRole('button', { name: /crear tarea/i });
+    await waitFor(() => expect(submit).toBeEnabled());
+    fireEvent.click(submit);
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ iclassCityCode: 'Rosario' }),
+    );
+  });
+
+  // ── TC-5: Default from site city when city matches an eligible node ──────
+  it('preselects the site city in Localidad when it matches an eligible node code', async () => {
+    // makeSite has city: 'Springfield' — which matches iclassNodes[0].code
+    setupNetwork([makeSite()]);
+    fireEvent.click(screen.getByText('POP Centro'));
+    const localidadSelect = screen.getByRole('combobox', { name: /localidad/i });
+    await waitFor(() => expect(localidadSelect).toHaveValue('Springfield'));
+  });
+
+  // ── TC-6: Customer mode — no Localidad dropdown, customer payload unaffected ─
+  it('does NOT render Localidad in customer mode (customer context)', () => {
+    render(
+      <CreateTaskModal
+        projects={networkProjects}
+        workflows={workflows}
+        onClose={onClose}
+        onCreate={onCreate}
+        loading={false}
+      />,
+    );
+    expect(screen.queryByRole('combobox', { name: /localidad/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/^localidad$/i)).not.toBeInTheDocument();
   });
 });

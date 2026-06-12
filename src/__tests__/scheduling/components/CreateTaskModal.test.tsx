@@ -28,6 +28,11 @@ vi.mock('@/hooks/useTaskPriorities', () => ({
 vi.mock('@/hooks/useNetworkSites', () => ({
   useNetworkSites: () => ({ data: [], isLoading: false }),
 }));
+// #54 — the modal reads useIClassNodes() for the Localidad dropdown in network mode.
+// Stub it (empty list) for the customer-mode tests here.
+vi.mock('@/hooks/useIClassNodes', () => ({
+  useIClassNodes: () => ({ data: [] }),
+}));
 
 import { CreateTaskModal } from '@/pages/scheduling/SchedulingTasksPage/components/CreateTaskModal';
 import { useConfirm } from '@/context/ConfirmContext';
