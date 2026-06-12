@@ -1,10 +1,10 @@
 import axiosClient from './axios-client';
-import type { NetworkSite } from '../types/networkSite';
+import type { NetworkSite, NetworkSiteCreate } from '../types/networkSite';
 
 export const getNetworkSites = () =>
   axiosClient.get<NetworkSite[]>('/network-sites').then(r => r.data);
 
-export const createNetworkSite = (data: Omit<NetworkSite, 'id'>) =>
+export const createNetworkSite = (data: NetworkSiteCreate) =>
   axiosClient.post<NetworkSite>('/network-sites', data).then(r => r.data);
 
 export const updateNetworkSite = (id: string, data: Partial<NetworkSite>) =>

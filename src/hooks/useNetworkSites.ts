@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { NetworkSite } from '@/types/networkSite';
+import type { NetworkSite, NetworkSiteCreate } from '@/types/networkSite';
 import * as api from '@/api/networkSite.api';
 
 export function useNetworkSites() {
@@ -9,7 +9,7 @@ export function useNetworkSites() {
 export function useCreateNetworkSite() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Omit<NetworkSite, 'id'>) => api.createNetworkSite(data),
+    mutationFn: (data: NetworkSiteCreate) => api.createNetworkSite(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['network-sites'] }),
   });
 }

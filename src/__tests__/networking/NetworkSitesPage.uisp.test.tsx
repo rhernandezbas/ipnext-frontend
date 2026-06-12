@@ -31,6 +31,8 @@ const NOW_ISO = '2026-06-10T00:00:00.000Z';
 
 const linkedSite: NetworkSite = {
   id: '1',
+  siteNumber: 1,
+  fixedCode: 'NODO 1',
   name: 'Nodo Central',
   address: 'Av. Corrientes 1234',
   city: 'Buenos Aires',
@@ -55,6 +57,8 @@ const linkedSite: NetworkSite = {
 
 const missingSite: NetworkSite = {
   id: '2',
+  siteNumber: 2,
+  fixedCode: 'NODO 2',
   name: 'POP Norte',
   address: 'Av. Cabildo 2500',
   city: 'Buenos Aires',
@@ -79,6 +83,8 @@ const missingSite: NetworkSite = {
 
 const unlinkedSite: NetworkSite = {
   id: '3',
+  siteNumber: 3,
+  fixedCode: 'NODO 3',
   name: 'Torre Sur',
   address: 'Autopista km 12',
   city: 'Ezeiza',

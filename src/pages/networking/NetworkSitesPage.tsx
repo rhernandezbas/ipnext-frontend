@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useNetworkSites, useCreateNetworkSite, useUpdateNetworkSite, useDeleteNetworkSite } from '@/hooks/useNetworkSites';
 import { useUispSites } from '@/hooks/useUispSites';
-import type { NetworkSite, NetworkSiteUispInfo } from '@/types/networkSite';
+import type { NetworkSite, NetworkSiteCreate, NetworkSiteUispInfo } from '@/types/networkSite';
 import { Can } from '@/components/auth/Can';
 import { useCan } from '@/hooks/useMyPermissions';
 import { useConfirm } from '@/context/ConfirmContext';
@@ -50,7 +50,7 @@ function StatusBadge({ status }: { status: NetworkSite['status'] }) {
 
 interface AddSiteModalProps {
   onClose: () => void;
-  onSubmit: (data: Omit<NetworkSite, 'id'>) => void;
+  onSubmit: (data: NetworkSiteCreate) => void;
 }
 
 function AddSiteModal({ onClose, onSubmit }: AddSiteModalProps) {

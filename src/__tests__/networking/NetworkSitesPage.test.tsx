@@ -15,6 +15,8 @@ function makeQC() {
 const mockSites: NetworkSite[] = [
   {
     id: '1',
+    siteNumber: 1,
+    fixedCode: 'NODO 1',
     name: 'Nodo Central',
     address: 'Av. Corrientes 1234',
     city: 'Buenos Aires',
@@ -26,9 +28,14 @@ const mockSites: NetworkSite[] = [
     uplink: '10 Gbps fibra',
     parentSiteId: null,
     description: 'Nodo principal',
+    iclassNodeCode: null,
+    uispSiteId: null,
+    uisp: null,
   },
   {
     id: '2',
+    siteNumber: 2,
+    fixedCode: 'NODO 2',
     name: 'POP Norte',
     address: 'Av. Cabildo 2500',
     city: 'Buenos Aires',
@@ -40,9 +47,14 @@ const mockSites: NetworkSite[] = [
     uplink: '1 Gbps fibra',
     parentSiteId: '1',
     description: 'POP zona norte',
+    iclassNodeCode: null,
+    uispSiteId: null,
+    uisp: null,
   },
   {
     id: '3',
+    siteNumber: 3,
+    fixedCode: 'NODO 3',
     name: 'Torre Sur',
     address: 'Autopista km 12',
     city: 'Ezeiza',
@@ -54,6 +66,9 @@ const mockSites: NetworkSite[] = [
     uplink: '500 Mbps radio',
     parentSiteId: '1',
     description: 'Torre sur',
+    iclassNodeCode: null,
+    uispSiteId: null,
+    uisp: null,
   },
 ];
 
