@@ -1,7 +1,7 @@
 /**
  * CreateTaskModal — network-mode additions (#40):
  *  - REQ-NTP-3: defaultMode='network' opens locked in network mode, toggle hidden,
- *    NodeSelector visible, static "Nodo RED" badge shown.
+ *    NodeSelector visible, static "Nodo Fibra" badge shown.
  *  - REQ-NTP-5: selecting a NetworkSite prefills the address (editable); a site
  *    with empty address leaves the field empty.
  *  - REQ-NTP-4 (empty hint): no projects → project select shows a network hint.
@@ -82,9 +82,10 @@ describe('CreateTaskModal defaultMode="network" (REQ-NTP-3)', () => {
     expect(screen.queryByRole('button', { name: /^cliente$/i })).not.toBeInTheDocument();
   });
 
-  it('shows a static "Nodo RED" badge instead of the toggle', () => {
+  it('shows a static "Nodo Fibra" badge instead of the toggle', () => {
     setup();
-    expect(screen.getByLabelText(/tipo de tarea: nodo red/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/tipo de tarea: nodo fibra/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/tipo de tarea: nodo fibra/i)).toHaveTextContent('Nodo Fibra');
   });
 
   it('renders the NodeSelector (network mode active), not the CustomerPicker', () => {

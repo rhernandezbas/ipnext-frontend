@@ -55,7 +55,7 @@ export function KanbanCard({ task, isDragging = false }: KanbanCardProps) {
             data-testid="network-badge"
             aria-label="Tarea de red"
           >
-            {task.networkSiteName ?? 'RED'}
+            {task.networkSiteName ?? 'Nodo Fibra'}
           </span>
         )}
         <PriorityPill priority={task.priority} />

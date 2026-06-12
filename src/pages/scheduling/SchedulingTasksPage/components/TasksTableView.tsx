@@ -436,7 +436,7 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
               data-testid="network-badge"
               aria-label="Tarea de red"
             >
-              RED
+              Nodo Fibra
             </span>
           )}
         </span>
