@@ -85,6 +85,21 @@ function toLocalInputString(date: Date): string {
 }
 
 /**
+ * #68 — value to prefill the Dirección field when a NetworkSite is picked.
+ * Mirrors the #51 `addressDisplay` criterion: the manual `address` always wins;
+ * if it's empty but the site has UISP coordinates, fall back to "{lat},{lng}";
+ * otherwise return "" (empty, so the required-address rule still applies).
+ * NOTE: returns a plain string to SET into the editable input — once set, the
+ * operator can edit it freely (the ref guard prevents re-clobbering).
+ */
+function resolveSiteAddress(site: { address?: string; coordinates?: { lat: number; lng: number } | null }): string {
+  const manual = (site.address ?? '').trim();
+  if (manual !== '') return manual;
+  if (site.coordinates) return `${site.coordinates.lat},${site.coordinates.lng}`;
+  return '';
+}
+
+/**
  * Full create-task form (cliente con buscador, descripción, asignado, fecha,
  * dirección, notas). The task always starts on the FIRST stage (lowest order)
  * of the selected project's workflow — the backend persistence layer requires a
@@ -188,8 +203,10 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     const site = networkSites.find(s => s.id === networkSiteId);
     if (!site) return;
     filledForSite.current = networkSiteId;
-    // site.address may be empty — only pre-fill when non-empty.
-    setAddress(site.address ?? '');
+    // #68 — same criterion as #51 (addressDisplay): manual address wins; if it's
+    // empty but the site has UISP coordinates, prefill "{lat},{lng}" (editable);
+    // if neither is present, leave the field empty.
+    setAddress(resolveSiteAddress(site));
     // Default locality to site.city when present (#54). If site.city isn't in
     // the eligible list the dropdown still reflects it (rendered as extra option).
     if (site.city) setIclassCityCode(site.city);
