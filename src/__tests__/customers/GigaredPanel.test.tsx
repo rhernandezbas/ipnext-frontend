@@ -45,7 +45,10 @@ import { useConfirm } from '@/context/ConfirmContext';
 import { GigaredPanel } from '@/pages/customers/tabs/contracts/GigaredPanel';
 import type { Contract, ContractService } from '@/types/customer';
 
-/** Override the globally-permissive useMyPermissions mock to DENY tv.write. */
+/** The granular TV permission keys that replaced tv.write. */
+const TV_GRANULAR_KEYS = ['tv.link', 'tv.register', 'tv.packs', 'tv.ott', 'tv.cancel'] as const;
+
+/** Override the globally-permissive useMyPermissions mock to DENY all granular tv.* keys. */
 function denyTvWrite() {
   vi.mocked(useMyPermissions).mockReturnValue({
     permissions: [],
@@ -55,7 +58,24 @@ function denyTvWrite() {
     isError: false,
     can: (p: string | string[]) => {
       const perms = Array.isArray(p) ? p : [p];
-      return perms.every((x) => x !== 'tv.write');
+      return perms.every((x) => !(TV_GRANULAR_KEYS as readonly string[]).includes(x));
+    },
+  } as unknown as ReturnType<typeof useMyPermissions>);
+}
+
+/** Grant only the given granular tv key (plus everything else except the other tv keys). */
+function grantOnly(tvKey: typeof TV_GRANULAR_KEYS[number]) {
+  vi.mocked(useMyPermissions).mockReturnValue({
+    permissions: [tvKey],
+    roles: [],
+    user: null,
+    isLoading: false,
+    isError: false,
+    can: (p: string | string[]) => {
+      const perms = Array.isArray(p) ? p : [p];
+      return perms.every((x) =>
+        x === tvKey || !(TV_GRANULAR_KEYS as readonly string[]).includes(x),
+      );
     },
   } as unknown as ReturnType<typeof useMyPermissions>);
 }
@@ -384,25 +404,84 @@ describe('GigaredPanel', () => {
     await waitFor(() => expect(ottMutate).toHaveBeenCalledWith({ enabled: false }));
   });
 
-  // ── tv.write gating ───────────────────────────────────────────────────────
-  it('without tv.write the Vincular control is hidden (read-only)', () => {
+  // ── granular TV permission gating ────────────────────────────────────────
+  it('tv.read only — all operational buttons hidden', () => {
     denyTvWrite();
-    mockQuery({ account: { linked: false, account: null } });
+    mockQuery({ account: { linked: true, account: removableAccount } });
     renderPanel();
     expect(screen.queryByRole('button', { name: /vincular/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^agregar$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /quitar/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /suspender tv|reactivar tv/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /dar de baja tv/i })).not.toBeInTheDocument();
   });
 
-  it('without tv.write the add/remove/OTT controls are hidden (read-only)', () => {
-    denyTvWrite();
-    // #47j Fix 2 — removable pack so "Quitar" WOULD show with tv.write; gating
-    // must hide it.
+  it('tv.link only — Vincular shown; register/packs/ott/cancel hidden', () => {
+    grantOnly('tv.link');
+    mockQuery({ account: { linked: false, account: null } });
+    renderPanel();
+    expect(screen.getByRole('button', { name: /vincular/i })).toBeInTheDocument();
+  });
+
+  it('tv.link only — Vincular hidden in linked state (no packs/ott/cancel)', () => {
+    grantOnly('tv.link');
     mockQuery({ account: { linked: true, account: removableAccount } });
     renderPanel();
     expect(screen.queryByRole('button', { name: /^agregar$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /quitar/i })).not.toBeInTheDocument();
-    // #47k — Suspender/Reactivar (the OTT actions) and Dar de baja are gated too.
     expect(screen.queryByRole('button', { name: /suspender tv|reactivar tv/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /dar de baja tv/i })).not.toBeInTheDocument();
+  });
+
+  it('tv.register only — Registrar button shown when form is expanded', async () => {
+    const user = userEvent.setup();
+    grantOnly('tv.register');
+    mockQuery({ account: { linked: false, account: null } });
+    renderPanel();
+    await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+    expect(screen.getByRole('button', { name: /^registrar$/i })).toBeInTheDocument();
+    // Vincular must still be hidden
+    expect(screen.queryByRole('button', { name: /^vincular$/i })).not.toBeInTheDocument();
+  });
+
+  it('tv.packs only — Agregar and Quitar shown; ott/cancel hidden', () => {
+    grantOnly('tv.packs');
+    mockQuery({ account: { linked: true, account: removableAccount } });
+    renderPanel();
+    expect(screen.queryByRole('button', { name: /^agregar$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /quitar/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /suspender tv|reactivar tv/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /dar de baja tv/i })).not.toBeInTheDocument();
+  });
+
+  it('tv.ott only — Suspender/Reactivar shown; packs/cancel hidden', () => {
+    grantOnly('tv.ott');
+    mockQuery({ account: { linked: true, account: removableAccount } });
+    renderPanel();
+    expect(screen.getByRole('button', { name: /suspender tv/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^agregar$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /quitar/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /dar de baja tv/i })).not.toBeInTheDocument();
+  });
+
+  it('tv.cancel only — Dar de baja shown; ott/packs hidden', () => {
+    grantOnly('tv.cancel');
+    mockQuery({ account: { linked: true, account: removableAccount } });
+    renderPanel();
+    expect(screen.getByRole('button', { name: /dar de baja tv/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /suspender tv|reactivar tv/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^agregar$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /quitar/i })).not.toBeInTheDocument();
+  });
+
+  it('* (super_admin) — all controls visible', () => {
+    // beforeEach already sets can: () => true for '*'
+    mockQuery({ account: { linked: true, account: removableAccount } });
+    renderPanel();
+    expect(screen.getByRole('button', { name: /suspender tv/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^agregar$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /quitar/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /dar de baja tv/i })).toBeInTheDocument();
   });
 
   // ── F1: cross-contract TV ownership (one owner contract per account) ────────
@@ -632,7 +711,7 @@ describe('GigaredPanel', () => {
   // The local TV ContractService line lives on the owner contract. The panel
   // exposes an "Ítem local" section to remove it via the #43 endpoint
   // (useRemoveContractService → DELETE /contracts/:id/services/:lineId), gated by
-  // clients.write (the chips' permission), NOT tv.write.
+  // clients.write (the chips' permission), NOT the granular tv.* keys.
   describe('Fix 2 — remove local TV item', () => {
     it('not-linked + owner contract holds the local TV line → shows the remove action', () => {
       mockQuery({
@@ -1585,7 +1664,7 @@ describe('GigaredPanel', () => {
   // contractId. 200 → success banner "cupo liberado" + invalidations (in the
   // hook). 207 → amber banner with counts (removed N, failed M + first detail,
   // OTT yes/no, local yes/no) + a "Reintentar baja" that re-POSTs (idempotent).
-  // Gated by tv.write.
+  // Gated by tv.cancel.
   describe('#47k ② — Dar de baja TV', () => {
     /** Open the strong confirm from the danger action. */
     async function openCancel(user: ReturnType<typeof userEvent.setup>) {
@@ -1701,7 +1780,7 @@ describe('GigaredPanel', () => {
       );
     });
 
-    it('without tv.write the Dar de baja action is hidden', () => {
+    it('without tv.cancel the Dar de baja action is hidden', () => {
       denyTvWrite();
       mockQuery({ account: { linked: true, account: linkedAccount } });
       renderPanel();

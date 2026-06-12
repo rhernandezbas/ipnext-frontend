@@ -572,7 +572,7 @@ function UnlinkedView({
             </button>
           </div>
         )}
-        <Can permission="tv.write">
+        <Can permission="tv.link">
           <div className={styles.formActions}>
             <button type="submit" className={styles.btnPrimary} disabled={!cic || link.isPending}>
               {link.isPending ? 'Vinculando…' : 'Vincular'}
@@ -734,7 +734,7 @@ function UnlinkedView({
                 <span>Cuenta registrada — se envió el email de activación.</span>
               </div>
             )}
-            <Can permission="tv.write">
+            <Can permission="tv.register">
               <div className={styles.formActions}>
                 <button
                   type="submit"
@@ -1003,7 +1003,7 @@ function LinkedView({
                 {s.name === BASE_PACK_NAME ? (
                   <span className={styles.basePackTag}>Pack base</span>
                 ) : (
-                  <Can permission="tv.write">
+                  <Can permission="tv.packs">
                     <button
                       type="button"
                       className={styles.btnLinkDanger}
@@ -1036,7 +1036,7 @@ function LinkedView({
           </div>
         )}
 
-        <Can permission="tv.write">
+        <Can permission="tv.packs">
           {/* #47i Fix 1 — only render the add control when there is a pack the
               account does NOT already have. Otherwise a subtle hint replaces it. */}
           {hasAddablePacks ? (
@@ -1076,7 +1076,7 @@ function LinkedView({
         </Can>
       </section>
 
-      <Can permission="tv.write">
+      <Can permission="tv.ott">
         {/* #47k ① — Suspender / Reactivar TV. The raw OTT checkbox is replaced by
             semantic actions. Enabled → "Suspender TV" (soft confirm). Disabled →
             a prominent SUSPENDIDA badge + "Reactivar TV". The pantallas/devices
@@ -1127,7 +1127,9 @@ function LinkedView({
             </p>
           )}
         </section>
+      </Can>
 
+      <Can permission="tv.cancel">
         {/* #47k ② — Dar de baja TV. A danger action at the foot of the services
             area; the strong confirm spells out the consequences. The outcome
             banner (success / partial) renders here so it sits next to the action. */}
