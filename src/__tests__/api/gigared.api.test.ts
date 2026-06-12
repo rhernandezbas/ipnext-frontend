@@ -6,6 +6,7 @@ import type {
   CustomerAccountResult,
   AddTvServiceResult,
   RemoveTvServiceResult,
+  CancelTvResult,
 } from '@/types/gigared';
 
 // Mock axiosClient before importing the api module
@@ -172,5 +173,35 @@ describe('gigaredApi.setOtt', () => {
     const result = await gigaredApi.setOtt('cust-1', { enabled: true });
     expect(axiosClient.put).toHaveBeenCalledWith('/gigared/customers/cust-1/ott', { enabled: true });
     expect(result).toEqual({ ok: true });
+  });
+});
+
+// ── #47k — cancel TV (dar de baja) ──────────────────────────────────────────
+describe('gigaredApi.cancelTv', () => {
+  it('POSTs /gigared/customers/:id/cancel with { contractId } and returns the result', async () => {
+    const payload: CancelTvResult = {
+      removed: ['s1', 's2'],
+      failed: [],
+      ottDisabled: true,
+      local: 'synced',
+    };
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: payload });
+    const result = await gigaredApi.cancelTv('cust-1', { contractId: 'ct-9' });
+    expect(axiosClient.post).toHaveBeenCalledWith('/gigared/customers/cust-1/cancel', {
+      contractId: 'ct-9',
+    });
+    expect(result).toEqual(payload);
+  });
+
+  it('passes a 207 partial shape through verbatim (removed + failed + flags)', async () => {
+    const payload: CancelTvResult = {
+      removed: ['s1'],
+      failed: [{ id: 's2', detail: 'partner timeout' }],
+      ottDisabled: false,
+      local: 'failed',
+    };
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: payload });
+    const result = await gigaredApi.cancelTv('cust-1', { contractId: 'ct-9' });
+    expect(result).toEqual(payload);
   });
 });

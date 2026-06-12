@@ -13,6 +13,7 @@ vi.mock('@/hooks/useGigared', () => ({
   useAddTvService: vi.fn(),
   useRemoveTvService: vi.fn(),
   useSetOtt: vi.fn(),
+  useCancelTv: vi.fn(),
 }));
 vi.mock('@/hooks/useCustomers', () => ({
   useClientContracts: vi.fn(),
@@ -34,6 +35,7 @@ import {
   useAddTvService,
   useRemoveTvService,
   useSetOtt,
+  useCancelTv,
 } from '@/hooks/useGigared';
 import { useClientContracts } from '@/hooks/useCustomers';
 import { useRemoveContractService, useAddContractService } from '@/hooks/useContractServices';
@@ -93,6 +95,7 @@ const linkMutate = vi.fn();
 const registerMutate = vi.fn();
 const removeMutate = vi.fn();
 const ottMutate = vi.fn();
+const cancelMutate = vi.fn();
 const onClose = vi.fn();
 // #47c — local ContractService item mutations (the #43 endpoints) reused inside
 // the panel: remove the local TV line, and add a plain local TV item.
@@ -134,6 +137,7 @@ function mockQuery(over: {
   accountError?: unknown;
   addResult?: unknown;
   removeResult?: unknown;
+  cancelResult?: unknown;
   contracts?: Contract[];
   /** Picker accounts keyed by the status the hook is called with. */
   allAccounts?: Partial<Record<'registered' | 'unregistered', GigaredAccount[]>>;
@@ -178,6 +182,12 @@ function mockQuery(over: {
     isPending: false,
   } as unknown as ReturnType<typeof useRemoveTvService>);
   vi.mocked(useSetOtt).mockReturnValue({ mutateAsync: ottMutate, isPending: false } as unknown as ReturnType<typeof useSetOtt>);
+  vi.mocked(useCancelTv).mockReturnValue({
+    mutateAsync: cancelMutate.mockResolvedValue(
+      over.cancelResult ?? { removed: ['s2'], failed: [], ottDisabled: true, local: 'synced' },
+    ),
+    isPending: false,
+  } as unknown as ReturnType<typeof useCancelTv>);
 
   vi.mocked(useRemoveContractService).mockReturnValue({
     mutateAsync: removeLocalMutate.mockResolvedValue(undefined),
@@ -314,12 +324,14 @@ describe('GigaredPanel', () => {
   });
 
   // ── State 3: linked ───────────────────────────────────────────────────────
-  it('state 3: linked → shows account, services and OTT toggle', () => {
+  it('state 3: linked → shows account, services and the Suspender TV action', () => {
+    // #47k — OTT enabled → the semantic "Suspender TV" action stands in for the
+    // old raw checkbox.
     mockQuery({ account: { linked: true, account: linkedAccount } });
     renderPanel();
     expect(screen.getByText('0000000001')).toBeInTheDocument();
     expect(screen.getByText('Gigared Play Full')).toBeInTheDocument();
-    expect(screen.getByLabelText(/ott/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /suspender tv/i })).toBeInTheDocument();
   });
 
   it('state 3: add pack uses THIS contractId (no contract picker)', async () => {
@@ -362,12 +374,13 @@ describe('GigaredPanel', () => {
     );
   });
 
-  it('state 3: OTT toggle calls setOtt', async () => {
+  it('state 3: Suspender TV calls setOtt { enabled: false }', async () => {
     const user = userEvent.setup();
     ottMutate.mockResolvedValue({ ok: true });
+    // OTT enabled → "Suspender TV" behind a soft confirm (auto-true in beforeEach).
     mockQuery({ account: { linked: true, account: linkedAccount } });
     renderPanel();
-    await user.click(screen.getByLabelText(/ott/i));
+    await user.click(screen.getByRole('button', { name: /suspender tv/i }));
     await waitFor(() => expect(ottMutate).toHaveBeenCalledWith({ enabled: false }));
   });
 
@@ -387,7 +400,9 @@ describe('GigaredPanel', () => {
     renderPanel();
     expect(screen.queryByRole('button', { name: /^agregar$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /quitar/i })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/ott/i)).not.toBeInTheDocument();
+    // #47k — Suspender/Reactivar (the OTT actions) and Dar de baja are gated too.
+    expect(screen.queryByRole('button', { name: /suspender tv|reactivar tv/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /dar de baja tv/i })).not.toBeInTheDocument();
   });
 
   // ── F1: cross-contract TV ownership (one owner contract per account) ────────
@@ -562,7 +577,7 @@ describe('GigaredPanel', () => {
       ottMutate.mockRejectedValue({ response: { status: 500, data: {} } });
       mockQuery({ account: { linked: true, account: linkedAccount } });
       renderPanel();
-      await user.click(screen.getByLabelText(/ott/i));
+      await user.click(screen.getByRole('button', { name: /suspender tv/i }));
       await waitFor(() =>
         expect(screen.getByText(/no se pudo cambiar (el )?ott/i)).toBeInTheDocument(),
       );
@@ -800,7 +815,7 @@ describe('GigaredPanel', () => {
       });
       mockQuery({ account: { linked: true, account: linkedAccount } });
       renderPanel();
-      await user.click(screen.getByLabelText(/ott/i));
+      await user.click(screen.getByRole('button', { name: /suspender tv/i }));
       await waitFor(() => expect(screen.getByText(/ott upstream caído/i)).toBeInTheDocument());
     });
 
@@ -1436,67 +1451,90 @@ describe('GigaredPanel', () => {
       ).toBeInTheDocument();
     });
 
-    it('the OTT enable/disable toggle still works with its pending', async () => {
+    it('the Suspender TV action still works with its pending', async () => {
       const user = userEvent.setup();
       ottMutate.mockResolvedValue({ ok: true });
       mockQuery({ account: { linked: true, account: linkedAccount } });
       renderPanel();
-      await user.click(screen.getByLabelText(/ott/i));
+      await user.click(screen.getByRole('button', { name: /suspender tv/i }));
       await waitFor(() => expect(ottMutate).toHaveBeenCalledWith({ enabled: false }));
     });
   });
 
-  // ── #47j Fix 1: OTT toggle reads the FROZEN 'enabled' status ─────────────────
-  // The wire contract normalizes ott.status to 'enabled' | 'disabled' | null. The
-  // toggle was comparing === 'active' (Gigared's old Spanish value), so it NEVER
-  // matched and the switch sat unchecked even with OTT on. It must read 'enabled'.
-  describe('#47j Fix 1 — OTT toggle reflects normalized status', () => {
-    it("status 'enabled' → the switch is checked", () => {
+  // ── #47k ① — Suspender / Reactivar TV (semantic OTT actions) ─────────────────
+  // The raw OTT checkbox is replaced by semantic actions. OTT enabled → a
+  // "Suspender TV" action behind a SOFT confirm → PUT ott { enabled: false }.
+  // OTT disabled → a prominent SUSPENDIDA badge + "Reactivar TV" → PUT ott
+  // { enabled: true } (no confirm). status reads the FROZEN normalized value.
+  describe('#47k ① — Suspender / Reactivar TV', () => {
+    const disabledAccount: GigaredAccount = {
+      ...linkedAccount,
+      ott: { ...linkedAccount.ott!, status: 'disabled' },
+    };
+
+    it("status 'enabled' → shows Suspender TV (no SUSPENDIDA badge)", () => {
       mockQuery({ account: { linked: true, account: linkedAccount } });
       renderPanel();
-      expect(screen.getByLabelText(/ott/i)).toBeChecked();
+      expect(screen.getByRole('button', { name: /suspender tv/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /reactivar tv/i })).not.toBeInTheDocument();
+      expect(screen.queryByText(/suspendida/i)).not.toBeInTheDocument();
     });
 
-    it("status 'disabled' → the switch is unchecked", () => {
-      const disabled: GigaredAccount = {
-        ...linkedAccount,
-        ott: { ...linkedAccount.ott!, status: 'disabled' },
-      };
-      mockQuery({ account: { linked: true, account: disabled } });
+    it("status 'disabled' → shows the SUSPENDIDA badge + Reactivar TV", () => {
+      mockQuery({ account: { linked: true, account: disabledAccount } });
       renderPanel();
-      expect(screen.getByLabelText(/ott/i)).not.toBeChecked();
+      expect(screen.getByText(/suspendida/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /reactivar tv/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /suspender tv/i })).not.toBeInTheDocument();
     });
 
-    it("status null → the switch is unchecked (no account OTT state known)", () => {
+    it("status null → treated as suspended (Reactivar TV available)", () => {
       const unknown: GigaredAccount = {
         ...linkedAccount,
         ott: { ...linkedAccount.ott!, status: null },
       };
       mockQuery({ account: { linked: true, account: unknown } });
       renderPanel();
-      expect(screen.getByLabelText(/ott/i)).not.toBeChecked();
+      expect(screen.getByRole('button', { name: /reactivar tv/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /suspender tv/i })).not.toBeInTheDocument();
     });
 
-    it("enabled → toggling sends { enabled: false } (turn off)", async () => {
+    it('Suspender TV → soft confirm, then PUT ott { enabled: false }', async () => {
       const user = userEvent.setup();
       ottMutate.mockResolvedValue({ ok: true });
       mockQuery({ account: { linked: true, account: linkedAccount } });
       renderPanel();
-      await user.click(screen.getByLabelText(/ott/i));
+      await user.click(screen.getByRole('button', { name: /suspender tv/i }));
+      // The soft confirm fires (auto-true in beforeEach) before the PUT.
+      await waitFor(() => expect(useConfirm).toHaveBeenCalled());
       await waitFor(() => expect(ottMutate).toHaveBeenCalledWith({ enabled: false }));
     });
 
-    it("disabled → toggling sends { enabled: true } (turn on)", async () => {
+    it('Suspender TV → cancelling the soft confirm does NOT PUT', async () => {
+      const user = userEvent.setup();
+      vi.mocked(useConfirm).mockReturnValue(vi.fn().mockResolvedValue(false));
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /suspender tv/i }));
+      await waitFor(() => expect(useConfirm).toHaveBeenCalled());
+      expect(ottMutate).not.toHaveBeenCalled();
+    });
+
+    it('Reactivar TV → PUT ott { enabled: true } (no confirm needed)', async () => {
       const user = userEvent.setup();
       ottMutate.mockResolvedValue({ ok: true });
-      const disabled: GigaredAccount = {
-        ...linkedAccount,
-        ott: { ...linkedAccount.ott!, status: 'disabled' },
-      };
-      mockQuery({ account: { linked: true, account: disabled } });
+      mockQuery({ account: { linked: true, account: disabledAccount } });
       renderPanel();
-      await user.click(screen.getByLabelText(/ott/i));
+      await user.click(screen.getByRole('button', { name: /reactivar tv/i }));
       await waitFor(() => expect(ottMutate).toHaveBeenCalledWith({ enabled: true }));
+    });
+
+    it('the pantallas/dispositivos info line stays visible in both states', () => {
+      mockQuery({ account: { linked: true, account: disabledAccount } });
+      renderPanel();
+      expect(
+        screen.getByText(/puede ver en hasta 1 pantalla fija y 1 móvil/i),
+      ).toBeInTheDocument();
     });
   });
 
@@ -1539,6 +1577,136 @@ describe('GigaredPanel', () => {
       expect(within(baseItem).queryByRole('button', { name: /quitar/i })).not.toBeInTheDocument();
       const liteItem = screen.getByText('Gigared Play Lite').closest('li')!;
       expect(within(liteItem).getByRole('button', { name: /quitar/i })).toBeInTheDocument();
+    });
+  });
+
+  // ── #47k ② — Dar de baja TV (cancel) ────────────────────────────────────────
+  // A danger "Dar de baja TV" action at the foot of the services area opens a
+  // STRONG confirm. Confirming POSTs /cancel with the panel's effective
+  // contractId. 200 → success banner "cupo liberado" + invalidations (in the
+  // hook). 207 → amber banner with counts (removed N, failed M + first detail,
+  // OTT yes/no, local yes/no) + a "Reintentar baja" that re-POSTs (idempotent).
+  // Gated by tv.write.
+  describe('#47k ② — Dar de baja TV', () => {
+    /** Open the strong confirm from the danger action. */
+    async function openCancel(user: ReturnType<typeof userEvent.setup>) {
+      await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
+    }
+
+    it('renders the danger "Dar de baja TV" action when linked', () => {
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel();
+      expect(screen.getByRole('button', { name: /dar de baja tv/i })).toBeInTheDocument();
+    });
+
+    it('the action opens a STRONG confirm (frees the cupo, apaga streaming)', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel();
+      await openCancel(user);
+      expect(screen.getByRole('dialog', { name: /dar de baja tv/i })).toBeInTheDocument();
+      expect(screen.getByText(/libera el cupo del partner/i)).toBeInTheDocument();
+    });
+
+    it('confirming POSTs cancel with the EFFECTIVE (owner) contractId', async () => {
+      const user = userEvent.setup();
+      // Owner is ct-A; the panel opened from ct-9 → cancel must target ct-A.
+      mockQuery({
+        account: { linked: true, account: linkedAccount },
+        contracts: [contract('ct-A', [tvService()]), contract('ct-9', [])],
+      });
+      renderPanel(); // contractId="ct-9"
+      await openCancel(user);
+      const dialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(dialog).getByRole('button', { name: /confirmar|dar de baja/i }));
+      await waitFor(() => expect(cancelMutate).toHaveBeenCalledWith({ contractId: 'ct-A' }));
+    });
+
+    it('first activation contract (no owner) → cancel uses the opening contractId', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel(); // contractId="ct-9"
+      await openCancel(user);
+      const dialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(dialog).getByRole('button', { name: /confirmar|dar de baja/i }));
+      await waitFor(() => expect(cancelMutate).toHaveBeenCalledWith({ contractId: 'ct-9' }));
+    });
+
+    it('cancelling the strong confirm does NOT POST', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel();
+      await openCancel(user);
+      const dialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(dialog).getByRole('button', { name: /cancelar/i }));
+      expect(cancelMutate).not.toHaveBeenCalled();
+    });
+
+    it('200 OK → success banner "cupo liberado"', async () => {
+      const user = userEvent.setup();
+      mockQuery({
+        account: { linked: true, account: linkedAccount },
+        cancelResult: { removed: ['s1', 's2'], failed: [], ottDisabled: true, local: 'synced' },
+      });
+      renderPanel();
+      await openCancel(user);
+      const dialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(dialog).getByRole('button', { name: /confirmar|dar de baja/i }));
+      await waitFor(() =>
+        expect(screen.getByText(/tv dada de baja.*cupo liberado/i)).toBeInTheDocument(),
+      );
+    });
+
+    it('207 partial → amber banner with counts + the first failed detail', async () => {
+      const user = userEvent.setup();
+      mockQuery({
+        account: { linked: true, account: linkedAccount },
+        cancelResult: {
+          removed: ['s1'],
+          failed: [
+            { id: 's2', detail: 'partner timeout' },
+            { id: 's3', detail: 'otra' },
+          ],
+          ottDisabled: false,
+          local: 'failed',
+        },
+      });
+      renderPanel();
+      await openCancel(user);
+      const dialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(dialog).getByRole('button', { name: /confirmar|dar de baja/i }));
+      // Counts: removed 1, failed 2; first failed detail surfaced.
+      await waitFor(() => expect(screen.getByText(/partner timeout/i)).toBeInTheDocument());
+      expect(screen.getByText(/reintentar baja/i)).toBeInTheDocument();
+    });
+
+    it('207 → "Reintentar baja" re-POSTs cancel (idempotent) with the same contractId', async () => {
+      const user = userEvent.setup();
+      mockQuery({
+        account: { linked: true, account: linkedAccount },
+        cancelResult: {
+          removed: [],
+          failed: [{ id: 's2', detail: 'partner timeout' }],
+          ottDisabled: false,
+          local: 'failed',
+        },
+      });
+      renderPanel(); // contractId="ct-9"
+      await openCancel(user);
+      const dialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(dialog).getByRole('button', { name: /confirmar|dar de baja/i }));
+      const retry = await screen.findByRole('button', { name: /reintentar baja/i });
+      await user.click(retry);
+      await waitFor(() =>
+        expect(cancelMutate).toHaveBeenLastCalledWith({ contractId: 'ct-9' }),
+      );
+    });
+
+    it('without tv.write the Dar de baja action is hidden', () => {
+      denyTvWrite();
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel();
+      expect(screen.queryByRole('button', { name: /dar de baja tv/i })).not.toBeInTheDocument();
     });
   });
 });

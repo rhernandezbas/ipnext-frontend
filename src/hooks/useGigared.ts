@@ -9,6 +9,7 @@ import type {
   RegisterAccountPayload,
   AddTvServicePayload,
   SetOttPayload,
+  CancelTvPayload,
 } from '@/types/gigared';
 
 /**
@@ -173,6 +174,21 @@ export function useSetOtt(customerId: string) {
     mutationFn: (body: SetOttPayload) => gigaredApi.setOtt(customerId, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: accountKey(customerId) });
+    },
+  });
+}
+
+// #47k — dar de baja TV. Removes all packs (frees the partner cupo), disables OTT
+// and inactivates the local 'TV' item. On success refresh the account, the
+// summary (cupo changed) and the customer ContractsTab (the TV chip drops).
+export function useCancelTv(customerId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CancelTvPayload) => gigaredApi.cancelTv(customerId, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: accountKey(customerId) });
+      qc.invalidateQueries({ queryKey: SUMMARY_KEY });
+      qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
     },
   });
 }

@@ -14,6 +14,8 @@ import type {
   AddTvServiceResult,
   RemoveTvServiceResult,
   SetOttPayload,
+  CancelTvPayload,
+  CancelTvResult,
 } from '@/types/gigared';
 
 const BASE = '/gigared';
@@ -98,6 +100,16 @@ export const gigaredApi = {
 
   async setOtt(customerId: string, body: SetOttPayload): Promise<{ ok: true }> {
     const r = await axiosClient.put<{ ok: true }>(`${BASE}/customers/${customerId}/ott`, body);
+    return r.data;
+  },
+
+  // #47k — dar de baja TV: removes all packs (frees the cupo), disables OTT and
+  // inactivates the local TV item. 200 = full / 207 = partial (same body shape).
+  async cancelTv(customerId: string, body: CancelTvPayload): Promise<CancelTvResult> {
+    const r = await axiosClient.post<CancelTvResult>(
+      `${BASE}/customers/${customerId}/cancel`,
+      body,
+    );
     return r.data;
   },
 };

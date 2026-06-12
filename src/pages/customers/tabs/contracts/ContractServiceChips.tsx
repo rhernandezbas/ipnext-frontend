@@ -14,6 +14,12 @@ interface Props {
    * keep their toggle behaviour.
    */
   onOpenTvManagement?: () => void;
+  /**
+   * #47k — when true, the TV chip reads as SUSPENDED (OTT disabled while packs
+   * remain): amber variant + a "TV suspendida" title. Only affects the TV chip's
+   * style/title; the click still opens the panel.
+   */
+  tvSuspended?: boolean;
 }
 
 /** A service line is the Gigared TV line when its `name` is exactly 'TV'. */
@@ -26,7 +32,7 @@ function isTvService(name: string): boolean {
  * active/inactive status; the "×" removes it behind a confirm. Read-only
  * (static chips) without `clients.write`.
  */
-export function ContractServiceChips({ contractId, clientId, services, onOpenTvManagement }: Props) {
+export function ContractServiceChips({ contractId, clientId, services, onOpenTvManagement, tvSuspended }: Props) {
   const { can } = useMyPermissions();
   const canWrite = can('clients.write');
   const confirm = useConfirm();
@@ -56,13 +62,16 @@ export function ContractServiceChips({ contractId, clientId, services, onOpenTvM
         // `onOpenTvManagement` is provided (Gigared active AND tv.read). The
         // panel itself gates write actions.
         if (isTv) {
+          // #47k — suspended TV (OTT off + packs) → amber variant + "TV suspendida"
+          // title so the operator sees the suspension without opening the panel.
+          const chipClass = tvSuspended ? `${styles.chip} ${styles.suspended}` : `${styles.chip} ${stateClass}`;
           return (
-            <span key={svc.id} className={`${styles.chip} ${stateClass}`}>
+            <span key={svc.id} className={chipClass}>
               <button
                 type="button"
                 className={styles.chipToggle}
                 onClick={onOpenTvManagement}
-                title="Gestionar TV"
+                title={tvSuspended ? 'TV suspendida' : 'Gestionar TV'}
               >
                 {text}
               </button>

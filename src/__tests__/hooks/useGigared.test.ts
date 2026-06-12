@@ -7,11 +7,12 @@ import type { GigaredAccount } from '@/types/gigared';
 vi.mock('@/api/gigared.api', () => ({
   gigaredApi: {
     linkCic: vi.fn(),
+    cancelTv: vi.fn(),
   },
 }));
 
 import { gigaredApi } from '@/api/gigared.api';
-import { useLinkCic, accountKey, SUMMARY_KEY } from '@/hooks/useGigared';
+import { useLinkCic, useCancelTv, accountKey, SUMMARY_KEY } from '@/hooks/useGigared';
 
 const account: GigaredAccount = {
   cic: '0000000001',
@@ -65,6 +66,48 @@ describe('useLinkCic', () => {
 
     await act(async () => {
       await result.current.mutateAsync({ cic: '0000000001', contractId: 'ct-9' });
+    });
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: accountKey('cust-1') });
+    expect(spy).toHaveBeenCalledWith({ queryKey: SUMMARY_KEY });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['client-contracts', 'cust-1'] });
+  });
+});
+
+// #47k — dar de baja TV: removes all packs, frees the partner cupo, disables OTT
+// and inactivates the local TV item. On success it must refresh the account, the
+// partner summary (cupo changed) and the customer ContractsTab (chip drops).
+describe('useCancelTv', () => {
+  it('passes { contractId } through to the api', async () => {
+    vi.mocked(gigaredApi.cancelTv).mockResolvedValue({
+      removed: ['s1'],
+      failed: [],
+      ottDisabled: true,
+      local: 'synced',
+    });
+    const { wrapper } = makeWrapper();
+    const { result } = renderHook(() => useCancelTv('cust-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ contractId: 'ct-9' });
+    });
+
+    expect(gigaredApi.cancelTv).toHaveBeenCalledWith('cust-1', { contractId: 'ct-9' });
+  });
+
+  it('invalidates account + summary + client-contracts on success', async () => {
+    vi.mocked(gigaredApi.cancelTv).mockResolvedValue({
+      removed: ['s1'],
+      failed: [],
+      ottDisabled: true,
+      local: 'synced',
+    });
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useCancelTv('cust-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ contractId: 'ct-9' });
     });
 
     expect(spy).toHaveBeenCalledWith({ queryKey: accountKey('cust-1') });
