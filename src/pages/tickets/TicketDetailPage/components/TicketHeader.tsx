@@ -9,8 +9,11 @@ const CLOSED_SLUGS = ['cerrado', 'closed'];
 
 interface TicketHeaderProps {
   ticket: Ticket;
+  /** #48 — the draft status from the page (unified save). Controls the select. */
+  statusValue: string;
   onSubjectSave: (subject: string) => Promise<void>;
-  onStatusChange: (status: string) => Promise<void>;
+  /** #48 — stages the status into the page draft (no immediate persistence). */
+  onStatusChange: (status: string) => void;
   onClose: () => void;
   onDelete: () => void;
   onCreateTask: () => void;
@@ -19,6 +22,7 @@ interface TicketHeaderProps {
 
 export function TicketHeader({
   ticket,
+  statusValue,
   onSubjectSave,
   onStatusChange,
   onClose,
@@ -136,10 +140,11 @@ export function TicketHeader({
       </div>
 
       <div className={styles.controls}>
-        {/* StatusSelect — catalog-driven */}
+        {/* StatusSelect — catalog-driven. #48: controlled by the page draft;
+            staging only — persistence is the unified GUARDAR. */}
         <select
-          value={ticket.status}
-          onChange={e => void onStatusChange(e.target.value)}
+          value={statusValue}
+          onChange={e => onStatusChange(e.target.value)}
           className={styles.statusSelect}
           disabled={isSaving || !canWrite}
           aria-label="Estado"
