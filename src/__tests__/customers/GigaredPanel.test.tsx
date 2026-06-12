@@ -1426,18 +1426,18 @@ describe('GigaredPanel', () => {
       ).toBeInTheDocument();
     });
 
-    it('legible data line uses correct singular (1 fija, 1 móvil, 0 dispositivos)', () => {
+    it('legible data line uses correct singular (1 fija, 1 móvil) — sin dispositivos', () => {
       // linkedAccount.ott = stationary 1, mobile 1, registered 0.
+      // #60: el contador de dispositivos no se muestra (viene roto upstream).
       mockQuery({ account: { linked: true, account: linkedAccount } });
       renderPanel();
       expect(
-        screen.getByText(
-          /puede ver en hasta 1 pantalla fija y 1 móvil · 0 dispositivos registrados/i,
-        ),
+        screen.getByText(/puede ver en hasta 1 pantalla fija y 1 móvil/i),
       ).toBeInTheDocument();
+      expect(screen.queryByText(/dispositivos? registrados?/i)).not.toBeInTheDocument();
     });
 
-    it('legible data line pluralizes correctly (2 fijas, 3 móviles, 1 dispositivo)', () => {
+    it('legible data line pluralizes correctly (2 fijas, 3 móviles) — sin dispositivos', () => {
       const plural: GigaredAccount = {
         ...linkedAccount,
         ott: { id: 'o1', stationaryLicenses: 2, mobileLicenses: 3, registeredDevices: 1, status: 'enabled' },
@@ -1445,10 +1445,9 @@ describe('GigaredPanel', () => {
       mockQuery({ account: { linked: true, account: plural } });
       renderPanel();
       expect(
-        screen.getByText(
-          /puede ver en hasta 2 pantallas fijas y 3 móviles · 1 dispositivo registrado/i,
-        ),
+        screen.getByText(/puede ver en hasta 2 pantallas fijas y 3 móviles/i),
       ).toBeInTheDocument();
+      expect(screen.queryByText(/dispositivos? registrados?/i)).not.toBeInTheDocument();
     });
 
     it('the Suspender TV action still works with its pending', async () => {
