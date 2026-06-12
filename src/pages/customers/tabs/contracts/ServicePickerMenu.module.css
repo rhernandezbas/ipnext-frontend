@@ -28,6 +28,10 @@
    escapes the contract card's `overflow: hidden` (fix #58). max-height + scroll
    keeps a growing service catalog inside the viewport. */
 .menu {
+  /* Sits ABOVE normal card content but BELOW app modals so it never covers a
+     modal opened async. LinkAccountPickerModal/modals use 1200; the picker menu
+     stays at 1000 (fix #58). The position is set inline (top/left or bottom/left)
+     depending on whether the menu opens downward or flips upward. */
   z-index: 1000;
   min-width: 180px;
   max-height: 280px;
@@ -64,11 +68,11 @@
   color: var(--color-text-secondary);
 }
 
+/* Portaled to <body> with fixed positioning (top/left set inline) so it escapes
+   the contract card's `overflow: hidden`, same as the menu (fix #58). Below the
+   menu's z-index but above normal content. */
 .toast {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 30;
+  z-index: 1000;
   min-width: 180px;
   margin: 0;
   padding: 6px 10px;

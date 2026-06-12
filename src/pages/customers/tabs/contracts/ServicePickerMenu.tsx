@@ -21,6 +21,17 @@ interface Props {
   onPickTv?: () => void;
 }
 
+/**
+ * Anchored position for the portaled menu/toast. The menu can be anchored
+ * either by its `top` edge (opening downward from the trigger) or by its
+ * `bottom` edge (flipping upward from the trigger). Bottom-anchoring is what
+ * keeps a flipped menu glued to the trigger regardless of its own height —
+ * the menu grows upward from the trigger instead of guessing its height.
+ */
+type MenuPos =
+  | { left: number; top: number }
+  | { left: number; bottom: number };
+
 /** A catalog entry is the Gigared TV service when its `name` is exactly 'TV'. */
 function isTvEntry(name: string): boolean {
   return name === 'TV';
@@ -35,30 +46,49 @@ function mapAddError(err: unknown): string {
   return 'No se pudo agregar el servicio.';
 }
 
-/** Menu sizing — kept in sync with .menu max-height in the CSS module. */
+/** Menu sizing — kept in sync with .menu max-height/min-width in the CSS module. */
 const MENU_MAX_HEIGHT = 280;
+const MENU_MIN_WIDTH = 180;
+/** Gap between viewport edge and the menu when clamping horizontally. */
+const VIEWPORT_MARGIN = 8;
+
+/** Clamp the menu's left edge so it never overflows the right viewport edge. */
+function clampLeft(left: number): number {
+  const max = window.innerWidth - MENU_MIN_WIDTH - VIEWPORT_MARGIN;
+  return Math.max(VIEWPORT_MARGIN, Math.min(left, max));
+}
 
 /**
  * Inline popover to attach a catalog service to the contract (#42, AD-4).
  * Lists active catalog entries not yet attached. Closes on outside click.
  * A duplicate (409 CONTRACT_SERVICE_DUPLICATE) surfaces an inline toast.
  *
- * Fix #58 — the menu/toast are rendered through a portal to <body> with
- * fixed positioning (StageSelect pattern) so they escape the ancestor
- * `.card { overflow: hidden }` that previously clipped them. The list has a
- * max-height with internal scroll so a growing catalog never overflows the
- * viewport, and the menu flips upward when there's no room below.
+ * Fix #58 — both the menu AND the toast are rendered through a portal to
+ * <body> with fixed positioning (StageSelect pattern) so they escape the
+ * ancestor `.card { overflow: hidden }` that previously clipped them. The list
+ * has a max-height with internal scroll so a growing catalog never overflows
+ * the viewport. When there's no room below, the menu flips upward and anchors
+ * by its `bottom` edge to the trigger, so a small catalog stays glued to the
+ * trigger instead of floating ~200px above it.
+ *
+ * Keyboard (basic ARIA menu pattern): Escape closes and returns focus to the
+ * trigger; opening focuses the first item; ArrowUp/ArrowDown move between items.
  */
 export function ServicePickerMenu({ contractId, clientId, services, divertTv, onPickTv }: Props) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [pos, setPos] = useState<MenuPos | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [toastPos, setToastPos] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
   const { data: catalog = [] } = useServiceCatalog(true);
   const addService = useAddContractService(clientId);
 
   function showToast(msg: string) {
+    // Anchor the toast to the trigger so it escapes the card's overflow:hidden,
+    // same as the menu (fix #58). Positioned just below the trigger.
+    const r = triggerRef.current?.getBoundingClientRect();
+    if (r) setToastPos({ top: r.bottom + 4, left: clampLeft(r.left) });
     setToast(msg);
     setTimeout(() => setToast(null), 4000);
   }
@@ -69,6 +99,12 @@ export function ServicePickerMenu({ contractId, clientId, services, divertTv, on
     [catalog, attachedIds],
   );
 
+  /** Closes the menu and returns focus to the trigger (keyboard a11y). */
+  function closeAndFocusTrigger() {
+    setOpen(false);
+    triggerRef.current?.focus();
+  }
+
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => {
@@ -76,35 +112,70 @@ export function ServicePickerMenu({ contractId, clientId, services, divertTv, on
       if (!triggerRef.current?.contains(t) && !menuRef.current?.contains(t)) setOpen(false);
     };
     document.addEventListener('mousedown', close);
-    // The fixed-position menu would float away on scroll/resize — close it.
-    // Ignore scroll originating INSIDE the menu so scrolling the options list
-    // doesn't dismiss it before the user can pick.
+    // The fixed-position menu would float away on scroll — close it. Ignore
+    // scroll originating INSIDE the menu so scrolling the options list doesn't
+    // dismiss it before the user can pick.
     const onScroll = (e: Event) => {
       if (menuRef.current?.contains(e.target as Node)) return;
       setOpen(false);
     };
+    // Resize must NOT reuse onScroll: a ResizeEvent's target is `window`, which
+    // is not a Node, so `menuRef.current.contains(window)` throws a TypeError
+    // and the menu would never close (HIGH 1). The menu's anchor coords are also
+    // stale after a resize — just close it directly.
+    const onResize = () => setOpen(false);
     window.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', onScroll);
+    window.addEventListener('resize', onResize);
     return () => {
       document.removeEventListener('mousedown', close);
       window.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('resize', onScroll);
+      window.removeEventListener('resize', onResize);
     };
   }, [open]);
+
+  // Focus the first menu item when the menu opens (ARIA menu pattern).
+  useEffect(() => {
+    if (!open) return;
+    const first = menuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]');
+    first?.focus();
+  }, [open, pos]);
 
   function toggle() {
     if (open) { setOpen(false); return; }
     const r = triggerRef.current?.getBoundingClientRect();
     if (r) {
-      // Open upward if there isn't room below (menu max-height ~280).
+      const left = clampLeft(r.left);
+      // Open upward if there isn't room below (menu max-height ~280). When
+      // flipping, anchor by `bottom` to the trigger top so the menu grows
+      // upward from the trigger regardless of its own height (HIGH 2): a small
+      // catalog (~100px) stays glued to the trigger instead of floating above it.
       const below = window.innerHeight - r.bottom;
-      const top =
-        below < MENU_MAX_HEIGHT + 10 && r.top > below
-          ? r.top - Math.min(MENU_MAX_HEIGHT, r.top - 8)
-          : r.bottom + 4;
-      setPos({ top, left: r.left });
+      if (below < MENU_MAX_HEIGHT + 10 && r.top > below) {
+        setPos({ left, bottom: window.innerHeight - r.top + 4 });
+      } else {
+        setPos({ left, top: r.bottom + 4 });
+      }
     }
     setOpen(true);
+  }
+
+  /** ArrowUp/ArrowDown move between items; Escape closes and refocuses trigger. */
+  function onMenuKeyDown(e: React.KeyboardEvent<HTMLUListElement>) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeAndFocusTrigger();
+      return;
+    }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    const items = Array.from(
+      menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [],
+    );
+    if (items.length === 0) return;
+    const idx = items.indexOf(document.activeElement as HTMLButtonElement);
+    const delta = e.key === 'ArrowDown' ? 1 : -1;
+    const next = (idx + delta + items.length) % items.length;
+    items[next]?.focus();
   }
 
   async function handlePick(serviceCatalogId: string, name: string) {
@@ -144,7 +215,8 @@ export function ServicePickerMenu({ contractId, clientId, services, divertTv, on
           ref={menuRef}
           className={styles.menu}
           role="menu"
-          style={{ position: 'fixed', top: pos.top, left: pos.left }}
+          onKeyDown={onMenuKeyDown}
+          style={{ position: 'fixed', ...pos }}
         >
           {options.length === 0 ? (
             <li className={styles.emptyItem}>No hay servicios disponibles.</li>
@@ -165,10 +237,15 @@ export function ServicePickerMenu({ contractId, clientId, services, divertTv, on
         </ul>,
         document.body,
       )}
-      {toast && (
-        <p className={styles.toast} role="alert">
+      {toast && toastPos && createPortal(
+        <p
+          className={styles.toast}
+          role="alert"
+          style={{ position: 'fixed', top: toastPos.top, left: toastPos.left }}
+        >
           {toast}
-        </p>
+        </p>,
+        document.body,
       )}
     </div>
   );
