@@ -174,6 +174,57 @@ describe('CreateTaskModal network submit payload (REQ-NTP-3)', () => {
   });
 });
 
+describe('CreateTaskModal address required in network mode (REQ-53)', () => {
+  function setupFilled() {
+    return render(
+      <CreateTaskModal
+        projects={networkProjects}
+        workflows={workflows}
+        defaultMode="network"
+        onClose={onClose}
+        onCreate={onCreate}
+        loading={false}
+      />,
+    );
+  }
+
+  it('disables "Crear tarea" when a node is selected but address is cleared', async () => {
+    setupFilled();
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea nodo' } });
+    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'Descripción' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'np-1' } });
+    fireEvent.click(screen.getByText('POP Centro'));
+    // Address gets autofilled; clear it manually.
+    const addr = screen.getByPlaceholderText('Dirección del trabajo');
+    await waitFor(() => expect(addr).toHaveValue('Av. Siempreviva 742'));
+    fireEvent.change(addr, { target: { value: '' } });
+    const submit = screen.getByRole('button', { name: /crear tarea/i });
+    expect(submit).toBeDisabled();
+  });
+
+  it('enables "Crear tarea" when node is selected and address is non-blank', async () => {
+    setupFilled();
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea nodo' } });
+    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'Descripción' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'np-1' } });
+    fireEvent.click(screen.getByText('POP Centro'));
+    const addr = screen.getByPlaceholderText('Dirección del trabajo');
+    await waitFor(() => expect(addr).toHaveValue('Av. Siempreviva 742'));
+    const submit = screen.getByRole('button', { name: /crear tarea/i });
+    await waitFor(() => expect(submit).toBeEnabled());
+  });
+
+  it('shows the required asterisk on Dirección label in network mode', () => {
+    setupFilled();
+    // aria-hidden span with "*" next to "Dirección" text
+    const asterisk = document.querySelector('[aria-hidden="true"]');
+    // Find all aria-hidden="true" elements and check one contains "*"
+    const allHidden = document.querySelectorAll('[aria-hidden="true"]');
+    const hasAsterisk = Array.from(allHidden).some(el => el.textContent === '*');
+    expect(hasAsterisk).toBe(true);
+  });
+});
+
 describe('CreateTaskModal empty network-project hint (REQ-NTP-4)', () => {
   it('shows a network hint when no projects are available in network mode', () => {
     render(

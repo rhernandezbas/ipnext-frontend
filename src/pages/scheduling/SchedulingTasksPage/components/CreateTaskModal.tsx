@@ -243,7 +243,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     !loading &&
     (taskMode === 'customer'
       ? !!customerId && !!contractId
-      : !!networkSiteId);
+      : !!networkSiteId && address.trim().length > 0);
 
   function applyTemplate(id: string) {
     setTemplateId(id);
@@ -543,7 +543,9 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
           </label>
 
           <label className={styles.label}>
-            Dirección
+            {taskMode === 'network'
+              ? <span>Dirección <span className={styles.required} aria-hidden="true">*</span></span>
+              : 'Dirección'}
             <input
               className={styles.input}
               value={address}
