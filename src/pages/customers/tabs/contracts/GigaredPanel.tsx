@@ -171,12 +171,15 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
       const outcome = await cancelTv.mutateAsync({ contractId: targetContractId });
       setCancelOutcome(outcome);
     } catch (err) {
-      // M1 — a 404 TV_NOT_LINKED on retry means the account is already unlinked:
-      // treat it as a successful completion instead of surfacing a red error.
-      if (errorCode(err) === 'TV_NOT_LINKED') {
-        setCancelOutcome({ status: 200, data: cancelOutcome?.data ?? {
-          removed: [], failed: [], ottDisabled: true, local: 'synced', renew: null, unlinked: true,
-        }});
+      // M1 (#64 re-review) — a 404 TV_NOT_LINKED is "la baja ya se completó" SOLO en un
+      // RETRY: hubo un intento previo en esta sesión (cancelOutcome !== null), la cuenta ya
+      // se desvinculó y el re-POST encuentra la cuenta ausente. En el PRIMER intento un 404
+      // TV_NOT_LINKED significa que la cuenta nunca estuvo vinculada → error normal, no un
+      // "ya completada" engañoso.
+      if (errorCode(err) === 'TV_NOT_LINKED' && cancelOutcome !== null) {
+        // Conservamos los datos del intento previo (cancelOutcome.data siempre existe acá),
+        // sólo flipeamos el status a 200 para cerrar el modal en estado "completada".
+        setCancelOutcome({ status: 200, data: cancelOutcome.data });
         setCancelDoneMsg('La baja ya se completó en Gigared.');
         return;
       }

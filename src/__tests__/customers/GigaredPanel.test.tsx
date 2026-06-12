@@ -1949,6 +1949,28 @@ describe('GigaredPanel', () => {
       ).toBeInTheDocument();
     });
 
+    // ── M1 (#64 re-review): el 404 amable SOLO aplica al retry ────────────────
+    it('M1 re-review: PRIMER intento 404 TV_NOT_LINKED → error normal, NO "baja ya completada"', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel();
+      // El primer POST (sin intento previo) rechaza con 404 TV_NOT_LINKED.
+      cancelMutate.mockReset().mockRejectedValueOnce({
+        response: { status: 404, data: { code: 'TV_NOT_LINKED' } },
+      });
+      await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
+      const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
+
+      // Sin intento previo (cancelOutcome === null) → NO se trata como "ya completada".
+      await waitFor(() =>
+        expect(screen.getByText(/no se pudo dar de baja/i)).toBeInTheDocument(),
+      );
+      // El mensaje engañoso NO aparece y NO se abre el modal de resultado.
+      expect(screen.queryByText(/la baja ya se completó en gigared/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('dialog', { name: /baja de tv/i })).not.toBeInTheDocument();
+    });
+
     // ── L3: snapshot contractId at confirm time ───────────────────────────────
     it('L3: Reintentar uses the SNAPSHOT contractId, not the recomputed effectiveContractId', async () => {
       const user = userEvent.setup();
