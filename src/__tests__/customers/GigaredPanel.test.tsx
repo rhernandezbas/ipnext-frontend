@@ -707,7 +707,7 @@ describe('GigaredPanel', () => {
       const user = userEvent.setup();
       registerMutate.mockResolvedValue({ account: linkedAccount, credentialsPersisted: true });
       mockQuery({ account: { linked: false, account: null } });
-      // #70 — la password es OBLIGATORIA: con grClienteId el form la prefillea (determinística).
+      // #70 (rework) — sin campo de password: el form solo prefillea el email ficticio; la clave la genera el BE.
       renderPanel({ name: 'García Ana', email: 'a@b.com', grClienteId: '243200' });
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
       await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
@@ -725,7 +725,7 @@ describe('GigaredPanel', () => {
       const user = userEvent.setup();
       registerMutate.mockResolvedValue({ account: linkedAccount, credentialsPersisted: false });
       mockQuery({ account: { linked: false, account: null } });
-      // #70 — password obligatoria; grClienteId prefillea la determinística.
+      // #70 (rework) — el grClienteId solo alimenta el email ficticio; la clave la genera el BE.
       renderPanel({ name: 'García Ana', email: 'a@b.com', grClienteId: '243200' });
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
       await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
