@@ -358,6 +358,13 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
                   : ''}
                 {cancelOutcome.data.failed[0] ? ` (${cancelOutcome.data.failed[0].detail})` : ''}.
               </li>
+              {/* #67 — pack base irremovible: línea INFORMATIVA (no error, no cuenta para "parcial").
+                  El status del BE ya manda; con sólo el base la baja igual responde 200. */}
+              {(cancelOutcome.data.unremovable?.length ?? 0) > 0 && (
+                <li>
+                  Pack base: no se puede quitar — lo libera la renovación del CIC.
+                </li>
+              )}
               <li>Streaming (OTT): {cancelOutcome.data.ottDisabled ? 'apagado' : 'sigue activo'}.</li>
               <li>Ítem TV del contrato: {cancelOutcome.data.local === 'synced' ? 'desactivado' : 'sin desactivar'}.</li>
               <li>

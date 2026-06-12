@@ -1837,6 +1837,53 @@ describe('GigaredPanel', () => {
       expect(within(outcome).getByRole('button', { name: /reintentar baja/i })).toBeInTheDocument();
     });
 
+    it('#67 200 + unremovable (pack base) → success MODAL + línea informativa (no error, no Reintentar)', async () => {
+      const user = userEvent.setup();
+      // El pack BASE no se puede quitar (424). El BE ya NO lo cuenta como failed:
+      // viaja en `unremovable` (informativo) y el status es 200 (éxito).
+      mockQuery({
+        account: { linked: true, account: linkedAccount },
+        cancelResult: { status: 200, data: {
+          removed: ['s2'],
+          failed: [],
+          unremovable: [
+            { id: 's1', detail: 'El servicio seleccionado no se puede dar de baja' },
+          ],
+          ottDisabled: true,
+          local: 'synced',
+          renew: { oldCic: '0000000001', newCic: '0000000002' }, unlinked: true,
+        }},
+      });
+      renderPanel();
+      await openCancel(user);
+      const confirm = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(confirm).getByRole('button', { name: /confirmar|dar de baja/i }));
+      const outcome = await screen.findByRole('dialog', { name: /baja de tv/i });
+      // Modal de ÉXITO normal (no parcial): el mensaje de éxito y SIN Reintentar.
+      expect(within(outcome).getByText(/se estará deshabilitando en los próximos minutos/i)).toBeInTheDocument();
+      expect(within(outcome).queryByRole('button', { name: /reintentar baja/i })).not.toBeInTheDocument();
+      // Línea informativa del pack base (tono neutro): mencion del pack base y de la renovación del CIC.
+      expect(within(outcome).getByText(/pack base/i)).toBeInTheDocument();
+      expect(within(outcome).getByText(/renovaci[oó]n del cic/i)).toBeInTheDocument();
+    });
+
+    it('#67 200 sin unremovable → NO se muestra la línea informativa del pack base', async () => {
+      const user = userEvent.setup();
+      mockQuery({
+        account: { linked: true, account: linkedAccount },
+        cancelResult: { status: 200, data: {
+          removed: ['s1', 's2'], failed: [], unremovable: [], ottDisabled: true, local: 'synced',
+          renew: { oldCic: '0000000001', newCic: '0000000002' }, unlinked: true,
+        }},
+      });
+      renderPanel();
+      await openCancel(user);
+      const confirm = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(confirm).getByRole('button', { name: /confirmar|dar de baja/i }));
+      const outcome = await screen.findByRole('dialog', { name: /baja de tv/i });
+      expect(within(outcome).queryByText(/pack base/i)).not.toBeInTheDocument();
+    });
+
     it('#64 207 → "Reintentar baja" re-POSTs cancel (idempotent) with the same contractId', async () => {
       const user = userEvent.setup();
       mockQuery({
