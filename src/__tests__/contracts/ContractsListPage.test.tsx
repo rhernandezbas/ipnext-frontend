@@ -195,6 +195,39 @@ describe('CP-1b: client name is a link to the customer detail (#56)', () => {
     const link = screen.getByRole('link', { name: 'Bob Martínez' });
     expect(link).toHaveAttribute('href', '/admin/customers/view/client-2');
   });
+
+  // Degraded case: deploy FE-antes-que-BE o response cacheada → clientId undefined.
+  // Patrón #47j Fix 3: sin clientId el nombre se muestra como texto plano,
+  // nunca navega a /admin/customers/view/undefined.
+  it('renders plain text (no link) when a row has no clientId', () => {
+    vi.mocked(useContractsModule.useContracts).mockReturnValue({
+      data: {
+        data: [
+          {
+            id: 'c3',
+            // clientId ausente — modela una response del BE viejo / cacheada
+            clientName: 'Sin Cliente',
+            plan: 'Plan X',
+            status: 'active',
+            technology: null,
+            startDate: '2024-03-01',
+          } as unknown as ContractSummary,
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 25,
+        totalPages: 1,
+      },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useContractsModule.useContracts>);
+    renderPage();
+    // El nombre aparece como texto pero NO como link
+    expect(screen.getByText('Sin Cliente')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Sin Cliente' })).not.toBeInTheDocument();
+    // Sanity: no se generó un href con "undefined"
+    expect(screen.queryByText((_, el) => el?.getAttribute('href')?.includes('undefined') ?? false)).toBeNull();
+  });
 });
 
 // ── CP-2: Search debounce ─────────────────────────────────────────────────────

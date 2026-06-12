@@ -22,11 +22,18 @@ function getColumns(): Column[] {
       label: 'Cliente',
       key: 'clientName',
       sortable: false,
-      render: (row) => (
-        <Link to={`/admin/customers/view/${row.clientId}`} className={styles.clientLink}>
-          {row.clientName}
-        </Link>
-      ),
+      // #56 Fix wave — patrón #47j Fix 3: cuando el contrato tiene clientId
+      // (caso normal) el nombre linkea a la vista del cliente. Si falta
+      // (deploy FE-antes-que-BE o response cacheada) cae a texto plano para
+      // no navegar a /admin/customers/view/undefined.
+      render: (row) =>
+        row.clientId ? (
+          <Link to={`/admin/customers/view/${row.clientId}`} className={styles.clientLink}>
+            {row.clientName}
+          </Link>
+        ) : (
+          row.clientName
+        ),
     },
     { label: 'Plan', key: 'plan', sortable: false },
     {
