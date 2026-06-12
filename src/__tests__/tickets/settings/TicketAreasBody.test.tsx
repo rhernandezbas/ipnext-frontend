@@ -21,8 +21,8 @@ import { TicketAreasBody } from '@/pages/tickets/settings/TicketAreasBody';
 import type { TicketArea } from '@/types/ticketArea';
 
 const mockAreas: TicketArea[] = [
-  { id: 'a1', name: 'Soporte' },
-  { id: 'a2', name: 'Facturacion' },
+  { id: 'a1', name: 'Soporte', color: '#6366f1' },
+  { id: 'a2', name: 'Facturacion', color: '#10b981' },
 ];
 
 function makeNoop() {
@@ -87,7 +87,7 @@ describe('TicketAreasBody', () => {
     expect(screen.getByPlaceholderText(/soporte/i)).toBeInTheDocument();
   });
 
-  it('calls createMutation.mutateAsync with name on save', async () => {
+  it('calls createMutation.mutateAsync with name + default color on save', async () => {
     const createMock = makeNoop();
     vi.mocked(useTicketAreasModule.useCreateTicketArea).mockReturnValue(createMock);
     renderBody();
@@ -95,8 +95,29 @@ describe('TicketAreasBody', () => {
     fireEvent.change(screen.getByPlaceholderText(/soporte/i), { target: { value: 'Redes' } });
     fireEvent.click(screen.getByRole('button', { name: /^guardar/i }));
     await waitFor(() => {
-      expect(createMock.mutateAsync).toHaveBeenCalledWith({ name: 'Redes' });
+      // #69 — new area carries the default pill color.
+      expect(createMock.mutateAsync).toHaveBeenCalledWith({ name: 'Redes', color: '#6366f1' });
     });
+  });
+
+  it('#69 — sends the chosen color on create', async () => {
+    const createMock = makeNoop();
+    vi.mocked(useTicketAreasModule.useCreateTicketArea).mockReturnValue(createMock);
+    renderBody();
+    fireEvent.click(screen.getByRole('button', { name: /nueva area/i }));
+    fireEvent.change(screen.getByPlaceholderText(/soporte/i), { target: { value: 'Redes' } });
+    fireEvent.change(screen.getByLabelText(/color del area/i), { target: { value: '#10b981' } });
+    fireEvent.click(screen.getByRole('button', { name: /^guardar/i }));
+    await waitFor(() => {
+      expect(createMock.mutateAsync).toHaveBeenCalledWith({ name: 'Redes', color: '#10b981' });
+    });
+  });
+
+  it('#69 — edit modal prefills the area color', () => {
+    renderBody();
+    const editBtns = screen.getAllByRole('button', { name: /editar/i });
+    fireEvent.click(editBtns[0]);
+    expect(screen.getByLabelText(/color del area/i)).toHaveValue('#6366f1');
   });
 
   it('opens edit modal with prefilled name when Editar is clicked', () => {
@@ -117,7 +138,7 @@ describe('TicketAreasBody', () => {
     await waitFor(() => {
       expect((updateMock as { mutateAsync: ReturnType<typeof vi.fn> }).mutateAsync).toHaveBeenCalledWith({
         id: 'a1',
-        data: { name: 'Soporte TI' },
+        data: { name: 'Soporte TI', color: '#6366f1' },
       });
     });
   });

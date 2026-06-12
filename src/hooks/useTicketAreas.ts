@@ -18,7 +18,7 @@ export function useCreateTicketArea() {
 export function useUpdateTicketArea() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name?: string } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; color?: string } }) =>
       ticketAreasApi.update(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });

@@ -35,7 +35,7 @@ const mockApi = ticketAreasApiModule.ticketAreasApi as {
 };
 
 function makeArea(over: Partial<TicketArea> = {}): TicketArea {
-  return { id: 'a-1', name: 'Soporte', ...over };
+  return { id: 'a-1', name: 'Soporte', color: '#6366f1', ...over };
 }
 
 function makeWrapper() {
@@ -81,10 +81,13 @@ describe('useCreateTicketArea', () => {
     const { result } = renderHook(() => useCreateTicketArea(), { wrapper });
 
     await act(async () => {
-      await result.current.mutateAsync({ name: 'Redes' });
+      await result.current.mutateAsync({ name: 'Redes', color: '#10b981' });
     });
 
-    expect(mockApi.create).toHaveBeenCalledWith(expect.objectContaining({ name: 'Redes' }), expect.anything());
+    expect(mockApi.create).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Redes', color: '#10b981' }),
+      expect.anything(),
+    );
   });
 });
 
@@ -100,10 +103,10 @@ describe('useUpdateTicketArea', () => {
     const { result } = renderHook(() => useUpdateTicketArea(), { wrapper });
 
     await act(async () => {
-      await result.current.mutateAsync({ id: 'a-1', data: { name: 'Soporte TI' } });
+      await result.current.mutateAsync({ id: 'a-1', data: { name: 'Soporte TI', color: '#f59e0b' } });
     });
 
-    expect(mockApi.update).toHaveBeenCalledWith('a-1', { name: 'Soporte TI' });
+    expect(mockApi.update).toHaveBeenCalledWith('a-1', { name: 'Soporte TI', color: '#f59e0b' });
   });
 });
 

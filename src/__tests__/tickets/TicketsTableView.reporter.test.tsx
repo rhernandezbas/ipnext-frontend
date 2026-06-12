@@ -36,7 +36,8 @@ function mkTicket(over: Partial<Ticket>): Ticket {
     id: 't1', sequenceNumber: 1, subject: 'Asunto', description: '', status: 'Abierto',
     priority: 'medium', type: null, customerId: 'c1', customerName: 'Cliente',
     assigneeId: null, assigneeName: null, reporterId: null, reporterName: null,
-    reporter: null, createdAt: '2026-01-01', updatedAt: '2026-01-01',
+    reporter: null, areaId: null, areaName: null, areaColor: null,
+    createdAt: '2026-01-01', updatedAt: '2026-01-01',
     resolvedAt: null, tags: [],
     ...over,
   };
@@ -57,9 +58,9 @@ describe('TicketsTableView — Reporter column (#48 M1)', () => {
   });
 
   it('falls back to "—" when reporterName is null', () => {
-    setup([mkTicket({ reporterName: null })]);
-    // The dash appears as the Reporter cell content. There is no other em-dash
-    // column in this fixture, so a single match is enough.
+    // #69 — give the ticket an area so the Área column doesn't also render a dash;
+    // then the single '—' belongs to the Reporter cell.
+    setup([mkTicket({ reporterName: null, areaId: 'a1', areaName: 'Soporte', areaColor: '#6366f1' })]);
     expect(screen.getByText('—')).toBeInTheDocument();
   });
 

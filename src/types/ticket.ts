@@ -42,6 +42,8 @@ export interface Ticket {
   // #49 — area de soporte del ticket.
   areaId: string | null;
   areaName: string | null;
+  // #69 — color del catalogo de areas, para la pill en el listado.
+  areaColor: string | null;
   /** ScheduledTasks created from this ticket (#44 — enriched GET /tickets/:id). */
   tasks?: RelatedTask[];
   createdAt: string;

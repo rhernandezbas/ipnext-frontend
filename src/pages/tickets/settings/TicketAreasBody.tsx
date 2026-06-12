@@ -10,21 +10,25 @@ import { Can } from '@/components/auth/Can';
 import { useConfirm } from '@/context/ConfirmContext';
 import styles from './TicketAreasBody.module.css';
 
+/** #69 — default pill color for a new area (índigo, mirrors the BE seed default). */
+const DEFAULT_AREA_COLOR = '#6366f1';
+
 interface ModalProps {
   initial?: TicketArea;
   onClose: () => void;
-  onSave: (data: { name: string }) => Promise<void>;
+  onSave: (data: { name: string; color: string }) => Promise<void>;
   loading: boolean;
 }
 
 function TicketAreaModal({ initial, onClose, onSave, loading }: ModalProps) {
   const [name, setName] = useState(initial?.name ?? '');
+  const [color, setColor] = useState(initial?.color ?? DEFAULT_AREA_COLOR);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSave() {
     setError(null);
     try {
-      await onSave({ name: name.trim() });
+      await onSave({ name: name.trim(), color });
       onClose();
     } catch (err: unknown) {
       const e = err as { response?: { status?: number; data?: { code?: string } } };
@@ -53,6 +57,16 @@ function TicketAreaModal({ initial, onClose, onSave, loading }: ModalProps) {
             autoFocus
           />
         </label>
+        <label className={styles.label}>
+          Color
+          <input
+            type="color"
+            aria-label="Color del area"
+            value={color}
+            onChange={e => setColor(e.target.value)}
+            style={{ width: 56, height: 36, padding: 2, border: '1px solid #cbd5e1', borderRadius: 8, cursor: 'pointer' }}
+          />
+        </label>
         <div className={styles.modalActions}>
           <button className={styles.btnSecondary} onClick={onClose} disabled={loading}>Cancelar</button>
           <button className={styles.btnPrimary} onClick={handleSave} disabled={!name.trim() || loading}>
@@ -75,11 +89,11 @@ export function TicketAreasBody() {
   const [editing, setEditing] = useState<TicketArea | null>(null);
   const confirm = useConfirm();
 
-  async function handleCreate(data: { name: string }) {
+  async function handleCreate(data: { name: string; color: string }) {
     await createMutation.mutateAsync(data);
   }
 
-  async function handleEdit(data: { name: string }) {
+  async function handleEdit(data: { name: string; color: string }) {
     if (!editing) return;
     await updateMutation.mutateAsync({ id: editing.id, data });
     setEditing(null);
@@ -116,6 +130,7 @@ export function TicketAreasBody() {
           <table className={styles.table}>
             <thead>
               <tr>
+                <th>Color</th>
                 <th>Nombre</th>
                 <th></th>
               </tr>
@@ -123,6 +138,20 @@ export function TicketAreasBody() {
             <tbody>
               {areas.map(area => (
                 <tr key={area.id}>
+                  <td>
+                    <span
+                      aria-label={`Color de ${area.name}`}
+                      style={{
+                        display: 'inline-block',
+                        width: 18,
+                        height: 18,
+                        borderRadius: 9999,
+                        background: area.color,
+                        border: '1px solid #00000022',
+                        verticalAlign: 'middle',
+                      }}
+                    />
+                  </td>
                   <td>{area.name}</td>
                   <td className={styles.actions}>
                     <Can permission="tickets.manage">
