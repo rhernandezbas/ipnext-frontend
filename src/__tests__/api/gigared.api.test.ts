@@ -176,6 +176,32 @@ describe('gigaredApi.setOtt', () => {
   });
 });
 
+// ── #65 fix wave H1 — change TV password (NO cic in the body; resolved server-side) ─────────
+describe('gigaredApi.changeTvPassword', () => {
+  it('POSTs /gigared/customers/:id/tv-password with { contractId, password } (cic NOT sent)', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: { password: 'ip243200', persisted: true } });
+    const result = await gigaredApi.changeTvPassword('cust-1', {
+      contractId: 'ct-9',
+      password: 'ip243200',
+    });
+    expect(axiosClient.post).toHaveBeenCalledWith('/gigared/customers/cust-1/tv-password', {
+      contractId: 'ct-9',
+      password: 'ip243200',
+    });
+    expect(result).toEqual({ password: 'ip243200', persisted: true });
+  });
+});
+
+// ── #65 fix wave H3 — dedicated TV credentials endpoint ─────────────────────────────────────
+describe('gigaredApi.getTvCredentials', () => {
+  it('GETs /gigared/customers/:id/tv-credentials and returns { login, password }', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: { login: 'GIGA2432', password: 'ip243200' } });
+    const result = await gigaredApi.getTvCredentials('cust-1');
+    expect(axiosClient.get).toHaveBeenCalledWith('/gigared/customers/cust-1/tv-credentials');
+    expect(result).toEqual({ login: 'GIGA2432', password: 'ip243200' });
+  });
+});
+
 // ── #47k/#64 — cancel TV (dar de baja): la API devuelve { status, data } ─────
 describe('gigaredApi.cancelTv', () => {
   it('POSTs /gigared/customers/:id/cancel with { contractId } and returns { status, data }', async () => {

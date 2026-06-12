@@ -9,6 +9,8 @@ export interface ContractService {
   status: 'active' | 'inactive';
   notes: string | null;
   createdAt: string;
+  // #65 fix wave H3 (SEGURIDAD): las credenciales de TV YA NO viajan en la lista de contratos.
+  // La sección "Credenciales Gigared Play" las consume por GET /gigared/customers/:id/tv-credentials.
 }
 
 /** An entry in the service catalog ABM (#43). */

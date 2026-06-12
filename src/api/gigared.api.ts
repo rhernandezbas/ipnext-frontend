@@ -6,16 +6,19 @@ import type {
   ListAccountsFilter,
   ListAccountsResult,
   CustomerAccountResult,
-  GigaredAccount,
   LinkCicPayload,
   LinkCicResult,
   RegisterAccountPayload,
+  RegisterAccountResult,
   AddTvServicePayload,
   AddTvServiceResult,
   RemoveTvServiceResult,
   SetOttPayload,
   CancelTvPayload,
   CancelTvResult,
+  ChangeTvPasswordPayload,
+  ChangeTvPasswordResult,
+  TvCredentials,
 } from '@/types/gigared';
 
 const BASE = '/gigared';
@@ -70,8 +73,8 @@ export const gigaredApi = {
   async registerAccount(
     customerId: string,
     body: RegisterAccountPayload,
-  ): Promise<{ account: GigaredAccount }> {
-    const r = await axiosClient.post<{ account: GigaredAccount }>(
+  ): Promise<RegisterAccountResult> {
+    const r = await axiosClient.post<RegisterAccountResult>(
       `${BASE}/customers/${customerId}/register`,
       body,
     );
@@ -95,6 +98,27 @@ export const gigaredApi = {
       `${BASE}/customers/${customerId}/services/${serviceId}`,
       { params: { contractId } },
     );
+    return r.data;
+  },
+
+  // #65 — change the TV account password. The BE resolves the customer's own account server-side
+  // (H1: NO cic in the body), PATCHes Gigared and persists the new value on the local TV slot
+  // (best-effort: result.persisted). 400 VALIDATION_ERROR if the password breaks the CUA rule.
+  async changeTvPassword(
+    customerId: string,
+    body: ChangeTvPasswordPayload,
+  ): Promise<ChangeTvPasswordResult> {
+    const r = await axiosClient.post<ChangeTvPasswordResult>(
+      `${BASE}/customers/${customerId}/tv-password`,
+      body,
+    );
+    return r.data;
+  },
+
+  // #65 fix wave H3 — read the TV credentials from the dedicated, guarded endpoint. The password
+  // no longer rides on the contracts list; the "Credenciales Gigared Play" section calls this.
+  async getTvCredentials(customerId: string): Promise<TvCredentials> {
+    const r = await axiosClient.get<TvCredentials>(`${BASE}/customers/${customerId}/tv-credentials`);
     return r.data;
   },
 

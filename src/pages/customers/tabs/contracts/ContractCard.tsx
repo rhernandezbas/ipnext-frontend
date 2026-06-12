@@ -19,7 +19,7 @@ interface Props {
    * The Prominense customer (#47e). Threaded to the GigaredPanel so its
    * "Registrar cuenta nueva" form prefills name/email from the real client.
    */
-  customer?: { name: string; email: string };
+  customer?: { name: string; email: string; grClienteId?: string | null };
 }
 
 type BadgeStatus = 'active' | 'late' | 'blocked' | 'inactive' | 'baja';

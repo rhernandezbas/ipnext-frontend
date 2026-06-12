@@ -6,7 +6,7 @@ interface Props {
   clientId: string;
   active: boolean;
   /** The Prominense customer (#47e) — forwarded to each card's GigaredPanel. */
-  customer?: { name: string; email: string };
+  customer?: { name: string; email: string; grClienteId?: string | null };
 }
 
 /**

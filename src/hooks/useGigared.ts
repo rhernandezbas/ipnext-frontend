@@ -11,6 +11,8 @@ import type {
   SetOttPayload,
   CancelTvPayload,
   CancelTvResult,
+  ChangeTvPasswordPayload,
+  ChangeTvPasswordResult,
 } from '@/types/gigared';
 
 /**
@@ -39,6 +41,9 @@ const ACCOUNTS_ROOT = [...ROOT, 'accounts'] as const;
 export const ALL_ACCOUNTS_ROOT = [...ROOT, 'all-accounts'] as const;
 export const accountsKey = (filters: ListAccountsFilter) => [...ACCOUNTS_ROOT, filters] as const;
 export const accountKey = (customerId: string) => [...ROOT, 'account', customerId] as const;
+// #65 fix wave H3 — the guarded TV credentials live under their own key so the panel can fetch
+// them lazily (only when the credentials section reveals them) and invalidate after a change.
+export const credentialsKey = (customerId: string) => [...ROOT, 'tv-credentials', customerId] as const;
 export const allAccountsKey = (status: GigaredAccountStatus) =>
   [...ALL_ACCOUNTS_ROOT, status] as const;
 
@@ -156,6 +161,10 @@ export function useRegisterAccount(customerId: string) {
       qc.invalidateQueries({ queryKey: SUMMARY_KEY });
       qc.invalidateQueries({ queryKey: ACCOUNTS_ROOT });
       qc.invalidateQueries({ queryKey: ALL_ACCOUNTS_ROOT });
+      // #65 fix wave L9 — register con contractId reconcilia el slot TV local (chip + credenciales),
+      // así que el ContractsTab del cliente y las credenciales deben refrescarse.
+      qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
+      qc.invalidateQueries({ queryKey: credentialsKey(customerId) });
     },
   });
 }
@@ -199,6 +208,32 @@ export function useSetOtt(customerId: string) {
   });
 }
 
+// #65 — cambiar la contraseña de la cuenta de TV. El BE resuelve la cuenta del cliente
+// server-side (H1) y persiste el nuevo valor en el slot TV → invalidamos las credenciales
+// dedicadas y ['client-contracts']. account/all-accounts no cambian (la clave no viaja ahí).
+export function useChangeTvPassword(customerId: string) {
+  const qc = useQueryClient();
+  return useMutation<ChangeTvPasswordResult, unknown, ChangeTvPasswordPayload>({
+    mutationFn: (body: ChangeTvPasswordPayload) => gigaredApi.changeTvPassword(customerId, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
+      qc.invalidateQueries({ queryKey: credentialsKey(customerId) });
+    },
+  });
+}
+
+// #65 fix wave H3 — lazy read of the guarded TV credentials. `enabled` lets the panel fetch them
+// only when the section needs them (on mount or when the operator reveals the password). The query
+// never runs without a customerId.
+export function useTvCredentials(customerId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: credentialsKey(customerId),
+    queryFn: () => gigaredApi.getTvCredentials(customerId),
+    enabled: enabled && customerId !== '',
+    staleTime: 60_000,
+  });
+}
+
 // #47k — dar de baja TV. Removes all packs (frees the partner cupo), disables OTT
 // and inactivates the local 'TV' item. On success refresh the account, the
 // summary (cupo changed) and the customer ContractsTab (the TV chip drops).
@@ -212,6 +247,8 @@ export function useCancelTv(customerId: string) {
       qc.invalidateQueries({ queryKey: SUMMARY_KEY });
       qc.invalidateQueries({ queryKey: ALL_ACCOUNTS_ROOT });
       qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
+      // #65 fix wave M6 — la baja LIMPIA las credenciales; refrescar para que la sección las pierda.
+      qc.invalidateQueries({ queryKey: credentialsKey(customerId) });
     },
   });
 }
