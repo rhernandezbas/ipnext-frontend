@@ -30,7 +30,12 @@ interface ClientOption { id: string; name: string; }
 export default function CreateTicketPage() {
   const navigate = useNavigate();
   const { mutateAsync, isPending } = useCreateTicket();
-  const { data: areas = [] } = useTicketAreas();
+  const {
+    data: areas = [],
+    isLoading: areasLoading,
+    isError: areasError,
+    refetch: refetchAreas,
+  } = useTicketAreas();
 
   const [form, setForm] = useState<FormState>({
     subject: '',
@@ -144,17 +149,35 @@ export default function CreateTicketPage() {
 
         <div className={styles.field}>
           <label className={styles.label}>Area *</label>
-          <select
-            className={[styles.select, errors.areaId ? styles.selectError : ''].join(' ')}
-            value={form.areaId}
-            onChange={(e) => setForm((f) => ({ ...f, areaId: e.target.value }))}
-            aria-label="Area"
-          >
-            <option value="">Selecciona un area</option>
-            {areas.map((a) => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </select>
+          {areasError ? (
+            // Catalog failed to load: a blank required select would trap the
+            // user with no explanation. Offer an explicit retry instead.
+            <div className={styles.areaState} role="alert">
+              <span className={styles.error}>No se pudieron cargar las areas.</span>
+              <button
+                type="button"
+                className={styles.retry}
+                onClick={() => { void refetchAreas(); }}
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : (
+            <select
+              className={[styles.select, errors.areaId ? styles.selectError : ''].join(' ')}
+              value={form.areaId}
+              onChange={(e) => setForm((f) => ({ ...f, areaId: e.target.value }))}
+              disabled={areasLoading}
+              aria-label="Area"
+            >
+              <option value="">
+                {areasLoading ? 'Cargando areas…' : 'Selecciona un area'}
+              </option>
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          )}
           {errors.areaId && <span className={styles.error}>{errors.areaId}</span>}
         </div>
 

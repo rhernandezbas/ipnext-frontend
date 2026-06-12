@@ -20,7 +20,12 @@ interface FormErrors {
 
 export function CreateTicketModal({ onClose, onCreate, loading }: CreateTicketModalProps) {
   const { data: users = [] } = useRbacUsers();
-  const { data: areas = [] } = useTicketAreas();
+  const {
+    data: areas = [],
+    isLoading: areasLoading,
+    isError: areasError,
+    refetch: refetchAreas,
+  } = useTicketAreas();
 
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -115,19 +120,36 @@ export function CreateTicketModal({ onClose, onCreate, loading }: CreateTicketMo
 
           <div className={styles.field}>
             <label htmlFor="ticket-area" className={styles.label}>Area *</label>
-            <select
-              id="ticket-area"
-              className={[styles.select, errors.areaId ? styles.inputError : ''].join(' ')}
-              value={areaId}
-              onChange={e => setAreaId(e.target.value)}
-              disabled={loading}
-              aria-label="Area"
-            >
-              <option value="">Selecciona un area</option>
-              {areas.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
+            {areasError ? (
+              // Catalog failed to load: a blank required select would trap the
+              // user with no explanation. Offer an explicit retry instead.
+              <div className={styles.areaState} role="alert">
+                <span className={styles.error}>No se pudieron cargar las areas.</span>
+                <button
+                  type="button"
+                  className={styles.retry}
+                  onClick={() => { void refetchAreas(); }}
+                >
+                  Reintentar
+                </button>
+              </div>
+            ) : (
+              <select
+                id="ticket-area"
+                className={[styles.select, errors.areaId ? styles.inputError : ''].join(' ')}
+                value={areaId}
+                onChange={e => setAreaId(e.target.value)}
+                disabled={loading || areasLoading}
+                aria-label="Area"
+              >
+                <option value="">
+                  {areasLoading ? 'Cargando areas…' : 'Selecciona un area'}
+                </option>
+                {areas.map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            )}
             {errors.areaId && <span className={styles.error}>{errors.areaId}</span>}
           </div>
 
