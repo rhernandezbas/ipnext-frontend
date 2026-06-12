@@ -77,6 +77,14 @@ function errorStatus(err: unknown): number | null {
  */
 const PASSWORD_RE = /^[a-z0-9]{8,64}$/;
 
+/**
+ * #47i Fix 2 — pick singular/plural for a count. `n` is rendered verbatim before
+ * the chosen word ("1 pantalla fija", "2 pantallas fijas").
+ */
+function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
 /** A contract OWNS the TV item when its services include an active 'TV' line. */
 function ownsTv(c: Contract): boolean {
   return c.services.some((s) => s.name === 'TV' && s.status === 'active');
@@ -181,12 +189,15 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
         </div>
         <div className={styles.panelBody}>
           {body}
-          {showLocalSection && localLine && ownerContract && (
+          {/* #47i Fix 3 — the "Ítem local" remove action lives ONLY in the
+              unlinked view. In the linked flow the local 'TV' item inactivates
+              on its own when the last pack is removed (BE reconcile), so the
+              manual remove would be a footgun. Render it only when NOT linked. */}
+          {showLocalSection && !accountQuery.data?.linked && localLine && ownerContract && (
             <LocalItemSection
               customerId={customerId}
               contractId={ownerContract.id}
               line={localLine}
-              linked={!!accountQuery.data?.linked}
             />
           )}
         </div>
@@ -203,17 +214,18 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
  * touch Gigared. Gated by `clients.write` (the same permission the contract
  * chips use), NOT `tv.write`. Invalidation of ['client-contracts'] is handled by
  * the useRemoveContractService hook.
+ *
+ * #47i Fix 3 — only rendered in the UNLINKED view (a stray local item with no
+ * Gigared account behind it). The linked flow handles removal via reconcile.
  */
 function LocalItemSection({
   customerId,
   contractId,
   line,
-  linked,
 }: {
   customerId: string;
   contractId: string;
   line: ContractService;
-  linked: boolean;
 }) {
   const { can } = useMyPermissions();
   const confirm = useConfirm();
@@ -223,9 +235,7 @@ function LocalItemSection({
 
   async function handleRemove() {
     const ok = await confirm({
-      message: linked
-        ? '¿Quitar el ítem TV local de este contrato? No toca la cuenta Gigared — solo elimina el ítem del contrato.'
-        : '¿Quitar el ítem TV local de este contrato?',
+      message: '¿Quitar el ítem TV local de este contrato?',
       tone: 'danger',
       confirmLabel: 'Quitar',
     });
@@ -236,11 +246,6 @@ function LocalItemSection({
   return (
     <section className={styles.card}>
       <h4 className={styles.cardTitle}>Ítem local</h4>
-      {linked && (
-        <p className={styles.emptyHint}>
-          Esto no toca Gigared: solo elimina el ítem TV del contrato.
-        </p>
-      )}
       <div className={styles.formActions}>
         <button
           type="button"
@@ -771,7 +776,14 @@ function LinkedView({
   const [removeSyncNotice, setRemoveSyncNotice] = useState<{ serviceId: string } | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
-  const partnerServices = summaryQuery.data?.services ?? [];
+  // #47i Fix 1 — the "Agregar servicio" catalog must EXCLUDE packs the account
+  // already holds (match by id), so a just-added pack stops showing as available.
+  // The qtyAvailable===0 disable still applies to whatever remains.
+  const ownedServiceIds = new Set(account.services.map((s) => s.id));
+  const partnerServices = (summaryQuery.data?.services ?? []).filter(
+    (ps) => !ownedServiceIds.has(ps.id),
+  );
+  const hasAddablePacks = partnerServices.length > 0;
 
   // F4 — when the OTT toggle succeeds, show the hint and auto-dismiss it ~5s
   // later (or when an error supersedes it). Reset cleanly on unmount.
@@ -944,43 +956,54 @@ function LinkedView({
         )}
 
         <Can permission="tv.write">
-          <form className={styles.addForm} onSubmit={handleAdd}>
-            <div className={styles.field}>
-              <label className={styles.fieldLabel} htmlFor="tv-add-service">Agregar servicio</label>
-              <select
-                id="tv-add-service"
-                className={styles.select}
-                value={serviceId}
-                onChange={(e) => setServiceId(e.target.value)}
-              >
-                <option value="">Elegí un servicio…</option>
-                {partnerServices.map((ps) => (
-                  <option key={ps.id} value={ps.id} disabled={ps.qtyAvailable === 0}>
-                    {ps.name}{ps.qtyAvailable === 0 ? ' (sin cupo)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {addError && (
-              <div className={`${styles.banner} ${styles.bannerError}`}><span>{addError}</span></div>
-            )}
-            <div className={styles.formActions}>
-              <button
-                type="submit"
-                className={styles.btnPrimary}
-                disabled={!serviceId || addService.isPending}
-              >
-                {addService.isPending ? 'Agregando…' : 'Agregar'}
-              </button>
-            </div>
-          </form>
+          {/* #47i Fix 1 — only render the add control when there is a pack the
+              account does NOT already have. Otherwise a subtle hint replaces it. */}
+          {hasAddablePacks ? (
+            <form className={styles.addForm} onSubmit={handleAdd}>
+              <div className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor="tv-add-service">Agregar servicio</label>
+                <select
+                  id="tv-add-service"
+                  className={styles.select}
+                  value={serviceId}
+                  onChange={(e) => setServiceId(e.target.value)}
+                >
+                  <option value="">Elegí un servicio…</option>
+                  {partnerServices.map((ps) => (
+                    <option key={ps.id} value={ps.id} disabled={ps.qtyAvailable === 0}>
+                      {ps.name}{ps.qtyAvailable === 0 ? ' (sin cupo)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {addError && (
+                <div className={`${styles.banner} ${styles.bannerError}`}><span>{addError}</span></div>
+              )}
+              <div className={styles.formActions}>
+                <button
+                  type="submit"
+                  className={styles.btnPrimary}
+                  disabled={!serviceId || addService.isPending}
+                >
+                  {addService.isPending ? 'Agregando…' : 'Agregar'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <p className={styles.emptyHint}>Ya tiene todos los packs disponibles.</p>
+          )}
         </Can>
       </section>
 
       <Can permission="tv.write">
+        {/* #47i Fix 2 — human OTT copy. "OTT" alone meant nothing to operators:
+            give it a name, one line of what it is, and a legible usage line. */}
         <section className={styles.card}>
-          <div className={styles.toggleRow}>
-            <span className={styles.fieldLabel}>OTT</span>
+          <div className={styles.ottHeader}>
+            <div>
+              <h4 className={styles.cardTitle}>Streaming (OTT)</h4>
+              <p className={styles.cardSubtitle}>La app de TV de Gigared (Gigared Play).</p>
+            </div>
             <label className={styles.switch}>
               <input
                 type="checkbox"
@@ -1001,8 +1024,9 @@ function LinkedView({
           )}
           {account.ott && (
             <p className={styles.emptyHint}>
-              Dispositivos registrados: {account.ott.registeredDevices} · Licencias fijas{' '}
-              {account.ott.stationaryLicenses} · móviles {account.ott.mobileLicenses}
+              Puede ver en hasta {plural(account.ott.stationaryLicenses, 'pantalla fija', 'pantallas fijas')}{' '}
+              y {plural(account.ott.mobileLicenses, 'móvil', 'móviles')} ·{' '}
+              {plural(account.ott.registeredDevices, 'dispositivo registrado', 'dispositivos registrados')}
             </p>
           )}
         </section>

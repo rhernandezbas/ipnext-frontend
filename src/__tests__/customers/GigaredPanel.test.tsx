@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -658,17 +658,19 @@ describe('GigaredPanel', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('linked + local item present → remove action visible with a "no toca Gigared" warning', () => {
+    // #47i Fix 3 — the "Ítem local" remove section lives ONLY in the unlinked
+    // view now. In the linked flow the item inactivates on its own when the last
+    // pack is removed (reconcile), so the manual remove must NOT appear.
+    it('linked + local item present → the local-remove section is ABSENT (Fix 3)', () => {
       mockQuery({
         account: { linked: true, account: linkedAccount },
         contracts: [contract('ct-9', [tvService({ id: 'cs-tv' })])],
       });
       renderPanel();
       expect(
-        screen.getByRole('button', { name: /quitar el ítem tv de este contrato/i }),
-      ).toBeInTheDocument();
-      // It must be clear this only removes the local item, not the Gigared pack.
-      expect(screen.getByText(/no toca gigared/i)).toBeInTheDocument();
+        screen.queryByRole('button', { name: /quitar el ítem tv de este contrato/i }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/no toca gigared/i)).not.toBeInTheDocument();
     });
 
     it('without clients.write the local-remove action is hidden', () => {
@@ -1332,6 +1334,102 @@ describe('GigaredPanel', () => {
       expect(
         screen.queryByText(/sin email de activación y sin contraseña/i),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  // ── #47i Fix 1: "Agregar servicio" excludes packs the account already has ────
+  // Feedback: "Agregué un servicio y me sigue apareciendo [disponible]". The
+  // partner catalog (summary.services) must EXCLUDE any pack already on the
+  // account (match by id). When nothing is left, hide the control and show a
+  // subtle hint. The qtyAvailable===0 disable still applies to the rest.
+  describe('#47i Fix 1 — add-service excludes owned packs', () => {
+    it('account owns s1 → the add select offers ONLY the missing pack (s2)', () => {
+      // linkedAccount.services = [{ id: 's1', ... }]; summary has s1 + s2.
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel();
+      const select = screen.getByLabelText(/agregar servicio/i);
+      // The owned pack (s1) is gone from the options…
+      expect(
+        within(select).queryByRole('option', { name: /gigared play full/i }),
+      ).not.toBeInTheDocument();
+      // …the available one (s2) remains selectable.
+      expect(
+        within(select).getByRole('option', { name: /gigared play lite/i }),
+      ).toBeInTheDocument();
+    });
+
+    it('account owns ALL packs → the control is hidden and a hint shows', () => {
+      const allOwned: GigaredAccount = {
+        ...linkedAccount,
+        services: [
+          { id: 's1', name: 'Gigared Play Full' },
+          { id: 's2', name: 'Gigared Play Lite' },
+        ],
+      };
+      mockQuery({ account: { linked: true, account: allOwned } });
+      renderPanel();
+      expect(screen.queryByLabelText(/agregar servicio/i)).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/ya tiene todos los packs disponibles/i),
+      ).toBeInTheDocument();
+    });
+
+    it('a remaining pack with no cupo stays disabled (filter preserved)', () => {
+      // Account owns nothing → both packs offered; s1 (qtyAvailable 0) disabled.
+      const ownsNothing: GigaredAccount = { ...linkedAccount, services: [] };
+      mockQuery({ account: { linked: true, account: ownsNothing } });
+      renderPanel();
+      const select = screen.getByLabelText(/agregar servicio/i);
+      const full = within(select).getByRole('option', { name: /gigared play full/i }) as HTMLOptionElement;
+      expect(full.disabled).toBe(true);
+    });
+  });
+
+  // ── #47i Fix 2: human OTT copy ──────────────────────────────────────────────
+  // Feedback: "OTT… ¿qué es?". The section gets a human title + subtitle and a
+  // legible data line with correct singular/plural.
+  describe('#47i Fix 2 — human OTT copy', () => {
+    it('renders the human title and subtitle', () => {
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel();
+      expect(screen.getByText(/streaming \(ott\)/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/la app de tv de gigared \(gigared play\)/i),
+      ).toBeInTheDocument();
+    });
+
+    it('legible data line uses correct singular (1 fija, 1 móvil, 0 dispositivos)', () => {
+      // linkedAccount.ott = stationary 1, mobile 1, registered 0.
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel();
+      expect(
+        screen.getByText(
+          /puede ver en hasta 1 pantalla fija y 1 móvil · 0 dispositivos registrados/i,
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('legible data line pluralizes correctly (2 fijas, 3 móviles, 1 dispositivo)', () => {
+      const plural: GigaredAccount = {
+        ...linkedAccount,
+        ott: { id: 'o1', stationaryLicenses: 2, mobileLicenses: 3, registeredDevices: 1, status: 'active' },
+      };
+      mockQuery({ account: { linked: true, account: plural } });
+      renderPanel();
+      expect(
+        screen.getByText(
+          /puede ver en hasta 2 pantallas fijas y 3 móviles · 1 dispositivo registrado/i,
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('the OTT enable/disable toggle still works with its pending', async () => {
+      const user = userEvent.setup();
+      ottMutate.mockResolvedValue({ ok: true });
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel();
+      await user.click(screen.getByLabelText(/ott/i));
+      await waitFor(() => expect(ottMutate).toHaveBeenCalledWith({ enabled: false }));
     });
   });
 });
