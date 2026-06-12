@@ -14,6 +14,9 @@ vi.mock('@/hooks/useTicketStatuses', () => ({
 vi.mock('@/hooks/useRbacUsers', () => ({
   useRbacUsers: () => ({ data: [{ id: 'u1', name: 'Luis' }] }),
 }));
+vi.mock('@/hooks/useTicketAreas', () => ({
+  useTicketAreas: () => ({ data: [{ id: 'a1', name: 'Soporte' }] }),
+}));
 
 import { TicketFilterDisclosure } from '@/pages/tickets/TicketsListPage/components/TicketFilterDisclosure';
 import type { TicketFilter } from '@/pages/tickets/TicketsListPage/hooks/useTicketsFilterUrl';

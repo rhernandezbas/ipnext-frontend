@@ -98,6 +98,7 @@ const CustomerVouchersPage = lazy(() => import('@/pages/customers/CustomerVouche
 const CustomerMapPage = lazy(() => import('@/pages/customers/CustomerMapPage'));
 const TicketRequestersPage = lazy(() => import('@/pages/tickets/TicketRequestersPage'));
 const TicketStatusesPage = lazy(() => import('@/pages/tickets/TicketStatusesPage'));
+const TicketsSettingsPage = lazy(() => import('@/pages/tickets/TicketsSettingsPage'));
 const SupportInboxPage = lazy(() => import('@/pages/support/SupportInboxPage'));
 const MassSendPage = lazy(() => import('@/pages/support/MassSendPage'));
 const MessengersPage = lazy(() => import('@/pages/support/MessengersPage'));
@@ -202,6 +203,7 @@ export function App() {
                 <Route path="new" element={<RequirePermission permission="tickets.read"><TicketCreatePage /></RequirePermission>} />
                 <Route path="requesters" element={<RequirePermission permission="tickets.read"><TicketRequestersPage /></RequirePermission>} />
                 <Route path="statuses" element={<RequirePermission permission="tickets.read"><TicketStatusesPage /></RequirePermission>} />
+                <Route path="settings" element={<RequirePermission permission="tickets.manage"><TicketsSettingsPage /></RequirePermission>} />
                 <Route path=":id" element={<RequirePermission permission="tickets.read"><TicketDetailPage /></RequirePermission>} />
               </Route>
               {/* ── Finance (billing.read) ─────────────────────────────────── */}

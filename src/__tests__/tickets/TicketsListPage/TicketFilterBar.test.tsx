@@ -7,10 +7,13 @@ import type { TicketFilter } from '@/pages/tickets/TicketsListPage/hooks/useTick
 // Mock hooks
 vi.mock('@/hooks/useTicketStatuses');
 vi.mock('@/hooks/useRbacUsers');
+vi.mock('@/hooks/useTicketAreas');
 
 import * as useTicketStatusesModule from '@/hooks/useTicketStatuses';
 import * as useRbacUsersModule from '@/hooks/useRbacUsers';
+import * as useTicketAreasModule from '@/hooks/useTicketAreas';
 import type { TicketStatus as TicketStatusType } from '@/types/ticketStatus';
+import type { TicketArea } from '@/types/ticketArea';
 
 const mockStatuses: TicketStatusType[] = [
   { id: '1', name: 'Abierto', color: '#22c55e', weight: 1 },
@@ -20,6 +23,11 @@ const mockStatuses: TicketStatusType[] = [
 const mockUsers = [
   { id: 'u1', name: 'Ana García', roles: [] },
   { id: 'u2', name: 'Luis Pérez', roles: [] },
+];
+
+const mockAreas: TicketArea[] = [
+  { id: 'a1', name: 'Soporte' },
+  { id: 'a2', name: 'Facturacion' },
 ];
 
 function renderBar(filter: TicketFilter = {}, onFilterChange = vi.fn(), variant?: 'horizontal' | 'vertical') {
@@ -46,6 +54,10 @@ describe('TicketFilterBar', () => {
       data: mockUsers,
       isLoading: false,
     } as ReturnType<typeof useRbacUsersModule.useRbacUsers>);
+    vi.mocked(useTicketAreasModule.useTicketAreas).mockReturnValue({
+      data: mockAreas,
+      isLoading: false,
+    } as ReturnType<typeof useTicketAreasModule.useTicketAreas>);
   });
 
   it('renders Estado select populated from catalog (not hardcoded)', () => {
@@ -154,7 +166,41 @@ describe('TicketFilterBar', () => {
       customerId: undefined,
       from: undefined,
       to: undefined,
+      areaId: undefined,
     });
+  });
+
+  // ── Area filter — #49 (lesson #27: catalog-driven, no hardcoded list) ────────
+  it('renders Area select populated from catalog (useTicketAreas)', () => {
+    renderBar();
+    const areaSelect = screen.getByRole('combobox', { name: /area/i });
+    expect(areaSelect).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Soporte' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Facturacion' })).toBeInTheDocument();
+  });
+
+  it('calls onFilterChange with areaId when Area select changes', () => {
+    const onFilterChange = vi.fn();
+    renderBar({}, onFilterChange);
+    fireEvent.change(screen.getByRole('combobox', { name: /area/i }), {
+      target: { value: 'a1' },
+    });
+    expect(onFilterChange).toHaveBeenCalledWith({ areaId: 'a1' });
+  });
+
+  it('calls onFilterChange with undefined when Area reset to empty', () => {
+    const onFilterChange = vi.fn();
+    renderBar({ areaId: 'a1' }, onFilterChange);
+    fireEvent.change(screen.getByRole('combobox', { name: /area/i }), {
+      target: { value: '' },
+    });
+    expect(onFilterChange).toHaveBeenCalledWith({ areaId: undefined });
+  });
+
+  it('shows area chip with name resolved from catalog', () => {
+    renderBar({ areaId: 'a1' });
+    const chipList = screen.getByRole('list', { name: /filtros activos/i });
+    expect(chipList.textContent).toMatch(/Soporte/);
   });
 
   // ── Vertical (right-side panel) variant — FIX 3 ──────────────────────────────

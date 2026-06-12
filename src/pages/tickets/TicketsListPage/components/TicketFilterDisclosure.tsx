@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTicketStatuses } from '@/hooks/useTicketStatuses';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
+import { useTicketAreas } from '@/hooks/useTicketAreas';
 import { TicketFilterBar, ActiveFilterChips, countActiveFilters } from './TicketFilterBar';
 import type { TicketFilter } from '../hooks/useTicketsFilterUrl';
 import styles from './TicketFilterDisclosure.module.css';
@@ -37,6 +38,7 @@ export function TicketFilterDisclosure({ filter, onFilterChange }: TicketFilterD
   const [open, setOpen] = useState(false);
   const { data: statuses = [] } = useTicketStatuses();
   const { data: users = [] } = useRbacUsers();
+  const { data: areas = [] } = useTicketAreas();
 
   const activeCount = countActiveFilters(filter);
 
@@ -63,6 +65,7 @@ export function TicketFilterDisclosure({ filter, onFilterChange }: TicketFilterD
           filter={filter}
           statuses={statuses}
           users={users}
+          areas={areas}
           onFilterChange={onFilterChange}
         />
       </div>

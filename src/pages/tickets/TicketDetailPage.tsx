@@ -43,13 +43,14 @@ export default function TicketDetailPage() {
   const technicians = allUsers.filter(u => u.roles.some(r => r.code === 'tecnico'));
   const createTaskFromTicket = useCreateTaskFromTicket();
 
-  // #48 — Unified save: the Detalles panel (assignee + priority, plus a future
-  // "área" slot for #49) and the header StatusSelect all edit a local DRAFT; a
-  // single GUARDAR persists everything in ONE PATCH /tickets/:id. No more
-  // per-field immediate mutation.
+  // #48 — Unified save: the Detalles panel (assignee + priority + area) and the
+  // header StatusSelect all edit a local DRAFT; a single GUARDAR persists
+  // everything in ONE PATCH /tickets/:id. No more per-field immediate mutation.
   const [draftAssigneeId, setDraftAssigneeId] = useState<string>('');
   const [draftStatus, setDraftStatus] = useState<string>('');
   const [draftPriority, setDraftPriority] = useState<string>('');
+  // #49 — draft area id ('' = clear/no area).
+  const [draftAreaId, setDraftAreaId] = useState<string>('');
   // #48 (M2) — visible feedback when the unified GUARDAR fails (e.g. the 422
   // TICKET_STATUS_NOT_FOUND from the contract). Null = no error shown.
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -64,13 +65,15 @@ export default function TicketDetailPage() {
     setDraftAssigneeId(ticket.assigneeId ?? '');
     setDraftStatus(ticket.status);
     setDraftPriority(ticket.priority);
+    setDraftAreaId(ticket.areaId ?? '');
     setSaveError(null);
-  }, [ticket?.id, ticket?.assigneeId, ticket?.status, ticket?.priority]);
+  }, [ticket?.id, ticket?.assigneeId, ticket?.status, ticket?.priority, ticket?.areaId]);
 
   const isDirty = !!ticket && (
     draftAssigneeId !== (ticket.assigneeId ?? '') ||
     draftStatus !== ticket.status ||
-    draftPriority !== ticket.priority
+    draftPriority !== ticket.priority ||
+    draftAreaId !== (ticket.areaId ?? '')
   );
 
   // Warn before leaving with unsaved draft changes (mirror of scheduling detail).
@@ -102,6 +105,7 @@ export default function TicketDetailPage() {
       assigneeId: draftAssigneeId || null,
       status: draftStatus,
       priority: draftPriority,
+      areaId: draftAreaId || null,
     };
     // #48 (M2) — surface a visible error instead of leaking an unhandled
     // rejection. The 422 (TICKET_STATUS_NOT_FOUND) is part of the contract.
@@ -171,8 +175,10 @@ export default function TicketDetailPage() {
           users={allUsers.map(u => ({ id: String(u.id), name: u.name }))}
           draftAssigneeId={draftAssigneeId}
           draftPriority={draftPriority}
+          draftAreaId={draftAreaId}
           onAssigneeChange={setDraftAssigneeId}
           onPriorityChange={setDraftPriority}
+          onAreaChange={setDraftAreaId}
           onSaveDetails={() => void handleSaveDetails()}
           isDirty={isDirty}
           isSaving={isSaving}

@@ -44,6 +44,35 @@ describe('useTicketsFilterUrl', () => {
     expect(filter.assignedTo).toBe('42');
   });
 
+  // #49 — areaId round-trips through URL
+  it('reads areaId from URL params', () => {
+    const { result } = renderHook(() => useTicketsFilterUrl(), {
+      wrapper: wrapper({ initialUrl: '/?areaId=area-uuid-123' }),
+    });
+    expect(result.current.filter.areaId).toBe('area-uuid-123');
+  });
+
+  it('setFilter with areaId writes to URL and merges existing params', () => {
+    const { result } = renderHook(() => useTicketsFilterUrl(), {
+      wrapper: wrapper({ initialUrl: '/?status=abierto' }),
+    });
+    act(() => {
+      result.current.setFilter({ areaId: 'area-uuid-123' });
+    });
+    expect(result.current.filter.status).toBe('abierto');
+    expect(result.current.filter.areaId).toBe('area-uuid-123');
+  });
+
+  it('setFilter with areaId undefined clears areaId from URL', () => {
+    const { result } = renderHook(() => useTicketsFilterUrl(), {
+      wrapper: wrapper({ initialUrl: '/?areaId=area-uuid-123' }),
+    });
+    act(() => {
+      result.current.setFilter({ areaId: undefined });
+    });
+    expect(result.current.filter.areaId).toBeUndefined();
+  });
+
   it('setFilter updates a single param (merge)', () => {
     const { result } = renderHook(() => useTicketsFilterUrl(), {
       wrapper: wrapper({ initialUrl: '/?status=abierto&priority=high' }),
