@@ -363,6 +363,8 @@ describe('GigaredPanel', () => {
     await user.type(screen.getByLabelText(/^email$/i), 'a@b.com');
     await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
     await user.type(screen.getByLabelText(/^cic$/i), '0001');
+    // #70 — password obligatoria: hay que cargar una CUA-válida para destrabar el submit.
+    await user.type(screen.getByLabelText('Contraseña *'), 'abc12345');
     await user.click(screen.getByRole('button', { name: /^registrar$/i }));
     await waitFor(() =>
       expect(screen.getByText(/el email ya está en uso en gigared/i)).toBeInTheDocument(),
@@ -706,11 +708,9 @@ describe('GigaredPanel', () => {
       const user = userEvent.setup();
       registerMutate.mockResolvedValue({ account: linkedAccount, credentialsPersisted: true });
       mockQuery({ account: { linked: false, account: null } });
-      renderPanel();
+      // #70 — la password es OBLIGATORIA: con grClienteId el form la prefillea (determinística).
+      renderPanel({ name: 'García Ana', email: 'a@b.com', grClienteId: '243200' });
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
-      await user.type(screen.getByLabelText(/nombre/i), 'Ana');
-      await user.type(screen.getByLabelText(/apellido/i), 'García');
-      await user.type(screen.getByLabelText(/^email$/i), 'a@b.com');
       await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
       await user.type(screen.getByLabelText(/^cic$/i), '0001');
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
@@ -726,11 +726,9 @@ describe('GigaredPanel', () => {
       const user = userEvent.setup();
       registerMutate.mockResolvedValue({ account: linkedAccount, credentialsPersisted: false });
       mockQuery({ account: { linked: false, account: null } });
-      renderPanel();
+      // #70 — password obligatoria; grClienteId prefillea la determinística.
+      renderPanel({ name: 'García Ana', email: 'a@b.com', grClienteId: '243200' });
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
-      await user.type(screen.getByLabelText(/nombre/i), 'Ana');
-      await user.type(screen.getByLabelText(/apellido/i), 'García');
-      await user.type(screen.getByLabelText(/^email$/i), 'a@b.com');
       await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
       await user.type(screen.getByLabelText(/^cic$/i), '0001');
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
@@ -972,6 +970,8 @@ describe('GigaredPanel', () => {
       await user.type(screen.getByLabelText(/^email$/i), 'a@b.com');
       await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
       await user.type(screen.getByLabelText(/^cic$/i), '0001');
+      // #70 — password obligatoria: cargamos una CUA-válida para llegar al POST.
+      await user.type(screen.getByLabelText('Contraseña *'), 'abc12345');
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() => expect(screen.getByText(/gigared no responde ahora/i)).toBeInTheDocument());
     });
@@ -1193,7 +1193,8 @@ describe('GigaredPanel', () => {
           ],
         },
       });
-      renderPanel({ name: 'DAMONTE JIMENA', email: 'jimena@example.com' });
+      // #70 — con grClienteId el form prefillea email + password determinística (obligatoria).
+      renderPanel({ name: 'DAMONTE JIMENA', email: 'jimena@example.com', grClienteId: '243200' });
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
       await user.selectOptions(screen.getByLabelText(/cic disponible/i), '0000000900');
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
@@ -1201,11 +1202,13 @@ describe('GigaredPanel', () => {
         expect(registerMutate).toHaveBeenCalledWith({
           firstName: 'JIMENA',
           lastName: 'DAMONTE',
-          email: 'jimena@example.com',
+          email: 'damonte243200@gmail.com',
           cic: '0000000900',
           // #65 — sendActivationEmail defaults FALSE (correo ficticio); contractId travels.
           sendActivationEmail: false,
           contractId: 'ct-9',
+          // #70 — la password obligatoria viaja SIEMPRE (determinística ip{grId} padded).
+          password: 'ip243200',
         }),
       );
     });
@@ -1229,6 +1232,61 @@ describe('GigaredPanel', () => {
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
       expect(screen.getByLabelText(/apellido/i)).toHaveValue('');
       expect(screen.getByLabelText(/nombre/i)).toHaveValue('');
+    });
+
+    // #70 — la contraseña del alta pasa a ser OBLIGATORIA (sin fallback random del BE).
+    describe('#70 — contraseña obligatoria', () => {
+      it('el label de Contraseña lleva asterisco de obligatorio (no "opcional")', async () => {
+        const user = userEvent.setup();
+        mockQuery({ account: { linked: false, account: null } });
+        renderPanel({ name: 'DAMONTE JIMENA', email: 'j@x.com', grClienteId: '243200' });
+        await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+        const label = screen.getByText(/contraseña/i, { selector: 'label' });
+        expect(label.textContent).toMatch(/\*/);
+        expect(label.textContent).not.toMatch(/opcional/i);
+      });
+
+      it('con grClienteId la password se prefillea con la determinística ip{grId}', async () => {
+        const user = userEvent.setup();
+        mockQuery({ account: { linked: false, account: null } });
+        renderPanel({ name: 'DAMONTE JIMENA', email: 'j@x.com', grClienteId: '243200' });
+        await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+        expect(screen.getByLabelText('Contraseña *')).toHaveValue('ip243200');
+      });
+
+      it('edge: cliente SIN grClienteId → password vacía y "Registrar" DESHABILITADO (canSave)', async () => {
+        const user = userEvent.setup();
+        mockQuery({ account: { linked: false, account: null } });
+        renderPanel({ name: 'DAMONTE JIMENA', email: 'j@x.com' });
+        await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+        await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
+        await user.type(screen.getByLabelText(/^cic$/i), '0001');
+        // password vacía (sin grClienteId no se prefillea) → obligatoria → submit bloqueado
+        expect(screen.getByLabelText('Contraseña *')).toHaveValue('');
+        expect(screen.getByRole('button', { name: /^registrar$/i })).toBeDisabled();
+      });
+
+      it('edge: el operador escribe una password CUA-válida → "Registrar" se habilita', async () => {
+        const user = userEvent.setup();
+        mockQuery({ account: { linked: false, account: null } });
+        renderPanel({ name: 'DAMONTE JIMENA', email: 'j@x.com' });
+        await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+        await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
+        await user.type(screen.getByLabelText(/^cic$/i), '0001');
+        await user.type(screen.getByLabelText('Contraseña *'), 'miclave2026');
+        expect(screen.getByRole('button', { name: /^registrar$/i })).toBeEnabled();
+      });
+
+      it('una password NO-CUA mantiene "Registrar" deshabilitado', async () => {
+        const user = userEvent.setup();
+        mockQuery({ account: { linked: false, account: null } });
+        renderPanel({ name: 'DAMONTE JIMENA', email: 'j@x.com', grClienteId: '243200' });
+        await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+        const pw = screen.getByLabelText('Contraseña *');
+        await user.clear(pw);
+        await user.type(pw, 'MAYUS-no');
+        expect(screen.getByRole('button', { name: /^registrar$/i })).toBeDisabled();
+      });
     });
   });
 
@@ -1287,12 +1345,11 @@ describe('GigaredPanel', () => {
   });
 
   // ── #47h: optional account password on register ─────────────────────────────
-  // The register form gains a "Contraseña (opcional)" field. Wire contract:
-  // password is OPTIONAL and MUST match ^[a-z0-9]{8,64}$. Empty → omit it (the BE
-  // generates one + sends activation). Non-empty + valid → send it in the body.
-  // Non-empty + invalid → visible error, submit blocked, NO post. Toggle shows /
-  // hides the value (type password ↔ text).
-  describe('#47h — register password (optional)', () => {
+  // #70 — the register form has a "Contraseña *" field. Wire contract:
+  // password is MANDATORY and MUST match ^[a-z0-9]{8,64}$. Empty → submit BLOCKED
+  // (the BE dropped its random fallback). Valid → send it in the body. Invalid →
+  // visible error, submit blocked, NO post. Toggle shows / hides (type password ↔ text).
+  describe('#70 — register password (mandatory)', () => {
     /** Open the register form and fill the always-required fields + a manual CIC. */
     async function openRegisterFilled(user: ReturnType<typeof userEvent.setup>) {
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
@@ -1308,35 +1365,25 @@ describe('GigaredPanel', () => {
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
-      expect(screen.getByLabelText('Contraseña (opcional)')).toBeInTheDocument();
+      expect(screen.getByLabelText('Contraseña *')).toBeInTheDocument();
       // Helper is ALWAYS visible (not gated behind an error), spells out the rule.
       expect(
         screen.getByText(/solo letras minúsculas y números \(8 a 64\)/i),
       ).toBeInTheDocument();
-      expect(screen.getByText(/se genera una automáticamente/i)).toBeInTheDocument();
+      // #70 — el helper aclara que es obligatoria (ya no "se genera una automáticamente").
+      expect(screen.getByText(/obligatoria/i)).toBeInTheDocument();
     });
 
-    it('(a) empty password → the POST goes WITHOUT password', async () => {
+    it('(a) #70 empty password → submit BLOCKED, NOTHING is posted', async () => {
       const user = userEvent.setup();
       registerMutate.mockResolvedValue({ account: linkedAccount });
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await openRegisterFilled(user);
-      // Clear the field (no grClienteId in this render → it was empty already).
+      // No grClienteId → password empty. The submit must stay blocked (mandatory).
+      expect(screen.getByRole('button', { name: /^registrar$/i })).toBeDisabled();
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
-      await waitFor(() =>
-        // #65 — sendActivationEmail defaults FALSE (ficticio) + contractId travels.
-        expect(registerMutate).toHaveBeenCalledWith({
-          firstName: 'Ana',
-          lastName: 'García',
-          email: 'a@b.com',
-          cic: '0001',
-          sendActivationEmail: false,
-          contractId: 'ct-9',
-        }),
-      );
-      // No password key at all on the payload.
-      expect(registerMutate.mock.calls[0][0]).not.toHaveProperty('password');
+      expect(registerMutate).not.toHaveBeenCalled();
     });
 
     it('(b) valid password → it travels in the body', async () => {
@@ -1345,7 +1392,7 @@ describe('GigaredPanel', () => {
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await openRegisterFilled(user);
-      await user.type(screen.getByLabelText('Contraseña (opcional)'), 'abc12345');
+      await user.type(screen.getByLabelText('Contraseña *'), 'abc12345');
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
         // #65 — sendActivationEmail defaults FALSE + contractId travels.
@@ -1366,7 +1413,7 @@ describe('GigaredPanel', () => {
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await openRegisterFilled(user);
-      await user.type(screen.getByLabelText('Contraseña (opcional)'), 'Abc12345');
+      await user.type(screen.getByLabelText('Contraseña *'), 'Abc12345');
       // Live validation surfaces the error and the submit stays blocked.
       await waitFor(() =>
         expect(screen.getByText(/solo letras minúsculas y números/i)).toBeInTheDocument(),
@@ -1380,7 +1427,7 @@ describe('GigaredPanel', () => {
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await openRegisterFilled(user);
-      await user.type(screen.getByLabelText('Contraseña (opcional)'), 'abc1234$');
+      await user.type(screen.getByLabelText('Contraseña *'), 'abc1234$');
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       expect(registerMutate).not.toHaveBeenCalled();
     });
@@ -1390,7 +1437,7 @@ describe('GigaredPanel', () => {
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await openRegisterFilled(user);
-      await user.type(screen.getByLabelText('Contraseña (opcional)'), 'abc123');
+      await user.type(screen.getByLabelText('Contraseña *'), 'abc123');
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       expect(registerMutate).not.toHaveBeenCalled();
     });
@@ -1400,7 +1447,7 @@ describe('GigaredPanel', () => {
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
-      const pwd = screen.getByLabelText('Contraseña (opcional)') as HTMLInputElement;
+      const pwd = screen.getByLabelText('Contraseña *') as HTMLInputElement;
       // Hidden by default.
       expect(pwd.type).toBe('password');
       await user.click(screen.getByRole('button', { name: /mostrar contraseña/i }));
@@ -1435,7 +1482,7 @@ describe('GigaredPanel', () => {
       // #65 — checkbox defaults to UNCHECKED (ficticio).
       expect(screen.getByLabelText(/enviar email de activación al cliente/i)).not.toBeChecked();
       // Give it a valid password so the unchecked path submits.
-      await user.type(screen.getByLabelText('Contraseña (opcional)'), 'abc12345');
+      await user.type(screen.getByLabelText('Contraseña *'), 'abc12345');
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
         expect(registerMutate).toHaveBeenCalledWith({
@@ -1456,7 +1503,7 @@ describe('GigaredPanel', () => {
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await openRegisterFilled(user);
-      await user.type(screen.getByLabelText('Contraseña (opcional)'), 'abc12345');
+      await user.type(screen.getByLabelText('Contraseña *'), 'abc12345');
       await user.click(screen.getByLabelText(/enviar email de activación al cliente/i));
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
@@ -2120,7 +2167,7 @@ describe('GigaredPanel', () => {
       // email = {apellido}{idGR}@gmail.com (NOT the real email).
       expect((screen.getByLabelText(/^email$/i) as HTMLInputElement).value).toBe('hernandez2432@gmail.com');
       // password = ip{idGR} padded → ip243200 (already >= 8).
-      expect((screen.getByLabelText('Contraseña (opcional)') as HTMLInputElement).value).toBe('ip243200');
+      expect((screen.getByLabelText('Contraseña *') as HTMLInputElement).value).toBe('ip243200');
     });
 
     it('falls back to the real email and empty password without grClienteId', async () => {
@@ -2129,7 +2176,7 @@ describe('GigaredPanel', () => {
       renderPanel({ name: 'HERNANDEZ RONALD', email: 'real@x.com' });
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
       expect((screen.getByLabelText(/^email$/i) as HTMLInputElement).value).toBe('real@x.com');
-      expect((screen.getByLabelText('Contraseña (opcional)') as HTMLInputElement).value).toBe('');
+      expect((screen.getByLabelText('Contraseña *') as HTMLInputElement).value).toBe('');
     });
   });
 

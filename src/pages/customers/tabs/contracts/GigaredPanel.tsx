@@ -530,12 +530,16 @@ function UnlinkedView({
   // en el slot TV (best-effort). Mostramos un warning sutil para que el operador las anote.
   const [registerCredsWarning, setRegisterCredsWarning] = useState(false);
 
-  // #47h / #65 — account password prefilled with the deterministic value (editable).
-  // Empty is still valid (BE generates one); only a non-empty value that breaks
-  // ^[a-z0-9]{8,64}$ blocks the submit. The toggle flips hidden/shown.
+  // #47h / #65 / #70 — account password prefilled with the deterministic value (editable).
+  // #70 — the password is now MANDATORY: empty is INVALID and blocks the submit (the BE
+  // dropped its random fallback). With grClienteId the field arrives prefilled with the
+  // deterministic `ip{grId}`; without it (edge), the field is empty and the operator MUST
+  // type a CUA-valid one. The toggle flips hidden/shown.
   const [password, setPassword] = useState(ficticioPassword);
   const [showPassword, setShowPassword] = useState(false);
   const passwordInvalid = password !== '' && !PASSWORD_RE.test(password);
+  // #70 — canSave del campo password: debe estar presente Y cumplir la política CUA.
+  const passwordValid = PASSWORD_RE.test(password);
 
   // #65 — el correo del alta es FICTICIO, así que el checkbox "Enviar email de
   // activación" arranca SIEMPRE inactivo (no se manda email). El operador puede
@@ -604,18 +608,17 @@ function UnlinkedView({
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     if (register.isPending) return;
-    // #47h — block the submit while a non-empty password breaks the rule. Empty
-    // is fine: the field is simply omitted from the payload.
-    if (passwordInvalid) return;
+    // #70 — la password es OBLIGATORIA: bloqueamos el submit si está vacía o no cumple CUA.
+    if (!passwordValid) return;
     setRegisterError(null);
     setRegisterOk(false);
     setRegisterCredsWarning(false);
     try {
-      // Send password ONLY when present; empty → omit it so the BE generates one.
+      // #70 — la password viaja SIEMPRE (ya no hay fallback random en el BE).
       // sendActivationEmail travels ALWAYS explicit. #65 — contractId carries the
       // owner contract so the BE impacts login + password on the local TV slot.
       const base = { ...form, sendActivationEmail, contractId: effectiveContractId };
-      const result = await register.mutateAsync(password ? { ...base, password } : base);
+      const result = await register.mutateAsync({ ...base, password });
       // Drop the local form state after submit — never keep PII around.
       setForm({ firstName: '', lastName: '', email: '', cic: '' });
       setPassword('');
@@ -867,11 +870,11 @@ function UnlinkedView({
                 )}
               </div>
 
-              {/* #47h — optional account password. Helper is ALWAYS visible; live
-                  validation flags a non-empty value that breaks the rule. */}
+              {/* #70 — account password is MANDATORY (asterisk). Helper is ALWAYS visible;
+                  live validation flags an empty or non-CUA value (both block the submit). */}
               <div className={styles.field}>
                 <label className={styles.fieldLabel} htmlFor="tv-reg-password">
-                  Contraseña (opcional)
+                  Contraseña *
                 </label>
                 <div className={styles.passwordRow}>
                   <input
@@ -893,9 +896,9 @@ function UnlinkedView({
                   </button>
                 </div>
                 <p className={passwordInvalid ? styles.fieldError : styles.emptyHint}>
-                  Solo letras minúsculas y números (8 a 64). Si la dejás vacía, se
-                  genera una automáticamente y el cliente la define desde el email
-                  de activación.
+                  Obligatoria: solo letras minúsculas y números (8 a 64). Viene
+                  prellenada con la clave determinística; si el cliente no tiene
+                  idGR, escribila a mano.
                 </p>
               </div>
             </div>
@@ -948,7 +951,7 @@ function UnlinkedView({
                 <button
                   type="submit"
                   className={styles.btnPrimary}
-                  disabled={register.isPending || passwordInvalid || !form.firstName || !form.lastName || !form.email || !form.cic}
+                  disabled={register.isPending || !passwordValid || !form.firstName || !form.lastName || !form.email || !form.cic}
                 >
                   {register.isPending ? 'Registrando…' : 'Registrar'}
                 </button>
