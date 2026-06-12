@@ -363,8 +363,7 @@ describe('GigaredPanel', () => {
     await user.type(screen.getByLabelText(/^email$/i), 'a@b.com');
     await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
     await user.type(screen.getByLabelText(/^cic$/i), '0001');
-    // #70 — password obligatoria: hay que cargar una CUA-válida para destrabar el submit.
-    await user.type(screen.getByLabelText('Contraseña *'), 'abc12345');
+    // #70 rework — sin campo de contraseña: el submit se destraba solo con los datos.
     await user.click(screen.getByRole('button', { name: /^registrar$/i }));
     await waitFor(() =>
       expect(screen.getByText(/el email ya está en uso en gigared/i)).toBeInTheDocument(),
@@ -970,8 +969,7 @@ describe('GigaredPanel', () => {
       await user.type(screen.getByLabelText(/^email$/i), 'a@b.com');
       await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
       await user.type(screen.getByLabelText(/^cic$/i), '0001');
-      // #70 — password obligatoria: cargamos una CUA-válida para llegar al POST.
-      await user.type(screen.getByLabelText('Contraseña *'), 'abc12345');
+      // #70 rework — sin campo de contraseña: el submit llega al POST directo.
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() => expect(screen.getByText(/gigared no responde ahora/i)).toBeInTheDocument());
     });
@@ -1193,7 +1191,8 @@ describe('GigaredPanel', () => {
           ],
         },
       });
-      // #70 — con grClienteId el form prefillea email + password determinística (obligatoria).
+      // #70 rework — con grClienteId el form prefillea SOLO el email ficticio; la contraseña
+      // ya NO se carga (la genera el backend) y NO viaja en el payload.
       renderPanel({ name: 'DAMONTE JIMENA', email: 'jimena@example.com', grClienteId: '243200' });
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
       await user.selectOptions(screen.getByLabelText(/cic disponible/i), '0000000900');
@@ -1207,10 +1206,10 @@ describe('GigaredPanel', () => {
           // #65 — sendActivationEmail defaults FALSE (correo ficticio); contractId travels.
           sendActivationEmail: false,
           contractId: 'ct-9',
-          // #70 — la password obligatoria viaja SIEMPRE (determinística ip{grId} padded).
-          password: 'ip243200',
         }),
       );
+      // #70 rework — el payload NUNCA lleva password.
+      expect(registerMutate.mock.calls[0][0]).not.toHaveProperty('password');
     });
 
     it('register CIC manual fallback toggle reveals the free-text input', async () => {
@@ -1234,58 +1233,37 @@ describe('GigaredPanel', () => {
       expect(screen.getByLabelText(/nombre/i)).toHaveValue('');
     });
 
-    // #70 — la contraseña del alta pasa a ser OBLIGATORIA (sin fallback random del BE).
-    describe('#70 — contraseña obligatoria', () => {
-      it('el label de Contraseña lleva asterisco de obligatorio (no "opcional")', async () => {
+    // #70 rework — el ALTA ya NO pide contraseña: el campo fue REMOVIDO y en su lugar hay una
+    // nota de autogeneración. Sin grClienteId el submit ya NO se bloquea por la password.
+    describe('#70 rework — el alta no pide contraseña (autogeneración)', () => {
+      it('NO hay campo de contraseña en el form de registro', async () => {
         const user = userEvent.setup();
         mockQuery({ account: { linked: false, account: null } });
         renderPanel({ name: 'DAMONTE JIMENA', email: 'j@x.com', grClienteId: '243200' });
         await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
-        const label = screen.getByText(/contraseña/i, { selector: 'label' });
-        expect(label.textContent).toMatch(/\*/);
-        expect(label.textContent).not.toMatch(/opcional/i);
+        expect(screen.queryByLabelText(/contraseña/i)).not.toBeInTheDocument();
+        // tampoco el toggle mostrar/ocultar del campo viejo.
+        expect(screen.queryByRole('button', { name: /mostrar contraseña/i })).not.toBeInTheDocument();
       });
 
-      it('con grClienteId la password se prefillea con la determinística ip{grId}', async () => {
+      it('muestra la nota de que la contraseña se genera automáticamente (+ Credenciales)', async () => {
         const user = userEvent.setup();
         mockQuery({ account: { linked: false, account: null } });
         renderPanel({ name: 'DAMONTE JIMENA', email: 'j@x.com', grClienteId: '243200' });
         await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
-        expect(screen.getByLabelText('Contraseña *')).toHaveValue('ip243200');
+        expect(screen.getByText(/se genera automáticamente/i)).toBeInTheDocument();
+        expect(screen.getByText(/credenciales/i)).toBeInTheDocument();
       });
 
-      it('edge: cliente SIN grClienteId → password vacía y "Registrar" DESHABILITADO (canSave)', async () => {
+      it('cliente SIN grClienteId → el submit NO se bloquea por la contraseña (se habilita con los datos)', async () => {
         const user = userEvent.setup();
         mockQuery({ account: { linked: false, account: null } });
         renderPanel({ name: 'DAMONTE JIMENA', email: 'j@x.com' });
         await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
         await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
         await user.type(screen.getByLabelText(/^cic$/i), '0001');
-        // password vacía (sin grClienteId no se prefillea) → obligatoria → submit bloqueado
-        expect(screen.getByLabelText('Contraseña *')).toHaveValue('');
-        expect(screen.getByRole('button', { name: /^registrar$/i })).toBeDisabled();
-      });
-
-      it('edge: el operador escribe una password CUA-válida → "Registrar" se habilita', async () => {
-        const user = userEvent.setup();
-        mockQuery({ account: { linked: false, account: null } });
-        renderPanel({ name: 'DAMONTE JIMENA', email: 'j@x.com' });
-        await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
-        await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
-        await user.type(screen.getByLabelText(/^cic$/i), '0001');
-        await user.type(screen.getByLabelText('Contraseña *'), 'miclave2026');
+        // sin campo de contraseña, con nombre/apellido/email/cic completos → submit habilitado.
         expect(screen.getByRole('button', { name: /^registrar$/i })).toBeEnabled();
-      });
-
-      it('una password NO-CUA mantiene "Registrar" deshabilitado', async () => {
-        const user = userEvent.setup();
-        mockQuery({ account: { linked: false, account: null } });
-        renderPanel({ name: 'DAMONTE JIMENA', email: 'j@x.com', grClienteId: '243200' });
-        await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
-        const pw = screen.getByLabelText('Contraseña *');
-        await user.clear(pw);
-        await user.type(pw, 'MAYUS-no');
-        expect(screen.getByRole('button', { name: /^registrar$/i })).toBeDisabled();
       });
     });
   });
@@ -1344,12 +1322,13 @@ describe('GigaredPanel', () => {
     });
   });
 
-  // ── #47h: optional account password on register ─────────────────────────────
-  // #70 — the register form has a "Contraseña *" field. Wire contract:
-  // password is MANDATORY and MUST match ^[a-z0-9]{8,64}$. Empty → submit BLOCKED
-  // (the BE dropped its random fallback). Valid → send it in the body. Invalid →
-  // visible error, submit blocked, NO post. Toggle shows / hides (type password ↔ text).
-  describe('#70 — register password (mandatory)', () => {
+  // ── #70 rework — el alta NO pide contraseña ──────────────────────────────────
+  // Wire contract final: el form de registro NO tiene campo de contraseña (input,
+  // validación viva ni toggle). En su lugar, una nota: la contraseña se genera
+  // automáticamente (server-side, a partir del idGR) y se ve luego en Credenciales.
+  // El payload del register NUNCA lleva `password`. El modal "Cambiar contraseña"
+  // del #65 NO se toca — sigue libre y se cubre en su propio describe.
+  describe('#70 rework — register sin campo de contraseña', () => {
     /** Open the register form and fill the always-required fields + a manual CIC. */
     async function openRegisterFilled(user: ReturnType<typeof userEvent.setup>) {
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
@@ -1360,100 +1339,48 @@ describe('GigaredPanel', () => {
       await user.type(screen.getByLabelText(/^cic$/i), '0001');
     }
 
-    it('the password field renders with the always-visible helper', async () => {
+    it('NO renderiza campo de contraseña (input ni toggle), SÍ la nota de autogeneración', async () => {
       const user = userEvent.setup();
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
-      expect(screen.getByLabelText('Contraseña *')).toBeInTheDocument();
-      // Helper is ALWAYS visible (not gated behind an error), spells out the rule.
-      expect(
-        screen.getByText(/solo letras minúsculas y números \(8 a 64\)/i),
-      ).toBeInTheDocument();
-      // #70 — el helper aclara que es obligatoria (ya no "se genera una automáticamente").
-      expect(screen.getByText(/obligatoria/i)).toBeInTheDocument();
+      // El campo de contraseña fue removido por completo.
+      expect(screen.queryByLabelText(/contraseña/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /mostrar contraseña/i })).not.toBeInTheDocument();
+      // El warning viejo "sin contraseña … no podrá ingresar" desaparece.
+      expect(screen.queryByText(/sin contraseña/i)).not.toBeInTheDocument();
+      // La nota sutil reemplaza al campo.
+      expect(screen.getByText(/se genera automáticamente/i)).toBeInTheDocument();
     });
 
-    it('(a) #70 empty password → submit BLOCKED, NOTHING is posted', async () => {
+    it('el register postea SIN password en el payload (la genera el backend)', async () => {
       const user = userEvent.setup();
       registerMutate.mockResolvedValue({ account: linkedAccount });
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await openRegisterFilled(user);
-      // No grClienteId → password empty. The submit must stay blocked (mandatory).
-      expect(screen.getByRole('button', { name: /^registrar$/i })).toBeDisabled();
-      await user.click(screen.getByRole('button', { name: /^registrar$/i }));
-      expect(registerMutate).not.toHaveBeenCalled();
-    });
-
-    it('(b) valid password → it travels in the body', async () => {
-      const user = userEvent.setup();
-      registerMutate.mockResolvedValue({ account: linkedAccount });
-      mockQuery({ account: { linked: false, account: null } });
-      renderPanel();
-      await openRegisterFilled(user);
-      await user.type(screen.getByLabelText('Contraseña *'), 'abc12345');
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
-        // #65 — sendActivationEmail defaults FALSE + contractId travels.
+        // #65 — sendActivationEmail defaults FALSE + contractId travels. #70 — NO password.
         expect(registerMutate).toHaveBeenCalledWith({
           firstName: 'Ana',
           lastName: 'García',
           email: 'a@b.com',
           cic: '0001',
-          password: 'abc12345',
           sendActivationEmail: false,
           contractId: 'ct-9',
         }),
       );
+      expect(registerMutate.mock.calls[0][0]).not.toHaveProperty('password');
     });
 
-    it('(c) invalid password (uppercase) → visible error, nothing is posted', async () => {
+    it('sin grClienteId el submit NO se bloquea por la contraseña (queda habilitado con los datos)', async () => {
       const user = userEvent.setup();
+      registerMutate.mockResolvedValue({ account: linkedAccount });
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await openRegisterFilled(user);
-      await user.type(screen.getByLabelText('Contraseña *'), 'Abc12345');
-      // Live validation surfaces the error and the submit stays blocked.
-      await waitFor(() =>
-        expect(screen.getByText(/solo letras minúsculas y números/i)).toBeInTheDocument(),
-      );
-      await user.click(screen.getByRole('button', { name: /^registrar$/i }));
-      expect(registerMutate).not.toHaveBeenCalled();
-    });
-
-    it('(c2) invalid password (symbol) → not posted', async () => {
-      const user = userEvent.setup();
-      mockQuery({ account: { linked: false, account: null } });
-      renderPanel();
-      await openRegisterFilled(user);
-      await user.type(screen.getByLabelText('Contraseña *'), 'abc1234$');
-      await user.click(screen.getByRole('button', { name: /^registrar$/i }));
-      expect(registerMutate).not.toHaveBeenCalled();
-    });
-
-    it('(c3) invalid password (too short) → not posted', async () => {
-      const user = userEvent.setup();
-      mockQuery({ account: { linked: false, account: null } });
-      renderPanel();
-      await openRegisterFilled(user);
-      await user.type(screen.getByLabelText('Contraseña *'), 'abc123');
-      await user.click(screen.getByRole('button', { name: /^registrar$/i }));
-      expect(registerMutate).not.toHaveBeenCalled();
-    });
-
-    it('(d) toggle shows / hides the password value', async () => {
-      const user = userEvent.setup();
-      mockQuery({ account: { linked: false, account: null } });
-      renderPanel();
-      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
-      const pwd = screen.getByLabelText('Contraseña *') as HTMLInputElement;
-      // Hidden by default.
-      expect(pwd.type).toBe('password');
-      await user.click(screen.getByRole('button', { name: /mostrar contraseña/i }));
-      expect(pwd.type).toBe('text');
-      await user.click(screen.getByRole('button', { name: /ocultar contraseña/i }));
-      expect(pwd.type).toBe('password');
+      expect(screen.getByRole('button', { name: /^registrar$/i })).toBeEnabled();
     });
   });
 
@@ -1481,8 +1408,7 @@ describe('GigaredPanel', () => {
       await openRegisterFilled(user);
       // #65 — checkbox defaults to UNCHECKED (ficticio).
       expect(screen.getByLabelText(/enviar email de activación al cliente/i)).not.toBeChecked();
-      // Give it a valid password so the unchecked path submits.
-      await user.type(screen.getByLabelText('Contraseña *'), 'abc12345');
+      // #70 rework — sin campo de contraseña, el submit ya no la necesita para destrabarse.
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
         expect(registerMutate).toHaveBeenCalledWith({
@@ -1490,7 +1416,6 @@ describe('GigaredPanel', () => {
           lastName: 'García',
           email: 'a@b.com',
           cic: '0001',
-          password: 'abc12345',
           sendActivationEmail: false,
           contractId: 'ct-9',
         }),
@@ -1503,7 +1428,6 @@ describe('GigaredPanel', () => {
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await openRegisterFilled(user);
-      await user.type(screen.getByLabelText('Contraseña *'), 'abc12345');
       await user.click(screen.getByLabelText(/enviar email de activación al cliente/i));
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
@@ -1512,33 +1436,19 @@ describe('GigaredPanel', () => {
           lastName: 'García',
           email: 'a@b.com',
           cic: '0001',
-          password: 'abc12345',
           sendActivationEmail: true,
           contractId: 'ct-9',
         }),
       );
     });
 
-    it('(c) default unchecked + empty password → visible warning', async () => {
+    // #70 rework — el warning viejo "sin email y sin contraseña, no podrá ingresar" se eliminó:
+    // ya no existe campo de contraseña, así que esa condición no se evalúa más.
+    it('(c) el warning viejo "sin contraseña" ya NO aparece (campo removido)', async () => {
       const user = userEvent.setup();
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await openRegisterFilled(user);
-      // #65 — default state (unchecked + no prefilled password here) shows the warning.
-      await waitFor(() =>
-        expect(
-          screen.getByText(/sin email de activación y sin contraseña, el cliente no podrá ingresar/i),
-        ).toBeInTheDocument(),
-      );
-    });
-
-    it('(d) checked → no warning', async () => {
-      const user = userEvent.setup();
-      mockQuery({ account: { linked: false, account: null } });
-      renderPanel();
-      await openRegisterFilled(user);
-      // Checking the activation email clears the warning.
-      await user.click(screen.getByLabelText(/enviar email de activación al cliente/i));
       expect(
         screen.queryByText(/sin email de activación y sin contraseña/i),
       ).not.toBeInTheDocument();
@@ -2159,24 +2069,24 @@ describe('GigaredPanel', () => {
 
   // ── #65 — deterministic register prefill + Gigared Play credentials ─────────
   describe('#65 deterministic register prefill', () => {
-    it('prefills the ficticio email and deterministic password from grClienteId', async () => {
+    it('prefills the ficticio email from grClienteId (la contraseña ya NO se prefillea — autogenerada)', async () => {
       const user = userEvent.setup();
       mockQuery({ account: { linked: false, account: null } });
       renderPanel({ name: 'HERNANDEZ RONALD', email: 'real@x.com', grClienteId: '2432' });
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
       // email = {apellido}{idGR}@gmail.com (NOT the real email).
       expect((screen.getByLabelText(/^email$/i) as HTMLInputElement).value).toBe('hernandez2432@gmail.com');
-      // password = ip{idGR} padded → ip243200 (already >= 8).
-      expect((screen.getByLabelText('Contraseña *') as HTMLInputElement).value).toBe('ip243200');
+      // #70 rework — ya NO hay campo de contraseña que prefillear.
+      expect(screen.queryByLabelText(/contraseña/i)).not.toBeInTheDocument();
     });
 
-    it('falls back to the real email and empty password without grClienteId', async () => {
+    it('falls back to the real email without grClienteId (y sigue sin campo de contraseña)', async () => {
       const user = userEvent.setup();
       mockQuery({ account: { linked: false, account: null } });
       renderPanel({ name: 'HERNANDEZ RONALD', email: 'real@x.com' });
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
       expect((screen.getByLabelText(/^email$/i) as HTMLInputElement).value).toBe('real@x.com');
-      expect((screen.getByLabelText('Contraseña *') as HTMLInputElement).value).toBe('');
+      expect(screen.queryByLabelText(/contraseña/i)).not.toBeInTheDocument();
     });
   });
 

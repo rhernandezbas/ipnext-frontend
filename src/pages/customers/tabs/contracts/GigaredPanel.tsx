@@ -511,11 +511,11 @@ function UnlinkedView({
   const prefill = customer ? splitName(customer.name) : { firstName: '', lastName: '' };
 
   // #65 — alta determinística. Con grClienteId (idGR) prefillamos el correo FICTICIO
-  // ({apellido}{idGR}@gmail.com) y la contraseña ({ip}{idGR} padded). Sin idGR, degradamos
-  // al email real del cliente (#47e) y dejamos la password vacía (BE genera #47h).
+  // ({apellido}{idGR}@gmail.com). Sin idGR degradamos al email real del cliente (#47e).
+  // #70 rework — la contraseña ya NO se prefillea en el form: la genera el backend a partir
+  // del idGR (queda visible en Credenciales). El campo de contraseña fue removido del alta.
   const grId = customer?.grClienteId ?? '';
   const ficticioEmail = grId ? deterministicTvEmail(prefill.lastName, grId) : (customer?.email ?? '');
-  const ficticioPassword = grId ? deterministicTvPassword(grId) : '';
 
   const [registerOpen, setRegisterOpen] = useState(false);
   const [form, setForm] = useState({
@@ -530,22 +530,15 @@ function UnlinkedView({
   // en el slot TV (best-effort). Mostramos un warning sutil para que el operador las anote.
   const [registerCredsWarning, setRegisterCredsWarning] = useState(false);
 
-  // #47h / #65 / #70 — account password prefilled with the deterministic value (editable).
-  // #70 — the password is now MANDATORY: empty is INVALID and blocks the submit (the BE
-  // dropped its random fallback). With grClienteId the field arrives prefilled with the
-  // deterministic `ip{grId}`; without it (edge), the field is empty and the operator MUST
-  // type a CUA-valid one. The toggle flips hidden/shown.
-  const [password, setPassword] = useState(ficticioPassword);
-  const [showPassword, setShowPassword] = useState(false);
-  const passwordInvalid = password !== '' && !PASSWORD_RE.test(password);
-  // #70 — canSave del campo password: debe estar presente Y cumplir la política CUA.
-  const passwordValid = PASSWORD_RE.test(password);
+  // #70 rework — la contraseña del ALTA ya NO se carga en el form: la genera el backend
+  // server-side a partir del idGR (clave determinística `ip{idGR}`) y queda visible en
+  // "Credenciales". Por eso el form NO tiene campo de contraseña ni la manda en el payload.
+  // (El modal "Cambiar contraseña" del #65 es OTRA cosa y sigue libre — no se toca acá.)
 
   // #65 — el correo del alta es FICTICIO, así que el checkbox "Enviar email de
   // activación" arranca SIEMPRE inactivo (no se manda email). El operador puede
   // activarlo a mano si algún día usa un correo real. Sent ALWAYS explicit en el POST.
   const [sendActivationEmail, setSendActivationEmail] = useState(false);
-  const noLoginWarning = !sendActivationEmail && password === '';
 
   // #47c Fix 3 — escape hatch: add ONLY the local TV item (no Gigared). Reuses
   // the #43 add endpoint with the 'TV' catalog entry, like the picker's plain
@@ -608,21 +601,21 @@ function UnlinkedView({
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     if (register.isPending) return;
-    // #70 — la password es OBLIGATORIA: bloqueamos el submit si está vacía o no cumple CUA.
-    if (!passwordValid) return;
     setRegisterError(null);
     setRegisterOk(false);
     setRegisterCredsWarning(false);
     try {
-      // #70 — la password viaja SIEMPRE (ya no hay fallback random en el BE).
-      // sendActivationEmail travels ALWAYS explicit. #65 — contractId carries the
-      // owner contract so the BE impacts login + password on the local TV slot.
-      const base = { ...form, sendActivationEmail, contractId: effectiveContractId };
-      const result = await register.mutateAsync({ ...base, password });
+      // #70 rework — el payload del register NO manda password: la genera el backend
+      // server-side a partir del idGR. sendActivationEmail viaja SIEMPRE explícito.
+      // #65 — contractId carries the owner contract so the BE impacts login + password
+      // on the local TV slot (la clave generada queda en "Credenciales").
+      const result = await register.mutateAsync({
+        ...form,
+        sendActivationEmail,
+        contractId: effectiveContractId,
+      });
       // Drop the local form state after submit — never keep PII around.
       setForm({ firstName: '', lastName: '', email: '', cic: '' });
-      setPassword('');
-      setShowPassword(false);
       setSendActivationEmail(false);
       setRegisterOk(true);
       // M7 — the account exists, but flag if the credentials did not make it to the slot.
@@ -870,37 +863,11 @@ function UnlinkedView({
                 )}
               </div>
 
-              {/* #70 — account password is MANDATORY (asterisk). Helper is ALWAYS visible;
-                  live validation flags an empty or non-CUA value (both block the submit). */}
-              <div className={styles.field}>
-                <label className={styles.fieldLabel} htmlFor="tv-reg-password">
-                  Contraseña *
-                </label>
-                <div className={styles.passwordRow}>
-                  <input
-                    id="tv-reg-password"
-                    type={showPassword ? 'text' : 'password'}
-                    className={styles.input}
-                    value={password}
-                    autoComplete="new-password"
-                    aria-invalid={passwordInvalid}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className={styles.btnLink}
-                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                    onClick={() => setShowPassword((s) => !s)}
-                  >
-                    {showPassword ? 'Ocultar' : 'Mostrar'}
-                  </button>
-                </div>
-                <p className={passwordInvalid ? styles.fieldError : styles.emptyHint}>
-                  Obligatoria: solo letras minúsculas y números (8 a 64). Viene
-                  prellenada con la clave determinística; si el cliente no tiene
-                  idGR, escribila a mano.
-                </p>
-              </div>
+              {/* #70 rework — el ALTA ya NO pide contraseña: la genera el backend
+                  automáticamente a partir del idGR. Nota sutil en lugar del campo. */}
+              <p className={styles.emptyHint}>
+                La contraseña se genera automáticamente. Después se ve en Credenciales.
+              </p>
             </div>
 
             {/* #65 — el correo es FICTICIO, así que el toggle arranca INACTIVO por
@@ -922,13 +889,6 @@ function UnlinkedView({
                 solo si cargaste un correo real al que el cliente tenga acceso.
               </p>
             </div>
-            {noLoginWarning && (
-              <div className={`${styles.banner} ${styles.bannerWarning}`}>
-                <span>
-                  Sin email de activación y sin contraseña, el cliente no podrá ingresar.
-                </span>
-              </div>
-            )}
             {registerError && (
               <div className={`${styles.banner} ${styles.bannerError}`}><span>{registerError}</span></div>
             )}
@@ -951,7 +911,7 @@ function UnlinkedView({
                 <button
                   type="submit"
                   className={styles.btnPrimary}
-                  disabled={register.isPending || !passwordValid || !form.firstName || !form.lastName || !form.email || !form.cic}
+                  disabled={register.isPending || !form.firstName || !form.lastName || !form.email || !form.cic}
                 >
                   {register.isPending ? 'Registrando…' : 'Registrar'}
                 </button>
