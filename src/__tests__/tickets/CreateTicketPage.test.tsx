@@ -6,9 +6,11 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import CreateTicketPage from '@/pages/tickets/CreateTicketPage';
 import * as useTicketsModule from '@/hooks/useTickets';
 import * as clientsApi from '@/api/customers.api';
+import * as useTicketAreasModule from '@/hooks/useTicketAreas';
 
 vi.mock('@/hooks/useTickets');
 vi.mock('@/api/customers.api');
+vi.mock('@/hooks/useTicketAreas');
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -43,6 +45,15 @@ describe('CreateTicketPage', () => {
       page: 1,
       totalPages: 1,
     });
+
+    vi.mocked(useTicketAreasModule.useTicketAreas).mockReturnValue({
+      data: [
+        { id: 'area-1', name: 'Soporte Técnico' },
+        { id: 'area-2', name: 'Facturación' },
+      ],
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useTicketAreasModule.useTicketAreas>);
   });
 
   it('renders page title', () => {
@@ -54,9 +65,17 @@ describe('CreateTicketPage', () => {
     renderCreate();
     expect(screen.getByPlaceholderText('Asunto del ticket')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Buscar cliente...')).toBeInTheDocument();
-    expect(screen.getByRole('combobox')).toBeInTheDocument(); // priority select
+    // two comboboxes: prioridad + area
+    const selects = screen.getAllByRole('combobox');
+    expect(selects).toHaveLength(2);
     expect(screen.getByPlaceholderText('Descripción del problema...')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('ID de agente')).toBeInTheDocument();
+  });
+
+  it('renders area options from useTicketAreas', () => {
+    renderCreate();
+    expect(screen.getByRole('option', { name: 'Soporte Técnico' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Facturación' })).toBeInTheDocument();
   });
 
   it('renders Crear Ticket submit button', () => {
@@ -75,7 +94,31 @@ describe('CreateTicketPage', () => {
       expect(screen.getByText('Seleccioná un cliente.')).toBeInTheDocument();
       expect(screen.getByText('La prioridad es requerida.')).toBeInTheDocument();
       expect(screen.getByText('La descripción es requerida.')).toBeInTheDocument();
+      expect(screen.getByText('El area es requerida.')).toBeInTheDocument();
     });
+  });
+
+  it('blocks submit and shows area error when area is not selected', async () => {
+    const user = userEvent.setup();
+    renderCreate();
+
+    // Fill every required field except area
+    fireEvent.change(screen.getByPlaceholderText('Asunto del ticket'), {
+      target: { value: 'Internet caído' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Descripción del problema...'), {
+      target: { value: 'No tengo señal.' },
+    });
+    // priority select is first combobox
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'alta' } });
+    // leave area (second combobox) empty
+
+    await user.click(screen.getByRole('button', { name: 'Crear Ticket' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('El area es requerida.')).toBeInTheDocument();
+    });
+    expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
   it('shows API error on mutation failure', async () => {
@@ -88,7 +131,7 @@ describe('CreateTicketPage', () => {
     fireEvent.change(screen.getByPlaceholderText('Asunto del ticket'), {
       target: { value: 'Internet caído' },
     });
-    fireEvent.change(screen.getByRole('combobox'), {
+    fireEvent.change(screen.getAllByRole('combobox')[0], {
       target: { value: 'alta' },
     });
     fireEvent.change(screen.getByPlaceholderText('Descripción del problema...'), {

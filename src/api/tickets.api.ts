@@ -33,6 +33,7 @@ export interface CreateTicketInput {
   priority: 'alta' | 'media' | 'baja';
   description: string;
   assignedTo?: string;
+  areaId: string;
 }
 
 export async function getTickets(
@@ -74,15 +75,15 @@ export async function createTicket(data: CreateTicketData | CreateTicketInput): 
   // #28 follow-up — the BE body is { description, assigneeId }: `message` got a 400
   // (missing description) and `Number(assignedTo)` was NaN for RbacUser uuid ids.
   if ('clientId' in data) {
-    // Legacy CreateTicketInput path (CreateTicketPage). areaId not available here
-    // — the legacy form predates #49. The BE will 422 if areaId is absent, but
-    // CreateTicketPage is separate from the modal and must be updated by its owner.
+    // CreateTicketInput path (CreateTicketPage standalone form).
+    // areaId is now required by the BE (#49 — 422 TICKET_AREA_REQUIRED if absent).
     const payload = {
       subject: data.subject,
       description: data.description,
       priority: (data.priority === 'alta' ? 'high' : data.priority === 'media' ? 'medium' : 'low') as CreateTicketData['priority'],
       customerId: data.clientId,
       assigneeId: data.assignedTo || undefined,
+      areaId: data.areaId,
     };
     const response = await axiosClient.post<Ticket>('/tickets', payload);
     return response.data;

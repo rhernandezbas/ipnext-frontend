@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '../../components/atoms/Input/Input';
 import { Button } from '../../components/atoms/Button/Button';
 import { useCreateTicket } from '../../hooks/useTickets';
+import { useTicketAreas } from '../../hooks/useTicketAreas';
 import { getClients } from '../../api/customers.api';
 import styles from './CreateTicketPage.module.css';
 
@@ -13,6 +14,7 @@ interface FormState {
   priority: 'alta' | 'media' | 'baja' | '';
   description: string;
   assignedTo: string;
+  areaId: string;
 }
 
 interface FormErrors {
@@ -20,6 +22,7 @@ interface FormErrors {
   clientId?: string;
   priority?: string;
   description?: string;
+  areaId?: string;
 }
 
 interface ClientOption { id: string; name: string; }
@@ -27,6 +30,7 @@ interface ClientOption { id: string; name: string; }
 export default function CreateTicketPage() {
   const navigate = useNavigate();
   const { mutateAsync, isPending } = useCreateTicket();
+  const { data: areas = [] } = useTicketAreas();
 
   const [form, setForm] = useState<FormState>({
     subject: '',
@@ -35,6 +39,7 @@ export default function CreateTicketPage() {
     priority: '',
     description: '',
     assignedTo: '',
+    areaId: '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [clientOptions, setClientOptions] = useState<ClientOption[]>([]);
@@ -58,6 +63,7 @@ export default function CreateTicketPage() {
     if (!form.clientId) errs.clientId = 'Seleccioná un cliente.';
     if (!form.priority) errs.priority = 'La prioridad es requerida.';
     if (!form.description.trim()) errs.description = 'La descripción es requerida.';
+    if (!form.areaId) errs.areaId = 'El area es requerida.';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -73,6 +79,7 @@ export default function CreateTicketPage() {
         priority: form.priority as 'alta' | 'media' | 'baja',
         description: form.description,
         assignedTo: form.assignedTo || undefined,
+        areaId: form.areaId,
       });
       navigate('/admin/tickets');
     } catch {
@@ -133,6 +140,22 @@ export default function CreateTicketPage() {
             <option value="baja">Baja</option>
           </select>
           {errors.priority && <span className={styles.error}>{errors.priority}</span>}
+        </div>
+
+        <div className={styles.field}>
+          <label className={styles.label}>Area *</label>
+          <select
+            className={[styles.select, errors.areaId ? styles.selectError : ''].join(' ')}
+            value={form.areaId}
+            onChange={(e) => setForm((f) => ({ ...f, areaId: e.target.value }))}
+            aria-label="Area"
+          >
+            <option value="">Selecciona un area</option>
+            {areas.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+          {errors.areaId && <span className={styles.error}>{errors.areaId}</span>}
         </div>
 
         <div className={styles.field}>
