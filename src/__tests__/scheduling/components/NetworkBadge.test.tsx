@@ -87,6 +87,7 @@ function makeTask(overrides: Partial<ScheduledTask> = {}): ScheduledTask {
     kind: 'customer',
     networkSiteId: null,
     networkSiteName: null,
+    networkType: null,
     ...overrides,
   } as ScheduledTask;
 }
@@ -128,14 +129,20 @@ describe('KanbanCard — RED badge', () => {
     expect(screen.queryByTestId('network-badge')).not.toBeInTheDocument();
   });
 
-  it('shows network site name inside the badge when available', () => {
-    const task = makeTask({ kind: 'network', networkSiteId: 'ns-1', networkSiteName: 'Nodo Central' });
+  it('shows network site name inside the badge when available (red task)', () => {
+    const task = makeTask({ kind: 'network', networkType: 'red', networkSiteId: 'ns-1', networkSiteName: 'Nodo Central' });
     render(<KanbanCard task={task} />);
-    expect(screen.getByTestId('network-badge')).toHaveTextContent(/Nodo Central|Nodo Fibra/i);
+    expect(screen.getByTestId('network-badge')).toHaveTextContent('Nodo Central');
   });
 
-  it('shows "Nodo Fibra" fallback when networkSiteName is absent', () => {
-    const task = makeTask({ kind: 'network', networkSiteId: undefined, networkSiteName: undefined });
+  it('shows "RED" fallback when networkSiteName is absent and networkType is red/null', () => {
+    const task = makeTask({ kind: 'network', networkType: null, networkSiteId: undefined, networkSiteName: undefined });
+    render(<KanbanCard task={task} />);
+    expect(screen.getByTestId('network-badge')).toHaveTextContent('RED');
+  });
+
+  it('shows "Nodo Fibra" when networkType is fibra', () => {
+    const task = makeTask({ kind: 'network', networkType: 'fibra', networkSiteId: null, networkSiteName: 'FO-01' });
     render(<KanbanCard task={task} />);
     expect(screen.getByTestId('network-badge')).toHaveTextContent('Nodo Fibra');
   });
@@ -161,8 +168,23 @@ describe('TasksTableView — RED badge in title column', () => {
     expect(screen.getByTestId('network-badge')).toBeInTheDocument();
   });
 
-  it('renders "Nodo Fibra" badge text when task.kind === network', () => {
-    const task = makeTask({ kind: 'network', networkSiteId: undefined, networkSiteName: undefined });
+  it('renders "RED" badge text when task.kind === network and networkType is red/null', () => {
+    const task = makeTask({ kind: 'network', networkType: null, networkSiteId: undefined, networkSiteName: undefined });
+    render(
+      <MemoryRouter>
+        <TasksTableView
+          tasks={[task]}
+          projects={projects}
+          workflows={workflows}
+          visibleColumnKeys={['sequenceNumber', 'title']}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId('network-badge')).toHaveTextContent('RED');
+  });
+
+  it('renders "Nodo Fibra" badge text when task.networkType === fibra', () => {
+    const task = makeTask({ kind: 'network', networkType: 'fibra', networkSiteId: null, networkSiteName: 'FO-01' });
     render(
       <MemoryRouter>
         <TasksTableView

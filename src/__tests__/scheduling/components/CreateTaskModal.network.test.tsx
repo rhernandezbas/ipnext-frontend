@@ -141,8 +141,9 @@ describe('CreateTaskModal — customer context has no network toggle (#40b fix-a
     expect(screen.queryByRole('button', { name: /^nodo fibra$/i })).not.toBeInTheDocument();
   });
 
-  it('does NOT render the static "Nodo Fibra" badge either (customer context, not locked)', () => {
+  it('does NOT render the static "Nodo RED" or "Nodo Fibra" badge (customer context, not locked)', () => {
     setup();
+    expect(screen.queryByLabelText(/tipo de tarea: nodo red/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/tipo de tarea: nodo fibra/i)).not.toBeInTheDocument();
   });
 

@@ -436,7 +436,7 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
               data-testid="network-badge"
               aria-label="Tarea de red"
             >
-              Nodo Fibra
+              {t.networkType === 'fibra' ? 'Nodo Fibra' : 'RED'}
             </span>
           )}
         </span>

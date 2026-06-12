@@ -53,10 +53,15 @@ export interface CreateTaskPayload {
   ticketId?: string | null;
   /** Task kind — 'customer' (default) or 'network' (node-based task). */
   kind?: 'customer' | 'network';
-  /** Network site id — required when kind === 'network'. */
+  /** Network site id — required when kind === 'network' and networkType === 'red'. */
   networkSiteId?: string | null;
   /** IClass city/locality code — required when kind === 'network' (#54). */
   iclassCityCode?: string | null;
+  /** Network branch type — 'red' (legacy, JOIN-derived site name) or 'fibra' (FO,
+   *  free-text node name). Default 'red' when omitted. */
+  networkType?: 'red' | 'fibra';
+  /** Free-text FO node name — required when networkType === 'fibra'. */
+  networkSiteName?: string | null;
 }
 
 export interface TaskChecklistItem {
@@ -151,14 +156,18 @@ export interface ScheduledTask {
   /** Task kind — discriminates between customer tasks and network-node tasks. */
   kind: 'customer' | 'network';
 
-  /** Network site id — populated when kind === 'network'. */
+  /** Network site id — populated when kind === 'network' and networkType === 'red'. */
   networkSiteId: string | null;
 
-  /** Network site display name (JOIN-derived) — populated when kind === 'network'. */
+  /** Network site display name (JOIN-derived for red, free-text for fibra). */
   networkSiteName: string | null;
 
   /** IClass city/locality code — set when kind === 'network' (#54). */
   iclassCityCode: string | null;
+
+  /** Network branch type — 'red' (legacy/default) or 'fibra' (FO). Null for
+   *  tasks created before this field existed (treated as 'red'). */
+  networkType: 'red' | 'fibra' | null;
 
   /** Originating ticket id — set when the task was created from a ticket.
    *  Populated by the enriched GET /scheduling/:id DTO (tickets-actions-be).

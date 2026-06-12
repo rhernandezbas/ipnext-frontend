@@ -136,7 +136,56 @@
   font-weight: 600;
 }
 
-/* ── Mode toggle: segmented control, customer ↔ Nodo Fibra ────────────────── */
+/* ── Mode toggle: segmented control, customer ↔ Nodo RED ────────────────── */
+
+/* ── Network-type segmented control: Red ↔ FO ─────────────────────────── */
+.networkTypeSwitch {
+  display: inline-flex;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+  width: fit-content;
+}
+
+.networkTypeSwitchBtn {
+  padding: 0.4rem 1rem;
+  border: none;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  line-height: 1.3;
+  transition: background 0.12s, color 0.12s;
+}
+
+.networkTypeSwitchBtn:not(:last-child) {
+  border-right: 1px solid #cbd5e1;
+}
+
+.networkTypeSwitchBtn[aria-pressed='true'] {
+  background: #6366f1;
+  color: #fff;
+}
+
+.networkTypeSwitchBtn:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: -2px;
+}
+
+.networkSwitchRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.2rem;
+}
+
+.networkSwitchLabel {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #334155;
+}
+
 
 .modalHeader {
   display: flex;
