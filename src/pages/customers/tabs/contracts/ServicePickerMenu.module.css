@@ -24,12 +24,14 @@
   outline-offset: 2px;
 }
 
+/* Portaled to <body> with fixed positioning (top/left set inline) so it
+   escapes the contract card's `overflow: hidden` (fix #58). max-height + scroll
+   keeps a growing service catalog inside the viewport. */
 .menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 20;
+  z-index: 1000;
   min-width: 180px;
+  max-height: 280px;
+  overflow-y: auto;
   margin: 0;
   padding: 4px;
   list-style: none;
