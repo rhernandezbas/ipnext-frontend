@@ -191,8 +191,38 @@
   border: 1px solid #a7f3d0;
 }
 
+.bannerInfo {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
 .bannerTitle {
   font-weight: var(--font-weight-semibold);
+}
+
+/* Inline spinner for live in-progress banners (e.g. reprocess draining). */
+.bannerSpinner {
+  flex: 0 0 auto;
+  width: 1em;
+  height: 1em;
+  margin-top: 2px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--radius-full);
+  animation: bannerSpin 0.7s linear infinite;
+}
+
+@keyframes bannerSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bannerSpinner {
+    animation: none;
+  }
 }
 
 /* === Segmented pills (filters) ========================================== */
