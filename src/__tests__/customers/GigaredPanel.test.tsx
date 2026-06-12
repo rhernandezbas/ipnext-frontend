@@ -67,7 +67,17 @@ const linkedAccount: GigaredAccount = {
   registrationDate: '2026-01-01T00:00:00Z',
   services: [{ id: 's1', name: 'Gigared Play Full' }],
   internalId: 'cust-1',
-  ott: { id: 'o1', stationaryLicenses: 1, mobileLicenses: 1, registeredDevices: 0, status: 'active' },
+  // #47j Fix 1 — OTT status is now the FROZEN 'enabled' | 'disabled' | null.
+  ott: { id: 'o1', stationaryLicenses: 1, mobileLicenses: 1, registeredDevices: 0, status: 'enabled' },
+};
+
+// #47j Fix 2 — an account whose ONLY pack is a removable (non-base) one, so the
+// "Quitar" flow still has a target. "Gigared Play Full" is the partner BASE pack
+// and intentionally has no "Quitar" (see Fix 2 block), so the removal tests must
+// not lean on it.
+const removableAccount: GigaredAccount = {
+  ...linkedAccount,
+  services: [{ id: 's2', name: 'Gigared Play Lite' }],
 };
 
 const summary: GigaredSummary = {
@@ -339,7 +349,8 @@ describe('GigaredPanel', () => {
 
   it('state 3: remove uses THIS contractId', async () => {
     const user = userEvent.setup();
-    mockQuery({ account: { linked: true, account: linkedAccount } });
+    // #47j Fix 2 — use a removable (non-base) pack; "Gigared Play Full" is base.
+    mockQuery({ account: { linked: true, account: removableAccount } });
     renderPanel();
     await user.click(screen.getByRole('button', { name: /quitar/i }));
     const dialogs = screen.getAllByRole('dialog');
@@ -347,7 +358,7 @@ describe('GigaredPanel', () => {
     const { within } = await import('@testing-library/react');
     await user.click(within(confirm).getByRole('button', { name: /^quitar$/i }));
     await waitFor(() =>
-      expect(removeMutate).toHaveBeenCalledWith({ serviceId: 's1', contractId: 'ct-9' }),
+      expect(removeMutate).toHaveBeenCalledWith({ serviceId: 's2', contractId: 'ct-9' }),
     );
   });
 
@@ -370,7 +381,9 @@ describe('GigaredPanel', () => {
 
   it('without tv.write the add/remove/OTT controls are hidden (read-only)', () => {
     denyTvWrite();
-    mockQuery({ account: { linked: true, account: linkedAccount } });
+    // #47j Fix 2 — removable pack so "Quitar" WOULD show with tv.write; gating
+    // must hide it.
+    mockQuery({ account: { linked: true, account: removableAccount } });
     renderPanel();
     expect(screen.queryByRole('button', { name: /^agregar$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /quitar/i })).not.toBeInTheDocument();
@@ -401,7 +414,7 @@ describe('GigaredPanel', () => {
     it('remove from B with owner A → DELETE carries owner contractId A', async () => {
       const user = userEvent.setup();
       mockQuery({
-        account: { linked: true, account: linkedAccount },
+        account: { linked: true, account: removableAccount },
         contracts: [contract('ct-A', [tvService()]), contract('ct-9', [])],
       });
       renderPanel(); // contractId="ct-9"
@@ -413,7 +426,7 @@ describe('GigaredPanel', () => {
       const { within } = await import('@testing-library/react');
       await user.click(within(confirm).getByRole('button', { name: /^quitar$/i }));
       await waitFor(() =>
-        expect(removeMutate).toHaveBeenCalledWith({ serviceId: 's1', contractId: 'ct-A' }),
+        expect(removeMutate).toHaveBeenCalledWith({ serviceId: 's2', contractId: 'ct-A' }),
       );
     });
 
@@ -531,7 +544,7 @@ describe('GigaredPanel', () => {
     it('207 local failed on REMOVE → amber notice with retry', async () => {
       const user = userEvent.setup();
       mockQuery({
-        account: { linked: true, account: linkedAccount },
+        account: { linked: true, account: removableAccount },
         removeResult: { gigared: 'ok', local: 'failed', localError: 'db down' },
       });
       renderPanel();
@@ -793,7 +806,7 @@ describe('GigaredPanel', () => {
 
     it('remove error with detail → shows the detail in the confirm dialog', async () => {
       const user = userEvent.setup();
-      mockQuery({ account: { linked: true, account: linkedAccount } });
+      mockQuery({ account: { linked: true, account: removableAccount } });
       removeMutate.mockReset().mockRejectedValue({
         response: { status: 502, data: { code: 'GIGARED_UNAVAILABLE', detail: 'No se pudo dar de baja' } },
       });
@@ -1412,7 +1425,7 @@ describe('GigaredPanel', () => {
     it('legible data line pluralizes correctly (2 fijas, 3 móviles, 1 dispositivo)', () => {
       const plural: GigaredAccount = {
         ...linkedAccount,
-        ott: { id: 'o1', stationaryLicenses: 2, mobileLicenses: 3, registeredDevices: 1, status: 'active' },
+        ott: { id: 'o1', stationaryLicenses: 2, mobileLicenses: 3, registeredDevices: 1, status: 'enabled' },
       };
       mockQuery({ account: { linked: true, account: plural } });
       renderPanel();
@@ -1430,6 +1443,102 @@ describe('GigaredPanel', () => {
       renderPanel();
       await user.click(screen.getByLabelText(/ott/i));
       await waitFor(() => expect(ottMutate).toHaveBeenCalledWith({ enabled: false }));
+    });
+  });
+
+  // ── #47j Fix 1: OTT toggle reads the FROZEN 'enabled' status ─────────────────
+  // The wire contract normalizes ott.status to 'enabled' | 'disabled' | null. The
+  // toggle was comparing === 'active' (Gigared's old Spanish value), so it NEVER
+  // matched and the switch sat unchecked even with OTT on. It must read 'enabled'.
+  describe('#47j Fix 1 — OTT toggle reflects normalized status', () => {
+    it("status 'enabled' → the switch is checked", () => {
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel();
+      expect(screen.getByLabelText(/ott/i)).toBeChecked();
+    });
+
+    it("status 'disabled' → the switch is unchecked", () => {
+      const disabled: GigaredAccount = {
+        ...linkedAccount,
+        ott: { ...linkedAccount.ott!, status: 'disabled' },
+      };
+      mockQuery({ account: { linked: true, account: disabled } });
+      renderPanel();
+      expect(screen.getByLabelText(/ott/i)).not.toBeChecked();
+    });
+
+    it("status null → the switch is unchecked (no account OTT state known)", () => {
+      const unknown: GigaredAccount = {
+        ...linkedAccount,
+        ott: { ...linkedAccount.ott!, status: null },
+      };
+      mockQuery({ account: { linked: true, account: unknown } });
+      renderPanel();
+      expect(screen.getByLabelText(/ott/i)).not.toBeChecked();
+    });
+
+    it("enabled → toggling sends { enabled: false } (turn off)", async () => {
+      const user = userEvent.setup();
+      ottMutate.mockResolvedValue({ ok: true });
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel();
+      await user.click(screen.getByLabelText(/ott/i));
+      await waitFor(() => expect(ottMutate).toHaveBeenCalledWith({ enabled: false }));
+    });
+
+    it("disabled → toggling sends { enabled: true } (turn on)", async () => {
+      const user = userEvent.setup();
+      ottMutate.mockResolvedValue({ ok: true });
+      const disabled: GigaredAccount = {
+        ...linkedAccount,
+        ott: { ...linkedAccount.ott!, status: 'disabled' },
+      };
+      mockQuery({ account: { linked: true, account: disabled } });
+      renderPanel();
+      await user.click(screen.getByLabelText(/ott/i));
+      await waitFor(() => expect(ottMutate).toHaveBeenCalledWith({ enabled: true }));
+    });
+  });
+
+  // ── #47j Fix 2: "Gigared Play Full" is the partner BASE pack ─────────────────
+  // It cannot be removed — instead of a "Quitar" action it shows a subtle "Pack
+  // base" tag. Match is by exact name 'Gigared Play Full'; if the partner ever
+  // renames it the "Quitar" reappears (upstream decides). Other packs keep Quitar.
+  describe('#47j Fix 2 — base pack has no Quitar', () => {
+    it('"Gigared Play Full" shows a "Pack base" tag instead of "Quitar"', () => {
+      // linkedAccount's only service is "Gigared Play Full" (the base pack).
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel();
+      const item = screen.getByText('Gigared Play Full').closest('li')!;
+      const { getByText, queryByRole } = within(item);
+      expect(getByText(/pack base/i)).toBeInTheDocument();
+      expect(queryByRole('button', { name: /quitar/i })).not.toBeInTheDocument();
+    });
+
+    it('a non-base pack still offers "Quitar"', () => {
+      mockQuery({ account: { linked: true, account: removableAccount } });
+      renderPanel();
+      const item = screen.getByText('Gigared Play Lite').closest('li')!;
+      const { getByRole, queryByText } = within(item);
+      expect(getByRole('button', { name: /quitar/i })).toBeInTheDocument();
+      expect(queryByText(/pack base/i)).not.toBeInTheDocument();
+    });
+
+    it('mixed list: base pack tagged, other pack removable', () => {
+      const mixed: GigaredAccount = {
+        ...linkedAccount,
+        services: [
+          { id: 's1', name: 'Gigared Play Full' },
+          { id: 's2', name: 'Gigared Play Lite' },
+        ],
+      };
+      mockQuery({ account: { linked: true, account: mixed } });
+      renderPanel();
+      const baseItem = screen.getByText('Gigared Play Full').closest('li')!;
+      expect(within(baseItem).getByText(/pack base/i)).toBeInTheDocument();
+      expect(within(baseItem).queryByRole('button', { name: /quitar/i })).not.toBeInTheDocument();
+      const liteItem = screen.getByText('Gigared Play Lite').closest('li')!;
+      expect(within(liteItem).getByRole('button', { name: /quitar/i })).toBeInTheDocument();
     });
   });
 });

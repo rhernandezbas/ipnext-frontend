@@ -31,7 +31,12 @@ export interface GigaredOtt {
   stationaryLicenses: number;
   mobileLicenses: number;
   registeredDevices: number;
-  status: string | null;
+  /**
+   * #47j Fix 1 — FROZEN wire contract: the BE normalizes the partner's OTT state
+   * to one of these three. The old value was Gigared's Spanish 'activo', so the
+   * FE's `=== 'active'` never matched; now it reads 'enabled'.
+   */
+  status: 'enabled' | 'disabled' | null;
 }
 
 export interface GigaredAccount {
