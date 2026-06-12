@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useGigaredSummary, useGigaredAccounts } from '@/hooks/useGigared';
 import { GigaredNotConfigured } from '@/components/molecules/GigaredNotConfigured/GigaredNotConfigured';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
@@ -29,7 +30,19 @@ const COLUMNS = [
   {
     key: 'name',
     label: 'Nombre',
-    render: (r: Row) => [r.firstName, r.lastName].filter(Boolean).join(' ') || '—',
+    // #47j Fix 3 — when the account is linked to a Prominense customer
+    // (internalId present), the name links to that customer's view. Otherwise
+    // it is plain text. Path mirrors App.tsx: /admin/customers/view/:id.
+    render: (r: Row) => {
+      const name = [r.firstName, r.lastName].filter(Boolean).join(' ') || '—';
+      return r.internalId ? (
+        <Link className={styles.nameLink} to={`/admin/customers/view/${r.internalId}`}>
+          {name}
+        </Link>
+      ) : (
+        name
+      );
+    },
   },
   { key: 'email', label: 'Email', render: (r: Row) => r.email ?? '—' },
   {
@@ -49,7 +62,8 @@ const COLUMNS = [
   {
     key: 'ott',
     label: 'OTT',
-    render: (r: Row) => (r.ott?.status === 'active' ? 'Activo' : '—'),
+    // #47j Fix 1 — normalized OTT status is 'enabled' | 'disabled' | null.
+    render: (r: Row) => (r.ott?.status === 'enabled' ? 'Activo' : '—'),
   },
 ];
 
@@ -203,8 +217,20 @@ export default function GigaredAccountsPage() {
               {services.map((s) => (
                 <tr key={s.id}>
                   <td className={styles.serviceName}>{s.name}</td>
+                  {/* #47j Fix 4 — "0/102" was opaque. Spell out usage: "En uso
+                      {used} de {purchased}", with the remaining cupo as a sub.
+                      When nothing is left, warn in a quiet tone. */}
                   <td className={styles.serviceQty}>
-                    {s.qtyAvailable}/{s.qtyPurchased}
+                    <span className={styles.serviceUsage}>
+                      En uso {s.qtyUsed} de {s.qtyPurchased}
+                    </span>
+                    {s.qtyAvailable === 0 ? (
+                      <span className={styles.serviceNoCupo}>sin cupo disponible</span>
+                    ) : (
+                      <span className={styles.serviceAvailable}>
+                        {s.qtyAvailable} disponibles
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

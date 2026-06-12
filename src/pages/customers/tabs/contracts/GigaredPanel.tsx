@@ -78,6 +78,15 @@ function errorStatus(err: unknown): number | null {
 const PASSWORD_RE = /^[a-z0-9]{8,64}$/;
 
 /**
+ * #47j Fix 2 — the partner's BASE pack. It ships with every Gigared account and
+ * cannot be removed, so the panel tags it "Pack base" with no "Quitar". Matched
+ * by EXACT name on purpose: if the partner renames it, the guard lifts and the
+ * upstream flow decides. Lives here (not a per-call literal) so the rule has one
+ * source of truth.
+ */
+const BASE_PACK_NAME = 'Gigared Play Full';
+
+/**
  * #47i Fix 2 — pick singular/plural for a count. `n` is rendered verbatim before
  * the chosen word ("1 pantalla fija", "2 pantallas fijas").
  */
@@ -883,7 +892,9 @@ function LinkedView({
     await doRemove(removeSyncNotice.serviceId);
   }
 
-  const ottEnabled = account.ott?.status === 'active';
+  // #47j Fix 1 — read the normalized 'enabled' status (was '=== active', which
+  // never matched the partner's Spanish value, so the switch sat unchecked).
+  const ottEnabled = account.ott?.status === 'enabled';
 
   return (
     <div className={styles.linked}>
@@ -923,15 +934,23 @@ function LinkedView({
             {account.services.map((s) => (
               <li key={s.id} className={styles.serviceItem}>
                 <span>{s.name}</span>
-                <Can permission="tv.write">
-                  <button
-                    type="button"
-                    className={styles.btnLinkDanger}
-                    onClick={() => setRemoveTarget({ id: s.id, name: s.name })}
-                  >
-                    Quitar
-                  </button>
-                </Can>
+                {/* #47j Fix 2 — "Gigared Play Full" is the partner BASE pack: it
+                    cannot be removed, so it shows a subtle "Pack base" tag instead
+                    of "Quitar". Match is by EXACT name; if the partner renames it,
+                    the "Quitar" reappears and the upstream decides. */}
+                {s.name === BASE_PACK_NAME ? (
+                  <span className={styles.basePackTag}>Pack base</span>
+                ) : (
+                  <Can permission="tv.write">
+                    <button
+                      type="button"
+                      className={styles.btnLinkDanger}
+                      onClick={() => setRemoveTarget({ id: s.id, name: s.name })}
+                    >
+                      Quitar
+                    </button>
+                  </Can>
+                )}
               </li>
             ))}
           </ul>

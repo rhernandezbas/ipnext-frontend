@@ -16,7 +16,8 @@ const accounts: GigaredAccount[] = [
   {
     cic: '0000000001', gigaredId: 'g1', email: 'a@b.com', firstName: 'Ana', lastName: 'García',
     registrationDate: '2026-01-01T00:00:00Z', services: [{ id: 's1', name: 'Play Full' }],
-    internalId: 'c1', ott: { id: 'o1', stationaryLicenses: 1, mobileLicenses: 0, registeredDevices: 1, status: 'active' },
+    // #47j Fix 1 — OTT status is the FROZEN 'enabled' | 'disabled' | null.
+    internalId: 'c1', ott: { id: 'o1', stationaryLicenses: 1, mobileLicenses: 0, registeredDevices: 1, status: 'enabled' },
   },
   {
     cic: '0000000002', gigaredId: 'g2', email: 'b@b.com', firstName: 'Beto', lastName: 'López',
@@ -77,6 +78,71 @@ describe('GigaredAccountsPage', () => {
     expect(screen.getByText('0000000001')).toBeInTheDocument();
     expect(screen.getByText('a@b.com')).toBeInTheDocument();
     expect(screen.getByText('0000000002')).toBeInTheDocument();
+  });
+
+  // ── #47j Fix 1: the OTT column reads the FROZEN 'enabled' status ─────────────
+  describe('#47j Fix 1 — OTT column reflects normalized status', () => {
+    it("status 'enabled' → renders 'Activo'", () => {
+      mockHooks();
+      renderPage();
+      expect(screen.getByText('Activo')).toBeInTheDocument();
+    });
+
+    it("status 'disabled' → renders the dash", () => {
+      const disabled = [
+        { ...accounts[0], ott: { ...accounts[0].ott!, status: 'disabled' as const } },
+      ];
+      mockHooks({ accountsData: { accounts: disabled } });
+      renderPage();
+      expect(screen.queryByText('Activo')).not.toBeInTheDocument();
+    });
+  });
+
+  // ── #47j Fix 3: the name links to the customer view when linked ──────────────
+  // When an account has internalId (it is linked to a Prominense customer), the
+  // Nombre cell is a Link to /admin/customers/view/{internalId}. Without it, the
+  // name is plain text.
+  describe('#47j Fix 3 — name hyperlinks the linked customer', () => {
+    it('linked account → name is a link to /admin/customers/view/{internalId}', () => {
+      mockHooks();
+      renderPage();
+      // accounts[0] has internalId 'c1' and name "Ana García".
+      const link = screen.getByRole('link', { name: /Ana García/i });
+      expect(link).toHaveAttribute('href', '/admin/customers/view/c1');
+    });
+
+    it('unlinked account (no internalId) → name is plain text, not a link', () => {
+      mockHooks();
+      renderPage();
+      // accounts[1] "Beto López" has internalId null → no link.
+      expect(screen.queryByRole('link', { name: /Beto López/i })).not.toBeInTheDocument();
+      expect(screen.getByText('Beto López')).toBeInTheDocument();
+    });
+  });
+
+  // ── #47j Fix 4: the summary service copy is human, not "0/102" ───────────────
+  // The cryptic "{available}/{purchased}" becomes "En uso {used} de {purchased}"
+  // with a "{available} disponibles" sub. When available is 0 it warns "sin cupo
+  // disponible".
+  describe('#47j Fix 4 — readable service usage copy', () => {
+    it('renders "En uso {used} de {purchased}" with available sub', () => {
+      // summary service: used 2, purchased 5, available 3.
+      mockHooks();
+      renderPage();
+      expect(screen.getByText(/en uso 2 de 5/i)).toBeInTheDocument();
+      expect(screen.getByText(/3 disponibles/i)).toBeInTheDocument();
+    });
+
+    it('available 0 → warns "sin cupo disponible"', () => {
+      const full: GigaredSummary = {
+        accounts: { registered: 5, unregistered: 2, total: 7 },
+        services: [{ id: 's1', name: 'Play Full', qtyAvailable: 0, qtyUsed: 5, qtyPurchased: 5 }],
+      };
+      mockHooks({ summaryData: full });
+      renderPage();
+      expect(screen.getByText(/en uso 5 de 5/i)).toBeInTheDocument();
+      expect(screen.getByText(/sin cupo disponible/i)).toBeInTheDocument();
+    });
   });
 
   it('passes the email filter to the accounts hook (debounced)', async () => {

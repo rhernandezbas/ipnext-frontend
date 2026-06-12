@@ -66,9 +66,42 @@
 }
 
 .serviceQty {
-  padding: 2px 0;
+  padding: 2px 0 2px var(--space-4);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* #47j Fix 4 — stacked, readable service usage. The primary line is the count
+   in use; the sub is the remaining cupo (or a quiet warning when there is none). */
+.serviceUsage {
+  display: block;
+  color: var(--color-text-primary);
+}
+
+.serviceAvailable {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.serviceNoCupo {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: #92400e;
+}
+
+/* #47j Fix 3 — the linked-customer name link in the accounts table. Matches the
+   design-system customer link (accent color, underline on hover). */
+.nameLink {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.nameLink:hover {
+  text-decoration: underline;
 }
 
 /* Filters */
