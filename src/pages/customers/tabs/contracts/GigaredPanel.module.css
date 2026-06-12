@@ -166,6 +166,21 @@
   color: var(--color-text-primary);
 }
 
+/* #47i Fix 2 — short explanatory line under a card title (OTT section). */
+.cardSubtitle {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+/* #47i Fix 2 — OTT title/subtitle on the left, the enable toggle on the right. */
+.ottHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
 .field {
   display: flex;
   flex-direction: column;
