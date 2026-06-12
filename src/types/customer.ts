@@ -8,6 +8,10 @@ export interface ContractService {
   label: string | null;
   status: 'active' | 'inactive';
   notes: string | null;
+  /** #65 — Gigared Play login (GIGA{abonado}) impacted on the TV row. null otherwise. */
+  tvLogin: string | null;
+  /** #65 — deterministic TV password (visible to the operator) on the TV row. null otherwise. */
+  tvPassword: string | null;
   createdAt: string;
 }
 

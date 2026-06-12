@@ -122,10 +122,29 @@ export interface RegisterAccountPayload {
   password?: string;
   /**
    * Gigared form 1:1 — whether the customer gets an activation email to set their
-   * own password. The BE defaults to true; the FE sends it ALWAYS explicit
-   * (true/false) so the operator's intent is never ambiguous.
+   * own password. #65: the email is FICTICIO, so the checkbox defaults to FALSE and
+   * the FE sends it ALWAYS explicit so the operator's intent is never ambiguous.
    */
   sendActivationEmail?: boolean;
+  /**
+   * #65 — owner contract for the local TV reconcile + credential persistence. When
+   * present the BE impacts `tvLogin = GIGA{abonado}` + the generated password on the TV slot.
+   */
+  contractId?: string;
+}
+
+// ── #65 — change TV account password ────────────────────────────────────────
+export interface ChangeTvPasswordPayload {
+  /** The account CIC whose password changes. */
+  cic: string;
+  /** The owner contract — the BE persists the new password on ITS TV slot. */
+  contractId: string;
+  /** New password — MUST match `^[a-z0-9]{8,64}$`. */
+  password: string;
+}
+
+export interface ChangeTvPasswordResult {
+  password: string;
 }
 
 export interface AddTvServicePayload {

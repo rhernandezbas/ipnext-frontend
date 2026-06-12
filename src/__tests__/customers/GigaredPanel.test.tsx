@@ -14,6 +14,7 @@ vi.mock('@/hooks/useGigared', () => ({
   useRemoveTvService: vi.fn(),
   useSetOtt: vi.fn(),
   useCancelTv: vi.fn(),
+  useChangeTvPassword: vi.fn(),
 }));
 vi.mock('@/hooks/useCustomers', () => ({
   useClientContracts: vi.fn(),
@@ -36,6 +37,7 @@ import {
   useRemoveTvService,
   useSetOtt,
   useCancelTv,
+  useChangeTvPassword,
 } from '@/hooks/useGigared';
 import { useClientContracts } from '@/hooks/useCustomers';
 import { useRemoveContractService, useAddContractService } from '@/hooks/useContractServices';
@@ -116,6 +118,7 @@ const registerMutate = vi.fn();
 const removeMutate = vi.fn();
 const ottMutate = vi.fn();
 const cancelMutate = vi.fn();
+const pwMutate = vi.fn();
 const onClose = vi.fn();
 // #47c — local ContractService item mutations (the #43 endpoints) reused inside
 // the panel: remove the local TV line, and add a plain local TV item.
@@ -133,6 +136,8 @@ const tvService = (over: Partial<ContractService> = {}): ContractService => ({
   label: 'TV',
   status: 'active',
   notes: null,
+  tvLogin: null,
+  tvPassword: null,
   createdAt: '2026-06-01T00:00:00.000Z',
   ...over,
 });
@@ -218,6 +223,10 @@ function mockQuery(over: {
     ),
     isPending: false,
   } as unknown as ReturnType<typeof useCancelTv>);
+  vi.mocked(useChangeTvPassword).mockReturnValue({
+    mutateAsync: pwMutate.mockResolvedValue({ password: 'ip243200' }),
+    isPending: false,
+  } as unknown as ReturnType<typeof useChangeTvPassword>);
 
   vi.mocked(useRemoveContractService).mockReturnValue({
     mutateAsync: removeLocalMutate.mockResolvedValue(undefined),
@@ -233,7 +242,7 @@ function mockQuery(over: {
   } as unknown as ReturnType<typeof useServiceCatalog>);
 }
 
-function renderPanel(customer?: { name: string; email: string }) {
+function renderPanel(customer?: { name: string; email: string; grClienteId?: string | null }) {
   return render(
     <MemoryRouter>
       <GigaredPanel
@@ -1167,9 +1176,9 @@ describe('GigaredPanel', () => {
           lastName: 'DAMONTE',
           email: 'jimena@example.com',
           cic: '0000000900',
-          // Gigared form 1:1 — sendActivationEmail travels ALWAYS explicit;
-          // the checkbox defaults to checked.
-          sendActivationEmail: true,
+          // #65 — sendActivationEmail defaults FALSE (correo ficticio); contractId travels.
+          sendActivationEmail: false,
+          contractId: 'ct-9',
         }),
       );
     });
@@ -1286,15 +1295,17 @@ describe('GigaredPanel', () => {
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await openRegisterFilled(user);
-      // Leave password empty.
+      // Clear the field (no grClienteId in this render → it was empty already).
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
+        // #65 — sendActivationEmail defaults FALSE (ficticio) + contractId travels.
         expect(registerMutate).toHaveBeenCalledWith({
           firstName: 'Ana',
           lastName: 'García',
           email: 'a@b.com',
           cic: '0001',
-          sendActivationEmail: true,
+          sendActivationEmail: false,
+          contractId: 'ct-9',
         }),
       );
       // No password key at all on the payload.
@@ -1310,13 +1321,15 @@ describe('GigaredPanel', () => {
       await user.type(screen.getByLabelText('Contraseña (opcional)'), 'abc12345');
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
+        // #65 — sendActivationEmail defaults FALSE + contractId travels.
         expect(registerMutate).toHaveBeenCalledWith({
           firstName: 'Ana',
           lastName: 'García',
           email: 'a@b.com',
           cic: '0001',
           password: 'abc12345',
-          sendActivationEmail: true,
+          sendActivationEmail: false,
+          contractId: 'ct-9',
         }),
       );
     });
@@ -1370,12 +1383,12 @@ describe('GigaredPanel', () => {
     });
   });
 
-  // ── Gigared form 1:1 — sendActivationEmail checkbox ─────────────────────────
-  // The register form completes the Gigared doc: a "Enviar email de activación al
-  // cliente" checkbox, DEFAULT CHECKED. The POST sends sendActivationEmail ALWAYS
-  // explicit (true/false). UX: unchecking it WITHOUT a password warns (does not
-  // block) that the customer won't be able to log in.
-  describe('sendActivationEmail checkbox (Gigared form 1:1)', () => {
+  // ── #65 — sendActivationEmail checkbox (correo ficticio) ────────────────────
+  // El correo del alta es FICTICIO, así que el checkbox arranca SIEMPRE INACTIVO y el
+  // POST manda sendActivationEmail:false. El operador puede activarlo a mano si usa un
+  // correo real. La advertencia "no podrá ingresar" aparece cuando el toggle está off y
+  // no hay password — que es el estado por DEFAULT cuando no hay clave determinística.
+  describe('sendActivationEmail checkbox (#65 — correo ficticio)', () => {
     /** Open the register form, fill required fields + a manual CIC. */
     async function openRegisterFilled(user: ReturnType<typeof userEvent.setup>) {
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
@@ -1386,14 +1399,16 @@ describe('GigaredPanel', () => {
       await user.type(screen.getByLabelText(/^cic$/i), '0001');
     }
 
-    it('(a) default (checked) → POST carries sendActivationEmail:true', async () => {
+    it('(a) default → checkbox UNCHECKED, POST carries sendActivationEmail:false', async () => {
       const user = userEvent.setup();
       registerMutate.mockResolvedValue({ account: linkedAccount });
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await openRegisterFilled(user);
-      // Checkbox defaults to checked — do not touch it.
-      expect(screen.getByLabelText(/enviar email de activación al cliente/i)).toBeChecked();
+      // #65 — checkbox defaults to UNCHECKED (ficticio).
+      expect(screen.getByLabelText(/enviar email de activación al cliente/i)).not.toBeChecked();
+      // Give it a valid password so the unchecked path submits.
+      await user.type(screen.getByLabelText('Contraseña (opcional)'), 'abc12345');
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
         expect(registerMutate).toHaveBeenCalledWith({
@@ -1401,18 +1416,19 @@ describe('GigaredPanel', () => {
           lastName: 'García',
           email: 'a@b.com',
           cic: '0001',
-          sendActivationEmail: true,
+          password: 'abc12345',
+          sendActivationEmail: false,
+          contractId: 'ct-9',
         }),
       );
     });
 
-    it('(b) unchecked → POST carries sendActivationEmail:false (always explicit)', async () => {
+    it('(b) checked → POST carries sendActivationEmail:true (always explicit)', async () => {
       const user = userEvent.setup();
       registerMutate.mockResolvedValue({ account: linkedAccount });
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await openRegisterFilled(user);
-      // Give it a valid password so the unchecked path is allowed to submit.
       await user.type(screen.getByLabelText('Contraseña (opcional)'), 'abc12345');
       await user.click(screen.getByLabelText(/enviar email de activación al cliente/i));
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
@@ -1423,18 +1439,18 @@ describe('GigaredPanel', () => {
           email: 'a@b.com',
           cic: '0001',
           password: 'abc12345',
-          sendActivationEmail: false,
+          sendActivationEmail: true,
+          contractId: 'ct-9',
         }),
       );
     });
 
-    it('(c) unchecked + empty password → visible warning', async () => {
+    it('(c) default unchecked + empty password → visible warning', async () => {
       const user = userEvent.setup();
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await openRegisterFilled(user);
-      // Leave the password empty and uncheck the activation email.
-      await user.click(screen.getByLabelText(/enviar email de activación al cliente/i));
+      // #65 — default state (unchecked + no prefilled password here) shows the warning.
       await waitFor(() =>
         expect(
           screen.getByText(/sin email de activación y sin contraseña, el cliente no podrá ingresar/i),
@@ -1447,7 +1463,8 @@ describe('GigaredPanel', () => {
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await openRegisterFilled(user);
-      // Default checked, empty password → no warning.
+      // Checking the activation email clears the warning.
+      await user.click(screen.getByLabelText(/enviar email de activación al cliente/i));
       expect(
         screen.queryByText(/sin email de activación y sin contraseña/i),
       ).not.toBeInTheDocument();
@@ -2015,6 +2032,85 @@ describe('GigaredPanel', () => {
       await waitFor(() =>
         expect(cancelMutate).toHaveBeenLastCalledWith({ contractId: 'ct-A' }),
       );
+    });
+  });
+
+  // ── #65 — deterministic register prefill + Gigared Play credentials ─────────
+  describe('#65 deterministic register prefill', () => {
+    it('prefills the ficticio email and deterministic password from grClienteId', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel({ name: 'HERNANDEZ RONALD', email: 'real@x.com', grClienteId: '2432' });
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      // email = {apellido}{idGR}@gmail.com (NOT the real email).
+      expect((screen.getByLabelText(/^email$/i) as HTMLInputElement).value).toBe('hernandez2432@gmail.com');
+      // password = ip{idGR} padded → ip243200 (already >= 8).
+      expect((screen.getByLabelText('Contraseña (opcional)') as HTMLInputElement).value).toBe('ip243200');
+    });
+
+    it('falls back to the real email and empty password without grClienteId', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel({ name: 'HERNANDEZ RONALD', email: 'real@x.com' });
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      expect((screen.getByLabelText(/^email$/i) as HTMLInputElement).value).toBe('real@x.com');
+      expect((screen.getByLabelText('Contraseña (opcional)') as HTMLInputElement).value).toBe('');
+    });
+  });
+
+  describe('#65 Gigared Play credentials section (linked)', () => {
+    it('shows login GIGA{abonado} and the persisted password with a toggle', async () => {
+      const user = userEvent.setup();
+      mockQuery({
+        account: { linked: true, account: { ...linkedAccount, gigaredId: '2432' } },
+        contracts: [contract('ct-9', [tvService({ tvLogin: 'GIGA2432', tvPassword: 'ip243200' })])],
+      });
+      renderPanel();
+      // Login derived from gigaredId.
+      expect(screen.getByText('GIGA2432')).toBeInTheDocument();
+      // Password hidden by default (dots), revealed on toggle.
+      expect(screen.queryByText('ip243200')).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: /mostrar contraseña/i }));
+      expect(screen.getByText('ip243200')).toBeInTheDocument();
+    });
+
+    it('opens the change-password modal prefilled and posts the new password', async () => {
+      const user = userEvent.setup();
+      pwMutate.mockResolvedValue({ password: 'ip243200' });
+      mockQuery({
+        account: { linked: true, account: { ...linkedAccount, cic: '0000001234', gigaredId: '2432' } },
+        contracts: [contract('ct-9', [tvService({ tvLogin: 'GIGA2432', tvPassword: 'oldpass1' })])],
+      });
+      renderPanel({ name: 'HERNANDEZ RONALD', email: 'x@x.com', grClienteId: '2432' });
+      await user.click(screen.getByRole('button', { name: /cambiar contraseña/i }));
+      // Prefilled with the deterministic value from grClienteId.
+      const input = screen.getByLabelText(/nueva contraseña/i) as HTMLInputElement;
+      expect(input.value).toBe('ip243200');
+      // Submit (the modal's confirm button).
+      const buttons = screen.getAllByRole('button', { name: /cambiar contraseña/i });
+      await user.click(buttons[buttons.length - 1]);
+      await waitFor(() =>
+        expect(pwMutate).toHaveBeenCalledWith({
+          cic: '0000001234',
+          contractId: 'ct-9',
+          password: 'ip243200',
+        }),
+      );
+    });
+
+    it('blocks a non-CUA password in the modal', async () => {
+      const user = userEvent.setup();
+      mockQuery({
+        account: { linked: true, account: { ...linkedAccount, gigaredId: '2432' } },
+        contracts: [contract('ct-9', [tvService({ tvLogin: 'GIGA2432', tvPassword: 'oldpass1' })])],
+      });
+      renderPanel({ name: 'H R', email: 'x@x.com', grClienteId: '2432' });
+      await user.click(screen.getByRole('button', { name: /cambiar contraseña/i }));
+      const input = screen.getByLabelText(/nueva contraseña/i);
+      await user.clear(input);
+      await user.type(input, 'BAD-PASS');
+      expect(screen.getByText(/solo minúsculas y números, 8 a 64/i)).toBeInTheDocument();
+      expect(pwMutate).not.toHaveBeenCalled();
     });
   });
 });

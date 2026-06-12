@@ -11,6 +11,8 @@ import type {
   SetOttPayload,
   CancelTvPayload,
   CancelTvResult,
+  ChangeTvPasswordPayload,
+  ChangeTvPasswordResult,
 } from '@/types/gigared';
 
 /**
@@ -195,6 +197,19 @@ export function useSetOtt(customerId: string) {
       qc.invalidateQueries({ queryKey: accountKey(customerId) });
       // #61 fix wave — the TV list has an OTT column; toggling OTT must refresh it.
       qc.invalidateQueries({ queryKey: ALL_ACCOUNTS_ROOT });
+    },
+  });
+}
+
+// #65 — cambiar la contraseña de la cuenta de TV. El BE PATCHea Gigared y persiste el
+// nuevo valor en el slot TV del contrato → invalidamos ['client-contracts'] para que el
+// panel muestre la clave actualizada. account/all-accounts no cambian (la clave no viaja ahí).
+export function useChangeTvPassword(customerId: string) {
+  const qc = useQueryClient();
+  return useMutation<ChangeTvPasswordResult, unknown, ChangeTvPasswordPayload>({
+    mutationFn: (body: ChangeTvPasswordPayload) => gigaredApi.changeTvPassword(customerId, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
     },
   });
 }

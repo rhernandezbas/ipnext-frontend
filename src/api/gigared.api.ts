@@ -16,6 +16,8 @@ import type {
   SetOttPayload,
   CancelTvPayload,
   CancelTvResult,
+  ChangeTvPasswordPayload,
+  ChangeTvPasswordResult,
 } from '@/types/gigared';
 
 const BASE = '/gigared';
@@ -94,6 +96,19 @@ export const gigaredApi = {
     const r = await axiosClient.delete<RemoveTvServiceResult>(
       `${BASE}/customers/${customerId}/services/${serviceId}`,
       { params: { contractId } },
+    );
+    return r.data;
+  },
+
+  // #65 — change the TV account password. The BE PATCHes Gigared and persists the new
+  // value on the local TV slot. 400 VALIDATION_ERROR if the password breaks the CUA rule.
+  async changeTvPassword(
+    customerId: string,
+    body: ChangeTvPasswordPayload,
+  ): Promise<ChangeTvPasswordResult> {
+    const r = await axiosClient.post<ChangeTvPasswordResult>(
+      `${BASE}/customers/${customerId}/tv-password`,
+      body,
     );
     return r.data;
   },

@@ -176,6 +176,24 @@ describe('gigaredApi.setOtt', () => {
   });
 });
 
+// ── #65 — change TV password ────────────────────────────────────────────────
+describe('gigaredApi.changeTvPassword', () => {
+  it('POSTs /gigared/customers/:id/tv-password with { cic, contractId, password }', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: { password: 'ip243200' } });
+    const result = await gigaredApi.changeTvPassword('cust-1', {
+      cic: '0000001234',
+      contractId: 'ct-9',
+      password: 'ip243200',
+    });
+    expect(axiosClient.post).toHaveBeenCalledWith('/gigared/customers/cust-1/tv-password', {
+      cic: '0000001234',
+      contractId: 'ct-9',
+      password: 'ip243200',
+    });
+    expect(result).toEqual({ password: 'ip243200' });
+  });
+});
+
 // ── #47k/#64 — cancel TV (dar de baja): la API devuelve { status, data } ─────
 describe('gigaredApi.cancelTv', () => {
   it('POSTs /gigared/customers/:id/cancel with { contractId } and returns { status, data }', async () => {
