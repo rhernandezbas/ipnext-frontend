@@ -2,3 +2,11 @@
 .pageHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
 .title { font-size: 1.5rem; font-weight: 600; color: var(--color-text-primary); margin: 0; }
 .errorMsg { padding: 1rem; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; }
+.clientLink {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.clientLink:hover {
+  text-decoration: underline;
+}

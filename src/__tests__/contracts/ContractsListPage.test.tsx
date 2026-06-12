@@ -32,6 +32,7 @@ import type { ServiceTechnology } from '@/types/serviceTechnology';
 const mockContracts: ContractSummary[] = [
   {
     id: 'c1',
+    clientId: 'client-1',
     clientName: 'Alice García',
     plan: 'Plan 50MB',
     status: 'active',
@@ -40,6 +41,7 @@ const mockContracts: ContractSummary[] = [
   },
   {
     id: 'c2',
+    clientId: 'client-2',
     clientName: 'Bob Martínez',
     plan: 'Plan 100MB',
     status: 'inactive',
@@ -177,6 +179,21 @@ describe('CP-1: render', () => {
     } as ReturnType<typeof useContractsModule.useContracts>);
     renderPage();
     expect(screen.getByText(/error al cargar/i)).toBeInTheDocument();
+  });
+});
+
+// ── CP-1b: Client deep-link (#56) ─────────────────────────────────────────────
+describe('CP-1b: client name is a link to the customer detail (#56)', () => {
+  it('renders the client name as a link to /admin/customers/view/:clientId', () => {
+    renderPage();
+    const link = screen.getByRole('link', { name: 'Alice García' });
+    expect(link).toHaveAttribute('href', '/admin/customers/view/client-1');
+  });
+
+  it('uses clientId (not the contract id) for the link target', () => {
+    renderPage();
+    const link = screen.getByRole('link', { name: 'Bob Martínez' });
+    expect(link).toHaveAttribute('href', '/admin/customers/view/client-2');
   });
 });
 

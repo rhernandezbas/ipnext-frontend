@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { FilterBar } from '../../components/molecules/FilterBar/FilterBar';
 import { Pagination } from '../../components/molecules/Pagination/Pagination';
 import { DataTable } from '../../components/organisms/DataTable/DataTable';
@@ -18,7 +18,16 @@ interface Column {
 
 function getColumns(): Column[] {
   return [
-    { label: 'Cliente', key: 'clientName', sortable: false },
+    {
+      label: 'Cliente',
+      key: 'clientName',
+      sortable: false,
+      render: (row) => (
+        <Link to={`/admin/customers/view/${row.clientId}`} className={styles.clientLink}>
+          {row.clientName}
+        </Link>
+      ),
+    },
     { label: 'Plan', key: 'plan', sortable: false },
     {
       label: 'Estado',
