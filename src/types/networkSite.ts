@@ -9,6 +9,10 @@ export interface NetworkSiteUispInfo {
 
 export interface NetworkSite {
   id: string;
+  /** #51 — número estable del sitio asignado por la DB (secuencia). Identidad interna. */
+  siteNumber: number;
+  /** #51 — código fijo derivado `"NODO {siteNumber}"`. Read-only. NO es la localidad. */
+  fixedCode: string;
   name: string;
   address: string;
   city: string;
@@ -32,3 +36,9 @@ export interface NetworkSite {
   /** UISP live info joined from mirror. Present when API returns enriched list. */
   uisp?: NetworkSiteUispInfo | null;
 }
+
+/**
+ * Shape used when creating a new site. `id`, `siteNumber`, and `fixedCode` are
+ * assigned by the backend on insert and must not be sent in the request body.
+ */
+export type NetworkSiteCreate = Omit<NetworkSite, 'id' | 'siteNumber' | 'fixedCode'>;

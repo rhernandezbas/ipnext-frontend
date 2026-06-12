@@ -169,6 +169,31 @@
   color: var(--color-text-secondary);
 }
 
+/* #51 — código fijo derivado (read-only badge mono) */
+.fixedCodeBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--color-surface-subtle, rgba(127, 127, 127, 0.12));
+  border: 1px solid var(--color-border);
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+/* #51 — celda de dirección (texto + hint coordenadas UISP) */
+.addressCell {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.addressText {
+  color: var(--color-text-primary);
+  margin-right: 6px;
+}
+
 .codeInput {
   width: 100%;
   max-width: 160px;

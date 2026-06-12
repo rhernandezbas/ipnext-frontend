@@ -39,8 +39,11 @@ import type { IClassNode } from '@/types/iclassNode';
 // ── Factories ────────────────────────────────────────────────────────────────
 
 function makeSite(over: Partial<NetworkSite> = {}): NetworkSite {
+  const siteNumber = 1;
   return {
     id: 's1',
+    siteNumber,
+    fixedCode: `NODO ${siteNumber}`,
     name: 'Nodo Central',
     address: 'Av. Corrientes 1234',
     city: 'Buenos Aires',

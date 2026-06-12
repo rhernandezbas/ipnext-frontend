@@ -29,6 +29,8 @@ function makeQC() {
 
 const mockSite: NetworkSite = {
   id: '1',
+  siteNumber: 1,
+  fixedCode: 'NODO 1',
   name: 'Nodo Central',
   address: 'Av. Corrientes 1234',
   city: 'Buenos Aires',
@@ -41,6 +43,8 @@ const mockSite: NetworkSite = {
   parentSiteId: null,
   description: 'Nodo principal',
   iclassNodeCode: 'NC-01',
+  uispSiteId: null,
+  uisp: null,
 };
 
 describe('NetworkSitesPage — iclassNodeCode field (AddSiteModal)', () => {

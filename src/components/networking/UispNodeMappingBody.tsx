@@ -26,6 +26,23 @@ function UispStatusBadge({ status }: { status: string }) {
   return <span className={`${styles.badge} ${cls}`}>{label}</span>;
 }
 
+// ── Dirección (display) ───────────────────────────────────────────────────────
+
+/**
+ * #51 — dirección a mostrar: la `address` manual gana siempre; si está vacía y hay
+ * coordenadas del mirror UISP, se muestra `"{lat},{lng}"` como fallback con hint.
+ * NO escribe nada — es solo presentación. Las ediciones manuales nunca se pisan.
+ */
+function addressDisplay(site: { address: string; coordinates: { lat: number; lng: number } | null }): {
+  text: string;
+  fromUisp: boolean;
+} {
+  const manual = (site.address ?? '').trim();
+  if (manual !== '') return { text: manual, fromUisp: false };
+  if (site.coordinates) return { text: `${site.coordinates.lat},${site.coordinates.lng}`, fromUisp: true };
+  return { text: '—', fromUisp: false };
+}
+
 // ── UispNodeMappingBody ───────────────────────────────────────────────────────
 
 /**
@@ -186,7 +203,9 @@ export function UispNodeMappingBody() {
             <thead>
               <tr>
                 <th>Network site</th>
-                <th>Código IClass</th>
+                <th>Código</th>
+                <th>Localidad</th>
+                <th>Dirección</th>
                 <th>Nodo UISP</th>
                 <th>Estado</th>
                 <th style={{ width: '3rem' }}></th>
@@ -213,6 +232,8 @@ export function UispNodeMappingBody() {
                 // distinct "(inactivo en IClass)" disabled option (M1).
                 const isInactiveMatch = !!matched && !matchedEligible;
 
+                const addr = addressDisplay(site);
+
                 return (
                   <tr key={site.id}>
                     <td className={styles.nameCell}>
@@ -226,6 +247,16 @@ export function UispNodeMappingBody() {
                           Faltan datos IClass
                         </span>
                       )}
+                    </td>
+                    <td className={styles.codeCell}>
+                      {/* #51 — código fijo derivado, read-only (identidad del sitio, NO la localidad) */}
+                      <span
+                        data-testid={`fixed-code-${site.id}`}
+                        className={styles.fixedCodeBadge}
+                        title="Código fijo del sitio (no editable)"
+                      >
+                        {site.fixedCode}
+                      </span>
                     </td>
                     <td className={styles.codeCell}>
                       <select
@@ -251,6 +282,21 @@ export function UispNodeMappingBody() {
                           <option key={n.id} value={n.id}>{n.code}</option>
                         ))}
                       </select>
+                    </td>
+                    <td className={styles.addressCell}>
+                      {/* #51 — dirección: manual gana; fallback a coordenadas UISP con hint */}
+                      <span data-testid={`site-address-${site.id}`} className={styles.addressText}>
+                        {addr.text}
+                      </span>
+                      {addr.fromUisp && (
+                        <span
+                          data-testid={`address-uisp-hint-${site.id}`}
+                          className={styles.iclassBadge}
+                          title="Coordenada importada del mirror UISP"
+                        >
+                          coordenadas UISP
+                        </span>
+                      )}
                     </td>
                     <td>
                       <select
