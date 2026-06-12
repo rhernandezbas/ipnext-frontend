@@ -157,6 +157,10 @@ function mockQuery(over: {
   accountError?: unknown;
   addResult?: unknown;
   removeResult?: unknown;
+  /**
+   * The cancel mutation resolved value. Shape: `{ status: number; data: CancelTvResult }`.
+   * Defaults to a 200 full-success result.
+   */
   cancelResult?: unknown;
   contracts?: Contract[];
   /** Picker accounts keyed by the status the hook is called with. */
@@ -205,8 +209,11 @@ function mockQuery(over: {
   vi.mocked(useCancelTv).mockReturnValue({
     mutateAsync: cancelMutate.mockResolvedValue(
       over.cancelResult ?? {
-        removed: ['s2'], failed: [], ottDisabled: true, local: 'synced',
-        renew: { oldCic: '0000000001', newCic: '0000000002' }, unlinked: true,
+        status: 200,
+        data: {
+          removed: ['s2'], failed: [], ottDisabled: true, local: 'synced',
+          renew: { oldCic: '0000000001', newCic: '0000000002' }, unlinked: true,
+        },
       },
     ),
     isPending: false,
@@ -1727,10 +1734,10 @@ describe('GigaredPanel', () => {
       const user = userEvent.setup();
       mockQuery({
         account: { linked: true, account: linkedAccount },
-        cancelResult: {
+        cancelResult: { status: 200, data: {
           removed: ['s1', 's2'], failed: [], ottDisabled: true, local: 'synced',
           renew: { oldCic: '0000000001', newCic: '0000000002' }, unlinked: true,
-        },
+        }},
       });
       renderPanel();
       await openCancel(user);
@@ -1745,10 +1752,10 @@ describe('GigaredPanel', () => {
       const user = userEvent.setup();
       mockQuery({
         account: { linked: true, account: linkedAccount },
-        cancelResult: {
+        cancelResult: { status: 200, data: {
           removed: ['s1', 's2'], failed: [], ottDisabled: true, local: 'synced',
           renew: { oldCic: '0000000001', newCic: '0000000002' }, unlinked: true,
-        },
+        }},
       });
       renderPanel();
       await openCancel(user);
@@ -1765,7 +1772,7 @@ describe('GigaredPanel', () => {
       const user = userEvent.setup();
       mockQuery({
         account: { linked: true, account: linkedAccount },
-        cancelResult: {
+        cancelResult: { status: 207, data: {
           removed: ['s1'],
           failed: [
             { id: 's2', detail: 'partner timeout' },
@@ -1775,7 +1782,7 @@ describe('GigaredPanel', () => {
           local: 'failed',
           renew: null,
           unlinked: false,
-        },
+        }},
       });
       renderPanel();
       await openCancel(user);
@@ -1790,14 +1797,14 @@ describe('GigaredPanel', () => {
       const user = userEvent.setup();
       mockQuery({
         account: { linked: true, account: linkedAccount },
-        cancelResult: {
+        cancelResult: { status: 207, data: {
           removed: [],
           failed: [{ id: 's2', detail: 'partner timeout' }],
           ottDisabled: false,
           local: 'failed',
           renew: null,
           unlinked: false,
-        },
+        }},
       });
       renderPanel(); // contractId="ct-9"
       await openCancel(user);
@@ -1815,6 +1822,177 @@ describe('GigaredPanel', () => {
       mockQuery({ account: { linked: true, account: linkedAccount } });
       renderPanel();
       expect(screen.queryByRole('button', { name: /dar de baja tv/i })).not.toBeInTheDocument();
+    });
+
+    // ── C1: outcome modal survives the linked→unlinked flip ──────────────────
+    it('C1: outcome modal stays visible after account flips to unlinked (modal is in the parent)', async () => {
+      const user = userEvent.setup();
+      // Initial state: linked
+      mockQuery({
+        account: { linked: true, account: linkedAccount },
+        cancelResult: { status: 200, data: {
+          removed: ['s1'], failed: [], ottDisabled: true, local: 'synced',
+          renew: { oldCic: '0000000001', newCic: '0000000002' }, unlinked: true,
+        }},
+      });
+      const { rerender } = renderPanel();
+
+      // Open cancel, confirm → outcome modal appears
+      await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
+      const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
+      const outcome = await screen.findByRole('dialog', { name: /baja de tv/i });
+      expect(within(outcome).getByText(/se estará deshabilitando en los próximos minutos/i)).toBeInTheDocument();
+
+      // Now simulate the refetch: account flips to unlinked — LinkedView unmounts
+      vi.mocked(useGigaredCustomerAccount).mockReturnValue({
+        data: { linked: false, account: null },
+        isLoading: false,
+        isError: false,
+        error: null,
+      } as unknown as ReturnType<typeof useGigaredCustomerAccount>);
+      rerender(
+        <MemoryRouter>
+          <GigaredPanel customerId="cust-1" contractId="ct-9" onClose={onClose} />
+        </MemoryRouter>,
+      );
+
+      // LinkedView is gone ("Suspender TV" button no longer present)
+      expect(screen.queryByRole('button', { name: /suspender tv/i })).not.toBeInTheDocument();
+      // But the outcome modal SURVIVED
+      expect(screen.getByRole('dialog', { name: /baja de tv/i })).toBeInTheDocument();
+      expect(screen.getByText(/se estará deshabilitando en los próximos minutos/i)).toBeInTheDocument();
+    });
+
+    // ── M2: status-driven partial detection ──────────────────────────────────
+    it('M2: 207 status → partial modal (Reintentar) even when fields look fully ok', async () => {
+      const user = userEvent.setup();
+      // Fields look "clean" (no failed packs, OTT disabled, local synced, renew ok, unlinked true)
+      // BUT the HTTP status is 207 → must show Reintentar
+      mockQuery({
+        account: { linked: true, account: linkedAccount },
+        cancelResult: { status: 207, data: {
+          removed: ['s1'], failed: [], ottDisabled: true, local: 'synced',
+          renew: { oldCic: '0000000001', newCic: '0000000002' }, unlinked: true,
+        }},
+      });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
+      const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
+      const outcome = await screen.findByRole('dialog', { name: /baja de tv/i });
+      // 207 → partial → Reintentar present
+      expect(within(outcome).getByRole('button', { name: /reintentar baja/i })).toBeInTheDocument();
+    });
+
+    it('M2: 200 status → success (no Reintentar) even when failed fields would be "partial"', async () => {
+      const user = userEvent.setup();
+      // Fields look partial (failed packs, ott still on) BUT status 200 → treat as done
+      mockQuery({
+        account: { linked: true, account: linkedAccount },
+        cancelResult: { status: 200, data: {
+          removed: [],
+          failed: [{ id: 's2', detail: 'test' }],
+          ottDisabled: false,
+          local: 'failed',
+          renew: null,
+          unlinked: false,
+        }},
+      });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
+      const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
+      const outcome = await screen.findByRole('dialog', { name: /baja de tv/i });
+      // 200 → success → no Reintentar
+      expect(within(outcome).queryByRole('button', { name: /reintentar baja/i })).not.toBeInTheDocument();
+    });
+
+    // ── M1: retry after unlink gives 404 TV_NOT_LINKED → treat as DONE ────────
+    it('M1: retry 404 TV_NOT_LINKED → success modal, no red error', async () => {
+      const user = userEvent.setup();
+      // Initial cancel is 207 partial (unlinked: false → already unlinked but renew failed)
+      mockQuery({
+        account: { linked: true, account: linkedAccount },
+        cancelResult: { status: 207, data: {
+          removed: ['s1'], failed: [], ottDisabled: true, local: 'synced',
+          renew: null, unlinked: false,
+        }},
+      });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
+      const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
+      const retry = await screen.findByRole('button', { name: /reintentar baja/i });
+
+      // Retry rejects with 404 TV_NOT_LINKED
+      cancelMutate.mockRejectedValueOnce({
+        response: { status: 404, data: { code: 'TV_NOT_LINKED' } },
+      });
+      await user.click(retry);
+
+      // No red error visible
+      await waitFor(() =>
+        expect(screen.queryByText(/no se pudo dar de baja/i)).not.toBeInTheDocument(),
+      );
+      // Success/done copy appears — "la baja ya se completó" or outcome modal without Reintentar
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('button', { name: /reintentar baja/i }),
+        ).not.toBeInTheDocument(),
+      );
+      // The outcome modal is still open (success state)
+      expect(screen.getByRole('dialog', { name: /baja de tv/i })).toBeInTheDocument();
+      // Contains "completó" or success copy
+      expect(
+        screen.getByText(/la baja ya se completó en gigared/i),
+      ).toBeInTheDocument();
+    });
+
+    // ── L3: snapshot contractId at confirm time ───────────────────────────────
+    it('L3: Reintentar uses the SNAPSHOT contractId, not the recomputed effectiveContractId', async () => {
+      const user = userEvent.setup();
+      // Initial: owner is ct-A (linked, has TV item). cancelResult is 207 so Reintentar shows.
+      mockQuery({
+        account: { linked: true, account: linkedAccount },
+        contracts: [contract('ct-A', [tvService()]), contract('ct-9', [])],
+        cancelResult: { status: 207, data: {
+          removed: [],
+          failed: [{ id: 's2', detail: 'partner timeout' }],
+          ottDisabled: false, local: 'failed', renew: null, unlinked: false,
+        }},
+      });
+      const { rerender } = renderPanel(); // contractId="ct-9"
+
+      // Confirm cancel → snapshot ct-A
+      await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
+      const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
+      await waitFor(() => expect(cancelMutate).toHaveBeenCalledWith({ contractId: 'ct-A' }));
+
+      // After the flip: account unlinked + contracts change so effectiveContractId would shift
+      vi.mocked(useGigaredCustomerAccount).mockReturnValue({
+        data: { linked: false, account: null },
+        isLoading: false,
+        isError: false,
+        error: null,
+      } as unknown as ReturnType<typeof useGigaredCustomerAccount>);
+      vi.mocked(useClientContracts).mockReturnValue({
+        data: [contract('ct-X', [tvService()]), contract('ct-9', [])],
+        isLoading: false,
+      } as unknown as ReturnType<typeof useClientContracts>);
+      rerender(
+        <MemoryRouter>
+          <GigaredPanel customerId="cust-1" contractId="ct-9" onClose={onClose} />
+        </MemoryRouter>,
+      );
+
+      // Reintentar must still POST ct-A (the snapshot), not ct-X
+      const retry = screen.getByRole('button', { name: /reintentar baja/i });
+      await user.click(retry);
+      await waitFor(() =>
+        expect(cancelMutate).toHaveBeenLastCalledWith({ contractId: 'ct-A' }),
+      );
     });
   });
 });
