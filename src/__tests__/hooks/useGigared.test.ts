@@ -12,6 +12,7 @@ vi.mock('@/api/gigared.api', () => ({
     addService: vi.fn(),
     removeService: vi.fn(),
     setOtt: vi.fn(),
+    changeTvPassword: vi.fn(),
   },
 }));
 
@@ -23,7 +24,9 @@ import {
   useAddTvService,
   useRemoveTvService,
   useSetOtt,
+  useChangeTvPassword,
   accountKey,
+  credentialsKey,
   SUMMARY_KEY,
   ALL_ACCOUNTS_ROOT,
 } from '@/hooks/useGigared';
@@ -166,7 +169,7 @@ describe('useCancelTv', () => {
 // must invalidate ['gigared','all-accounts'] so the page does not show stale rows.
 describe('#61 fix wave — all-accounts invalidation across mutations', () => {
   it('useRegisterAccount invalidates the all-accounts root', async () => {
-    vi.mocked(gigaredApi.registerAccount).mockResolvedValue({ account });
+    vi.mocked(gigaredApi.registerAccount).mockResolvedValue({ account, credentialsPersisted: true });
     const { qc, wrapper } = makeWrapper();
     const spy = vi.spyOn(qc, 'invalidateQueries');
     const { result } = renderHook(() => useRegisterAccount('cust-1'), { wrapper });
@@ -176,6 +179,39 @@ describe('#61 fix wave — all-accounts invalidation across mutations', () => {
     });
 
     expect(spy).toHaveBeenCalledWith({ queryKey: ALL_ACCOUNTS_ROOT });
+  });
+
+  // #65 fix wave L9 — register with a contractId reconciles the local TV slot, so the customer
+  // ContractsTab must refresh. Previously this invalidation was missing on register only.
+  it('L9 — useRegisterAccount invalidates client-contracts AND the credentials key', async () => {
+    vi.mocked(gigaredApi.registerAccount).mockResolvedValue({ account, credentialsPersisted: true });
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useRegisterAccount('cust-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ cic: '0000000001' } as never);
+    });
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['client-contracts', 'cust-1'] });
+    expect(spy).toHaveBeenCalledWith({ queryKey: credentialsKey('cust-1') });
+  });
+
+  // #65 fix wave — changing the password updates the credentials slot; both the contracts tab
+  // and the dedicated credentials query must be invalidated so the panel re-reads the new value.
+  it('useChangeTvPassword invalidates client-contracts AND the credentials key', async () => {
+    vi.mocked(gigaredApi.changeTvPassword).mockResolvedValue({ password: 'ip243200', persisted: true });
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useChangeTvPassword('cust-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ contractId: 'ct-9', password: 'ip243200' });
+    });
+
+    expect(gigaredApi.changeTvPassword).toHaveBeenCalledWith('cust-1', { contractId: 'ct-9', password: 'ip243200' });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['client-contracts', 'cust-1'] });
+    expect(spy).toHaveBeenCalledWith({ queryKey: credentialsKey('cust-1') });
   });
 
   it('useAddTvService invalidates the all-accounts root', async () => {

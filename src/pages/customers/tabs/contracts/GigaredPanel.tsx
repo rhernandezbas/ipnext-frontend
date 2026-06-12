@@ -10,6 +10,7 @@ import {
   useSetOtt,
   useCancelTv,
   useChangeTvPassword,
+  useTvCredentials,
 } from '@/hooks/useGigared';
 import { deterministicTvEmail, deterministicTvPassword } from './deterministicTv';
 import { useClientContracts } from '@/hooks/useCustomers';
@@ -236,7 +237,6 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
           customerId={customerId}
           contractId={effectiveContractId}
           account={account}
-          localLine={localLine}
           grClienteId={customer?.grClienteId ?? null}
           ownerElsewhere={ownerElsewhere}
           onRequestCancel={() => setCancelConfirmOpen(true)}
@@ -300,7 +300,10 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
           role="dialog"
           aria-modal="true"
           aria-labelledby="tv-cancel-title"
-          onMouseDown={(e) => { if (e.target === e.currentTarget) setCancelConfirmOpen(false); }}
+          onMouseDown={(e) => {
+            // #65 fix wave L14 — no cerrar por backdrop mientras la baja está en vuelo.
+            if (e.target === e.currentTarget && !cancelTv.isPending) setCancelConfirmOpen(false);
+          }}
         >
           <div className={styles.dialog}>
             <h2 id="tv-cancel-title" className={styles.cardTitle}>Dar de baja TV</h2>
@@ -516,6 +519,9 @@ function UnlinkedView({
   });
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [registerOk, setRegisterOk] = useState(false);
+  // #65 fix wave M7 — true cuando el alta funcionó pero las credenciales NO quedaron guardadas
+  // en el slot TV (best-effort). Mostramos un warning sutil para que el operador las anote.
+  const [registerCredsWarning, setRegisterCredsWarning] = useState(false);
 
   // #47h / #65 — account password prefilled with the deterministic value (editable).
   // Empty is still valid (BE generates one); only a non-empty value that breaks
@@ -596,18 +602,21 @@ function UnlinkedView({
     if (passwordInvalid) return;
     setRegisterError(null);
     setRegisterOk(false);
+    setRegisterCredsWarning(false);
     try {
       // Send password ONLY when present; empty → omit it so the BE generates one.
       // sendActivationEmail travels ALWAYS explicit. #65 — contractId carries the
       // owner contract so the BE impacts login + password on the local TV slot.
       const base = { ...form, sendActivationEmail, contractId: effectiveContractId };
-      await register.mutateAsync(password ? { ...base, password } : base);
+      const result = await register.mutateAsync(password ? { ...base, password } : base);
       // Drop the local form state after submit — never keep PII around.
       setForm({ firstName: '', lastName: '', email: '', cic: '' });
       setPassword('');
       setShowPassword(false);
       setSendActivationEmail(false);
       setRegisterOk(true);
+      // M7 — the account exists, but flag if the credentials did not make it to the slot.
+      setRegisterCredsWarning(!result?.credentialsPersisted);
     } catch (err) {
       // The partner returns 422 GIGARED_REJECTED with a human `detail` (e.g.
       // "email already in use"). There is no dedicated ACCOUNT_EXISTS code —
@@ -915,7 +924,16 @@ function UnlinkedView({
             )}
             {registerOk && (
               <div className={`${styles.banner} ${styles.bannerSuccess}`}>
-                <span>Cuenta registrada — se envió el email de activación.</span>
+                <span>
+                  Cuenta registrada
+                  {sendActivationEmail ? ' — se envió el email de activación.' : '.'}
+                </span>
+              </div>
+            )}
+            {/* #65 fix wave M7 — la cuenta existe pero las credenciales no quedaron guardadas. */}
+            {registerCredsWarning && (
+              <div className={`${styles.banner} ${styles.bannerWarning}`}>
+                <span>La clave no quedó guardada en el sistema — anotala.</span>
               </div>
             )}
             <Can permission="tv.register">
@@ -942,7 +960,6 @@ function LinkedView({
   customerId,
   contractId,
   account,
-  localLine,
   grClienteId,
   ownerElsewhere,
   onRequestCancel,
@@ -953,8 +970,6 @@ function LinkedView({
   customerId: string;
   contractId: string;
   account: GigaredAccount;
-  /** #65 — the local TV ContractService line on the owner contract (carries tvLogin/tvPassword). */
-  localLine: ContractService | null;
   /** #65 — GR client id, used to default the change-password modal to a deterministic value. */
   grClienteId: string | null;
   /** F1 — set when the TV item lives in a DIFFERENT contract than the opener. */
@@ -975,11 +990,16 @@ function LinkedView({
   const setOtt = useSetOtt(customerId);
   const changePassword = useChangeTvPassword(customerId);
 
-  // #65 — Gigared Play credentials. Login = GIGA{abonado} (account.gigaredId, fallback ott.id);
-  // password lives in the local TV slot (localLine.tvPassword), shown with a toggle.
-  const tvLogin = account.gigaredId ? `GIGA${account.gigaredId}` : (account.ott?.id ?? null);
-  const tvPassword = localLine?.tvPassword ?? null;
+  // #65 fix wave H3 — Gigared Play credentials. The password NO LONGER rides on the contracts
+  // list; we read login+password from the dedicated, guarded endpoint. Lazy: the query only fires
+  // when the operator reveals the password (showTvPassword), so the panel does not pull a secret
+  // until it is actually needed. Login falls back to the account-derived GIGA{abonado} while the
+  // credentials query is loading or absent.
   const [showTvPassword, setShowTvPassword] = useState(false);
+  const credentialsQuery = useTvCredentials(customerId, showTvPassword);
+  const loginFallback = account.gigaredId ? `GIGA${account.gigaredId}` : (account.ott?.id ?? null);
+  const tvLogin = credentialsQuery.data?.login ?? loginFallback;
+  const tvPassword = credentialsQuery.data?.password ?? null;
 
   // Change-password modal state. Default prefilled with the deterministic value when
   // we know the GR id; the operator may type any CUA-valid password.
@@ -987,12 +1007,16 @@ function LinkedView({
   const [newPassword, setNewPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [pwError, setPwError] = useState<string | null>(null);
+  // #65 fix wave M5 — post-success warning: the partner password DID change, but the local copy
+  // could not be saved. We surface a sutil warning (with the password) so the operator writes it down.
+  const [pwPersistWarning, setPwPersistWarning] = useState<string | null>(null);
   const newPasswordInvalid = newPassword !== '' && !PASSWORD_RE.test(newPassword);
 
   function openPwModal() {
     setNewPassword(grClienteId ? deterministicTvPassword(grClienteId) : '');
     setShowNewPassword(false);
     setPwError(null);
+    setPwPersistWarning(null);
     setPwModalOpen(true);
   }
 
@@ -1004,8 +1028,19 @@ function LinkedView({
     }
     setPwError(null);
     try {
-      await changePassword.mutateAsync({ cic: account.cic, contractId, password: newPassword });
-      setPwModalOpen(false);
+      // #65 fix wave H1 — NO cic in the payload; the BE resolves the customer's own account.
+      const result = await changePassword.mutateAsync({ contractId, password: newPassword });
+      if (result?.persisted) {
+        // Fully done — close the modal.
+        setPwPersistWarning(null);
+        setPwModalOpen(false);
+      } else {
+        // M5 — the partner password changed but the local copy was not saved. Keep the modal open
+        // with a warning so the operator notes the new password down.
+        setPwPersistWarning(
+          `La contraseña se cambió en Gigared (${newPassword}) pero NO quedó guardada en el sistema — anotala.`,
+        );
+      }
     } catch (err) {
       const detail = errorDetail(err);
       setPwError(detail ? `No se pudo cambiar la contraseña: ${detail}` : 'No se pudo cambiar la contraseña. Reintentá.');
@@ -1197,21 +1232,26 @@ function LinkedView({
           <div>
             <dt className={styles.dt}>Contraseña</dt>
             <dd className={styles.dd}>
-              {tvPassword ? (
-                <span className={styles.passwordRow}>
-                  <span>{showTvPassword ? tvPassword : '••••••••'}</span>
-                  <button
-                    type="button"
-                    className={styles.btnLink}
-                    aria-label={showTvPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                    onClick={() => setShowTvPassword((s) => !s)}
-                  >
-                    {showTvPassword ? 'Ocultar' : 'Mostrar'}
-                  </button>
+              {/* H3 — the password is fetched lazily from the guarded endpoint on reveal. */}
+              <span className={styles.passwordRow}>
+                <span>
+                  {!showTvPassword
+                    ? '••••••••'
+                    : credentialsQuery.isLoading
+                      ? 'Cargando…'
+                      : credentialsQuery.isError
+                        ? 'No disponible'
+                        : (tvPassword ?? '—')}
                 </span>
-              ) : (
-                '—'
-              )}
+                <button
+                  type="button"
+                  className={styles.btnLink}
+                  aria-label={showTvPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  onClick={() => setShowTvPassword((s) => !s)}
+                >
+                  {showTvPassword ? 'Ocultar' : 'Mostrar'}
+                </button>
+              </span>
             </dd>
           </div>
         </dl>
@@ -1395,7 +1435,10 @@ function LinkedView({
           role="dialog"
           aria-modal="true"
           aria-labelledby="tv-pw-title"
-          onMouseDown={(e) => { if (e.target === e.currentTarget) setPwModalOpen(false); }}
+          onMouseDown={(e) => {
+            // #65 fix wave L14 — no cerrar el modal por backdrop mientras el cambio está en vuelo.
+            if (e.target === e.currentTarget && !changePassword.isPending) setPwModalOpen(false);
+          }}
         >
           <div className={styles.dialog}>
             <h2 id="tv-pw-title" className={styles.cardTitle}>Cambiar contraseña de TV</h2>
@@ -1430,6 +1473,9 @@ function LinkedView({
             </div>
             {pwError && (
               <div className={`${styles.banner} ${styles.bannerError}`}><span>{pwError}</span></div>
+            )}
+            {pwPersistWarning && (
+              <div className={`${styles.banner} ${styles.bannerWarning}`}><span>{pwPersistWarning}</span></div>
             )}
             <div className={styles.formActions}>
               <button

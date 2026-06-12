@@ -15,6 +15,7 @@ vi.mock('@/hooks/useGigared', () => ({
   useSetOtt: vi.fn(),
   useCancelTv: vi.fn(),
   useChangeTvPassword: vi.fn(),
+  useTvCredentials: vi.fn(),
 }));
 vi.mock('@/hooks/useCustomers', () => ({
   useClientContracts: vi.fn(),
@@ -38,6 +39,7 @@ import {
   useSetOtt,
   useCancelTv,
   useChangeTvPassword,
+  useTvCredentials,
 } from '@/hooks/useGigared';
 import { useClientContracts } from '@/hooks/useCustomers';
 import { useRemoveContractService, useAddContractService } from '@/hooks/useContractServices';
@@ -136,8 +138,6 @@ const tvService = (over: Partial<ContractService> = {}): ContractService => ({
   label: 'TV',
   status: 'active',
   notes: null,
-  tvLogin: null,
-  tvPassword: null,
   createdAt: '2026-06-01T00:00:00.000Z',
   ...over,
 });
@@ -172,6 +172,10 @@ function mockQuery(over: {
   allAccounts?: Partial<Record<'registered' | 'unregistered', GigaredAccount[]>>;
   allAccountsLoading?: boolean;
   allAccountsError?: boolean;
+  /** #65 H3 — the credentials the dedicated endpoint returns. Defaults to a present pair. */
+  tvCredentials?: { login: string | null; password: string | null };
+  tvCredentialsLoading?: boolean;
+  tvCredentialsError?: boolean;
 } = {}) {
   // The panel calls useGigaredAllAccounts('registered') for the link picker and
   // useGigaredAllAccounts('unregistered') for the register-CIC select. Return a
@@ -223,10 +227,13 @@ function mockQuery(over: {
     ),
     isPending: false,
   } as unknown as ReturnType<typeof useCancelTv>);
-  vi.mocked(useChangeTvPassword).mockReturnValue({
-    mutateAsync: pwMutate.mockResolvedValue({ password: 'ip243200' }),
-    isPending: false,
-  } as unknown as ReturnType<typeof useChangeTvPassword>);
+  vi.mocked(useChangeTvPassword).mockReturnValue({ mutateAsync: pwMutate, isPending: false } as unknown as ReturnType<typeof useChangeTvPassword>);
+  // #65 H3 — the lazy credentials query. Default: present pair, not loading.
+  vi.mocked(useTvCredentials).mockReturnValue({
+    data: over.tvCredentials ?? { login: 'GIGA2432', password: 'ip243200' },
+    isLoading: !!over.tvCredentialsLoading,
+    isError: !!over.tvCredentialsError,
+  } as unknown as ReturnType<typeof useTvCredentials>);
 
   vi.mocked(useRemoveContractService).mockReturnValue({
     mutateAsync: removeLocalMutate.mockResolvedValue(undefined),
@@ -695,9 +702,9 @@ describe('GigaredPanel', () => {
       expect(screen.getByText(/aplicando…/i)).toBeInTheDocument();
     });
 
-    it('register success → "se envió el email de activación"', async () => {
+    it('register success (email ficticio, default) → "Cuenta registrada" SIN claim de email', async () => {
       const user = userEvent.setup();
-      registerMutate.mockResolvedValue({ account: linkedAccount });
+      registerMutate.mockResolvedValue({ account: linkedAccount, credentialsPersisted: true });
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
@@ -708,7 +715,27 @@ describe('GigaredPanel', () => {
       await user.type(screen.getByLabelText(/^cic$/i), '0001');
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
-        expect(screen.getByText(/se envió el email de activación/i)).toBeInTheDocument(),
+        expect(screen.getByText(/^Cuenta registrada\s*\.$/)).toBeInTheDocument(),
+      );
+      // #65 — el email es ficticio y el checkbox arranca off → NO se afirma haber enviado email.
+      expect(screen.queryByText(/se envió el email de activación/i)).not.toBeInTheDocument();
+    });
+
+    // #65 fix wave M7 — register OK but credentials not persisted → sutil warning.
+    it('M7 — register con credentialsPersisted:false → warning "la clave no quedó guardada"', async () => {
+      const user = userEvent.setup();
+      registerMutate.mockResolvedValue({ account: linkedAccount, credentialsPersisted: false });
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      await user.type(screen.getByLabelText(/nombre/i), 'Ana');
+      await user.type(screen.getByLabelText(/apellido/i), 'García');
+      await user.type(screen.getByLabelText(/^email$/i), 'a@b.com');
+      await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
+      await user.type(screen.getByLabelText(/^cic$/i), '0001');
+      await user.click(screen.getByRole('button', { name: /^registrar$/i }));
+      await waitFor(() =>
+        expect(screen.getByText(/la clave no quedó guardada en el sistema/i)).toBeInTheDocument(),
       );
     });
 
@@ -2059,14 +2086,15 @@ describe('GigaredPanel', () => {
   });
 
   describe('#65 Gigared Play credentials section (linked)', () => {
-    it('shows login GIGA{abonado} and the persisted password with a toggle', async () => {
+    it('H3 — shows login + reveals the password fetched from the dedicated endpoint (lazy)', async () => {
       const user = userEvent.setup();
       mockQuery({
         account: { linked: true, account: { ...linkedAccount, gigaredId: '2432' } },
-        contracts: [contract('ct-9', [tvService({ tvLogin: 'GIGA2432', tvPassword: 'ip243200' })])],
+        contracts: [contract('ct-9', [tvService()])],
+        tvCredentials: { login: 'GIGA2432', password: 'ip243200' },
       });
       renderPanel();
-      // Login derived from gigaredId.
+      // Login from the credentials endpoint (falls back to the account-derived value).
       expect(screen.getByText('GIGA2432')).toBeInTheDocument();
       // Password hidden by default (dots), revealed on toggle.
       expect(screen.queryByText('ip243200')).not.toBeInTheDocument();
@@ -2074,12 +2102,12 @@ describe('GigaredPanel', () => {
       expect(screen.getByText('ip243200')).toBeInTheDocument();
     });
 
-    it('opens the change-password modal prefilled and posts the new password', async () => {
+    it('H1 — opens the change-password modal prefilled and posts WITHOUT cic (contractId + password only)', async () => {
       const user = userEvent.setup();
-      pwMutate.mockResolvedValue({ password: 'ip243200' });
+      pwMutate.mockResolvedValue({ password: 'ip243200', persisted: true });
       mockQuery({
         account: { linked: true, account: { ...linkedAccount, cic: '0000001234', gigaredId: '2432' } },
-        contracts: [contract('ct-9', [tvService({ tvLogin: 'GIGA2432', tvPassword: 'oldpass1' })])],
+        contracts: [contract('ct-9', [tvService()])],
       });
       renderPanel({ name: 'HERNANDEZ RONALD', email: 'x@x.com', grClienteId: '2432' });
       await user.click(screen.getByRole('button', { name: /cambiar contraseña/i }));
@@ -2091,18 +2119,37 @@ describe('GigaredPanel', () => {
       await user.click(buttons[buttons.length - 1]);
       await waitFor(() =>
         expect(pwMutate).toHaveBeenCalledWith({
-          cic: '0000001234',
           contractId: 'ct-9',
           password: 'ip243200',
         }),
       );
+      // H1 — the cic is NEVER part of the payload (resolved server-side).
+      expect(pwMutate.mock.calls[0][0]).not.toHaveProperty('cic');
+    });
+
+    it('M5 — persisted:false keeps the modal open with a warning (the partner password DID change)', async () => {
+      const user = userEvent.setup();
+      pwMutate.mockResolvedValue({ password: 'ip243200', persisted: false });
+      mockQuery({
+        account: { linked: true, account: { ...linkedAccount, cic: '0000001234', gigaredId: '2432' } },
+        contracts: [contract('ct-9', [tvService()])],
+      });
+      renderPanel({ name: 'HERNANDEZ RONALD', email: 'x@x.com', grClienteId: '2432' });
+      await user.click(screen.getByRole('button', { name: /cambiar contraseña/i }));
+      const buttons = screen.getAllByRole('button', { name: /cambiar contraseña/i });
+      await user.click(buttons[buttons.length - 1]);
+      await waitFor(() =>
+        expect(screen.getByText(/no quedó guardada en el sistema/i)).toBeInTheDocument(),
+      );
+      // Modal stays open so the operator can read/note the password.
+      expect(screen.getByLabelText(/nueva contraseña/i)).toBeInTheDocument();
     });
 
     it('blocks a non-CUA password in the modal', async () => {
       const user = userEvent.setup();
       mockQuery({
         account: { linked: true, account: { ...linkedAccount, gigaredId: '2432' } },
-        contracts: [contract('ct-9', [tvService({ tvLogin: 'GIGA2432', tvPassword: 'oldpass1' })])],
+        contracts: [contract('ct-9', [tvService()])],
       });
       renderPanel({ name: 'H R', email: 'x@x.com', grClienteId: '2432' });
       await user.click(screen.getByRole('button', { name: /cambiar contraseña/i }));

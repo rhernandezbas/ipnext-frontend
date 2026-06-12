@@ -135,9 +135,11 @@ export interface RegisterAccountPayload {
 
 // ── #65 — change TV account password ────────────────────────────────────────
 export interface ChangeTvPasswordPayload {
-  /** The account CIC whose password changes. */
-  cic: string;
-  /** The owner contract — the BE persists the new password on ITS TV slot. */
+  /**
+   * #65 fix wave H1 — the owner contract. The `cic` is NO LONGER sent: the BE resolves the
+   * customer's OWN account server-side and changes ITS password, so an operator can never target
+   * a foreign account. The BE persists the new password on this contract's TV slot.
+   */
   contractId: string;
   /** New password — MUST match `^[a-z0-9]{8,64}$`. */
   password: string;
@@ -145,6 +147,24 @@ export interface ChangeTvPasswordPayload {
 
 export interface ChangeTvPasswordResult {
   password: string;
+  /**
+   * #65 fix wave M5 — whether the new password was persisted on the local TV slot. The partner
+   * password ALREADY changed regardless; when false the FE warns the operator to write it down.
+   */
+  persisted: boolean;
+}
+
+// ── #65 fix wave H3 — dedicated TV credentials surface ──────────────────────
+/** GET /gigared/customers/:id/tv-credentials → the guarded login/password of the TV slot. */
+export interface TvCredentials {
+  login: string | null;
+  password: string | null;
+}
+
+/** #65 fix wave M7 — register response: the account + whether the credentials reached the slot. */
+export interface RegisterAccountResult {
+  account: GigaredAccount;
+  credentialsPersisted: boolean;
 }
 
 export interface AddTvServicePayload {
