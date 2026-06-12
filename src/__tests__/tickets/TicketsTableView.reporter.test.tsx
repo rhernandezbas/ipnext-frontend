@@ -28,6 +28,7 @@ vi.mock('@/hooks/useRbacUsers', () => ({
 vi.mock('@/context/ConfirmContext', () => ({ useConfirm: () => vi.fn().mockResolvedValue(true) }));
 
 import { TicketsTableView } from '@/pages/tickets/TicketsListPage/components/TicketsTableView';
+import { ALL_TICKET_COLUMNS } from '@/pages/tickets/TicketsListPage';
 import type { Ticket } from '@/types/ticket';
 
 function mkTicket(over: Partial<Ticket>): Ticket {
@@ -60,5 +61,23 @@ describe('TicketsTableView — Reporter column (#48 M1)', () => {
     // The dash appears as the Reporter cell content. There is no other em-dash
     // column in this fixture, so a single match is enough.
     expect(screen.getByText('—')).toBeInTheDocument();
+  });
+
+  // Re-review del fix wave: la page SIEMPRE pasa visibleColumnKeys derivadas de
+  // ALL_TICKET_COLUMNS; si la key del catalogo y la del table view divergen,
+  // la columna Reporter desaparece del listado real (el fallback sin
+  // visibleColumnKeys del test de arriba no lo detecta).
+  it('renders the Reporter column through the real visibleColumnKeys path', () => {
+    render(
+      <MemoryRouter>
+        <TicketsTableView
+          tickets={[mkTicket({ reporterId: 'u9', reporterName: 'María Creadora' })]}
+          loading={false}
+          visibleColumnKeys={ALL_TICKET_COLUMNS.map(c => c.key)}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Reporter')).toBeInTheDocument();
+    expect(screen.getByText('María Creadora')).toBeInTheDocument();
   });
 });

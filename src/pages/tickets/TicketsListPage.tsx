@@ -21,7 +21,7 @@ export const ALL_TICKET_COLUMNS: ColumnDef[] = [
   { key: 'subject',        label: 'Tema' },
   { key: 'customerName',   label: 'Cliente/Cliente Potencial' },
   { key: 'type',           label: 'Tipo' },
-  { key: 'reporter',       label: 'Reporter' },
+  { key: 'reporterName',   label: 'Reporter' }, // #48 fix-wave — the BE field is reporterName
   { key: 'priority',       label: 'Prioridad' },
   { key: 'status',         label: 'Estado' },
   { key: 'assigneeName', label: 'Asignado a' }, // #28 follow-up — the BE field is assigneeName
