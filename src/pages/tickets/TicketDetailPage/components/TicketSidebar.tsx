@@ -76,7 +76,7 @@ export function TicketSidebar({
         <div className={styles.sideRow}>
           <span className={styles.sideLabel}>Cliente</span>
           {ticket.customerId ? (
-            <Link to={`/admin/clients/${ticket.customerId}`} className={styles.sideLink}>
+            <Link to={`/admin/customers/view/${ticket.customerId}`} className={styles.sideLink}>
               {ticket.customerName}
             </Link>
           ) : (
