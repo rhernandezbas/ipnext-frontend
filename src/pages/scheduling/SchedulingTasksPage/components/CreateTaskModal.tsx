@@ -92,14 +92,19 @@ function toLocalInputString(date: Date): string {
  * default that doesn't exist.
  */
 export function CreateTaskModal({ projects, workflows, technicians = [], templates = [], onClose, onCreate, loading, initialValues, defaultMode }: Props) {
-  /** When a defaultMode is provided the mode is LOCKED and a "Nodo Fibra" badge is
-   *  shown. Node tasks are created ONLY from the Tareas Nodos page (#40b fix-a). */
+  /** When a defaultMode is provided the mode is LOCKED and a mode badge is shown.
+   *  Node tasks are created ONLY from the Tareas Nodos page (#40b fix-a). */
   const modeLocked = defaultMode != null;
   /** Task mode: 'customer' (default) or 'network'. No longer user-togglable — the
    *  network branch is reached only via defaultMode='network' from the Nodos page. */
   const taskMode: 'customer' | 'network' = defaultMode ?? 'customer';
-  /** Selected network site id for network tasks. */
+  /** Network branch type — 'red' (legacy, JOIN-derived) or 'fibra' (FO, free-text).
+   *  Only active in network mode. Default 'red'. */
+  const [networkType, setNetworkType] = useState<'red' | 'fibra'>('red');
+  /** Selected network site id for network tasks (RED only). */
   const [networkSiteId, setNetworkSiteId] = useState<string | null>(null);
+  /** Free-text FO node name — required when networkType === 'fibra'. */
+  const [networkSiteName, setNetworkSiteName] = useState<string>('');
   /** Selected IClass city/locality code — required in network mode (#54). */
   const [iclassCityCode, setIclassCityCode] = useState<string | null>(null);
 
@@ -144,6 +149,22 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
       if (!contractId && customerDetail.address) setAddress(customerDetail.address);
     }
   }, [customerId, customerDetail, contractId]);
+
+  // ── Reset irrelevant fields when switching Red ↔ FO ─────────────────────────
+  function handleNetworkTypeChange(type: 'red' | 'fibra') {
+    setNetworkType(type);
+    if (type === 'fibra') {
+      // FO: clear the site selector (networkSiteId no longer applies)
+      setNetworkSiteId(null);
+      filledForSite.current = null;
+    } else {
+      // Red: clear the free-text node name
+      setNetworkSiteName('');
+    }
+    // Clear locality when switching so user consciously picks the right one
+    setIclassCityCode(null);
+    setAddress('');
+  }
 
   // ── Network-site address + locality prefill (#40, #54) ───────────────────────
   // When a NetworkSite is selected in network mode, prefill the address from the
@@ -256,7 +277,9 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     !loading &&
     (taskMode === 'customer'
       ? !!customerId && !!contractId
-      : !!networkSiteId && address.trim().length > 0 && !!iclassCityCode && iclassCityCode.trim().length > 0);
+      : taskMode === 'network' && networkType === 'fibra'
+        ? networkSiteName.trim().length > 0 && address.trim().length > 0 && !!iclassCityCode && iclassCityCode.trim().length > 0
+        : !!networkSiteId && address.trim().length > 0);
 
   function applyTemplate(id: string) {
     setTemplateId(id);
@@ -319,15 +342,29 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
 
       const payload: CreateTaskPayload =
         taskMode === 'network'
-          ? {
-              ...basePayload,
-              kind: 'network',
-              networkSiteId: networkSiteId || null,
-              iclassCityCode: iclassCityCode || null,
-              customerId: null,
-              customerName: null,
-              contractId: null,
-            }
+          ? networkType === 'fibra'
+            ? {
+                ...basePayload,
+                kind: 'network',
+                networkType: 'fibra',
+                networkSiteId: null,
+                networkSiteName: networkSiteName.trim() || null,
+                iclassCityCode: iclassCityCode || null,
+                customerId: null,
+                customerName: null,
+                contractId: null,
+              }
+            : {
+                ...basePayload,
+                kind: 'network',
+                networkType: 'red',
+                networkSiteId: networkSiteId || null,
+                networkSiteName: null,
+                iclassCityCode: iclassCityCode || null,
+                customerId: null,
+                customerName: null,
+                contractId: null,
+              }
           : {
               ...basePayload,
               kind: 'customer',
@@ -357,14 +394,18 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
       <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Nueva tarea" onClick={e => e.stopPropagation()}>
         <div className={styles.modalHeader}>
           <h2 className={styles.title}>Nueva tarea</h2>
-          {/* Nodo Fibra mode badge — node tasks are created ONLY from the Tareas Nodos
-              page, which locks the mode (defaultMode='network'). A static badge
-              shows the context. In customer context (no defaultMode) the modal is
-              customer-ONLY: no toggle, no path to network mode (#40b fix-a, was the
-              #29 segmented control). */}
+          {/* Mode badge — shown only when mode is LOCKED (Tareas Nodos page).
+              In customer context (no defaultMode) the modal is customer-ONLY:
+              no toggle, no path to network mode (#40b fix-a, was the #29
+              segmented control). Badge text reflects the current network branch
+              type (Red or FO). */}
           {modeLocked && (
-            <span className={styles.modeBadge} data-variant="network" aria-label="Tipo de tarea: Nodo Fibra">
-              Nodo Fibra
+            <span
+              className={styles.modeBadge}
+              data-variant="network"
+              aria-label={networkType === 'fibra' ? 'Tipo de tarea: Nodo Fibra' : 'Tipo de tarea: Nodo RED'}
+            >
+              {networkType === 'fibra' ? 'Nodo Fibra' : 'Nodo RED'}
             </span>
           )}
         </div>
@@ -433,12 +474,62 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
           </>
         ) : (
           <>
-            <div className={styles.label}>
-              <span>Nodo de red <span className={styles.required} aria-hidden="true">*</span></span>
-              <NodeSelector value={networkSiteId} onChange={setNetworkSiteId} />
+            {/* ── Red / FO switch ────────────────────────────────────────── */}
+            <div className={styles.networkSwitchRow}>
+              <span className={styles.networkSwitchLabel}>Tipo de red</span>
+              <div
+                className={styles.networkTypeSwitch}
+                role="group"
+                aria-label="Tipo de red"
+              >
+                <button
+                  type="button"
+                  className={styles.networkTypeSwitchBtn}
+                  aria-pressed={networkType === 'red'}
+                  onClick={() => handleNetworkTypeChange('red')}
+                >
+                  Red
+                </button>
+                <button
+                  type="button"
+                  className={styles.networkTypeSwitchBtn}
+                  aria-pressed={networkType === 'fibra'}
+                  onClick={() => handleNetworkTypeChange('fibra')}
+                >
+                  FO
+                </button>
+              </div>
             </div>
+
+            {/* ── Red: NodeSelector (JOIN-derived name) ──────────────────── */}
+            {networkType === 'red' && (
+              <div className={styles.label}>
+                <span>Nodo de red <span className={styles.required} aria-hidden="true">*</span></span>
+                <NodeSelector value={networkSiteId} onChange={setNetworkSiteId} />
+              </div>
+            )}
+
+            {/* ── FO: free-text node name (required) ────────────────────── */}
+            {networkType === 'fibra' && (
+              <label className={styles.label}>
+                <span>Nombre del nodo <span className={styles.required} aria-hidden="true">*</span></span>
+                <input
+                  className={styles.input}
+                  value={networkSiteName}
+                  onChange={e => setNetworkSiteName(e.target.value)}
+                  placeholder="Nombre del nodo FO"
+                  aria-label="Nombre del nodo"
+                />
+              </label>
+            )}
+
+            {/* ── Localidad (RED: optional / FO: required) ──────────────── */}
             <label className={styles.label}>
-              <span>Localidad <span className={styles.required} aria-hidden="true">*</span></span>
+              <span>
+                Localidad{networkType === 'fibra' && (
+                  <span className={styles.required} aria-hidden="true"> *</span>
+                )}
+              </span>
               <select
                 className={styles.select}
                 value={iclassCityCode ?? ''}

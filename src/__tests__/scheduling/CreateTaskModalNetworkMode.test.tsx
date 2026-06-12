@@ -97,10 +97,10 @@ describe('CreateTaskModal defaultMode="network" (REQ-NTP-3)', () => {
     expect(screen.queryByRole('button', { name: /^cliente$/i })).not.toBeInTheDocument();
   });
 
-  it('shows a static "Nodo Fibra" badge instead of the toggle', () => {
+  it('shows a static "Nodo RED" badge by default (networkType defaults to red)', () => {
     setup();
-    expect(screen.getByLabelText(/tipo de tarea: nodo fibra/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/tipo de tarea: nodo fibra/i)).toHaveTextContent('Nodo Fibra');
+    expect(screen.getByLabelText(/tipo de tarea: nodo red/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/tipo de tarea: nodo red/i)).toHaveTextContent('Nodo RED');
   });
 
   it('renders the NodeSelector (network mode active), not the CustomerPicker', () => {
@@ -179,7 +179,9 @@ describe('CreateTaskModal network submit payload (REQ-NTP-3)', () => {
     expect(onCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: 'network',
+        networkType: 'red',
         networkSiteId: 'site-1',
+        networkSiteName: null,
         projectId: 'np-1',
         customerId: null,
         customerName: null,
@@ -274,7 +276,8 @@ describe('CreateTaskModal — Localidad dropdown in network mode (REQ-54)', () =
   }
 
   // ── TC-1: Localidad select is present with eligible options ──────────────
-  it('renders a "Localidad" select with required asterisk and eligible IClass node options', () => {
+  // In RED mode (default) localidad is OPTIONAL (no asterisk). In FO mode it is REQUIRED.
+  it('renders a "Localidad" select with eligible IClass node options (optional in RED mode)', () => {
     setupNetwork();
     // The label text "Localidad" must be visible
     expect(screen.getByText(/^localidad$/i)).toBeInTheDocument();
@@ -285,7 +288,14 @@ describe('CreateTaskModal — Localidad dropdown in network mode (REQ-54)', () =
     expect(screen.getByRole('option', { name: 'Rosario' })).toBeInTheDocument();
     // Inactive node must NOT appear as an option
     expect(screen.queryByRole('option', { name: 'Inactive' })).not.toBeInTheDocument();
-    // Required asterisk (aria-hidden="true") next to Localidad
+    // In RED mode, localidad has NO required asterisk (it is optional)
+    const label = screen.getByText(/^localidad$/i).closest('label') ?? screen.getByText(/^localidad$/i).parentElement;
+    expect(label?.querySelector('[aria-hidden="true"]')).not.toBeInTheDocument();
+  });
+
+  it('shows required asterisk on Localidad when switched to FO mode', () => {
+    setupNetwork();
+    fireEvent.click(screen.getByRole('button', { name: /^FO$/i }));
     const label = screen.getByText(/^localidad$/i).closest('label') ?? screen.getByText(/^localidad$/i).parentElement;
     expect(label?.querySelector('[aria-hidden="true"]')).toBeInTheDocument();
   });
@@ -305,8 +315,8 @@ describe('CreateTaskModal — Localidad dropdown in network mode (REQ-54)', () =
     await waitFor(() => expect(submit).toBeEnabled());
   });
 
-  // ── TC-3: Clearing locality disables submit ──────────────────────────────
-  it('disables "Crear tarea" when locality is cleared (even with everything else filled)', async () => {
+  // ── TC-3: In RED mode, clearing locality does NOT disable submit (locality optional) ──
+  it('keeps "Crear tarea" enabled when locality is cleared in RED mode (locality optional in red)', async () => {
     setupNetwork();
     fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Mantenimiento' } });
     fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'Descripción' } });
@@ -314,10 +324,11 @@ describe('CreateTaskModal — Localidad dropdown in network mode (REQ-54)', () =
     fireEvent.click(screen.getByText('POP Centro'));
     const localidadSelect = screen.getByRole('combobox', { name: /localidad/i });
     await waitFor(() => expect(localidadSelect).toHaveValue('Springfield'));
-    // Clear locality
+    // Clear locality — in RED mode this should NOT block submit
     fireEvent.change(localidadSelect, { target: { value: '' } });
     const submit = screen.getByRole('button', { name: /crear tarea/i });
-    expect(submit).toBeDisabled();
+    // Address was autofilled from site, nodeId is selected -> should still be enabled
+    await waitFor(() => expect(submit).toBeEnabled());
   });
 
   // ── TC-4: Payload includes iclassCityCode ────────────────────────────────
@@ -362,5 +373,107 @@ describe('CreateTaskModal — Localidad dropdown in network mode (REQ-54)', () =
     );
     expect(screen.queryByRole('combobox', { name: /localidad/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/^localidad$/i)).not.toBeInTheDocument();
+  });
+});
+
+// ── Red / FO switch (#66) ────────────────────────────────────────────────────
+
+describe('CreateTaskModal — Red/FO switch in network mode (#66)', () => {
+  function setupNetwork(sites = [makeSite()]) {
+    useNetworkSitesMock.mockReturnValue({ data: sites, isLoading: false });
+    return render(
+      <CreateTaskModal
+        projects={networkProjects}
+        workflows={workflows}
+        defaultMode="network"
+        onClose={onClose}
+        onCreate={onCreate}
+        loading={false}
+      />,
+    );
+  }
+
+  it('renders "Red" and "FO" toggle buttons in network mode', () => {
+    setupNetwork();
+    expect(screen.getByRole('button', { name: /^Red$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^FO$/i })).toBeInTheDocument();
+  });
+
+  it('defaults to Red (Red button pressed, NodeSelector visible)', () => {
+    setupNetwork();
+    const redBtn = screen.getByRole('button', { name: /^Red$/i });
+    expect(redBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('listbox', { name: /nodos de red/i })).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/nombre del nodo fo/i)).not.toBeInTheDocument();
+  });
+
+  it('switches to FO: hides NodeSelector, shows free-text node name input', () => {
+    setupNetwork();
+    fireEvent.click(screen.getByRole('button', { name: /^FO$/i }));
+    expect(screen.getByRole('button', { name: /^FO$/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('listbox', { name: /nodos de red/i })).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/nombre del nodo fo/i)).toBeInTheDocument();
+  });
+
+  it('shows "Nodo Fibra" badge when switched to FO', () => {
+    setupNetwork();
+    fireEvent.click(screen.getByRole('button', { name: /^FO$/i }));
+    expect(screen.getByLabelText(/tipo de tarea: nodo fibra/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/tipo de tarea: nodo fibra/i)).toHaveTextContent('Nodo Fibra');
+  });
+
+  it('shows "Nodo RED" badge in Red mode (default)', () => {
+    setupNetwork();
+    expect(screen.getByLabelText(/tipo de tarea: nodo red/i)).toHaveTextContent('Nodo RED');
+  });
+
+  it('in FO mode, localidad is required: clearing it disables submit', async () => {
+    setupNetwork();
+    fireEvent.click(screen.getByRole('button', { name: /^FO$/i }));
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea FO' } });
+    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'Desc' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'np-1' } });
+    fireEvent.change(screen.getByPlaceholderText(/nombre del nodo fo/i), { target: { value: 'Nodo-FO-01' } });
+    fireEvent.change(screen.getByPlaceholderText('Dirección del trabajo'), { target: { value: 'Calle 1' } });
+    // Leave localidad empty — should be disabled
+    const submit = screen.getByRole('button', { name: /crear tarea/i });
+    expect(submit).toBeDisabled();
+  });
+
+  it('in FO mode, submit enabled when node name + address + localidad filled', async () => {
+    setupNetwork();
+    fireEvent.click(screen.getByRole('button', { name: /^FO$/i }));
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea FO' } });
+    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'Desc' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'np-1' } });
+    fireEvent.change(screen.getByPlaceholderText(/nombre del nodo fo/i), { target: { value: 'Nodo-FO-01' } });
+    fireEvent.change(screen.getByPlaceholderText('Dirección del trabajo'), { target: { value: 'Calle 1' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /localidad/i }), { target: { value: 'Springfield' } });
+    const submit = screen.getByRole('button', { name: /crear tarea/i });
+    await waitFor(() => expect(submit).toBeEnabled());
+  });
+
+  it('FO payload has networkType=fibra, networkSiteId=null, networkSiteName set', async () => {
+    setupNetwork();
+    fireEvent.click(screen.getByRole('button', { name: /^FO$/i }));
+    fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea FO' } });
+    fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'Desc' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'np-1' } });
+    fireEvent.change(screen.getByPlaceholderText(/nombre del nodo fo/i), { target: { value: 'Nodo-FO-01' } });
+    fireEvent.change(screen.getByPlaceholderText('Dirección del trabajo'), { target: { value: 'Calle 1' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /localidad/i }), { target: { value: 'Rosario' } });
+    const submit = screen.getByRole('button', { name: /crear tarea/i });
+    await waitFor(() => expect(submit).toBeEnabled());
+    fireEvent.click(submit);
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'network',
+        networkType: 'fibra',
+        networkSiteId: null,
+        networkSiteName: 'Nodo-FO-01',
+        iclassCityCode: 'Rosario',
+      }),
+    );
   });
 });
