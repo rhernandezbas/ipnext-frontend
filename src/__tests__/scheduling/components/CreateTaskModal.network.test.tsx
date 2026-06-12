@@ -4,7 +4,7 @@
  * The RED mode toggle (#29) is SUPERSEDED: node tasks are created ONLY from the
  * Tareas Nodos page (modal locked via defaultMode='network'). In customer
  * context (no defaultMode) the modal must be customer-ONLY:
- *   - the Cliente/Nodo RED toggle is GONE
+ *   - the Cliente/Nodo Fibra toggle is GONE
  *   - there is NO path to network mode (NodeSelector never reachable)
  *   - the customer payload (kind:'customer') is unchanged
  *
@@ -61,11 +61,21 @@ const mockNetworkSites: NetworkSite[] = [
     parentSiteId: null,
     description: 'Test node',
     iclassNodeCode: 'ALPHA-01',
+    uispSiteId: null,
   },
 ];
 
 vi.mock('@/hooks/useNetworkSites', () => ({
   useNetworkSites: () => ({ data: mockNetworkSites, isLoading: false }),
+}));
+
+vi.mock('@/hooks/useIClassNodes', () => ({
+  useIClassNodes: () => ({
+    data: [
+      { id: 'n1', nodeId: 1, code: 'Tigre', description: 'Tigre node', active: true, selectable: true, lastSyncedAt: null },
+      { id: 'n2', nodeId: 2, code: 'Rosario', description: 'Rosario node', active: true, selectable: true, lastSyncedAt: null },
+    ],
+  }),
 }));
 
 // ── Imports (after mocks) ─────────────────────────────────────────────────────
@@ -127,13 +137,13 @@ describe('CreateTaskModal — customer context has no network toggle (#40b fix-a
     setup();
     // The segmented control (role=group, aria-label "Tipo de tarea") must be gone.
     expect(screen.queryByRole('group', { name: /tipo de tarea/i })).not.toBeInTheDocument();
-    // And neither toggle button exists (the "Nodo RED" toggle in particular).
-    expect(screen.queryByRole('button', { name: /^nodo red$/i })).not.toBeInTheDocument();
+    // And neither toggle button exists (the "Nodo Fibra" toggle in particular).
+    expect(screen.queryByRole('button', { name: /^nodo fibra$/i })).not.toBeInTheDocument();
   });
 
-  it('does NOT render the static "Nodo RED" badge either (customer context, not locked)', () => {
+  it('does NOT render the static "Nodo Fibra" badge either (customer context, not locked)', () => {
     setup();
-    expect(screen.queryByLabelText(/tipo de tarea: nodo red/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/tipo de tarea: nodo fibra/i)).not.toBeInTheDocument();
   });
 
   it('shows the CustomerPicker — customer mode is the only mode', () => {
