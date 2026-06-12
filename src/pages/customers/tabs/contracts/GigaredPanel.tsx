@@ -362,7 +362,7 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
                   El status del BE ya manda; con sólo el base la baja igual responde 200. */}
               {(cancelOutcome.data.unremovable?.length ?? 0) > 0 && (
                 <li>
-                  Pack base: no se puede quitar — lo libera la renovación del CIC.
+                  Pack base: no se puede quitar — se libera al renovar el CIC.
                 </li>
               )}
               <li>Streaming (OTT): {cancelOutcome.data.ottDisabled ? 'apagado' : 'sigue activo'}.</li>

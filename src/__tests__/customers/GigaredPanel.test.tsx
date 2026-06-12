@@ -1862,9 +1862,10 @@ describe('GigaredPanel', () => {
       // Modal de ÉXITO normal (no parcial): el mensaje de éxito y SIN Reintentar.
       expect(within(outcome).getByText(/se estará deshabilitando en los próximos minutos/i)).toBeInTheDocument();
       expect(within(outcome).queryByRole('button', { name: /reintentar baja/i })).not.toBeInTheDocument();
-      // Línea informativa del pack base (tono neutro): mencion del pack base y de la renovación del CIC.
+      // Línea informativa del pack base (tono neutro): menciona el pack base y la renovación del CIC
+      // SIN afirmar que YA se renovó (#67 re-review: el copy es condicional, "se libera al renovar").
       expect(within(outcome).getByText(/pack base/i)).toBeInTheDocument();
-      expect(within(outcome).getByText(/renovaci[oó]n del cic/i)).toBeInTheDocument();
+      expect(within(outcome).getByText(/se libera al renovar el cic/i)).toBeInTheDocument();
     });
 
     it('#67 200 sin unremovable → NO se muestra la línea informativa del pack base', async () => {

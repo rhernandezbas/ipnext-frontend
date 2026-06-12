@@ -208,6 +208,7 @@ describe('gigaredApi.cancelTv', () => {
     const payload: CancelTvResult = {
       removed: ['s1', 's2'],
       failed: [],
+      unremovable: [],
       ottDisabled: true,
       local: 'synced',
       renew: { oldCic: '0000000001', newCic: '0000000002' },
@@ -226,6 +227,7 @@ describe('gigaredApi.cancelTv', () => {
     const payload: CancelTvResult = {
       removed: ['s1'],
       failed: [{ id: 's2', detail: 'partner timeout' }],
+      unremovable: [],
       ottDisabled: false,
       local: 'failed',
       renew: null,
