@@ -18,6 +18,13 @@
   color: var(--badge-inactive-fg);
 }
 
+/* #47k — suspended TV chip: amber, matching the panel's suspended badge palette
+   (no amber token exists in variables.css yet). */
+.suspended {
+  background: #fffbeb;
+  color: #92400e;
+}
+
 .chipToggle {
   background: none;
   border: none;

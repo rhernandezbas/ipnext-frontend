@@ -24,6 +24,7 @@ vi.mock('@/hooks/useServiceCatalog', () => ({
 }));
 vi.mock('@/hooks/useGigared', () => ({
   useGigaredConfig: vi.fn(),
+  useGigaredCustomerAccount: vi.fn(),
 }));
 // Stub the GigaredPanel — we only assert it opens, not its internals (covered
 // by GigaredPanel.test.tsx).
@@ -51,7 +52,8 @@ import {
   useRemoveContractService,
 } from '@/hooks/useContractServices';
 import { useServiceCatalog } from '@/hooks/useServiceCatalog';
-import { useGigaredConfig } from '@/hooks/useGigared';
+import { useGigaredConfig, useGigaredCustomerAccount } from '@/hooks/useGigared';
+import type { GigaredAccount } from '@/types/gigared';
 import { ContractCard } from '@/pages/customers/tabs/contracts/ContractCard';
 
 const svc = (over: Partial<ContractService> = {}): ContractService => ({
@@ -108,16 +110,24 @@ function setup({
   contractServices = [],
   catalog = [catalogEntry()],
   gigaredConfig = config(),
+  account = null,
 }: {
   contractServices?: ContractService[];
   catalog?: ServiceCatalogEntry[];
   gigaredConfig?: GigaredConfig | undefined;
+  /** #47k — the linked Gigared account; drives the TV chip suspended state. */
+  account?: GigaredAccount | null;
 } = {}) {
   vi.mocked(useServiceCatalog).mockReturnValue({ data: catalog, isLoading: false } as ReturnType<typeof useServiceCatalog>);
   vi.mocked(useAddContractService).mockReturnValue({ mutateAsync: addMutate, isPending: false } as unknown as ReturnType<typeof useAddContractService>);
   vi.mocked(useUpdateContractService).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as unknown as ReturnType<typeof useUpdateContractService>);
   vi.mocked(useRemoveContractService).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as unknown as ReturnType<typeof useRemoveContractService>);
   vi.mocked(useGigaredConfig).mockReturnValue({ data: gigaredConfig, isLoading: false } as unknown as ReturnType<typeof useGigaredConfig>);
+  vi.mocked(useGigaredCustomerAccount).mockReturnValue({
+    data: account ? { linked: true, account } : { linked: false, account: null },
+    isLoading: false,
+    isError: false,
+  } as unknown as ReturnType<typeof useGigaredCustomerAccount>);
   return contractServices;
 }
 
@@ -256,6 +266,70 @@ describe('ContractCard — TV from contract (#47b)', () => {
         expect(addMutate).toHaveBeenCalledWith({ contractId: 'ctr-9', payload: { serviceCatalogId: 'sc-tv' } }),
       );
       expect(screen.queryByTestId('gigared-panel')).not.toBeInTheDocument();
+    });
+  });
+
+  // ── #47k — the TV chip reflects suspension (OTT disabled + has packs) ─────────
+  // When the linked Gigared account has OTT disabled AND holds packs, the TV chip
+  // turns amber and its title reads "TV suspendida" so the operator sees the
+  // suspension without opening the panel.
+  describe('#47k — TV chip suspended state', () => {
+    const account = (over: Partial<GigaredAccount> = {}): GigaredAccount => ({
+      cic: '0000000001',
+      gigaredId: 'g-1',
+      email: 'a@b.com',
+      firstName: 'Ana',
+      lastName: 'García',
+      registrationDate: '2026-01-01T00:00:00Z',
+      services: [{ id: 's1', name: 'Gigared Play Full' }],
+      internalId: 'c-1',
+      ott: { id: 'o1', stationaryLicenses: 1, mobileLicenses: 1, registeredDevices: 0, status: 'disabled' },
+      ...over,
+    });
+
+    const tvSvc = () => svc({ id: 'cs-tv', serviceCatalogId: 'sc-tv', name: 'TV', label: 'TV' });
+
+    it('OTT disabled + has packs → the TV chip title is "TV suspendida"', () => {
+      setup({ gigaredConfig: config(), account: account() });
+      renderCard({ services: [tvSvc()] });
+      const tvChip = screen.getByRole('button', { name: /^TV$/ });
+      expect(tvChip).toHaveAttribute('title', expect.stringMatching(/tv suspendida/i));
+    });
+
+    it('OTT enabled → the TV chip is NOT suspended (default "Gestionar TV")', () => {
+      setup({ gigaredConfig: config(), account: account({ ott: { id: 'o1', stationaryLicenses: 1, mobileLicenses: 1, registeredDevices: 0, status: 'enabled' } }) });
+      renderCard({ services: [tvSvc()] });
+      const tvChip = screen.getByRole('button', { name: /^TV$/ });
+      expect(tvChip).toHaveAttribute('title', expect.stringMatching(/gestionar tv/i));
+    });
+
+    it('OTT disabled but NO packs → not suspended (no packs to suspend)', () => {
+      setup({ gigaredConfig: config(), account: account({ services: [] }) });
+      renderCard({ services: [tvSvc()] });
+      const tvChip = screen.getByRole('button', { name: /^TV$/ });
+      expect(tvChip).toHaveAttribute('title', expect.stringMatching(/gestionar tv/i));
+    });
+
+    // LOW (review) — the panel treats ott.status === null as SUSPENDED (it shows
+    // "Reactivar TV"). The chip must agree: an unknown OTT state WITH packs is
+    // amber too, so chip and panel never disagree.
+    it('OTT status null (unknown) + has packs → the TV chip title is "TV suspendida"', () => {
+      setup({
+        gigaredConfig: config(),
+        account: account({ ott: { id: 'o1', stationaryLicenses: 1, mobileLicenses: 1, registeredDevices: 0, status: null } }),
+      });
+      renderCard({ services: [tvSvc()] });
+      const tvChip = screen.getByRole('button', { name: /^TV$/ });
+      expect(tvChip).toHaveAttribute('title', expect.stringMatching(/tv suspendida/i));
+    });
+
+    // But NO OTT object at all (no Gigared OTT account) is NOT a suspension —
+    // there is nothing to reactivate, so the chip stays the normal "Gestionar TV".
+    it('no OTT object (ott null) → not suspended (nothing to reactivate)', () => {
+      setup({ gigaredConfig: config(), account: account({ ott: null }) });
+      renderCard({ services: [tvSvc()] });
+      const tvChip = screen.getByRole('button', { name: /^TV$/ });
+      expect(tvChip).toHaveAttribute('title', expect.stringMatching(/gestionar tv/i));
     });
   });
 });

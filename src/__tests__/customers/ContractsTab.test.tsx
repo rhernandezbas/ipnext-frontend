@@ -21,6 +21,13 @@ vi.mock('@/hooks/useServiceCatalog', () => ({
 // which preserves the existing #42 behaviour these tests assert.
 vi.mock('@/hooks/useGigared', () => ({
   useGigaredConfig: vi.fn(() => ({ data: { configured: false, enabled: false }, isLoading: false })),
+  // #47k — ContractCard now reads the linked account to flag a suspended TV chip.
+  // Gigared is OFF in these tests, so return an unlinked account (chip stays plain).
+  useGigaredCustomerAccount: vi.fn(() => ({
+    data: { linked: false, account: null },
+    isLoading: false,
+    isError: false,
+  })),
 }));
 // ServiceInventorySection has its own deep hook tree; stub it out here.
 vi.mock('@/pages/customers/tabs/ServiceInventorySection', () => ({

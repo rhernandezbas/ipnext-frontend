@@ -149,3 +149,24 @@ export interface RemoveTvServiceResult {
 export interface SetOttPayload {
   enabled: boolean;
 }
+
+// ── #47k — cancel TV (dar de baja) ──────────────────────────────────────────
+export interface CancelTvPayload {
+  /** The contract that owns the TV item — the BE inactivates ITS local 'TV' line. */
+  contractId: string;
+}
+
+/**
+ * #47k — cancel response (FROZEN wire contract). The BE removes ALL packs (frees
+ * the partner cupo), disables OTT and inactivates the local 'TV' item. 200 = all
+ * OK; 207 = partial. `removed` lists the pack ids that came off; `failed` carries
+ * the ones that did not, each with a partner `detail`. `ottDisabled` / `local`
+ * report the OTT and local-item steps. The cancel is idempotent: a re-POST only
+ * processes whatever is still pending, so the "Reintentar baja" retry is safe.
+ */
+export interface CancelTvResult {
+  removed: string[];
+  failed: { id: string; detail: string }[];
+  ottDisabled: boolean;
+  local: 'synced' | 'failed';
+}

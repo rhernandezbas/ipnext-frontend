@@ -8,6 +8,7 @@ import {
   useAddTvService,
   useRemoveTvService,
   useSetOtt,
+  useCancelTv,
 } from '@/hooks/useGigared';
 import { useClientContracts } from '@/hooks/useCustomers';
 import { useRemoveContractService, useAddContractService } from '@/hooks/useContractServices';
@@ -23,6 +24,7 @@ import type {
   AddTvServiceResult,
   RemoveTvServiceResult,
   LinkCicResult,
+  CancelTvResult,
 } from '@/types/gigared';
 import styles from './GigaredPanel.module.css';
 
@@ -764,15 +766,23 @@ function LinkedView({
   /** F1 — set when the TV item lives in a DIFFERENT contract than the opener. */
   ownerElsewhere: Contract | null;
 }) {
+  const confirm = useConfirm();
   const summaryQuery = useGigaredSummary();
   const addService = useAddTvService(customerId);
   const removeService = useRemoveTvService(customerId);
   const setOtt = useSetOtt(customerId);
+  const cancelTv = useCancelTv(customerId);
 
   const [serviceId, setServiceId] = useState('');
   const [addError, setAddError] = useState<string | null>(null);
   const [syncNotice, setSyncNotice] = useState<{ serviceId: string } | null>(null);
   const [ottError, setOttError] = useState<string | null>(null);
+
+  // #47k ② — dar de baja: a strong confirm gates the POST. The result drives the
+  // outcome banner (200 success / 207 partial with counts + "Reintentar baja").
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [cancelResult, setCancelResult] = useState<CancelTvResult | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   // F4 — the OTT "será habilitado" hint is informational; auto-dismiss it so it
   // does not linger across re-renders. Track a local "show" flag the success
@@ -858,6 +868,58 @@ function LinkedView({
       );
     }
   }
+
+  // #47k ① — Suspender TV: a SOFT confirm (the packs and cupo are kept) before
+  // PUT ott { enabled: false }. Reactivar needs no confirm — it just turns it on.
+  async function handleSuspend() {
+    if (setOtt.isPending) return;
+    const ok = await confirm({
+      message:
+        'El cliente no podrá ver TV hasta reactivarla. Los packs y el cupo se conservan.',
+      confirmLabel: 'Suspender TV',
+    });
+    if (!ok) return;
+    await handleToggleOtt(false);
+  }
+
+  async function handleReactivate() {
+    await handleToggleOtt(true);
+  }
+
+  // #47k ② — dar de baja: POST /cancel for the owner contract. 200 → success
+  // banner; 207 (any failure) → partial banner with counts + retry. The retry
+  // re-POSTs (idempotent). Hard errors surface the partner detail.
+  async function doCancel() {
+    setCancelError(null);
+    try {
+      const result: CancelTvResult = await cancelTv.mutateAsync({ contractId });
+      setCancelResult(result);
+    } catch (err) {
+      const detail = errorDetail(err);
+      setCancelError(
+        detail ? `No se pudo dar de baja: ${detail}` : 'No se pudo dar de baja la TV. Reintentá.',
+      );
+    }
+  }
+
+  async function confirmCancel() {
+    if (cancelTv.isPending) return;
+    setCancelConfirmOpen(false);
+    await doCancel();
+  }
+
+  async function handleRetryCancel() {
+    if (cancelTv.isPending) return;
+    await doCancel();
+  }
+
+  // The cancel partial banner fires whenever any step did not complete: a pack
+  // failed, OTT stayed on, or the local item did not inactivate.
+  const cancelPartial =
+    cancelResult !== null &&
+    (cancelResult.failed.length > 0 ||
+      !cancelResult.ottDisabled ||
+      cancelResult.local === 'failed');
 
   async function doRemove(svcId: string) {
     const result: RemoveTvServiceResult = await removeService.mutateAsync({ serviceId: svcId, contractId });
@@ -1015,25 +1077,38 @@ function LinkedView({
       </section>
 
       <Can permission="tv.write">
-        {/* #47i Fix 2 — human OTT copy. "OTT" alone meant nothing to operators:
-            give it a name, one line of what it is, and a legible usage line. */}
+        {/* #47k ① — Suspender / Reactivar TV. The raw OTT checkbox is replaced by
+            semantic actions. Enabled → "Suspender TV" (soft confirm). Disabled →
+            a prominent SUSPENDIDA badge + "Reactivar TV". The pantallas/devices
+            info line stays in both states. */}
         <section className={styles.card}>
           <div className={styles.ottHeader}>
             <div>
               <h4 className={styles.cardTitle}>Streaming (OTT)</h4>
               <p className={styles.cardSubtitle}>La app de TV de Gigared (Gigared Play).</p>
             </div>
-            <label className={styles.switch}>
-              <input
-                type="checkbox"
-                checked={ottEnabled}
+            {ottEnabled ? (
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={handleSuspend}
                 disabled={setOtt.isPending}
-                onChange={(e) => handleToggleOtt(e.target.checked)}
-                aria-label="OTT"
-              />
-              <span className={styles.switchTrack} aria-hidden="true" />
-            </label>
-            {setOtt.isPending && <span className={styles.pending}>Aplicando…</span>}
+              >
+                {setOtt.isPending ? 'Aplicando…' : 'Suspender TV'}
+              </button>
+            ) : (
+              <div className={styles.suspendActions}>
+                <span className={styles.suspendedBadge}>TV suspendida</span>
+                <button
+                  type="button"
+                  className={styles.btnPrimary}
+                  onClick={handleReactivate}
+                  disabled={setOtt.isPending}
+                >
+                  {setOtt.isPending ? 'Aplicando…' : 'Reactivar TV'}
+                </button>
+              </div>
+            )}
           </div>
           {ottError && (
             <div className={`${styles.banner} ${styles.bannerError}`}><span>{ottError}</span></div>
@@ -1047,6 +1122,53 @@ function LinkedView({
               y {plural(account.ott.mobileLicenses, 'móvil', 'móviles')} ·{' '}
               {plural(account.ott.registeredDevices, 'dispositivo registrado', 'dispositivos registrados')}
             </p>
+          )}
+        </section>
+
+        {/* #47k ② — Dar de baja TV. A danger action at the foot of the services
+            area; the strong confirm spells out the consequences. The outcome
+            banner (success / partial) renders here so it sits next to the action. */}
+        <section className={styles.cancelSection}>
+          {cancelResult && !cancelPartial && (
+            <div className={`${styles.banner} ${styles.bannerSuccess}`}>
+              <span>TV dada de baja — cupo liberado.</span>
+            </div>
+          )}
+          {cancelResult && cancelPartial && (
+            <div className={`${styles.banner} ${styles.bannerWarning}`}>
+              <div className={styles.cancelPartial}>
+                <span>
+                  Baja parcial: {plural(cancelResult.removed.length, 'pack quitado', 'packs quitados')},{' '}
+                  {plural(cancelResult.failed.length, 'pack falló', 'packs fallaron')}
+                  {cancelResult.failed[0] ? ` (${cancelResult.failed[0].detail})` : ''}. OTT{' '}
+                  {cancelResult.ottDisabled ? 'apagado' : 'sigue activo'} · ítem local{' '}
+                  {cancelResult.local === 'synced' ? 'desactivado' : 'sin desactivar'}.
+                </span>
+                <button
+                  type="button"
+                  className={styles.btnLink}
+                  onClick={handleRetryCancel}
+                  disabled={cancelTv.isPending}
+                >
+                  {cancelTv.isPending ? 'Reintentando…' : 'Reintentar baja'}
+                </button>
+              </div>
+            </div>
+          )}
+          {cancelError && (
+            <div className={`${styles.banner} ${styles.bannerError}`}><span>{cancelError}</span></div>
+          )}
+          {!cancelResult && (
+            <div className={styles.formActions}>
+              <button
+                type="button"
+                className={styles.btnLinkDanger}
+                onClick={() => setCancelConfirmOpen(true)}
+                disabled={cancelTv.isPending}
+              >
+                Dar de baja TV
+              </button>
+            </div>
           )}
         </section>
       </Can>
@@ -1083,6 +1205,46 @@ function LinkedView({
                 disabled={removeService.isPending}
               >
                 {removeService.isPending ? 'Procesando…' : 'Quitar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* #47k ② — strong confirm for the cancel. Spells out that it frees the
+          partner cupo, shuts streaming and deactivates the local TV item, while
+          the CIC stays linked to the client. */}
+      {cancelConfirmOpen && (
+        <div
+          className={styles.confirmBackdrop}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="tv-cancel-title"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setCancelConfirmOpen(false); }}
+        >
+          <div className={styles.dialog}>
+            <h2 id="tv-cancel-title" className={styles.cardTitle}>Dar de baja TV</h2>
+            <p className={styles.emptyHint}>
+              Quita TODOS los packs (libera el cupo del partner), apaga el streaming
+              y desactiva el ítem TV del contrato. El CIC queda vinculado al cliente.
+              ¿Confirmás la baja?
+            </p>
+            <div className={styles.formActions}>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => setCancelConfirmOpen(false)}
+                disabled={cancelTv.isPending}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className={`${styles.btnPrimary} ${styles.btnDanger}`}
+                onClick={confirmCancel}
+                disabled={cancelTv.isPending}
+              >
+                {cancelTv.isPending ? 'Procesando…' : 'Confirmar baja'}
               </button>
             </div>
           </div>

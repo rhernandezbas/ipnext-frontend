@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
 import { CLIENT_STATUS_LABELS } from '@/pages/customers/clientStatusLabels';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
-import { useGigaredConfig } from '@/hooks/useGigared';
+import { useGigaredConfig, useGigaredCustomerAccount } from '@/hooks/useGigared';
 import type { Contract } from '@/types/customer';
 import { ServiceInventorySection } from '../ServiceInventorySection';
 import { InlineNameEdit } from './InlineNameEdit';
@@ -57,6 +57,23 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
   const { data: gigaredConfig } = useGigaredConfig();
   const gigaredActive = !!gigaredConfig?.configured && !!gigaredConfig?.enabled && canReadTv;
   const [tvPanelOpen, setTvPanelOpen] = useState(false);
+
+  // #47k — the TV chip reflects suspension: when the linked Gigared account has
+  // OTT disabled while it still holds packs, the chip turns amber ("TV
+  // suspendida"). Only queried when Gigared is active (avoids a stray fetch).
+  //
+  // LOW (review) — coherence with the panel: the GigaredPanel treats an OTT
+  // whose status is null (unknown) as SUSPENDED (it shows "Reactivar TV"), so
+  // the chip must agree. We fold `status === null` into the amber condition.
+  // NOTE: this only fires when an OTT object IS present with an explicit null
+  // status — `ott === null` (no OTT account at all) yields `undefined` here, so
+  // it stays the normal "Gestionar TV": there is nothing to reactivate.
+  const { data: gigaredAccount } = useGigaredCustomerAccount(clientId, gigaredActive);
+  const tvAccount = gigaredAccount?.account ?? null;
+  const tvSuspended =
+    !!tvAccount &&
+    (tvAccount.ott?.status === 'disabled' || tvAccount.ott?.status === null) &&
+    tvAccount.services.length > 0;
 
   return (
     <article className={styles.card}>
@@ -113,6 +130,7 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
             clientId={clientId}
             services={contract.services}
             onOpenTvManagement={gigaredActive ? () => setTvPanelOpen(true) : undefined}
+            tvSuspended={tvSuspended}
           />
           {canWrite && (
             <ServicePickerMenu
