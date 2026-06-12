@@ -31,3 +31,14 @@
   text-align: center;
   color: var(--color-text-secondary);
 }
+
+/* #48 (M2) — visible feedback when the unified GUARDAR fails. */
+.saveError {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-danger, #dc2626);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-danger-bg, #fef2f2);
+  color: var(--color-danger, #b91c1c);
+  font-size: 0.875rem;
+}

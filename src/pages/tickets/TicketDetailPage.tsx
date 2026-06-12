@@ -50,15 +50,22 @@ export default function TicketDetailPage() {
   const [draftAssigneeId, setDraftAssigneeId] = useState<string>('');
   const [draftStatus, setDraftStatus] = useState<string>('');
   const [draftPriority, setDraftPriority] = useState<string>('');
+  // #48 (M2) — visible feedback when the unified GUARDAR fails (e.g. the 422
+  // TICKET_STATUS_NOT_FOUND from the contract). Null = no error shown.
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Seed the draft from the loaded ticket (and re-seed if the ticket changes
-  // externally, e.g. after a successful save invalidates the query).
+  // Seed the draft from the loaded ticket. CRITICAL (#48 H1): key the re-seed on
+  // ticket.id too — the :id route does NOT remount on back/forward, so if the
+  // next ticket happens to share this one's assignee/status/priority the effect
+  // would not re-fire and a stale, dirty draft could be GUARDADO over the wrong
+  // ticket. Including ticket.id resets the draft whenever the ticket changes.
   useEffect(() => {
     if (!ticket) return;
     setDraftAssigneeId(ticket.assigneeId ?? '');
     setDraftStatus(ticket.status);
     setDraftPriority(ticket.priority);
-  }, [ticket?.assigneeId, ticket?.status, ticket?.priority]);
+    setSaveError(null);
+  }, [ticket?.id, ticket?.assigneeId, ticket?.status, ticket?.priority]);
 
   const isDirty = !!ticket && (
     draftAssigneeId !== (ticket.assigneeId ?? '') ||
@@ -96,7 +103,16 @@ export default function TicketDetailPage() {
       status: draftStatus,
       priority: draftPriority,
     };
-    await updateTicket.mutateAsync({ id: ticketId, data });
+    // #48 (M2) — surface a visible error instead of leaking an unhandled
+    // rejection. The 422 (TICKET_STATUS_NOT_FOUND) is part of the contract.
+    setSaveError(null);
+    try {
+      await updateTicket.mutateAsync({ id: ticketId, data });
+    } catch (err) {
+      const e = err as { response?: { data?: { error?: string; code?: string } } };
+      const msg = e?.response?.data?.error;
+      setSaveError(msg ?? 'No se pudieron guardar los cambios. Intentalo de nuevo.');
+    }
   }
 
   // #48 — the header StatusSelect now stages into the draft (no immediate save).
@@ -130,6 +146,13 @@ export default function TicketDetailPage() {
         onCreateTask={() => setShowCreateTask(true)}
         isSaving={isSaving}
       />
+
+      {/* #48 (M2) — visible save error (e.g. 422 TICKET_STATUS_NOT_FOUND). */}
+      {saveError && (
+        <div className={styles.saveError} role="alert" aria-live="assertive">
+          {saveError}
+        </div>
+      )}
 
       {/* 8fr / 4fr grid — tabs on the left, sticky details sidebar on the right. */}
       <div className={styles.grid}>

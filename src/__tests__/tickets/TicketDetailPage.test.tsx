@@ -259,6 +259,61 @@ describe('TicketDetailPage (Prominense layout)', () => {
     expect(screen.getByRole('button', { name: /guardar/i })).toBeEnabled();
   });
 
+  // #48 fix-wave (H1) — the draft must be keyed by ticket.id. The :id route does
+  // NOT remount the component on back/forward; if ticket B happens to share A's
+  // assignee/status/priority, the seed effect (keyed only on those values) would
+  // not re-fire and A's STAGED-but-unsaved draft could be GUARDADO over B.
+  it('re-seeds the draft when the ticket id changes even if the field values match', async () => {
+    const user = userEvent.setup();
+
+    const ticketA = { ...mockTicket, id: 'A-1', assigneeId: '5', status: 'open' as const, priority: 'high' as const };
+    // Same assignee/status/priority as A, different id — the dangerous case.
+    const ticketB = { ...mockTicket, id: 'B-2', assigneeId: '5', status: 'open' as const, priority: 'high' as const };
+
+    vi.mocked(useTicketsModule.useTicket).mockReturnValue({ data: ticketA, isLoading: false } as ReturnType<typeof useTicketsModule.useTicket>);
+    const { rerender } = renderPage('A-1');
+
+    // Stage a dirty draft on A (change the status away from 'open').
+    await user.selectOptions(screen.getByRole('combobox', { name: /estado/i }), 'pending');
+    expect(screen.getByRole('button', { name: /guardar/i })).toBeEnabled();
+
+    // Navigate to B WITHOUT remounting: same element, the mock now yields B.
+    vi.mocked(useTicketsModule.useTicket).mockReturnValue({ data: ticketB, isLoading: false } as ReturnType<typeof useTicketsModule.useTicket>);
+    rerender(
+      <QueryClientProvider client={makeQC()}>
+        <MemoryRouter initialEntries={['/admin/tickets/B-2']}>
+          <Routes>
+            <Route path="/admin/tickets/:id" element={<TicketDetailPage />} />
+            <Route path="/admin/tickets/opened" element={<div>Lista de Tickets</div>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    // The draft must have reset to B's values → status select back to 'open',
+    // GUARDAR disabled (isDirty=false). The dirty draft from A must NOT survive.
+    await waitFor(() => {
+      const select = screen.getByRole('combobox', { name: /estado/i }) as HTMLSelectElement;
+      expect(select.value).toBe('open');
+    });
+    expect(screen.getByRole('button', { name: /guardar/i })).toBeDisabled();
+  });
+
+  // #48 fix-wave (M2) — a failed GUARDAR (e.g. 422 TICKET_STATUS_NOT_FOUND, part
+  // of the contract) must surface a visible error, not vanish as an unhandled
+  // rejection.
+  it('shows a visible error when GUARDAR fails', async () => {
+    const user = userEvent.setup();
+    mockMutateAsync.mockRejectedValueOnce({
+      response: { data: { error: 'Status "ghost" is not in the ticket status catalog', code: 'TICKET_STATUS_NOT_FOUND' } },
+    });
+    renderPage();
+    await user.selectOptions(screen.getByRole('combobox', { name: /prioridad/i }), 'low');
+    await user.click(screen.getByRole('button', { name: /guardar/i }));
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/no se pudo|error|catalog/i);
+  });
+
   it('inline subject edit calls updateTicket mutation', async () => {
     const user = userEvent.setup();
     renderPage();
