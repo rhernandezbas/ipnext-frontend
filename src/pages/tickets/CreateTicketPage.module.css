@@ -18,6 +18,8 @@
 .selectError { border-color: var(--color-status-late); }
 .error { font-size: 0.75rem; color: var(--color-status-late); }
 .apiError { color: var(--color-status-late); font-size: 0.875rem; margin: 0; }
+.areaState { display: flex; align-items: center; gap: 0.5rem; }
+.retry { font-size: 0.75rem; color: var(--color-accent); background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline; }
 .suggestions {
   position: absolute;
   top: calc(100% + 2px);

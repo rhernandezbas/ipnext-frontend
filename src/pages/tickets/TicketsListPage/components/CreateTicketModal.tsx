@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
+import { useTicketAreas } from '@/hooks/useTicketAreas';
 import { CustomerPicker } from '@/pages/scheduling/SchedulingTasksPage/components/CustomerPicker';
 import type { CreateTicketData } from '@/types/ticket';
 import styles from './CreateTicketModal.module.css';
@@ -14,10 +15,17 @@ interface FormErrors {
   subject?: string;
   message?: string;
   priority?: string;
+  areaId?: string;
 }
 
 export function CreateTicketModal({ onClose, onCreate, loading }: CreateTicketModalProps) {
   const { data: users = [] } = useRbacUsers();
+  const {
+    data: areas = [],
+    isLoading: areasLoading,
+    isError: areasError,
+    refetch: refetchAreas,
+  } = useTicketAreas();
 
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -25,12 +33,14 @@ export function CreateTicketModal({ onClose, onCreate, loading }: CreateTicketMo
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [assignedTo, setAssignedTo] = useState('');
+  const [areaId, setAreaId] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
 
   function validate(): boolean {
     const errs: FormErrors = {};
     if (!subject.trim()) errs.subject = 'El asunto es requerido.';
     if (!message.trim()) errs.message = 'El mensaje es requerido.';
+    if (!areaId) errs.areaId = 'El area es requerida.';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -47,6 +57,7 @@ export function CreateTicketModal({ onClose, onCreate, loading }: CreateTicketMo
       priority: (priority || 'medium') as CreateTicketData['priority'],
       customerId: customerId,
       assigneeId: assignedTo || undefined,
+      areaId: areaId,
     });
     onClose();
   }
@@ -105,6 +116,41 @@ export function CreateTicketModal({ onClose, onCreate, loading }: CreateTicketMo
               <option value="low">Baja</option>
             </select>
             {errors.priority && <span className={styles.error}>{errors.priority}</span>}
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor="ticket-area" className={styles.label}>Area *</label>
+            {areasError ? (
+              // Catalog failed to load: a blank required select would trap the
+              // user with no explanation. Offer an explicit retry instead.
+              <div className={styles.areaState} role="alert">
+                <span className={styles.error}>No se pudieron cargar las areas.</span>
+                <button
+                  type="button"
+                  className={styles.retry}
+                  onClick={() => { void refetchAreas(); }}
+                >
+                  Reintentar
+                </button>
+              </div>
+            ) : (
+              <select
+                id="ticket-area"
+                className={[styles.select, errors.areaId ? styles.inputError : ''].join(' ')}
+                value={areaId}
+                onChange={e => setAreaId(e.target.value)}
+                disabled={loading || areasLoading}
+                aria-label="Area"
+              >
+                <option value="">
+                  {areasLoading ? 'Cargando areas…' : 'Selecciona un area'}
+                </option>
+                {areas.map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            )}
+            {errors.areaId && <span className={styles.error}>{errors.areaId}</span>}
           </div>
 
           <div className={styles.field}>

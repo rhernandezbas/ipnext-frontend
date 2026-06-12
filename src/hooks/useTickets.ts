@@ -77,12 +77,14 @@ export function useAssignTicket() {
 // (plus subject/description) in one request. `description` is the real BE field
 // (the legacy `message` never existed in the payload). The BE validates `status`
 // against the catalog (422 if unknown).
+// #49 — areaId added: string to set, null to clear.
 export interface UpdateTicketData {
   subject?: string;
   description?: string;
   priority?: string;
   assigneeId?: string | null;
   status?: string;
+  areaId?: string | null;
 }
 
 export function useUpdateTicket() {

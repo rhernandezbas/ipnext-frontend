@@ -96,6 +96,7 @@ export default function TicketsListPage({ statusFilter }: Props) {
     assignedTo: filter.assignedTo || undefined, // #25
     from: filter.from || undefined,
     to: filter.to || undefined,
+    areaId: filter.areaId || undefined, // #49
   });
 
   const totalPages = data ? Math.ceil(data.total / 25) : 1;
@@ -112,7 +113,7 @@ export default function TicketsListPage({ statusFilter }: Props) {
 
   // Active-filter detection drives the differentiated empty state. The status
   // chip is excluded on the Archive page (it's locked, not a user choice).
-  const filterKeys = ['priority', 'assignedTo', 'q', 'customerId', 'from', 'to'] as const;
+  const filterKeys = ['priority', 'assignedTo', 'q', 'customerId', 'from', 'to', 'areaId'] as const;
   const hasActiveFilters =
     (!statusFilter && !!filter.status) ||
     filterKeys.some(k => filter[k] != null && filter[k] !== '');
@@ -123,6 +124,7 @@ export default function TicketsListPage({ statusFilter }: Props) {
       ...(statusFilter ? {} : { status: undefined }),
       priority: undefined, assignedTo: undefined, q: undefined,
       customerId: undefined, from: undefined, to: undefined,
+      areaId: undefined,
     });
   }
 

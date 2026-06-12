@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { Ticket } from '@/types/ticket';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
+import { useTicketAreas } from '@/hooks/useTicketAreas';
 import styles from './TicketSidebar.module.css';
 
 interface RbacUserLite {
@@ -14,8 +15,12 @@ interface TicketSidebarProps {
   /** #48 — controlled draft values owned by the page (unified save). */
   draftAssigneeId: string;
   draftPriority: string;
+  /** #49 — draft area id (string to set, '' to clear). */
+  draftAreaId: string;
   onAssigneeChange: (assigneeId: string) => void;
   onPriorityChange: (priority: string) => void;
+  /** #49 — fires when the area select changes. */
+  onAreaChange: (areaId: string) => void;
   /** #48 — persists assignee + status + priority in one PATCH. */
   onSaveDetails: () => void;
   isDirty: boolean;
@@ -51,14 +56,17 @@ export function TicketSidebar({
   users,
   draftAssigneeId,
   draftPriority,
+  draftAreaId,
   onAssigneeChange,
   onPriorityChange,
+  onAreaChange,
   onSaveDetails,
   isDirty,
   isSaving,
 }: TicketSidebarProps) {
   const { can } = useMyPermissions();
   const canWrite = can(['tickets.write'], 'any');
+  const { data: areas = [] } = useTicketAreas();
 
   return (
     <aside className={styles.sidebar}>
@@ -119,7 +127,22 @@ export function TicketSidebar({
           </select>
         </div>
 
-        {/* #49 (futuro): el campo "Área" va acá, sumándose al draft + GUARDAR. */}
+        {/* #49 — Area: edita el draft junto con asignado + prioridad; el GUARDAR lo persiste. */}
+        <div className={styles.sideRow}>
+          <span className={styles.sideLabel}>Area</span>
+          <select
+            value={draftAreaId}
+            onChange={(e) => onAreaChange(e.target.value)}
+            disabled={!canWrite || isSaving}
+            aria-label="Area"
+            className={styles.sideSelect}
+          >
+            <option value="">Sin area</option>
+            {areas.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        </div>
 
         <div className={styles.sideRow}>
           <span className={styles.sideLabel}>Creado</span>

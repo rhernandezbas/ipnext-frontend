@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, type ReactNode } from 'react';
 import { useTicketStatuses } from '@/hooks/useTicketStatuses';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
+import { useTicketAreas } from '@/hooks/useTicketAreas';
 import type { TicketFilter } from '../hooks/useTicketsFilterUrl';
 import styles from './TicketFilterBar.module.css';
 
@@ -25,6 +26,7 @@ interface TicketFilterBarProps {
 export function TicketFilterBar({ filter, onFilterChange, variant = 'horizontal', showChips = true }: TicketFilterBarProps) {
   const { data: statuses = [] } = useTicketStatuses();
   const { data: allUsers = [] } = useRbacUsers();
+  const { data: areas = [] } = useTicketAreas();
 
   // Debounced search input
   const [qInput, setQInput] = useState(filter.q ?? '');
@@ -106,6 +108,21 @@ export function TicketFilterBar({ filter, onFilterChange, variant = 'horizontal'
           </select>
         )}
 
+        {/* Area — catalog-driven (#49, lesson #27: NEVER hardcode area values) */}
+        {field('Area',
+          <select
+            value={filter.areaId ?? ''}
+            onChange={e => onFilterChange({ areaId: e.target.value || undefined })}
+            className={styles.select}
+            aria-label="Area"
+          >
+            <option value="">Cualquier area</option>
+            {areas.map(a => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        )}
+
         {/* Búsqueda */}
         {field('Búsqueda',
           <input
@@ -144,7 +161,7 @@ export function TicketFilterBar({ filter, onFilterChange, variant = 'horizontal'
       </div>
 
       {showChips && (
-        <ActiveFilterChips filter={filter} statuses={statuses} users={allUsers} onFilterChange={onFilterChange} />
+        <ActiveFilterChips filter={filter} statuses={statuses} users={allUsers} areas={areas} onFilterChange={onFilterChange} />
       )}
     </div>
   );
@@ -152,7 +169,7 @@ export function TicketFilterBar({ filter, onFilterChange, variant = 'horizontal'
 
 /** Count of filter keys currently set — drives the disclosure's badge (#46). */
 export function countActiveFilters(filter: TicketFilter): number {
-  return (['status', 'priority', 'assignedTo', 'q', 'customerId', 'from', 'to'] as const)
+  return (['status', 'priority', 'assignedTo', 'q', 'customerId', 'from', 'to', 'areaId'] as const)
     .filter(k => filter[k] != null && filter[k] !== '').length;
 }
 
@@ -160,10 +177,11 @@ interface ActiveFilterChipsProps {
   filter: TicketFilter;
   statuses: Array<{ id: string; name: string }>;
   users: Array<{ id: string; name: string }>;
+  areas: Array<{ id: string; name: string }>;
   onFilterChange: (patch: Partial<TicketFilter>) => void;
 }
 
-export function ActiveFilterChips({ filter, statuses, users, onFilterChange }: ActiveFilterChipsProps) {
+export function ActiveFilterChips({ filter, statuses, users, areas, onFilterChange }: ActiveFilterChipsProps) {
   const chips: Array<{ label: string; onRemove: () => void }> = [];
 
   if (filter.status) {
@@ -186,6 +204,10 @@ export function ActiveFilterChips({ filter, statuses, users, onFilterChange }: A
   }
   if (filter.customerId) {
     chips.push({ label: `Cliente: #${filter.customerId}`, onRemove: () => onFilterChange({ customerId: undefined }) });
+  }
+  if (filter.areaId) {
+    const areaName = areas.find(a => a.id === filter.areaId)?.name ?? filter.areaId;
+    chips.push({ label: `Area: ${areaName}`, onRemove: () => onFilterChange({ areaId: undefined }) });
   }
   if (filter.from) {
     chips.push({ label: `Desde: ${filter.from}`, onRemove: () => onFilterChange({ from: undefined }) });
@@ -223,6 +245,7 @@ export function ActiveFilterChips({ filter, statuses, users, onFilterChange }: A
             customerId: undefined,
             from: undefined,
             to: undefined,
+            areaId: undefined,
           })}
           aria-label="Limpiar filtros"
         >

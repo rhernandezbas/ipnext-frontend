@@ -39,6 +39,9 @@ export interface Ticket {
   reporterName: string | null;
   /** @deprecated #48 — usar reporterName. Conservado por compat hasta confirmar consumidores. */
   reporter: string | null;
+  // #49 — area de soporte del ticket.
+  areaId: string | null;
+  areaName: string | null;
   /** ScheduledTasks created from this ticket (#44 — enriched GET /tickets/:id). */
   tasks?: RelatedTask[];
   createdAt: string;
@@ -61,11 +64,13 @@ export interface TicketStats {
 
 // #28 follow-up — wire shape of POST /tickets: the BE requires `description`
 // (400 without it) and reads `assigneeId` (RbacUser id string).
+// #49 — areaId is REQUIRED per the BE contract (422 TICKET_AREA_REQUIRED if missing).
 export interface CreateTicketData {
   subject: string;
   description: string;
   priority: TicketPriority;
   customerId: string | null;
   assigneeId?: string;
+  areaId: string;
   tags?: string[];
 }

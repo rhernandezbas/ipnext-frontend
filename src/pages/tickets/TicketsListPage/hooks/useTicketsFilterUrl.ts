@@ -15,6 +15,8 @@ export interface TicketFilter {
   customerId?: string;
   from?: string;
   to?: string;
+  // #49 — area filter
+  areaId?: string;
 }
 
 export interface TicketsFilterUrlResult {
@@ -34,6 +36,7 @@ export function useTicketsFilterUrl(): TicketsFilterUrlResult {
     customerId: searchParams.get('customerId') ?? undefined,
     from:       searchParams.get('from')       ?? undefined,
     to:         searchParams.get('to')         ?? undefined,
+    areaId:     searchParams.get('areaId')     ?? undefined,
   };
 
   const setFilter = useCallback(
@@ -51,6 +54,7 @@ export function useTicketsFilterUrl(): TicketsFilterUrlResult {
             customerId: 'customerId' in patch ? patch.customerId : (prev.get('customerId') ?? undefined),
             from:       'from'       in patch ? patch.from       : (prev.get('from')       ?? undefined),
             to:         'to'         in patch ? patch.to         : (prev.get('to')         ?? undefined),
+            areaId:     'areaId'     in patch ? patch.areaId     : (prev.get('areaId')     ?? undefined),
           };
 
           if (merged.status)     next.set('status',     merged.status);
@@ -60,6 +64,7 @@ export function useTicketsFilterUrl(): TicketsFilterUrlResult {
           if (merged.customerId) next.set('customerId', merged.customerId);
           if (merged.from)       next.set('from',       merged.from);
           if (merged.to)         next.set('to',         merged.to);
+          if (merged.areaId)     next.set('areaId',     merged.areaId);
 
           return next;
         },

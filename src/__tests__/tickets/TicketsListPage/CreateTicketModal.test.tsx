@@ -20,7 +20,10 @@ vi.mock('@/pages/scheduling/SchedulingTasksPage/components/CustomerPicker', () =
 }));
 
 vi.mock('@/hooks/useRbacUsers');
+vi.mock('@/hooks/useTicketAreas');
+
 import * as useRbacUsersModule from '@/hooks/useRbacUsers';
+import * as useTicketAreasModule from '@/hooks/useTicketAreas';
 
 const mockUsers = [
   { id: 'u1', name: 'Ana García', roles: [] },
@@ -56,6 +59,10 @@ describe('CreateTicketModal', () => {
       data: mockUsers,
       isLoading: false,
     } as ReturnType<typeof useRbacUsersModule.useRbacUsers>);
+    vi.mocked(useTicketAreasModule.useTicketAreas).mockReturnValue({
+      data: [{ id: 'area-1', name: 'Soporte' }, { id: 'area-2', name: 'Facturacion' }],
+      isLoading: false,
+    } as ReturnType<typeof useTicketAreasModule.useTicketAreas>);
   });
 
   it('renders form with required fields', () => {
@@ -104,11 +111,13 @@ describe('CreateTicketModal', () => {
 
   // #28 follow-up: the payload must match the BE wire shape — `description`
   // (the BE 400s without it; `message` was the legacy mock field).
+  // #49: areaId is now required — validate and include in payload.
   it('calls onCreate with the BE wire shape when form is filled', async () => {
     const { onCreate } = renderModal({});
     fireEvent.input(screen.getByLabelText(/asunto/i), { target: { value: 'Falla de red' } });
     fireEvent.input(screen.getByLabelText(/mensaje/i), { target: { value: 'Sin internet desde ayer' } });
     fireEvent.change(screen.getByRole('combobox', { name: /prioridad/i }), { target: { value: 'high' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /area/i }), { target: { value: 'area-1' } });
     fireEvent.click(screen.getByRole('button', { name: /crear/i }));
     await waitFor(() => {
       expect(onCreate).toHaveBeenCalledWith(
@@ -116,9 +125,29 @@ describe('CreateTicketModal', () => {
           subject: 'Falla de red',
           description: 'Sin internet desde ayer',
           priority: 'high',
+          areaId: 'area-1',
         })
       );
     });
+  });
+
+  // #49 — area is required
+  it('shows area validation error when area is not selected', async () => {
+    renderModal({});
+    fireEvent.input(screen.getByLabelText(/asunto/i), { target: { value: 'Test' } });
+    fireEvent.input(screen.getByLabelText(/mensaje/i), { target: { value: 'Descripcion' } });
+    fireEvent.click(screen.getByRole('button', { name: /crear/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/area.*requerida/i)).toBeInTheDocument();
+    });
+  });
+
+  // #49 — area select is populated from catalog (lesson #27: no hardcoded list)
+  it('renders Area select populated from catalog (useTicketAreas)', () => {
+    renderModal({});
+    expect(screen.getByRole('combobox', { name: /area/i })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Soporte' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Facturacion' })).toBeInTheDocument();
   });
 
   it('shows loading state on submit button when loading=true', () => {
@@ -136,5 +165,38 @@ describe('CreateTicketModal', () => {
     renderModal({});
     expect(screen.getByRole('combobox', { name: /asignado/i })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Ana García' })).toBeInTheDocument();
+  });
+
+  // #49 fix wave — the area catalog is async; surface loading/error so a slow or
+  // failing catalog never leaves the user stuck on an empty required select.
+  describe('area catalog states (#49 fix wave)', () => {
+    it('shows a loading placeholder and disables the select while areas load', () => {
+      vi.mocked(useTicketAreasModule.useTicketAreas).mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        isError: false,
+        refetch: vi.fn(),
+      } as unknown as ReturnType<typeof useTicketAreasModule.useTicketAreas>);
+      renderModal({});
+      const select = screen.getByRole('combobox', { name: /area/i });
+      expect(select).toBeDisabled();
+      expect(screen.getByRole('option', { name: /cargando areas/i })).toBeInTheDocument();
+    });
+
+    it('shows an error message + Reintentar that calls refetch when the catalog fails', () => {
+      const refetch = vi.fn();
+      vi.mocked(useTicketAreasModule.useTicketAreas).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        refetch,
+      } as unknown as ReturnType<typeof useTicketAreasModule.useTicketAreas>);
+      renderModal({});
+      // No select rendered in the error state — the retry path replaces it.
+      expect(screen.queryByRole('combobox', { name: /area/i })).not.toBeInTheDocument();
+      expect(screen.getByText(/no se pudieron cargar las areas/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /reintentar/i }));
+      expect(refetch).toHaveBeenCalledTimes(1);
+    });
   });
 });

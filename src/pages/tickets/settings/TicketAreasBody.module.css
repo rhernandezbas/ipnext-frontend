@@ -1,0 +1,30 @@
+.toolbar { display: flex; justify-content: flex-end; }
+
+.card { background: var(--color-surface, #fff); border: 1px solid var(--color-border, #e2e8f0); border-radius: 12px; overflow: hidden; }
+.empty { padding: 24px; color: #64748b; text-align: center; margin: 0; }
+
+.table { width: 100%; border-collapse: collapse; }
+.table th { text-align: left; font-size: 12px; color: #64748b; font-weight: 600; padding: 10px 16px; border-bottom: 1px solid #e2e8f0; }
+.table td { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #0f172a; }
+.table tr:last-child td { border-bottom: none; }
+.actions { text-align: right; white-space: nowrap; }
+
+.linkBtn, .linkDanger { border: none; background: none; cursor: pointer; font-size: 13px; padding: 4px 8px; border-radius: 6px; }
+.linkBtn { color: var(--color-accent, #6366f1); }
+.linkBtn:hover { background: #eef2ff; }
+.linkDanger { color: #dc2626; }
+.linkDanger:hover { background: #fef2f2; }
+
+.btnPrimary { padding: 0.55rem 1.1rem; border: none; background: #6366f1; color: #fff; border-radius: 8px; font-size: 0.88rem; font-weight: 500; cursor: pointer; }
+.btnPrimary:hover:not(:disabled) { background: #4f46e5; }
+.btnPrimary:disabled { opacity: 0.6; cursor: not-allowed; }
+.btnSecondary { padding: 0.55rem 1rem; border: 1px solid #cbd5e1; background: #fff; color: #334155; border-radius: 8px; font-size: 0.88rem; cursor: pointer; }
+
+.overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.55); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
+.modal { background: #fff; border-radius: 12px; width: 100%; max-width: 440px; padding: 1.5rem; display: flex; flex-direction: column; gap: 0.9rem; box-shadow: 0 20px 50px rgba(0,0,0,0.25); }
+.modalTitle { margin: 0; font-size: 1.15rem; font-weight: 600; color: #0f172a; }
+.label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.82rem; font-weight: 500; color: #334155; }
+.input { padding: 0.55rem 0.7rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; color: #0f172a; font-family: inherit; outline: none; }
+.input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+.modalActions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 0.4rem; }
+.error { margin: 0; padding: 0.5rem 0.7rem; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #b91c1c; font-size: 0.82rem; }

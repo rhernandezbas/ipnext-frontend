@@ -18,6 +18,9 @@ vi.mock('@/hooks/useMyPermissions');
 vi.mock('@/hooks/useRbacUsers');
 vi.mock('@/hooks/useAuth');
 vi.mock('@/hooks/useTicketComments');
+vi.mock('@/hooks/useTicketAreas', () => ({
+  useTicketAreas: () => ({ data: [{ id: 'area-1', name: 'Soporte' }] }),
+}));
 // The "Crear tarea" path mounts CreateTaskModal lazily; stub the data hooks it
 // (and the page) rely on so the detail page renders without real network.
 const useProjectsMock = vi.fn(() => ({ data: [] as unknown[] }));
@@ -45,6 +48,9 @@ const mockTicket: Ticket = {
   reporterId: '7',
   reporterName: 'María Creadora',
   reporter: null,
+  // #49 — area fields (null = no area assigned yet)
+  areaId: null,
+  areaName: null,
   tasks: [],
   createdAt: '2024-01-15T10:00:00Z',
   updatedAt: '2024-01-15T10:00:00Z',
@@ -206,10 +212,13 @@ describe('TicketDetailPage (Prominense layout)', () => {
 
   it('renders the assignment select with Sin asignar + RBAC users', () => {
     renderPage();
-    const select = screen.getByRole('combobox', { name: /asignar a/i });
-    expect(select).toBeInTheDocument();
+    const assigneeSelect = screen.getByRole('combobox', { name: /asignar a/i });
+    expect(assigneeSelect).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Sin asignar' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Soporte' })).toBeInTheDocument();
+    // Verify the users appear in the assignment select specifically
+    const options = Array.from(assigneeSelect.querySelectorAll('option'));
+    expect(options.some(o => o.textContent === 'Juan Técnico' && o.value === '5')).toBe(true);
+    expect(options.some(o => o.textContent === 'Soporte' && o.value === '6')).toBe(true);
   });
 
   // #28 follow-up: the select must bind the BE's `assigneeId` (string RbacUser
@@ -230,8 +239,8 @@ describe('TicketDetailPage (Prominense layout)', () => {
     expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
-  // #48 — the unified GUARDAR persists assignee + status + priority in ONE
-  // updateTicket call (PATCH /tickets/:id).
+  // #48/#49 — the unified GUARDAR persists assignee + status + priority + areaId
+  // in ONE updateTicket call (PATCH /tickets/:id).
   it('GUARDAR persists assignee + status + priority in a single updateTicket call', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -242,7 +251,7 @@ describe('TicketDetailPage (Prominense layout)', () => {
     await waitFor(() =>
       expect(mockMutateAsync).toHaveBeenCalledWith({
         id: 'abc-123',
-        data: { assigneeId: '6', status: 'pending', priority: 'low' },
+        data: { assigneeId: '6', status: 'pending', priority: 'low', areaId: null },
       }),
     );
   });

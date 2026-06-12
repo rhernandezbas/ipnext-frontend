@@ -24,6 +24,7 @@ export interface TicketsQuery {
   assignedTo?: string;   // #25 — filtra por asignado (el BE lo mapea a assigneeId)
   from?: string;         // #25 — createdAt >=
   to?: string;           // #25 — createdAt <=
+  areaId?: string;       // #49 — filtra por area
 }
 
 export interface CreateTicketInput {
@@ -32,6 +33,7 @@ export interface CreateTicketInput {
   priority: 'alta' | 'media' | 'baja';
   description: string;
   assignedTo?: string;
+  areaId: string;
 }
 
 export async function getTickets(
@@ -73,12 +75,15 @@ export async function createTicket(data: CreateTicketData | CreateTicketInput): 
   // #28 follow-up — the BE body is { description, assigneeId }: `message` got a 400
   // (missing description) and `Number(assignedTo)` was NaN for RbacUser uuid ids.
   if ('clientId' in data) {
-    const payload: CreateTicketData = {
+    // CreateTicketInput path (CreateTicketPage standalone form).
+    // areaId is now required by the BE (#49 — 422 TICKET_AREA_REQUIRED if absent).
+    const payload = {
       subject: data.subject,
       description: data.description,
       priority: (data.priority === 'alta' ? 'high' : data.priority === 'media' ? 'medium' : 'low') as CreateTicketData['priority'],
       customerId: data.clientId,
       assigneeId: data.assignedTo || undefined,
+      areaId: data.areaId,
     };
     const response = await axiosClient.post<Ticket>('/tickets', payload);
     return response.data;
