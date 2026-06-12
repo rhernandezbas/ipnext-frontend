@@ -1,14 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useGigaredSummary, useGigaredAccounts } from '@/hooks/useGigared';
+import { useGigaredSummary, useGigaredAllAccounts, MAX_FETCHED_ACCOUNTS } from '@/hooks/useGigared';
 import { GigaredNotConfigured } from '@/components/molecules/GigaredNotConfigured/GigaredNotConfigured';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
-import type { GigaredAccount, GigaredAccountStatus, ListAccountsFilter } from '@/types/gigared';
+import type { GigaredAccount, GigaredAccountStatus } from '@/types/gigared';
 import styles from './GigaredAccountsPage.module.css';
 
-// The partner API caps pagination_limit at 20 — verified live 2026-06-11
-// (>20 returns 400 "La paginación tiene un límite de 20 cuentas").
+// #61 — client-side pagination over the fetched list.
+// PAGE_SIZE matches the partner cap (20) so each page slice feels natural.
+//
+// #61 fix wave — NOTE: the list is NOT guaranteed to be the full catalogue. The
+// fetch loop in useGigaredAllAccounts stops at MAX_FETCHED_ACCOUNTS (200) per
+// status, so with more accounts the client-side filter searches a SUBSET. We
+// surface that honestly via a cap notice instead of claiming a "fully-fetched"
+// list. Server-side LIKE is the real fix when counts grow past the cap.
 const PAGE_SIZE = 20;
 
 /** Read the BE error `code` from a query error, if present. */
@@ -68,47 +74,89 @@ const COLUMNS = [
 ];
 
 export default function GigaredAccountsPage() {
-  const [emailInput, setEmailInput] = useState('');
-  const [email, setEmail] = useState('');
-  const [accountIdInput, setAccountIdInput] = useState('');
-  const [accountId, setAccountId] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
   const [status, setStatus] = useState<GigaredAccountStatus | ''>('');
   const [page, setPage] = useState(1);
 
-  // Debounce the email filter (400ms) so we don't fire a query per keystroke.
+  // #61 — debounce the search (~300ms) so we don't re-filter on every keystroke.
   useEffect(() => {
     const t = setTimeout(() => {
-      setEmail(emailInput);
+      setSearch(searchInput);
       setPage(1);
-    }, 400);
+    }, 300);
     return () => clearTimeout(t);
-  }, [emailInput]);
+  }, [searchInput]);
 
-  // Debounce the CIC / internal-id filter → maps to `account_id` on the wire.
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setAccountId(accountIdInput);
-      setPage(1);
-    }, 400);
-    return () => clearTimeout(t);
-  }, [accountIdInput]);
+  // #61 — "all status" decision: useGigaredAllAccounts requires a non-empty
+  // GigaredAccountStatus. When status='' (Todos), we call the hook for BOTH
+  // 'registered' and 'unregistered' and merge. This preserves the existing
+  // "all" behavior with no new endpoint and no regressions.
+  const registeredQuery = useGigaredAllAccounts('registered', status === '' || status === 'registered');
+  const unregisteredQuery = useGigaredAllAccounts('unregistered', status === '' || status === 'unregistered');
 
-  const filters: ListAccountsFilter = useMemo(
-    () => ({
-      ...(email ? { email } : {}),
-      ...(accountId ? { accountId } : {}),
-      ...(status ? { status } : {}),
-      paginationLimit: PAGE_SIZE,
-      paginationOffset: (page - 1) * PAGE_SIZE,
-    }),
-    [email, accountId, status, page],
-  );
+  // Pick the right query depending on selected status
+  const activeQuery = status === 'registered'
+    ? registeredQuery
+    : status === 'unregistered'
+      ? unregisteredQuery
+      : registeredQuery; // used to read error/loading when "all"
+
+  const isLoading =
+    status === '' ? (registeredQuery.isLoading || unregisteredQuery.isLoading) : activeQuery.isLoading;
+  const isError =
+    status === '' ? (registeredQuery.isError || unregisteredQuery.isError) : activeQuery.isError;
+  const queryError =
+    status === '' ? (registeredQuery.error ?? unregisteredQuery.error) : activeQuery.error;
+
+  const allAccounts: GigaredAccount[] = useMemo(() => {
+    if (status === 'registered') return registeredQuery.data ?? [];
+    if (status === 'unregistered') return unregisteredQuery.data ?? [];
+    // "all" — merge both lists; deduplicate by cic just in case
+    const reg = registeredQuery.data ?? [];
+    const unreg = unregisteredQuery.data ?? [];
+    const seen = new Set<string>();
+    const merged: GigaredAccount[] = [];
+    for (const a of [...reg, ...unreg]) {
+      if (!seen.has(a.cic)) {
+        seen.add(a.cic);
+        merged.push(a);
+      }
+    }
+    return merged;
+  }, [status, registeredQuery.data, unregisteredQuery.data]);
+
+  // #61 fix wave — the fetch loop caps at MAX_FETCHED_ACCOUNTS per status. If any
+  // active query returned exactly that many rows it was probably truncated, so the
+  // filter is running over a subset. Warn honestly. (Edge: a partner with exactly
+  // 200 shows the notice harmlessly — better a false positive than a silent subset.)
+  const capHit =
+    (registeredQuery.data?.length ?? 0) >= MAX_FETCHED_ACCOUNTS ||
+    (unregisteredQuery.data?.length ?? 0) >= MAX_FETCHED_ACCOUNTS;
+
+  // #61 — client-side filter: case-insensitive substring over name, CIC, email.
+  const filteredAccounts = useMemo(() => {
+    // #61 fix wave — trim so a copy-pasted CIC with stray spaces ("2354 ") still
+    // matches; an all-whitespace term collapses to empty and shows everything.
+    const term = search.trim().toLowerCase();
+    if (!term) return allAccounts;
+    return allAccounts.filter((a) => {
+      const name = `${a.firstName ?? ''} ${a.lastName ?? ''}`.trim().toLowerCase();
+      const cic = a.cic.toLowerCase();
+      const email = (a.email ?? '').toLowerCase();
+      return name.includes(term) || cic.includes(term) || email.includes(term);
+    });
+  }, [allAccounts, search]);
+
+  // #61 — client-side pagination over the filtered list. Real totalPages always.
+  const totalPages = Math.max(1, Math.ceil(filteredAccounts.length / PAGE_SIZE));
+  const pageStart = (page - 1) * PAGE_SIZE;
+  const pageAccounts = filteredAccounts.slice(pageStart, pageStart + PAGE_SIZE);
+
+  const code = isError ? errorCode(queryError) : null;
+  const detail = isError ? errorDetail(queryError) : null;
 
   const summaryQuery = useGigaredSummary();
-  const accountsQuery = useGigaredAccounts(filters);
-
-  const code = accountsQuery.isError ? errorCode(accountsQuery.error) : null;
-  const detail = accountsQuery.isError ? errorDetail(accountsQuery.error) : null;
 
   if (code === 'GIGARED_NOT_CONFIGURED') {
     return (
@@ -119,30 +167,7 @@ export default function GigaredAccountsPage() {
     );
   }
 
-  const accounts = accountsQuery.data?.accounts ?? [];
-  const rows: Row[] = accounts.map((a) => ({ ...a, id: a.cic }));
-
-  // Bug #47g-1 — REAL totalPages from the summary the page already has. The
-  // partner list endpoint gives no total, but the summary does. Without a free
-  // -text filter the count maps cleanly: status=registered → registered,
-  // status=unregistered → unregistered, no status → total. An email/account_id
-  // filter narrows the set in a way the summary can't predict, so there we fall
-  // back to the hasNext heuristic (a full page implies one more page).
-  const hasTextFilter = !!email || !!accountId;
-  const summaryCount = summaryQuery.data
-    ? status === 'registered'
-      ? summaryQuery.data.accounts.registered
-      : status === 'unregistered'
-        ? summaryQuery.data.accounts.unregistered
-        : summaryQuery.data.accounts.total
-    : null;
-  const hasNext = accounts.length === PAGE_SIZE;
-  const totalPages =
-    !hasTextFilter && summaryCount !== null
-      ? Math.max(1, Math.ceil(summaryCount / PAGE_SIZE))
-      : hasNext
-        ? page + 1
-        : page;
+  const rows: Row[] = pageAccounts.map((a) => ({ ...a, id: a.cic }));
 
   return (
     <div className={styles.page}>
@@ -153,17 +178,10 @@ export default function GigaredAccountsPage() {
       <div className={styles.filters}>
         <input
           className={styles.input}
-          placeholder="Filtrar por email…"
-          value={emailInput}
-          onChange={(e) => setEmailInput(e.target.value)}
-          aria-label="Filtrar por email"
-        />
-        <input
-          className={styles.input}
-          placeholder="CIC o ID interno…"
-          value={accountIdInput}
-          onChange={(e) => setAccountIdInput(e.target.value)}
-          aria-label="CIC o ID interno"
+          placeholder="Buscar por nombre, CIC o email…"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          aria-label="Buscar por nombre, CIC o email"
         />
         <select
           className={styles.select}
@@ -183,16 +201,31 @@ export default function GigaredAccountsPage() {
       {code === 'GIGARED_UNAVAILABLE' ? (
         <div className={`${styles.banner} ${styles.bannerError}`}>
           <span>{detail ?? 'Gigared no responde en este momento.'}</span>
-          <button type="button" className={styles.btnLink} onClick={() => accountsQuery.refetch()}>
+          <button
+            type="button"
+            className={styles.btnLink}
+            onClick={() => {
+              // #61 fix wave — only refetch the queries that are actually enabled
+              // for the current status; refetching a disabled query is wasted work.
+              if (status === '' || status === 'registered') registeredQuery.refetch();
+              if (status === '' || status === 'unregistered') unregisteredQuery.refetch();
+            }}
+          >
             Reintentar
           </button>
         </div>
       ) : (
         <>
+          {capHit && (
+            <div className={`${styles.banner} ${styles.bannerNotice}`}>
+              Mostrando las primeras {MAX_FETCHED_ACCOUNTS} cuentas. El buscador
+              filtra sobre ese subconjunto.
+            </div>
+          )}
           <DataTable
             columns={COLUMNS}
             data={rows}
-            loading={accountsQuery.isLoading}
+            loading={isLoading}
             emptyMessage="Sin cuentas para el filtro."
           />
           <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
