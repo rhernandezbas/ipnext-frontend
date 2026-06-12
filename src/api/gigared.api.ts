@@ -105,11 +105,16 @@ export const gigaredApi = {
 
   // #47k — dar de baja TV: removes all packs (frees the cupo), disables OTT and
   // inactivates the local TV item. 200 = full / 207 = partial (same body shape).
-  async cancelTv(customerId: string, body: CancelTvPayload): Promise<CancelTvResult> {
+  // Returns { status, data } so the caller can branch on HTTP status (M2: 207 =
+  // partial regardless of which fields succeeded).
+  async cancelTv(
+    customerId: string,
+    body: CancelTvPayload,
+  ): Promise<{ status: number; data: CancelTvResult }> {
     const r = await axiosClient.post<CancelTvResult>(
       `${BASE}/customers/${customerId}/cancel`,
       body,
     );
-    return r.data;
+    return { status: r.status, data: r.data };
   },
 };

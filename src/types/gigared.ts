@@ -157,16 +157,26 @@ export interface CancelTvPayload {
 }
 
 /**
- * #47k — cancel response (FROZEN wire contract). The BE removes ALL packs (frees
- * the partner cupo), disables OTT and inactivates the local 'TV' item. 200 = all
- * OK; 207 = partial. `removed` lists the pack ids that came off; `failed` carries
- * the ones that did not, each with a partner `detail`. `ottDisabled` / `local`
- * report the OTT and local-item steps. The cancel is idempotent: a re-POST only
- * processes whatever is still pending, so the "Reintentar baja" retry is safe.
+ * #47k / #64 — cancel response (FROZEN wire contract). The BE removes ALL packs (frees
+ * the partner cupo), disables OTT, inactivates the local 'TV' item, RENUEVA el CIC y
+ * desvincula el internal_id del nuevo CIC para que el cliente quede "como si no tuviera
+ * TV". 200 = all OK; 207 = partial. `removed` lists the pack ids that came off; `failed`
+ * carries the ones that did not, each with a partner `detail`. `ottDisabled` / `local`
+ * report the OTT and local-item steps. `renew` is { oldCic, newCic } when the CIC renew
+ * succeeded (null si falló); `unlinked` indica si se limpió el vínculo en el partner. La
+ * baja es idempotente: un re-POST sólo procesa lo pendiente, así el "Reintentar baja" es seguro.
  */
 export interface CancelTvResult {
   removed: string[];
   failed: { id: string; detail: string }[];
   ottDisabled: boolean;
   local: 'synced' | 'failed';
+  renew: { oldCic: string; newCic: string } | null;
+  unlinked: boolean;
+  /**
+   * #64 — true si había algo que renovar (servicios o OTT habilitado al inicio de la corrida).
+   * El BE lo manda siempre; el FE aún no lo usa en la UI (el 207 ya guía el "Reintentar baja"),
+   * pero el tipo lo refleja para no descartar info del contrato de cable.
+   */
+  renewAttempted: boolean;
 }
