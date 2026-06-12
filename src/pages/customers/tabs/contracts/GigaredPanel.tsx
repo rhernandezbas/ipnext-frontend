@@ -913,13 +913,17 @@ function LinkedView({
     await doCancel();
   }
 
-  // The cancel partial banner fires whenever any step did not complete: a pack
-  // failed, OTT stayed on, or the local item did not inactivate.
+  // The cancel partial state fires whenever any step did not complete: a pack
+  // failed, OTT stayed on, the local item did not inactivate, the CIC renew failed
+  // (#64) or the partner did not unlink the internal_id (#64 — el cliente seguiría
+  // apareciendo con TV).
   const cancelPartial =
     cancelResult !== null &&
     (cancelResult.failed.length > 0 ||
       !cancelResult.ottDisabled ||
-      cancelResult.local === 'failed');
+      cancelResult.local === 'failed' ||
+      cancelResult.renew === null ||
+      !cancelResult.unlinked);
 
   async function doRemove(svcId: string) {
     const result: RemoveTvServiceResult = await removeService.mutateAsync({ serviceId: svcId, contractId });
@@ -1130,36 +1134,11 @@ function LinkedView({
       </Can>
 
       <Can permission="tv.cancel">
-        {/* #47k ② — Dar de baja TV. A danger action at the foot of the services
-            area; the strong confirm spells out the consequences. The outcome
-            banner (success / partial) renders here so it sits next to the action. */}
+        {/* #47k ② / #64 — Dar de baja TV. A danger action at the foot of the services
+            area; the strong confirm spells out the consequences. El RESULTADO (éxito o
+            parcial) se muestra en un MODAL (ver más abajo), no en un banner inline,
+            porque la baja en Gigared es asíncrona ("se deshabilitará en unos minutos"). */}
         <section className={styles.cancelSection}>
-          {cancelResult && !cancelPartial && (
-            <div className={`${styles.banner} ${styles.bannerSuccess}`}>
-              <span>TV dada de baja — cupo liberado.</span>
-            </div>
-          )}
-          {cancelResult && cancelPartial && (
-            <div className={`${styles.banner} ${styles.bannerWarning}`}>
-              <div className={styles.cancelPartial}>
-                <span>
-                  Baja parcial: {plural(cancelResult.removed.length, 'pack quitado', 'packs quitados')},{' '}
-                  {plural(cancelResult.failed.length, 'pack falló', 'packs fallaron')}
-                  {cancelResult.failed[0] ? ` (${cancelResult.failed[0].detail})` : ''}. OTT{' '}
-                  {cancelResult.ottDisabled ? 'apagado' : 'sigue activo'} · ítem local{' '}
-                  {cancelResult.local === 'synced' ? 'desactivado' : 'sin desactivar'}.
-                </span>
-                <button
-                  type="button"
-                  className={styles.btnLink}
-                  onClick={handleRetryCancel}
-                  disabled={cancelTv.isPending}
-                >
-                  {cancelTv.isPending ? 'Reintentando…' : 'Reintentar baja'}
-                </button>
-              </div>
-            </div>
-          )}
           {cancelError && (
             <div className={`${styles.banner} ${styles.bannerError}`}><span>{cancelError}</span></div>
           )}
@@ -1216,9 +1195,9 @@ function LinkedView({
         </div>
       )}
 
-      {/* #47k ② — strong confirm for the cancel. Spells out that it frees the
-          partner cupo, shuts streaming and deactivates the local TV item, while
-          the CIC stays linked to the client. */}
+      {/* #47k ② / #64 — strong confirm for the cancel. Spells out that it frees the
+          partner cupo, shuts streaming, deactivates the local TV item Y RENUEVA el CIC
+          desvinculándolo del cliente — el cliente queda "como si no tuviera TV". */}
       {cancelConfirmOpen && (
         <div
           className={styles.confirmBackdrop}
@@ -1230,9 +1209,9 @@ function LinkedView({
           <div className={styles.dialog}>
             <h2 id="tv-cancel-title" className={styles.cardTitle}>Dar de baja TV</h2>
             <p className={styles.emptyHint}>
-              Quita TODOS los packs (libera el cupo del partner), apaga el streaming
-              y desactiva el ítem TV del contrato. El CIC queda vinculado al cliente.
-              ¿Confirmás la baja?
+              Quita TODOS los packs (libera el cupo del partner), apaga el streaming,
+              desactiva el ítem TV del contrato y RENUEVA el CIC, desvinculándolo del
+              cliente. El cliente quedará como si no tuviera TV. ¿Confirmás la baja?
             </p>
             <div className={styles.formActions}>
               <button
@@ -1250,6 +1229,69 @@ function LinkedView({
                 disabled={cancelTv.isPending}
               >
                 {cancelTv.isPending ? 'Procesando…' : 'Confirmar baja'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* #64 — outcome MODAL. La baja en Gigared es asíncrona: el OTT se apaga "en los
+          próximos minutos", así que en vez de un banner mostramos un modal explícito con
+          el detalle de los pasos. En 207 parcial: lista los pasos fallidos + Reintentar. */}
+      {cancelResult && (
+        <div
+          className={styles.confirmBackdrop}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="tv-cancel-outcome-title"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setCancelResult(null); }}
+        >
+          <div className={styles.dialog}>
+            <h2 id="tv-cancel-outcome-title" className={styles.cardTitle}>
+              {cancelPartial ? 'Baja de TV — parcial' : 'Baja de TV'}
+            </h2>
+            <p className={styles.emptyHint}>
+              La TV se estará deshabilitando en los próximos minutos.
+            </p>
+            <ul className={styles.cancelSteps}>
+              <li>
+                Packs: {plural(cancelResult.removed.length, 'pack quitado', 'packs quitados')} — cupo liberado
+                {cancelResult.failed.length > 0
+                  ? ` · ${plural(cancelResult.failed.length, 'pack falló', 'packs fallaron')}`
+                  : ''}
+                {cancelResult.failed[0] ? ` (${cancelResult.failed[0].detail})` : ''}.
+              </li>
+              <li>Streaming (OTT): {cancelResult.ottDisabled ? 'apagado' : 'sigue activo'}.</li>
+              <li>Ítem TV del contrato: {cancelResult.local === 'synced' ? 'desactivado' : 'sin desactivar'}.</li>
+              <li>
+                CIC: {cancelResult.renew
+                  ? `renovado (${cancelResult.renew.oldCic} → ${cancelResult.renew.newCic})`
+                  : 'no se pudo renovar'}
+                {cancelResult.renew
+                  ? cancelResult.unlinked
+                    ? ' y desvinculado del cliente'
+                    : ' · no se pudo desvincular'
+                  : ''}.
+              </li>
+            </ul>
+            <div className={styles.formActions}>
+              {cancelPartial && (
+                <button
+                  type="button"
+                  className={`${styles.btnPrimary} ${styles.btnDanger}`}
+                  onClick={handleRetryCancel}
+                  disabled={cancelTv.isPending}
+                >
+                  {cancelTv.isPending ? 'Reintentando…' : 'Reintentar baja'}
+                </button>
+              )}
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => setCancelResult(null)}
+                disabled={cancelTv.isPending}
+              >
+                Cerrar
               </button>
             </div>
           </div>

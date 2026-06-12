@@ -392,6 +392,21 @@
   gap: var(--space-2);
 }
 
+/* #64 — outcome modal step list (packs / OTT / ítem local / CIC). */
+.cancelSteps {
+  margin: 0;
+  padding-left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.cancelSteps li {
+  list-style: disc;
+}
+
 /* Switch */
 
 .switch {
