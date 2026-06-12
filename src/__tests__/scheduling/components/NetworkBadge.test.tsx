@@ -131,7 +131,13 @@ describe('KanbanCard — RED badge', () => {
   it('shows network site name inside the badge when available', () => {
     const task = makeTask({ kind: 'network', networkSiteId: 'ns-1', networkSiteName: 'Nodo Central' });
     render(<KanbanCard task={task} />);
-    expect(screen.getByTestId('network-badge')).toHaveTextContent(/Nodo Central|RED/i);
+    expect(screen.getByTestId('network-badge')).toHaveTextContent(/Nodo Central|Nodo Fibra/i);
+  });
+
+  it('shows "Nodo Fibra" fallback when networkSiteName is absent', () => {
+    const task = makeTask({ kind: 'network', networkSiteId: undefined, networkSiteName: undefined });
+    render(<KanbanCard task={task} />);
+    expect(screen.getByTestId('network-badge')).toHaveTextContent('Nodo Fibra');
   });
 });
 
@@ -153,6 +159,21 @@ describe('TasksTableView — RED badge in title column', () => {
       </MemoryRouter>,
     );
     expect(screen.getByTestId('network-badge')).toBeInTheDocument();
+  });
+
+  it('renders "Nodo Fibra" badge text when task.kind === network', () => {
+    const task = makeTask({ kind: 'network', networkSiteId: undefined, networkSiteName: undefined });
+    render(
+      <MemoryRouter>
+        <TasksTableView
+          tasks={[task]}
+          projects={projects}
+          workflows={workflows}
+          visibleColumnKeys={['sequenceNumber', 'title']}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId('network-badge')).toHaveTextContent('Nodo Fibra');
   });
 
   it('does NOT render RED badge when task.kind === customer', () => {

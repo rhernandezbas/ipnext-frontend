@@ -91,7 +91,7 @@ function toLocalInputString(date: Date): string {
  * default that doesn't exist.
  */
 export function CreateTaskModal({ projects, workflows, technicians = [], templates = [], onClose, onCreate, loading, initialValues, defaultMode }: Props) {
-  /** When a defaultMode is provided the mode is LOCKED and a "Nodo RED" badge is
+  /** When a defaultMode is provided the mode is LOCKED and a "Nodo Fibra" badge is
    *  shown. Node tasks are created ONLY from the Tareas Nodos page (#40b fix-a). */
   const modeLocked = defaultMode != null;
   /** Task mode: 'customer' (default) or 'network'. No longer user-togglable — the
@@ -343,14 +343,14 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
       <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Nueva tarea" onClick={e => e.stopPropagation()}>
         <div className={styles.modalHeader}>
           <h2 className={styles.title}>Nueva tarea</h2>
-          {/* RED mode badge — node tasks are created ONLY from the Tareas Nodos
+          {/* Nodo Fibra mode badge — node tasks are created ONLY from the Tareas Nodos
               page, which locks the mode (defaultMode='network'). A static badge
               shows the context. In customer context (no defaultMode) the modal is
               customer-ONLY: no toggle, no path to network mode (#40b fix-a, was the
               #29 segmented control). */}
           {modeLocked && (
-            <span className={styles.modeBadge} data-variant="network" aria-label="Tipo de tarea: Nodo RED">
-              Nodo RED
+            <span className={styles.modeBadge} data-variant="network" aria-label="Tipo de tarea: Nodo Fibra">
+              Nodo Fibra
             </span>
           )}
         </div>
