@@ -208,6 +208,17 @@ export interface CancelTvPayload {
 export interface CancelTvResult {
   removed: string[];
   failed: { id: string; detail: string }[];
+  /**
+   * #67 — packs que NO se pueden quitar (el CUA lo rechaza con 424, p.ej. el pack BASE).
+   * Es INFORMATIVO: el BE ya NO los cuenta como `failed` bloqueante — con sólo el base
+   * irremovible el flujo renueva+desvincula y responde 200. El FE lo muestra como una
+   * línea neutra en el modal (no error, no cuenta para "parcial"; el status del BE manda).
+   *
+   * OPCIONAL (#67 re-review): tolera el skew de deploy BE/FE — un BE viejo (pre-#67) no manda
+   * este campo. El runtime ya lo guardea con optional-chaining (`unremovable?.length ?? 0`),
+   * así que el tipo lo refleja como opcional para no romper el typecheck contra un wire sin él.
+   */
+  unremovable?: { id: string; detail: string }[];
   ottDisabled: boolean;
   local: 'synced' | 'failed';
   renew: { oldCic: string; newCic: string } | null;
