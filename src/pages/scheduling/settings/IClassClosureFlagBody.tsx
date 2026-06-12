@@ -26,6 +26,7 @@ export function IClassClosureFlagBody() {
   const [backfillUnavailable, setBackfillUnavailable] = useState(false);
   const reprocess = useReprocessClosure();
   const [lastReprocess, setLastReprocess] = useState<ClosureReprocessQueued | null>(null);
+  const [reprocessUnavailable, setReprocessUnavailable] = useState(false);
   const { data: pendingData } = usePendingCount();
   const pending = pendingData?.pending ?? 0;
   const reprocessFlag = useFeatureFlag(REPROCESS_FLAG_KEY);
@@ -50,11 +51,17 @@ export function IClassClosureFlagBody() {
   }
 
   async function handleReprocess() {
+    setReprocessUnavailable(false);
+    setLastReprocess(null);
     try {
       const result = await reprocess.mutateAsync();
       setLastReprocess(result);
-    } catch {
-      // surfaced via reprocess.isError banner
+    } catch (err: unknown) {
+      const e = err as { response?: { status?: number } };
+      if (e?.response?.status === 503) {
+        setReprocessUnavailable(true);
+      }
+      // other errors surfaced via reprocess.isError banner
     }
   }
 
@@ -269,12 +276,21 @@ export function IClassClosureFlagBody() {
               </Link>
             </p>
           )}
+          {lastReprocess?.queued && pending > 0 && (
+            <div className={`${styles.banner} ${styles.bannerInfo}`} role="status">
+              <span className={styles.bannerSpinner} aria-hidden="true" />
+              <span>
+                <span className={styles.bannerTitle}>Procesando…</span>{' '}
+                quedan {pending} {pending === 1 ? 'pendiente' : 'pendientes'}. Esta vista se actualiza sola.
+              </span>
+            </div>
+          )}
           <div className={styles.statusActionRow}>
             <span className={styles.statusActionLabel}>Re-disparar efectos faltantes ahora</span>
             <button
               className={styles.btnSecondary}
               onClick={handleReprocess}
-              disabled={reprocess.isPending || !reprocessEnabled || pending > 0}
+              disabled={reprocess.isPending || !reprocessEnabled}
             >
               {reprocess.isPending ? 'Reprocesando…' : 'Reprocesar ahora'}
             </button>
@@ -283,7 +299,12 @@ export function IClassClosureFlagBody() {
 
         {lastReprocess && lastReprocess.queued && (
           <div className={`${styles.banner} ${styles.bannerSuccess}`}>
-            <span><span className={styles.bannerTitle}>Reprocesamiento encolado.</span> El proceso corre en segundo plano.</span>
+            <span>
+              <span className={styles.bannerTitle}>Reprocesamiento encolado.</span>{' '}
+              {pending > 0
+                ? <>{pending} efectos pendientes — corren en segundo plano.</>
+                : <>El proceso corre en segundo plano.</>}
+            </span>
           </div>
         )}
 
@@ -299,7 +320,13 @@ export function IClassClosureFlagBody() {
           </div>
         )}
 
-        {reprocess.isError && (
+        {reprocessUnavailable && (
+          <div className={`${styles.banner} ${styles.bannerError}`}>
+            <span><span className={styles.bannerTitle}>No disponible.</span> El scheduler de reprocesamiento no está configurado.</span>
+          </div>
+        )}
+
+        {reprocess.isError && !reprocessUnavailable && (
           <div className={`${styles.banner} ${styles.bannerError}`}>
             <span><span className={styles.bannerTitle}>No se pudo reprocesar.</span> Reintentá en unos segundos.</span>
           </div>

@@ -347,22 +347,117 @@ describe('IClassClosureFlagBody', () => {
     await screen.findByText(/reprocesamiento deshabilitado/i);
   });
 
-  it('shows "quedan N pendientes" when pending>0', () => {
+  it('shows "quedan N pendientes" link when pending>0', () => {
     mockFlags(true, true);
     vi.mocked(usePendingCount).mockReturnValue({ ...idlePendingCount, data: { pending: 7 } } as never);
 
     renderBody();
 
-    expect(screen.getByText(/quedan 7 pendientes/i)).toBeInTheDocument();
+    // The link "Quedan N pendientes" and the progress indicator both show the count — target the link
+    expect(screen.getByRole('link', { name: /quedan 7 pendientes/i })).toBeInTheDocument();
   });
 
-  it('disables the reprocess button while pending>0', () => {
+  // DEFECT 1 FIX: button must be ENABLED when pending>0 (that's the trigger condition, not in-progress)
+  it('keeps the reprocess button ENABLED while pending>0 (flag on, not mid-request)', () => {
     mockFlags(true, true);
     vi.mocked(usePendingCount).mockReturnValue({ ...idlePendingCount, data: { pending: 3 } } as never);
 
     renderBody();
 
-    expect(screen.getByRole('button', { name: /reprocesar ahora/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /reprocesar ahora/i })).not.toBeDisabled();
+  });
+
+  // DEFECT 2: queued banner includes pending count when pending>0
+  it('queued banner includes the pending count when pending>0', async () => {
+    mockFlags(true, true);
+    vi.mocked(usePendingCount).mockReturnValue({ ...idlePendingCount, data: { pending: 4 } } as never);
+    const mutateAsync = vi.fn().mockResolvedValue({ queued: true });
+    vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, mutateAsync } as never);
+
+    renderBody();
+    fireEvent.click(screen.getByRole('button', { name: /reprocesar ahora/i }));
+
+    // The whole banner container should include the count
+    const bannerTitle = await screen.findByText(/reprocesamiento encolado/i);
+    // Walk up to the banner div (has both bannerSuccess class)
+    const bannerDiv = bannerTitle.closest('div');
+    expect(bannerDiv).toHaveTextContent(/4 efectos pendientes/i);
+  });
+
+  it('queued banner with pending:0 shows plain "corre en segundo plano" without count', async () => {
+    mockFlags(true, true);
+    vi.mocked(usePendingCount).mockReturnValue({ ...idlePendingCount, data: { pending: 0 } } as never);
+    const mutateAsync = vi.fn().mockResolvedValue({ queued: true });
+    vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, mutateAsync } as never);
+
+    renderBody();
+    fireEvent.click(screen.getByRole('button', { name: /reprocesar ahora/i }));
+
+    await screen.findByText(/reprocesamiento encolado/i);
+    expect(screen.queryByText(/0 (efectos )?pendientes/i)).not.toBeInTheDocument();
+  });
+
+  // DEFECT 3: live progress indicator AFTER a queued trigger while pending drains
+  it('shows a live progress indicator (procesando) after a queued trigger while pending>0', async () => {
+    mockFlags(true, true);
+    vi.mocked(usePendingCount).mockReturnValue({ ...idlePendingCount, data: { pending: 6 } } as never);
+    const mutateAsync = vi.fn().mockResolvedValue({ queued: true });
+    vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, mutateAsync } as never);
+
+    renderBody();
+    fireEvent.click(screen.getByRole('button', { name: /reprocesar ahora/i }));
+
+    const status = await screen.findByRole('status');
+    expect(status).toHaveTextContent(/procesando/i);
+    expect(status).toHaveTextContent(/6/);
+  });
+
+  it('does NOT show the live progress indicator before any trigger (just the pending link)', () => {
+    mockFlags(true, true);
+    vi.mocked(usePendingCount).mockReturnValue({ ...idlePendingCount, data: { pending: 6 } } as never);
+
+    renderBody();
+
+    // pending link is visible, but the live "Procesando…" status banner is not (no trigger yet)
+    expect(screen.getByRole('link', { name: /quedan 6 pendientes/i })).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('does NOT show the progress indicator when pending is 0 even after a queued trigger', async () => {
+    mockFlags(true, true);
+    vi.mocked(usePendingCount).mockReturnValue({ ...idlePendingCount, data: { pending: 0 } } as never);
+    const mutateAsync = vi.fn().mockResolvedValue({ queued: true });
+    vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, mutateAsync } as never);
+
+    renderBody();
+    fireEvent.click(screen.getByRole('button', { name: /reprocesar ahora/i }));
+
+    await screen.findByText(/reprocesamiento encolado/i);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  // DEFECT 4: 503 unavailable for reprocess (symmetric with backfill)
+  it('shows "No disponible" banner when reprocess throws 503 unavailable', async () => {
+    mockFlags(true, true);
+    const mutateAsync = vi.fn().mockRejectedValue({ response: { status: 503, data: { reason: 'unavailable' } } });
+    vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, mutateAsync } as never);
+
+    renderBody();
+    fireEvent.click(screen.getByRole('button', { name: /reprocesar ahora/i }));
+
+    await screen.findByText(/no disponible/i);
+  });
+
+  it('does NOT show the generic "No se pudo reprocesar" when 503 unavailable', async () => {
+    mockFlags(true, true);
+    const mutateAsync = vi.fn().mockRejectedValue({ response: { status: 503, data: { reason: 'unavailable' } } });
+    vi.mocked(useReprocessClosure).mockReturnValue({ ...idleMutation, mutateAsync, isError: true } as never);
+
+    renderBody();
+    fireEvent.click(screen.getByRole('button', { name: /reprocesar ahora/i }));
+
+    await screen.findByText(/no disponible/i);
+    expect(screen.queryByText(/no se pudo reprocesar/i)).not.toBeInTheDocument();
   });
 
   it('disables the reprocess button while a queued run is in flight (isPending=true)', () => {
