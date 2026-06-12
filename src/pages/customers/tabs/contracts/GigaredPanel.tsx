@@ -1229,31 +1229,36 @@ function LinkedView({
             <dt className={styles.dt}>Login</dt>
             <dd className={styles.dd}>{tvLogin ?? '—'}</dd>
           </div>
-          <div>
-            <dt className={styles.dt}>Contraseña</dt>
-            <dd className={styles.dd}>
-              {/* H3 — the password is fetched lazily from the guarded endpoint on reveal. */}
-              <span className={styles.passwordRow}>
-                <span>
-                  {!showTvPassword
-                    ? '••••••••'
-                    : credentialsQuery.isLoading
-                      ? 'Cargando…'
-                      : credentialsQuery.isError
-                        ? 'No disponible'
-                        : (tvPassword ?? '—')}
+          {/* Doble capa (#65 re-review): el endpoint /tv-credentials exige tv.register —
+              la fila de contraseña solo se renderiza (y el fetch solo puede dispararse)
+              con ese mismo permiso. */}
+          <Can permission="tv.register">
+            <div>
+              <dt className={styles.dt}>Contraseña</dt>
+              <dd className={styles.dd}>
+                {/* H3 — the password is fetched lazily from the guarded endpoint on reveal. */}
+                <span className={styles.passwordRow}>
+                  <span>
+                    {!showTvPassword
+                      ? '••••••••'
+                      : credentialsQuery.isLoading
+                        ? 'Cargando…'
+                        : credentialsQuery.isError
+                          ? 'No disponible'
+                          : (tvPassword ?? '—')}
+                  </span>
+                  <button
+                    type="button"
+                    className={styles.btnLink}
+                    aria-label={showTvPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    onClick={() => setShowTvPassword((s) => !s)}
+                  >
+                    {showTvPassword ? 'Ocultar' : 'Mostrar'}
+                  </button>
                 </span>
-                <button
-                  type="button"
-                  className={styles.btnLink}
-                  aria-label={showTvPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                  onClick={() => setShowTvPassword((s) => !s)}
-                >
-                  {showTvPassword ? 'Ocultar' : 'Mostrar'}
-                </button>
-              </span>
-            </dd>
-          </div>
+              </dd>
+            </div>
+          </Can>
         </dl>
         <Can permission="tv.register">
           <div className={styles.formActions}>
