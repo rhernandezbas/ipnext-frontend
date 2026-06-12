@@ -32,6 +32,7 @@ import type { ServiceTechnology } from '@/types/serviceTechnology';
 const mockContracts: ContractSummary[] = [
   {
     id: 'c1',
+    clientId: 'client-1',
     clientName: 'Alice García',
     plan: 'Plan 50MB',
     status: 'active',
@@ -40,6 +41,7 @@ const mockContracts: ContractSummary[] = [
   },
   {
     id: 'c2',
+    clientId: 'client-2',
     clientName: 'Bob Martínez',
     plan: 'Plan 100MB',
     status: 'inactive',
@@ -177,6 +179,54 @@ describe('CP-1: render', () => {
     } as ReturnType<typeof useContractsModule.useContracts>);
     renderPage();
     expect(screen.getByText(/error al cargar/i)).toBeInTheDocument();
+  });
+});
+
+// ── CP-1b: Client deep-link (#56) ─────────────────────────────────────────────
+describe('CP-1b: client name is a link to the customer detail (#56)', () => {
+  it('renders the client name as a link to /admin/customers/view/:clientId', () => {
+    renderPage();
+    const link = screen.getByRole('link', { name: 'Alice García' });
+    expect(link).toHaveAttribute('href', '/admin/customers/view/client-1');
+  });
+
+  it('uses clientId (not the contract id) for the link target', () => {
+    renderPage();
+    const link = screen.getByRole('link', { name: 'Bob Martínez' });
+    expect(link).toHaveAttribute('href', '/admin/customers/view/client-2');
+  });
+
+  // Degraded case: deploy FE-antes-que-BE o response cacheada → clientId undefined.
+  // Patrón #47j Fix 3: sin clientId el nombre se muestra como texto plano,
+  // nunca navega a /admin/customers/view/undefined.
+  it('renders plain text (no link) when a row has no clientId', () => {
+    vi.mocked(useContractsModule.useContracts).mockReturnValue({
+      data: {
+        data: [
+          {
+            id: 'c3',
+            // clientId ausente — modela una response del BE viejo / cacheada
+            clientName: 'Sin Cliente',
+            plan: 'Plan X',
+            status: 'active',
+            technology: null,
+            startDate: '2024-03-01',
+          } as unknown as ContractSummary,
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 25,
+        totalPages: 1,
+      },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useContractsModule.useContracts>);
+    renderPage();
+    // El nombre aparece como texto pero NO como link
+    expect(screen.getByText('Sin Cliente')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Sin Cliente' })).not.toBeInTheDocument();
+    // Sanity: no se generó un href con "undefined"
+    expect(screen.queryByText((_, el) => el?.getAttribute('href')?.includes('undefined') ?? false)).toBeNull();
   });
 });
 
