@@ -376,6 +376,61 @@ describe('CreateTaskModal — Localidad dropdown in network mode (REQ-54)', () =
   });
 });
 
+// ── #68: coordinates fallback when site has no manual address ────────────────
+// Replica del criterio de #51 (addressDisplay): la `address` manual gana siempre;
+// si está vacía pero el sitio tiene coordenadas UISP, el campo Dirección se
+// autocarga con "{lat},{lng}" (editable). Si no hay ni address ni coords → vacío.
+
+describe('CreateTaskModal — coordinates address fallback in RED mode (#68)', () => {
+  function setup(sites: NetworkSite[]) {
+    useNetworkSitesMock.mockReturnValue({ data: sites, isLoading: false });
+    return render(
+      <CreateTaskModal
+        projects={networkProjects}
+        workflows={workflows}
+        defaultMode="network"
+        onClose={onClose}
+        onCreate={onCreate}
+        loading={false}
+      />,
+    );
+  }
+
+  it('prefills address with "lat,lng" when the site has no manual address but has coordinates', async () => {
+    setup([makeSite({ id: 'site-c', name: 'Nodo Coord', address: '', coordinates: { lat: -34.6037, lng: -58.3816 } })]);
+    fireEvent.click(screen.getByText('Nodo Coord'));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Dirección del trabajo')).toHaveValue('-34.6037,-58.3816');
+    });
+  });
+
+  it('manual address wins over coordinates (does not fall back to lat,lng)', async () => {
+    setup([makeSite({ id: 'site-m', name: 'Nodo Manual', address: 'Av. Siempreviva 742', coordinates: { lat: -34.6037, lng: -58.3816 } })]);
+    fireEvent.click(screen.getByText('Nodo Manual'));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Dirección del trabajo')).toHaveValue('Av. Siempreviva 742');
+    });
+  });
+
+  it('leaves address empty when the site has neither manual address nor coordinates', async () => {
+    setup([makeSite({ id: 'site-e', name: 'Nodo Vacío', address: '', coordinates: null })]);
+    fireEvent.click(screen.getByText('Nodo Vacío'));
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: /nodo vacío/i })).toHaveAttribute('aria-selected', 'true');
+    });
+    expect(screen.getByPlaceholderText('Dirección del trabajo')).toHaveValue('');
+  });
+
+  it('the autofilled "lat,lng" address is editable (manual edit is not clobbered)', async () => {
+    setup([makeSite({ id: 'site-c', name: 'Nodo Coord', address: '', coordinates: { lat: -34.6037, lng: -58.3816 } })]);
+    fireEvent.click(screen.getByText('Nodo Coord'));
+    const addr = screen.getByPlaceholderText('Dirección del trabajo');
+    await waitFor(() => expect(addr).toHaveValue('-34.6037,-58.3816'));
+    fireEvent.change(addr, { target: { value: 'Dirección corregida 100' } });
+    expect(addr).toHaveValue('Dirección corregida 100');
+  });
+});
+
 // ── Red / FO switch (#66) ────────────────────────────────────────────────────
 
 describe('CreateTaskModal — Red/FO switch in network mode (#66)', () => {
