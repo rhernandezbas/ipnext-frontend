@@ -24,6 +24,7 @@ export const ALL_TICKET_COLUMNS: ColumnDef[] = [
   { key: 'reporterName',   label: 'Reporter' }, // #48 fix-wave — the BE field is reporterName
   { key: 'priority',       label: 'Prioridad' },
   { key: 'status',         label: 'Estado' },
+  { key: 'areaName',       label: 'Área' }, // #69 — pill con color del catalogo; key === BE field y === ALL_COLUMNS (leccion #48)
   { key: 'assigneeName', label: 'Asignado a' }, // #28 follow-up — the BE field is assigneeName
   { key: 'createdAt',      label: 'Creado de fecha y hora' },
 ];

@@ -7,6 +7,7 @@ import { useTicketStatuses } from '@/hooks/useTicketStatuses';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { useAssignTicket, useUpdateTicketStatus, useDeleteTicket } from '@/hooks/useTickets';
 import { mapWithConcurrency } from '@/utils/mapWithConcurrency';
+import { readableTextColor } from '@/utils/contrastColor';
 import type { Ticket } from '@/types/ticket';
 import styles from './TicketsTableView.module.css';
 
@@ -34,6 +35,23 @@ function TicketStatusPill({ status }: { status: string }) {
       aria-label={`Estado: ${status}`}
     >
       {status}
+    </span>
+  );
+}
+
+/** #69 — Area pill: catalog color background with auto-contrasted text. The
+ *  color and name come inline on the ticket DTO (areaColor/areaName). '—' when
+ *  the ticket has no area. Catalog-driven — no hardcoded area names (#27). */
+function AreaPill({ name, color }: { name: string | null; color: string | null }) {
+  if (!name) return <>—</>;
+  const bg = color ?? '#94a3b8';
+  return (
+    <span
+      className={styles.areaPill}
+      style={{ backgroundColor: bg, color: readableTextColor(bg) }}
+      aria-label={`Área: ${name}`}
+    >
+      {name}
     </span>
   );
 }
@@ -230,6 +248,8 @@ const ALL_COLUMNS: Array<{ label: string; key: string; sortable?: boolean; rende
   { label: 'Reporter', key: 'reporterName', render: (t) => t.reporterName ?? '—' },
   { label: 'Prioridad', key: 'priority', sortable: true, render: (t) => <PriorityPill priority={t.priority} /> },
   { label: 'Estado', key: 'status', sortable: true, render: (t) => <TicketStatusPill status={t.status} /> },
+  // #69 — key 'areaName' matches ALL_TICKET_COLUMNS (leccion #48: catalog key === table key).
+  { label: 'Área', key: 'areaName', render: (t) => <AreaPill name={t.areaName} color={t.areaColor} /> },
   { label: 'Asignado a', key: 'assigneeName' },
   { label: 'Creado de fecha y hora', key: 'createdAt', sortable: true },
 ];
