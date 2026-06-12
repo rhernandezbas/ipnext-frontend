@@ -332,4 +332,19 @@ describe('ContractCard — TV from contract (#47b)', () => {
       expect(tvChip).toHaveAttribute('title', expect.stringMatching(/gestionar tv/i));
     });
   });
+
+  // ── #55: contract code badge (the identity sent to IClass) ──────────────────
+  describe('#55 — contract code badge', () => {
+    it('renders the GR contract code as a mono badge when present', () => {
+      renderCard({ code: 'CTR-204382' });
+      const badge = screen.getByText('CTR-204382');
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveAttribute('title', expect.stringMatching(/código de contrato/i));
+    });
+
+    it('renders no code badge when code is null (non-GR contract)', () => {
+      renderCard({ code: null });
+      expect(screen.queryByText(/CTR-/)).not.toBeInTheDocument();
+    });
+  });
 });

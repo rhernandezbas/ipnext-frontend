@@ -85,6 +85,11 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
             name={contract.name}
             clientId={clientId}
           />
+          {contract.code && (
+            <span className={styles.codeBadge} title="Código de contrato (IClass)">
+              {contract.code}
+            </span>
+          )}
           <StatusBadge status={variant} label={CLIENT_STATUS_LABELS[contract.status]} />
         </div>
       </div>
