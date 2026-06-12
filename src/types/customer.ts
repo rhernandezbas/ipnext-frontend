@@ -25,6 +25,9 @@ export interface ServiceCatalogEntry {
 export interface Contract {
   /** UUID string from Prisma — used verbatim as a path param, no coercion. */
   id: string;
+  /** #55 — external Gestión Real contract code (grContratoId). Shown as a mono badge;
+   * it is the identity sent to IClass for this contract's tasks. null for non-GR contracts. */
+  code?: string | null;
   /** Operator-editable display name; falls back to `plan` when null. */
   name?: string | null;
   type: string;
