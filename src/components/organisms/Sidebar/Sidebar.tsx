@@ -78,7 +78,7 @@ const CRM_ITEMS: NavParentItem[] = [
       { to: '/admin/tickets/opened', label: 'Lista' },
       { to: '/admin/tickets/trash', label: 'Archivar' },
       { to: '/admin/tickets/requesters', label: 'Destinatarios' },
-      { to: '/admin/tickets/statuses', label: 'Estados' },
+      // #8 — Estados moved into the Configuracion tab (tickets.manage); removed standalone sidebar entry.
       { to: '/admin/tickets/settings', label: 'Configuracion', requiredPermission: 'tickets.manage' },
     ],
   },
