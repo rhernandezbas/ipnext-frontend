@@ -365,7 +365,13 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
                   Pack base: no se puede quitar — se libera al renovar el CIC.
                 </li>
               )}
-              <li>Streaming (OTT): {cancelOutcome.data.ottDisabled ? 'apagado' : 'sigue activo'}.</li>
+              {/* #74 — el paso OTT corre ANTES del renew, sobre el CIC viejo. Si el renew tuvo
+                  éxito, reseteó la cuenta y dejó el CIC viejo inaccesible: un OTT no apagado es un
+                  dato pre-renew STALE. NO lo presentamos como problema — comunicamos que la cuenta
+                  fue reiniciada. Sólo reportamos el OTT como pendiente cuando el renew NO reseteó. */}
+              {cancelOutcome.data.renew
+                ? <li>Cuenta reiniciada (CIC nuevo) — el acceso anterior queda invalidado.</li>
+                : <li>Streaming (OTT): {cancelOutcome.data.ottDisabled ? 'apagado' : 'sigue activo'}.</li>}
               <li>Ítem TV del contrato: {cancelOutcome.data.local === 'synced' ? 'desactivado' : 'sin desactivar'}.</li>
               <li>
                 CIC: {cancelOutcome.data.renew
