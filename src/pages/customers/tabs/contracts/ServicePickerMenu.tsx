@@ -93,7 +93,11 @@ export function ServicePickerMenu({ contractId, clientId, services, divertTv, on
     setTimeout(() => setToast(null), 4000);
   }
 
-  const attachedIds = useMemo(() => new Set(services.map(s => s.serviceCatalogId)), [services]);
+  // #107 — only ACTIVE services block the picker; inactive (post-baja) rows do not.
+  const attachedIds = useMemo(
+    () => new Set(services.filter(s => s.status === 'active').map(s => s.serviceCatalogId)),
+    [services],
+  );
   const options = useMemo(
     () => catalog.filter(c => c.active && !attachedIds.has(c.id)),
     [catalog, attachedIds],

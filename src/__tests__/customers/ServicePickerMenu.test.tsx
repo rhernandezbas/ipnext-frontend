@@ -52,6 +52,77 @@ function stubTriggerRect(rect: Partial<DOMRect>) {
   vi.spyOn(HTMLButtonElement.prototype, 'getBoundingClientRect').mockReturnValue(full);
 }
 
+// ---------------------------------------------------------------------------
+// #107 — inactive TV service must NOT block TV from the picker
+// ---------------------------------------------------------------------------
+
+/** Build a minimal ContractService fixture. */
+function makeService(over: Partial<ContractService>): ContractService {
+  return {
+    id: 'cs-1',
+    serviceCatalogId: 'sc-tv',
+    name: 'TV',
+    label: 'Televisión',
+    status: 'active',
+    notes: null,
+    createdAt: '2026-06-01T00:00:00.000Z',
+    ...over,
+  };
+}
+
+describe('ServicePickerMenu (#107) — inactive TV reappears after baja', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+    Object.defineProperty(window, 'innerHeight', { value: 768, configurable: true });
+    Object.defineProperty(window, 'innerWidth', { value: 1024, configurable: true });
+    // Stub trigger rect so toggle() can compute position without JSDOM throwing.
+    vi.spyOn(HTMLButtonElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      top: 100, bottom: 120, left: 50, right: 230, width: 180, height: 20,
+      x: 50, y: 100, toJSON: () => ({}),
+    } as DOMRect);
+  });
+
+  it('shows TV in the picker when the only TV service is inactive (post-baja)', async () => {
+    // INACTIVE TV service — after a TV baja, status is 'inactive', not deleted.
+    const inactiveTv = makeService({ status: 'inactive' });
+    const tvCatalog = [catalogEntry()]; // TV entry, active in catalog
+
+    vi.mocked(useServiceCatalog).mockReturnValue({ data: tvCatalog, isLoading: false } as ReturnType<typeof useServiceCatalog>);
+    vi.mocked(useAddContractService).mockReturnValue({ mutateAsync: noop, isPending: false } as unknown as ReturnType<typeof useAddContractService>);
+
+    const user = userEvent.setup();
+    render(
+      <ServicePickerMenu contractId="ctr-1" clientId="c-1" services={[inactiveTv]} />,
+    );
+
+    await user.click(screen.getByText(/Agregar servicio/i));
+
+    // TV must appear — inactive service should not block it.
+    expect(screen.getByRole('menuitem', { name: /Televisión/i })).toBeInTheDocument();
+  });
+
+  it('keeps an ACTIVE service excluded from the picker', async () => {
+    // ACTIVE TV service — must stay excluded (not a regression).
+    const activeTv = makeService({ status: 'active' });
+    const tvCatalog = [catalogEntry()];
+
+    vi.mocked(useServiceCatalog).mockReturnValue({ data: tvCatalog, isLoading: false } as ReturnType<typeof useServiceCatalog>);
+    vi.mocked(useAddContractService).mockReturnValue({ mutateAsync: noop, isPending: false } as unknown as ReturnType<typeof useAddContractService>);
+
+    const user = userEvent.setup();
+    render(
+      <ServicePickerMenu contractId="ctr-1" clientId="c-1" services={[activeTv]} />,
+    );
+
+    await user.click(screen.getByText(/Agregar servicio/i));
+
+    // Picker must show empty state — active TV is already attached.
+    expect(screen.queryByRole('menuitem', { name: /Televisión/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/No hay servicios disponibles/i)).toBeInTheDocument();
+  });
+});
+
 describe('ServicePickerMenu (#58 fix wave) — Contract service picker', () => {
   beforeEach(() => {
     vi.clearAllMocks();
