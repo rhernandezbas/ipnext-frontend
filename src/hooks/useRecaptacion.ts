@@ -7,8 +7,12 @@ import {
   releaseRecaptureLead,
   updateRecaptureLeadStatus,
   addRecaptureContact,
+  isLeadConflictError,
 } from '@/api/recaptacion.api';
 import type { RecaptureLeadsQuery, AddContactInput } from '@/types/recaptacion';
+
+/** User-facing message for the 409 (another operator already took the lead). */
+export const CLAIM_CONFLICT_MESSAGE = 'Este lead ya fue tomado por otro operador.';
 
 // ── Query keys ───────────────────────────────────────────────────────────────
 
@@ -44,8 +48,19 @@ export function useRecaptacionLead(id: string | null) {
 export function useClaimLead() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => claimRecaptureLead(id),
-    onSuccess: (_, id) => {
+    mutationFn: async (id: string) => {
+      try {
+        return await claimRecaptureLead(id);
+      } catch (err) {
+        // 409 = another operator already claimed it. Re-throw as a clean,
+        // user-facing error so the UI can show a precise message.
+        if (isLeadConflictError(err)) throw new Error(CLAIM_CONFLICT_MESSAGE);
+        throw err;
+      }
+    },
+    // Invalidate on BOTH outcomes: on a 409 the lead is no longer free, so the
+    // list/detail must refresh to stop showing it as available.
+    onSettled: (_data, _err, id) => {
       void qc.invalidateQueries({ queryKey: ['recaptacion'] });
       void qc.invalidateQueries({ queryKey: recaptacionLeadKey(id) });
     },
@@ -56,7 +71,8 @@ export function useClaimNext() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => claimNextRecaptureLead(),
-    onSuccess: (lead) => {
+    // Invalidate on both outcomes so a lost race refreshes the list anyway.
+    onSettled: (lead) => {
       void qc.invalidateQueries({ queryKey: ['recaptacion'] });
       if (lead) {
         void qc.invalidateQueries({ queryKey: recaptacionLeadKey(lead.id) });
@@ -69,7 +85,7 @@ export function useReleaseLead() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => releaseRecaptureLead(id),
-    onSuccess: (_, id) => {
+    onSettled: (_data, _err, id) => {
       void qc.invalidateQueries({ queryKey: ['recaptacion'] });
       void qc.invalidateQueries({ queryKey: recaptacionLeadKey(id) });
     },

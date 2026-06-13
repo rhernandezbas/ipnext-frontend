@@ -1,3 +1,4 @@
+import axios from 'axios';
 import axiosClient from './axios-client';
 import type {
   RecaptureLeadDto,
@@ -7,6 +8,15 @@ import type {
   AddContactInput,
   RecapturePaginatedResult,
 } from '@/types/recaptacion';
+
+/**
+ * True when the error is a 409 conflict from a claim/release — i.e. another
+ * operator already took (or freed) the lead. This is expected business state,
+ * not a failure, and callers handle it with explicit feedback + a refresh.
+ */
+export function isLeadConflictError(err: unknown): boolean {
+  return axios.isAxiosError(err) && err.response?.status === 409;
+}
 
 /** GET /recapture/leads — paginated lead list */
 export async function listRecaptureLeads(

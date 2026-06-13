@@ -11,6 +11,10 @@ vi.mock('@/api/recaptacion.api', () => ({
   releaseRecaptureLead:      vi.fn(),
   updateRecaptureLeadStatus: vi.fn(),
   addRecaptureContact:       vi.fn(),
+  // Real-ish implementation: detect the 409 shape the api would reject with.
+  isLeadConflictError: (err: unknown) =>
+    typeof err === 'object' && err !== null &&
+    (err as { response?: { status?: number } }).response?.status === 409,
 }));
 
 import {
@@ -18,13 +22,24 @@ import {
   getRecaptureLead,
   claimRecaptureLead,
   claimNextRecaptureLead,
+  releaseRecaptureLead,
 } from '@/api/recaptacion.api';
 import {
   useRecaptacionLeads,
   useRecaptacionLead,
   useClaimLead,
   useClaimNext,
+  useReleaseLead,
+  CLAIM_CONFLICT_MESSAGE,
 } from '@/hooks/useRecaptacion';
+
+/** Build an axios-like 409 error (the shape claimRecaptureLead rejects with). */
+function make409(): unknown {
+  return {
+    isAxiosError: true,
+    response: { status: 409, data: { code: 'RECAPTURE_LEAD_ALREADY_CLAIMED' } },
+  };
+}
 import type { RecaptureLeadDto, RecaptureLeadDetailDto } from '@/types/recaptacion';
 
 const LEAD: RecaptureLeadDto = {
@@ -126,5 +141,53 @@ describe('useClaimNext', () => {
     result.current.mutate();
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.assigneeId).toBe('user-1');
+  });
+});
+
+// ── 409 conflict handling on claim ─────────────────────────────────────────────
+// The 409 (another operator already claimed the lead) is expected business state,
+// not a crash. The mutation must surface a clear message AND invalidate the
+// queries even on error, so the list/detail refresh and the lead stops looking free.
+
+describe('useClaimLead — 409 conflict', () => {
+  it('surfaces a friendly message and invalidates queries on 409', async () => {
+    vi.mocked(claimRecaptureLead).mockRejectedValue(make409());
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    const localWrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useClaimLead(), { wrapper: localWrapper });
+
+    result.current.mutate('lead-1');
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    // Friendly, user-facing message — not a raw axios error
+    expect(result.current.error?.message).toBe(CLAIM_CONFLICT_MESSAGE);
+    // Invalidation happened on error (refresh the stale "free" view)
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['recaptacion'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['recaptacion-lead', 'lead-1'] });
+  });
+});
+
+describe('useReleaseLead — 409 conflict', () => {
+  it('invalidates queries on error', async () => {
+    vi.mocked(releaseRecaptureLead).mockRejectedValue(make409());
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    const localWrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useReleaseLead(), { wrapper: localWrapper });
+
+    result.current.mutate('lead-1');
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['recaptacion'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['recaptacion-lead', 'lead-1'] });
   });
 });

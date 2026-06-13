@@ -229,7 +229,7 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
                   type="button"
                   className={styles.btnPrimary}
                   disabled={claimLead.isPending}
-                  onClick={() => void claimLead.mutateAsync(lead.id)}
+                  onClick={() => claimLead.mutate(lead.id)}
                 >
                   {claimLead.isPending ? 'Tomando…' : 'Tomar lead'}
                 </button>
@@ -239,7 +239,7 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
                   type="button"
                   className={styles.btnDanger}
                   disabled={releaseLead.isPending}
-                  onClick={() => void releaseLead.mutateAsync(lead.id)}
+                  onClick={() => releaseLead.mutate(lead.id)}
                 >
                   {releaseLead.isPending ? 'Liberando…' : 'Liberar lead'}
                 </button>
@@ -253,6 +253,18 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
               </button>
             </Can>
           </div>
+
+          {/* Claim/release feedback — 409 means another operator beat us to it */}
+          {claimLead.isError && (
+            <p className={styles.errorMsg} role="alert">
+              {claimLead.error instanceof Error
+                ? claimLead.error.message
+                : 'No se pudo tomar el lead.'}
+            </p>
+          )}
+          {releaseLead.isError && (
+            <p className={styles.errorMsg} role="alert">No se pudo liberar el lead.</p>
+          )}
 
           {/* Register contact form (gated) */}
           <Can permission="recapture.manage">
