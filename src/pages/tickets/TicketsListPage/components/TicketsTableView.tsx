@@ -278,7 +278,14 @@ const ALL_COLUMNS: Array<{ label: string; key: string; sortable?: boolean; rende
     render: (t) => <Link to={`/admin/tickets/${t.id}`} className={styles.idLink}>#{t.sequenceNumber}</Link> },
   { label: 'Tema', key: 'subject', sortable: true,
     render: (t) => <Link to={`/admin/tickets/${t.id}`} className={styles.titleLink}>{t.subject}</Link> },
-  { label: 'Cliente/Cliente Potencial', key: 'customerName', sortable: true },
+  // #76 — el nombre del cliente linkea a su ficha (/admin/customers/view/:id),
+  // patrón #71/#56. Sin customerId → texto plano (no navegar a /view/undefined);
+  // sin customerName → em-dash. La ruta de detalle ya está gateada con clients.read.
+  { label: 'Cliente/Cliente Potencial', key: 'customerName', sortable: true,
+    render: (t) =>
+      t.customerId
+        ? <Link to={`/admin/customers/view/${t.customerId}`} className={styles.titleLink}>{t.customerName ?? '—'}</Link>
+        : (t.customerName ?? '—') },
   // #78 — 'Tipo' (key 'type') removed: dead field, the BE never populated it.
   // #48 (M1): the BE sends `reporterName` on the list (deprecated `reporter` is
   // no longer populated). Read the live field, fall back to '—' when null.
