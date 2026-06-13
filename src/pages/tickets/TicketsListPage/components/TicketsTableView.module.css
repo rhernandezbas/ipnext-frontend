@@ -53,6 +53,20 @@
   white-space: nowrap;
 }
 
+/* #79 — SLA Timer pill: threshold color background (green→amber→red, gray when
+   closed), text auto-contrasted inline. Tabular numerals so the minutero doesn't
+   shift width as it ticks. */
+.timerPill {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Bulk action bar (inline panel, AD-6) ─────────────────────────────────────
    Full 1px border + surface fill — NO side-stripes, NO gradients. */
 .bulkBar {

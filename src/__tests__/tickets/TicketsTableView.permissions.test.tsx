@@ -35,6 +35,9 @@ vi.mock('@/hooks/useTicketStatuses', () => ({
 vi.mock('@/hooks/useRbacUsers', () => ({
   useRbacUsers: () => ({ data: [{ id: 'u1', name: 'Luis' }] }),
 }));
+vi.mock('@/hooks/useTicketSlaConfig', () => ({
+  useTicketSlaConfig: () => ({ data: { warnMinutes: 60, dangerMinutes: 240 } }),
+}));
 
 const confirmFn = vi.fn().mockResolvedValue(true);
 vi.mock('@/context/ConfirmContext', () => ({ useConfirm: () => confirmFn }));

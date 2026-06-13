@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { Can } from '@/components/auth/Can';
@@ -6,8 +6,10 @@ import { useConfirm } from '@/context/ConfirmContext';
 import { useTicketStatuses } from '@/hooks/useTicketStatuses';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { useAssignTicket, useUpdateTicketStatus, useDeleteTicket } from '@/hooks/useTickets';
+import { useTicketSlaConfig } from '@/hooks/useTicketSlaConfig';
 import { mapWithConcurrency } from '@/utils/mapWithConcurrency';
 import { readableTextColor } from '@/utils/contrastColor';
+import { slaTimerLevel, slaTimerColor, formatElapsed, elapsedMinutesSince } from '@/utils/slaTimer';
 import type { Ticket } from '@/types/ticket';
 import styles from './TicketsTableView.module.css';
 
@@ -52,6 +54,41 @@ function AreaPill({ name, color }: { name: string | null; color: string | null }
       aria-label={`Área: ${name}`}
     >
       {name}
+    </span>
+  );
+}
+
+/** #79 — SLA Timer pill: minutes elapsed since createdAt, colored by the
+ *  operator-configured thresholds (green→amber→red). A CLOSED ticket freezes in
+ *  a neutral gray — the SLA no longer runs. Re-renders once a minute so the
+ *  minutero advances without aggressive polling. The thresholds come from the
+ *  react-query cache (shared, 5-min staleTime), so each cell is cheap. */
+function SlaTimerCell({ createdAt, status }: { createdAt: string; status: string }) {
+  const { data: config } = useTicketSlaConfig();
+  const [now, setNow] = useState(() => Date.now());
+  const isClosed = CLOSED_SLUGS.includes((status ?? '').toLowerCase());
+
+  useEffect(() => {
+    // A closed ticket is frozen — no need to keep ticking.
+    if (isClosed) return;
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, [isClosed]);
+
+  const elapsed = elapsedMinutesSince(createdAt, now);
+  if (!Number.isFinite(elapsed)) return <>—</>;
+
+  const thresholds = { warnMinutes: config?.warnMinutes ?? 60, dangerMinutes: config?.dangerMinutes ?? 240 };
+  const level = slaTimerLevel(elapsed, thresholds, isClosed);
+  const color = slaTimerColor(level);
+  return (
+    <span
+      className={styles.timerPill}
+      style={{ backgroundColor: color, color: readableTextColor(color) }}
+      data-level={level}
+      aria-label={`Timer SLA: ${formatElapsed(elapsed)}${isClosed ? ' (cerrado)' : ''}`}
+    >
+      {formatElapsed(elapsed)}
     </span>
   );
 }
@@ -241,8 +278,15 @@ const ALL_COLUMNS: Array<{ label: string; key: string; sortable?: boolean; rende
     render: (t) => <Link to={`/admin/tickets/${t.id}`} className={styles.idLink}>#{t.sequenceNumber}</Link> },
   { label: 'Tema', key: 'subject', sortable: true,
     render: (t) => <Link to={`/admin/tickets/${t.id}`} className={styles.titleLink}>{t.subject}</Link> },
-  { label: 'Cliente/Cliente Potencial', key: 'customerName', sortable: true },
-  { label: 'Tipo', key: 'type' },
+  // #76 — el nombre del cliente linkea a su ficha (/admin/customers/view/:id),
+  // patrón #71/#56. Sin customerId → texto plano (no navegar a /view/undefined);
+  // sin customerName → em-dash. La ruta de detalle ya está gateada con clients.read.
+  { label: 'Cliente/Cliente Potencial', key: 'customerName', sortable: true,
+    render: (t) =>
+      t.customerId
+        ? <Link to={`/admin/customers/view/${t.customerId}`} className={styles.titleLink}>{t.customerName ?? '—'}</Link>
+        : (t.customerName ?? '—') },
+  // #78 — 'Tipo' (key 'type') removed: dead field, the BE never populated it.
   // #48 (M1): the BE sends `reporterName` on the list (deprecated `reporter` is
   // no longer populated). Read the live field, fall back to '—' when null.
   { label: 'Reporter', key: 'reporterName', render: (t) => t.reporterName ?? '—' },
@@ -250,6 +294,8 @@ const ALL_COLUMNS: Array<{ label: string; key: string; sortable?: boolean; rende
   { label: 'Estado', key: 'status', sortable: true, render: (t) => <TicketStatusPill status={t.status} /> },
   // #69 — key 'areaName' matches ALL_TICKET_COLUMNS (leccion #48: catalog key === table key).
   { label: 'Área', key: 'areaName', render: (t) => <AreaPill name={t.areaName} color={t.areaColor} /> },
+  // #79 — Timer SLA: key 'timer' matches ALL_TICKET_COLUMNS (leccion #48).
+  { label: 'Timer', key: 'timer', render: (t) => <SlaTimerCell createdAt={t.createdAt} status={t.status} /> },
   { label: 'Asignado a', key: 'assigneeName' },
   { label: 'Creado de fecha y hora', key: 'createdAt', sortable: true },
 ];
