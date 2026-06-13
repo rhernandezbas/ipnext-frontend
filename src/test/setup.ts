@@ -32,3 +32,11 @@ vi.mock('@/context/ConfirmContext', () => ({
   useConfirm: vi.fn(() => vi.fn().mockResolvedValue(true)),
   ConfirmProvider: ({ children }: { children: ReactNode }) => children,
 }));
+
+// Default mock for useContractServiceHistory (#73). Any test that renders
+// ContractCard will transitively mount ServiceHistoryModal, which calls this
+// hook. Without a QueryClientProvider in tests, the real hook crashes. Tests
+// that exercise the modal directly should override with vi.mocked(...).
+vi.mock('@/hooks/useContractServiceHistory', () => ({
+  useContractServiceHistory: vi.fn(() => ({ data: [], isLoading: false })),
+}));

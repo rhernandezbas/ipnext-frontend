@@ -1,5 +1,5 @@
 import axiosClient from './axios-client';
-import type { ContractService } from '@/types/customer';
+import type { ContractService, ServiceHistoryEntry } from '@/types/customer';
 
 export interface AddContractServicePayload {
   serviceCatalogId: string;
@@ -23,4 +23,6 @@ export const contractServicesApi = {
       .then(r => r.data),
   remove: (contractId: string, id: string) =>
     axiosClient.delete(`/contracts/${contractId}/services/${id}`),
+  getHistory: (contractId: string): Promise<ServiceHistoryEntry[]> =>
+    axiosClient.get<ServiceHistoryEntry[]>(`/contracts/${contractId}/service-history`).then(r => r.data),
 };
