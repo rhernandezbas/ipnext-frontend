@@ -48,6 +48,13 @@ export interface GigaredAccount {
   registrationDate: string | null;
   services: GigaredService[];
   internalId: string | null;
+  /**
+   * #3 — the bare Client.id (stripped of the `-{seq}` suffix used by internalId).
+   * Use this for the customer deep-link; it points to the Prominense customer record
+   * regardless of how many re-altas have happened. Null when the account is not linked
+   * to a Prominense customer.
+   */
+  clientId: string | null;
   ott: GigaredOtt | null;
 }
 

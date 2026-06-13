@@ -37,13 +37,15 @@ const COLUMNS = [
   {
     key: 'name',
     label: 'Nombre',
-    // #47j Fix 3 — when the account is linked to a Prominense customer
-    // (internalId present), the name links to that customer's view. Otherwise
-    // it is plain text. Path mirrors App.tsx: /admin/customers/view/:id.
+    // #47j Fix 3 — when the account is linked to a Prominense customer,
+    // the name links to that customer's view. Uses clientId (#3): the bare
+    // Client.id (no -seq suffix) so the link is stable across re-altas.
+    // Guard: if clientId is null the name is plain text (no broken link).
+    // Path mirrors App.tsx: /admin/customers/view/:id.
     render: (r: Row) => {
       const name = [r.firstName, r.lastName].filter(Boolean).join(' ') || '—';
-      return r.internalId ? (
-        <Link className={styles.nameLink} to={`/admin/customers/view/${r.internalId}`}>
+      return r.clientId ? (
+        <Link className={styles.nameLink} to={`/admin/customers/view/${r.clientId}`}>
           {name}
         </Link>
       ) : (

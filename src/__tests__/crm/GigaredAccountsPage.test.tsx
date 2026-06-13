@@ -20,11 +20,17 @@ const accounts: GigaredAccount[] = [
     cic: '0000000001', gigaredId: 'g1', email: 'a@b.com', firstName: 'Ana', lastName: 'García',
     registrationDate: '2026-01-01T00:00:00Z', services: [{ id: 's1', name: 'Play Full' }],
     // #47j Fix 1 — OTT status is the FROZEN 'enabled' | 'disabled' | null.
-    internalId: 'c1', ott: { id: 'o1', stationaryLicenses: 1, mobileLicenses: 0, registeredDevices: 1, status: 'enabled' },
+    internalId: 'c1',
+    // #3 — clientId is the bare Client.id (stripped of the -seq suffix). Used for the customer link.
+    clientId: 'client-abc',
+    ott: { id: 'o1', stationaryLicenses: 1, mobileLicenses: 0, registeredDevices: 1, status: 'enabled' },
   },
   {
     cic: '0000000002', gigaredId: 'g2', email: 'b@b.com', firstName: 'Beto', lastName: 'López',
-    registrationDate: null, services: [], internalId: null, ott: null,
+    registrationDate: null, services: [], internalId: null,
+    // #3 — null clientId → no link, plain text name
+    clientId: null,
+    ott: null,
   },
 ];
 
@@ -148,21 +154,47 @@ describe('GigaredAccountsPage', () => {
   });
 
   // ── #47j Fix 3: the name links to the customer view when linked ──────────────
-  describe('#47j Fix 3 — name hyperlinks the linked customer', () => {
-    it('linked account → name is a link to /admin/customers/view/{internalId}', () => {
+  // #3 rework: link now uses clientId (bare Client.id), not internalId.
+  describe('#47j Fix 3 / #3 — name hyperlinks the linked customer via clientId', () => {
+    it('linked account with clientId → name is a link to /admin/customers/view/{clientId}', () => {
       mockHooks();
       renderPage();
-      // accounts[0] has internalId 'c1' and name "Ana García".
+      // accounts[0] has clientId 'client-abc' and name "Ana García".
       const link = screen.getByRole('link', { name: /Ana García/i });
-      expect(link).toHaveAttribute('href', '/admin/customers/view/c1');
+      // #3 — must use clientId, NOT internalId
+      expect(link).toHaveAttribute('href', '/admin/customers/view/client-abc');
     });
 
-    it('unlinked account (no internalId) → name is plain text, not a link', () => {
+    it('null clientId → name is plain text, not a link', () => {
       mockHooks();
       renderPage();
-      // accounts[1] "Beto López" has internalId null → no link.
+      // accounts[1] "Beto López" has clientId null → no link.
       expect(screen.queryByRole('link', { name: /Beto López/i })).not.toBeInTheDocument();
       expect(screen.getByText('Beto López')).toBeInTheDocument();
+    });
+  });
+
+  // ── #3 — customer link uses clientId (bare Client.id, not internalId) ─────────
+  describe('#3 — name column links via clientId', () => {
+    it('account with clientId "abc" → name links to /admin/customers/view/abc', () => {
+      const withClientId: GigaredAccount[] = [
+        { ...accounts[0], clientId: 'abc', internalId: 'abc-0' },
+      ];
+      mockHooks({ allAccountsData: withClientId });
+      renderPage();
+      const link = screen.getByRole('link', { name: /Ana García/i });
+      // MUST use clientId "abc", NOT internalId "abc-0"
+      expect(link).toHaveAttribute('href', '/admin/customers/view/abc');
+    });
+
+    it('null clientId → plain text, no link (even when internalId is present)', () => {
+      const withNullClientId: GigaredAccount[] = [
+        { ...accounts[0], clientId: null, internalId: 'abc-0' },
+      ];
+      mockHooks({ allAccountsData: withNullClientId });
+      renderPage();
+      expect(screen.queryByRole('link', { name: /Ana García/i })).not.toBeInTheDocument();
+      expect(screen.getByText('Ana García')).toBeInTheDocument();
     });
   });
 

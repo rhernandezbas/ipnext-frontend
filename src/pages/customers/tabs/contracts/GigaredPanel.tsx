@@ -975,9 +975,12 @@ function LinkedView({
   const loginFallback = account.gigaredId ? `GIGA${account.gigaredId}` : (account.ott?.id ?? null);
   const tvLogin = credentialsQuery.data?.login ?? loginFallback;
   const tvPassword = credentialsQuery.data?.password ?? null;
-  // #81 — the current internal_id (sequential identity). Only available once the credentials
-  // query has resolved; null means either not yet fetched or not set (no re-alta yet).
-  const tvInternalId = credentialsQuery.data?.internalId ?? null;
+  // #9 / #81 — the current internal_id (sequential identity). Sourced EAGERLY from
+  // account.internalId (the account prop is already loaded when LinkedView mounts) so
+  // "ID interno" shows immediately on modal open without waiting for "Mostrar contraseña".
+  // The credentials query (lazy, tv.register-gated) only carries a post-re-alta snapshot
+  // of the same field — we no longer read it for the display here.
+  const tvInternalId = account.internalId;
 
   // Change-password modal state. Default prefilled with the deterministic value when
   // we know the GR id; the operator may type any CUA-valid password.

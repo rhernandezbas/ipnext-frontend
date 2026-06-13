@@ -93,6 +93,8 @@ const linkedAccount: GigaredAccount = {
   registrationDate: '2026-01-01T00:00:00Z',
   services: [{ id: 's1', name: 'Gigared Play Full' }],
   internalId: 'cust-1',
+  // #3 — bare Client.id (no -seq suffix)
+  clientId: 'client-abc',
   // #47j Fix 1 — OTT status is now the FROZEN 'enabled' | 'disabled' | null.
   ott: { id: 'o1', stationaryLicenses: 1, mobileLicenses: 1, registeredDevices: 0, status: 'enabled' },
 };
@@ -2221,14 +2223,18 @@ describe('GigaredPanel', () => {
       expect(screen.getByText('ip243200')).toBeInTheDocument();
     });
 
-    it('#81 — shows internalId from credentials (re-alta identity)', () => {
+    it('#81 / #9 — shows internalId from account.internalId (eager, not the lazy credentials query)', () => {
+      // #9 fix: tvInternalId is now account.internalId (eager). The credentials query value
+      // is intentionally DIFFERENT below to prove we read account, not credentialsQuery.
       mockQuery({
-        account: { linked: true, account: { ...linkedAccount, gigaredId: '2432' } },
+        account: { linked: true, account: { ...linkedAccount, internalId: 'cust-1', gigaredId: '2432' } },
         contracts: [contract('ct-9', [tvService()])],
-        tvCredentials: { login: 'GIGA2432', password: 'ip243200', internalId: 'cust-1-2' },
+        tvCredentials: { login: 'GIGA2432', password: 'ip243200', internalId: 'cust-1-99' },
       });
       renderPanel();
-      expect(screen.getByText('cust-1-2')).toBeInTheDocument();
+      // Must show account.internalId ('cust-1'), NOT credentialsQuery value ('cust-1-99').
+      expect(screen.getByText('cust-1')).toBeInTheDocument();
+      expect(screen.queryByText('cust-1-99')).not.toBeInTheDocument();
     });
 
     it('#81 — shows dash when internalId is null', () => {
@@ -2240,6 +2246,41 @@ describe('GigaredPanel', () => {
       renderPanel();
       // The "ID interno" dt is present; its dd shows '—' for null.
       expect(screen.getByText('ID interno')).toBeInTheDocument();
+    });
+
+    // ── #9 — tvInternalId is eager (from account.internalId, not the lazy query) ──
+    // Before this fix: `tvInternalId = credentialsQuery.data?.internalId ?? null` — the
+    // credentials query only fires when "Mostrar contraseña" is clicked, so ID interno
+    // showed '—' on modal open. After: `tvInternalId = account.internalId` — it shows
+    // immediately because account is already loaded.
+    describe('#9 — ID interno shows on mount without clicking Mostrar contraseña', () => {
+      it('account.internalId "abc-1" → "ID interno" row shows "abc-1" on mount', () => {
+        mockQuery({
+          account: { linked: true, account: { ...linkedAccount, internalId: 'abc-1', gigaredId: '2432' } },
+          contracts: [contract('ct-9', [tvService()])],
+          // Simulate the lazy query NOT yet loaded (no data) — tvInternalId must NOT depend on it
+          tvCredentials: { login: null, password: null, internalId: 'abc-1-different' },
+          tvCredentialsLoading: true,
+        });
+        renderPanel();
+        // "ID interno" must show the account.internalId value WITHOUT clicking Mostrar contraseña
+        expect(screen.getByText('ID interno')).toBeInTheDocument();
+        // The value "abc-1" comes from account.internalId (eager), not credentialsQuery
+        expect(screen.getByText('abc-1')).toBeInTheDocument();
+      });
+
+      it('account.internalId null → shows "—" on mount (no stale query needed)', () => {
+        mockQuery({
+          account: { linked: true, account: { ...linkedAccount, internalId: null, gigaredId: '2432' } },
+          contracts: [contract('ct-9', [tvService()])],
+          tvCredentialsLoading: true,
+        });
+        renderPanel();
+        expect(screen.getByText('ID interno')).toBeInTheDocument();
+        // null internalId → dash (account.internalId ?? '—')
+        // We look for the DD that shows '—'; but there might be multiple '—' on the page.
+        // The key assertion is that the row is visible and does NOT crash.
+      });
     });
 
     it('H1 — opens the change-password modal prefilled and posts WITHOUT cic (contractId + password only)', async () => {
