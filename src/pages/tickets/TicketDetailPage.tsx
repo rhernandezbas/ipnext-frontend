@@ -164,6 +164,8 @@ export default function TicketDetailPage() {
           <TicketTabs
             ticketId={ticket.id}
             description={ticket.description}
+            reporterName={ticket.reporterName}
+            createdAt={ticket.createdAt}
             tasks={ticket.tasks}
           />
         </main>

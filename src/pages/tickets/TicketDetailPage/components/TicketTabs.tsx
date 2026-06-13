@@ -7,24 +7,17 @@ import styles from './TicketTabs.module.css';
 
 export interface TicketTabsProps {
   ticketId: string;
+  /** #77 — passed through to TicketCommentsTimeline for the synthetic opening comment. */
   description: string;
+  reporterName?: string | null;
+  createdAt?: string;
   tasks?: RelatedTask[];
 }
 
 const TAB_IDS = {
   conversacion: 'conversacion',
-  datos: 'datos',
   relacionado: 'relacionado',
 } as const;
-
-/** Datos tab — the ticket description, prominent. Empty → muted placeholder. */
-function DatosPanel({ description }: { description: string }) {
-  const text = description?.trim() ?? '';
-  if (!text) {
-    return <p className={styles.descriptionEmpty}>Sin descripción</p>;
-  }
-  return <p className={styles.description}>{description}</p>;
-}
 
 /** Relacionado tab — ScheduledTasks created from this ticket. */
 function RelacionadoPanel({ tasks }: { tasks?: RelatedTask[] }) {
@@ -48,7 +41,7 @@ function RelacionadoPanel({ tasks }: { tasks?: RelatedTask[] }) {
   );
 }
 
-export function TicketTabs({ ticketId, description, tasks }: TicketTabsProps) {
+export function TicketTabs({ ticketId, description, reporterName, createdAt, tasks }: TicketTabsProps) {
   const [activeTab, setActiveTab] = useState<string>(TAB_IDS.conversacion);
   const [mountedIds, setMountedIds] = useState<Set<string>>(
     new Set([TAB_IDS.conversacion]),
@@ -68,12 +61,14 @@ export function TicketTabs({ ticketId, description, tasks }: TicketTabsProps) {
     {
       id: TAB_IDS.conversacion,
       label: 'Conversación',
-      content: <TicketCommentsTimeline ticketId={ticketId} />,
-    },
-    {
-      id: TAB_IDS.datos,
-      label: 'Datos',
-      content: <DatosPanel description={description} />,
+      content: (
+        <TicketCommentsTimeline
+          ticketId={ticketId}
+          description={description}
+          reporterName={reporterName}
+          createdAt={createdAt}
+        />
+      ),
     },
     {
       id: TAB_IDS.relacionado,

@@ -556,3 +556,108 @@ describe('TicketCommentsTimeline — attachment scheme allowlist', () => {
     expect(screen.getByText('x.html')).toBeInTheDocument();
   });
 });
+
+// ── Comentario de apertura (#77) ──────────────────────────────────────────────
+
+describe('TicketCommentsTimeline — comentario de apertura (#77)', () => {
+  it('muestra el comentario inicial con authorName, body y fecha cuando description no está vacía', () => {
+    setComments([]);
+    render(
+      <TicketCommentsTimeline
+        ticketId="ticket-1"
+        description="No tengo señal desde ayer."
+        reporterName="Juan Reportero"
+        createdAt="2024-01-15T10:00:00Z"
+      />,
+    );
+
+    // Debe mostrar el nombre del reporter como author del primer item
+    expect(screen.getByText('Juan Reportero')).toBeInTheDocument();
+    // Debe mostrar el texto de la descripción
+    expect(screen.getByText('No tengo señal desde ayer.')).toBeInTheDocument();
+    // La fecha debe estar presente (contiene el año)
+    expect(screen.getByText(/2024/)).toBeInTheDocument();
+  });
+
+  it('usa "Sistema" como fallback de authorName cuando reporterName es null', () => {
+    setComments([]);
+    render(
+      <TicketCommentsTimeline
+        ticketId="ticket-1"
+        description="Descripción del ticket."
+        reporterName={null}
+        createdAt="2024-01-15T10:00:00Z"
+      />,
+    );
+    expect(screen.getByText('Sistema')).toBeInTheDocument();
+  });
+
+  it('NO muestra el comentario inicial cuando description está vacía', () => {
+    setComments([]);
+    render(
+      <TicketCommentsTimeline
+        ticketId="ticket-1"
+        description=""
+        reporterName="Juan Reportero"
+        createdAt="2024-01-15T10:00:00Z"
+      />,
+    );
+    expect(screen.queryByText('Juan Reportero')).not.toBeInTheDocument();
+  });
+
+  it('NO muestra el comentario inicial cuando description es solo espacios', () => {
+    setComments([]);
+    render(
+      <TicketCommentsTimeline
+        ticketId="ticket-1"
+        description="   "
+        reporterName="Juan Reportero"
+        createdAt="2024-01-15T10:00:00Z"
+      />,
+    );
+    expect(screen.queryByText('Juan Reportero')).not.toBeInTheDocument();
+  });
+
+  it('el comentario inicial aparece ANTES de los comentarios reales', () => {
+    setComments([
+      {
+        id: 'c1',
+        ticketId: 'ticket-1',
+        authorName: 'Ana Técnico',
+        body: 'Revisando el problema',
+        createdAt: '2024-01-16T10:00:00Z',
+        attachments: [],
+      },
+    ]);
+    render(
+      <TicketCommentsTimeline
+        ticketId="ticket-1"
+        description="No tengo señal."
+        reporterName="Cliente Juan"
+        createdAt="2024-01-15T10:00:00Z"
+      />,
+    );
+
+    const articles = screen.getAllByRole('listitem');
+    // Primer item debe ser el comentario de apertura (Cliente Juan)
+    expect(articles[0]).toHaveTextContent('Cliente Juan');
+    // Segundo item debe ser el comentario real (Ana Técnico)
+    expect(articles[1]).toHaveTextContent('Ana Técnico');
+  });
+
+  it('sin props de apertura (modo legacy) no explota y muestra el feed normal', () => {
+    setComments([
+      {
+        id: 'c1',
+        ticketId: 'ticket-1',
+        authorName: 'Bob',
+        body: 'Hola',
+        createdAt: '2024-01-15T10:00:00Z',
+        attachments: [],
+      },
+    ]);
+    // TicketCommentsTimeline sin description/reporterName/createdAt — modo legacy
+    render(<TicketCommentsTimeline ticketId="ticket-1" />);
+    expect(screen.getByText('Hola')).toBeInTheDocument();
+  });
+});

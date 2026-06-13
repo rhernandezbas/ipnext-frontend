@@ -122,30 +122,20 @@ describe('TicketDetailPage (Prominense layout)', () => {
     expect(screen.getByText('Problema de conexión a internet')).toBeInTheDocument();
   });
 
-  it('renders the three tabs with Conversación active by default', () => {
+  it('renders TWO tabs (Conversación + Relacionado) — Datos tab is gone (#77)', () => {
     renderPage();
     expect(screen.getByRole('tab', { name: 'Conversación' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Datos' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Datos' })).not.toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Relacionado' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Conversación' })).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('Datos tab shows the description', async () => {
-    const user = userEvent.setup();
+  // #77 — description content now appears as the synthetic opening comment in the
+  // Conversación tab, not in a separate Datos tab. Verify it shows in the timeline.
+  it('description appears as the opening comment in the Conversación tab (#77)', () => {
     renderPage();
-    await user.click(screen.getByRole('tab', { name: 'Datos' }));
+    // Conversación tab is active by default; the opening comment should be visible
     expect(screen.getByText('No tengo señal desde ayer.')).toBeInTheDocument();
-  });
-
-  it('Datos tab shows "Sin descripción" placeholder when empty', async () => {
-    vi.mocked(useTicketsModule.useTicket).mockReturnValue({
-      data: { ...mockTicket, description: '' },
-      isLoading: false,
-    } as ReturnType<typeof useTicketsModule.useTicket>);
-    const user = userEvent.setup();
-    renderPage();
-    await user.click(screen.getByRole('tab', { name: 'Datos' }));
-    expect(screen.getByText('Sin descripción')).toBeInTheDocument();
   });
 
   it('Relacionado tab shows the empty copy when there are no linked tasks', async () => {
@@ -196,9 +186,12 @@ describe('TicketDetailPage (Prominense layout)', () => {
   });
 
   // #48 — Reporter is a read-only display of the creator's name (reporterName).
+  // Note: #77 — reporterName also appears as the opening comment author, so there
+  // are TWO occurrences of "María Creadora". We assert via the sidebar row.
   it('renders the reporter name (reporterName) in the Detalles sidebar', () => {
     renderPage();
-    expect(screen.getByText('María Creadora')).toBeInTheDocument();
+    const reporterRow = screen.getByText('Reporter').closest('div') as HTMLElement;
+    expect(reporterRow.textContent).toContain('María Creadora');
   });
 
   it('renders "—" for the reporter when reporterName is null', () => {
