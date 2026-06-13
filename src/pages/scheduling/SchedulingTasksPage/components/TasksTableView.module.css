@@ -245,6 +245,20 @@
 .bulkCloseBtn:hover:not(:disabled) { background: #4f46e5; }
 .bulkCloseBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Bulk "Limpiar selección" button */
+.bulkClear {
+  padding: 5px 12px;
+  background: transparent;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-left: 4px;
+}
+.bulkClear:hover { color: #1e293b; border-color: #94a3b8; }
+
 /* Closed task badge (inline in title cell) */
 .closedBadge {
   display: inline-block;

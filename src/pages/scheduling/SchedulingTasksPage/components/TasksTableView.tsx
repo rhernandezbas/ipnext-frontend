@@ -2,13 +2,22 @@ import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { Can } from '@/components/auth/Can';
-import type { ScheduledTask } from '@/types/scheduling';
+import type { ScheduledTask, TaskGeneralStatus } from '@/types/scheduling';
 import type { Workflow, WorkflowStage } from '@/types/workflow';
 import type { Project } from '@/types/project';
 import type { TaskPriority } from '@/types/taskPriority';
 
 type SchedulingAssignee = { id: string; name: string };
-import { useMoveTaskToStage, useBulkMoveTasksToStage, useDeleteTask, useCloseTask, useSetTaskInventoryReview, useUpdateTask } from '@/hooks/useScheduling';
+import {
+  useMoveTaskToStage,
+  useBulkMoveTasksToStage,
+  useDeleteTask,
+  useCloseTask,
+  useSetTaskInventoryReview,
+  useUpdateTask,
+  useSetTaskGeneralStatus,
+  useArchiveTask,
+} from '@/hooks/useScheduling';
 import type { BulkStageResponse } from '@/api/scheduling.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/useMyPermissions';
@@ -18,7 +27,22 @@ import { BulkMoveResultModal } from '@/components/molecules/BulkMoveResultModal/
 import { StageSelect } from '@/components/molecules/StageSelect/StageSelect';
 import { PrioritySelect } from '@/components/molecules/PrioritySelect/PrioritySelect';
 import { useConfirm } from '@/context/ConfirmContext';
+import { mapWithConcurrency } from '@/utils/mapWithConcurrency';
 import styles from './TasksTableView.module.css';
+
+/** Bulk requests run at most 5 in flight — mirrors the BE/tickets limit. */
+const BULK_CONCURRENCY = 5;
+
+/** Per-action toast copy: `done` = success past-participle, `failVerb` =
+ *  infinitive for the partial-failure line ("X de N no se pudieron {failVerb}"). */
+interface BulkCopy { done: string; failVerb: string; noun: string; }
+const BULK_COPY = {
+  assign:         { done: 'asignadas', failVerb: 'asignar',      noun: 'tarea' },
+  changeStatus:   { done: 'actualizadas', failVerb: 'actualizar', noun: 'tarea' },
+  close:          { done: 'cerradas', failVerb: 'cerrar',         noun: 'tarea' },
+  delete:         { done: 'eliminadas', failVerb: 'eliminar',     noun: 'tarea' },
+  archive:        { done: 'archivadas', failVerb: 'archivar',     noun: 'tarea' },
+} satisfies Record<string, BulkCopy>;
 
 // ── Atoms ────────────────────────────────────────────────────────────────────
 
@@ -95,83 +119,164 @@ function RvIndicator({
 
 // ── BulkActionBar ────────────────────────────────────────────────────────────
 
+type PickerKind = null | 'assign' | 'changeStatus' | 'moveStage';
+
 interface BulkActionBarProps {
   selectedIds: string[];
   availableStages: WorkflowStage[];
+  admins: SchedulingAssignee[];
+  /** Tasks data — needed to check if all selected are non-open (archive gate). */
+  tasks: ScheduledTask[];
   onClear: () => void;
   onMoveStage: (ids: string[], stageId: string) => Promise<void>;
-  onDelete: (ids: string[]) => Promise<void>;
-  /** Bulk close. Returns the number of tasks that FAILED to close (0 = full
-   *  success). Never rejects — failures are reported via the return value so the
-   *  bar can keep the selection and the parent can toast. */
-  onClose: (ids: string[]) => Promise<number>;
-  isAdmin: boolean;
+  onDelete: (ids: string[]) => Promise<{ failedItems: string[] }>;
+  onClose: (ids: string[]) => Promise<{ failedItems: string[] }>;
+  onAssign: (ids: string[], assigneeId: string) => Promise<{ failedItems: string[] }>;
+  onChangeStatus: (ids: string[], status: TaskGeneralStatus) => Promise<{ failedItems: string[] }>;
+  onArchive: (ids: string[]) => Promise<{ failedItems: string[] }>;
+  canHardDelete: boolean;
 }
 
-function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onDelete, onClose, isAdmin }: BulkActionBarProps) {
-  const [showMoveDialog, setShowMoveDialog] = useState(false);
-  const [targetStageId, setTargetStageId] = useState<string>('');
+function BulkActionBar({
+  selectedIds,
+  availableStages,
+  admins,
+  tasks,
+  onClear,
+  onMoveStage,
+  onDelete,
+  onClose,
+  onAssign,
+  onChangeStatus,
+  onArchive,
+  canHardDelete,
+}: BulkActionBarProps) {
+  const [picker, setPicker] = useState<PickerKind>(null);
+  const [pickerValue, setPickerValue] = useState<string>('');
   const [busy, setBusy] = useState(false);
   const confirm = useConfirm();
 
   // NOTE: hooks must run before any early return — keep useConfirm above this.
   if (selectedIds.length === 0) return null;
 
-  async function handleDelete() {
-    if (!(await confirm({ message: `¿Eliminar ${selectedIds.length} tarea(s)?`, tone: 'danger', confirmLabel: 'Eliminar' }))) return;
+  const count = selectedIds.length;
+  const noun = `tarea${count !== 1 ? 's' : ''}`;
+
+  // Archive is only available when ALL selected tasks are non-open (closed or dismissed).
+  const selectedTasks = tasks.filter(t => selectedIds.includes(t.id));
+  const hasOpenTasks = selectedTasks.some(t => (t.generalStatus ?? (t.isClosed ? 'closed' : 'open')) === 'open');
+
+  function openPicker(kind: Exclude<PickerKind, null>) {
+    setPickerValue('');
+    setPicker(kind);
+  }
+
+  async function handleConfirmPicker() {
+    if (!pickerValue) return;
     setBusy(true);
     try {
-      await onDelete(selectedIds);
-      onClear();
+      let result: { failedItems: string[] } | undefined;
+      if (picker === 'assign') result = await onAssign(selectedIds, pickerValue);
+      else if (picker === 'changeStatus') result = await onChangeStatus(selectedIds, pickerValue as TaskGeneralStatus);
+      else if (picker === 'moveStage') {
+        await onMoveStage(selectedIds, pickerValue);
+        onClear();
+        setPicker(null);
+        return;
+      }
+      setPicker(null);
+      if (result && result.failedItems.length === 0) onClear();
     } finally {
       setBusy(false);
     }
   }
 
   async function handleClose() {
-    if (!(await confirm({ message: `¿Cerrar ${selectedIds.length} tarea(s)?`, confirmLabel: 'Cerrar' }))) return;
+    if (!(await confirm({ message: `¿Cerrar ${count} ${noun}?`, confirmLabel: 'Cerrar' }))) return;
     setBusy(true);
     try {
-      // onClose never rejects: it returns the count of tasks that failed. Only
-      // clear the selection on a clean run so the operator can retry the rest.
-      const failed = await onClose(selectedIds);
-      if (failed === 0) onClear();
+      const { failedItems } = await onClose(selectedIds);
+      if (failedItems.length === 0) onClear();
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleConfirmMove() {
-    if (!targetStageId) return;
+  async function handleArchive() {
+    if (!(await confirm({ message: `¿Archivar ${count} ${noun}?`, confirmLabel: 'Archivar' }))) return;
     setBusy(true);
     try {
-      await onMoveStage(selectedIds, targetStageId);
-      setShowMoveDialog(false);
-      setTargetStageId('');
-      onClear();
+      const { failedItems } = await onArchive(selectedIds);
+      if (failedItems.length === 0) onClear();
     } finally {
       setBusy(false);
     }
   }
+
+  async function handleDelete() {
+    if (!(await confirm({ message: `¿Eliminar ${count} ${noun}?`, tone: 'danger', confirmLabel: 'Eliminar' }))) return;
+    setBusy(true);
+    try {
+      const { failedItems } = await onDelete(selectedIds);
+      if (failedItems.length === 0) onClear();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const pickerTitle =
+    picker === 'assign'
+      ? `Asignar ${count} ${noun}`
+      : picker === 'changeStatus'
+      ? `Cambiar estado de ${count} ${noun}`
+      : picker === 'moveStage'
+      ? `Mover ${count} ${noun} a otro estado`
+      : '';
 
   return (
     <>
       <div className={styles.bulkActionBar} data-testid="bulk-action-bar">
         <span className={styles.bulkLabel}>Acciones masivas</span>
         <span className={styles.bulkCount}>
-          ✓ {selectedIds.length} tarea{selectedIds.length !== 1 ? 's' : ''} seleccionada{selectedIds.length !== 1 ? 's' : ''}
+          ✓ {count} {noun} seleccionada{count !== 1 ? 's' : ''}
         </span>
+
+        <Can permission="scheduling.write">
+          <button
+            type="button"
+            className={styles.bulkMoveBtn}
+            onClick={() => openPicker('assign')}
+            disabled={busy}
+            data-testid="bulk-assign-btn"
+          >
+            Asignar
+          </button>
+        </Can>
+
+        <Can permission="scheduling.write">
+          <button
+            type="button"
+            className={styles.bulkMoveBtn}
+            onClick={() => openPicker('changeStatus')}
+            disabled={busy}
+            data-testid="bulk-change-status-btn"
+          >
+            Cambiar estado
+          </button>
+        </Can>
+
         <Can permission="scheduling.move_stage">
           <button
             type="button"
             className={styles.bulkMoveBtn}
-            onClick={() => setShowMoveDialog(true)}
+            onClick={() => openPicker('moveStage')}
             disabled={busy || availableStages.length === 0}
             aria-label="Mover estado"
           >
             Mover estado
           </button>
         </Can>
+
         <Can permission="scheduling.write">
           <button
             type="button"
@@ -183,7 +288,25 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
             Cerrar
           </button>
         </Can>
-        {isAdmin && (
+
+        <Can permission="scheduling.write">
+          <button
+            type="button"
+            className={styles.bulkMoveBtn}
+            onClick={() => void handleArchive()}
+            disabled={busy || hasOpenTasks}
+            title={
+              hasOpenTasks
+                ? 'Solo se pueden archivar tareas cerradas o descartadas. Cerrá o descartá las tareas abiertas primero.'
+                : `Archivar ${count} ${noun}`
+            }
+            data-testid="bulk-archive-btn"
+          >
+            Archivar
+          </button>
+        </Can>
+
+        {canHardDelete && (
           <button
             type="button"
             className={styles.bulkDeleteBtn}
@@ -194,24 +317,47 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
             Eliminar
           </button>
         )}
+
+        <button
+          type="button"
+          className={styles.bulkClear}
+          onClick={onClear}
+          aria-label="Limpiar selección"
+        >
+          Limpiar
+        </button>
       </div>
 
-      {showMoveDialog && (
-        <div className={styles.dialogOverlay} role="dialog" aria-modal="true" aria-labelledby="move-stage-title">
+      {picker && (
+        <div className={styles.dialogOverlay} role="dialog" aria-modal="true" aria-labelledby="task-bulk-picker-title">
           <div className={styles.dialog}>
-            <h2 id="move-stage-title" className={styles.dialogTitle}>
-              Mover {selectedIds.length} tarea{selectedIds.length !== 1 ? 's' : ''} a otro estado
+            <h2 id="task-bulk-picker-title" className={styles.dialogTitle}>
+              {pickerTitle}
             </h2>
             <label className={styles.dialogLabel}>
-              Nuevo estado
+              {picker === 'assign'
+                ? 'Asignar a'
+                : picker === 'changeStatus'
+                ? 'Nuevo estado'
+                : 'Nuevo estado de workflow'}
               <select
-                value={targetStageId}
-                onChange={e => setTargetStageId(e.target.value)}
+                value={pickerValue}
+                onChange={e => setPickerValue(e.target.value)}
                 className={styles.dialogSelect}
                 autoFocus
               >
                 <option value="">Seleccionar…</option>
-                {availableStages.map(s => (
+                {picker === 'assign' && admins.map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+                {picker === 'changeStatus' && (
+                  <>
+                    <option value="open">Abierta</option>
+                    <option value="closed">Cerrada</option>
+                    <option value="dismissed">Descartada</option>
+                  </>
+                )}
+                {picker === 'moveStage' && availableStages.map(s => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
@@ -220,7 +366,7 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
               <button
                 type="button"
                 className={styles.btnSecondary}
-                onClick={() => { setShowMoveDialog(false); setTargetStageId(''); }}
+                onClick={() => { setPicker(null); setPickerValue(''); }}
                 disabled={busy}
               >
                 Cancelar
@@ -228,10 +374,14 @@ function BulkActionBar({ selectedIds, availableStages, onClear, onMoveStage, onD
               <button
                 type="button"
                 className={styles.btnPrimary}
-                onClick={handleConfirmMove}
-                disabled={busy || !targetStageId}
+                onClick={() => void handleConfirmPicker()}
+                disabled={busy || !pickerValue}
               >
-                {busy ? 'Moviendo…' : 'Mover'}
+                {picker === 'assign'
+                  ? (busy ? 'Asignando…' : 'Asignar')
+                  : picker === 'changeStatus'
+                  ? (busy ? 'Aplicando…' : 'Aplicar')
+                  : (busy ? 'Moviendo…' : 'Mover')}
               </button>
             </div>
           </div>
@@ -263,6 +413,9 @@ interface TasksTableViewProps {
   /** Empty-state copy for the table (#40 FIX-4). Lets sibling pages override the
    *  default with a page-specific message (e.g. "No hay tareas de nodos…"). */
   emptyMessage?: string;
+  /** When true the bulk action bar hides destructive actions (archive, delete).
+   *  Use on the archived tasks page where those actions are contextually nonsensical. */
+  readOnly?: boolean;
 }
 
 /** Full list of columns the table knows how to render — used both by the
@@ -286,11 +439,24 @@ export const ALL_TASK_COLUMNS: { key: string; label: string }[] = [
 
 const PAGE_SIZES = [10, 25, 50, 100];
 
-export function TasksTableView({ tasks, loading = false, availableStages = [], projects = [], workflows = [], priorities = [], admins = [], visibleColumnKeys, emptyMessage = 'No hay tareas para mostrar.' }: TasksTableViewProps) {
+export function TasksTableView({
+  tasks,
+  loading = false,
+  availableStages = [],
+  projects = [],
+  workflows = [],
+  priorities = [],
+  admins = [],
+  visibleColumnKeys,
+  emptyMessage = 'No hay tareas para mostrar.',
+  readOnly = false,
+}: TasksTableViewProps) {
   const navigate = useNavigate();
   const moveToStage = useMoveTaskToStage();
   const bulkMoveToStage = useBulkMoveTasksToStage();
   const updateTask = useUpdateTask();
+  const setGeneralStatus = useSetTaskGeneralStatus();
+  const archiveTask = useArchiveTask();
   const iclass = useIClassSendFeedback();
   // Result of the last bulk "Mover estado" — drives BulkMoveResultModal.
   const [bulkResult, setBulkResult] = useState<BulkStageResponse | null>(null);
@@ -303,6 +469,27 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
     setBulkToast(msg);
     if (bulkToastTimer.current) clearTimeout(bulkToastTimer.current);
     bulkToastTimer.current = setTimeout(() => setBulkToast(null), 4000);
+  }
+
+  /**
+   * Run a bulk action as N requests (concurrency 5). On full success: toast the
+   * count and clear the selection. On partial failure: toast "X de N no se
+   * pudieron {verbo}" and narrow the selection to ONLY the failed ids.
+   */
+  async function runBulk(
+    ids: string[],
+    fn: (id: string) => Promise<unknown>,
+    copy: BulkCopy,
+  ): Promise<{ failedItems: string[] }> {
+    const { failedItems } = await mapWithConcurrency(ids, BULK_CONCURRENCY, fn);
+    if (failedItems.length === 0) {
+      showBulkToast(`${ids.length} ${copy.noun}${ids.length !== 1 ? 's' : ''} ${copy.done}`);
+      setSelectedIds([]);
+    } else {
+      showBulkToast(`${failedItems.length} de ${ids.length} no se pudieron ${copy.failVerb}`);
+      setSelectedIds(failedItems);
+    }
+    return { failedItems };
   }
 
   /**
@@ -339,7 +526,7 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
   const closeTask = useCloseTask();
   const setInventoryReview = useSetTaskInventoryReview();
   useAuth(); // keep context subscription (auth:unauthorized event handling)
-  const canBulkDelete = useCan('scheduling.bulk_delete');
+  const canHardDelete = useCan('scheduling.hard_delete');
   const canInventoryWrite = useCan('inventory.write'); // #24 — gates the RV toggle
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
@@ -511,44 +698,42 @@ export function TasksTableView({ tasks, loading = false, availableStages = [], p
 
   return (
     <div className={styles.wrapper}>
-      {/* Bulk action bar — inline panel, shown above the table when rows are selected */}
-      <BulkActionBar
-        selectedIds={selectedIds}
-        availableStages={availableStages}
-        onClear={() => setSelectedIds([])}
-        onMoveStage={handleBulkMove}
-        onClose={async (ids) => {
-          // Sequential close. The status endpoint requires scheduling.write, so
-          // a single rejection used to abort the loop silently AND leak an
-          // unhandled rejection. Now we catch per-task, count failures, toast,
-          // and return the count so the bar keeps the selection on partial fail.
-          let failed = 0;
-          for (const id of ids) {
-            try {
-              await closeTask.mutateAsync({ id, isClosed: true });
-            } catch (err) {
-              failed++;
-              console.error('Failed to close task', id, err);
-            }
+      {/* Bulk action bar — inline panel, shown above the table when rows are selected.
+          Suppressed entirely on the archived view (readOnly): archived tasks are
+          terminal; operational bulk actions don't apply there. */}
+      {!readOnly && (
+        <BulkActionBar
+          selectedIds={selectedIds}
+          availableStages={availableStages}
+          admins={admins}
+          tasks={tasks}
+          onClear={() => setSelectedIds([])}
+          onMoveStage={handleBulkMove}
+          onClose={(ids) =>
+            runBulk(ids, id => closeTask.mutateAsync({ id, isClosed: true }), BULK_COPY.close)
           }
-          if (failed > 0) {
-            showBulkToast(`No se pudieron cerrar ${failed} tarea${failed !== 1 ? 's' : ''}.`);
+          onAssign={(ids, assigneeId) =>
+            runBulk(ids, id => updateTask.mutateAsync({ id, data: { assigneeId } }), BULK_COPY.assign)
           }
-          return failed;
-        }}
-        onDelete={async (ids) => {
-          for (const id of ids) {
-            await deleteTask.mutateAsync(id);
+          onChangeStatus={(ids, status) =>
+            runBulk(ids, id => setGeneralStatus.mutateAsync({ id, status }), BULK_COPY.changeStatus)
           }
-        }}
-        isAdmin={canBulkDelete}
-      />
+          onArchive={(ids) =>
+            runBulk(ids, id => archiveTask.mutateAsync(id), BULK_COPY.archive)
+          }
+          onDelete={(ids) =>
+            runBulk(ids, id => deleteTask.mutateAsync(id), BULK_COPY.delete)
+          }
+          canHardDelete={canHardDelete}
+        />
+      )}
       <DataTable
         columns={COLUMNS}
         data={pageData}
         loading={loading}
         actions={ACTIONS}
-        selectable
+        selectable={!readOnly}
+        selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
         emptyMessage={emptyMessage}
       />

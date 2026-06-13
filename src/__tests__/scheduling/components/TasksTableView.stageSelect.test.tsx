@@ -6,12 +6,14 @@ const moveAsync = vi.fn();
 const deleteAsync = vi.fn();
 const closeAsync = vi.fn();
 vi.mock('@/hooks/useScheduling', () => ({
-  useMoveTaskToStage:        () => ({ mutateAsync: moveAsync,   isPending: false }),
-  useBulkMoveTasksToStage:   () => ({ mutateAsync: vi.fn(),     isPending: false }),
-  useDeleteTask:             () => ({ mutateAsync: deleteAsync, isPending: false }),
-  useCloseTask:              () => ({ mutateAsync: closeAsync,  isPending: false }),
-  useSetTaskInventoryReview: () => ({ mutateAsync: vi.fn(),     isPending: false }),
-  useUpdateTask:             () => ({ mutateAsync: vi.fn(),     isPending: false }),
+  useMoveTaskToStage:          () => ({ mutateAsync: moveAsync,   isPending: false }),
+  useBulkMoveTasksToStage:     () => ({ mutateAsync: vi.fn(),     isPending: false }),
+  useDeleteTask:               () => ({ mutateAsync: deleteAsync, isPending: false }),
+  useCloseTask:                () => ({ mutateAsync: closeAsync,  isPending: false }),
+  useSetTaskInventoryReview:   () => ({ mutateAsync: vi.fn(),     isPending: false }),
+  useUpdateTask:               () => ({ mutateAsync: vi.fn(),     isPending: false }),
+  useSetTaskGeneralStatus:     () => ({ mutateAsync: vi.fn(),     isPending: false }),
+  useArchiveTask:              () => ({ mutateAsync: vi.fn(),     isPending: false }),
 }));
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -137,17 +139,17 @@ describe('TasksTableView — bulk actions', () => {
     vi.restoreAllMocks();
   });
 
-  it('shows "Cerrar" button in bulk bar for user without scheduling.bulk_delete permission', () => {
+  it('shows "Cerrar" button in bulk bar for user without scheduling.hard_delete permission', () => {
     vi.mocked(useAuth).mockReturnValue({ user: regularUser, isLoading: false, login: vi.fn(), logout: vi.fn() });
-    // Override useCan to deny bulk_delete for this test
-    vi.mocked(useCan).mockImplementation((perm: string) => perm !== 'scheduling.bulk_delete');
+    // Override useCan to deny hard_delete for this test
+    vi.mocked(useCan).mockImplementation((perm: string) => perm !== 'scheduling.hard_delete');
     setup();
     selectFirstRow();
     expect(screen.getByTestId('bulk-close-btn')).toBeInTheDocument();
     expect(screen.queryByTestId('bulk-delete-btn')).not.toBeInTheDocument();
   });
 
-  it('shows both "Cerrar" and "Eliminar" for user with scheduling.bulk_delete permission', () => {
+  it('shows both "Cerrar" and "Eliminar" for user with scheduling.hard_delete permission', () => {
     vi.mocked(useAuth).mockReturnValue({ user: adminUser, isLoading: false, login: vi.fn(), logout: vi.fn() });
     // Default global mock grants all permissions (useCan → true)
     setup();
@@ -164,7 +166,7 @@ describe('TasksTableView — bulk actions', () => {
     await waitFor(() => expect(closeAsync).toHaveBeenCalledWith({ id: 't1', isClosed: true }));
   });
 
-  it('calls deleteTask when user with scheduling.bulk_delete permission clicks "Eliminar"', async () => {
+  it('calls deleteTask when user with scheduling.hard_delete permission clicks "Eliminar"', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: adminUser, isLoading: false, login: vi.fn(), logout: vi.fn() });
     // Default global mock grants all permissions
     setup();
@@ -234,8 +236,9 @@ describe('TasksTableView — bulk close gating + error handling (#41)', () => {
     fireEvent.click(screen.getByTestId('bulk-close-btn'));
 
     // Error toast surfaces the count of tasks that could not be closed.
+    // Format: "X de N no se pudieron cerrar" (runBulk pattern — same as tickets).
     await waitFor(() =>
-      expect(screen.getByRole('status')).toHaveTextContent(/No se pudieron cerrar 1 tarea/i),
+      expect(screen.getByRole('status')).toHaveTextContent(/1 de 2 no se pudieron cerrar/i),
     );
     // Selection is NOT cleared: the bulk bar (and its count) stays visible.
     expect(screen.getByTestId('bulk-action-bar')).toBeInTheDocument();

@@ -23,6 +23,9 @@ export interface TaskListFilter {
    *  The FE always sends an explicit value (default 'open'); omitting it is a
    *  BE back-compat contract for non-FE callers (omitted ≡ all). */
   status?:     TaskGeneralStatus | 'all';
+  /** Archive filter (#86). When true, returns ONLY archived tasks (archivedAt IS NOT NULL).
+   *  By default the backend excludes archived tasks. */
+  archived?:   boolean;
 }
 
 export type TasksView = 'table' | 'kanban';
@@ -184,4 +187,7 @@ export interface ScheduledTask {
   // Timestamps — backend always returns ISO strings (post-change-1)
   createdAt: string;
   updatedAt: string;
+
+  /** ISO datetime when the task was archived (#86). Null when not archived. */
+  archivedAt: string | null;
 }

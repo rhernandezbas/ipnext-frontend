@@ -9,6 +9,8 @@ vi.mock('@/hooks/useScheduling', () => ({
   useCloseTask:              () => ({ mutateAsync: vi.fn(), isPending: false }),
   useSetTaskInventoryReview: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateTask:             () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useSetTaskGeneralStatus:   () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useArchiveTask:            () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 vi.mock('@/hooks/useAuth', () => ({
