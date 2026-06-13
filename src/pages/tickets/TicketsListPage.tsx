@@ -18,15 +18,18 @@ import tabStyles from './TicketsListPage.tabs.module.css';
 // included) so column visibility can re-expose them.
 export const ALL_TICKET_COLUMNS: ColumnDef[] = [
   { key: 'id',             label: 'ID' },
+  // #75 — Área a la posición 2 (tras ID) en el orden DEFAULT. key === BE field
+  // y === ALL_COLUMNS del render (leccion #48). El orden guardado del usuario
+  // NO se pisa: useVisibleColumns respeta el localStorage y sólo cambia el default.
+  { key: 'areaName',       label: 'Área' }, // #69 — pill con color del catalogo
   { key: 'subject',        label: 'Tema' },
-  { key: 'customerName',   label: 'Cliente/Cliente Potencial' },
   // #78 — la columna 'type' se eliminó: el BE (entity Ticket, TicketDto, modelo
   // Prisma) nunca tuvo el campo, así que renderizaba vacío para todas las filas.
+  { key: 'customerName',   label: 'Cliente/Cliente Potencial' },
   { key: 'reporterName',   label: 'Reporter' }, // #48 fix-wave — the BE field is reporterName
   { key: 'priority',       label: 'Prioridad' },
   { key: 'status',         label: 'Estado' },
-  { key: 'areaName',       label: 'Área' }, // #69 — pill con color del catalogo; key === BE field y === ALL_COLUMNS (leccion #48)
-  { key: 'assigneeName', label: 'Asignado a' }, // #28 follow-up — the BE field is assigneeName
+  { key: 'assigneeName',   label: 'Asignado a' }, // #28 follow-up — the BE field is assigneeName
   { key: 'createdAt',      label: 'Creado de fecha y hora' },
 ];
 
