@@ -155,10 +155,16 @@ export interface ChangeTvPasswordResult {
 }
 
 // ── #65 fix wave H3 — dedicated TV credentials surface ──────────────────────
-/** GET /gigared/customers/:id/tv-credentials → the guarded login/password of the TV slot. */
+/**
+ * GET /gigared/customers/:id/tv-credentials → the guarded login/password of the TV slot.
+ * #81 — additive field: internalId is the CURRENT identity of the TV account
+ * (seq=0 → bare client UUID; after a re-alta → `{clientId}-{seq}`).
+ */
 export interface TvCredentials {
   login: string | null;
   password: string | null;
+  /** #81 — current internal_id of the TV account. Changes on every re-alta. */
+  internalId: string | null;
 }
 
 /** #65 fix wave M7 — register response: the account + whether the credentials reached the slot. */

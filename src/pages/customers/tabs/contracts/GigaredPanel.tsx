@@ -974,6 +974,9 @@ function LinkedView({
   const loginFallback = account.gigaredId ? `GIGA${account.gigaredId}` : (account.ott?.id ?? null);
   const tvLogin = credentialsQuery.data?.login ?? loginFallback;
   const tvPassword = credentialsQuery.data?.password ?? null;
+  // #81 — the current internal_id (sequential identity). Only available once the credentials
+  // query has resolved; null means either not yet fetched or not set (no re-alta yet).
+  const tvInternalId = credentialsQuery.data?.internalId ?? null;
 
   // Change-password modal state. Default prefilled with the deterministic value when
   // we know the GR id; the operator may type any CUA-valid password.
@@ -1202,6 +1205,13 @@ function LinkedView({
           <div>
             <dt className={styles.dt}>Login</dt>
             <dd className={styles.dd}>{tvLogin ?? '—'}</dd>
+          </div>
+          {/* #81 — ID interno: la identidad secuencial del cliente en Gigared.
+              Cambia con cada re-alta (seq=0 → UUID del cliente; seq>0 → {clientId}-{seq}).
+              Solo visible una vez que el query de credenciales resolvió. */}
+          <div>
+            <dt className={styles.dt}>ID interno</dt>
+            <dd className={styles.dd}>{tvInternalId ?? '—'}</dd>
           </div>
           {/* Doble capa (#65 re-review): el endpoint /tv-credentials exige tv.register —
               la fila de contraseña solo se renderiza (y el fetch solo puede dispararse)

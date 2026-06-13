@@ -172,8 +172,8 @@ function mockQuery(over: {
   allAccounts?: Partial<Record<'registered' | 'unregistered', GigaredAccount[]>>;
   allAccountsLoading?: boolean;
   allAccountsError?: boolean;
-  /** #65 H3 — the credentials the dedicated endpoint returns. Defaults to a present pair. */
-  tvCredentials?: { login: string | null; password: string | null };
+  /** #65 H3 / #81 — the credentials the dedicated endpoint returns. Defaults to a present triple. */
+  tvCredentials?: { login: string | null; password: string | null; internalId: string | null };
   tvCredentialsLoading?: boolean;
   tvCredentialsError?: boolean;
 } = {}) {
@@ -228,9 +228,9 @@ function mockQuery(over: {
     isPending: false,
   } as unknown as ReturnType<typeof useCancelTv>);
   vi.mocked(useChangeTvPassword).mockReturnValue({ mutateAsync: pwMutate, isPending: false } as unknown as ReturnType<typeof useChangeTvPassword>);
-  // #65 H3 — the lazy credentials query. Default: present pair, not loading.
+  // #65 H3 / #81 — the lazy credentials query. Default: present triple (login + password + internalId).
   vi.mocked(useTvCredentials).mockReturnValue({
-    data: over.tvCredentials ?? { login: 'GIGA2432', password: 'ip243200' },
+    data: over.tvCredentials ?? { login: 'GIGA2432', password: 'ip243200', internalId: 'cust-1' },
     isLoading: !!over.tvCredentialsLoading,
     isError: !!over.tvCredentialsError,
   } as unknown as ReturnType<typeof useTvCredentials>);
@@ -2210,7 +2210,7 @@ describe('GigaredPanel', () => {
       mockQuery({
         account: { linked: true, account: { ...linkedAccount, gigaredId: '2432' } },
         contracts: [contract('ct-9', [tvService()])],
-        tvCredentials: { login: 'GIGA2432', password: 'ip243200' },
+        tvCredentials: { login: 'GIGA2432', password: 'ip243200', internalId: 'cust-1' },
       });
       renderPanel();
       // Login from the credentials endpoint (falls back to the account-derived value).
@@ -2219,6 +2219,27 @@ describe('GigaredPanel', () => {
       expect(screen.queryByText('ip243200')).not.toBeInTheDocument();
       await user.click(screen.getByRole('button', { name: /mostrar contraseña/i }));
       expect(screen.getByText('ip243200')).toBeInTheDocument();
+    });
+
+    it('#81 — shows internalId from credentials (re-alta identity)', () => {
+      mockQuery({
+        account: { linked: true, account: { ...linkedAccount, gigaredId: '2432' } },
+        contracts: [contract('ct-9', [tvService()])],
+        tvCredentials: { login: 'GIGA2432', password: 'ip243200', internalId: 'cust-1-2' },
+      });
+      renderPanel();
+      expect(screen.getByText('cust-1-2')).toBeInTheDocument();
+    });
+
+    it('#81 — shows dash when internalId is null', () => {
+      mockQuery({
+        account: { linked: true, account: { ...linkedAccount, gigaredId: '2432' } },
+        contracts: [contract('ct-9', [tvService()])],
+        tvCredentials: { login: 'GIGA2432', password: 'ip243200', internalId: null },
+      });
+      renderPanel();
+      // The "ID interno" dt is present; its dd shows '—' for null.
+      expect(screen.getByText('ID interno')).toBeInTheDocument();
     });
 
     it('H1 — opens the change-password modal prefilled and posts WITHOUT cic (contractId + password only)', async () => {
