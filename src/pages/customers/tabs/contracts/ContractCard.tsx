@@ -9,6 +9,7 @@ import { InlineNameEdit } from './InlineNameEdit';
 import { ContractServiceChips } from './ContractServiceChips';
 import { ServicePickerMenu } from './ServicePickerMenu';
 import { GigaredPanel } from './GigaredPanel';
+import { ServiceHistoryModal } from '@/components/molecules/ServiceHistoryModal/ServiceHistoryModal';
 import styles from './ContractCard.module.css';
 
 interface Props {
@@ -57,6 +58,7 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
   const { data: gigaredConfig } = useGigaredConfig();
   const gigaredActive = !!gigaredConfig?.configured && !!gigaredConfig?.enabled && canReadTv;
   const [tvPanelOpen, setTvPanelOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // #47k — the TV chip reflects suspension: when the linked Gigared account has
   // OTT disabled while it still holds packs, the chip turns amber ("TV
@@ -91,6 +93,15 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
             </span>
           )}
           <StatusBadge status={variant} label={CLIENT_STATUS_LABELS[contract.status]} />
+          {can('clients.read') && (
+            <button
+              type="button"
+              className={styles.historyButton}
+              onClick={() => setHistoryOpen(true)}
+            >
+              Historial
+            </button>
+          )}
         </div>
       </div>
 
@@ -159,6 +170,14 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
           contractId={contract.id}
           customer={customer}
           onClose={() => setTvPanelOpen(false)}
+        />
+      )}
+      {historyOpen && (
+        <ServiceHistoryModal
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          contractId={contract.id}
+          contractName={contract.name ?? contract.code ?? undefined}
         />
       )}
     </article>

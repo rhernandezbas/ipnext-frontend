@@ -13,6 +13,20 @@ export interface ContractService {
   // La sección "Credenciales Gigared Play" las consume por GET /gigared/customers/:id/tv-credentials.
 }
 
+/** One entry in a contract's service history (#73). Includes inactive services. */
+export interface ServiceHistoryEntry {
+  id: string;
+  contractId: string;
+  serviceCatalogId: string;
+  name: string;
+  label: string | null;
+  status: 'active' | 'inactive';
+  notes: string | null;
+  tvLogin: string | null;
+  createdAt: string;
+  deactivatedAt: string | null;
+}
+
 /** An entry in the service catalog ABM (#43). */
 export interface ServiceCatalogEntry {
   id: string;

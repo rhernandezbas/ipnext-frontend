@@ -253,3 +253,67 @@ describe('#61 fix wave — all-accounts invalidation across mutations', () => {
     expect(spy).toHaveBeenCalledWith({ queryKey: ALL_ACCOUNTS_ROOT });
   });
 });
+
+// #73 re-review — the Gigared flows that reconcile the LOCAL 'TV' ContractService
+// (link/register add it, cancel/removeService inactivate it) change what the
+// ServiceHistoryModal renders. Each must ALSO invalidate the service-history root
+// (['contract-service-history']) so the modal does not show stale rows for up to
+// its 60s staleTime. setOtt/changeTvPassword don't touch the local service line,
+// so they are intentionally NOT in scope here.
+describe('#73 fix wave — contract-service-history invalidation', () => {
+  const HISTORY_ROOT = ['contract-service-history'];
+
+  it('useLinkCic invalidates the service-history root', async () => {
+    vi.mocked(gigaredApi.linkCic).mockResolvedValue({ account, local: 'synced' });
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useLinkCic('cust-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ cic: '0000000001', contractId: 'ct-9' });
+    });
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: HISTORY_ROOT });
+  });
+
+  it('useRegisterAccount invalidates the service-history root', async () => {
+    vi.mocked(gigaredApi.registerAccount).mockResolvedValue({ account, credentialsPersisted: true });
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useRegisterAccount('cust-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ cic: '0000000001' } as never);
+    });
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: HISTORY_ROOT });
+  });
+
+  it('useRemoveTvService invalidates the service-history root', async () => {
+    vi.mocked(gigaredApi.removeService).mockResolvedValue({} as never);
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useRemoveTvService('cust-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ serviceId: 's1', contractId: 'ct-9' });
+    });
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: HISTORY_ROOT });
+  });
+
+  it('useCancelTv invalidates the service-history root', async () => {
+    vi.mocked(gigaredApi.cancelTv).mockResolvedValue({
+      removed: ['s1'], failed: [], ottDisabled: true, local: 'synced',
+    });
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useCancelTv('cust-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ contractId: 'ct-9' });
+    });
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: HISTORY_ROOT });
+  });
+});
