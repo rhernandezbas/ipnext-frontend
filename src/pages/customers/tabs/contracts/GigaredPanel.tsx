@@ -308,9 +308,9 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
           <div className={styles.dialog}>
             <h2 id="tv-cancel-title" className={styles.cardTitle}>Dar de baja TV</h2>
             <p className={styles.emptyHint}>
-              Quita TODOS los packs (libera el cupo del partner), apaga el streaming,
-              desactiva el ítem TV del contrato y RENUEVA el CIC, desvinculándolo del
-              cliente. El cliente quedará como si no tuviera TV. ¿Confirmás la baja?
+              Quita TODOS los packs (libera el cupo del partner), apaga el streaming y
+              desactiva el ítem TV del contrato. El cliente quedará sin TV. ¿Confirmás
+              la baja?
             </p>
             <div className={styles.formActions}>
               <button
@@ -369,14 +369,12 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
               <li>Ítem TV del contrato: {cancelOutcome.data.local === 'synced' ? 'desactivado' : 'sin desactivar'}.</li>
               <li>
                 CIC: {cancelOutcome.data.renew
-                  ? `renovado (${cancelOutcome.data.renew.oldCic} → ${cancelOutcome.data.renew.newCic})`
-                  : 'no se pudo renovar'}
-                {cancelOutcome.data.renew
-                  ? cancelOutcome.data.unlinked
-                    ? ' y desvinculado del cliente'
-                    : ' · no se pudo desvincular'
-                  : ''}.
+                  ? `renovado (${cancelOutcome.data.renew.oldCic} → ${cancelOutcome.data.renew.newCic}) — cupo reciclado`
+                  : 'no se pudo renovar'}.
               </li>
+              {cancelOutcome.data.localCancelled && (
+                <li>Cuenta liberada — el cliente queda sin TV.</li>
+              )}
             </ul>
             <div className={styles.formActions}>
               {cancelPartial && (
