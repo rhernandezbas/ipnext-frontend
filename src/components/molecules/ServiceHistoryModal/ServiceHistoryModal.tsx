@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useContractServiceHistory } from '../../../hooks/useContractServiceHistory';
 import { DataTable } from '../../organisms/DataTable/DataTable';
@@ -59,11 +59,16 @@ const columns = [
 
 export function ServiceHistoryModal({ open, onClose, contractId, contractName }: ServiceHistoryModalProps) {
   const { data = [], isLoading } = useContractServiceHistory(contractId, open);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    // #73 re-review — move focus into the modal on open so keyboard users land
+    // inside it (ConfirmModal pattern). The close button is the first focusable.
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
     }
@@ -71,6 +76,8 @@ export function ServiceHistoryModal({ open, onClose, contractId, contractName }:
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKey);
+      // Restore focus to whatever triggered the modal (the "Historial" button).
+      previouslyFocused?.focus?.();
     };
   }, [open, onClose]);
 
@@ -80,11 +87,13 @@ export function ServiceHistoryModal({ open, onClose, contractId, contractName }:
     <div
       className={styles.backdrop}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={DIALOG_TITLE_ID}
     >
-      <div className={styles.dialog}>
+      <div
+        className={styles.dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={DIALOG_TITLE_ID}
+      >
         <div className={styles.header}>
           <div>
             <h2 id={DIALOG_TITLE_ID} className={styles.title}>
@@ -94,7 +103,7 @@ export function ServiceHistoryModal({ open, onClose, contractId, contractName }:
               <p className={styles.subtitle}>{contractName}</p>
             )}
           </div>
-          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Cerrar">
+          <button ref={closeRef} type="button" className={styles.closeBtn} onClick={onClose} aria-label="Cerrar">
             ×
           </button>
         </div>

@@ -172,12 +172,14 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
           onClose={() => setTvPanelOpen(false)}
         />
       )}
-      <ServiceHistoryModal
-        open={historyOpen}
-        onClose={() => setHistoryOpen(false)}
-        contractId={contract.id}
-        contractName={contract.name ?? contract.code ?? undefined}
-      />
+      {historyOpen && (
+        <ServiceHistoryModal
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          contractId={contract.id}
+          contractName={contract.name ?? contract.code ?? undefined}
+        />
+      )}
     </article>
   );
 }

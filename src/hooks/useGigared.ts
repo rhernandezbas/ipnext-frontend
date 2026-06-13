@@ -47,6 +47,11 @@ export const credentialsKey = (customerId: string) => [...ROOT, 'tv-credentials'
 export const allAccountsKey = (status: GigaredAccountStatus) =>
   [...ALL_ACCOUNTS_ROOT, status] as const;
 
+// #73 re-review — the flows that reconcile the local 'TV' ContractService
+// (link/register add it, removeService/cancel inactivate it) change what the
+// ServiceHistoryModal renders, so they invalidate the service-history root too.
+const SERVICE_HISTORY_ROOT = ['contract-service-history'] as const;
+
 // The partner API caps pagination_limit at 20 (verified live 2026-06-11). To get
 // the set for the contract picker / TV list we page through it. Cap the loop so a
 // runaway partner can't hang the UI.
@@ -148,6 +153,7 @@ export function useLinkCic(customerId: string) {
       // #47f — the link reconciles the local 'TV' ContractService onto the owner
       // contract, so the customer ContractsTab must refresh for the chip to show.
       qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
+      qc.invalidateQueries({ queryKey: SERVICE_HISTORY_ROOT });
     },
   });
 }
@@ -165,6 +171,7 @@ export function useRegisterAccount(customerId: string) {
       // así que el ContractsTab del cliente y las credenciales deben refrescarse.
       qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
       qc.invalidateQueries({ queryKey: credentialsKey(customerId) });
+      qc.invalidateQueries({ queryKey: SERVICE_HISTORY_ROOT });
     },
   });
 }
@@ -192,6 +199,7 @@ export function useRemoveTvService(customerId: string) {
       qc.invalidateQueries({ queryKey: SUMMARY_KEY });
       qc.invalidateQueries({ queryKey: ALL_ACCOUNTS_ROOT });
       qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
+      qc.invalidateQueries({ queryKey: SERVICE_HISTORY_ROOT });
     },
   });
 }
@@ -249,6 +257,7 @@ export function useCancelTv(customerId: string) {
       qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
       // #65 fix wave M6 — la baja LIMPIA las credenciales; refrescar para que la sección las pierda.
       qc.invalidateQueries({ queryKey: credentialsKey(customerId) });
+      qc.invalidateQueries({ queryKey: SERVICE_HISTORY_ROOT });
     },
   });
 }

@@ -76,4 +76,25 @@ describe('ServiceHistoryModal', () => {
     render(<ServiceHistoryModal open={false} onClose={vi.fn()} contractId="c1" />);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
+
+  // #73 re-review — role="dialog" belongs on the .dialog element (the actual
+  // dialog surface), NOT the backdrop. Asserting the dialog node is NOT the
+  // outermost backdrop guards the move (ConfirmModal pattern).
+  it('puts role="dialog" on the dialog surface, not the backdrop', () => {
+    mockUseHistory.mockReturnValue({ data: entries, isLoading: false } as any);
+    render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c1" />);
+    const dialog = screen.getByRole('dialog');
+    // the dialog must contain the title, and must NOT be the body-scroll backdrop
+    expect(dialog).toContainElement(screen.getByText('Historial de servicios'));
+    // the close button lives inside the dialog surface
+    expect(dialog).toContainElement(screen.getByLabelText('Cerrar'));
+  });
+
+  // #73 re-review — focus moves into the modal on open so keyboard users land
+  // inside it (ConfirmModal pattern). The close button is the first focusable.
+  it('focuses the close button when it opens', () => {
+    mockUseHistory.mockReturnValue({ data: entries, isLoading: false } as any);
+    render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c1" />);
+    expect(screen.getByLabelText('Cerrar')).toHaveFocus();
+  });
 });
