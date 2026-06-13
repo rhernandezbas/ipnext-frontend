@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useVoipCategories, useCreateVoipCategory, useVoipCdrs, useVoipPlans, useCreateVoipPlan } from '@/hooks/useVoice';
 import type { VoipCategory, VoipCdr, VoipPlan } from '@/types/voice';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import styles from './VoiceLegacyPage.module.css';
 
 type Tab = 'categorias' | 'planes' | 'cdr';
@@ -340,7 +341,7 @@ function CdrTab() {
           <tbody>
             {filtered.map(cdr => (
               <tr key={cdr.id}>
-                <td>{new Date(cdr.startedAt).toLocaleString('es-AR')}</td>
+                <td>{formatDateTimeShort(cdr.startedAt)}</td>
                 <td>{cdr.clientName}</td>
                 <td>{cdr.callerNumber}</td>
                 <td>{cdr.calledNumber}</td>

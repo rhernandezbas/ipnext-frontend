@@ -4,6 +4,7 @@ import { useContractServiceHistory } from '../../../hooks/useContractServiceHist
 import { DataTable } from '../../organisms/DataTable/DataTable';
 import { StatusBadge } from '../../atoms/StatusBadge/StatusBadge';
 import type { ServiceHistoryEntry } from '../../../types/customer';
+import { formatDateShort } from '@/utils/formatDate';
 import styles from './ServiceHistoryModal.module.css';
 
 interface ServiceHistoryModalProps {
@@ -47,13 +48,13 @@ const columns = [
   {
     key: 'createdAt',
     label: 'Contratado',
-    render: (row: ServiceHistoryEntry) => new Date(row.createdAt).toLocaleDateString('es-AR'),
+    render: (row: ServiceHistoryEntry) => formatDateShort(row.createdAt),
   },
   {
     key: 'deactivatedAt',
     label: 'Baja',
     render: (row: ServiceHistoryEntry) =>
-      row.deactivatedAt ? new Date(row.deactivatedAt).toLocaleDateString('es-AR') : '—',
+      formatDateShort(row.deactivatedAt),
   },
 ];
 

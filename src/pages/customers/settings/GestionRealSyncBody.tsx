@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSyncConfig, useUpdateSyncConfig, useResyncAll } from '@/hooks/useGestionRealSyncConfig';
 import { Can } from '@/components/auth/Can';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
 import { useGestionRealSyncStatus } from '@/hooks/useGestionRealSync';
 import { useClientStats } from '@/hooks/useCustomers';
@@ -361,7 +362,7 @@ function StatusSection() {
 
   const lastRun =
     status?.lastRunAt != null
-      ? new Date(status.lastRunAt).toLocaleString('es-AR')
+      ? formatDateTimeShort(status.lastRunAt)
       : 'Nunca';
 
   return (

@@ -1,4 +1,5 @@
 import type { ActivityDto } from '@/types/taskActivity';
+import { formatDateTimeShort } from '@/utils/formatDate';
 
 function val(v: unknown): string {
   if (v === null || v === undefined || v === '') return '—';
@@ -28,7 +29,7 @@ function presenceDiff(noun: string, label: string, from: unknown, to: unknown): 
 function fmtDate(v: unknown): string {
   if (v == null || v === '') return '—';
   const d = new Date(String(v));
-  return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString('es-AR');
+  return Number.isNaN(d.getTime()) ? String(v) : formatDateTimeShort(typeof v === 'string' ? v : String(v));
 }
 
 function preview(v: unknown, max = 60): string {

@@ -6,6 +6,7 @@ import { StatusBadge } from '../../components/atoms/StatusBadge/StatusBadge';
 import { useInvoices, useCreateInvoice, useSendInvoiceEmail } from '../../hooks/useBilling';
 import { Invoice, InvoiceStatus } from '../../types/billing';
 import { Can } from '../../components/auth/Can';
+import { formatDateShort } from '@/utils/formatDate';
 import styles from './FacturasPage.module.css';
 
 const STATUS_FILTERS = [
@@ -36,7 +37,7 @@ const STATUS_LABELS: Record<InvoiceStatus, string> = {
 };
 
 function formatArgDate(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-AR');
+  return formatDateShort(dateStr);
 }
 
 function printInvoice(invoice: Invoice) {
@@ -66,12 +67,12 @@ function printInvoice(invoice: Invoice) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0">
         <div><div class="label">Cliente</div><div class="value">${invoice.customerName}</div></div>
         <div><div class="label">Estado</div><div class="value">${invoice.status}</div></div>
-        <div><div class="label">Fecha de emisión</div><div class="value">${invoice.issuedAt}</div></div>
-        <div><div class="label">Vencimiento</div><div class="value">${invoice.dueAt}</div></div>
+        <div><div class="label">Fecha de emisión</div><div class="value">${formatDateShort(invoice.issuedAt)}</div></div>
+        <div><div class="label">Vencimiento</div><div class="value">${formatDateShort(invoice.dueAt)}</div></div>
       </div>
       <div class="divider"></div>
       <div class="total">Total: $${invoice.total.toFixed(2)}</div>
-      <p style="margin-top:3rem;font-size:12px;color:#999">Generado por Prominense — ${new Date().toLocaleDateString('es-AR')}</p>
+      <p style="margin-top:3rem;font-size:12px;color:#999">Generado por Prominense — ${formatDateShort(new Date().toISOString())}</p>
     </body>
     </html>
   `);
@@ -288,11 +289,11 @@ export function FacturasPage() {
               </div>
               <div className={styles.detailField}>
                 <dt>Fecha de emisión</dt>
-                <dd>{selectedInvoice.issuedAt}</dd>
+                <dd>{formatDateShort(selectedInvoice.issuedAt)}</dd>
               </div>
               <div className={styles.detailField}>
                 <dt>Vencimiento</dt>
-                <dd>{selectedInvoice.dueAt}</dd>
+                <dd>{formatDateShort(selectedInvoice.dueAt)}</dd>
               </div>
               <div className={styles.detailField}>
                 <dt>Monto</dt>

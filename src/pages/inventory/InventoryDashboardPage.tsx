@@ -6,6 +6,7 @@ import { useInventoryOverview, useInventoryMovements, useInventoryAlerts } from 
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { NoPermissionPage } from '@/components/auth/NoPermissionPage';
 import type { InventoryOverviewDTO, OverviewGroupDTO, MovementRowDTO, LowStockAlertDTO, MovementFilters, MovementType } from '@/types/inventoryDashboard';
+import { formatDateShort } from '@/utils/formatDate';
 import styles from './InventoryDashboardPage.module.css';
 
 // ─── Ubicaciones tab ────────────────────────────────────────────────────────
@@ -257,7 +258,7 @@ function MovimientosTab({ filters, onFiltersChange, page, onPageChange }: Movimi
             <tbody>
               {movements.map(m => (
                 <tr key={m.id}>
-                  <td>{new Date(m.occurredAt).toLocaleDateString('es-AR')}</td>
+                  <td>{formatDateShort(m.occurredAt)}</td>
                   <td><MovementTypeBadge type={m.type} /></td>
                   <td>{m.materialName ?? m.assetId ?? '—'}</td>
                   <td>{m.qty ?? '—'}</td>

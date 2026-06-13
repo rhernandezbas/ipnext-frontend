@@ -3,19 +3,13 @@ import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useConfirm } from '@/context/ConfirmContext';
 import { useActiveSessions, useRevokeSession, useSessionHistory } from '@/hooks/useSessions';
 import type { SessionDto, SessionQuery } from '@/types/session';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import styles from './SessionsBody.module.css';
 
 const PAGE_SIZE = 25;
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleString('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateTimeShort(dateStr);
 }
 
 export function SessionsBody() {

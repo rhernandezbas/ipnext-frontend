@@ -2,6 +2,7 @@
  * Pure utility functions for UISP data rendering.
  * Extracted as pure functions for easy unit testing (no mocks needed).
  */
+import { formatDateTimeShort } from '@/utils/formatDate';
 
 /** Signal quality tier for airMax devices */
 export type SignalTier = 'excellent' | 'good' | 'fair' | 'critical' | 'none';
@@ -46,12 +47,5 @@ export function humanizeUptime(uptimeSeconds: string | null): string {
  * Returns '—' when null.
  */
 export function formatSyncDate(dateStr: string | null): string {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleString('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateTimeShort(dateStr);
 }

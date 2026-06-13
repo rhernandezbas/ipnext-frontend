@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { formatDateTimeShort, formatDateShort } from '@/utils/formatDate';
 import {
   useSystemSettings,
   useUpdateSystemSettings,
@@ -31,12 +32,7 @@ type Tab = 'sistema' | 'correo' | 'plantillas' | 'tokens' | 'finanzas' | 'webhoo
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleString('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  return formatDateShort(dateStr);
 }
 
 function typeBadgeClass(type: MessageTemplate['type']): string {
@@ -1978,7 +1974,7 @@ function SystemLogsTab() {
                 <>
                   <tr key={entry.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                     <td style={{ padding: '0.5rem 0.75rem', fontFamily: 'monospace', whiteSpace: 'nowrap', fontSize: '0.75rem' }}>
-                      {new Date(entry.timestamp).toLocaleString('es-AR')}
+                      {formatDateTimeShort(entry.timestamp)}
                     </td>
                     <td style={{ padding: '0.5rem 0.75rem' }}>
                       <span style={{ display: 'inline-block', padding: '0.15rem 0.4rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: 700, background: levelStyle.bg, color: levelStyle.color, textTransform: 'uppercase' }}>
@@ -2110,10 +2106,10 @@ function ScheduledTasksTab() {
                 </td>
                 <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>{task.frequencyLabel}</td>
                 <td style={{ padding: '0.75rem', whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                  {new Date(task.nextRun).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  {formatDateTimeShort(task.nextRun)}
                 </td>
                 <td style={{ padding: '0.75rem', whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                  {task.lastRun ? new Date(task.lastRun).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                  {formatDateTimeShort(task.lastRun)}
                 </td>
                 <td style={{ padding: '0.75rem' }}>
                   <span style={{ display: 'inline-block', padding: '0.15rem 0.5rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, background: statusStyle.bg, color: statusStyle.color }}>

@@ -158,9 +158,9 @@ describe('SessionsBody — history section', () => {
     // Raw ISO string must NOT appear
     expect(screen.queryByText('2026-05-29T14:33:00.000Z')).toBeNull();
 
-    // A date-like string must be present (e.g. "29/05/2026 14:33" or "29/05/2026 11:33")
+    // A canonical short date+time must be present (#83: "29 may 2026 - 11:33").
     const historySection = screen.getByTestId('history-section');
-    const datePattern = /\d{2}\/\d{2}\/\d{4}/;
+    const datePattern = /\d{2} [a-z]{3} \d{4} - \d{2}:\d{2}/;
     expect(historySection.textContent).toMatch(datePattern);
   });
 

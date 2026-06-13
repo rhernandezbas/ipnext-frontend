@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMessages, useCreateMessage } from '@/hooks/useMessages';
 import type { Message, MessageChannel } from '@/types/message';
+import { formatDateShort } from '@/utils/formatDate';
 import styles from './MessagesPage.module.css';
 
 type Tab = 'inbox' | 'sent' | 'draft';
@@ -12,10 +13,7 @@ const TAB_LABELS: Record<Tab, string> = {
 };
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-  });
+  return formatDateShort(dateStr);
 }
 
 interface ComposeFormProps {

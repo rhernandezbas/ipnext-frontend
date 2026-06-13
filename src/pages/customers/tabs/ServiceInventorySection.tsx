@@ -8,6 +8,7 @@ import {
 import { useDeviceTypes } from '@/hooks/useDeviceTypes';
 import { Can } from '@/components/auth/Can';
 import { useConfirm } from '@/context/ConfirmContext';
+import { formatDateShort } from '@/utils/formatDate';
 import type {
   InstalledItemType,
   ServiceInstalledItem,
@@ -153,7 +154,7 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
                   <td>{it.model ?? '—'}</td>
                   <td>{SOURCE_LABELS[it.source] ?? it.source}</td>
                   <td>{it.status}</td>
-                  <td>{it.addedByUserName ? `${it.addedByUserName}${it.confirmedAt ? ` · ${new Date(it.confirmedAt).toLocaleDateString('es-AR')}` : ''}` : '—'}</td>
+                  <td>{it.addedByUserName ? `${it.addedByUserName}${it.confirmedAt ? ` · ${formatDateShort(it.confirmedAt)}` : ''}` : '—'}</td>
                   <td className={styles.actions}>
                     <Can permission="inventory.write">
                       <button type="button" onClick={() => { setFormError(null); setModal({ mode: 'edit', item: it }); }} className={styles.linkBtn}>Editar</button>

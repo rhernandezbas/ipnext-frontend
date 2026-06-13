@@ -1,4 +1,5 @@
 import { useSchedulingArchive } from '@/hooks/useSchedulingArchive';
+import { formatDateShort } from '@/utils/formatDate';
 import styles from './SchedulingArchivePage.module.css';
 
 export default function SchedulingArchivePage() {
@@ -34,7 +35,7 @@ export default function SchedulingArchivePage() {
                   <tr key={task.id} className={styles.row}>
                     <td className={styles.cell}>{task.proyecto}</td>
                     <td className={styles.cellMuted}>{task.tecnico}</td>
-                    <td className={styles.cellMuted}>{task.fecha}</td>
+                    <td className={styles.cellMuted}>{formatDateShort(task.fecha)}</td>
                     <td className={styles.cell}>
                       <span className={styles.statusPill}>{task.estado}</span>
                     </td>

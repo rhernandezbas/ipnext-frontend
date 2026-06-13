@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useProfile, useUpdateProfile, useChangePassword, useToggle2FA } from '@/hooks/useProfile';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import styles from './ProfilePage.module.css';
 
 type Tab = 'perfil' | 'seguridad' | 'preferencias';
@@ -166,11 +167,11 @@ export default function ProfilePage() {
             </div>
             <div className={styles.field}>
               <label>Fecha de creación</label>
-              <span className={styles.readOnly}>{profile.createdAt}</span>
+              <span className={styles.readOnly}>{formatDateTimeShort(profile.createdAt)}</span>
             </div>
             <div className={styles.field}>
               <label>Último inicio de sesión</label>
-              <span className={styles.readOnly}>{profile.lastLogin}</span>
+              <span className={styles.readOnly}>{formatDateTimeShort(profile.lastLogin)}</span>
             </div>
 
             {profileSuccess && <p className={styles.success}>{profileSuccess}</p>}

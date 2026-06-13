@@ -1,5 +1,6 @@
 import { useCustomerVouchers } from '@/hooks/useCustomerVouchers';
 import type { Voucher } from '@/types/voucher';
+import { formatDateShort } from '@/utils/formatDate';
 import styles from './CustomerVouchersPage.module.css';
 
 function statusLabel(s: Voucher['status']) {
@@ -41,7 +42,7 @@ export default function CustomerVouchersPage() {
                     {statusLabel(v.status)}
                   </span>
                 </td>
-                <td>{v.createdAt}</td>
+                <td>{formatDateShort(v.createdAt)}</td>
               </tr>
             ))}
           </tbody>

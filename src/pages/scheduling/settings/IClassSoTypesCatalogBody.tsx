@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import { useIClassSoTypes, useSyncIClassSoTypes } from '@/hooks/useIClassSoTypes';
 import type { IClassSoTypeSyncResult } from '@/types/iclassSoType';
 import { Can } from '@/components/auth/Can';
@@ -115,7 +116,7 @@ export function IClassSoTypesCatalogBody() {
                       {t.active ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
-                  <td>{t.lastSyncedAt ? new Date(t.lastSyncedAt).toLocaleString('es-AR') : '—'}</td>
+                  <td>{formatDateTimeShort(t.lastSyncedAt)}</td>
                 </tr>
               ))}
             </tbody>

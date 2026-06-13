@@ -3,6 +3,7 @@ import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useTr069Profiles, useCreateTr069Profile, useUpdateTr069Profile, useDeleteTr069Profile, useTr069Devices, useProvisionDevice, useDeleteTr069Device } from '@/hooks/useTr069';
 import { useConfirm } from '@/context/ConfirmContext';
 import type { Tr069Profile, Tr069Device } from '@/types/tr069';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import styles from './Tr069Page.module.css';
 
 type Tab = 'perfiles' | 'dispositivos';
@@ -30,11 +31,7 @@ function ProfileStatusBadge({ status }: { status: Tr069Profile['status'] }) {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString('es-AR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
+  return formatDateTimeShort(iso);
 }
 
 interface AddProfileModalProps {

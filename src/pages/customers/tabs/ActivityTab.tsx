@@ -1,4 +1,5 @@
 import { useClientComments } from '../../../hooks/useCustomers';
+import { formatDateShort } from '@/utils/formatDate';
 import styles from './Tab.module.css';
 
 interface Props {
@@ -26,7 +27,7 @@ export function ActivityTab({ clientId }: Props) {
             <span className={styles.commentAuthor}>{comment.authorName}</span>
             <span className={styles.commentContent}>{comment.content}</span>
             <span className={styles.commentDate}>
-              {new Date(comment.createdAt).toLocaleDateString('es-AR')}
+              {formatDateShort(comment.createdAt)}
             </span>
           </li>
         ))}

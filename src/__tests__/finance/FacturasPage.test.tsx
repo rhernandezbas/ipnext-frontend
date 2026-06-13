@@ -125,12 +125,11 @@ describe('FacturasPage', () => {
     expect(screen.getByText('No hay facturas.')).toBeInTheDocument();
   });
 
-  it('renders issuedAt date in Argentine locale format (dd/mm/yyyy)', () => {
+  it('renders issuedAt date in the canonical short format (#83: "DD mmm YYYY")', () => {
     renderFacturas();
-    // mockInvoice has issuedAt: '2024-01-01' → should render as 1/1/2024 or 01/01/2024
-    // dueAt: '2024-01-31' → 31/1/2024, so we match the issuedAt cell precisely
+    // mockInvoice has issuedAt: '2024-01-01' → canonical short date "01 ene 2024".
     const cells = screen.getAllByRole('cell');
-    const dateCell = cells.find((c) => /^1\/1\/2024$|^01\/01\/2024$/.test(c.textContent ?? ''));
+    const dateCell = cells.find((c) => /^01 ene 2024$/.test(c.textContent ?? ''));
     expect(dateCell).toBeInTheDocument();
   });
 

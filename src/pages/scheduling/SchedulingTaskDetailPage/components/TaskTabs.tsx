@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatDateShort } from '@/utils/formatDate';
 import { Link } from 'react-router-dom';
 import { Tabs } from '@/components/molecules/Tabs/Tabs';
 import { TaskDetailsTab } from './TaskDetailsTab';
@@ -166,7 +167,7 @@ function InventoryPanel({
     if (!reviewedByInventory) return null;
     const user = reviewedByInventoryUserName ?? '—';
     const dateStr = reviewedByInventoryAt
-      ? new Date(reviewedByInventoryAt).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      ? formatDateShort(reviewedByInventoryAt)
       : null;
     return dateStr ? `✓ Revisado · ${user} · ${dateStr}` : '✓ Revisado';
   })();

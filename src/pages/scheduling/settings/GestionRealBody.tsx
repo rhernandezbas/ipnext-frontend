@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import { Link } from 'react-router-dom';
 import {
   useGestionRealConfig,
@@ -333,7 +334,7 @@ function StatusSection() {
 
   const lastRun =
     status?.lastRunAt != null
-      ? new Date(status.lastRunAt).toLocaleString('es-AR')
+      ? formatDateTimeShort(status.lastRunAt)
       : 'Nunca';
 
   return (
@@ -406,7 +407,7 @@ function NeedsReviewSection() {
                   </td>
                   <td>{t.address || '—'}</td>
                   <td>{t.grOrdenId || '—'}</td>
-                  <td>{new Date(t.createdAt).toLocaleString('es-AR')}</td>
+                  <td>{formatDateTimeShort(t.createdAt)}</td>
                 </tr>
               ))}
             </tbody>
