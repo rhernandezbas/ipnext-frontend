@@ -20,7 +20,8 @@ export const ALL_TICKET_COLUMNS: ColumnDef[] = [
   { key: 'id',             label: 'ID' },
   { key: 'subject',        label: 'Tema' },
   { key: 'customerName',   label: 'Cliente/Cliente Potencial' },
-  { key: 'type',           label: 'Tipo' },
+  // #78 — la columna 'type' se eliminó: el BE (entity Ticket, TicketDto, modelo
+  // Prisma) nunca tuvo el campo, así que renderizaba vacío para todas las filas.
   { key: 'reporterName',   label: 'Reporter' }, // #48 fix-wave — the BE field is reporterName
   { key: 'priority',       label: 'Prioridad' },
   { key: 'status',         label: 'Estado' },

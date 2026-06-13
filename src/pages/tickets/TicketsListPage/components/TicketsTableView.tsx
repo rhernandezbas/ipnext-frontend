@@ -242,7 +242,7 @@ const ALL_COLUMNS: Array<{ label: string; key: string; sortable?: boolean; rende
   { label: 'Tema', key: 'subject', sortable: true,
     render: (t) => <Link to={`/admin/tickets/${t.id}`} className={styles.titleLink}>{t.subject}</Link> },
   { label: 'Cliente/Cliente Potencial', key: 'customerName', sortable: true },
-  { label: 'Tipo', key: 'type' },
+  // #78 — 'Tipo' (key 'type') removed: dead field, the BE never populated it.
   // #48 (M1): the BE sends `reporterName` on the list (deprecated `reporter` is
   // no longer populated). Read the live field, fall back to '—' when null.
   { label: 'Reporter', key: 'reporterName', render: (t) => t.reporterName ?? '—' },

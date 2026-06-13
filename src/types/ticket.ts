@@ -25,7 +25,10 @@ export interface Ticket {
   description: string;           // #28 follow-up — the BE field is `description`, not `message`
   status: TicketStatus;
   priority: TicketPriority;
-  type: string | null;
+  /** @deprecated #78 — campo MUERTO: el BE nunca lo popula (no existe en la
+   *  entity Ticket, el TicketDto ni el modelo Prisma). La columna 'Tipo' del
+   *  listado se eliminó. Se conserva el campo opcional sólo por compat de mocks. */
+  type?: string | null;
   customerId: string;
   customerName: string;
   // #28 follow-up — the BE returns `assigneeId` (RbacUser id, string) and
