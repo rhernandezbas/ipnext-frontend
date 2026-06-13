@@ -41,6 +41,9 @@ vi.mock('@/hooks/useTicketStatuses', () => ({
 vi.mock('@/hooks/useRbacUsers', () => ({
   useRbacUsers: () => ({ data: [{ id: 'u1', name: 'Luis' }, { id: 'u2', name: 'Ana' }] }),
 }));
+vi.mock('@/hooks/useTicketSlaConfig', () => ({
+  useTicketSlaConfig: () => ({ data: { warnMinutes: 60, dangerMinutes: 240 } }),
+}));
 
 // Auto-confirm every confirm() dialog (the confirm copy is asserted separately
 // in the permissions suite via the message argument).

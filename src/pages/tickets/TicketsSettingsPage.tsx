@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Tabs } from '@/components/molecules/Tabs/Tabs';
 import { TicketAreasBody } from './settings/TicketAreasBody';
+import { TicketSlaBody } from './settings/TicketSlaBody';
 import styles from './TicketsSettingsPage.module.css';
 
 const TABS = [
   { id: 'areas', label: 'Areas', content: <TicketAreasBody /> },
+  { id: 'sla', label: 'SLA / Timer', content: <TicketSlaBody /> }, // #79
 ];
 
 const TAB_IDS = TABS.map(t => t.id);

@@ -22,6 +22,7 @@ export const ALL_TICKET_COLUMNS: ColumnDef[] = [
   // y === ALL_COLUMNS del render (leccion #48). El orden guardado del usuario
   // NO se pisa: useVisibleColumns respeta el localStorage y sólo cambia el default.
   { key: 'areaName',       label: 'Área' }, // #69 — pill con color del catalogo
+  { key: 'timer',          label: 'Timer' }, // #79 — minutos desde createdAt con color por umbrales SLA (pos 3)
   { key: 'subject',        label: 'Tema' },
   // #78 — la columna 'type' se eliminó: el BE (entity Ticket, TicketDto, modelo
   // Prisma) nunca tuvo el campo, así que renderizaba vacío para todas las filas.

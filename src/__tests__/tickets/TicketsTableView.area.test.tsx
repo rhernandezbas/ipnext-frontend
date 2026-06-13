@@ -26,6 +26,9 @@ vi.mock('@/hooks/useTicketStatuses', () => ({
 vi.mock('@/hooks/useRbacUsers', () => ({
   useRbacUsers: () => ({ data: [] }),
 }));
+vi.mock('@/hooks/useTicketSlaConfig', () => ({
+  useTicketSlaConfig: () => ({ data: { warnMinutes: 60, dangerMinutes: 240 } }),
+}));
 vi.mock('@/context/ConfirmContext', () => ({ useConfirm: () => vi.fn().mockResolvedValue(true) }));
 
 import { TicketsTableView } from '@/pages/tickets/TicketsListPage/components/TicketsTableView';
