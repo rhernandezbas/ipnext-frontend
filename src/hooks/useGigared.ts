@@ -32,7 +32,7 @@ import type {
 const ROOT = ['gigared'] as const;
 export const CONFIG_KEY = [...ROOT, 'config'] as const;
 export const SUMMARY_KEY = [...ROOT, 'summary'] as const;
-const ACCOUNTS_ROOT = [...ROOT, 'accounts'] as const;
+export const ACCOUNTS_ROOT = [...ROOT, 'accounts'] as const;
 // #61 fix wave — the TV page (GigaredAccountsPage) reads the FULL list under
 // ['gigared','all-accounts',status] via useGigaredAllAccounts, NOT under
 // ACCOUNTS_ROOT. Any mutation that changes a row's internalId, status, services
@@ -143,17 +143,28 @@ export function useGigaredCustomerAccount(customerId: string, enabled = true) {
 
 export function useLinkCic(customerId: string) {
   const qc = useQueryClient();
+  // Shared invalidation helper — used for both onSuccess and onError so the UI
+  // reflects the real linked state even when the BE returns a spurious 5xx (#4).
+  function invalidateLinkCicKeys() {
+    qc.invalidateQueries({ queryKey: accountKey(customerId) });
+    qc.invalidateQueries({ queryKey: SUMMARY_KEY });
+    qc.invalidateQueries({ queryKey: ACCOUNTS_ROOT });
+    qc.invalidateQueries({ queryKey: ALL_ACCOUNTS_ROOT });
+    // #47f — the link reconciles the local 'TV' ContractService onto the owner
+    // contract, so the customer ContractsTab must refresh for the chip to show.
+    qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
+  }
   return useMutation({
     mutationFn: (body: LinkCicPayload) => gigaredApi.linkCic(customerId, body),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: accountKey(customerId) });
-      qc.invalidateQueries({ queryKey: SUMMARY_KEY });
-      qc.invalidateQueries({ queryKey: ACCOUNTS_ROOT });
-      qc.invalidateQueries({ queryKey: ALL_ACCOUNTS_ROOT });
-      // #47f — the link reconciles the local 'TV' ContractService onto the owner
-      // contract, so the customer ContractsTab must refresh for the chip to show.
-      qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
+      invalidateLinkCicKeys();
       qc.invalidateQueries({ queryKey: SERVICE_HISTORY_ROOT });
+    },
+    // #4 fix — the action may have succeeded on the partner side even when the BE
+    // returns 500 (e.g. the CIC was already linked). Invalidate on error so the UI
+    // re-reads the real state instead of keeping the stale pre-action cache.
+    onError: () => {
+      invalidateLinkCicKeys();
     },
   });
 }
@@ -212,6 +223,12 @@ export function useSetOtt(customerId: string) {
       qc.invalidateQueries({ queryKey: accountKey(customerId) });
       // #61 fix wave — the TV list has an OTT column; toggling OTT must refresh it.
       qc.invalidateQueries({ queryKey: ALL_ACCOUNTS_ROOT });
+    },
+    // #1 fix — when the OTT toggle errors (e.g. partner already in target state),
+    // the per-customer account cache is stale. Invalidate so the OTT chip re-reads
+    // the real server state; the user no longer needs to log out/in to see reality.
+    onError: () => {
+      qc.invalidateQueries({ queryKey: accountKey(customerId) });
     },
   });
 }

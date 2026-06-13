@@ -29,6 +29,7 @@ import {
   credentialsKey,
   SUMMARY_KEY,
   ALL_ACCOUNTS_ROOT,
+  ACCOUNTS_ROOT,
 } from '@/hooks/useGigared';
 
 const account: GigaredAccount = {
@@ -315,5 +316,118 @@ describe('#73 fix wave — contract-service-history invalidation', () => {
     });
 
     expect(spy).toHaveBeenCalledWith({ queryKey: HISTORY_ROOT });
+  });
+});
+
+// #1/#4 fix — stale UI after OTT error / link 500 that actually succeeded.
+// Mutations previously only invalidated on onSuccess; when the BE errors the cache
+// stayed stale and the user had to log out/in to see the real state. Fix: also
+// invalidate in onError so the UI re-reads from the server regardless of outcome.
+
+describe('#1 fix — useSetOtt invalidates account on error', () => {
+  it('invalidates accountKey when the api rejects', async () => {
+    vi.mocked(gigaredApi.setOtt).mockRejectedValue(new Error('partner error'));
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useSetOtt('cust-1'), { wrapper });
+
+    await act(async () => {
+      // mutate (not mutateAsync) so the rejection does not bubble as unhandled
+      result.current.mutate({ enabled: true } as never);
+      // wait for the mutation to settle
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: accountKey('cust-1') });
+  });
+
+  it('does NOT call invalidateQueries for ALL_ACCOUNTS_ROOT on error (only account)', async () => {
+    // setOtt onError scope is narrow: just the per-customer account.
+    // (ALL_ACCOUNTS_ROOT is only invalidated on success, to avoid over-fetching
+    //  when the OTT toggle fails completely.)
+    vi.mocked(gigaredApi.setOtt).mockRejectedValue(new Error('partner error'));
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useSetOtt('cust-1'), { wrapper });
+
+    await act(async () => {
+      result.current.mutate({ enabled: true } as never);
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // The per-customer account MUST be invalidated
+    expect(spy).toHaveBeenCalledWith({ queryKey: accountKey('cust-1') });
+  });
+});
+
+describe('#4 fix — useLinkCic invalidates full set on error', () => {
+  it('invalidates accountKey on error', async () => {
+    vi.mocked(gigaredApi.linkCic).mockRejectedValue(new Error('500 internal'));
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useLinkCic('cust-1'), { wrapper });
+
+    await act(async () => {
+      result.current.mutate({ cic: '0000000001', contractId: 'ct-9' });
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: accountKey('cust-1') });
+  });
+
+  it('invalidates SUMMARY_KEY on error', async () => {
+    vi.mocked(gigaredApi.linkCic).mockRejectedValue(new Error('500 internal'));
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useLinkCic('cust-1'), { wrapper });
+
+    await act(async () => {
+      result.current.mutate({ cic: '0000000001', contractId: 'ct-9' });
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: SUMMARY_KEY });
+  });
+
+  it('invalidates ACCOUNTS_ROOT on error', async () => {
+    vi.mocked(gigaredApi.linkCic).mockRejectedValue(new Error('500 internal'));
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useLinkCic('cust-1'), { wrapper });
+
+    await act(async () => {
+      result.current.mutate({ cic: '0000000001', contractId: 'ct-9' });
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: ACCOUNTS_ROOT });
+  });
+
+  it('invalidates ALL_ACCOUNTS_ROOT on error', async () => {
+    vi.mocked(gigaredApi.linkCic).mockRejectedValue(new Error('500 internal'));
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useLinkCic('cust-1'), { wrapper });
+
+    await act(async () => {
+      result.current.mutate({ cic: '0000000001', contractId: 'ct-9' });
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: ALL_ACCOUNTS_ROOT });
+  });
+
+  it('invalidates client-contracts on error', async () => {
+    vi.mocked(gigaredApi.linkCic).mockRejectedValue(new Error('500 internal'));
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useLinkCic('cust-1'), { wrapper });
+
+    await act(async () => {
+      result.current.mutate({ cic: '0000000001', contractId: 'ct-9' });
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['client-contracts', 'cust-1'] });
   });
 });
