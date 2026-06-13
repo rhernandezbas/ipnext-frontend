@@ -5,7 +5,7 @@ import { useTicketList, useCreateTicket } from '../../hooks/useTickets';
 import { useTicketStatuses } from '../../hooks/useTicketStatuses';
 import { Can } from '@/components/auth/Can';
 import { ColumnSelector, type ColumnDef } from '@/pages/scheduling/SchedulingTasksPage/components/ColumnSelector';
-import { TicketFilterDisclosure } from './TicketsListPage/components/TicketFilterDisclosure';
+import { TicketFilterBar } from './TicketsListPage/components/TicketFilterBar';
 import { TicketsTableView } from './TicketsListPage/components/TicketsTableView';
 import { CreateTicketModal } from './TicketsListPage/components/CreateTicketModal';
 import { useTicketsFilterUrl } from './TicketsListPage/hooks/useTicketsFilterUrl';
@@ -197,11 +197,13 @@ export default function TicketsListPage({ statusFilter }: Props) {
         </div>
       )}
 
-      {/* Filtros — panel colapsable (cerrado por defecto) con chips persistentes
-          afuera. El status del Archive queda fuera del disclosure (locked). */}
-      <TicketFilterDisclosure
+      {/* Filtros — siempre visible, inline, espejando el TaskFilterBar (#87).
+          Variante horizontal: controles en una fila, chips activos debajo. */}
+      <TicketFilterBar
         filter={filter}
         onFilterChange={p => { setFilter(p); setPage(1); }}
+        variant="horizontal"
+        showChips
       />
 
       {/* Tabla + acciones masivas + estados vacíos, espejando SchedulingTasksPage. */}
