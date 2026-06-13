@@ -226,6 +226,26 @@ describe('ContractCard — TV from contract (#47b)', () => {
     expect(screen.queryByTestId('gigared-panel')).not.toBeInTheDocument();
   });
 
+  // ── #83 — Vigencia renders the canonical short date (no raw ISO) ─────────────
+  describe('#83 — Vigencia date formatting', () => {
+    it('renders a date-only range as "Desde DD mmm YYYY" (no ISO leaks)', () => {
+      // Prod serializes a date-only Vigencia as a FULL ISO at UTC midnight
+      // ("2025-09-08T00:00:00.000Z"), NOT as a bare "2025-09-08". In AR (UTC-3)
+      // that instant is the prior day locally, so a TZ-naive formatter would
+      // render "07 sep 2025". The canonical formatter must show the literal day.
+      renderCard({ startDate: '2025-09-08T00:00:00.000Z', endDate: null });
+      expect(screen.getByText('Desde 08 sep 2025')).toBeInTheDocument();
+      // The raw ISO / numeric leftover must NOT be on screen.
+      expect(screen.queryByText(/2025-09-08/)).not.toBeInTheDocument();
+    });
+
+    it('renders an open→close range with the arrow and both legible dates', () => {
+      // Prod shape: full ISO at UTC midnight for both bounds.
+      renderCard({ startDate: '2024-01-01T00:00:00.000Z', endDate: '2025-12-31T00:00:00.000Z' });
+      expect(screen.getByText('01 ene 2024 → 31 dic 2025')).toBeInTheDocument();
+    });
+  });
+
   // ── F3: tv.read gates the TV chip + picker diversion ───────────────────────
   describe('F3 — tv.read gating', () => {
     /** Grant clients.write but DENY tv.read. */
