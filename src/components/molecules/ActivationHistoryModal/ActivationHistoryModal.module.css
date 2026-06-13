@@ -1,37 +1,83 @@
-/* TV Activation History page (#5 FE). Mirrors GigaredAccountsPage tokens. */
+/* ActivationHistoryModal — mirrors ServiceHistoryModal tokens. */
 
-.page {
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.12s ease;
+}
+
+.dialog {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  max-width: 860px;
+  width: calc(100% - var(--space-8));
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-6);
+  overflow: hidden;
+  animation: slideUp 0.16s ease;
 }
 
 .header {
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
   display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-}
-
-.breadcrumb {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .title {
-  margin: 0;
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
+  margin: 0;
 }
 
-/* Filter bar */
+.closeBtn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  transition: background 0.15s, color 0.15s;
+  margin-left: var(--space-3);
+}
+
+.closeBtn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+}
+
+/* Filter bar (global mode only) */
 
 .filters {
   display: flex;
   gap: var(--space-3);
   flex-wrap: wrap;
   align-items: flex-end;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
 .filterGroup {
@@ -48,31 +94,31 @@
   letter-spacing: 0.04em;
 }
 
-.input,
-.select {
-  height: 36px;
-  padding: 0 12px;
+.input {
+  height: 34px;
+  padding: 0 10px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   font-size: 13.5px;
   color: var(--color-text-primary);
   background: var(--color-surface);
+  min-width: 160px;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.input {
-  min-width: 200px;
-}
-
-.input:focus-visible,
-.select:focus-visible {
+.input:focus-visible {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
 }
 
-/* Event type badges — inline, not reusing StatusBadge to keep exact copy of
-   GigaredAccountsPage chip style for the event type pills. */
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+/* Event type badges */
 
 .badgeAlta {
   display: inline-flex;
@@ -110,7 +156,7 @@
   white-space: nowrap;
 }
 
-/* Customer name link — mirrors GigaredAccountsPage.nameLink */
+/* Customer name link */
 .nameLink {
   color: var(--color-accent);
   text-decoration: none;
@@ -121,21 +167,17 @@
   text-decoration: underline;
 }
 
-.cic {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  margin-top: 1px;
-}
-
 /* Error banner */
 .bannerError {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
+  margin: 0 var(--space-6);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   background: #fef2f2;
   color: #991b1b;
   border: 1px solid #fecaca;
+  flex-shrink: 0;
 }

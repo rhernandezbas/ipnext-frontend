@@ -329,3 +329,15 @@ export function useGigaredActivationHistory(filter: ActivationHistoryFilter) {
     staleTime: 30_000,
   });
 }
+
+// #5B — per-client TV activation history. Fetches events for a single customer
+// using the scoped endpoint GET /gigared/customers/:id/activation-history.
+// `enabled` is tied to the modal's open state so we don't fetch while closed.
+export function useGigaredCustomerActivationHistory(customerId: string, enabled = true) {
+  return useQuery<TvActivationEvent[]>({
+    queryKey: [...ROOT, 'customer-activation-history', customerId] as const,
+    queryFn: () => gigaredApi.getCustomerActivationHistory(customerId),
+    staleTime: 30_000,
+    enabled,
+  });
+}

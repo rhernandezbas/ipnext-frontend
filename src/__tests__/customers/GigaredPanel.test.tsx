@@ -18,6 +18,24 @@ vi.mock('@/hooks/useGigared', () => ({
   useChangeTvPassword: vi.fn(),
   useTvCredentials: vi.fn(),
 }));
+
+// Stub ActivationHistoryModal — only assert it opens; internals are tested elsewhere.
+vi.mock('@/components/molecules/ActivationHistoryModal/ActivationHistoryModal', () => ({
+  ActivationHistoryModal: ({
+    open,
+    onClose,
+    customerId,
+  }: {
+    open: boolean;
+    onClose: () => void;
+    customerId?: string;
+  }) =>
+    open ? (
+      <div data-testid="activation-history-modal" data-customer-id={customerId ?? ''}>
+        <button onClick={onClose}>modal-close</button>
+      </div>
+    ) : null,
+}));
 vi.mock('@/hooks/useCustomers', () => ({
   useClientContracts: vi.fn(),
 }));
@@ -2452,6 +2470,45 @@ describe('GigaredPanel', () => {
       expect(
         screen.queryByRole('button', { name: /agregar solo el ítem local/i }),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  // ── #5B — "Historial TV" button in LinkedView ─────────────────────────────
+  // The panel's LinkedView must offer a "Historial TV" button that opens the
+  // ActivationHistoryModal scoped to this client's customerId.
+  describe('#5B — Historial TV button in LinkedView', () => {
+    it('linked view shows a "Historial TV" button', () => {
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel();
+      expect(screen.getByRole('button', { name: /historial tv/i })).toBeInTheDocument();
+    });
+
+    it('clicking "Historial TV" opens the ActivationHistoryModal with this client\'s customerId', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      // GigaredPanel hardcodes customerId="cust-1" in renderPanel; we verify the modal receives it
+      renderPanel();
+      expect(screen.queryByTestId('activation-history-modal')).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: /historial tv/i }));
+      const modal = screen.getByTestId('activation-history-modal');
+      expect(modal).toBeInTheDocument();
+      expect(modal).toHaveAttribute('data-customer-id', 'cust-1');
+    });
+
+    it('closing the modal hides it', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: true, account: linkedAccount } });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /historial tv/i }));
+      expect(screen.getByTestId('activation-history-modal')).toBeInTheDocument();
+      await user.click(screen.getByText('modal-close'));
+      expect(screen.queryByTestId('activation-history-modal')).not.toBeInTheDocument();
+    });
+
+    it('unlinked view does NOT show a "Historial TV" button', () => {
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel();
+      expect(screen.queryByRole('button', { name: /historial tv/i })).not.toBeInTheDocument();
     });
   });
 });

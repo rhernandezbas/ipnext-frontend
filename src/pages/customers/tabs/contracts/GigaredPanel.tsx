@@ -13,6 +13,7 @@ import {
   useChangeTvPassword,
   useTvCredentials,
 } from '@/hooks/useGigared';
+import { ActivationHistoryModal } from '@/components/molecules/ActivationHistoryModal/ActivationHistoryModal';
 import { deterministicTvEmail, deterministicTvPassword } from './deterministicTv';
 import { useClientContracts } from '@/hooks/useCustomers';
 import { useRemoveContractService } from '@/hooks/useContractServices';
@@ -207,6 +208,10 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
     setCancelPolling(false);
   }
 
+  // #5B — history modal state lives here (parent of LinkedView) so the modal
+  // survives re-renders. The customerId for the scoped history is the panel's own.
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+
   let body: React.ReactNode;
   let showLocalSection = false;
   if (code === 'GIGARED_NOT_CONFIGURED') {
@@ -241,6 +246,7 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
           cancelPending={cancelTv.isPending}
           cancelError={cancelError}
           cancelOutcomeVisible={cancelOutcomeVisible}
+          onOpenHistory={() => setHistoryModalOpen(true)}
         />
       ) : (
         <UnlinkedView
@@ -329,6 +335,13 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
           </div>
         </div>
       )}
+
+      {/* #5B — TV history modal: scoped to this client's activation events. */}
+      <ActivationHistoryModal
+        open={historyModalOpen}
+        onClose={() => setHistoryModalOpen(false)}
+        customerId={customerId}
+      />
 
       {/* Outcome modal — visible regardless of linked state (survives the flip).
           #10 — async: shows spinner while pending/running, banner when terminal. */}
@@ -922,6 +935,7 @@ function LinkedView({
   cancelPending,
   cancelError,
   cancelOutcomeVisible,
+  onOpenHistory,
 }: {
   customerId: string;
   contractId: string;
@@ -938,6 +952,8 @@ function LinkedView({
   cancelError: string | null;
   /** #10 — true once 202 received; hides the "Dar de baja" trigger while polling. */
   cancelOutcomeVisible: boolean;
+  /** #5B — opens the per-client TV activation history modal. */
+  onOpenHistory: () => void;
 }) {
   const confirm = useConfirm();
   const summaryQuery = useGigaredSummary();
@@ -1160,6 +1176,18 @@ function LinkedView({
           <span>La TV vive en el contrato {ownerElsewhere.name ?? ownerElsewhere.plan}.</span>
         </div>
       )}
+      {/* #5B — history shortcut: shows every alta/baja/reactivación cycle for this
+          client (append-only tv_activation_events), unlike ServiceHistoryModal (#73)
+          which collapses to 1 TV row and loses the baja date on reactivation. */}
+      <div className={styles.formActions}>
+        <button
+          type="button"
+          className={styles.btnSecondary}
+          onClick={onOpenHistory}
+        >
+          Historial TV
+        </button>
+      </div>
       <section className={styles.card}>
         <h4 className={styles.cardTitle}>Cuenta de TV</h4>
         <dl className={styles.accountGrid}>

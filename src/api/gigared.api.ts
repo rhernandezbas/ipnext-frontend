@@ -167,4 +167,13 @@ export const gigaredApi = {
     );
     return r.data;
   },
+
+  // #5B — per-client TV activation history.
+  // GET /gigared/customers/:id/activation-history → TvActivationEvent[] (newest first).
+  async getCustomerActivationHistory(customerId: string): Promise<TvActivationEvent[]> {
+    const r = await axiosClient.get<TvActivationEvent[]>(
+      `${BASE}/customers/${customerId}/activation-history`,
+    );
+    return r.data;
+  },
 };
