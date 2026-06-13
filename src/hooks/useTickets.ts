@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getTickets, getTicketsByCustomer, getTicketStats, createTicket, TicketsQuery, CreateTicketInput } from '../api/tickets.api';
+import { getTickets, getTicketsByCustomer, getTicketStats, createTicket, archiveTicket, hardDeleteTicket, TicketsQuery, CreateTicketInput } from '../api/tickets.api';
 import axiosClient from '../api/axios-client';
 import type { Ticket, CreateTicketData } from '../types/ticket';
 
@@ -106,5 +106,23 @@ export function useDeleteTicket() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tickets'] });
     },
+  });
+}
+
+// #85 — archive a ticket (sets archivedAt, moves to archived view).
+export function useArchiveTicket() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => archiveTicket(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['tickets'] }); },
+  });
+}
+
+// #85 — hard-delete a ticket (irreversible). Super-admin only.
+export function useHardDeleteTicket() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => hardDeleteTicket(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['tickets'] }); },
   });
 }

@@ -25,6 +25,7 @@ export interface TicketsQuery {
   from?: string;         // #25 — createdAt >=
   to?: string;           // #25 — createdAt <=
   areaId?: string;       // #49 — filtra por area
+  archived?: boolean;    // #85 — filtra tickets archivados
 }
 
 export interface CreateTicketInput {
@@ -120,6 +121,17 @@ export async function getArchivedTickets(
     params,
   });
   return response.data;
+}
+
+/** #85 — Archive a ticket (POST /tickets/:id/archive). */
+export async function archiveTicket(id: string): Promise<Ticket> {
+  const response = await axiosClient.post<Ticket>(`/tickets/${id}/archive`);
+  return response.data;
+}
+
+/** #85 — Hard-delete a ticket (DELETE /tickets/:id/hard). Super-admin only. */
+export async function hardDeleteTicket(id: string): Promise<void> {
+  await axiosClient.delete(`/tickets/${id}/hard`);
 }
 
 /** Fetch all tickets for a specific customer — used for the count badge in CustomerDetailPage. */

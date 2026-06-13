@@ -26,6 +26,7 @@ const GigaredAccountsPage = lazy(() => import('@/pages/crm/GigaredAccountsPage')
 const TicketsDashboardPage = lazy(() => import('@/pages/tickets/TicketsDashboardPage'));
 const TicketsListPage = lazy(() => import('@/pages/tickets/TicketsListPage'));
 const TicketsArchivePage = lazy(() => import('@/pages/tickets/TicketsArchivePage'));
+const TicketsArchivedPage = lazy(() => import('@/pages/tickets/TicketsArchivedPage'));
 const TicketCreatePage = lazy(() => import('@/pages/tickets/CreateTicketPage'));
 const TicketDetailPage = lazy(() => import('@/pages/tickets/TicketDetailPage'));
 const AddCustomerPage = lazy(() => import('@/pages/customers/AddCustomerPage'));
@@ -199,6 +200,7 @@ export function App() {
                 <Route path="opened" element={<RequirePermission permission="tickets.read"><TicketsListPage /></RequirePermission>} />
                 <Route path="list" element={<Navigate to="/admin/tickets/opened" replace />} />
                 <Route path="trash" element={<RequirePermission permission="tickets.read"><TicketsArchivePage /></RequirePermission>} />
+                <Route path="archived" element={<RequirePermission permission="tickets.read"><TicketsArchivedPage /></RequirePermission>} />
                 <Route path="archive" element={<Navigate to="/admin/tickets/trash" replace />} />
                 <Route path="new" element={<RequirePermission permission="tickets.read"><TicketCreatePage /></RequirePermission>} />
                 <Route path="requesters" element={<RequirePermission permission="tickets.read"><TicketRequestersPage /></RequirePermission>} />

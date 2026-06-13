@@ -5,7 +5,7 @@ import { useTicketList, useCreateTicket } from '../../hooks/useTickets';
 import { useTicketStatuses } from '../../hooks/useTicketStatuses';
 import { Can } from '@/components/auth/Can';
 import { ColumnSelector, type ColumnDef } from '@/pages/scheduling/SchedulingTasksPage/components/ColumnSelector';
-import { TicketFilterDisclosure } from './TicketsListPage/components/TicketFilterDisclosure';
+import { TicketFilterBar } from './TicketsListPage/components/TicketFilterBar';
 import { TicketsTableView } from './TicketsListPage/components/TicketsTableView';
 import { CreateTicketModal } from './TicketsListPage/components/CreateTicketModal';
 import { useTicketsFilterUrl } from './TicketsListPage/hooks/useTicketsFilterUrl';
@@ -60,9 +60,12 @@ interface Props {
   /** When set (e.g. "closed" by TicketsArchivePage), the list is locked to that
    *  status and shows the archive title. Preserves origin's Archive page. */
   statusFilter?: string;
+  /** #85 — when true, the list shows archived tickets (archived: true query param),
+   *  uses "Tickets Archivados" title, and hides the status tabs. */
+  archivedView?: boolean;
 }
 
-export default function TicketsListPage({ statusFilter }: Props) {
+export default function TicketsListPage({ statusFilter, archivedView }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { filter, setFilter } = useTicketsFilterUrl();
 
@@ -89,8 +92,28 @@ export default function TicketsListPage({ statusFilter }: Props) {
   const { visible: visibleColumns, toggle: toggleColumn, reorder: reorderColumns, reset: resetColumns } =
     useVisibleColumns(DEFAULT_VISIBLE_COLUMNS);
 
-  // Archive page locks the status; otherwise tab/URL drive it.
-  const effectiveStatus = statusFilter ?? filter.status ?? '';
+  // #85 — resolve the default "open" status from the catalog when no explicit
+  // filter is set. We look for a status named 'abierto'/'open'/'nuevo' (case-
+  // insensitive). If none found, fall back to the first non-closed entry.
+  // While the catalog is loading we pass undefined to avoid a flash.
+  const CLOSED_SLUGS_LP = ['cerrado', 'closed'];
+  const openStatus = !statusesLoading
+    ? (
+        catalogStatuses.find(s =>
+          !CLOSED_SLUGS_LP.includes(s.name.toLowerCase()) &&
+          (s.name.toLowerCase().includes('abierto') ||
+           s.name.toLowerCase().includes('open') ||
+           s.name.toLowerCase().includes('nuevo'))
+        ) ??
+        catalogStatuses.find(s => !CLOSED_SLUGS_LP.includes(s.name.toLowerCase()))
+      )
+    : undefined;
+
+  // Archive page locks the status; archivedView ignores status tabs entirely;
+  // otherwise tab/URL drive it (defaulting to the open catalog entry).
+  const effectiveStatus = archivedView
+    ? undefined
+    : (statusFilter ?? filter.status ?? (statusesLoading ? '' : (openStatus?.name ?? '')));
 
   const { data, isLoading, refetch } = useTicketList({
     page,
@@ -103,6 +126,7 @@ export default function TicketsListPage({ statusFilter }: Props) {
     from: filter.from || undefined,
     to: filter.to || undefined,
     areaId: filter.areaId || undefined, // #49
+    archived: archivedView ? true : undefined, // #85
   });
 
   const totalPages = data ? Math.ceil(data.total / 25) : 1;
@@ -135,6 +159,7 @@ export default function TicketsListPage({ statusFilter }: Props) {
   }
 
   const isArchive = statusFilter === 'closed';
+  const isArchivedView = !!archivedView;
 
   return (
     <div className={styles.page}>
@@ -142,7 +167,9 @@ export default function TicketsListPage({ statusFilter }: Props) {
       <div className={styles.header}>
         <div className={styles.headerLeft}>
           <span className={styles.breadcrumb}>Soporte /</span>
-          <h1 className={styles.title}>{isArchive ? 'Archivo de Tickets' : 'Lista de Tickets'}</h1>
+          <h1 className={styles.title}>
+            {isArchivedView ? 'Tickets Archivados' : isArchive ? 'Archivo de Tickets' : 'Lista de Tickets'}
+          </h1>
         </div>
         <div className={styles.headerRight}>
           <ColumnSelector
@@ -164,8 +191,8 @@ export default function TicketsListPage({ statusFilter }: Props) {
       </div>
 
       {/* Catalog-driven status tabs (origin behavior preserved). Hidden on the
-          Archive page, which is locked to a single status. */}
-      {!isArchive && (
+          Archive page (locked to a single status) and on the archived view. */}
+      {!isArchive && !isArchivedView && (
         <div className={tabStyles.tabs}>
           <button
             className={`${tabStyles.tab} ${effectiveStatus === '' ? tabStyles.active : ''}`}
@@ -197,11 +224,13 @@ export default function TicketsListPage({ statusFilter }: Props) {
         </div>
       )}
 
-      {/* Filtros — panel colapsable (cerrado por defecto) con chips persistentes
-          afuera. El status del Archive queda fuera del disclosure (locked). */}
-      <TicketFilterDisclosure
+      {/* Filtros — siempre visible, inline, espejando el TaskFilterBar (#87).
+          Variante horizontal: controles en una fila, chips activos debajo. */}
+      <TicketFilterBar
         filter={filter}
         onFilterChange={p => { setFilter(p); setPage(1); }}
+        variant="horizontal"
+        showChips
       />
 
       {/* Tabla + acciones masivas + estados vacíos, espejando SchedulingTasksPage. */}
