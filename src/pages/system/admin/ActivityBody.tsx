@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useAuditEvents } from '@/hooks/useAuditEvents';
 import type { AuditEventDto, AuditEventQuery } from '@/types/audit';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import styles from './ActivityBody.module.css';
 
 const PAGE_SIZE = 25;
@@ -9,14 +10,7 @@ const PAGE_SIZE = 25;
 const METHOD_OPTIONS = ['all', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleString('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateTimeShort(dateStr);
 }
 
 function methodClass(method: string): string {

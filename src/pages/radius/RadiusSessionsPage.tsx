@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useRadiusSessions, useDisconnectSession } from '@/hooks/useRadiusSessions';
+import { formatDateTimeShort } from '@/utils/formatDate';
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -9,10 +10,7 @@ function formatDuration(seconds: number): string {
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('es-AR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
+  return formatDateTimeShort(dateStr);
 }
 
 export default function RadiusSessionsPage() {

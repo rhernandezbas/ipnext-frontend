@@ -3,6 +3,7 @@ import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
 import { useCreditNotes, useCreateCreditNote, useApplyCreditNote, useVoidCreditNote } from '@/hooks/useBilling';
 import type { CreditNote, CreditNoteStatus } from '@/types/billing';
+import { formatDateShort } from '@/utils/formatDate';
 import styles from './finanzas.module.css';
 
 type BadgeStatus = 'active' | 'late' | 'blocked' | 'inactive';
@@ -22,7 +23,7 @@ const STATUS_LABELS: Record<CreditNoteStatus, string> = {
 };
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-AR');
+  return formatDateShort(dateStr);
 }
 
 const COLUMNS = [

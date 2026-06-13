@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useClientInstalledItems } from '@/hooks/useServiceInventory';
 import type { ClientInstalledItem, InstalledItemStatus } from '@/types/serviceInventory';
+import { formatDateShort } from '@/utils/formatDate';
 import styles from './ClientEquipmentTab.module.css';
 
 interface Props {
@@ -42,9 +43,7 @@ function dash(v: string | null): string {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-AR');
+  return formatDateShort(iso);
 }
 
 /**

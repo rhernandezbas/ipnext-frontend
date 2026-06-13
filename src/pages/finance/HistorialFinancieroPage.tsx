@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useFinanceHistory } from '@/hooks/useBilling';
 import type { FinanceHistoryEvent, FinanceEventType } from '@/types/billing';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import styles from './finanzas.module.css';
 
 const EVENT_TYPE_LABELS: Record<FinanceEventType, string> = {
@@ -33,7 +34,7 @@ const COLUMNS = [
   {
     label: 'Fecha/hora',
     key: 'occurredAt' as keyof FinanceHistoryEvent,
-    render: (row: FinanceHistoryEvent) => new Date(row.occurredAt).toLocaleString('es-AR'),
+    render: (row: FinanceHistoryEvent) => formatDateTimeShort(row.occurredAt),
   },
   {
     label: 'Tipo',

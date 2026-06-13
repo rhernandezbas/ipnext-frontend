@@ -4,6 +4,7 @@ import {
   RECAPTURE_STATUS_COLOR,
 } from '@/types/recaptacion';
 import type { RecaptureLeadDto, RecaptureLeadStatus } from '@/types/recaptacion';
+import { formatDateShort } from '@/utils/formatDate';
 import styles from './RecaptacionTableView.module.css';
 
 // ── Status pill ──────────────────────────────────────────────────────────────
@@ -24,14 +25,7 @@ function StatusPill({ status }: { status: RecaptureLeadStatus }) {
 // ── Column definitions ───────────────────────────────────────────────────────
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleDateString('es-AR', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-    });
-  } catch {
-    return '—';
-  }
+  return formatDateShort(iso);
 }
 
 const COLUMNS: Array<{

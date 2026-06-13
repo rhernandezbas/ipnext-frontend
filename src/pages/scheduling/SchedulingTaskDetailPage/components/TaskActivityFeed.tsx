@@ -1,6 +1,7 @@
 import { useTaskActivity } from '@/hooks/useTaskActivity';
 import { describeActivity } from './taskActivityLabel';
 import type { ActivityDto } from '@/types/taskActivity';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import styles from './TaskActivityFeed.module.css';
 
 function initials(name: string): string {
@@ -19,7 +20,7 @@ function ActivityItem({ a }: { a: ActivityDto }) {
           <span className={styles.action}>{describeActivity(a)}</span>
         </p>
         <time className={styles.date} dateTime={a.createdAt}>
-          {new Date(a.createdAt).toLocaleString('es-AR')}
+          {formatDateTimeShort(a.createdAt)}
         </time>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Customer } from '../../../types/customer';
 import { CLIENT_STATUS_LABELS } from '../clientStatusLabels';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import styles from './InfoTab.module.css';
 
 interface Props { customer: Customer; active: boolean; }
@@ -253,7 +254,7 @@ function BalanceCard({ customer }: { customer: Customer }) {
       <header className={styles.cardHeader}>
         <h2 className={styles.cardTitle}>Saldo deudor</h2>
         {lastBalanceAt && (
-          <span className={styles.balanceTimestamp} title={lastBalanceAt}>
+          <span className={styles.balanceTimestamp} title={formatDateTimeShort(lastBalanceAt)}>
             Actualizado {formatRelativeTime(lastBalanceAt)}
           </span>
         )}

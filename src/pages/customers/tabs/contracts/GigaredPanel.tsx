@@ -20,6 +20,7 @@ import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { useConfirm } from '@/context/ConfirmContext';
 import { Can } from '@/components/auth/Can';
 import { GigaredNotConfigured } from '@/components/molecules/GigaredNotConfigured/GigaredNotConfigured';
+import { formatDateShort } from '@/utils/formatDate';
 import { LinkAccountPickerModal } from './LinkAccountPickerModal';
 import type { Contract, ContractService } from '@/types/customer';
 import type {
@@ -1189,9 +1190,7 @@ function LinkedView({
           <div>
             <dt className={styles.dt}>Alta</dt>
             <dd className={styles.dd}>
-              {account.registrationDate
-                ? new Date(account.registrationDate).toLocaleDateString('es-AR')
-                : '—'}
+              {formatDateShort(account.registrationDate)}
             </dd>
           </div>
         </dl>

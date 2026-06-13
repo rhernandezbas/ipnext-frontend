@@ -1,5 +1,6 @@
 import { useTaskAuditFindings } from '@/hooks/useTaskAuditFindings';
 import type { AuditFinding, AuditSeverity } from '@/types/taskAudit';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import styles from './TaskAuditFeed.module.css';
 
 const SEVERITY_LABEL: Record<AuditSeverity, string> = { ok: 'OK', warning: 'Atención', critical: 'Crítico' };
@@ -10,7 +11,7 @@ function FindingItem({ f }: { f: AuditFinding }) {
       <div className={styles.header}>
         <span className={`${styles.badge} ${styles[f.severity]}`}>{SEVERITY_LABEL[f.severity]}</span>
         <span className={styles.chip}>{f.category}</span>
-        <time className={styles.date} dateTime={f.createdAt}>{new Date(f.createdAt).toLocaleString('es-AR')}</time>
+        <time className={styles.date} dateTime={f.createdAt}>{formatDateTimeShort(f.createdAt)}</time>
       </div>
       <p className={styles.text}>{f.text}</p>
       {f.photoUrls.length > 0 && (

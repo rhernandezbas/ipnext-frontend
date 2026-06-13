@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { useClientFiles, useUploadFile } from '../../../hooks/useCustomers';
+import { formatDateShort } from '@/utils/formatDate';
 import styles from './Tab.module.css';
 
 interface Props { clientId: string; active: boolean; }
@@ -53,7 +54,7 @@ export function FilesTab({ clientId }: Props) {
               <tr key={file.id}>
                 <td>{file.name}</td>
                 <td>{formatSize(file.size)}</td>
-                <td>{new Date(file.uploadedAt).toLocaleDateString('es-AR')}</td>
+                <td>{formatDateShort(file.uploadedAt)}</td>
               </tr>
             ))}
           </tbody>

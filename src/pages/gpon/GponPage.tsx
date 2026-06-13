@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useOlts, useOnus, useCreateOlt, useCreateOnu, useUpdateOnuStatus } from '@/hooks/useGpon';
 import type { OltDevice, OnuDevice } from '@/types/gpon';
+import { formatDateTimeShort } from '@/utils/formatDate';
 
 type Tab = 'olts' | 'onus';
 
@@ -33,11 +34,7 @@ function StatusBadge({ status }: { status: OltDevice['status'] | OnuDevice['stat
 }
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleString('es-AR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
+  return formatDateTimeShort(dateStr);
 }
 
 function OltsTab() {

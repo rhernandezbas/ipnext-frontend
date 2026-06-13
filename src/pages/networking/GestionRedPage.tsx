@@ -5,6 +5,7 @@ import { useIpNetworks, useCreateIpNetwork, useDeleteIpNetwork, useIpPools, useC
 import { useConfirm } from '@/context/ConfirmContext';
 import type { NasServer, NasType, RadiusConfig } from '@/types/nas';
 import type { IpNetwork, IpPool, Ipv6Network } from '@/types/network';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import styles from './GestionRedPage.module.css';
 
 type Tab = 'nas' | 'redes' | 'pools' | 'asignaciones' | 'ipv6';
@@ -58,14 +59,7 @@ function NasStatusBadge({ status }: { status: NasServer['status'] }) {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateTimeShort(iso);
 }
 
 // NAS Modal

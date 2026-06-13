@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { Button } from '../../../components/atoms/Button/Button';
 import { Can } from '../../../components/auth/Can';
 import { useClientDocuments, useUploadDocument } from '../../../hooks/useCustomers';
+import { formatDateShort } from '@/utils/formatDate';
 import styles from './Tab.module.css';
 import docStyles from './DocumentsTab.module.css';
 
@@ -16,7 +17,7 @@ function formatSize(bytes: number): string {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-AR');
+  return formatDateShort(iso);
 }
 
 export function DocumentsTab({ clientId }: Props) {

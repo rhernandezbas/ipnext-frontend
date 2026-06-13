@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Can } from '@/components/auth/Can';
 import { useRecaptacionLead, useClaimLead, useReleaseLead, useAddContact } from '@/hooks/useRecaptacion';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import {
   RECAPTURE_STATUS_LABELS,
   RECAPTURE_STATUS_COLOR,
@@ -15,15 +16,7 @@ import styles from './LeadDetailDrawer.module.css';
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDatetime(iso: string | null): string {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleString('es-AR', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    });
-  } catch {
-    return '—';
-  }
+  return formatDateTimeShort(iso);
 }
 
 const CHANNELS = Object.entries(RECAPTURE_CHANNEL_LABELS) as [RecaptureContactChannel, string][];

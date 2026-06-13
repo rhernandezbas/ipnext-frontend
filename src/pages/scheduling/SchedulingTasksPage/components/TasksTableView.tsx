@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { formatDateShort } from '@/utils/formatDate';
 import { Link, useNavigate } from 'react-router-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { Can } from '@/components/auth/Can';
@@ -653,7 +654,7 @@ export function TasksTableView({
     { label: 'Localidad', key: 'customerCity',   sortable: true,
       render: (t: ScheduledTask) => t.customerCity || '—' },
     { label: 'Inicio',    key: 'startDate',      sortable: true,
-      render: (t: ScheduledTask) => t.startDate ? new Date(t.startDate).toLocaleDateString('es-AR') : '—' },
+      render: (t: ScheduledTask) => formatDateShort(t.startDate) },
     { label: 'Asignado',  key: 'assigneeName',   sortable: true },
     { label: 'Reporter',  key: 'reporterName',   sortable: true,
       // Resolve reporterId → admin name from the admin catalog. Fall back to
@@ -669,9 +670,9 @@ export function TasksTableView({
         />
       ) },
     { label: 'Fecha creación',      key: 'createdAt', sortable: true,
-      render: (t: ScheduledTask) => new Date(t.createdAt).toLocaleDateString('es-AR') },
+      render: (t: ScheduledTask) => formatDateShort(t.createdAt) },
     { label: 'Fecha actualización', key: 'updatedAt', sortable: true,
-      render: (t: ScheduledTask) => new Date(t.updatedAt).toLocaleDateString('es-AR') },
+      render: (t: ScheduledTask) => formatDateShort(t.updatedAt) },
     { label: 'RV', key: 'reviewedByInventory', sortable: false,
       render: (t: ScheduledTask) => (
         <RvIndicator

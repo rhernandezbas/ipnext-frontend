@@ -3,6 +3,7 @@ import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useCpeDevices, useCreateCpeDevice, useDeleteCpeDevice, useAssignCpeToClient } from '@/hooks/useCpe';
 import { useConfirm } from '@/context/ConfirmContext';
 import type { CpeDevice, CpeType } from '@/types/cpe';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import styles from './CpePage.module.css';
 
 const TYPE_LABELS: Record<CpeType, string> = {
@@ -39,11 +40,7 @@ function StatusBadge({ status }: { status: CpeDevice['status'] }) {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString('es-AR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
+  return formatDateTimeShort(iso);
 }
 
 interface AddCpeModalProps {

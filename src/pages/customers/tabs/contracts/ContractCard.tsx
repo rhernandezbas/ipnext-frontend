@@ -10,6 +10,7 @@ import { ContractServiceChips } from './ContractServiceChips';
 import { ServicePickerMenu } from './ServicePickerMenu';
 import { GigaredPanel } from './GigaredPanel';
 import { ServiceHistoryModal } from '@/components/molecules/ServiceHistoryModal/ServiceHistoryModal';
+import { formatDateShort } from '@/utils/formatDate';
 import styles from './ContractCard.module.css';
 
 interface Props {
@@ -40,7 +41,8 @@ function badgeStatus(status: string): BadgeStatus {
 }
 
 function formatDateRange(start: string, end: string | null): string {
-  return end ? `${start} → ${end}` : `Desde ${start}`;
+  const from = formatDateShort(start);
+  return end ? `${from} → ${formatDateShort(end)}` : `Desde ${from}`;
 }
 
 export function ContractCard({ contract, clientId, active, customer }: Props) {
