@@ -15,6 +15,8 @@ vi.mock('@/hooks/useTickets', () => ({
   useAssignTicket:       () => ({ mutateAsync: assignAsync, isPending: false }),
   useUpdateTicketStatus: () => ({ mutateAsync: statusAsync, isPending: false }),
   useDeleteTicket:       () => ({ mutateAsync: deleteAsync, isPending: false }),
+  useArchiveTicket:      () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useHardDeleteTicket:   () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 let permissions: string[] = [];
@@ -49,8 +51,11 @@ function mkTicket(id: string, seq: number): Ticket {
   return {
     id, sequenceNumber: seq, subject: `Asunto ${seq}`, description: '', status: 'Abierto',
     priority: 'medium', type: null, customerId: 'c1', customerName: 'Cliente',
-    assigneeId: null, assigneeName: null, reporter: null, createdAt: '2026-01-01',
-    updatedAt: '2026-01-01', resolvedAt: null, tags: [],
+    assigneeId: null, assigneeName: null,
+    reporterId: null, reporterName: null, reporter: null,
+    areaId: null, areaName: null, areaColor: null,
+    createdAt: '2026-01-01', updatedAt: '2026-01-01',
+    resolvedAt: null, archivedAt: null, tags: [],
   };
 }
 const tickets = [mkTicket('t1', 1), mkTicket('t2', 2)];

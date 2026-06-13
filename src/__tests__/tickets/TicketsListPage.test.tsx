@@ -205,13 +205,16 @@ describe('TicketsListPage (Prominense re-skin)', () => {
     expect(lastCall.status).toBe('open');
   });
 
-  it('clicking "Todos" clears the status filter', () => {
+  it('clicking "Todos" falls back to the default open status (#85)', () => {
+    // #85 — "Todos" no longer means "show all" — the list defaults to the first
+    // non-closed catalog status. After clicking "open" then "Todos", the effective
+    // status resolves to 'open' (first non-closed in the mock catalog).
     renderList();
     fireEvent.click(screen.getByRole('button', { name: /open/i }));
     fireEvent.click(screen.getByRole('button', { name: /todos/i }));
     const calls = vi.mocked(useTicketsModule.useTicketList).mock.calls;
     const lastCall = calls[calls.length - 1][0];
-    expect(lastCall.status).toBeUndefined();
+    expect(lastCall.status).toBe('open');
   });
 
   it('locks the query to the archive status when statusFilter is closed', () => {

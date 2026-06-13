@@ -12,6 +12,8 @@ vi.mock('@/hooks/useTickets', () => ({
   useAssignTicket:       () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateTicketStatus: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteTicket:       () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useArchiveTicket:      () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useHardDeleteTicket:   () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock('@/hooks/useMyPermissions', () => ({
   useMyPermissions: () => ({ isLoading: false, can: () => true }),

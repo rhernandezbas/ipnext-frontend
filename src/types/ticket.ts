@@ -52,6 +52,7 @@ export interface Ticket {
   createdAt: string;
   updatedAt: string;
   resolvedAt: string | null;
+  archivedAt: string | null;
   tags: string[];
 }
 

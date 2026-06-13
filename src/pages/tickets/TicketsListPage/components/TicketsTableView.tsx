@@ -5,7 +5,7 @@ import { Can } from '@/components/auth/Can';
 import { useConfirm } from '@/context/ConfirmContext';
 import { useTicketStatuses } from '@/hooks/useTicketStatuses';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
-import { useAssignTicket, useUpdateTicketStatus, useDeleteTicket } from '@/hooks/useTickets';
+import { useAssignTicket, useUpdateTicketStatus, useDeleteTicket, useArchiveTicket, useHardDeleteTicket } from '@/hooks/useTickets';
 import { useTicketSlaConfig } from '@/hooks/useTicketSlaConfig';
 import { mapWithConcurrency } from '@/utils/mapWithConcurrency';
 import { readableTextColor } from '@/utils/contrastColor';
@@ -123,10 +123,12 @@ function PriorityPill({ priority }: { priority: string }) {
  *  infinitive for the partial-failure line ("X de N no se pudieron {failVerb}"). */
 interface BulkCopy { done: string; failVerb: string; }
 const BULK_COPY = {
-  assign: { done: 'asignados', failVerb: 'asignar' },
-  status: { done: 'actualizados', failVerb: 'actualizar' },
-  close:  { done: 'cerrados', failVerb: 'cerrar' },
-  delete: { done: 'eliminados', failVerb: 'eliminar' },
+  assign:     { done: 'asignados', failVerb: 'asignar' },
+  status:     { done: 'actualizados', failVerb: 'actualizar' },
+  close:      { done: 'cerrados', failVerb: 'cerrar' },
+  delete:     { done: 'eliminados', failVerb: 'eliminar' },
+  archive:    { done: 'archivados', failVerb: 'archivar' },
+  hardDelete: { done: 'eliminados definitivamente', failVerb: 'eliminar definitivamente' },
 } satisfies Record<string, BulkCopy>;
 
 // ── BulkActionBar (inline, AD-6) ─────────────────────────────────────────────
@@ -136,17 +138,21 @@ type PickerKind = null | 'assign' | 'status';
 interface BulkActionBarProps {
   selectedIds: string[];
   onClear: () => void;
+  /** The full ticket list — used to check if all selected are closed (for Archivar). */
+  tickets: Ticket[];
   /** Each handler runs the N-request bulk and returns the ids that FAILED. */
   onAssign: (ids: string[], assigneeId: string) => Promise<void>;
   onChangeStatus: (ids: string[], status: string) => Promise<void>;
   onClose: (ids: string[]) => Promise<void>;
   onDelete: (ids: string[]) => Promise<void>;
+  onArchive: (ids: string[]) => Promise<void>;
+  onHardDelete: (ids: string[]) => Promise<void>;
   assignees: Array<{ id: string; name: string }>;
   statuses: Array<{ id: string; name: string }>;
 }
 
 function BulkActionBar({
-  selectedIds, onClear, onAssign, onChangeStatus, onClose, onDelete, assignees, statuses,
+  selectedIds, onClear, tickets, onAssign, onChangeStatus, onClose, onDelete, onArchive, onHardDelete, assignees, statuses,
 }: BulkActionBarProps) {
   const [picker, setPicker] = useState<PickerKind>(null);
   const [pickerValue, setPickerValue] = useState('');
@@ -157,6 +163,12 @@ function BulkActionBar({
 
   const count = selectedIds.length;
   const noun = `ticket${count !== 1 ? 's' : ''}`;
+
+  /** True only when every selected ticket is closed (Archivar pre-condition). */
+  const allSelectedClosed = selectedIds.every(id => {
+    const t = tickets.find(x => x.id === id);
+    return t ? CLOSED_SLUGS.includes(t.status.toLowerCase()) : false;
+  });
 
   function openPicker(kind: Exclude<PickerKind, null>) {
     setPickerValue('');
@@ -199,6 +211,30 @@ function BulkActionBar({
     }
   }
 
+  async function handleArchive() {
+    setBusy(true);
+    try {
+      await onArchive(selectedIds);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleHardDelete() {
+    const ok = await confirm({
+      message: `¿Eliminar definitivamente ${count} ${noun}? Esta acción es irreversible y no se puede deshacer.`,
+      tone: 'danger',
+      confirmLabel: 'Eliminar definitivamente',
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await onHardDelete(selectedIds);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <div className={styles.bulkBar} data-testid="ticket-bulk-bar">
@@ -223,6 +259,27 @@ function BulkActionBar({
         <Can permission="tickets.delete">
           <button type="button" className={styles.bulkDeleteBtn} disabled={busy} onClick={() => void handleDelete()}>
             Eliminar
+          </button>
+        </Can>
+        <Can permission="tickets.close">
+          <button
+            type="button"
+            className={styles.bulkBtn}
+            disabled={busy || !allSelectedClosed}
+            title={!allSelectedClosed ? 'Todos los tickets seleccionados deben estar cerrados' : undefined}
+            onClick={() => void handleArchive()}
+          >
+            Archivar
+          </button>
+        </Can>
+        <Can permission="tickets.delete_hard">
+          <button
+            type="button"
+            className={styles.bulkDeleteBtn}
+            disabled={busy}
+            onClick={() => void handleHardDelete()}
+          >
+            Eliminar definitivamente
           </button>
         </Can>
 
@@ -325,6 +382,8 @@ export function TicketsTableView({
   const assignTicket = useAssignTicket();
   const updateStatus = useUpdateTicketStatus();
   const deleteTicket = useDeleteTicket();
+  const archiveTicketMutation = useArchiveTicket();
+  const hardDeleteTicketMutation = useHardDeleteTicket();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
@@ -398,12 +457,15 @@ export function TicketsTableView({
       <BulkActionBar
         selectedIds={selectedIds}
         onClear={() => setSelectedIds([])}
+        tickets={tickets}
         assignees={users}
         statuses={statuses}
         onAssign={(ids, assigneeId) => runBulk(ids, id => assignTicket.mutateAsync({ id, assigneeId }), BULK_COPY.assign)}
         onChangeStatus={(ids, status) => runBulk(ids, id => updateStatus.mutateAsync({ id, status }), BULK_COPY.status)}
         onClose={(ids) => { const status = closedStatusName(); return runBulk(ids, id => updateStatus.mutateAsync({ id, status }), BULK_COPY.close); }}
         onDelete={(ids) => runBulk(ids, id => deleteTicket.mutateAsync(id), BULK_COPY.delete)}
+        onArchive={(ids) => runBulk(ids, id => archiveTicketMutation.mutateAsync(id), BULK_COPY.archive)}
+        onHardDelete={(ids) => runBulk(ids, id => hardDeleteTicketMutation.mutateAsync(id), BULK_COPY.hardDelete)}
       />
 
       <DataTable<Ticket>
