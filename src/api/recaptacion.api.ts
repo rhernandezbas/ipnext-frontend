@@ -79,6 +79,18 @@ export async function updateRecaptureLeadStatus(
   return response.data;
 }
 
+/** PATCH /recapture/leads/:id/assign — assign (or unassign when null) */
+export async function assignRecaptureLead(
+  id: string,
+  operatorId: string | null,
+): Promise<RecaptureLeadDto> {
+  const response = await axiosClient.patch<RecaptureLeadDto>(
+    `/recapture/leads/${id}/assign`,
+    { operatorId },
+  );
+  return response.data;
+}
+
 /** POST /recapture/leads/:id/contacts — register a contact attempt */
 export async function addRecaptureContact(
   leadId: string,

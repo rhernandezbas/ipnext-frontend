@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Can } from '@/components/auth/Can';
-import { useRecaptacionLead, useClaimLead, useReleaseLead, useAddContact, useUpdateLeadStatus } from '@/hooks/useRecaptacion';
+import { useRecaptacionLead, useClaimLead, useReleaseLead, useAddContact, useUpdateLeadStatus, useAssignLead } from '@/hooks/useRecaptacion';
+import { useAdmins } from '@/hooks/useAdmins';
 import { formatDateTimeShort } from '@/utils/formatDate';
 import {
   RECAPTURE_STATUS_LABELS,
@@ -142,6 +143,8 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
   const claimLead        = useClaimLead();
   const releaseLead      = useReleaseLead();
   const updateLeadStatus = useUpdateLeadStatus();
+  const assignLead       = useAssignLead();
+  const { data: admins = [] } = useAdmins();
 
   const [showForm, setShowForm] = useState(false);
 
@@ -231,6 +234,25 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
             </Can>
 
             <Can permission="recapture.manage">
+              <div className={styles.statusSelectWrapper}>
+                <label htmlFor="lead-operator-select" className={styles.statusSelectLabel}>Operador</label>
+                <select
+                  id="lead-operator-select"
+                  aria-label="Operador"
+                  className={styles.statusSelect}
+                  value={lead.assigneeId ?? ''}
+                  disabled={assignLead.isPending}
+                  onChange={(e) => {
+                    const operatorId = e.target.value === '' ? null : e.target.value;
+                    assignLead.mutate({ leadId: lead.id, operatorId });
+                  }}
+                >
+                  <option value="">— Sin asignar —</option>
+                  {admins.map((admin) => (
+                    <option key={admin.id} value={admin.id}>{admin.name}</option>
+                  ))}
+                </select>
+              </div>
               {!isAssigned && (
                 <button
                   type="button"

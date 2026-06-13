@@ -7,6 +7,7 @@ import {
   releaseRecaptureLead,
   updateRecaptureLeadStatus,
   addRecaptureContact,
+  assignRecaptureLead,
   isLeadConflictError,
   ingestChurnedClients,
   importCsvLeads,
@@ -112,6 +113,18 @@ export function useAddContact() {
   return useMutation({
     mutationFn: ({ leadId, body }: { leadId: string; body: AddContactInput }) =>
       addRecaptureContact(leadId, body),
+    onSuccess: (_, { leadId }) => {
+      void qc.invalidateQueries({ queryKey: ['recaptacion'] });
+      void qc.invalidateQueries({ queryKey: recaptacionLeadKey(leadId) });
+    },
+  });
+}
+
+export function useAssignLead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ leadId, operatorId }: { leadId: string; operatorId: string | null }) =>
+      assignRecaptureLead(leadId, operatorId),
     onSuccess: (_, { leadId }) => {
       void qc.invalidateQueries({ queryKey: ['recaptacion'] });
       void qc.invalidateQueries({ queryKey: recaptacionLeadKey(leadId) });

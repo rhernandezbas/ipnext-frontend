@@ -11,6 +11,7 @@ vi.mock('@/api/recaptacion.api', () => ({
   releaseRecaptureLead:      vi.fn(),
   updateRecaptureLeadStatus: vi.fn(),
   addRecaptureContact:       vi.fn(),
+  assignRecaptureLead:       vi.fn(),
   // Real-ish implementation: detect the 409 shape the api would reject with.
   isLeadConflictError: (err: unknown) =>
     typeof err === 'object' && err !== null &&
@@ -23,6 +24,7 @@ import {
   claimRecaptureLead,
   claimNextRecaptureLead,
   releaseRecaptureLead,
+  assignRecaptureLead,
 } from '@/api/recaptacion.api';
 import {
   useRecaptacionLeads,
@@ -30,6 +32,7 @@ import {
   useClaimLead,
   useClaimNext,
   useReleaseLead,
+  useAssignLead,
   CLAIM_CONFLICT_MESSAGE,
 } from '@/hooks/useRecaptacion';
 
@@ -188,6 +191,58 @@ describe('useReleaseLead — 409 conflict', () => {
     result.current.mutate('lead-1');
 
     await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['recaptacion'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['recaptacion-lead', 'lead-1'] });
+  });
+});
+
+// ── useAssignLead ─────────────────────────────────────────────────────────────
+
+describe('useAssignLead', () => {
+  it('calls assignRecaptureLead with leadId and operatorId', async () => {
+    vi.mocked(assignRecaptureLead).mockResolvedValue({
+      ...LEAD,
+      assigneeId: 'operator-5',
+      assigneeName: 'Operator Name',
+    });
+
+    const { result } = renderHook(() => useAssignLead(), { wrapper });
+
+    result.current.mutate({ leadId: 'lead-1', operatorId: 'operator-5' });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(assignRecaptureLead).toHaveBeenCalledWith('lead-1', 'operator-5');
+  });
+
+  it('passes null operatorId to unassign', async () => {
+    vi.mocked(assignRecaptureLead).mockResolvedValue({
+      ...LEAD,
+      assigneeId: null,
+      assigneeName: null,
+    });
+
+    const { result } = renderHook(() => useAssignLead(), { wrapper });
+
+    result.current.mutate({ leadId: 'lead-1', operatorId: null });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(assignRecaptureLead).toHaveBeenCalledWith('lead-1', null);
+  });
+
+  it('invalidates recaptacion list and lead detail on success', async () => {
+    vi.mocked(assignRecaptureLead).mockResolvedValue({ ...LEAD });
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    const localWrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useAssignLead(), { wrapper: localWrapper });
+
+    result.current.mutate({ leadId: 'lead-1', operatorId: 'operator-5' });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['recaptacion'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['recaptacion-lead', 'lead-1'] });
   });
