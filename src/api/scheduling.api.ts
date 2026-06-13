@@ -22,6 +22,8 @@ function buildFilterParams(filter?: TaskListFilter): Record<string, string | str
   if (filter?.kind)       params['kind']         = filter.kind;
   // #41 — the FE always sends an explicit general-status filter (default 'open').
   if (filter?.status)     params['status']       = filter.status;
+  // #86 — archived flag: when true, only archived tasks are returned.
+  if (filter?.archived !== undefined) params['archived'] = String(filter.archived);
   return params;
 }
 
@@ -129,6 +131,16 @@ export const setTaskInventoryReview = (taskId: string, reviewed: boolean) =>
   axiosClient
     .patch<ScheduledTask>(`${BASE}/${taskId}/inventory-review`, { reviewed })
     .then(r => r.data);
+
+// ── Archive (#86) ─────────────────────────────────────────────────────────────
+
+/**
+ * Archive a task. Only tasks with generalStatus !== 'open' can be archived;
+ * the backend returns 422 TASK_NOT_CLOSED otherwise.
+ * POST /scheduling/:id/archive → 200 ScheduledTask.
+ */
+export const archiveTask = (id: string) =>
+  axiosClient.post<ScheduledTask>(`${BASE}/${id}/archive`).then(r => r.data);
 
 // ── IClass manual resend ─────────────────────────────────────────────────────
 

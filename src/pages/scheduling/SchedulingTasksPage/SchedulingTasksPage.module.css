@@ -117,3 +117,21 @@
 }
 
 .btnIcon:hover { background: var(--color-gray-100); color: var(--color-gray-600); }
+
+/* Secondary link/button — "Archivadas" etc. */
+.btnSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.btnSecondary:hover { background: var(--color-gray-100); color: var(--color-text-primary); }

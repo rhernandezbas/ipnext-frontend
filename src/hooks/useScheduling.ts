@@ -275,6 +275,24 @@ export function useSetTaskInventoryReview() {
 // Type alias exported for convenience in components
 export type { TaskChecklistItem };
 
+// ── Archive (#86) ─────────────────────────────────────────────────────────────
+
+/**
+ * Archive a task (#86). The task must be closed or dismissed (generalStatus !== 'open')
+ * — the BE returns 422 TASK_NOT_CLOSED otherwise. Invalidates the tasks list,
+ * the task detail, and the activity feed.
+ */
+export function useArchiveTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.archiveTask(id),
+    onSuccess: (_result, id) => {
+      invalidateTasksAndProjects(qc);
+      invalidateTaskDetail(qc, id);
+    },
+  });
+}
+
 // ── IClass manual resend ─────────────────────────────────────────────────────
 
 /** Cache IClass nodes for 5 min — the list is small and changes rarely. */

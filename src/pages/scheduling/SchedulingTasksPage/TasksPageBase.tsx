@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useFilteredTasks, useCreateTask } from '@/hooks/useScheduling';
 import { useProjects } from '@/hooks/useProjects';
 import { useWorkflows } from '@/hooks/useWorkflows';
@@ -151,6 +152,9 @@ export function TasksPageBase({ title, kind, modalDefaultMode, projectPredicate,
           <button className={styles.btnIcon} title="Recargar" onClick={() => void refetch()}>
             <IconRefresh />
           </button>
+          <Link to="/admin/scheduling/archivadas" className={styles.btnSecondary}>
+            Archivadas
+          </Link>
           <Can permission="scheduling.write">
             <button className={styles.btnPrimary} onClick={() => setShowCreate(true)} disabled={modalProjects.length === 0}>
               <IconPlus /> Añadir
