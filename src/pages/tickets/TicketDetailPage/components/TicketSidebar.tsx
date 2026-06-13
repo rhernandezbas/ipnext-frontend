@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import type { Ticket } from '@/types/ticket';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { useTicketAreas } from '@/hooks/useTicketAreas';
+import { formatRelative } from '@/utils/formatDate';
 import styles from './TicketSidebar.module.css';
 
 interface RbacUserLite {
@@ -25,22 +26,6 @@ interface TicketSidebarProps {
   onSaveDetails: () => void;
   isDirty: boolean;
   isSaving: boolean;
-}
-
-/** Relative date in es-AR ("hace 3 días"), falling back to an absolute date. */
-function relativeDate(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return iso;
-  const diffMs = Date.now() - then;
-  const diffMin = Math.round(diffMs / 60000);
-  const rtf = new Intl.RelativeTimeFormat('es-AR', { numeric: 'auto' });
-  const abs = Math.abs(diffMin);
-  if (abs < 60) return rtf.format(-diffMin, 'minute');
-  const diffHr = Math.round(diffMin / 60);
-  if (Math.abs(diffHr) < 24) return rtf.format(-diffHr, 'hour');
-  const diffDay = Math.round(diffHr / 24);
-  if (Math.abs(diffDay) < 30) return rtf.format(-diffDay, 'day');
-  return new Date(iso).toLocaleDateString('es-AR');
 }
 
 // #48 — priority options for the unified Detalles form. The BE accepts
@@ -147,14 +132,14 @@ export function TicketSidebar({
         <div className={styles.sideRow}>
           <span className={styles.sideLabel}>Creado</span>
           <span title={new Date(ticket.createdAt).toLocaleString('es-AR')}>
-            {relativeDate(ticket.createdAt)}
+            {formatRelative(ticket.createdAt)}
           </span>
         </div>
 
         <div className={styles.sideRow}>
           <span className={styles.sideLabel}>Actualizado</span>
           <span title={new Date(ticket.updatedAt).toLocaleString('es-AR')}>
-            {relativeDate(ticket.updatedAt)}
+            {formatRelative(ticket.updatedAt)}
           </span>
         </div>
 

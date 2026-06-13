@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/useMyPermissions';
 import type { AddTicketCommentInput, TicketCommentAttachment } from '@/types/ticketComments';
 import type { AuthUser } from '@/types/auth';
+import { formatDateTime } from '@/utils/formatDate';
 import styles from './TicketCommentsTimeline.module.css';
 
 interface AttachmentDraft {
@@ -16,6 +17,10 @@ interface AttachmentDraft {
 
 interface Props {
   ticketId: string;
+  /** #77 — optional ticket metadata for the synthetic opening comment. */
+  description?: string;
+  reporterName?: string | null;
+  createdAt?: string;
 }
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
@@ -59,20 +64,6 @@ function readAsDataURL(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('es-AR', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
 }
 
 function initialsOf(name: string): string {
@@ -373,7 +364,7 @@ function CommentItem({ comment, isNew, onOpenLightbox }: CommentItemProps) {
         <header className={styles.commentHeader}>
           <span className={styles.authorName}>{comment.authorName}</span>
           <time className={styles.commentDate} dateTime={comment.createdAt}>
-            {formatDate(comment.createdAt)}
+            {formatDateTime(comment.createdAt)}
           </time>
         </header>
 
@@ -393,8 +384,21 @@ function CommentItem({ comment, isNew, onOpenLightbox }: CommentItemProps) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export function TicketCommentsTimeline({ ticketId }: Props) {
+export function TicketCommentsTimeline({ ticketId, description, reporterName, createdAt }: Props) {
   const { data: comments, isLoading, isError, refetch } = useTicketComments(ticketId);
+
+  // #77 — synthetic opening comment derived from the ticket data (not persisted).
+  // Only injected when description is non-empty (trim check).
+  const openingComment = description?.trim()
+    ? {
+        id: `initial-${ticketId}`,
+        ticketId,
+        authorName: reporterName ?? 'Sistema',
+        body: description,
+        createdAt: createdAt ?? '',
+        attachments: [] as TicketCommentAttachment[],
+      }
+    : null;
   const addComment = useAddTicketComment(ticketId);
   const { user } = useAuth();
   const canWrite = useCan('tickets.write');
@@ -542,14 +546,22 @@ export function TicketCommentsTimeline({ ticketId }: Props) {
         </div>
       )}
 
-      {!isLoading && !isError && comments && comments.length === 0 && (
+      {!isLoading && !isError && comments && comments.length === 0 && !openingComment && (
         <div className={styles.emptyState}>
           <p>{canWrite ? 'Sé el primero en comentar.' : 'Sin comentarios aún.'}</p>
         </div>
       )}
 
-      {!isLoading && comments && comments.length > 0 && (
+      {!isLoading && comments && (comments.length > 0 || openingComment) && (
         <div className={styles.timeline} role="list" aria-label="Comentarios del ticket">
+          {openingComment && (
+            <CommentItem
+              key={openingComment.id}
+              comment={openingComment}
+              isNew={false}
+              onOpenLightbox={handleOpenLightbox}
+            />
+          )}
           {comments.map((comment) => (
             <CommentItem
               key={comment.id}
