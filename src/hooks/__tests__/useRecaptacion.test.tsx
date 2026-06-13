@@ -51,6 +51,7 @@ const LEAD: RecaptureLeadDto = {
   email: 'juan@example.com',
   status: 'nuevo',
   assigneeId: null,
+  assigneeName: null,
   claimedAt: null,
   createdAt: '2026-06-13T00:00:00.000Z',
   updatedAt: '2026-06-13T00:00:00.000Z',

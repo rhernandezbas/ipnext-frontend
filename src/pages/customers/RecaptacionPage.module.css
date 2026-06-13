@@ -116,3 +116,36 @@
   z-index: 200;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
 }
+
+/* ── Source tabs (Bajas / CSV) ── */
+
+.sourceTabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: 0;
+}
+
+.sourceTab,
+.sourceTabActive {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  border-radius: 0;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.sourceTab:hover {
+  color: var(--color-text-primary);
+}
+
+.sourceTabActive {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}

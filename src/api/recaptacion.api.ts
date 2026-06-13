@@ -25,6 +25,7 @@ export async function listRecaptureLeads(
   // Remove empty strings so the BE does not receive empty filter values
   const clean: Record<string, unknown> = {};
   if (params.status)      clean['status']      = params.status;
+  if (params.source)      clean['source']      = params.source;
   if (params.assigneeId)  clean['assigneeId']  = params.assigneeId;
   if (params.unassigned)  clean['unassigned']  = 'true';
   if (params.page)        clean['page']        = params.page;

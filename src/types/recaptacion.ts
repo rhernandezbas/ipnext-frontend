@@ -73,6 +73,8 @@ export interface RecaptureLeadDto {
   email: string | null;
   status: RecaptureLeadStatus;
   assigneeId: string | null;
+  /** Resolved name of the assignee — null when unassigned or not yet loaded. */
+  assigneeName: string | null;
   claimedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -99,6 +101,7 @@ export interface RecaptureLeadDetailDto extends RecaptureLeadDto {
 
 export interface RecaptureLeadsQuery {
   status?: RecaptureLeadStatus | '';
+  source?: RecaptureLeadSource;
   assigneeId?: string;
   unassigned?: boolean;
   page?: number;
@@ -111,7 +114,8 @@ export interface AddContactInput {
   proposal?: string;
   note?: string;
   nextStepAt?: string;
-  advanceStatus?: boolean;
+  /** When provided, the BE will advance the lead to this specific status. */
+  advanceStatus?: RecaptureLeadStatus;
 }
 
 /** Paginated result shape from the recapture BE (uses `limit`, not `pageSize`). */

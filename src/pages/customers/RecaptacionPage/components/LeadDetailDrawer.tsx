@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Can } from '@/components/auth/Can';
-import { useRecaptacionLead, useClaimLead, useReleaseLead, useAddContact } from '@/hooks/useRecaptacion';
+import { useRecaptacionLead, useClaimLead, useReleaseLead, useAddContact, useUpdateLeadStatus } from '@/hooks/useRecaptacion';
 import { formatDateTimeShort } from '@/utils/formatDate';
 import {
   RECAPTURE_STATUS_LABELS,
@@ -9,6 +9,7 @@ import {
   RECAPTURE_OUTCOME_LABELS,
   RecaptureContactChannel,
   RecaptureContactOutcome,
+  RecaptureLeadStatus,
 } from '@/types/recaptacion';
 import type { RecaptureLeadDto, AddContactInput } from '@/types/recaptacion';
 import styles from './LeadDetailDrawer.module.css';
@@ -37,7 +38,6 @@ function RegisterContactForm({ leadId, onSuccess }: RegisterContactFormProps) {
   const [note, setNote] = useState('');
   const [proposal, setProposal] = useState('');
   const [nextStepAt, setNextStepAt] = useState('');
-  const [advanceStatus, setAdvanceStatus] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,10 +47,9 @@ function RegisterContactForm({ leadId, onSuccess }: RegisterContactFormProps) {
       ...(note.trim()     ? { note: note.trim() }         : {}),
       ...(proposal.trim() ? { proposal: proposal.trim() } : {}),
       ...(nextStepAt      ? { nextStepAt }                : {}),
-      ...(advanceStatus   ? { advanceStatus: true }        : {}),
     };
     await addContact.mutateAsync({ leadId, body });
-    setNote(''); setProposal(''); setNextStepAt(''); setAdvanceStatus(false);
+    setNote(''); setProposal(''); setNextStepAt('');
     onSuccess();
   }
 
@@ -102,24 +101,14 @@ function RegisterContactForm({ leadId, onSuccess }: RegisterContactFormProps) {
         />
       </div>
 
-      <div className={styles.formRow}>
-        <div className={styles.formField}>
-          <label className={styles.formLabel}>Próximo paso</label>
-          <input
-            type="datetime-local"
-            className={styles.formInput}
-            value={nextStepAt}
-            onChange={(e) => setNextStepAt(e.target.value)}
-          />
-        </div>
-        <div className={styles.formField} style={{ justifyContent: 'flex-end', paddingBottom: 2 }}>
-          <label className={styles.formLabel} style={{ marginBottom: 'auto' }}>Avanzar estado</label>
-          <input
-            type="checkbox"
-            checked={advanceStatus}
-            onChange={(e) => setAdvanceStatus(e.target.checked)}
-          />
-        </div>
+      <div className={styles.formField}>
+        <label className={styles.formLabel}>Próximo paso</label>
+        <input
+          type="datetime-local"
+          className={styles.formInput}
+          value={nextStepAt}
+          onChange={(e) => setNextStepAt(e.target.value)}
+        />
       </div>
 
       {addContact.isError && (
@@ -146,17 +135,17 @@ interface LeadDetailDrawerProps {
   onClose: () => void;
 }
 
+const STATUS_OPTIONS = Object.entries(RECAPTURE_STATUS_LABELS) as [RecaptureLeadStatus, string][];
+
 export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
   const { data: detail, isLoading } = useRecaptacionLead(lead?.id ?? null);
-  const claimLead   = useClaimLead();
-  const releaseLead = useReleaseLead();
+  const claimLead        = useClaimLead();
+  const releaseLead      = useReleaseLead();
+  const updateLeadStatus = useUpdateLeadStatus();
 
   const [showForm, setShowForm] = useState(false);
 
   if (!lead) return null;
-
-  const statusColor = RECAPTURE_STATUS_COLOR[lead.status] ?? '#94a3b8';
-  const statusLabel = RECAPTURE_STATUS_LABELS[lead.status];
 
   const isAssigned = !!lead.assigneeId;
 
@@ -204,17 +193,42 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
                 <span className={styles.metaLabel}>Tomado el</span>
                 <span className={styles.metaValue}>{formatDatetime(lead.claimedAt)}</span>
               </div>
+              <div className={styles.metaItem}>
+                <span className={styles.metaLabel}>Asignado</span>
+                <span className={styles.metaValue}>{lead.assigneeName ?? '—'}</span>
+              </div>
             </div>
           </section>
 
           {/* Actions */}
           <div className={styles.actions}>
-            <span
-              className={styles.statusPill}
-              style={{ backgroundColor: statusColor }}
-            >
-              {statusLabel}
-            </span>
+            {/* Status display (no permission) */}
+            <Can permission="recapture.manage" fallback={
+              <span
+                className={styles.statusPill}
+                style={{ backgroundColor: RECAPTURE_STATUS_COLOR[lead.status] ?? '#94a3b8' }}
+              >
+                {RECAPTURE_STATUS_LABELS[lead.status]}
+              </span>
+            }>
+              <div className={styles.statusSelectWrapper}>
+                <label htmlFor="lead-status-select" className={styles.statusSelectLabel}>Estado</label>
+                <select
+                  id="lead-status-select"
+                  aria-label="Estado"
+                  className={styles.statusSelect}
+                  value={lead.status}
+                  disabled={updateLeadStatus.isPending}
+                  onChange={(e) =>
+                    updateLeadStatus.mutate({ id: lead.id, status: e.target.value as RecaptureLeadStatus })
+                  }
+                >
+                  {STATUS_OPTIONS.map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              </div>
+            </Can>
 
             <Can permission="recapture.manage">
               {!isAssigned && (

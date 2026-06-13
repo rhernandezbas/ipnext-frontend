@@ -4,7 +4,7 @@ import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import { Can } from '@/components/auth/Can';
 import { useRecaptacionLeads, useClaimNext, useIngestChurned } from '@/hooks/useRecaptacion';
 import { RECAPTURE_STATUS_LABELS } from '@/types/recaptacion';
-import type { RecaptureLeadDto, RecaptureLeadStatus } from '@/types/recaptacion';
+import type { RecaptureLeadDto, RecaptureLeadStatus, RecaptureLeadSource } from '@/types/recaptacion';
 import { RecaptacionTableView } from './RecaptacionPage/components/RecaptacionTableView';
 import { LeadDetailDrawer } from './RecaptacionPage/components/LeadDetailDrawer';
 import { ImportCsvModal } from './RecaptacionPage/components/ImportCsvModal';
@@ -22,6 +22,13 @@ function IconRefresh() {
     </svg>
   );
 }
+
+// ── Source tabs ───────────────────────────────────────────────────────────────
+
+const SOURCE_TABS: Array<{ source: RecaptureLeadSource; label: string }> = [
+  { source: 'churned_client', label: 'Bajas' },
+  { source: 'csv',            label: 'CSV' },
+];
 
 // ── Page component ───────────────────────────────────────────────────────────
 
@@ -41,11 +48,15 @@ export default function RecaptacionPage() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Source tab: default to 'churned_client' when not set in URL
+  const activeSource: RecaptureLeadSource = filter.source ?? 'churned_client';
+
   const claimNext = useClaimNext();
   const ingestChurned = useIngestChurned();
 
   const query = {
     status:     (filter.status || undefined) as RecaptureLeadStatus | undefined,
+    source:     activeSource,
     assigneeId: filter.assigneeId,
     unassigned: filter.unassigned,
     page,
@@ -133,6 +144,21 @@ export default function RecaptacionPage() {
             </button>
           </Can>
         </div>
+      </div>
+
+      {/* Source tabs — Bajas vs CSV */}
+      <div className={styles.sourceTabs}>
+        {SOURCE_TABS.map(({ source, label }) => (
+          <button
+            key={source}
+            type="button"
+            aria-pressed={activeSource === source}
+            className={activeSource === source ? styles.sourceTabActive : styles.sourceTab}
+            onClick={() => { setPage(1); setFilter({ source }); }}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* FilterBar — status select + unassigned toggle */}

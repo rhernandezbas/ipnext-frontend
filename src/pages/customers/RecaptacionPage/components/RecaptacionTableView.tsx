@@ -56,7 +56,7 @@ const COLUMNS: Array<{
   {
     label: 'Asignado',
     key: 'assigneeId',
-    render: (r) => r.assigneeId ?? '—',
+    render: (r) => r.assigneeName ?? r.assigneeId ?? '—',
   },
   {
     label: 'Tomado el',
