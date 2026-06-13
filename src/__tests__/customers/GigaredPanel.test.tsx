@@ -2096,6 +2096,55 @@ describe('GigaredPanel', () => {
       expect(within(outcome).queryByRole('button', { name: /reintentar baja/i })).not.toBeInTheDocument();
     });
 
+    it('#74 200 ottDisabled:false PERO renew OK → modal ÉXITO sin "OTT sigue activo"; muestra "cuenta reiniciada"', async () => {
+      const user = userEvent.setup();
+      // El caso real #74: el paso OTT pre-renew falló (ottDisabled:false) pero el renew reseteó
+      // la cuenta. El BE responde 200 (la baja es efectiva). El modal NO debe presentar el OTT
+      // como problema — el OTT viejo es moot. Caso 0006717800 → 0006283226.
+      mockQuery({
+        account: { linked: true, account: linkedAccount },
+        cancelResult: { status: 200, data: {
+          removed: ['s1', 's2'], failed: [], ottDisabled: false, local: 'synced',
+          renew: { oldCic: '0006717800', newCic: '0006283226' }, localCancelled: true,
+        }},
+      });
+      renderPanel();
+      await openCancel(user);
+      const confirm = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(confirm).getByRole('button', { name: /confirmar|dar de baja/i }));
+      const outcome = await screen.findByRole('dialog', { name: /baja de tv/i });
+
+      // El status es 200 → NO es parcial, NO hay Reintentar.
+      expect(within(outcome).queryByRole('button', { name: /reintentar baja/i })).not.toBeInTheDocument();
+      // El OTT viejo NO se presenta como problema: NO debe decir "sigue activo".
+      expect(within(outcome).queryByText(/sigue activo/i)).not.toBeInTheDocument();
+      // En su lugar comunica que la cuenta fue reiniciada (CIC nuevo) y el acceso anterior queda invalidado.
+      expect(within(outcome).getByText(/cuenta reiniciada/i)).toBeInTheDocument();
+      // El CIC renovado se muestra.
+      expect(within(outcome).getByText(/cupo reciclado/i)).toBeInTheDocument();
+    });
+
+    it('#74 207 sin renew (renew:null) + ottDisabled:false → SÍ muestra "OTT sigue activo" (parcial real)', async () => {
+      const user = userEvent.setup();
+      // Sin un renew que resetee la cuenta, el OTT viejo activo es un parcial REAL.
+      mockQuery({
+        account: { linked: true, account: linkedAccount },
+        cancelResult: { status: 207, data: {
+          removed: ['s1', 's2'], failed: [], ottDisabled: false, local: 'synced',
+          renew: null, localCancelled: false,
+        }},
+      });
+      renderPanel();
+      await openCancel(user);
+      const confirm = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(confirm).getByRole('button', { name: /confirmar|dar de baja/i }));
+      const outcome = await screen.findByRole('dialog', { name: /baja de tv/i });
+
+      // Es parcial: hay Reintentar y el OTT se reporta como pendiente.
+      expect(within(outcome).getByRole('button', { name: /reintentar baja/i })).toBeInTheDocument();
+      expect(within(outcome).getByText(/sigue activo/i)).toBeInTheDocument();
+    });
+
     it('#72 retry on TV_NOT_LINKED (already-cancelled) preserves prior outcome', async () => {
       const user = userEvent.setup();
       // Initial cancel: 207 partial (localCancelled: false — renew did not complete)
