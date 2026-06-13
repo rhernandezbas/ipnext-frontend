@@ -99,7 +99,6 @@ const CustomerSearchPage = lazy(() => import('@/pages/customers/CustomerSearchPa
 const CustomerVouchersPage = lazy(() => import('@/pages/customers/CustomerVouchersPage'));
 const CustomerMapPage = lazy(() => import('@/pages/customers/CustomerMapPage'));
 const TicketRequestersPage = lazy(() => import('@/pages/tickets/TicketRequestersPage'));
-const TicketStatusesPage = lazy(() => import('@/pages/tickets/TicketStatusesPage'));
 const TicketsSettingsPage = lazy(() => import('@/pages/tickets/TicketsSettingsPage'));
 const SupportInboxPage = lazy(() => import('@/pages/support/SupportInboxPage'));
 const MassSendPage = lazy(() => import('@/pages/support/MassSendPage'));
@@ -210,7 +209,8 @@ export function App() {
                 <Route path="archive" element={<Navigate to="/admin/tickets/trash" replace />} />
                 <Route path="new" element={<RequirePermission permission="tickets.read"><TicketCreatePage /></RequirePermission>} />
                 <Route path="requesters" element={<RequirePermission permission="tickets.read"><TicketRequestersPage /></RequirePermission>} />
-                <Route path="statuses" element={<RequirePermission permission="tickets.read"><TicketStatusesPage /></RequirePermission>} />
+                {/* #8 — statuses catalog moved inside /settings tab. Redirect preserves bookmarks. */}
+                <Route path="statuses" element={<Navigate to="/admin/tickets/settings" replace />} />
                 <Route path="settings" element={<RequirePermission permission="tickets.manage"><TicketsSettingsPage /></RequirePermission>} />
                 <Route path=":id" element={<RequirePermission permission="tickets.read"><TicketDetailPage /></RequirePermission>} />
               </Route>

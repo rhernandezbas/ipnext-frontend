@@ -6,8 +6,9 @@ import {
   useDeleteTicketStatus,
 } from '@/hooks/useTicketStatuses';
 import type { TicketStatus } from '@/types/ticketStatus';
+import { Can } from '@/components/auth/Can';
 import { useConfirm } from '@/context/ConfirmContext';
-import styles from '../scheduling/SchedulingTaskCategoriesPage.module.css';
+import styles from './TicketAreasBody.module.css';
 
 interface ModalProps {
   initial?: TicketStatus;
@@ -57,6 +58,7 @@ function StatusModal({ initial, nextWeight, onClose, onSave, loading }: ModalPro
           Color
           <input
             type="color"
+            aria-label="Color del estado"
             value={color}
             onChange={e => setColor(e.target.value)}
             style={{ width: 56, height: 36, padding: 2, border: '1px solid #cbd5e1', borderRadius: 8, cursor: 'pointer' }}
@@ -88,7 +90,8 @@ function StatusModal({ initial, nextWeight, onClose, onSave, loading }: ModalPro
   );
 }
 
-export default function TicketStatusesPage() {
+/** Estados de tickets: toolbar + tabla + modales, sin header de página. */
+export function TicketStatusesBody() {
   const { data: statuses = [], isLoading } = useTicketStatuses();
   const createMutation = useCreateTicketStatus();
   const updateMutation = useUpdateTicketStatus();
@@ -125,15 +128,11 @@ export default function TicketStatusesPage() {
   }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.header}>
-        <div className={styles.headerLeft}>
-          <span className={styles.breadcrumb}>Tickets /</span>
-          <h1 className={styles.title}>Estados</h1>
-        </div>
-        <button className={styles.btnPrimary} onClick={() => setShowCreate(true)}>
-          + Nuevo estado
-        </button>
+    <>
+      <div className={styles.toolbar}>
+        <Can permission="tickets.manage">
+          <button className={styles.btnPrimary} onClick={() => setShowCreate(true)}>+ Nuevo estado</button>
+        </Can>
       </div>
 
       <div className={styles.card}>
@@ -156,6 +155,7 @@ export default function TicketStatusesPage() {
                 <tr key={s.id}>
                   <td>
                     <span
+                      aria-label={`Color de ${s.name}`}
                       style={{
                         display: 'inline-block',
                         width: 18,
@@ -163,18 +163,17 @@ export default function TicketStatusesPage() {
                         borderRadius: 9999,
                         background: s.color,
                         border: '1px solid #00000022',
+                        verticalAlign: 'middle',
                       }}
                     />
                   </td>
                   <td>{s.name}</td>
-                  <td className={styles.desc}>{s.weight}</td>
+                  <td>{s.weight}</td>
                   <td className={styles.actions}>
-                    <button className={styles.linkBtn} onClick={() => setEditing(s)}>
-                      Editar
-                    </button>
-                    <button className={styles.linkDanger} onClick={() => handleDelete(s)}>
-                      Eliminar
-                    </button>
+                    <Can permission="tickets.manage">
+                      <button className={styles.linkBtn} onClick={() => setEditing(s)}>Editar</button>
+                      <button className={styles.linkDanger} onClick={() => handleDelete(s)}>Eliminar</button>
+                    </Can>
                   </td>
                 </tr>
               ))}
@@ -200,6 +199,6 @@ export default function TicketStatusesPage() {
           loading={updateMutation.isPending}
         />
       )}
-    </div>
+    </>
   );
 }

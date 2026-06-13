@@ -1,12 +1,27 @@
+/**
+ * Tests for TicketStatusesBody — catalog ABM (list, create, edit, delete).
+ * Mocks at the hook layer (useTicketStatuses + mutations).
+ *
+ * Replaces TicketStatusesPage.test.tsx — the page was extracted into a body
+ * component and the standalone route now redirects to /admin/tickets/settings.
+ * Permission gating: write actions are wrapped in <Can permission="tickets.manage">.
+ */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import TicketStatusesPage from '@/pages/tickets/TicketStatusesPage';
-import * as useTicketStatusesModule from '@/hooks/useTicketStatuses';
-import { useConfirm } from '@/context/ConfirmContext';
-import type { TicketStatus } from '@/types/ticketStatus';
 
 vi.mock('@/hooks/useTicketStatuses');
+vi.mock('@/context/ConfirmContext');
+
+// Can component: always render children in tests (permissions not under test here)
+vi.mock('@/components/auth/Can', () => ({
+  Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+import * as useTicketStatusesModule from '@/hooks/useTicketStatuses';
+import * as ConfirmContextModule from '@/context/ConfirmContext';
+import { TicketStatusesBody } from '@/pages/tickets/settings/TicketStatusesBody';
+import type { TicketStatus } from '@/types/ticketStatus';
 
 const mockStatuses: TicketStatus[] = [
   { id: '1', name: 'open', color: '#22c55e', weight: 1 },
@@ -14,149 +29,99 @@ const mockStatuses: TicketStatus[] = [
   { id: '3', name: 'closed', color: '#6b7280', weight: 3 },
 ];
 
-function makeDeleteMutation(overrides = {}) {
+function makeNoop() {
   return {
     mutateAsync: vi.fn().mockResolvedValue(undefined),
     isPending: false,
-    ...overrides,
-  } as ReturnType<typeof useTicketStatusesModule.useDeleteTicketStatus>;
-}
-
-function makeCreateMutation(overrides = {}) {
-  return {
-    mutateAsync: vi.fn().mockResolvedValue(undefined),
-    isPending: false,
-    ...overrides,
   } as ReturnType<typeof useTicketStatusesModule.useCreateTicketStatus>;
 }
 
-function makeUpdateMutation(overrides = {}) {
-  return {
-    mutateAsync: vi.fn().mockResolvedValue(undefined),
-    isPending: false,
-    ...overrides,
-  } as ReturnType<typeof useTicketStatusesModule.useUpdateTicketStatus>;
-}
-
-function renderPage() {
+function renderBody() {
   return render(
     <MemoryRouter>
-      <TicketStatusesPage />
+      <TicketStatusesBody />
     </MemoryRouter>
   );
 }
 
-describe('TicketStatusesPage', () => {
+describe('TicketStatusesBody', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useConfirm).mockReturnValue(vi.fn().mockResolvedValue(true));
+    vi.mocked(ConfirmContextModule.useConfirm).mockReturnValue(vi.fn().mockResolvedValue(true));
     vi.mocked(useTicketStatusesModule.useTicketStatuses).mockReturnValue({
       data: mockStatuses,
       isLoading: false,
     } as ReturnType<typeof useTicketStatusesModule.useTicketStatuses>);
-    vi.mocked(useTicketStatusesModule.useCreateTicketStatus).mockReturnValue(makeCreateMutation());
-    vi.mocked(useTicketStatusesModule.useUpdateTicketStatus).mockReturnValue(makeUpdateMutation());
-    vi.mocked(useTicketStatusesModule.useDeleteTicketStatus).mockReturnValue(makeDeleteMutation());
+    vi.mocked(useTicketStatusesModule.useCreateTicketStatus).mockReturnValue(makeNoop());
+    vi.mocked(useTicketStatusesModule.useUpdateTicketStatus).mockReturnValue(
+      makeNoop() as unknown as ReturnType<typeof useTicketStatusesModule.useUpdateTicketStatus>
+    );
+    vi.mocked(useTicketStatusesModule.useDeleteTicketStatus).mockReturnValue(
+      makeNoop() as unknown as ReturnType<typeof useTicketStatusesModule.useDeleteTicketStatus>
+    );
   });
 
-  it('renders page title "Estados"', () => {
-    renderPage();
-    expect(screen.getByRole('heading', { name: 'Estados' })).toBeInTheDocument();
-  });
-
-  it('renders breadcrumb "Tickets /"', () => {
-    renderPage();
-    expect(screen.getByText('Tickets /')).toBeInTheDocument();
-  });
-
-  it('shows loading state when isLoading is true', () => {
-    vi.mocked(useTicketStatusesModule.useTicketStatuses).mockReturnValue({
-      data: undefined,
-      isLoading: true,
-    } as ReturnType<typeof useTicketStatusesModule.useTicketStatuses>);
-    renderPage();
-    expect(screen.getByText(/cargando/i)).toBeInTheDocument();
-  });
-
-  it('shows empty state when no statuses exist', () => {
-    vi.mocked(useTicketStatusesModule.useTicketStatuses).mockReturnValue({
-      data: [],
-      isLoading: false,
-    } as ReturnType<typeof useTicketStatusesModule.useTicketStatuses>);
-    renderPage();
-    expect(screen.getByText(/no hay estados/i)).toBeInTheDocument();
-  });
-
-  it('renders all statuses in the table', () => {
-    renderPage();
+  it('renders the list of statuses', () => {
+    renderBody();
     expect(screen.getByText('open')).toBeInTheDocument();
     expect(screen.getByText('pending')).toBeInTheDocument();
     expect(screen.getByText('closed')).toBeInTheDocument();
   });
 
-  it('renders color swatches for each status', () => {
-    renderPage();
-    // table rows: 3 statuses → 3 color swatches rendered as colored spans
-    const rows = screen.getAllByRole('row');
-    // 1 header + 3 data rows
-    expect(rows).toHaveLength(4);
+  it('renders empty state when no statuses exist', () => {
+    vi.mocked(useTicketStatusesModule.useTicketStatuses).mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as ReturnType<typeof useTicketStatusesModule.useTicketStatuses>);
+    renderBody();
+    expect(screen.getByText(/no hay estados/i)).toBeInTheDocument();
+  });
+
+  it('renders loading state when isLoading is true', () => {
+    vi.mocked(useTicketStatusesModule.useTicketStatuses).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+    } as ReturnType<typeof useTicketStatusesModule.useTicketStatuses>);
+    renderBody();
+    expect(screen.getByText(/cargando/i)).toBeInTheDocument();
   });
 
   it('renders weight values', () => {
-    renderPage();
+    renderBody();
     expect(screen.getByText('1')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
   });
 
   it('renders "+ Nuevo estado" button', () => {
-    renderPage();
+    renderBody();
     expect(screen.getByRole('button', { name: '+ Nuevo estado' })).toBeInTheDocument();
   });
 
+  it('renders color swatches for each status (1 header + 3 data rows)', () => {
+    renderBody();
+    const rows = screen.getAllByRole('row');
+    expect(rows).toHaveLength(4);
+  });
+
+  it('does NOT render page breadcrumb or h1 title (body-only component)', () => {
+    renderBody();
+    // No h1 heading should exist — the page header lives in the container settings page
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+  });
+
   it('opens create modal when "+ Nuevo estado" is clicked', () => {
-    renderPage();
+    renderBody();
     fireEvent.click(screen.getByRole('button', { name: '+ Nuevo estado' }));
     expect(screen.getByRole('heading', { name: 'Nuevo estado' })).toBeInTheDocument();
   });
 
   it('opens edit modal with pre-filled data when "Editar" is clicked', () => {
-    renderPage();
+    renderBody();
     const editBtns = screen.getAllByRole('button', { name: 'Editar' });
     fireEvent.click(editBtns[0]);
     expect(screen.getByRole('heading', { name: 'Editar estado' })).toBeInTheDocument();
     expect(screen.getByDisplayValue('open')).toBeInTheDocument();
-  });
-
-  it('calls useDeleteTicketStatus.mutateAsync when deleting and confirmed', async () => {
-    const mockMutateAsync = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(useTicketStatusesModule.useDeleteTicketStatus).mockReturnValue({
-      mutateAsync: mockMutateAsync,
-      isPending: false,
-    } as ReturnType<typeof useTicketStatusesModule.useDeleteTicketStatus>);
-
-    const confirmFn = vi.fn().mockResolvedValue(true);
-    vi.mocked(useConfirm).mockReturnValue(confirmFn);
-    renderPage();
-    const deleteBtns = screen.getAllByRole('button', { name: 'Eliminar' });
-    fireEvent.click(deleteBtns[0]);
-    await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledWith('1'));
-  });
-
-  it('does not call delete when confirm is cancelled', async () => {
-    const mockMutateAsync = vi.fn();
-    vi.mocked(useTicketStatusesModule.useDeleteTicketStatus).mockReturnValue({
-      mutateAsync: mockMutateAsync,
-      isPending: false,
-    } as ReturnType<typeof useTicketStatusesModule.useDeleteTicketStatus>);
-
-    const confirmFn = vi.fn().mockResolvedValue(false);
-    vi.mocked(useConfirm).mockReturnValue(confirmFn);
-    renderPage();
-    const deleteBtns = screen.getAllByRole('button', { name: 'Eliminar' });
-    fireEvent.click(deleteBtns[0]);
-    await waitFor(() => expect(confirmFn).toHaveBeenCalled());
-    expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
   it('calls useCreateTicketStatus.mutateAsync when creating', async () => {
@@ -166,7 +131,7 @@ describe('TicketStatusesPage', () => {
       isPending: false,
     } as ReturnType<typeof useTicketStatusesModule.useCreateTicketStatus>);
 
-    renderPage();
+    renderBody();
     fireEvent.click(screen.getByRole('button', { name: '+ Nuevo estado' }));
     fireEvent.change(screen.getByPlaceholderText(/ej: resuelto/i), { target: { value: 'resolved' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
@@ -182,9 +147,9 @@ describe('TicketStatusesPage', () => {
     vi.mocked(useTicketStatusesModule.useUpdateTicketStatus).mockReturnValue({
       mutateAsync: mockMutateAsync,
       isPending: false,
-    } as ReturnType<typeof useTicketStatusesModule.useUpdateTicketStatus>);
+    } as unknown as ReturnType<typeof useTicketStatusesModule.useUpdateTicketStatus>);
 
-    renderPage();
+    renderBody();
     const editBtns = screen.getAllByRole('button', { name: 'Editar' });
     fireEvent.click(editBtns[0]);
     fireEvent.change(screen.getByDisplayValue('open'), { target: { value: 'abierto' } });
@@ -196,6 +161,35 @@ describe('TicketStatusesPage', () => {
     );
   });
 
+  it('calls useDeleteTicketStatus.mutateAsync when deleting and confirmed', async () => {
+    const mockMutateAsync = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(useTicketStatusesModule.useDeleteTicketStatus).mockReturnValue({
+      mutateAsync: mockMutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof useTicketStatusesModule.useDeleteTicketStatus>);
+
+    renderBody();
+    const deleteBtns = screen.getAllByRole('button', { name: 'Eliminar' });
+    fireEvent.click(deleteBtns[0]);
+    await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledWith('1'));
+  });
+
+  it('does not call delete when confirm is cancelled', async () => {
+    const mockMutateAsync = vi.fn();
+    vi.mocked(useTicketStatusesModule.useDeleteTicketStatus).mockReturnValue({
+      mutateAsync: mockMutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof useTicketStatusesModule.useDeleteTicketStatus>);
+
+    const confirmFn = vi.fn().mockResolvedValue(false);
+    vi.mocked(ConfirmContextModule.useConfirm).mockReturnValue(confirmFn);
+    renderBody();
+    const deleteBtns = screen.getAllByRole('button', { name: 'Eliminar' });
+    fireEvent.click(deleteBtns[0]);
+    await waitFor(() => expect(confirmFn).toHaveBeenCalled());
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
   it('shows 409 conflict error in modal when name already exists', async () => {
     vi.mocked(useTicketStatusesModule.useCreateTicketStatus).mockReturnValue({
       mutateAsync: vi.fn().mockRejectedValue({
@@ -204,7 +198,7 @@ describe('TicketStatusesPage', () => {
       isPending: false,
     } as ReturnType<typeof useTicketStatusesModule.useCreateTicketStatus>);
 
-    renderPage();
+    renderBody();
     fireEvent.click(screen.getByRole('button', { name: '+ Nuevo estado' }));
     fireEvent.change(screen.getByPlaceholderText(/ej: resuelto/i), { target: { value: 'open' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
@@ -219,16 +213,17 @@ describe('TicketStatusesPage', () => {
         response: { status: 409, data: { code: 'TICKET_STATUS_IN_USE' } },
       }),
       isPending: false,
-    } as ReturnType<typeof useTicketStatusesModule.useDeleteTicketStatus>);
+    } as unknown as ReturnType<typeof useTicketStatusesModule.useDeleteTicketStatus>);
 
     const confirmFn = vi.fn().mockResolvedValue(true);
-    vi.mocked(useConfirm).mockReturnValue(confirmFn);
+    vi.mocked(ConfirmContextModule.useConfirm).mockReturnValue(confirmFn);
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
-    renderPage();
+    renderBody();
     const deleteBtns = screen.getAllByRole('button', { name: 'Eliminar' });
     fireEvent.click(deleteBtns[0]);
     await waitFor(() =>
       expect(alertSpy).toHaveBeenCalledWith(expect.stringMatching(/no se puede eliminar/i))
     );
+    alertSpy.mockRestore();
   });
 });
