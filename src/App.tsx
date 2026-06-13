@@ -111,7 +111,6 @@ const SchedulingDashboardPage = lazy(() => import('@/pages/scheduling/Scheduling
 const SchedulingProjectsPage = lazy(() => import('@/pages/scheduling/SchedulingProjectsPage'));
 const SchedulingCalendarPage = lazy(() => import('@/pages/scheduling/SchedulingCalendarPage'));
 const SchedulingMapsPage = lazy(() => import('@/pages/scheduling/SchedulingMapsPage'));
-const SchedulingArchivePage = lazy(() => import('@/pages/scheduling/SchedulingArchivePage'));
 const SchedulingTemplatesPage = lazy(() => import('@/pages/scheduling/SchedulingTemplatesPage'));
 const SchedulingTaskCategoriesPage = lazy(() => import('@/pages/scheduling/SchedulingTaskCategoriesPage'));
 const SchedulingTaskPrioritiesPage = lazy(() => import('@/pages/scheduling/SchedulingTaskPrioritiesPage'));
@@ -258,7 +257,7 @@ export function App() {
                 <Route path="projects" element={<RequirePermission permission="scheduling.read"><SchedulingProjectsPage /></RequirePermission>} />
                 <Route path="calendars" element={<RequirePermission permission="scheduling.read"><SchedulingCalendarPage /></RequirePermission>} />
                 <Route path="maps" element={<RequirePermission permission="scheduling.read"><SchedulingMapsPage /></RequirePermission>} />
-                <Route path="archive" element={<RequirePermission permission="scheduling.read"><SchedulingArchivePage /></RequirePermission>} />
+                <Route path="archive" element={<RequirePermission permission="scheduling.read"><SchedulingArchivedTasksPage /></RequirePermission>} />
                 <Route path="templates" element={<RequirePermission permission="scheduling.read"><SchedulingTemplatesPage /></RequirePermission>} />
                 <Route path="task-categories" element={<RequirePermission permission="scheduling.read"><SchedulingTaskCategoriesPage /></RequirePermission>} />
                 <Route path="task-priorities" element={<RequirePermission permission="scheduling.read"><SchedulingTaskPrioritiesPage /></RequirePermission>} />
@@ -266,7 +265,6 @@ export function App() {
                 <Route path="iclass/closure/pending" element={<RequirePermission permission="iclass.manage"><ClosurePendingPage /></RequirePermission>} />
                 <Route path="iclass/closure/reconcile" element={<RequirePermission permission="iclass.manage"><ReconcileInFlightPage /></RequirePermission>} />
                 <Route path="tasks" element={<RequirePermission permission="scheduling.read"><SchedulingTasksPage /></RequirePermission>} />
-                <Route path="archivadas" element={<RequirePermission permission="scheduling.read"><SchedulingArchivedTasksPage /></RequirePermission>} />
                 <Route path="nodos" element={<RequirePermission permission="scheduling.read"><SchedulingNodeTasksPage /></RequirePermission>} />
                 <Route path="tasks/:id" element={<RequirePermission permission="scheduling.read"><SchedulingTaskDetailPage /></RequirePermission>} />
               </Route>

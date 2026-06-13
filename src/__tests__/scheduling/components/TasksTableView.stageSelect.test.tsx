@@ -139,23 +139,19 @@ describe('TasksTableView — bulk actions', () => {
     vi.restoreAllMocks();
   });
 
-  it('shows "Cerrar" button in bulk bar for user without scheduling.hard_delete permission', () => {
+  it('shows "Cerrar" button in bulk bar', () => {
     vi.mocked(useAuth).mockReturnValue({ user: regularUser, isLoading: false, login: vi.fn(), logout: vi.fn() });
-    // Override useCan to deny hard_delete for this test
-    vi.mocked(useCan).mockImplementation((perm: string) => perm !== 'scheduling.hard_delete');
     setup();
     selectFirstRow();
     expect(screen.getByTestId('bulk-close-btn')).toBeInTheDocument();
-    expect(screen.queryByTestId('bulk-delete-btn')).not.toBeInTheDocument();
   });
 
-  it('shows both "Cerrar" and "Eliminar" for user with scheduling.hard_delete permission', () => {
+  it('bulk-delete-btn is NEVER present (#7 removed)', () => {
     vi.mocked(useAuth).mockReturnValue({ user: adminUser, isLoading: false, login: vi.fn(), logout: vi.fn() });
-    // Default global mock grants all permissions (useCan → true)
+    // Even with full permissions, bulk delete is gone
     setup();
     selectFirstRow();
-    expect(screen.getByTestId('bulk-close-btn')).toBeInTheDocument();
-    expect(screen.getByTestId('bulk-delete-btn')).toBeInTheDocument();
+    expect(screen.queryByTestId('bulk-delete-btn')).not.toBeInTheDocument();
   });
 
   it('calls closeTask with isClosed:true when "Cerrar" is clicked', async () => {
@@ -164,15 +160,6 @@ describe('TasksTableView — bulk actions', () => {
     selectFirstRow();
     fireEvent.click(screen.getByTestId('bulk-close-btn'));
     await waitFor(() => expect(closeAsync).toHaveBeenCalledWith({ id: 't1', isClosed: true }));
-  });
-
-  it('calls deleteTask when user with scheduling.hard_delete permission clicks "Eliminar"', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: adminUser, isLoading: false, login: vi.fn(), logout: vi.fn() });
-    // Default global mock grants all permissions
-    setup();
-    selectFirstRow();
-    fireEvent.click(screen.getByTestId('bulk-delete-btn'));
-    await waitFor(() => expect(deleteAsync).toHaveBeenCalledWith('t1'));
   });
 });
 

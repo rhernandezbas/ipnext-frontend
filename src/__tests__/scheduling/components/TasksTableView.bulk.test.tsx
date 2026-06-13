@@ -276,38 +276,17 @@ describe('TasksTableView — bulk Archivar (#86)', () => {
   });
 });
 
-describe('TasksTableView — Eliminar gated by hard_delete (#86)', () => {
+describe('TasksTableView — bulk Eliminar removed (#7)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    confirmFn.mockResolvedValue(true);
-    deleteAsync.mockResolvedValue({});
     vi.mocked(useAuth).mockReturnValue({ user, isLoading: false, login: vi.fn(), logout: vi.fn() });
   });
 
-  it('Eliminar NOT shown without scheduling.hard_delete', () => {
-    permissions = ['scheduling.write'];
+  it('bulk-delete-btn is NEVER present, even with scheduling.hard_delete (#7)', () => {
+    permissions = ['scheduling.write', 'scheduling.hard_delete'];
     setupWithAdmins();
     fireEvent.click(screen.getAllByRole('checkbox')[0]);
 
     expect(screen.queryByTestId('bulk-delete-btn')).not.toBeInTheDocument();
-  });
-
-  it('Eliminar shown with scheduling.hard_delete', () => {
-    permissions = ['scheduling.write', 'scheduling.hard_delete'];
-    setupWithAdmins();
-    fireEvent.click(screen.getAllByRole('checkbox')[0]);
-
-    expect(screen.getByTestId('bulk-delete-btn')).toBeInTheDocument();
-  });
-
-  it('calls deleteTask for all selected ids', async () => {
-    permissions = ['scheduling.write', 'scheduling.hard_delete'];
-    setupWithAdmins();
-    fireEvent.click(screen.getAllByRole('checkbox')[0]);
-
-    fireEvent.click(screen.getByTestId('bulk-delete-btn'));
-
-    await waitFor(() => expect(deleteAsync).toHaveBeenCalledTimes(3));
-    expect(deleteAsync).toHaveBeenCalledWith('t1');
   });
 });

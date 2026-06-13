@@ -213,14 +213,6 @@ describe('TicketsTableView — toast copy per action', () => {
     await waitFor(() => expect(screen.getByText('5 tickets cerrados')).toBeInTheDocument());
   });
 
-  it('Eliminar success → "N tickets eliminados"', async () => {
-    deleteAsync.mockResolvedValue({});
-    setup();
-    selectAll();
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
-    await waitFor(() => expect(screen.getByText('5 tickets eliminados')).toBeInTheDocument());
-  });
-
   it('partial failure carries the action verb → "X de N no se pudieron cerrar"', async () => {
     statusAsync.mockImplementation(({ id }: { id: string }) =>
       id === 't2' ? Promise.reject(new Error('boom')) : Promise.resolve({}));

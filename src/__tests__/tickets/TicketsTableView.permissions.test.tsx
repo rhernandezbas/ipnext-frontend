@@ -104,37 +104,15 @@ describe('TicketsTableView — permission gating', () => {
     expect(screen.queryByRole('button', { name: 'Asignar' })).not.toBeInTheDocument();
   });
 
-  it('without tickets.write, the write actions are hidden but Eliminar shows', () => {
+  it('with only tickets.delete: write actions are hidden, Eliminar is also NOT shown (#7 removed)', () => {
+    // Bulk soft-delete was removed in #7 — tickets.delete no longer shows a bulk button.
     permissions = ['tickets.delete'];
     setup();
     selectAll();
     expect(screen.queryByRole('button', { name: 'Asignar' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cambiar estado' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cerrar' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Eliminar' })).toBeInTheDocument();
-  });
-
-  it('Eliminar confirm aclara el soft-close (cierra y conserva el historial)', async () => {
-    permissions = ['tickets.delete'];
-    deleteAsync.mockResolvedValue({});
-    setup();
-    selectAll();
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
-    await waitFor(() => expect(confirmFn).toHaveBeenCalled());
-    const arg = confirmFn.mock.calls[0][0];
-    expect(arg.message).toMatch(/cierra/i);
-    expect(arg.message).toMatch(/historial/i);
-  });
-
-  it('cancelling the Eliminar confirm emits no request and keeps the selection', async () => {
-    permissions = ['tickets.delete'];
-    confirmFn.mockResolvedValue(false);
-    setup();
-    selectAll();
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
-    await waitFor(() => expect(confirmFn).toHaveBeenCalled());
-    expect(deleteAsync).not.toHaveBeenCalled();
-    expect(screen.getByTestId('ticket-bulk-bar')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument();
   });
 });
 

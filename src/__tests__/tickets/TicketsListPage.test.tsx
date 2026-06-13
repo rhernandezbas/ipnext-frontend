@@ -224,12 +224,10 @@ describe('TicketsListPage (Prominense re-skin)', () => {
     expect(lastCall.status).toBe('closed');
   });
 
-  it('wires delete through TicketsTableView when the user has tickets.delete (#46)', () => {
+  it('ticket rows are rendered in the list view (#46)', () => {
     renderList();
-    // #46 — deletion moved from a row kebab action to the bulk action bar inside
-    // TicketsTableView. The row still renders; the delete hook is wired by the
-    // table view (bulk behavior is covered in TicketsTableView.permissions.test).
+    // #7 — bulk soft-delete removed from TicketsTableView in change archive-bulk-parity.
+    // The ticket row itself still renders correctly.
     expect(screen.getByText('Problema de conexión')).toBeInTheDocument();
-    expect(useTicketsModule.useDeleteTicket).toHaveBeenCalled();
   });
 });

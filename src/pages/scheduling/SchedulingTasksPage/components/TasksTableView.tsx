@@ -12,7 +12,6 @@ type SchedulingAssignee = { id: string; name: string };
 import {
   useMoveTaskToStage,
   useBulkMoveTasksToStage,
-  useDeleteTask,
   useCloseTask,
   useSetTaskInventoryReview,
   useUpdateTask,
@@ -38,11 +37,10 @@ const BULK_CONCURRENCY = 5;
  *  infinitive for the partial-failure line ("X de N no se pudieron {failVerb}"). */
 interface BulkCopy { done: string; failVerb: string; noun: string; }
 const BULK_COPY = {
-  assign:         { done: 'asignadas', failVerb: 'asignar',      noun: 'tarea' },
-  changeStatus:   { done: 'actualizadas', failVerb: 'actualizar', noun: 'tarea' },
-  close:          { done: 'cerradas', failVerb: 'cerrar',         noun: 'tarea' },
-  delete:         { done: 'eliminadas', failVerb: 'eliminar',     noun: 'tarea' },
-  archive:        { done: 'archivadas', failVerb: 'archivar',     noun: 'tarea' },
+  assign:       { done: 'asignadas',    failVerb: 'asignar',      noun: 'tarea' },
+  changeStatus: { done: 'actualizadas', failVerb: 'actualizar',   noun: 'tarea' },
+  close:        { done: 'cerradas',     failVerb: 'cerrar',       noun: 'tarea' },
+  archive:      { done: 'archivadas',   failVerb: 'archivar',     noun: 'tarea' },
 } satisfies Record<string, BulkCopy>;
 
 // ── Atoms ────────────────────────────────────────────────────────────────────
@@ -130,12 +128,10 @@ interface BulkActionBarProps {
   tasks: ScheduledTask[];
   onClear: () => void;
   onMoveStage: (ids: string[], stageId: string) => Promise<void>;
-  onDelete: (ids: string[]) => Promise<{ failedItems: string[] }>;
   onClose: (ids: string[]) => Promise<{ failedItems: string[] }>;
   onAssign: (ids: string[], assigneeId: string) => Promise<{ failedItems: string[] }>;
   onChangeStatus: (ids: string[], status: TaskGeneralStatus) => Promise<{ failedItems: string[] }>;
   onArchive: (ids: string[]) => Promise<{ failedItems: string[] }>;
-  canHardDelete: boolean;
 }
 
 function BulkActionBar({
@@ -145,12 +141,10 @@ function BulkActionBar({
   tasks,
   onClear,
   onMoveStage,
-  onDelete,
   onClose,
   onAssign,
   onChangeStatus,
   onArchive,
-  canHardDelete,
 }: BulkActionBarProps) {
   const [picker, setPicker] = useState<PickerKind>(null);
   const [pickerValue, setPickerValue] = useState<string>('');
@@ -208,17 +202,6 @@ function BulkActionBar({
     setBusy(true);
     try {
       const { failedItems } = await onArchive(selectedIds);
-      if (failedItems.length === 0) onClear();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleDelete() {
-    if (!(await confirm({ message: `¿Eliminar ${count} ${noun}?`, tone: 'danger', confirmLabel: 'Eliminar' }))) return;
-    setBusy(true);
-    try {
-      const { failedItems } = await onDelete(selectedIds);
       if (failedItems.length === 0) onClear();
     } finally {
       setBusy(false);
@@ -306,18 +289,6 @@ function BulkActionBar({
             Archivar
           </button>
         </Can>
-
-        {canHardDelete && (
-          <button
-            type="button"
-            className={styles.bulkDeleteBtn}
-            onClick={() => void handleDelete()}
-            disabled={busy}
-            data-testid="bulk-delete-btn"
-          >
-            Eliminar
-          </button>
-        )}
 
         <button
           type="button"
@@ -523,11 +494,9 @@ export function TasksTableView({
   }
   // Remember the last IClass move so "Reintentar" / "Editar tarea" know the task.
   const lastMove = useRef<{ id: string; stageId: string } | null>(null);
-  const deleteTask = useDeleteTask();
   const closeTask = useCloseTask();
   const setInventoryReview = useSetTaskInventoryReview();
   useAuth(); // keep context subscription (auth:unauthorized event handling)
-  const canHardDelete = useCan('scheduling.hard_delete');
   const canInventoryWrite = useCan('inventory.write'); // #24 — gates the RV toggle
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
@@ -722,10 +691,6 @@ export function TasksTableView({
           onArchive={(ids) =>
             runBulk(ids, id => archiveTask.mutateAsync(id), BULK_COPY.archive)
           }
-          onDelete={(ids) =>
-            runBulk(ids, id => deleteTask.mutateAsync(id), BULK_COPY.delete)
-          }
-          canHardDelete={canHardDelete}
         />
       )}
       <DataTable
