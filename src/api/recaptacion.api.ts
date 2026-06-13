@@ -97,3 +97,22 @@ export async function ingestChurnedClients(): Promise<{ created: number; skipped
   );
   return response.data;
 }
+
+/** POST /recapture/import-csv — bulk-import leads from a CSV string */
+export async function importCsvLeads(
+  csv: string,
+): Promise<{ created: number; errors: string[] }> {
+  const response = await axiosClient.post<{ created: number; errors: string[] }>(
+    '/recapture/import-csv',
+    { csv },
+  );
+  return response.data;
+}
+
+/** GET /recapture/import-csv/template — download the CSV template as a Blob */
+export async function downloadCsvTemplate(): Promise<Blob> {
+  const response = await axiosClient.get<Blob>('/recapture/import-csv/template', {
+    responseType: 'blob',
+  });
+  return response.data;
+}

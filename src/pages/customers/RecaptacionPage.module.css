@@ -70,6 +70,24 @@
 .btnPrimary:hover:not(:disabled) { background: #4f46e5; }
 .btnPrimary:disabled { opacity: 0.6; cursor: not-allowed; }
 
+.btnSecondary {
+  padding: 7px 14px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btnSecondary:hover:not(:disabled) { background: var(--color-gray-50); }
+.btnSecondary:disabled { opacity: 0.6; cursor: not-allowed; }
+
 .btnIcon {
   background: var(--color-surface);
   border: 1px solid var(--color-gray-300);

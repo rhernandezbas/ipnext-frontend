@@ -2,11 +2,12 @@ import { useState, useRef } from 'react';
 import { FilterBar } from '@/components/molecules/FilterBar/FilterBar';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import { Can } from '@/components/auth/Can';
-import { useRecaptacionLeads, useClaimNext } from '@/hooks/useRecaptacion';
+import { useRecaptacionLeads, useClaimNext, useIngestChurned } from '@/hooks/useRecaptacion';
 import { RECAPTURE_STATUS_LABELS } from '@/types/recaptacion';
 import type { RecaptureLeadDto, RecaptureLeadStatus } from '@/types/recaptacion';
 import { RecaptacionTableView } from './RecaptacionPage/components/RecaptacionTableView';
 import { LeadDetailDrawer } from './RecaptacionPage/components/LeadDetailDrawer';
+import { ImportCsvModal } from './RecaptacionPage/components/ImportCsvModal';
 import { useRecaptacionFilterUrl } from './RecaptacionPage/hooks/useRecaptacionFilterUrl';
 import styles from './RecaptacionPage.module.css';
 
@@ -37,9 +38,11 @@ export default function RecaptacionPage() {
   const { filter, setFilter, clearFilter } = useRecaptacionFilterUrl();
   const [selectedLead, setSelectedLead] = useState<RecaptureLeadDto | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const claimNext = useClaimNext();
+  const ingestChurned = useIngestChurned();
 
   const query = {
     status:     (filter.status || undefined) as RecaptureLeadStatus | undefined,
@@ -70,6 +73,11 @@ export default function RecaptacionPage() {
     } else {
       showToast('No hay leads libres disponibles en este momento.');
     }
+  }
+
+  async function handleIngestChurned() {
+    const { created, skipped } = await ingestChurned.mutateAsync();
+    showToast(`${created} leads creados, ${skipped} ya existían.`);
   }
 
   function handleFilterChange(key: string, value: string) {
@@ -103,6 +111,19 @@ export default function RecaptacionPage() {
             <IconRefresh />
           </button>
           <Can permission="recapture.manage">
+            <button
+              className={styles.btnSecondary}
+              disabled={ingestChurned.isPending}
+              onClick={() => void handleIngestChurned()}
+            >
+              {ingestChurned.isPending ? 'Ingresando…' : 'Ingestar bajas'}
+            </button>
+            <button
+              className={styles.btnSecondary}
+              onClick={() => setImportModalOpen(true)}
+            >
+              Importar CSV
+            </button>
             <button
               className={styles.btnPrimary}
               disabled={claimNext.isPending}
@@ -157,6 +178,18 @@ export default function RecaptacionPage() {
           onClose={() => setSelectedLead(null)}
         />
       )}
+
+      {/* Import CSV modal */}
+      <ImportCsvModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onSuccess={({ created, errors }) => {
+          const msg = errors.length > 0
+            ? `${created} leads importados. ${errors.length} errores.`
+            : `${created} leads importados correctamente.`;
+          showToast(msg);
+        }}
+      />
 
       {/* Toast */}
       {toast && (

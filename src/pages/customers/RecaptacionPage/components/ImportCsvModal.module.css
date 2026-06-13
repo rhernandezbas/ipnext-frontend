@@ -1,0 +1,154 @@
+/* Mirrors ConfirmModal.module.css design tokens */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  animation: fadeIn 0.12s ease-out;
+}
+
+.dialog {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+  width: 100%;
+  max-width: 480px;
+  padding: 24px;
+  animation: slideUp 0.16s ease-out;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.description {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.downloadRow {
+  display: flex;
+}
+
+.fileRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fileLabel {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.fileInput {
+  /* visually hidden but accessible */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.fileBrowse {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-button);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.fileBrowse:hover { background: var(--color-gray-50); }
+
+.fileName {
+  font-size: 13px;
+  color: var(--color-text-primary);
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.fileNameEmpty {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btnSecondary {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-button);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.btnSecondary:hover:not(:disabled) { background: var(--color-gray-50); }
+.btnSecondary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.cancel,
+.confirm {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-button);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.cancel {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+.cancel:hover:not(:disabled) { background: var(--color-gray-50); }
+
+.confirm {
+  background: var(--color-accent);
+  color: white;
+}
+.confirm:hover:not(:disabled) { filter: brightness(0.95); }
+
+.cancel:disabled,
+.confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slideUp {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
