@@ -1,6 +1,6 @@
-/* Equipos instalados — extracted 1:1 from inline styles (#42 Phase 3).
-   The old `border-left: 3px solid` side-stripe is intentionally GONE
-   (impeccable absolute ban); a top border separates the section instead. */
+/* Equipos instalados (#42 Phase 3, redesigned #82).
+   No side-stripe borders (impeccable ban); a top border separates the section.
+   Add/edit moved out of inline forms into InstalledItemFormModal. */
 
 .section {
   margin-top: var(--space-3);
@@ -12,7 +12,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-2);
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.header > div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .heading {
@@ -21,23 +28,102 @@
   color: var(--color-text-primary);
 }
 
-.form {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-3);
-  padding: var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+.count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  background: var(--color-gray-100);
+  border-radius: var(--radius-full);
 }
 
-.formEditing {
+/* ── Add button ───────────────────────────────────────────────────────── */
+.addBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 var(--space-3);
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.addBtn:hover {
+  background: var(--color-gray-50);
   border-color: var(--color-primary);
+}
+
+.addBtn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.addIcon {
+  font-size: 16px;
+  line-height: 1;
+  font-weight: var(--font-weight-bold);
 }
 
 .muted {
   font-size: 12px;
   color: var(--color-text-secondary);
+}
+
+/* ── Empty state ──────────────────────────────────────────────────────── */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-4);
+  text-align: center;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-gray-50);
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.emptyAction {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.emptyAction:hover {
+  text-decoration: underline;
+}
+
+.emptyAction:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Table ────────────────────────────────────────────────────────────── */
+.tableWrap {
+  border: 1px solid var(--color-gray-100);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .table {
@@ -48,20 +134,49 @@
 
 .table th {
   text-align: left;
+  font-size: 11px;
   font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   color: var(--color-text-secondary);
-  padding: 6px 8px;
+  padding: 8px 10px;
+  background: var(--color-gray-50);
   border-bottom: 1px solid var(--color-gray-100);
 }
 
 .table td {
-  padding: 8px;
+  padding: 9px 10px;
   border-bottom: 1px solid var(--color-gray-100);
   color: var(--color-text-primary);
+  vertical-align: middle;
 }
 
-.table tr:last-child td {
+.table tbody tr:last-child td {
   border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background: var(--color-gray-50);
+}
+
+.typeTag {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  background: var(--color-gray-100);
+  border-radius: var(--radius-full);
+}
+
+.mono {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.actions {
+  white-space: nowrap;
+  text-align: right;
 }
 
 .linkBtn,
@@ -72,13 +187,31 @@
   font-size: 13px;
   padding: 4px 8px;
   border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
 }
 
 .linkBtn {
   color: var(--color-primary);
   margin-right: var(--space-1);
 }
+.linkBtn:hover {
+  background: var(--color-gray-100);
+}
 
 .linkDanger {
   color: var(--badge-late-fg);
+}
+.linkDanger:hover:not(:disabled) {
+  background: var(--badge-late-bg);
+}
+
+.linkBtn:focus-visible,
+.linkDanger:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.linkDanger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
