@@ -194,11 +194,23 @@ describe('gigaredApi.changeTvPassword', () => {
 
 // ── #65 fix wave H3 — dedicated TV credentials endpoint ─────────────────────────────────────
 describe('gigaredApi.getTvCredentials', () => {
-  it('GETs /gigared/customers/:id/tv-credentials and returns { login, password }', async () => {
-    vi.mocked(axiosClient.get).mockResolvedValue({ data: { login: 'GIGA2432', password: 'ip243200' } });
+  it('GETs /gigared/customers/:id/tv-credentials and returns { login, password, internalId }', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({
+      data: { login: 'GIGA2432', password: 'ip243200', internalId: 'cust-1-1' },
+    });
     const result = await gigaredApi.getTvCredentials('cust-1');
     expect(axiosClient.get).toHaveBeenCalledWith('/gigared/customers/cust-1/tv-credentials');
-    expect(result).toEqual({ login: 'GIGA2432', password: 'ip243200' });
+    expect(result).toEqual({ login: 'GIGA2432', password: 'ip243200', internalId: 'cust-1-1' });
+  });
+
+  // #81 — back-compat: a BE that has not yet deployed the #81 change returns no internalId.
+  // The field is nullable so the FE shows '—' for it; this test guards the type contract.
+  it('#81 — internalId null is forwarded verbatim (back-compat with pre-#81 BE)', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({
+      data: { login: 'GIGA2432', password: 'ip243200', internalId: null },
+    });
+    const result = await gigaredApi.getTvCredentials('cust-1');
+    expect(result.internalId).toBeNull();
   });
 });
 
