@@ -199,8 +199,8 @@ vi.mock('@/pages/scheduling/SchedulingCalendarPage', () => ({
 vi.mock('@/pages/scheduling/SchedulingMapsPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:SchedulingMaps]'),
 }));
-vi.mock('@/pages/scheduling/SchedulingArchivePage', () => ({
-  default: () => React.createElement('div', null, '[PAGE:SchedulingArchive]'),
+vi.mock('@/pages/scheduling/SchedulingArchivedTasksPage', () => ({
+  default: () => React.createElement('div', null, '[PAGE:SchedulingArchivedTasks]'),
 }));
 vi.mock('@/pages/scheduling/SchedulingTemplatesPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:SchedulingTemplates]'),
@@ -423,7 +423,7 @@ const directCases: Array<{ url: string; marker: string }> = [
   { url: '/admin/scheduling/projects', marker: '[PAGE:SchedulingProjects]' },
   { url: '/admin/scheduling/calendars', marker: '[PAGE:SchedulingCalendar]' },
   { url: '/admin/scheduling/maps', marker: '[PAGE:SchedulingMaps]' },
-  { url: '/admin/scheduling/archive', marker: '[PAGE:SchedulingArchive]' },
+  { url: '/admin/scheduling/archive', marker: '[PAGE:SchedulingArchivedTasks]' },
   { url: '/admin/scheduling/templates', marker: '[PAGE:SchedulingTemplates]' },
   { url: '/admin/scheduling/task-categories', marker: '[PAGE:SchedulingTaskCategories]' },
   { url: '/admin/scheduling/task-priorities', marker: '[PAGE:SchedulingTaskPriorities]' },

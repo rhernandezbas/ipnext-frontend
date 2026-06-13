@@ -146,54 +146,12 @@ describe('TicketsTableView — bulk Archivar', () => {
   });
 });
 
-describe('TicketsTableView — bulk Eliminar definitivamente', () => {
-  it('"Eliminar definitivamente" is NOT present when permissions lack tickets.delete_hard', () => {
-    permissions = ['tickets.write', 'tickets.close', 'tickets.delete'];
+describe('TicketsTableView — bulk Eliminar definitivamente (#7 removed)', () => {
+  it('"Eliminar definitivamente" is NEVER in the bulk bar (removed in #7)', () => {
+    // Even with tickets.delete_hard — the bulk variant was removed.
+    permissions = ['tickets.write', 'tickets.close', 'tickets.delete', 'tickets.delete_hard'];
     setup(openTickets);
     selectAll();
     expect(screen.queryByRole('button', { name: 'Eliminar definitivamente' })).not.toBeInTheDocument();
-  });
-
-  it('"Eliminar definitivamente" IS present when permissions include tickets.delete_hard', () => {
-    permissions = ['tickets.delete_hard'];
-    setup(openTickets);
-    selectAll();
-    expect(screen.getByRole('button', { name: 'Eliminar definitivamente' })).toBeInTheDocument();
-  });
-
-  it('clicking "Eliminar definitivamente" shows confirm dialog with irreversible copy', async () => {
-    permissions = ['tickets.delete_hard'];
-    setup(openTickets);
-    selectAll();
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar definitivamente' }));
-
-    await waitFor(() => expect(confirmFn).toHaveBeenCalled());
-    const arg = confirmFn.mock.calls[0][0];
-    expect(arg.tone).toBe('danger');
-    // Must convey irreversibility
-    expect(arg.message).toMatch(/irreversible|definitiv|permanente/i);
-  });
-
-  it('after confirm, calls hardDeleteAsync for each selected id', async () => {
-    permissions = ['tickets.delete_hard'];
-    hardDeleteAsync.mockResolvedValue(undefined);
-    setup(openTickets);
-    selectAll();
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar definitivamente' }));
-
-    await waitFor(() => expect(hardDeleteAsync).toHaveBeenCalledTimes(2));
-    expect(hardDeleteAsync).toHaveBeenCalledWith('t1');
-    expect(hardDeleteAsync).toHaveBeenCalledWith('t2');
-  });
-
-  it('cancelling the confirm does NOT call hardDeleteAsync', async () => {
-    permissions = ['tickets.delete_hard'];
-    confirmFn.mockResolvedValue(false);
-    setup(openTickets);
-    selectAll();
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar definitivamente' }));
-
-    await waitFor(() => expect(confirmFn).toHaveBeenCalled());
-    expect(hardDeleteAsync).not.toHaveBeenCalled();
   });
 });
