@@ -212,7 +212,7 @@ describe('gigaredApi.cancelTv', () => {
       ottDisabled: true,
       local: 'synced',
       renew: { oldCic: '0000000001', newCic: '0000000002' },
-      unlinked: true,
+      localCancelled: true,
       renewAttempted: true,
     };
     vi.mocked(axiosClient.post).mockResolvedValue({ status: 200, data: payload });
@@ -231,7 +231,7 @@ describe('gigaredApi.cancelTv', () => {
       ottDisabled: false,
       local: 'failed',
       renew: null,
-      unlinked: false,
+      localCancelled: false,
       renewAttempted: true,
     };
     vi.mocked(axiosClient.post).mockResolvedValue({ status: 207, data: payload });

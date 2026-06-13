@@ -221,7 +221,7 @@ function mockQuery(over: {
         status: 200,
         data: {
           removed: ['s2'], failed: [], ottDisabled: true, local: 'synced',
-          renew: { oldCic: '0000000001', newCic: '0000000002' }, unlinked: true,
+          renew: { oldCic: '0000000001', newCic: '0000000002' }, localCancelled: true,
         },
       },
     ),
@@ -1737,7 +1737,7 @@ describe('GigaredPanel', () => {
         account: { linked: true, account: linkedAccount },
         cancelResult: { status: 200, data: {
           removed: ['s1', 's2'], failed: [], ottDisabled: true, local: 'synced',
-          renew: { oldCic: '0000000001', newCic: '0000000002' }, unlinked: true,
+          renew: { oldCic: '0000000001', newCic: '0000000002' }, localCancelled: true,
         }},
       });
       renderPanel();
@@ -1749,13 +1749,13 @@ describe('GigaredPanel', () => {
       expect(within(outcome).getByText(/se estará deshabilitando en los próximos minutos/i)).toBeInTheDocument();
     });
 
-    it('#64 200 OK MODAL lists the steps (packs, OTT, renovación de CIC)', async () => {
+    it('#64 200 OK MODAL lists the steps (packs, OTT, renovación de CIC, cuenta liberada)', async () => {
       const user = userEvent.setup();
       mockQuery({
         account: { linked: true, account: linkedAccount },
         cancelResult: { status: 200, data: {
           removed: ['s1', 's2'], failed: [], ottDisabled: true, local: 'synced',
-          renew: { oldCic: '0000000001', newCic: '0000000002' }, unlinked: true,
+          renew: { oldCic: '0000000001', newCic: '0000000002' }, localCancelled: true,
         }},
       });
       renderPanel();
@@ -1763,10 +1763,13 @@ describe('GigaredPanel', () => {
       const confirm = screen.getByRole('dialog', { name: /dar de baja tv/i });
       await user.click(within(confirm).getByRole('button', { name: /confirmar|dar de baja/i }));
       const outcome = await screen.findByRole('dialog', { name: /baja de tv/i });
-      // step detail: packs quitados, streaming apagado, CIC renovado/desvinculado.
+      // step detail: packs quitados, streaming apagado, CIC renovado (informativo), cuenta liberada.
       expect(within(outcome).getByText(/cupo liberado/i)).toBeInTheDocument();
       expect(within(outcome).getByText(/renovado \(0000000001 → 0000000002\)/i)).toBeInTheDocument();
-      expect(within(outcome).getByText(/desvinculado del cliente/i)).toBeInTheDocument();
+      expect(within(outcome).getByText(/cupo reciclado/i)).toBeInTheDocument();
+      expect(within(outcome).getByText(/cuenta liberada/i)).toBeInTheDocument();
+      // "desvinculado del cliente" copy MUST NOT appear (#72 rework)
+      expect(within(outcome).queryByText(/desvincul/i)).not.toBeInTheDocument();
     });
 
     it('#64 207 partial → MODAL with the failed steps + Reintentar', async () => {
@@ -1782,7 +1785,7 @@ describe('GigaredPanel', () => {
           ottDisabled: false,
           local: 'failed',
           renew: null,
-          unlinked: false,
+          localCancelled: false,
         }},
       });
       renderPanel();
@@ -1808,7 +1811,7 @@ describe('GigaredPanel', () => {
           ],
           ottDisabled: true,
           local: 'synced',
-          renew: { oldCic: '0000000001', newCic: '0000000002' }, unlinked: true,
+          renew: { oldCic: '0000000001', newCic: '0000000002' }, localCancelled: true,
         }},
       });
       renderPanel();
@@ -1831,7 +1834,7 @@ describe('GigaredPanel', () => {
         account: { linked: true, account: linkedAccount },
         cancelResult: { status: 200, data: {
           removed: ['s1', 's2'], failed: [], unremovable: [], ottDisabled: true, local: 'synced',
-          renew: { oldCic: '0000000001', newCic: '0000000002' }, unlinked: true,
+          renew: { oldCic: '0000000001', newCic: '0000000002' }, localCancelled: true,
         }},
       });
       renderPanel();
@@ -1852,7 +1855,7 @@ describe('GigaredPanel', () => {
           ottDisabled: false,
           local: 'failed',
           renew: null,
-          unlinked: false,
+          localCancelled: false,
         }},
       });
       renderPanel(); // contractId="ct-9"
@@ -1881,7 +1884,7 @@ describe('GigaredPanel', () => {
         account: { linked: true, account: linkedAccount },
         cancelResult: { status: 200, data: {
           removed: ['s1'], failed: [], ottDisabled: true, local: 'synced',
-          renew: { oldCic: '0000000001', newCic: '0000000002' }, unlinked: true,
+          renew: { oldCic: '0000000001', newCic: '0000000002' }, localCancelled: true,
         }},
       });
       const { rerender } = renderPanel();
@@ -1916,13 +1919,13 @@ describe('GigaredPanel', () => {
     // ── M2: status-driven partial detection ──────────────────────────────────
     it('M2: 207 status → partial modal (Reintentar) even when fields look fully ok', async () => {
       const user = userEvent.setup();
-      // Fields look "clean" (no failed packs, OTT disabled, local synced, renew ok, unlinked true)
+      // Fields look "clean" (no failed packs, OTT disabled, local synced, renew ok, localCancelled true)
       // BUT the HTTP status is 207 → must show Reintentar
       mockQuery({
         account: { linked: true, account: linkedAccount },
         cancelResult: { status: 207, data: {
           removed: ['s1'], failed: [], ottDisabled: true, local: 'synced',
-          renew: { oldCic: '0000000001', newCic: '0000000002' }, unlinked: true,
+          renew: { oldCic: '0000000001', newCic: '0000000002' }, localCancelled: true,
         }},
       });
       renderPanel();
@@ -1945,7 +1948,7 @@ describe('GigaredPanel', () => {
           ottDisabled: false,
           local: 'failed',
           renew: null,
-          unlinked: false,
+          localCancelled: false,
         }},
       });
       renderPanel();
@@ -1957,15 +1960,15 @@ describe('GigaredPanel', () => {
       expect(within(outcome).queryByRole('button', { name: /reintentar baja/i })).not.toBeInTheDocument();
     });
 
-    // ── M1: retry after unlink gives 404 TV_NOT_LINKED → treat as DONE ────────
+    // ── M1: retry after cancel gives 404 TV_NOT_LINKED → treat as DONE ─────────
     it('M1: retry 404 TV_NOT_LINKED → success modal, no red error', async () => {
       const user = userEvent.setup();
-      // Initial cancel is 207 partial (unlinked: false → already unlinked but renew failed)
+      // Initial cancel is 207 partial (localCancelled: false → renew failed but local flag not set)
       mockQuery({
         account: { linked: true, account: linkedAccount },
         cancelResult: { status: 207, data: {
           removed: ['s1'], failed: [], ottDisabled: true, local: 'synced',
-          renew: null, unlinked: false,
+          renew: null, localCancelled: false,
         }},
       });
       renderPanel();
@@ -2030,7 +2033,7 @@ describe('GigaredPanel', () => {
         cancelResult: { status: 207, data: {
           removed: [],
           failed: [{ id: 's2', detail: 'partner timeout' }],
-          ottDisabled: false, local: 'failed', renew: null, unlinked: false,
+          ottDisabled: false, local: 'failed', renew: null, localCancelled: false,
         }},
       });
       const { rerender } = renderPanel(); // contractId="ct-9"
@@ -2064,6 +2067,68 @@ describe('GigaredPanel', () => {
       await waitFor(() =>
         expect(cancelMutate).toHaveBeenLastCalledWith({ contractId: 'ct-A' }),
       );
+    });
+
+    // ── #72: localCancelled wire-contract rework ──────────────────────────────
+
+    it('#72 200 localCancelled:true + renew → "Cuenta liberada" line + CIC renovado, sin desvincul', async () => {
+      const user = userEvent.setup();
+      mockQuery({
+        account: { linked: true, account: linkedAccount },
+        cancelResult: { status: 200, data: {
+          removed: ['s1', 's2'], failed: [], ottDisabled: true, local: 'synced',
+          renew: { oldCic: '0000000001', newCic: '0000000002' }, localCancelled: true,
+        }},
+      });
+      renderPanel();
+      await openCancel(user);
+      const confirm = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(confirm).getByRole('button', { name: /confirmar|dar de baja/i }));
+      const outcome = await screen.findByRole('dialog', { name: /baja de tv/i });
+
+      // "Cuenta liberada" line must appear when localCancelled is true
+      expect(within(outcome).getByText(/cuenta liberada/i)).toBeInTheDocument();
+      // CIC shows "cupo reciclado" (informational), not partner-unlink
+      expect(within(outcome).getByText(/cupo reciclado/i)).toBeInTheDocument();
+      // The old "desvinculado / no se pudo desvincular" copy must NOT appear (#72)
+      expect(within(outcome).queryByText(/desvincul/i)).not.toBeInTheDocument();
+      // No Reintentar (200 = success)
+      expect(within(outcome).queryByRole('button', { name: /reintentar baja/i })).not.toBeInTheDocument();
+    });
+
+    it('#72 retry on TV_NOT_LINKED (already-cancelled) preserves prior outcome', async () => {
+      const user = userEvent.setup();
+      // Initial cancel: 207 partial (localCancelled: false — renew did not complete)
+      mockQuery({
+        account: { linked: true, account: linkedAccount },
+        cancelResult: { status: 207, data: {
+          removed: ['s1'], failed: [], ottDisabled: true, local: 'synced',
+          renew: null, localCancelled: false,
+        }},
+      });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
+      const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
+      // Partial modal with Reintentar
+      const retry = await screen.findByRole('button', { name: /reintentar baja/i });
+
+      // Retry: BE says TV_NOT_LINKED (already cancelled on a prior run)
+      cancelMutate.mockRejectedValueOnce({
+        response: { status: 404, data: { code: 'TV_NOT_LINKED' } },
+      });
+      await user.click(retry);
+
+      // Reintentar disappears — outcome preserved (prior data still shown, status flipped to 200)
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: /reintentar baja/i })).not.toBeInTheDocument(),
+      );
+      // The outcome modal is still open
+      expect(screen.getByRole('dialog', { name: /baja de tv/i })).toBeInTheDocument();
+      // "La baja ya se completó" message appears
+      expect(screen.getByText(/la baja ya se completó en gigared/i)).toBeInTheDocument();
+      // No error banner
+      expect(screen.queryByText(/no se pudo dar de baja/i)).not.toBeInTheDocument();
     });
   });
 

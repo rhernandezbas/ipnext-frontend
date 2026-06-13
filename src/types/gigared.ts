@@ -196,14 +196,16 @@ export interface CancelTvPayload {
 }
 
 /**
- * #47k / #64 — cancel response (FROZEN wire contract). The BE removes ALL packs (frees
- * the partner cupo), disables OTT, inactivates the local 'TV' item, RENUEVA el CIC y
- * desvincula el internal_id del nuevo CIC para que el cliente quede "como si no tuviera
- * TV". 200 = all OK; 207 = partial. `removed` lists the pack ids that came off; `failed`
- * carries the ones that did not, each with a partner `detail`. `ottDisabled` / `local`
- * report the OTT and local-item steps. `renew` is { oldCic, newCic } when the CIC renew
- * succeeded (null si falló); `unlinked` indica si se limpió el vínculo en el partner. La
- * baja es idempotente: un re-POST sólo procesa lo pendiente, así el "Reintentar baja" es seguro.
+ * #47k / #64 / #72 — cancel response (FROZEN wire contract). The BE removes ALL packs
+ * (frees the partner cupo), disables OTT, inactivates the local 'TV' item, and RENUEVA
+ * el CIC (recicla el cupo del partner). 200 = all OK; 207 = partial. `removed` lists the
+ * pack ids that came off; `failed` carries the ones that did not, each with a partner
+ * `detail`. `ottDisabled` / `local` report the OTT and local-item steps. `renew` is
+ * { oldCic, newCic } when the CIC renew succeeded (null si falló) — es informativo, el
+ * CIC se recicla para liberar el cupo pero el partner (Gigared) NO ofrece desvinculación.
+ * `localCancelled` — true cuando la baja quedó registrada localmente: el cliente queda sin
+ * TV en el panel aunque la cuenta del partner conserve el vínculo técnico. La baja es
+ * idempotente: un re-POST sólo procesa lo pendiente, así el "Reintentar baja" es seguro.
  */
 export interface CancelTvResult {
   removed: string[];
@@ -222,7 +224,12 @@ export interface CancelTvResult {
   ottDisabled: boolean;
   local: 'synced' | 'failed';
   renew: { oldCic: string; newCic: string } | null;
-  unlinked: boolean;
+  /**
+   * #72 — true cuando la baja quedó registrada localmente. El cliente queda sin TV en el
+   * panel (GET /account devuelve { linked: false } post-baja). La cuenta del partner
+   * conserva el vínculo técnico porque Gigared no ofrece desvinculación programática.
+   */
+  localCancelled: boolean;
   /**
    * #64 — true si había algo que renovar (servicios o OTT habilitado al inicio de la corrida).
    * El BE lo manda siempre; el FE aún no lo usa en la UI (el 207 ya guía el "Reintentar baja"),
