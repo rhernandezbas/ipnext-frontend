@@ -20,6 +20,8 @@ import type {
   ChangeTvPasswordPayload,
   ChangeTvPasswordResult,
   TvCredentials,
+  TvActivationEvent,
+  ActivationHistoryFilter,
 } from '@/types/gigared';
 
 const BASE = '/gigared';
@@ -147,6 +149,21 @@ export const gigaredApi = {
   async getCancelStatus(customerId: string): Promise<CancelStatusResult> {
     const r = await axiosClient.get<CancelStatusResult>(
       `${BASE}/customers/${customerId}/cancel/status`,
+    );
+    return r.data;
+  },
+
+  // #5 FE — TV activation history (per-operator / per-client / date range).
+  // GET /gigared/customers/activation-history → TvActivationEvent[] (newest first).
+  async getActivationHistory(filter: ActivationHistoryFilter = {}): Promise<TvActivationEvent[]> {
+    const params: Record<string, string> = {};
+    if (filter.actorId) params.actorId = filter.actorId;
+    if (filter.customerId) params.customerId = filter.customerId;
+    if (filter.from) params.from = filter.from;
+    if (filter.to) params.to = filter.to;
+    const r = await axiosClient.get<TvActivationEvent[]>(
+      `${BASE}/customers/activation-history`,
+      { params },
     );
     return r.data;
   },

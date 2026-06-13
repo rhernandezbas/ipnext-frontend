@@ -1,0 +1,141 @@
+/* TV Activation History page (#5 FE). Mirrors GigaredAccountsPage tokens. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.breadcrumb {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+/* Filter bar */
+
+.filters {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.filterLabel {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.input,
+.select {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input {
+  min-width: 200px;
+}
+
+.input:focus-visible,
+.select:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+
+/* Event type badges — inline, not reusing StatusBadge to keep exact copy of
+   GigaredAccountsPage chip style for the event type pills. */
+
+.badgeAlta {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  background: #d1fae5;
+  color: #065f46;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.badgeBaja {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.badgeReactivacion {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  background: #fffbeb;
+  color: #92400e;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+/* Customer name link — mirrors GigaredAccountsPage.nameLink */
+.nameLink {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.nameLink:hover {
+  text-decoration: underline;
+}
+
+.cic {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: 1px;
+}
+
+/* Error banner */
+.bannerError {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}

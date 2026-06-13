@@ -15,6 +15,8 @@ import type {
   CancelStatusResult,
   ChangeTvPasswordPayload,
   ChangeTvPasswordResult,
+  ActivationHistoryFilter,
+  TvActivationEvent,
 } from '@/types/gigared';
 
 /**
@@ -48,6 +50,9 @@ export const accountKey = (customerId: string) => [...ROOT, 'account', customerI
 export const credentialsKey = (customerId: string) => [...ROOT, 'tv-credentials', customerId] as const;
 // #10 — async cancel status polling key
 export const cancelStatusKey = (customerId: string) => [...ROOT, 'cancel-status', customerId] as const;
+// #5 FE — TV activation history key
+export const activationHistoryKey = (filter: ActivationHistoryFilter) =>
+  [...ROOT, 'activation-history', filter] as const;
 export const allAccountsKey = (status: GigaredAccountStatus) =>
   [...ALL_ACCOUNTS_ROOT, status] as const;
 
@@ -312,4 +317,15 @@ export function useCancelTvStatus(customerId: string, enabled: boolean) {
   }, [query.data?.status]);
 
   return query;
+}
+
+// #5 FE — TV activation history. Fetches newest-first from the BE.
+// Cached per filter shape (JSON-serializable) with a short staleTime (30s)
+// because operators navigate to this page to audit recent actions.
+export function useGigaredActivationHistory(filter: ActivationHistoryFilter) {
+  return useQuery<TvActivationEvent[]>({
+    queryKey: activationHistoryKey(filter),
+    queryFn: () => gigaredApi.getActivationHistory(filter),
+    staleTime: 30_000,
+  });
 }

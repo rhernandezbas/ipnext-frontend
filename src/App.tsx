@@ -22,6 +22,7 @@ const CustomersSettingsPage = lazy(() => import('@/pages/customers/CustomersSett
 const CustomerDetailPage = lazy(() => import('@/pages/customers/CustomerDetailPage'));
 
 const GigaredAccountsPage = lazy(() => import('@/pages/crm/GigaredAccountsPage'));
+const GigaredActivationHistoryPage = lazy(() => import('@/pages/crm/GigaredActivationHistoryPage'));
 
 const TicketsDashboardPage = lazy(() => import('@/pages/tickets/TicketsDashboardPage'));
 const TicketsListPage = lazy(() => import('@/pages/tickets/TicketsListPage'));
@@ -188,6 +189,8 @@ export function App() {
                 <Route path="settings" element={<RequirePermission permission="clients.read"><CustomersSettingsPage /></RequirePermission>} />
                 {/* TV (Gigared accounts) lives in the Clientes section (#47b). tv.read intact. */}
                 <Route path="tv" element={<RequirePermission permission="tv.read"><GigaredAccountsPage /></RequirePermission>} />
+                {/* #5 FE — TV activation history: per-operator, per-client, date range. */}
+                <Route path="tv/history" element={<RequirePermission permission="tv.read"><GigaredActivationHistoryPage /></RequirePermission>} />
                 {/* #80 — Recaptación: churned client recovery. MUST be before :id catch-all. */}
                 <Route path="recaptacion" element={<RequirePermission permission="recapture.read"><RecaptacionPage /></RequirePermission>} />
                 {/* CATCH-ALL — RR6 ranking ensures specific paths above win over :id.

@@ -174,6 +174,35 @@ export interface TvCredentials {
   internalId: string | null;
 }
 
+// ── TV Activation History (#5 FE) ─────────────────────────────────────────
+
+/**
+ * A single TV activation event from GET /gigared/customers/activation-history.
+ * Newest first on the wire. eventType maps to the visual badge label.
+ */
+export interface TvActivationEvent {
+  id: string;
+  clientId: string;
+  customerName?: string;
+  cic?: string;
+  eventType: 'alta' | 'baja' | 'reactivacion';
+  actorId: string;
+  actorName: string;
+  internalId?: string | null;
+  seq?: number;
+  contractId?: string;
+  /** ISO timestamp (newest first). */
+  createdAt: string;
+}
+
+/** Query params for the activation history endpoint. All optional. */
+export interface ActivationHistoryFilter {
+  actorId?: string;
+  customerId?: string;
+  from?: string;
+  to?: string;
+}
+
 /**
  * #10 — async cancel status (GET /gigared/customers/:id/cancel/status).
  * Returned by the polling query while the async cancel job runs on the BE.
