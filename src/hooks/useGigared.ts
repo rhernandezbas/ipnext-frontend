@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { gigaredApi } from '@/api/gigared.api';
 import type {
@@ -11,6 +12,7 @@ import type {
   SetOttPayload,
   CancelTvPayload,
   CancelTvResult,
+  CancelStatusResult,
   ChangeTvPasswordPayload,
   ChangeTvPasswordResult,
 } from '@/types/gigared';
@@ -44,6 +46,8 @@ export const accountKey = (customerId: string) => [...ROOT, 'account', customerI
 // #65 fix wave H3 — the guarded TV credentials live under their own key so the panel can fetch
 // them lazily (only when the credentials section reveals them) and invalidate after a change.
 export const credentialsKey = (customerId: string) => [...ROOT, 'tv-credentials', customerId] as const;
+// #10 — async cancel status polling key
+export const cancelStatusKey = (customerId: string) => [...ROOT, 'cancel-status', customerId] as const;
 export const allAccountsKey = (status: GigaredAccountStatus) =>
   [...ALL_ACCOUNTS_ROOT, status] as const;
 
@@ -259,22 +263,53 @@ export function useTvCredentials(customerId: string, enabled: boolean) {
   });
 }
 
-// #47k — dar de baja TV. Removes all packs (frees the partner cupo), disables OTT
-// and inactivates the local 'TV' item. On success refresh the account, the
-// summary (cupo changed) and the customer ContractsTab (the TV chip drops).
-// Returns { status, data } so the caller can branch on HTTP status (M2).
+// #10 — async dar de baja TV. POST → 202 {status:'pending'} (the BE queues the job).
+// The cancel has NOT finished when this resolves — DO NOT invalidate contracts here.
+// Invalidations fire only when the status poll (useCancelTvStatus) reaches 'done'.
+// Returns { status, data } so the panel can detect 202 vs error shapes.
 export function useCancelTv(customerId: string) {
-  const qc = useQueryClient();
-  return useMutation<{ status: number; data: CancelTvResult }, unknown, CancelTvPayload>({
+  return useMutation<
+    { status: number; data: { status: 'pending' } | CancelTvResult },
+    unknown,
+    CancelTvPayload
+  >({
     mutationFn: (body: CancelTvPayload) => gigaredApi.cancelTv(customerId, body),
-    onSuccess: () => {
+    // No onSuccess invalidations — the cancel is async; wait for the status poll.
+  });
+}
+
+/**
+ * #10 — poll GET /gigared/customers/:id/cancel/status.
+ * Mirrors the useIClassClosure.ts pattern: refetchInterval returns 3000 ms while
+ * the job is pending/running, and false once it reaches a terminal state (done/failed).
+ * When status becomes 'done' the invalidations fire (contract chip, account, summary).
+ */
+export function useCancelTvStatus(customerId: string, enabled: boolean) {
+  const qc = useQueryClient();
+  const query = useQuery<CancelStatusResult>({
+    queryKey: cancelStatusKey(customerId),
+    queryFn: () => gigaredApi.getCancelStatus(customerId),
+    enabled: enabled && !!customerId,
+    refetchInterval: (q) => {
+      const s = q.state.data?.status;
+      if (s === 'done' || s === 'failed') return false;
+      return 3000;
+    },
+  });
+
+  // #11 — fire contract/account/summary invalidations ONLY when status reaches 'done'.
+  // This is when the local TV item reconcile has completed (or definitively failed on the BE).
+  useEffect(() => {
+    if (query.data?.status === 'done') {
       qc.invalidateQueries({ queryKey: accountKey(customerId) });
       qc.invalidateQueries({ queryKey: SUMMARY_KEY });
       qc.invalidateQueries({ queryKey: ALL_ACCOUNTS_ROOT });
       qc.invalidateQueries({ queryKey: ['client-contracts', customerId] });
-      // #65 fix wave M6 — la baja LIMPIA las credenciales; refrescar para que la sección las pierda.
       qc.invalidateQueries({ queryKey: credentialsKey(customerId) });
       qc.invalidateQueries({ queryKey: SERVICE_HISTORY_ROOT });
-    },
-  });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.data?.status]);
+
+  return query;
 }

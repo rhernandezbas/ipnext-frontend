@@ -7,6 +7,7 @@ import type {
   AddTvServiceResult,
   RemoveTvServiceResult,
   CancelTvResult,
+  CancelStatusResult,
 } from '@/types/gigared';
 
 // Mock axiosClient before importing the api module
@@ -249,5 +250,58 @@ describe('gigaredApi.cancelTv', () => {
     vi.mocked(axiosClient.post).mockResolvedValue({ status: 207, data: payload });
     const result = await gigaredApi.cancelTv('cust-1', { contractId: 'ct-9' });
     expect(result).toEqual({ status: 207, data: payload });
+  });
+
+  // ── async (#10): 202 shape ──────────────────────────────────────────────────
+  it('202 → returns { status: 202, data: { status: "pending" } }', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ status: 202, data: { status: 'pending' } });
+    const result = await gigaredApi.cancelTv('cust-1', { contractId: 'ct-9' });
+    expect(result).toEqual({ status: 202, data: { status: 'pending' } });
+  });
+});
+
+// ── #10 — GET /cancel/status ──────────────────────────────────────────────────
+describe('gigaredApi.getCancelStatus', () => {
+  it('GETs /gigared/customers/:id/cancel/status and returns CancelStatusResult', async () => {
+    const payload: CancelStatusResult = {
+      status: 'done',
+      result: {
+        removed: ['s1'],
+        failed: [],
+        unremovable: [],
+        ottDisabled: true,
+        local: 'synced',
+        renew: { oldCic: '0000000001', newCic: '0000000002' },
+        localCancelled: true,
+        renewAttempted: true,
+      },
+      startedAt: '2026-06-13T10:00:00Z',
+    };
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: payload });
+    const result = await gigaredApi.getCancelStatus('cust-1');
+    expect(axiosClient.get).toHaveBeenCalledWith('/gigared/customers/cust-1/cancel/status');
+    expect(result).toEqual(payload);
+  });
+
+  it('pending status — no result field', async () => {
+    const payload: CancelStatusResult = { status: 'pending' };
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: payload });
+    const result = await gigaredApi.getCancelStatus('cust-1');
+    expect(result.status).toBe('pending');
+    expect(result.result).toBeUndefined();
+  });
+
+  it('running status — no result field', async () => {
+    const payload: CancelStatusResult = { status: 'running', startedAt: '2026-06-13T10:00:00Z' };
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: payload });
+    const result = await gigaredApi.getCancelStatus('cust-1');
+    expect(result.status).toBe('running');
+  });
+
+  it('failed status — no result field', async () => {
+    const payload: CancelStatusResult = { status: 'failed' };
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: payload });
+    const result = await gigaredApi.getCancelStatus('cust-1');
+    expect(result.status).toBe('failed');
   });
 });

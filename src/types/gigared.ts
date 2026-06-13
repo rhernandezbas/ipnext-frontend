@@ -174,6 +174,19 @@ export interface TvCredentials {
   internalId: string | null;
 }
 
+/**
+ * #10 — async cancel status (GET /gigared/customers/:id/cancel/status).
+ * Returned by the polling query while the async cancel job runs on the BE.
+ * Terminal states: 'done' (success or partial — check result.failed) or 'failed'.
+ */
+export interface CancelStatusResult {
+  status: 'pending' | 'running' | 'done' | 'failed';
+  /** Present only when status === 'done'. */
+  result?: CancelTvResult;
+  /** ISO timestamp of when the job started. */
+  startedAt?: string;
+}
+
 /** #65 fix wave M7 — register response: the account + whether the credentials reached the slot. */
 export interface RegisterAccountResult {
   account: GigaredAccount;

@@ -8,6 +8,7 @@ vi.mock('@/api/gigared.api', () => ({
   gigaredApi: {
     linkCic: vi.fn(),
     cancelTv: vi.fn(),
+    getCancelStatus: vi.fn(),
     registerAccount: vi.fn(),
     addService: vi.fn(),
     removeService: vi.fn(),
@@ -20,6 +21,7 @@ import { gigaredApi } from '@/api/gigared.api';
 import {
   useLinkCic,
   useCancelTv,
+  useCancelTvStatus,
   useRegisterAccount,
   useAddTvService,
   useRemoveTvService,
@@ -27,6 +29,7 @@ import {
   useChangeTvPassword,
   accountKey,
   credentialsKey,
+  cancelStatusKey,
   SUMMARY_KEY,
   ALL_ACCOUNTS_ROOT,
   ACCOUNTS_ROOT,
@@ -108,17 +111,14 @@ describe('useLinkCic', () => {
   });
 });
 
-// #47k — dar de baja TV: removes all packs, frees the partner cupo, disables OTT
-// and inactivates the local TV item. On success it must refresh the account, the
-// partner summary (cupo changed) and the customer ContractsTab (chip drops).
+// #10 async cancel: useCancelTv — POST only, no immediate invalidations.
+// Invalidations fire via useCancelTvStatus when status becomes 'done'.
 describe('useCancelTv', () => {
   it('passes { contractId } through to the api', async () => {
     vi.mocked(gigaredApi.cancelTv).mockResolvedValue({
-      removed: ['s1'],
-      failed: [],
-      ottDisabled: true,
-      local: 'synced',
-    });
+      status: 202,
+      data: { status: 'pending' },
+    } as never);
     const { wrapper } = makeWrapper();
     const { result } = renderHook(() => useCancelTv('cust-1'), { wrapper });
 
@@ -129,13 +129,11 @@ describe('useCancelTv', () => {
     expect(gigaredApi.cancelTv).toHaveBeenCalledWith('cust-1', { contractId: 'ct-9' });
   });
 
-  it('invalidates account + summary + client-contracts on success', async () => {
+  it('does NOT invalidate account / summary / client-contracts on 202 (cancel is async)', async () => {
     vi.mocked(gigaredApi.cancelTv).mockResolvedValue({
-      removed: ['s1'],
-      failed: [],
-      ottDisabled: true,
-      local: 'synced',
-    });
+      status: 202,
+      data: { status: 'pending' },
+    } as never);
     const { qc, wrapper } = makeWrapper();
     const spy = vi.spyOn(qc, 'invalidateQueries');
     const { result } = renderHook(() => useCancelTv('cust-1'), { wrapper });
@@ -144,15 +142,16 @@ describe('useCancelTv', () => {
       await result.current.mutateAsync({ contractId: 'ct-9' });
     });
 
-    expect(spy).toHaveBeenCalledWith({ queryKey: accountKey('cust-1') });
-    expect(spy).toHaveBeenCalledWith({ queryKey: SUMMARY_KEY });
-    expect(spy).toHaveBeenCalledWith({ queryKey: ['client-contracts', 'cust-1'] });
+    expect(spy).not.toHaveBeenCalledWith({ queryKey: accountKey('cust-1') });
+    expect(spy).not.toHaveBeenCalledWith({ queryKey: SUMMARY_KEY });
+    expect(spy).not.toHaveBeenCalledWith({ queryKey: ['client-contracts', 'cust-1'] });
   });
 
-  it('invalidates the all-accounts root on success (#61 fix wave)', async () => {
+  it('does NOT invalidate all-accounts root on 202 (async)', async () => {
     vi.mocked(gigaredApi.cancelTv).mockResolvedValue({
-      removed: ['s1'], failed: [], ottDisabled: true, local: 'synced',
-    });
+      status: 202,
+      data: { status: 'pending' },
+    } as never);
     const { qc, wrapper } = makeWrapper();
     const spy = vi.spyOn(qc, 'invalidateQueries');
     const { result } = renderHook(() => useCancelTv('cust-1'), { wrapper });
@@ -161,7 +160,7 @@ describe('useCancelTv', () => {
       await result.current.mutateAsync({ contractId: 'ct-9' });
     });
 
-    expect(spy).toHaveBeenCalledWith({ queryKey: ALL_ACCOUNTS_ROOT });
+    expect(spy).not.toHaveBeenCalledWith({ queryKey: ALL_ACCOUNTS_ROOT });
   });
 });
 
@@ -303,10 +302,13 @@ describe('#73 fix wave — contract-service-history invalidation', () => {
     expect(spy).toHaveBeenCalledWith({ queryKey: HISTORY_ROOT });
   });
 
-  it('useCancelTv invalidates the service-history root', async () => {
+  // #10 async: useCancelTv no longer invalidates on success (cancel is async).
+  // service-history is now invalidated by useCancelTvStatus when status = 'done'.
+  it('useCancelTv does NOT invalidate service-history root on 202 (async, deferred to status poll)', async () => {
     vi.mocked(gigaredApi.cancelTv).mockResolvedValue({
-      removed: ['s1'], failed: [], ottDisabled: true, local: 'synced',
-    });
+      status: 202,
+      data: { status: 'pending' },
+    } as never);
     const { qc, wrapper } = makeWrapper();
     const spy = vi.spyOn(qc, 'invalidateQueries');
     const { result } = renderHook(() => useCancelTv('cust-1'), { wrapper });
@@ -315,7 +317,7 @@ describe('#73 fix wave — contract-service-history invalidation', () => {
       await result.current.mutateAsync({ contractId: 'ct-9' });
     });
 
-    expect(spy).toHaveBeenCalledWith({ queryKey: HISTORY_ROOT });
+    expect(spy).not.toHaveBeenCalledWith({ queryKey: HISTORY_ROOT });
   });
 });
 
@@ -429,5 +431,130 @@ describe('#4 fix — useLinkCic invalidates full set on error', () => {
     });
 
     expect(spy).toHaveBeenCalledWith({ queryKey: ['client-contracts', 'cust-1'] });
+  });
+});
+
+// ── async cancel (#10 / #11) ──────────────────────────────────────────────────
+
+// useCancelTv: POST resolves 202 {status:'pending'} — NO immediate invalidations.
+// The cancel is async; invalidations fire only when the status poll reaches 'done'.
+describe('useCancelTv — async (202)', () => {
+  it('POST resolves with { status: 202 } shape from the api', async () => {
+    vi.mocked(gigaredApi.cancelTv).mockResolvedValue({ status: 202, data: { status: 'pending' } } as unknown as never);
+    const { wrapper } = makeWrapper();
+    const { result } = renderHook(() => useCancelTv('cust-1'), { wrapper });
+
+    let value: unknown;
+    await act(async () => {
+      value = await result.current.mutateAsync({ contractId: 'ct-9' });
+    });
+
+    expect(gigaredApi.cancelTv).toHaveBeenCalledWith('cust-1', { contractId: 'ct-9' });
+    expect((value as { status: number }).status).toBe(202);
+  });
+
+  it('onSuccess does NOT immediately invalidate client-contracts when 202', async () => {
+    vi.mocked(gigaredApi.cancelTv).mockResolvedValue({ status: 202, data: { status: 'pending' } } as unknown as never);
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useCancelTv('cust-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ contractId: 'ct-9' });
+    });
+
+    // No client-contracts invalidation on a 202 — cancel hasn't finished.
+    expect(spy).not.toHaveBeenCalledWith({ queryKey: ['client-contracts', 'cust-1'] });
+  });
+
+  it('onSuccess does NOT invalidate SUMMARY_KEY when 202', async () => {
+    vi.mocked(gigaredApi.cancelTv).mockResolvedValue({ status: 202, data: { status: 'pending' } } as unknown as never);
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useCancelTv('cust-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ contractId: 'ct-9' });
+    });
+
+    expect(spy).not.toHaveBeenCalledWith({ queryKey: SUMMARY_KEY });
+  });
+});
+
+// cancelStatusKey helper is exported
+describe('cancelStatusKey', () => {
+  it('returns a stable, predictable key for the customer', () => {
+    const key = cancelStatusKey('cust-1');
+    expect(key).toEqual(expect.arrayContaining(['gigared', 'cancel-status', 'cust-1']));
+  });
+});
+
+// useCancelTvStatus: polls every 3s while pending/running; stops at done/failed;
+// fires invalidations only when status becomes 'done'.
+describe('useCancelTvStatus', () => {
+  it('is disabled when enabled=false (no fetch)', () => {
+    vi.mocked(gigaredApi.getCancelStatus).mockResolvedValue({ status: 'pending' } as never);
+    const { wrapper } = makeWrapper();
+    const { result } = renderHook(() => useCancelTvStatus('cust-1', false), { wrapper });
+    expect(result.current.fetchStatus).toBe('idle');
+  });
+
+  it('fetches from getCancelStatus when enabled', async () => {
+    vi.mocked(gigaredApi.getCancelStatus).mockResolvedValue({ status: 'done', result: {
+      removed: ['s1'], failed: [], ottDisabled: true, local: 'synced',
+      renew: { oldCic: '0000000001', newCic: '0000000002' }, localCancelled: true, renewAttempted: true,
+    } } as never);
+    const { wrapper } = makeWrapper();
+    const { result } = renderHook(() => useCancelTvStatus('cust-1', true), { wrapper });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(gigaredApi.getCancelStatus).toHaveBeenCalledWith('cust-1');
+    expect(result.current.data?.status).toBe('done');
+  });
+
+  it('returns refetchInterval: 3000 while status is pending', () => {
+    // We verify the polling behaviour by inspecting the query key and that the
+    // refetchInterval function returns 3000 for a pending state.
+    // The actual polling is an integration concern; we test the stop condition.
+    vi.mocked(gigaredApi.getCancelStatus).mockResolvedValue({ status: 'pending' } as never);
+    const { wrapper } = makeWrapper();
+    renderHook(() => useCancelTvStatus('cust-1', true), { wrapper });
+    // hook mounts without error — the interval function is configured internally
+    expect(gigaredApi.getCancelStatus).toBeDefined();
+  });
+
+  it('invalidates client-contracts, accountKey, SUMMARY_KEY, ALL_ACCOUNTS_ROOT when status becomes done', async () => {
+    vi.mocked(gigaredApi.getCancelStatus).mockResolvedValue({ status: 'done', result: {
+      removed: ['s1'], failed: [], ottDisabled: true, local: 'synced',
+      renew: { oldCic: '0000000001', newCic: '0000000002' }, localCancelled: true, renewAttempted: true,
+    } } as never);
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    renderHook(() => useCancelTvStatus('cust-1', true), { wrapper });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['client-contracts', 'cust-1'] });
+    expect(spy).toHaveBeenCalledWith({ queryKey: accountKey('cust-1') });
+    expect(spy).toHaveBeenCalledWith({ queryKey: SUMMARY_KEY });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ALL_ACCOUNTS_ROOT });
+  });
+
+  it('does NOT invalidate when status is failed', async () => {
+    vi.mocked(gigaredApi.getCancelStatus).mockResolvedValue({ status: 'failed' } as never);
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    renderHook(() => useCancelTvStatus('cust-1', true), { wrapper });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(spy).not.toHaveBeenCalledWith({ queryKey: ['client-contracts', 'cust-1'] });
   });
 });

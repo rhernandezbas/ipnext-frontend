@@ -16,6 +16,7 @@ import type {
   SetOttPayload,
   CancelTvPayload,
   CancelTvResult,
+  CancelStatusResult,
   ChangeTvPasswordPayload,
   ChangeTvPasswordResult,
   TvCredentials,
@@ -127,18 +128,26 @@ export const gigaredApi = {
     return r.data;
   },
 
-  // #47k — dar de baja TV: removes all packs (frees the cupo), disables OTT and
-  // inactivates the local TV item. 200 = full / 207 = partial (same body shape).
-  // Returns { status, data } so the caller can branch on HTTP status (M2: 207 =
-  // partial regardless of which fields succeeded).
+  // #10 — async dar de baja TV: POST → 202 {status:'pending'} (cancel queued on the BE).
+  // 409 {queued:false,reason:'already-running'} if already running.
+  // Returns { status, data } so the caller can detect 202 vs error shapes.
   async cancelTv(
     customerId: string,
     body: CancelTvPayload,
-  ): Promise<{ status: number; data: CancelTvResult }> {
-    const r = await axiosClient.post<CancelTvResult>(
+  ): Promise<{ status: number; data: { status: 'pending' } | CancelTvResult }> {
+    const r = await axiosClient.post<{ status: 'pending' } | CancelTvResult>(
       `${BASE}/customers/${customerId}/cancel`,
       body,
     );
     return { status: r.status, data: r.data };
+  },
+
+  // #10 — poll the async cancel job status.
+  // GET /gigared/customers/:id/cancel/status → CancelStatusResult
+  async getCancelStatus(customerId: string): Promise<CancelStatusResult> {
+    const r = await axiosClient.get<CancelStatusResult>(
+      `${BASE}/customers/${customerId}/cancel/status`,
+    );
+    return r.data;
   },
 };

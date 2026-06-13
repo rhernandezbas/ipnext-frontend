@@ -9,13 +9,13 @@ import {
   useRemoveTvService,
   useSetOtt,
   useCancelTv,
+  useCancelTvStatus,
   useChangeTvPassword,
   useTvCredentials,
 } from '@/hooks/useGigared';
 import { deterministicTvEmail, deterministicTvPassword } from './deterministicTv';
 import { useClientContracts } from '@/hooks/useCustomers';
-import { useRemoveContractService, useAddContractService } from '@/hooks/useContractServices';
-import { useServiceCatalog } from '@/hooks/useServiceCatalog';
+import { useRemoveContractService } from '@/hooks/useContractServices';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { useConfirm } from '@/context/ConfirmContext';
 import { Can } from '@/components/auth/Can';
@@ -28,14 +28,7 @@ import type {
   AddTvServiceResult,
   RemoveTvServiceResult,
   LinkCicResult,
-  CancelTvResult,
 } from '@/types/gigared';
-
-/** A cancel outcome: the HTTP status + the body. */
-interface CancelOutcome {
-  status: number;
-  data: CancelTvResult;
-}
 import styles from './GigaredPanel.module.css';
 
 interface GigaredPanelProps {
@@ -148,45 +141,45 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
   // regardless of link state.
   const localLine = ownerContract ? localTvLine(ownerContract) : null;
 
-  // C1 / #64 — cancel state lifted to the PARENT so it survives the linked→unlinked
-  // flip. When a 200 cancel causes the account to refetch as unlinked, LinkedView
-  // unmounts, but the outcome modal (owned here) stays visible until the user closes it.
+  // C1 / #10 — cancel state lifted to the PARENT so it survives the linked→unlinked
+  // flip. The cancel is now async: POST → 202, then poll until 'done'|'failed'.
   const cancelTv = useCancelTv(customerId);
 
   // L3 — snapshot the contractId at the moment the baja is FIRST dispatched.
-  // We store it in a ref so it doesn't cause re-renders, and mirror to state so
-  // Reintentar always POSTs the ORIGINAL contractId even after linked→unlinked flip.
+  // Mirror to state so Reintentar always POSTs the ORIGINAL contractId even after
+  // the linked→unlinked flip.
   const [frozenContractId, setFrozenContractId] = useState<string | null>(null);
 
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
-  const [cancelOutcome, setCancelOutcome] = useState<CancelOutcome | null>(null);
+  // #10 — true after a 202 is received; enables the status poll.
+  const [cancelPolling, setCancelPolling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
-  // M1 — "baja ya completada" copy: set when a retry 404 TV_NOT_LINKED comes back.
-  const [cancelDoneMsg, setCancelDoneMsg] = useState<string | null>(null);
 
-  // M2 — partial is driven by HTTP STATUS, not by fields. 207 = partial regardless
-  // of which individual steps succeeded or failed.
-  const cancelPartial = cancelOutcome !== null && cancelOutcome.status === 207;
+  // #10 — poll the async cancel status while the job is running.
+  const cancelStatus = useCancelTvStatus(customerId, cancelPolling);
+
+  // When polling reaches a terminal state, keep the outcome modal open.
+  // cancelOutcomeVisible: true once the user has POSTed and the modal should show.
+  const [cancelOutcomeVisible, setCancelOutcomeVisible] = useState(false);
+
+  // Derive partial: 'done' with failed packs OR status=failed.
+  const cancelResult = cancelStatus.data?.result;
+  const cancelIsDone = cancelStatus.data?.status === 'done';
+  const cancelIsFailed = cancelStatus.data?.status === 'failed';
+  const cancelPartial =
+    cancelOutcomeVisible &&
+    (cancelIsFailed || (cancelIsDone && (cancelResult?.failed?.length ?? 0) > 0));
 
   async function doCancel(targetContractId: string) {
     setCancelError(null);
-    setCancelDoneMsg(null);
     try {
       const outcome = await cancelTv.mutateAsync({ contractId: targetContractId });
-      setCancelOutcome(outcome);
-    } catch (err) {
-      // M1 (#64 re-review) — a 404 TV_NOT_LINKED is "la baja ya se completó" SOLO en un
-      // RETRY: hubo un intento previo en esta sesión (cancelOutcome !== null), la cuenta ya
-      // se desvinculó y el re-POST encuentra la cuenta ausente. En el PRIMER intento un 404
-      // TV_NOT_LINKED significa que la cuenta nunca estuvo vinculada → error normal, no un
-      // "ya completada" engañoso.
-      if (errorCode(err) === 'TV_NOT_LINKED' && cancelOutcome !== null) {
-        // Conservamos los datos del intento previo (cancelOutcome.data siempre existe acá),
-        // sólo flipeamos el status a 200 para cerrar el modal en estado "completada".
-        setCancelOutcome({ status: 200, data: cancelOutcome.data });
-        setCancelDoneMsg('La baja ya se completó en Gigared.');
-        return;
+      if (outcome.status === 202) {
+        // Async: enable the status poll and show the outcome modal.
+        setCancelPolling(true);
+        setCancelOutcomeVisible(true);
       }
+    } catch (err) {
       const detail = errorDetail(err);
       setCancelError(
         detail ? `No se pudo dar de baja: ${detail}` : 'No se pudo dar de baja la TV. Reintentá.',
@@ -196,8 +189,7 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
 
   async function confirmCancel() {
     if (cancelTv.isPending) return;
-    // L3 — freeze the contractId NOW, before the POST. Both the initial call and
-    // every Reintentar use this snapshot so a linked→unlinked refetch can't shift it.
+    // L3 — freeze the contractId NOW, before the POST.
     const snapshot = frozenContractId ?? effectiveContractId;
     setFrozenContractId(snapshot);
     setCancelConfirmOpen(false);
@@ -206,8 +198,13 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
 
   async function handleRetryCancel() {
     if (cancelTv.isPending) return;
-    // Always use the frozen contractId (the one from the original dispatch).
+    // Reintentar re-POSTs with the frozen contractId.
     await doCancel(frozenContractId ?? effectiveContractId);
+  }
+
+  function closeCancelOutcome() {
+    setCancelOutcomeVisible(false);
+    setCancelPolling(false);
   }
 
   let body: React.ReactNode;
@@ -243,15 +240,13 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
           onRequestCancel={() => setCancelConfirmOpen(true)}
           cancelPending={cancelTv.isPending}
           cancelError={cancelError}
-          cancelOutcome={cancelOutcome}
+          cancelOutcomeVisible={cancelOutcomeVisible}
         />
       ) : (
         <UnlinkedView
           customerId={customerId}
-          contractId={contractId}
           effectiveContractId={effectiveContractId}
           customer={customer}
-          hasLocalTv={!!localLine}
         />
       );
   }
@@ -335,56 +330,84 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
         </div>
       )}
 
-      {/* Outcome modal — visible regardless of linked state (survives the flip) */}
-      {cancelOutcome && (
+      {/* Outcome modal — visible regardless of linked state (survives the flip).
+          #10 — async: shows spinner while pending/running, banner when terminal. */}
+      {cancelOutcomeVisible && (
         <div
           className={styles.confirmBackdrop}
           role="dialog"
           aria-modal="true"
           aria-labelledby="tv-cancel-outcome-title"
-          onMouseDown={(e) => { if (e.target === e.currentTarget) { setCancelOutcome(null); setCancelDoneMsg(null); } }}
+          onMouseDown={(e) => {
+            // Only close when terminal and not mid-retry.
+            if (e.target === e.currentTarget && (cancelIsDone || cancelIsFailed) && !cancelTv.isPending) {
+              closeCancelOutcome();
+            }
+          }}
         >
           <div className={styles.dialog}>
             <h2 id="tv-cancel-outcome-title" className={styles.cardTitle}>
               {cancelPartial ? 'Baja de TV — parcial' : 'Baja de TV'}
             </h2>
-            <p className={styles.emptyHint}>
-              {cancelDoneMsg ?? 'La TV se estará deshabilitando en los próximos minutos.'}
-            </p>
-            <ul className={styles.cancelSteps}>
-              <li>
-                Packs: {plural(cancelOutcome.data.removed.length, 'pack quitado', 'packs quitados')} — cupo liberado
-                {cancelOutcome.data.failed.length > 0
-                  ? ` · ${plural(cancelOutcome.data.failed.length, 'pack falló', 'packs fallaron')}`
-                  : ''}
-                {cancelOutcome.data.failed[0] ? ` (${cancelOutcome.data.failed[0].detail})` : ''}.
-              </li>
-              {/* #67 — pack base irremovible: línea INFORMATIVA (no error, no cuenta para "parcial").
-                  El status del BE ya manda; con sólo el base la baja igual responde 200. */}
-              {(cancelOutcome.data.unremovable?.length ?? 0) > 0 && (
+
+            {/* Polling in progress (pending / running) — show spinner */}
+            {!cancelIsDone && !cancelIsFailed && (
+              <p className={styles.emptyHint} aria-live="polite">
+                ⏳ Dando de baja TV…
+              </p>
+            )}
+
+            {/* Terminal: success (done + no failures) */}
+            {cancelIsDone && !cancelPartial && (
+              <div className={`${styles.banner} ${styles.bannerSuccess}`} role="status">
+                <span>✓ La baja de TV se completó correctamente.</span>
+              </div>
+            )}
+
+            {/* Terminal: partial (done + failures) or failed */}
+            {cancelPartial && (
+              <div className={`${styles.banner} ${styles.bannerError}`} role="alert">
+                <span>
+                  <span role="img" aria-label="error">✗</span>{' '}
+                  {cancelIsFailed
+                    ? 'La baja de TV falló.'
+                    : `Baja parcial — ${plural(cancelResult?.failed?.length ?? 0, 'pack falló', 'packs fallaron')}${cancelResult?.failed?.[0] ? `: ${cancelResult.failed[0].detail}` : ''}.`}
+                </span>
+              </div>
+            )}
+
+            {/* Detail list — only when we have a result */}
+            {cancelResult && (
+              <ul className={styles.cancelSteps}>
                 <li>
-                  Pack base: no se puede quitar — se libera al renovar el CIC.
+                  Packs: {plural(cancelResult.removed.length, 'pack quitado', 'packs quitados')} — cupo liberado
+                  {cancelResult.failed.length > 0
+                    ? ` · ${plural(cancelResult.failed.length, 'pack falló', 'packs fallaron')}`
+                    : ''}
+                  {cancelResult.failed[0] ? ` (${cancelResult.failed[0].detail})` : ''}.
                 </li>
-              )}
-              {/* #74 — el paso OTT corre ANTES del renew, sobre el CIC viejo. Si el renew tuvo
-                  éxito, reseteó la cuenta y dejó el CIC viejo inaccesible: un OTT no apagado es un
-                  dato pre-renew STALE. NO lo presentamos como problema — comunicamos que la cuenta
-                  fue reiniciada. Sólo reportamos el OTT como pendiente cuando el renew NO reseteó. */}
-              {cancelOutcome.data.renew
-                ? <li>Cuenta reiniciada (CIC nuevo) — el acceso anterior queda invalidado.</li>
-                : <li>Streaming (OTT): {cancelOutcome.data.ottDisabled ? 'apagado' : 'sigue activo'}.</li>}
-              <li>Ítem TV del contrato: {cancelOutcome.data.local === 'synced' ? 'desactivado' : 'sin desactivar'}.</li>
-              <li>
-                CIC: {cancelOutcome.data.renew
-                  ? `renovado (${cancelOutcome.data.renew.oldCic} → ${cancelOutcome.data.renew.newCic}) — cupo reciclado`
-                  : 'no se pudo renovar'}.
-              </li>
-              {cancelOutcome.data.localCancelled && (
-                <li>Cuenta liberada — el cliente queda sin TV.</li>
-              )}
-            </ul>
+                {/* #67 — pack base irremovible: línea INFORMATIVA. */}
+                {(cancelResult.unremovable?.length ?? 0) > 0 && (
+                  <li>Pack base: no se puede quitar — se libera al renovar el CIC.</li>
+                )}
+                {/* #74 — OTT report: after renew, the old CIC is gone; show "reiniciada". */}
+                {cancelResult.renew
+                  ? <li>Cuenta reiniciada (CIC nuevo) — el acceso anterior queda invalidado.</li>
+                  : <li>Streaming (OTT): {cancelResult.ottDisabled ? 'apagado' : 'sigue activo'}.</li>}
+                <li>Ítem TV del contrato: {cancelResult.local === 'synced' ? 'desactivado' : 'sin desactivar'}.</li>
+                <li>
+                  CIC: {cancelResult.renew
+                    ? `renovado (${cancelResult.renew.oldCic} → ${cancelResult.renew.newCic}) — cupo reciclado`
+                    : 'no se pudo renovar'}.
+                </li>
+                {cancelResult.localCancelled && (
+                  <li>Cuenta liberada — el cliente queda sin TV.</li>
+                )}
+              </ul>
+            )}
+
             <div className={styles.formActions}>
-              {cancelPartial && (
+              {cancelPartial && (cancelIsDone || cancelIsFailed) && (
                 <button
                   type="button"
                   className={`${styles.btnPrimary} ${styles.btnDanger}`}
@@ -397,8 +420,8 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
               <button
                 type="button"
                 className={styles.btnSecondary}
-                onClick={() => { setCancelOutcome(null); setCancelDoneMsg(null); }}
-                disabled={cancelTv.isPending}
+                onClick={closeCancelOutcome}
+                disabled={cancelTv.isPending || (!cancelIsDone && !cancelIsFailed)}
               >
                 Cerrar
               </button>
@@ -468,14 +491,10 @@ function LocalItemSection({
 
 function UnlinkedView({
   customerId,
-  contractId,
   effectiveContractId,
   customer,
-  hasLocalTv,
 }: {
   customerId: string;
-  /** The contract that opened the panel — target for the local-only add. */
-  contractId: string;
   /**
    * #47f — the OWNER contract for the TV reconcile. The link carries THIS id so
    * the BE reconciles the local 'TV' item onto it (first activation defines the
@@ -484,8 +503,6 @@ function UnlinkedView({
   effectiveContractId: string;
   /** #47e B — the Prominense customer, source of the register prefill. */
   customer?: { name: string; email: string; grClienteId?: string | null };
-  /** True when a local 'TV' item already exists (then the add action is moot). */
-  hasLocalTv: boolean;
 }) {
   const link = useLinkCic(customerId);
   const register = useRegisterAccount(customerId);
@@ -544,24 +561,6 @@ function UnlinkedView({
   // activación" arranca SIEMPRE inactivo (no se manda email). El operador puede
   // activarlo a mano si algún día usa un correo real. Sent ALWAYS explicit en el POST.
   const [sendActivationEmail, setSendActivationEmail] = useState(false);
-
-  // #47c Fix 3 — escape hatch: add ONLY the local TV item (no Gigared). Reuses
-  // the #43 add endpoint with the 'TV' catalog entry, like the picker's plain
-  // path. Gated by clients.write (the contract-item permission via <Can>).
-  const { data: catalog = [] } = useServiceCatalog(true);
-  const addLocal = useAddContractService(customerId);
-  const tvCatalogId = catalog.find((c) => c.name === 'TV')?.id ?? null;
-  const [addLocalError, setAddLocalError] = useState<string | null>(null);
-
-  async function handleAddLocal() {
-    if (!tvCatalogId || addLocal.isPending) return;
-    setAddLocalError(null);
-    try {
-      await addLocal.mutateAsync({ contractId, payload: { serviceCatalogId: tvCatalogId } });
-    } catch {
-      setAddLocalError('No se pudo agregar el ítem local. Reintentá.');
-    }
-  }
 
   async function doLink(cicValue: string) {
     setLinkError(null);
@@ -650,28 +649,10 @@ function UnlinkedView({
         <p className={styles.emptyHint}>
           Vinculá una cuenta existente por su CIC o registrá una cuenta nueva en Gigared.
         </p>
-        {/* #47c Fix 3 — make it explicit nothing was created. If the operator
-            picked TV but does not want Gigared, offer the local-only item. */}
+        {/* #47c Fix 3 — make it explicit nothing was created. */}
         <p className={styles.emptyHint}>
           Si cerrás sin vincular ni registrar, no se agregó nada a este contrato.
         </p>
-        {!hasLocalTv && tvCatalogId && (
-          <Can permission="clients.write">
-            <div className={styles.formActions}>
-              <button
-                type="button"
-                className={styles.btnSecondary}
-                onClick={handleAddLocal}
-                disabled={addLocal.isPending}
-              >
-                {addLocal.isPending ? 'Agregando…' : 'Agregar solo el ítem local (sin Gigared)'}
-              </button>
-            </div>
-          </Can>
-        )}
-        {addLocalError && (
-          <div className={`${styles.banner} ${styles.bannerError}`}><span>{addLocalError}</span></div>
-        )}
       </div>
 
       <form className={styles.card} onSubmit={handleLink}>
@@ -940,7 +921,7 @@ function LinkedView({
   onRequestCancel,
   cancelPending,
   cancelError,
-  cancelOutcome,
+  cancelOutcomeVisible,
 }: {
   customerId: string;
   contractId: string;
@@ -955,8 +936,8 @@ function LinkedView({
   cancelPending: boolean;
   /** C1 — cancel hard-error from the parent (shown inline). */
   cancelError: string | null;
-  /** C1 — cancel outcome from the parent (used to hide the trigger button). */
-  cancelOutcome: CancelOutcome | null;
+  /** #10 — true once 202 received; hides the "Dar de baja" trigger while polling. */
+  cancelOutcomeVisible: boolean;
 }) {
   const confirm = useConfirm();
   const summaryQuery = useGigaredSummary();
@@ -1405,7 +1386,7 @@ function LinkedView({
           {cancelError && (
             <div className={`${styles.banner} ${styles.bannerError}`}><span>{cancelError}</span></div>
           )}
-          {!cancelOutcome && (
+          {!cancelOutcomeVisible && (
             <div className={styles.formActions}>
               <button
                 type="button"
