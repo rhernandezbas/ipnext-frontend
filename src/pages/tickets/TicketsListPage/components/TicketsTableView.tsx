@@ -261,7 +261,9 @@ function BulkActionBar({
             Eliminar
           </button>
         </Can>
-        <Can permission="tickets.close">
+        {/* #85 re-review — Archivar se gatea con tickets.manage (espejo del guard BE).
+            administrador tiene tickets.manage, NO tickets.close (solo super_admin). */}
+        <Can permission="tickets.manage">
           <button
             type="button"
             className={styles.bulkBtn}

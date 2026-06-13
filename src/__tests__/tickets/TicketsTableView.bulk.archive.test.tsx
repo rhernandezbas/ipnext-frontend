@@ -1,9 +1,10 @@
 /**
  * #85 — TicketsTableView bulk archive + hard-delete actions.
  *
- * "Archivar" is gated by tickets.close and only enabled when ALL selected
- * tickets are closed (CLOSED_SLUGS match). "Eliminar definitivamente" is gated
- * by tickets.delete_hard and requires a confirm with irreversible copy.
+ * "Archivar" is gated by tickets.manage (mirrors the BE guard — administrador holds
+ * tickets.manage, NOT tickets.close) and only enabled when ALL selected tickets are
+ * closed (CLOSED_SLUGS match). "Eliminar definitivamente" is gated by
+ * tickets.delete_hard and requires a confirm with irreversible copy.
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -94,15 +95,15 @@ beforeEach(() => {
 });
 
 describe('TicketsTableView — bulk Archivar', () => {
-  it('renders "Archivar" button when permissions include tickets.close', () => {
-    permissions = ['tickets.close'];
+  it('renders "Archivar" button when permissions include tickets.manage', () => {
+    permissions = ['tickets.manage'];
     setup(openTickets);
     selectAll();
     expect(screen.getByRole('button', { name: 'Archivar' })).toBeInTheDocument();
   });
 
   it('"Archivar" is disabled when at least one selected ticket is NOT closed', () => {
-    permissions = ['tickets.close'];
+    permissions = ['tickets.manage'];
     setup(mixedTickets);
     selectAll();
     const btn = screen.getByRole('button', { name: 'Archivar' });
@@ -110,7 +111,7 @@ describe('TicketsTableView — bulk Archivar', () => {
   });
 
   it('"Archivar" is disabled when ALL selected tickets are open (not closed)', () => {
-    permissions = ['tickets.close'];
+    permissions = ['tickets.manage'];
     setup(openTickets);
     selectAll();
     const btn = screen.getByRole('button', { name: 'Archivar' });
@@ -118,7 +119,7 @@ describe('TicketsTableView — bulk Archivar', () => {
   });
 
   it('"Archivar" is enabled when ALL selected tickets are closed', () => {
-    permissions = ['tickets.close'];
+    permissions = ['tickets.manage'];
     setup(closedTickets);
     selectAll();
     const btn = screen.getByRole('button', { name: 'Archivar' });
@@ -126,7 +127,7 @@ describe('TicketsTableView — bulk Archivar', () => {
   });
 
   it('clicking "Archivar" (when enabled) calls archiveAsync for each selected id', async () => {
-    permissions = ['tickets.close'];
+    permissions = ['tickets.manage'];
     archiveAsync.mockResolvedValue({});
     setup(closedTickets);
     selectAll();
@@ -137,8 +138,8 @@ describe('TicketsTableView — bulk Archivar', () => {
     expect(archiveAsync).toHaveBeenCalledWith('t4');
   });
 
-  it('"Archivar" is NOT visible when permissions lack tickets.close', () => {
-    permissions = ['tickets.write', 'tickets.delete'];
+  it('"Archivar" is NOT visible when permissions lack tickets.manage', () => {
+    permissions = ['tickets.write', 'tickets.close', 'tickets.delete'];
     setup(closedTickets);
     selectAll();
     expect(screen.queryByRole('button', { name: 'Archivar' })).not.toBeInTheDocument();
