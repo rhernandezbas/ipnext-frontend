@@ -54,6 +54,8 @@ const CRM_ITEMS: NavParentItem[] = [
       // gates on clients.read, so TV requires clients.read + tv.read.
       { to: '/admin/customers/tv', label: 'TV', requiredPermission: 'tv.read' },
       { to: '/admin/customers/settings', label: 'Configuración' },
+      // #80 — Recaptación: recovery of churned clients as leads.
+      { to: '/admin/customers/recaptacion', label: 'Recaptación', requiredPermission: 'recapture.read' },
     ],
   },
   {

@@ -155,6 +155,7 @@ const PortalConfigPage = lazy(() => import('@/pages/portal/PortalConfigPage'));
 const PortalUsersPage = lazy(() => import('@/pages/portal/PortalUsersPage'));
 const NetworkTopologyPage = lazy(() => import('@/pages/networking/NetworkTopologyPage'));
 const ContractsListPage = lazy(() => import('@/pages/contracts/ContractsListPage'));
+const RecaptacionPage = lazy(() => import('@/pages/customers/RecaptacionPage'));
 const ServiceTechnologiesPage = lazy(() => import('@/pages/contracts/ServiceTechnologiesPage'));
 const NodesPage = lazy(() => import('@/pages/networking/NodesPage'));
 const NodeDetailPage = lazy(() => import('@/pages/networking/NodeDetailPage'));
@@ -186,6 +187,8 @@ export function App() {
                 <Route path="settings" element={<RequirePermission permission="clients.read"><CustomersSettingsPage /></RequirePermission>} />
                 {/* TV (Gigared accounts) lives in the Clientes section (#47b). tv.read intact. */}
                 <Route path="tv" element={<RequirePermission permission="tv.read"><GigaredAccountsPage /></RequirePermission>} />
+                {/* #80 — Recaptación: churned client recovery. MUST be before :id catch-all. */}
+                <Route path="recaptacion" element={<RequirePermission permission="recapture.read"><RecaptacionPage /></RequirePermission>} />
                 {/* CATCH-ALL — RR6 ranking ensures specific paths above win over :id.
                     Natural /admin/customers/:id redirects to canonical /view/:id. */}
                 <Route path=":id" element={<CustomerIdRedirect />} />
