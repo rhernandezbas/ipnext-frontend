@@ -8,6 +8,9 @@ import {
   updateRecaptureLeadStatus,
   addRecaptureContact,
   isLeadConflictError,
+  ingestChurnedClients,
+  importCsvLeads,
+  downloadCsvTemplate,
 } from '@/api/recaptacion.api';
 import type { RecaptureLeadsQuery, AddContactInput } from '@/types/recaptacion';
 
@@ -114,4 +117,38 @@ export function useAddContact() {
       void qc.invalidateQueries({ queryKey: recaptacionLeadKey(leadId) });
     },
   });
+}
+
+export function useIngestChurned() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => ingestChurnedClients(),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['recaptacion'] });
+    },
+  });
+}
+
+export function useImportCsvLeads() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (csv: string) => importCsvLeads(csv),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['recaptacion'] });
+    },
+  });
+}
+
+/**
+ * Triggers a browser download of the CSV template.
+ * Not a hook — call directly from click handlers.
+ */
+export async function downloadRecaptureCsvTemplate(): Promise<void> {
+  const blob = await downloadCsvTemplate();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'recaptacion-template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
 }
