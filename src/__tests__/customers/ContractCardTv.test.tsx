@@ -367,4 +367,40 @@ describe('ContractCard — TV from contract (#47b)', () => {
       expect(screen.queryByText(/CTR-/)).not.toBeInTheDocument();
     });
   });
+
+  // ── #5A — stale TV chip filter ────────────────────────────────────────────
+  // After a baja the reconcile leaves the TV row status='inactive' but does NOT
+  // delete the ContractService row. That stale row must NOT produce a TV chip.
+  describe('#5A — stale inactive TV chip', () => {
+    it('inactive TV service is NOT rendered as a chip', () => {
+      setup({ gigaredConfig: config({ configured: true, enabled: true }) });
+      renderCard({
+        services: [svc({ id: 'cs-tv', serviceCatalogId: 'sc-tv', name: 'TV', label: 'TV', status: 'inactive' })],
+      });
+      // No TV chip button (the chip is a button when Gigared is active).
+      expect(screen.queryByRole('button', { name: /^TV$/ })).not.toBeInTheDocument();
+      // No static TV text either.
+      expect(screen.queryByText(/^TV$/)).not.toBeInTheDocument();
+    });
+
+    it('active TV service IS rendered as a chip', () => {
+      setup({ gigaredConfig: config({ configured: true, enabled: true }) });
+      renderCard({
+        services: [svc({ id: 'cs-tv', serviceCatalogId: 'sc-tv', name: 'TV', label: 'TV', status: 'active' })],
+      });
+      expect(screen.getByRole('button', { name: /^TV$/ })).toBeInTheDocument();
+    });
+
+    it('inactive non-TV service is still rendered (filter is TV-specific)', () => {
+      setup({ gigaredConfig: config({ configured: true, enabled: true }) });
+      renderCard({
+        services: [
+          svc({ id: 'cs-net', serviceCatalogId: 'sc-int', name: 'INTERNET', label: 'Internet', status: 'inactive' }),
+        ],
+      });
+      // The inactive Internet chip renders as a static span (no button since no Gigared divert),
+      // but should still appear (filtering must not touch non-TV services).
+      expect(screen.getByText(/Internet/)).toBeInTheDocument();
+    });
+  });
 });

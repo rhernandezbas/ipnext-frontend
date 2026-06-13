@@ -5,6 +5,7 @@ import { GigaredNotConfigured } from '@/components/molecules/GigaredNotConfigure
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import { StatusBadge } from '@/components/atoms/StatusBadge';
+import { ActivationHistoryModal } from '@/components/molecules/ActivationHistoryModal/ActivationHistoryModal';
 import type { GigaredAccount, GigaredAccountStatus } from '@/types/gigared';
 import styles from './GigaredAccountsPage.module.css';
 
@@ -96,6 +97,8 @@ export default function GigaredAccountsPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<GigaredAccountStatus | ''>('');
   const [page, setPage] = useState(1);
+  // #2 — global TV history modal state.
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // #61 — debounce the search (~300ms) so we don't re-filter on every keystroke.
   useEffect(() => {
@@ -179,8 +182,9 @@ export default function GigaredAccountsPage() {
   if (code === 'GIGARED_NOT_CONFIGURED') {
     return (
       <div className={styles.page}>
-        <Header />
+        <Header onHistoryClick={() => setHistoryOpen(true)} />
         <GigaredNotConfigured />
+        <ActivationHistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} />
       </div>
     );
   }
@@ -189,7 +193,8 @@ export default function GigaredAccountsPage() {
 
   return (
     <div className={styles.page}>
-      <Header />
+      <Header onHistoryClick={() => setHistoryOpen(true)} />
+      <ActivationHistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} />
 
       <SummaryStrip />
 
@@ -293,11 +298,18 @@ export default function GigaredAccountsPage() {
   }
 }
 
-function Header() {
+function Header({ onHistoryClick }: { onHistoryClick?: () => void }) {
   return (
     <div className={styles.header}>
       <span className={styles.breadcrumb}>CRM /</span>
       <h1 className={styles.title}>TV</h1>
+      {/* #2 — global TV history: opens the ActivationHistoryModal with no customerId
+          so the full cross-client log with filters is shown. */}
+      {onHistoryClick && (
+        <button type="button" className={styles.btnHistorial} onClick={onHistoryClick}>
+          Ver historial
+        </button>
+      )}
     </div>
   );
 }

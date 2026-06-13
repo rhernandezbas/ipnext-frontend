@@ -12,6 +12,12 @@ vi.mock('@/hooks/useGigared', () => ({
   MAX_FETCHED_ACCOUNTS: 200,
 }));
 
+// Stub ActivationHistoryModal so we can assert it opens without rendering internals.
+vi.mock('@/components/molecules/ActivationHistoryModal/ActivationHistoryModal', () => ({
+  ActivationHistoryModal: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
+    open ? <div data-testid="activation-history-modal"><button onClick={onClose}>modal-close</button></div> : null,
+}));
+
 import { useGigaredSummary, useGigaredAllAccounts } from '@/hooks/useGigared';
 import GigaredAccountsPage from '@/pages/crm/GigaredAccountsPage';
 
@@ -403,5 +409,33 @@ describe('GigaredAccountsPage', () => {
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: '2' })).not.toBeInTheDocument();
     }, { timeout: 1000 });
+  });
+
+  // ── #2 — "Ver historial" button opens ActivationHistoryModal ──────────────
+  describe('#2 — Ver historial button in the header', () => {
+    it('renders a "Ver historial" button in the page header', () => {
+      mockHooks();
+      renderPage();
+      expect(screen.getByRole('button', { name: /ver historial/i })).toBeInTheDocument();
+    });
+
+    it('clicking "Ver historial" opens the ActivationHistoryModal', async () => {
+      const user = userEvent.setup();
+      mockHooks();
+      renderPage();
+      expect(screen.queryByTestId('activation-history-modal')).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: /ver historial/i }));
+      expect(screen.getByTestId('activation-history-modal')).toBeInTheDocument();
+    });
+
+    it('closing the modal (onClose callback) hides it', async () => {
+      const user = userEvent.setup();
+      mockHooks();
+      renderPage();
+      await user.click(screen.getByRole('button', { name: /ver historial/i }));
+      expect(screen.getByTestId('activation-history-modal')).toBeInTheDocument();
+      await user.click(screen.getByText('modal-close'));
+      expect(screen.queryByTestId('activation-history-modal')).not.toBeInTheDocument();
+    });
   });
 });

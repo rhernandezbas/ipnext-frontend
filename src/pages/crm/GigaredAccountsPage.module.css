@@ -9,7 +9,7 @@
 
 .header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2);
 }
 
@@ -23,6 +23,25 @@
   font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
+}
+
+/* #2 — "Ver historial" button in the page header */
+.btnHistorial {
+  margin-left: auto;
+  height: 34px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btnHistorial:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
 }
 
 /* Summary strip */

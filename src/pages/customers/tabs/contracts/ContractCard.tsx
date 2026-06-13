@@ -143,10 +143,17 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
           {contract.services.length === 0 && canWrite && (
             <span className={styles.emptyHint}>Agregá un servicio.</span>
           )}
+          {/* #5A — filter out inactive TV rows: after a baja the reconcile leaves a
+              status='inactive' TV ContractService row but does NOT delete it. That stale
+              row must NOT produce a TV chip (clicking it would open the Gigared panel in
+              an inconsistent state). Non-TV inactive rows are left alone — only the TV
+              row carries this post-baja sentinel behavior. */}
           <ContractServiceChips
             contractId={contract.id}
             clientId={clientId}
-            services={contract.services}
+            services={contract.services.filter(
+              (s) => !(s.name === 'TV' && s.status === 'inactive'),
+            )}
             onOpenTvManagement={gigaredActive ? () => setTvPanelOpen(true) : undefined}
             tvSuspended={tvSuspended}
           />
