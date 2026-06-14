@@ -31,7 +31,7 @@ export const ALL_TICKET_COLUMNS: ColumnDef[] = [
   { key: 'priority',       label: 'Prioridad' },
   { key: 'status',         label: 'Estado' },
   { key: 'assigneeName',   label: 'Asignado a' }, // #28 follow-up — the BE field is assigneeName
-  { key: 'createdAt',      label: 'Creado de fecha y hora' },
+  { key: 'createdAt',      label: 'Creado' }, // #113 — header simplificado; celda usa formatDateTimeShort
 ];
 
 const DEFAULT_VISIBLE_COLUMNS = ALL_TICKET_COLUMNS.map(c => c.key);

@@ -6,6 +6,10 @@ interface ColumnDef<T> {
   label: string;
   key: keyof T | string;
   sortable?: boolean;
+  /** When set, the table sorts by this field instead of `key`. Useful when the
+   *  display key differs from the sortable numeric/logical field (e.g. key='id'
+   *  but sortField='sequenceNumber'). */
+  sortField?: keyof T | string;
   render?: (row: T) => ReactNode;
 }
 
@@ -97,10 +101,15 @@ export function DataTable<T extends { id: string | number }>({
     commitSelection(next);
   }
 
+  // When a column specifies sortField, sort by that field instead of key.
+  const activeSortField = sortKey
+    ? (columns.find(c => String(c.key) === sortKey)?.sortField ?? sortKey)
+    : null;
+
   const sorted = [...data].sort((a, b) => {
-    if (!sortKey) return 0;
-    const av = (a as Record<string, unknown>)[sortKey];
-    const bv = (b as Record<string, unknown>)[sortKey];
+    if (!activeSortField) return 0;
+    const av = (a as Record<string, unknown>)[String(activeSortField)];
+    const bv = (b as Record<string, unknown>)[String(activeSortField)];
     const cmp = String(av ?? '').localeCompare(String(bv ?? ''), 'es', { numeric: true });
     return sortDir === 'asc' ? cmp : -cmp;
   });
