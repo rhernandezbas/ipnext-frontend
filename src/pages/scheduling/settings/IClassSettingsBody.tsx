@@ -5,13 +5,15 @@ import { IClassClosureFlagBody } from './IClassClosureFlagBody';
 import { IClassSoTypesCatalogBody } from './IClassSoTypesCatalogBody';
 import { IClassProjectMappingBody } from './IClassProjectMappingBody';
 import { IClassResultCodeMappingBody } from './IClassResultCodeMappingBody';
+import { IClassStatusCatalogBody } from './IClassStatusCatalogBody';
 import { ClosureIntervalConfig } from './ClosureIntervalConfig';
 
 const SUB_TABS = [
-  { id: 'integracion',   label: 'Integración',        content: <IClassFlagBody /> },
-  { id: 'catalogo',      label: 'Catálogo',           content: <IClassSoTypesCatalogBody /> },
-  { id: 'mapeo',         label: 'Mapeo de proyectos', content: <IClassProjectMappingBody /> },
-  { id: 'mapeo-estado',  label: 'Mapeo de estado',    content: <IClassResultCodeMappingBody /> },
+  { id: 'integracion',     label: 'Integración',        content: <IClassFlagBody /> },
+  { id: 'catalogo',        label: 'Catálogo',           content: <IClassSoTypesCatalogBody /> },
+  { id: 'mapeo',           label: 'Mapeo de proyectos', content: <IClassProjectMappingBody /> },
+  { id: 'mapeo-estado',    label: 'Mapeo de estado',    content: <IClassResultCodeMappingBody /> },
+  { id: 'estados-iclass',  label: 'Estados de IClass',  content: <IClassStatusCatalogBody /> },
   {
     id: 'cierre',
     label: 'Procesamiento',

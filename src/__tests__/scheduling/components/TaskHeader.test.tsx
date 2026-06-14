@@ -45,6 +45,7 @@ const mockTask: ScheduledTask = {
   generalStatus: 'open',
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
+  iclassStatus: null,
 };
 
 const mockStages: WorkflowStage[] = [

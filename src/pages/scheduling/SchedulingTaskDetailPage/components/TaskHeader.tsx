@@ -6,6 +6,7 @@ import type { TaskPriority } from '@/types/taskPriority';
 import { StageSelect } from '@/components/molecules/StageSelect/StageSelect';
 import { PrioritySelect } from '@/components/molecules/PrioritySelect/PrioritySelect';
 import { Can } from '@/components/auth/Can';
+import { IClassStatusBadge } from '@/components/molecules/IClassStatusBadge/IClassStatusBadge';
 import styles from './TaskHeader.module.css';
 
 interface TaskHeaderProps {
@@ -150,6 +151,9 @@ export function TaskHeader({
             {task.generalStatus === 'closed' ? 'Cerrada' : 'Descartada'}
           </span>
         )}
+        <Can permission="iclass.read">
+          <IClassStatusBadge iclassStatus={task.iclassStatus} />
+        </Can>
         {titleError && <span className={styles.titleError} role="alert">{titleError}</span>}
       </div>
 

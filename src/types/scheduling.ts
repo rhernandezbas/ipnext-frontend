@@ -190,4 +190,18 @@ export interface ScheduledTask {
 
   /** ISO datetime when the task was archived (#86). Null when not archived. */
   archivedAt: string | null;
+
+  /**
+   * Estado actual de la OS en IClass (iclass-status-sync).
+   * Presente cuando la tarea tiene una OS en IClass Y el estado fue capturado
+   * por el sistema de auto-discovery. `label = displayLabel ?? iclassLabel`.
+   * Null cuando la OS no tiene estado capturado o la tarea nunca fue enviada a
+   * IClass. Solo se muestra en la UI cuando `tracked === true`.
+   */
+  iclassStatus: {
+    code: string;
+    label: string;
+    color: string | null;
+    tracked: boolean;
+  } | null;
 }

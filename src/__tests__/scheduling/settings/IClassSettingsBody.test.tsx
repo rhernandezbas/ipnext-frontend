@@ -38,8 +38,8 @@ function renderSettings() {
 describe('IClassSettingsBody', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  // REQ-LIST-4 SC1: 5 sub-tabs in order
-  it('renders exactly 5 sub-tabs: Integración, Catálogo, Mapeo de proyectos, Mapeo de estado, Procesamiento', () => {
+  // REQ-LIST-4 SC1: 6 sub-tabs in order (updated to include "Estados de IClass")
+  it('renders exactly 6 sub-tabs: Integración, Catálogo, Mapeo de proyectos, Mapeo de estado, Estados de IClass, Procesamiento', () => {
     renderSettings();
     const tabs = screen.getAllByRole('tab').map(t => t.textContent);
     expect(tabs).toEqual([
@@ -47,6 +47,7 @@ describe('IClassSettingsBody', () => {
       'Catálogo',
       'Mapeo de proyectos',
       'Mapeo de estado',
+      'Estados de IClass',
       'Procesamiento',
     ]);
     // Old "Cierre de OS" label must no longer exist
