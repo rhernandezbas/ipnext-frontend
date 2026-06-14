@@ -119,7 +119,6 @@ export interface RegisterAccountPayload {
   firstName: string;
   lastName: string;
   email: string;
-  cic: string;
   /**
    * #47h — optional account password. When present it MUST match
    * `^[a-z0-9]{8,64}$` (lowercase letters + digits, 8–64 chars). Omitted entirely

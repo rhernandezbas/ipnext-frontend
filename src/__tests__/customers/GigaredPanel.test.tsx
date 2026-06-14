@@ -212,9 +212,9 @@ function mockQuery(over: {
   tvCredentialsLoading?: boolean;
   tvCredentialsError?: boolean;
 } = {}) {
-  // The panel calls useGigaredAllAccounts('registered') for the link picker and
-  // useGigaredAllAccounts('unregistered') for the register-CIC select. Return a
-  // list keyed by the status argument so both selects get the right data.
+  // The panel calls useGigaredAllAccounts('registered') for the link picker.
+  // #109: the unregistered call was removed (CIC is now assigned server-side).
+  // The mock still accepts a 'status' key for forward compatibility with picker tests.
   vi.mocked(useGigaredAllAccounts).mockImplementation((status: 'registered' | 'unregistered') => ({
     data: over.allAccounts?.[status] ?? [],
     isLoading: !!over.allAccountsLoading,
@@ -408,8 +408,7 @@ describe('GigaredPanel', () => {
     await user.type(screen.getByLabelText(/nombre/i), 'Ana');
     await user.type(screen.getByLabelText(/apellido/i), 'García');
     await user.type(screen.getByLabelText(/^email$/i), 'a@b.com');
-    await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
-    await user.type(screen.getByLabelText(/^cic$/i), '0001');
+    // #109 — el CIC ya no lo elige el operador; no hay select ni toggle manual.
     // #70 rework — sin campo de contraseña: el submit se destraba solo con los datos.
     await user.click(screen.getByRole('button', { name: /^registrar$/i }));
     await waitFor(() =>
@@ -755,10 +754,9 @@ describe('GigaredPanel', () => {
       registerMutate.mockResolvedValue({ account: linkedAccount, credentialsPersisted: true });
       mockQuery({ account: { linked: false, account: null } });
       // #70 (rework) — sin campo de password: el form solo prefillea el email ficticio; la clave la genera el BE.
+      // #109 — el CIC ya no lo elige el operador.
       renderPanel({ name: 'García Ana', email: 'a@b.com', grClienteId: '243200' });
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
-      await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
-      await user.type(screen.getByLabelText(/^cic$/i), '0001');
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
         expect(screen.getByText(/^Cuenta registrada\s*\.$/)).toBeInTheDocument(),
@@ -773,10 +771,9 @@ describe('GigaredPanel', () => {
       registerMutate.mockResolvedValue({ account: linkedAccount, credentialsPersisted: false });
       mockQuery({ account: { linked: false, account: null } });
       // #70 (rework) — el grClienteId solo alimenta el email ficticio; la clave la genera el BE.
+      // #109 — el CIC ya no lo elige el operador.
       renderPanel({ name: 'García Ana', email: 'a@b.com', grClienteId: '243200' });
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
-      await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
-      await user.type(screen.getByLabelText(/^cic$/i), '0001');
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
         expect(screen.getByText(/la clave no quedó guardada en el sistema/i)).toBeInTheDocument(),
@@ -1008,8 +1005,7 @@ describe('GigaredPanel', () => {
       await user.type(screen.getByLabelText(/nombre/i), 'Ana');
       await user.type(screen.getByLabelText(/apellido/i), 'García');
       await user.type(screen.getByLabelText(/^email$/i), 'a@b.com');
-      await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
-      await user.type(screen.getByLabelText(/^cic$/i), '0001');
+      // #109 — el CIC ya no lo elige el operador; no hay toggle manual.
       // #70 rework — sin campo de contraseña: el submit llega al POST directo.
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() => expect(screen.getByText(/gigared no responde ahora/i)).toBeInTheDocument());
@@ -1221,29 +1217,22 @@ describe('GigaredPanel', () => {
       expect(last).toHaveValue('OTRO');
     });
 
-    it('register CIC is a select over UNREGISTERED accounts', async () => {
+    // #109 — el CIC ya no se elige con un select: el BE lo asigna aleatoriamente.
+    // El payload del register NO lleva cic.
+    it('register payload NO lleva cic (asignado server-side) — prefill de email ficticio sí viaja', async () => {
       const user = userEvent.setup();
       registerMutate.mockResolvedValue({ account: linkedAccount });
-      mockQuery({
-        account: { linked: false, account: null },
-        allAccounts: {
-          unregistered: [
-            pickAccount({ cic: '0000000900', firstName: 'LIBRE', lastName: 'CIC', services: [] }),
-          ],
-        },
-      });
+      mockQuery({ account: { linked: false, account: null } });
       // #70 rework — con grClienteId el form prefillea SOLO el email ficticio; la contraseña
       // ya NO se carga (la genera el backend) y NO viaja en el payload.
       renderPanel({ name: 'DAMONTE JIMENA', email: 'jimena@example.com', grClienteId: '243200' });
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
-      await user.selectOptions(screen.getByLabelText(/cic disponible/i), '0000000900');
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
         expect(registerMutate).toHaveBeenCalledWith({
           firstName: 'JIMENA',
           lastName: 'DAMONTE',
           email: 'damonte243200@gmail.com',
-          cic: '0000000900',
           // #65 — sendActivationEmail defaults FALSE (correo ficticio); contractId travels.
           sendActivationEmail: false,
           contractId: 'ct-9',
@@ -1251,9 +1240,12 @@ describe('GigaredPanel', () => {
       );
       // #70 rework — el payload NUNCA lleva password.
       expect(registerMutate.mock.calls[0][0]).not.toHaveProperty('password');
+      // #109 — el payload NUNCA lleva cic.
+      expect(registerMutate.mock.calls[0][0]).not.toHaveProperty('cic');
     });
 
-    it('register CIC manual fallback toggle reveals the free-text input', async () => {
+    // #109 — el select de CIC y el toggle "Ingresar otro CIC manualmente" fueron removidos.
+    it('NO muestra el select de CIC disponible ni el toggle "ingresar manualmente"', async () => {
       const user = userEvent.setup();
       mockQuery({
         account: { linked: false, account: null },
@@ -1261,8 +1253,8 @@ describe('GigaredPanel', () => {
       });
       renderPanel({ name: 'DAMONTE JIMENA', email: 'jimena@example.com' });
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
-      await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
-      expect(screen.getByLabelText(/^cic$/i)).toBeInTheDocument();
+      expect(screen.queryByRole('combobox', { name: /cic disponible/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /ingresar otro cic manualmente/i })).not.toBeInTheDocument();
     });
 
     it('no customer prop → fields render empty (no crash)', async () => {
@@ -1301,9 +1293,7 @@ describe('GigaredPanel', () => {
         mockQuery({ account: { linked: false, account: null } });
         renderPanel({ name: 'DAMONTE JIMENA', email: 'j@x.com' });
         await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
-        await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
-        await user.type(screen.getByLabelText(/^cic$/i), '0001');
-        // sin campo de contraseña, con nombre/apellido/email/cic completos → submit habilitado.
+        // #109 — ya no hay select ni toggle de CIC: con nombre/apellido/email completos → habilitado.
         expect(screen.getByRole('button', { name: /^registrar$/i })).toBeEnabled();
       });
     });
@@ -1370,14 +1360,12 @@ describe('GigaredPanel', () => {
   // El payload del register NUNCA lleva `password`. El modal "Cambiar contraseña"
   // del #65 NO se toca — sigue libre y se cubre en su propio describe.
   describe('#70 rework — register sin campo de contraseña', () => {
-    /** Open the register form and fill the always-required fields + a manual CIC. */
+    /** Open the register form and fill the always-required fields. #109: sin CIC. */
     async function openRegisterFilled(user: ReturnType<typeof userEvent.setup>) {
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
       await user.type(screen.getByLabelText(/nombre/i), 'Ana');
       await user.type(screen.getByLabelText(/apellido/i), 'García');
       await user.type(screen.getByLabelText(/^email$/i), 'a@b.com');
-      await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
-      await user.type(screen.getByLabelText(/^cic$/i), '0001');
     }
 
     it('NO renderiza campo de contraseña (input ni toggle), SÍ la nota de autogeneración', async () => {
@@ -1403,16 +1391,17 @@ describe('GigaredPanel', () => {
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
         // #65 — sendActivationEmail defaults FALSE + contractId travels. #70 — NO password.
+        // #109 — NO cic: el BE asigna uno aleatorio del pool.
         expect(registerMutate).toHaveBeenCalledWith({
           firstName: 'Ana',
           lastName: 'García',
           email: 'a@b.com',
-          cic: '0001',
           sendActivationEmail: false,
           contractId: 'ct-9',
         }),
       );
       expect(registerMutate.mock.calls[0][0]).not.toHaveProperty('password');
+      expect(registerMutate.mock.calls[0][0]).not.toHaveProperty('cic');
     });
 
     it('sin grClienteId el submit NO se bloquea por la contraseña (queda habilitado con los datos)', async () => {
@@ -1431,14 +1420,12 @@ describe('GigaredPanel', () => {
   // correo real. La advertencia "no podrá ingresar" aparece cuando el toggle está off y
   // no hay password — que es el estado por DEFAULT cuando no hay clave determinística.
   describe('sendActivationEmail checkbox (#65 — correo ficticio)', () => {
-    /** Open the register form, fill required fields + a manual CIC. */
+    /** Open the register form, fill required fields. #109: sin CIC. */
     async function openRegisterFilled(user: ReturnType<typeof userEvent.setup>) {
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
       await user.type(screen.getByLabelText(/nombre/i), 'Ana');
       await user.type(screen.getByLabelText(/apellido/i), 'García');
       await user.type(screen.getByLabelText(/^email$/i), 'a@b.com');
-      await user.click(screen.getByRole('button', { name: /ingresar otro cic manualmente/i }));
-      await user.type(screen.getByLabelText(/^cic$/i), '0001');
     }
 
     it('(a) default → checkbox UNCHECKED, POST carries sendActivationEmail:false', async () => {
@@ -1452,11 +1439,11 @@ describe('GigaredPanel', () => {
       // #70 rework — sin campo de contraseña, el submit ya no la necesita para destrabarse.
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
+        // #109 — el payload ya no lleva cic.
         expect(registerMutate).toHaveBeenCalledWith({
           firstName: 'Ana',
           lastName: 'García',
           email: 'a@b.com',
-          cic: '0001',
           sendActivationEmail: false,
           contractId: 'ct-9',
         }),
@@ -1472,11 +1459,11 @@ describe('GigaredPanel', () => {
       await user.click(screen.getByLabelText(/enviar email de activación al cliente/i));
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
+        // #109 — el payload ya no lleva cic.
         expect(registerMutate).toHaveBeenCalledWith({
           firstName: 'Ana',
           lastName: 'García',
           email: 'a@b.com',
-          cic: '0001',
           sendActivationEmail: true,
           contractId: 'ct-9',
         }),
@@ -2509,6 +2496,98 @@ describe('GigaredPanel', () => {
       mockQuery({ account: { linked: false, account: null } });
       renderPanel();
       expect(screen.queryByRole('button', { name: /historial tv/i })).not.toBeInTheDocument();
+    });
+  });
+
+  // ── #109 — CIC aleatorio server-side ─────────────────────────────────────
+  describe('#109 — CIC asignado server-side (registro TV)', () => {
+    it('el form de registro NO muestra el select de CIC', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      expect(screen.queryByRole('combobox', { name: /cic disponible/i })).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/cic disponible/i)).not.toBeInTheDocument();
+    });
+
+    it('el form de registro muestra el hint "se asignará de forma aleatoria"', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      expect(screen.getByText(/se asignará de forma aleatoria/i)).toBeInTheDocument();
+    });
+
+    it('el payload del register NO incluye cic', async () => {
+      const user = userEvent.setup();
+      registerMutate.mockResolvedValue({ credentialsPersisted: true });
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      await user.type(screen.getByLabelText(/nombre/i), 'Ana');
+      await user.type(screen.getByLabelText(/apellido/i), 'García');
+      await user.type(screen.getByLabelText(/^email$/i), 'a@b.com');
+      await user.click(screen.getByRole('button', { name: /^registrar$/i }));
+      await waitFor(() => expect(registerMutate).toHaveBeenCalled());
+      const payload = registerMutate.mock.calls[0][0] as Record<string, unknown>;
+      expect(payload).not.toHaveProperty('cic');
+    });
+
+    it('error 422 NO_CIC_AVAILABLE → muestra un MODAL (no un banner)', async () => {
+      const user = userEvent.setup();
+      registerMutate.mockRejectedValue({
+        response: { status: 422, data: { code: 'NO_CIC_AVAILABLE', message: 'No hay CIC de TV disponible en el pool — contactá al administrador' } },
+      });
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      await user.type(screen.getByLabelText(/nombre/i), 'Ana');
+      await user.type(screen.getByLabelText(/apellido/i), 'García');
+      await user.type(screen.getByLabelText(/^email$/i), 'a@b.com');
+      await user.click(screen.getByRole('button', { name: /^registrar$/i }));
+      // Debe aparecer un dialog — no un banner inline
+      await waitFor(() =>
+        expect(screen.getByRole('dialog', { name: /no hay cic/i })).toBeInTheDocument(),
+      );
+      expect(screen.getByText(/contactá al administrador/i)).toBeInTheDocument();
+    });
+
+    it('error 422 NO_CIC_AVAILABLE → el modal se puede cerrar', async () => {
+      const user = userEvent.setup();
+      registerMutate.mockRejectedValue({
+        response: { status: 422, data: { code: 'NO_CIC_AVAILABLE', message: 'No hay CIC de TV disponible en el pool — contactá al administrador' } },
+      });
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      await user.type(screen.getByLabelText(/nombre/i), 'Ana');
+      await user.type(screen.getByLabelText(/apellido/i), 'García');
+      await user.type(screen.getByLabelText(/^email$/i), 'a@b.com');
+      await user.click(screen.getByRole('button', { name: /^registrar$/i }));
+      await waitFor(() =>
+        expect(screen.getByRole('dialog', { name: /no hay cic/i })).toBeInTheDocument(),
+      );
+      // Hay múltiples botones "Cerrar" en el panel — buscar dentro del dialog específico.
+      const noCicDialog = screen.getByRole('dialog', { name: /no hay cic/i });
+      await user.click(within(noCicDialog).getByRole('button', { name: /cerrar/i }));
+      expect(screen.queryByRole('dialog', { name: /no hay cic/i })).not.toBeInTheDocument();
+    });
+
+    it('otros errores de register siguen mostrando el banner inline (no modal)', async () => {
+      const user = userEvent.setup();
+      registerMutate.mockRejectedValue({
+        response: { status: 422, data: { code: 'GIGARED_REJECTED', detail: 'Email ya en uso' } },
+      });
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      await user.type(screen.getByLabelText(/nombre/i), 'Ana');
+      await user.type(screen.getByLabelText(/apellido/i), 'García');
+      await user.type(screen.getByLabelText(/^email$/i), 'a@b.com');
+      await user.click(screen.getByRole('button', { name: /^registrar$/i }));
+      await waitFor(() => expect(screen.getByText(/email ya en uso/i)).toBeInTheDocument());
+      // NO debe haber un dialog de NO_CIC_AVAILABLE
+      expect(screen.queryByRole('dialog', { name: /no hay cic/i })).not.toBeInTheDocument();
     });
   });
 });
