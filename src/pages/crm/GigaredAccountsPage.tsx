@@ -257,9 +257,11 @@ export default function GigaredAccountsPage() {
     </div>
   );
 
+  // #111 — service quota table (qtyUsed / qtyPurchased per service) removed.
+  // Only account counters (total / registered / unregistered) remain.
   function SummaryStrip() {
     if (summaryQuery.isLoading || !summaryQuery.data) return null;
-    const { accounts: counts, services } = summaryQuery.data;
+    const { accounts: counts } = summaryQuery.data;
     return (
       <div className={styles.summary}>
         <div className={styles.counts}>
@@ -267,32 +269,6 @@ export default function GigaredAccountsPage() {
           <span className={styles.count}><strong>{counts.registered}</strong> registrados</span>
           <span className={styles.count}><strong>{counts.unregistered}</strong> sin registrar</span>
         </div>
-        {services.length > 0 && (
-          <table className={styles.serviceTable}>
-            <tbody>
-              {services.map((s) => (
-                <tr key={s.id}>
-                  <td className={styles.serviceName}>{s.name}</td>
-                  {/* #47j Fix 4 — "0/102" was opaque. Spell out usage: "En uso
-                      {used} de {purchased}", with the remaining cupo as a sub.
-                      When nothing is left, warn in a quiet tone. */}
-                  <td className={styles.serviceQty}>
-                    <span className={styles.serviceUsage}>
-                      En uso {s.qtyUsed} de {s.qtyPurchased}
-                    </span>
-                    {s.qtyAvailable === 0 ? (
-                      <span className={styles.serviceNoCupo}>sin cupo disponible</span>
-                    ) : (
-                      <span className={styles.serviceAvailable}>
-                        {s.qtyAvailable} disponibles
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
       </div>
     );
   }

@@ -84,8 +84,37 @@ describe('GigaredAccountsPage', () => {
     mockHooks();
     renderPage();
     expect(screen.getByText('7')).toBeInTheDocument();
-    // "Play Full" shows in both the summary service table and the row chips.
+    // "Play Full" comes from the account row chips (services column), NOT from the removed service table.
     expect(screen.getAllByText(/Play Full/).length).toBeGreaterThan(0);
+  });
+
+  // ── #111 — service quota table removed ──────────────────────────────────────
+  describe('#111 — service quota card removed from SummaryStrip', () => {
+    it('does NOT render "En uso" service usage text', () => {
+      mockHooks();
+      renderPage();
+      expect(screen.queryByText(/en uso/i)).not.toBeInTheDocument();
+    });
+
+    it('does NOT render "sin cupo disponible" text', () => {
+      const full: GigaredSummary = {
+        accounts: { registered: 5, unregistered: 2, total: 7 },
+        services: [{ id: 's1', name: 'Play Full', qtyAvailable: 0, qtyUsed: 5, qtyPurchased: 5 }],
+      };
+      mockHooks({ summaryData: full });
+      renderPage();
+      expect(screen.queryByText(/sin cupo disponible/i)).not.toBeInTheDocument();
+    });
+
+    it('does NOT render the service table (no qtyUsed / qtyPurchased shown)', () => {
+      const withServices: GigaredSummary = {
+        accounts: { registered: 5, unregistered: 2, total: 7 },
+        services: [{ id: 's1', name: 'Gigared Play Full', qtyAvailable: 3, qtyUsed: 102, qtyPurchased: 102 }],
+      };
+      mockHooks({ summaryData: withServices });
+      renderPage();
+      expect(screen.queryByText(/102/)).not.toBeInTheDocument();
+    });
   });
 
   it('renders account rows', () => {
@@ -204,27 +233,10 @@ describe('GigaredAccountsPage', () => {
     });
   });
 
-  // ── #47j Fix 4: the summary service copy is human, not "0/102" ───────────────
-  describe('#47j Fix 4 — readable service usage copy', () => {
-    it('renders "En uso {used} de {purchased}" with available sub', () => {
-      // summary service: used 2, purchased 5, available 3.
-      mockHooks();
-      renderPage();
-      expect(screen.getByText(/en uso 2 de 5/i)).toBeInTheDocument();
-      expect(screen.getByText(/3 disponibles/i)).toBeInTheDocument();
-    });
-
-    it('available 0 → warns "sin cupo disponible"', () => {
-      const full: GigaredSummary = {
-        accounts: { registered: 5, unregistered: 2, total: 7 },
-        services: [{ id: 's1', name: 'Play Full', qtyAvailable: 0, qtyUsed: 5, qtyPurchased: 5 }],
-      };
-      mockHooks({ summaryData: full });
-      renderPage();
-      expect(screen.getByText(/en uso 5 de 5/i)).toBeInTheDocument();
-      expect(screen.getByText(/sin cupo disponible/i)).toBeInTheDocument();
-    });
-  });
+  // ── #47j Fix 4: REMOVED — service quota table no longer rendered (#111) ──────
+  // These tests verified the old service table (qtyUsed/qtyPurchased copy).
+  // The table was removed in #111. The equivalent absence assertions live in
+  // the "#111 — service quota card removed" describe block above.
 
   // ── #61 — single LIKE search input ──────────────────────────────────────────
   // The 2 old inputs (email + CIC) are GONE. ONE input replaces them.
