@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FilterBar } from '../../components/molecules/FilterBar/FilterBar';
 import { Pagination } from '../../components/molecules/Pagination/Pagination';
@@ -96,6 +97,9 @@ export default function CustomersListPage() {
   const [page, setPage] = useState(Number(searchParams.get('page') ?? '1'));
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showActionsDropdown, setShowActionsDropdown] = useState(false);
+  const [actionsDropdownPos, setActionsDropdownPos] = useState<{ top: number; left: number } | null>(null);
+  const actionsBtnRef = useRef<HTMLButtonElement>(null);
+  const actionsDropdownRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
     const params: Record<string, string> = {};
@@ -104,6 +108,27 @@ export default function CustomersListPage() {
     if (page > 1) params['page'] = String(page);
     setSearchParams(params, { replace: true });
   }, [search, status, page, setSearchParams]);
+
+  // Close the portal dropdown on click-outside, scroll, or resize (#5 tech-debt).
+  useEffect(() => {
+    if (!showActionsDropdown) return;
+    function handleClickOutside(e: MouseEvent) {
+      const t = e.target as Node;
+      if (!actionsBtnRef.current?.contains(t) && !actionsDropdownRef.current?.contains(t)) {
+        setShowActionsDropdown(false);
+      }
+    }
+    const onScroll = () => setShowActionsDropdown(false);
+    const onResize = () => setShowActionsDropdown(false);
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [showActionsDropdown]);
 
   const { data, isLoading } = useClientList({
     page,
@@ -161,18 +186,30 @@ export default function CustomersListPage() {
       />
       <div className={styles.actionsBar}>
         <button
+          ref={actionsBtnRef}
           className={styles.actionsBtn}
           disabled={selectedIds.length === 0}
-          onClick={() => setShowActionsDropdown((v) => !v)}
+          onClick={() => {
+            if (showActionsDropdown) { setShowActionsDropdown(false); return; }
+            const r = actionsBtnRef.current?.getBoundingClientRect();
+            if (r) setActionsDropdownPos({ top: r.bottom + 4, left: r.left });
+            setShowActionsDropdown(true);
+          }}
         >
           Acciones en lote
         </button>
-        {showActionsDropdown && selectedIds.length > 0 && (
-          <ul className={styles.actionsDropdown}>
+        {showActionsDropdown && selectedIds.length > 0 && actionsDropdownPos && createPortal(
+          <ul
+            ref={actionsDropdownRef}
+            data-testid="acciones-lote-dropdown"
+            className={styles.actionsDropdown}
+            style={{ position: 'fixed', top: actionsDropdownPos.top, left: actionsDropdownPos.left }}
+          >
             <Can permission="clients.write"><li onClick={() => { selectedIds.forEach(id => toggleStatus.mutate({ id, status: 'blocked' })); setShowActionsDropdown(false); }}>Bloquear seleccionados</li></Can>
             <li onClick={() => { const msg = window.prompt('Mensaje para los clientes seleccionados:'); if (msg) { window.alert(`Mensaje enviado a ${selectedIds.length} cliente(s).`); } setShowActionsDropdown(false); }}>Enviar mensaje</li>
             <li onClick={() => { exportToCSV(data?.data ?? [], 'clientes.csv'); setShowActionsDropdown(false); }}>Exportar</li>
-          </ul>
+          </ul>,
+          document.body,
         )}
         <button
           className={styles.exportBtn}

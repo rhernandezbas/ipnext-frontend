@@ -10,6 +10,7 @@ import type { Partner } from '@/types/partner';
 type SchedulingAssignee = { id: string; name: string };
 import type { Project } from '@/types/project';
 import { useClientContracts } from '@/hooks/useCustomers';
+import { useIClassNodes } from '@/hooks/useIClassNodes';
 import { buildContractLabel } from '@/lib/buildContractLabel';
 import styles from './DatosForm.module.css';
 
@@ -27,6 +28,8 @@ export interface DatosFormValues {
   travelTimeFrom: number | null;
   address: string | null;
   coordinates: { lat: number; lng: number } | null;
+  /** IClass city/locality code — editable on network+fibra tasks (#3 tech-debt). */
+  iclassCityCode?: string | null;
 }
 
 interface DatosFormProps {
@@ -46,6 +49,9 @@ interface DatosFormProps {
   iclassOrderCode?: string | null;
   /** The project that was set when the task was last saved (used for warning) */
   originalProjectId?: string | null;
+  /** Network branch type — determines whether the locality field is shown.
+   *  Only 'fibra' tasks show the iclassCityCode select (feature #54/#66). */
+  networkType?: 'red' | 'fibra' | null;
   /** Notifies parent whenever any field changes vs initial values (REQ-EDIT-3/4) */
   onDirtyChange?: (isDirty: boolean) => void;
 }
@@ -76,7 +82,9 @@ function toIso(local: string): string | null {
   }
 }
 
-export function DatosForm({ initial, onSubmit, isSaving, admins, partners, projects = [], kind, iclassOrderCode, originalProjectId, onDirtyChange }: DatosFormProps) {
+export function DatosForm({ initial, onSubmit, isSaving, admins, partners, projects = [], kind, iclassOrderCode, originalProjectId, networkType, onDirtyChange }: DatosFormProps) {
+  // Localidad (iclassCityCode) is only editable on network+fibra tasks (#3 tech-debt, #54/#66).
+  const showLocalidad = kind === 'network' && networkType === 'fibra';
   // Filter the project select by the task's kind (#40 FIX-3). A customer task
   // only ever offers customer projects; a network task only ever offers network
   // ones. Omitted kind ⇒ no filter (back-compat). Mirror of CreateTaskModal +
@@ -116,6 +124,22 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
     !!initial.customerId,
   );
 
+  // IClass node catalog — fetched unconditionally (useIClassNodes has no `enabled` param;
+  // adding one would require changing the shared hook and all its callers, out of scope here).
+  // Filtering for eligibility (active && selectable) matches CreateTaskModal's approach.
+  const { data: iclassNodes = [] } = useIClassNodes();
+  const localidadOptions = showLocalidad
+    ? iclassNodes.filter(n => n.active && n.selectable)
+    : [];
+
+  // #3-F1: if the task's current iclassCityCode is NOT in the filtered catalog
+  // (e.g. the node was deactivated after the task was created), add a fallback
+  // option so the select renders it and doesn't silently reset to '' → null on save.
+  const currentCityNotInCatalog =
+    showLocalidad &&
+    !!initial.iclassCityCode &&
+    !localidadOptions.some(n => n.code === initial.iclassCityCode);
+
   const {
     register,
     handleSubmit,
@@ -129,6 +153,7 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
       ...initial,
       startDate: toLocalInput(initial.startDate),
       endDate: toLocalInput(initial.endDate),
+      iclassCityCode: initial.iclassCityCode ?? null,
     },
   });
 
@@ -172,6 +197,27 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
       hydratedProjectRef.current = true;
     }
   }, [projects, initial.projectId, setValue]);
+
+  // Hydrate iclassCityCode when the node catalog arrives async. Same ref-guarded
+  // pattern as contracts/assignee/project — prevents the async options race from
+  // silently resetting the select to "Sin localidad". Runs only when the field
+  // is visible (network+fibra tasks) and only once per mount (#3 tech-debt).
+  // #3-F1: also fires when the node is NOT in the catalog (fallback option) so
+  // the select is pre-populated and the value isn't lost on save.
+  const hydratedLocalidadRef = useRef(false);
+  useEffect(() => {
+    if (!showLocalidad) return;
+    if (hydratedLocalidadRef.current) return;
+    if (!initial.iclassCityCode) return;
+    // Fire when: (a) the code is in the eligible catalog, OR (b) the catalog has
+    // finished loading (iclassNodes resolved) and the fallback option is shown.
+    const inCatalog = localidadOptions.some(n => n.code === initial.iclassCityCode);
+    const fallbackReady = currentCityNotInCatalog && iclassNodes.length >= 0;
+    if (inCatalog || fallbackReady) {
+      setValue('iclassCityCode', initial.iclassCityCode);
+      hydratedLocalidadRef.current = true;
+    }
+  }, [localidadOptions, iclassNodes, initial.iclassCityCode, showLocalidad, currentCityNotInCatalog, setValue]);
 
   // Watch projectId to compute the IClass warning inline.
   const currentProjectId = useWatch({ control, name: 'projectId' });
@@ -236,6 +282,11 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
       endDate: data.endDate ? toIso(data.endDate) : null,
       travelTimeTo: data.travelTimeTo ? Number(data.travelTimeTo) : null,
       travelTimeFrom: data.travelTimeFrom ? Number(data.travelTimeFrom) : null,
+      // Only include iclassCityCode when the field is visible; otherwise preserve
+      // the existing value from initial so the PATCH doesn't wipe it.
+      iclassCityCode: showLocalidad
+        ? (data.iclassCityCode || null)
+        : (initial.iclassCityCode ?? null),
     };
     await onSubmit(payload);
   };
@@ -313,6 +364,31 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
               ))}
             </select>
           </div>
+
+          {/* Localidad (iclassCityCode) — solo para tareas de nodo fibra (#3 tech-debt, #54/#66) */}
+          {showLocalidad && (
+            <div className={styles.field}>
+              <label htmlFor="iclassCityCode" className={styles.label}>Localidad</label>
+              <select
+                id="iclassCityCode"
+                className={styles.select}
+                {...register('iclassCityCode')}
+              >
+                <option value="">Sin localidad</option>
+                {/* #3-F1: fallback option when the current code is no longer in the
+                    active catalog (node deactivated post-creation). Keeps the value
+                    visible and prevents a silent null on save. */}
+                {currentCityNotInCatalog && (
+                  <option value={initial.iclassCityCode!}>{initial.iclassCityCode}</option>
+                )}
+                {localidadOptions.map(n => (
+                  <option key={n.id} value={n.code}>
+                    {n.code} — {n.description}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Inicia */}
           <div className={styles.field}>

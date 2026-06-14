@@ -13,6 +13,12 @@ vi.mock('@/hooks/useCustomers', () => ({
   useClientContracts: () => useClientContractsMock(),
 }));
 
+// Stub useIClassNodes — not relevant for these tests (locality field only shows
+// on network+fibra tasks, which these tests don't exercise).
+vi.mock('@/hooks/useIClassNodes', () => ({
+  useIClassNodes: vi.fn(() => ({ data: [], isLoading: false })),
+}));
+
 const mockAdmins: Admin[] = [
   { id: 'admin-1', name: 'Juan Pérez', email: 'juan@example.com', role: 'admin', status: 'active', createdAt: '', lastLogin: null },
   { id: 'admin-2', name: 'Ana García', email: 'ana@example.com', role: 'admin', status: 'active', createdAt: '', lastLogin: null },

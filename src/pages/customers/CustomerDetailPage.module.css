@@ -71,6 +71,12 @@
 .headerRight { display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; }
 .contactInfo { display: flex; flex-direction: column; align-items: flex-end; gap: 0.125rem; font-size: 0.875rem; color: var(--color-text-secondary); }
 .headerActions { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
-.dropdown { position: absolute; top: 100%; left: 0; z-index: 100; background: #fff; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); min-width: 180px; padding: 0.25rem 0; }
+/* #5-F1 z-index: portal dropdowns need a value above page stacking contexts.
+   Modals/overlays in this project use ~1000-1200; 1000 keeps us visible above
+   normal page content while still allowing a confirmation modal (1200) on top.
+   #5-F4: position changed from absolute (with top/left anchors) to fixed —
+   top/left are set via inline style from getBoundingClientRect(), so the CSS
+   positional values are removed to avoid a (0,0) collapse if inline is ever dropped. */
+.dropdown { position: fixed; z-index: 1000; background: #fff; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); min-width: 180px; padding: 0.25rem 0; }
 .dropdownItem { display: block; width: 100%; padding: 0.5rem 1rem; text-align: left; background: none; border: none; cursor: pointer; font-size: 0.875rem; color: var(--color-text-primary, #222); white-space: nowrap; }
 .dropdownItem:hover { background: #f5f5f5; }

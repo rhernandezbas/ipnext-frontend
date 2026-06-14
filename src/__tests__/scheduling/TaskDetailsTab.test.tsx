@@ -31,6 +31,9 @@ vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/lib/geocode', () => ({
 vi.mock('@/hooks/useCustomers', () => ({
   useClientContracts: vi.fn(() => ({ data: [] })),
 }));
+vi.mock('@/hooks/useIClassNodes', () => ({
+  useIClassNodes: vi.fn(() => ({ data: [], isLoading: false })),
+}));
 vi.mock('@/hooks/useScheduling', () => ({
   useAddChecklistItem: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
   useToggleChecklistItem: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
