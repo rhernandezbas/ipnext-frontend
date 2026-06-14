@@ -63,6 +63,20 @@ describe('formatDateTimeShort', () => {
   it('returns the em dash for an invalid date', () => {
     expect(formatDateTimeShort('not-a-date')).toBe('—');
   });
+
+  // FIX 3 (WARNING-2) — TV events carry occurredAt = createdAt serialized by
+  // Prisma WITH a trailing "Z" (UTC). formatDateTimeShort renders them in the
+  // LOCAL timezone of the browser, which is the CORRECT behavior for a real
+  // wall-clock timestamp (as opposed to a date-only field like startDate).
+  // This test documents the shape of the output without pinning the exact hour
+  // (which depends on the test runner's timezone).
+  it('renders a UTC timestamp (trailing Z) in local timezone — shape "DD mmm YYYY - HH:MM"', () => {
+    const result = formatDateTimeShort('2023-01-01T13:45:00.000Z');
+    // Must NOT be the em dash (i.e., it parsed successfully)
+    expect(result).not.toBe('—');
+    // Must match the canonical format regardless of the local offset
+    expect(result).toMatch(/^\d{2} ene 2023 - \d{2}:\d{2}$/);
+  });
 });
 
 // ── formatDateShort (canonical date-only #83: "08 sep 2025") ───────────────────

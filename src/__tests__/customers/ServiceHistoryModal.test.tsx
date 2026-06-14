@@ -21,6 +21,7 @@ const entries: ServiceHistoryEntry[] = [
     tvLogin: null,
     createdAt: '2024-01-15T00:00:00Z',
     deactivatedAt: null,
+    events: [],
   },
   {
     id: '2',
@@ -33,8 +34,61 @@ const entries: ServiceHistoryEntry[] = [
     tvLogin: 'user123',
     createdAt: '2023-06-01T00:00:00Z',
     deactivatedAt: '2024-01-10T00:00:00Z',
+    events: [],
   },
 ];
+
+// Entry with full events array (3 events including TV CIC)
+const entryWithEvents: ServiceHistoryEntry = {
+  id: '3',
+  contractId: 'c2',
+  serviceCatalogId: 's3',
+  name: 'TV',
+  label: 'Gigared Play',
+  status: 'inactive',
+  notes: null,
+  tvLogin: 'tvuser',
+  createdAt: '2023-01-01T00:00:00Z',
+  deactivatedAt: '2024-03-10T00:00:00Z',
+  events: [
+    {
+      id: 'ev1',
+      eventType: 'activated',
+      occurredAt: '2023-01-01T10:00:00',
+      actorName: 'Operador A',
+      cic: 'CIC-001',
+    },
+    {
+      id: 'ev2',
+      eventType: 'deactivated',
+      occurredAt: '2023-06-15T14:30:00',
+      actorName: 'Operador B',
+      cic: null,
+    },
+    {
+      id: 'ev3',
+      eventType: 'reactivated',
+      occurredAt: '2023-09-20T09:15:00',
+      actorName: 'Operador C',
+      cic: 'CIC-002',
+    },
+  ],
+};
+
+// Legacy entry — BE sends events: [] for pre-ledger services
+const legacyEntry: ServiceHistoryEntry = {
+  id: '4',
+  contractId: 'c2',
+  serviceCatalogId: 's4',
+  name: 'FIBER',
+  label: 'Fibra Legacy',
+  status: 'active',
+  notes: null,
+  tvLogin: null,
+  createdAt: '2022-05-10T00:00:00Z',
+  deactivatedAt: null,
+  events: [],
+};
 
 describe('ServiceHistoryModal', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -96,5 +150,143 @@ describe('ServiceHistoryModal', () => {
     mockUseHistory.mockReturnValue({ data: entries, isLoading: false } as any);
     render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c1" />);
     expect(screen.getByLabelText('Cerrar')).toHaveFocus();
+  });
+
+  // ── service-history-ledger-fe: events sequence ───────────────────────────────
+
+  it('renders all 3 events for a service that has events', () => {
+    mockUseHistory.mockReturnValue({ data: [entryWithEvents], isLoading: false } as any);
+    render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c2" />);
+
+    // Badge labels — 'Baja' appears twice: once as the current-status badge,
+    // once as the event badge. Use getAllByText to handle that.
+    expect(screen.getByText('Alta')).toBeInTheDocument();
+    expect(screen.getAllByText('Baja').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Reactivación')).toBeInTheDocument();
+  });
+
+  it('renders event dates formatted with formatDateTimeShort', () => {
+    mockUseHistory.mockReturnValue({ data: [entryWithEvents], isLoading: false } as any);
+    render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c2" />);
+
+    // formatDateTimeShort('2023-01-01T10:00:00') → "01 ene 2023 - 10:00"
+    expect(screen.getByText('01 ene 2023 - 10:00')).toBeInTheDocument();
+    // formatDateTimeShort('2023-06-15T14:30:00') → "15 jun 2023 - 14:30"
+    expect(screen.getByText('15 jun 2023 - 14:30')).toBeInTheDocument();
+    // formatDateTimeShort('2023-09-20T09:15:00') → "20 sep 2023 - 09:15"
+    expect(screen.getByText('20 sep 2023 - 09:15')).toBeInTheDocument();
+  });
+
+  it('renders actorName for each event', () => {
+    mockUseHistory.mockReturnValue({ data: [entryWithEvents], isLoading: false } as any);
+    render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c2" />);
+
+    expect(screen.getByText('Operador A')).toBeInTheDocument();
+    expect(screen.getByText('Operador B')).toBeInTheDocument();
+    expect(screen.getByText('Operador C')).toBeInTheDocument();
+  });
+
+  it('renders CIC when non-null and hides it (dash) when null', () => {
+    mockUseHistory.mockReturnValue({ data: [entryWithEvents], isLoading: false } as any);
+    render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c2" />);
+
+    // CIC-001 and CIC-002 are non-null → rendered
+    expect(screen.getByText('CIC-001')).toBeInTheDocument();
+    expect(screen.getByText('CIC-002')).toBeInTheDocument();
+    // ev2 has cic: null → em dash; use getAllByText to avoid single-match crash
+    // when multiple em dashes are present (other null fields, future rows, etc.)
+    const dashes = screen.getAllByText('—');
+    expect(dashes.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('legacy entry without events renders current status without breaking', () => {
+    mockUseHistory.mockReturnValue({ data: [legacyEntry], isLoading: false } as any);
+    render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c2" />);
+
+    // Still shows service name
+    expect(screen.getByText('Fibra Legacy')).toBeInTheDocument();
+    // Still shows status badge (active = 'Activo')
+    expect(screen.getByText('Activo')).toBeInTheDocument();
+    // No crash — dialog is present
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('shows current status alongside events for services with events', () => {
+    mockUseHistory.mockReturnValue({ data: [entryWithEvents], isLoading: false } as any);
+    render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c2" />);
+
+    // The service label is still visible
+    expect(screen.getByText('Gigared Play')).toBeInTheDocument();
+  });
+
+  // FIX 3 (WARNING-2) — occurredAt with Z is a real wall-clock timestamp;
+  // formatDateTimeShort renders it in the browser's LOCAL timezone.
+  // This test documents the behavior (local rendering) and guards the formatter.
+  it('renders occurredAt with trailing Z in local timezone format', () => {
+    const entryWithUtcEvent: ServiceHistoryEntry = {
+      id: '5',
+      contractId: 'c3',
+      serviceCatalogId: 's5',
+      name: 'TV',
+      label: 'TV UTC Test',
+      status: 'active',
+      notes: null,
+      tvLogin: 'tvutc',
+      createdAt: '2023-01-01T00:00:00.000Z',
+      deactivatedAt: null,
+      events: [
+        {
+          id: 'ev-utc',
+          eventType: 'activated',
+          // Prisma serializes occurredAt = createdAt WITH Z (UTC).
+          // formatDateTimeShort renders this in local browser time — CORRECT
+          // for a real timestamp (not a date-only field).
+          occurredAt: '2023-01-01T13:45:00.000Z',
+          actorName: 'Sistema',
+          cic: null,
+        },
+      ],
+    };
+    mockUseHistory.mockReturnValue({ data: [entryWithUtcEvent], isLoading: false } as any);
+    render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c3" />);
+
+    // The rendered text follows the LOCAL timezone of the test runner.
+    // We assert the shape (DD mmm YYYY - HH:MM) without pinning the exact
+    // hour, since timezone varies per environment.
+    const cells = screen.getAllByText(/\d{2} ene 2023 - \d{2}:\d{2}/);
+    expect(cells.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // FIX 4 (WARNING-3) — synth IDs generated by the BE for legacy events
+  // (format: "synth-{eventType}-{createdAt}") must be valid React keys.
+  it('renders a service with a synthetic legacy event ID without key warnings', () => {
+    const entryWithSynthEvent: ServiceHistoryEntry = {
+      id: '6',
+      contractId: 'c4',
+      serviceCatalogId: 's6',
+      name: 'TV',
+      label: 'TV Legacy Synth',
+      status: 'inactive',
+      notes: null,
+      tvLogin: 'tvsynth',
+      createdAt: '2023-01-01T00:00:00.000Z',
+      deactivatedAt: '2023-12-31T00:00:00.000Z',
+      events: [
+        {
+          id: 'synth-activated-2023-01-01T00:00:00.000Z',
+          eventType: 'activated',
+          occurredAt: '2023-01-01T00:00:00.000Z',
+          actorName: 'Sistema Legacy',
+          cic: null,
+        },
+      ],
+    };
+    mockUseHistory.mockReturnValue({ data: [entryWithSynthEvent], isLoading: false } as any);
+    render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c4" />);
+
+    // The service renders and the synth ID is used as key without crashing
+    expect(screen.getByText('TV Legacy Synth')).toBeInTheDocument();
+    expect(screen.getByText('Sistema Legacy')).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });
