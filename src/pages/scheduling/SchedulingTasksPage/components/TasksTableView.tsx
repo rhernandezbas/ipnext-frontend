@@ -621,7 +621,7 @@ export function TasksTableView({
           : (t.customerName || '—')
       ) },
     { label: 'Localidad', key: 'customerCity',   sortable: true,
-      render: (t: ScheduledTask) => t.customerCity || '—' },
+      render: (t: ScheduledTask) => t.customerCity || t.iclassCityCode || '—' },
     { label: 'Inicio',    key: 'startDate',      sortable: true,
       render: (t: ScheduledTask) => formatDateShort(t.startDate) },
     { label: 'Asignado',  key: 'assigneeName',   sortable: true },
