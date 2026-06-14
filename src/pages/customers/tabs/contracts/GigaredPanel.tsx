@@ -536,13 +536,6 @@ function UnlinkedView({
   // the same amber + retry pattern as the add; the retry re-posts the link.
   const [linkSyncNotice, setLinkSyncNotice] = useState(false);
 
-  // #47e B — register CIC picker: paginated UNREGISTERED accounts (Gigared
-  // requires an existing, unregistered CIC). Manual toggle falls back to a
-  // free-text input.
-  const regCicQuery = useGigaredAllAccounts('unregistered');
-  const unregisteredAccounts = regCicQuery.data ?? [];
-  const [regCicManual, setRegCicManual] = useState(false);
-
   const prefill = customer ? splitName(customer.name) : { firstName: '', lastName: '' };
 
   // #65 — alta determinística. Con grClienteId (idGR) prefillamos el correo FICTICIO
@@ -557,9 +550,10 @@ function UnlinkedView({
     firstName: prefill.firstName,
     lastName: prefill.lastName,
     email: ficticioEmail,
-    cic: '',
   });
   const [registerError, setRegisterError] = useState<string | null>(null);
+  // #109 — modal cuando el pool de CICs está agotado (NO_CIC_AVAILABLE).
+  const [noCicModalOpen, setNoCicModalOpen] = useState(false);
   const [registerOk, setRegisterOk] = useState(false);
   // #65 fix wave M7 — true cuando el alta funcionó pero las credenciales NO quedaron guardadas
   // en el slot TV (best-effort). Mostramos un warning sutil para que el operador las anote.
@@ -626,13 +620,14 @@ function UnlinkedView({
       // server-side a partir del idGR. sendActivationEmail viaja SIEMPRE explícito.
       // #65 — contractId carries the owner contract so the BE impacts login + password
       // on the local TV slot (la clave generada queda en "Credenciales").
+      // #109 — cic ya NO se manda: el BE asigna uno aleatorio del pool.
       const result = await register.mutateAsync({
         ...form,
         sendActivationEmail,
         contractId: effectiveContractId,
       });
       // Drop the local form state after submit — never keep PII around.
-      setForm({ firstName: '', lastName: '', email: '', cic: '' });
+      setForm({ firstName: '', lastName: '', email: '' });
       setSendActivationEmail(false);
       setRegisterOk(true);
       // M7 — the account exists, but flag if the credentials did not make it to the slot.
@@ -641,8 +636,13 @@ function UnlinkedView({
       // The partner returns 422 GIGARED_REJECTED with a human `detail` (e.g.
       // "email already in use"). There is no dedicated ACCOUNT_EXISTS code —
       // surface the partner's detail verbatim, with a generic fallback.
+      // #109 — NO_CIC_AVAILABLE: 422 cuando el pool de CICs está agotado → modal dedicado.
       const c = errorCode(err);
       const detail = errorDetail(err);
+      if (c === 'NO_CIC_AVAILABLE') {
+        setNoCicModalOpen(true);
+        return;
+      }
       // #47g-3 — surface the partner `detail` whenever it comes (422 reject OR
       // 502/503 upstream), with a generic fallback when it does not.
       setRegisterError(
@@ -815,52 +815,10 @@ function UnlinkedView({
                   onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 />
               </div>
-              <div className={styles.field}>
-                {regCicManual ? (
-                  <>
-                    <label className={styles.fieldLabel} htmlFor="tv-reg-cic">CIC</label>
-                    <input
-                      id="tv-reg-cic"
-                      className={styles.input}
-                      value={form.cic}
-                      onChange={(e) => setForm((f) => ({ ...f, cic: e.target.value }))}
-                    />
-                    <button
-                      type="button"
-                      className={styles.btnLink}
-                      onClick={() => setRegCicManual(false)}
-                    >
-                      Elegir de la lista
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <label className={styles.fieldLabel} htmlFor="tv-reg-cic-select">
-                      CIC disponible
-                    </label>
-                    <select
-                      id="tv-reg-cic-select"
-                      className={styles.select}
-                      value={form.cic}
-                      onChange={(e) => setForm((f) => ({ ...f, cic: e.target.value }))}
-                    >
-                      <option value="">Elegí un CIC…</option>
-                      {unregisteredAccounts.map((a) => (
-                        <option key={a.cic} value={a.cic}>
-                          CIC {a.cic}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className={styles.btnLink}
-                      onClick={() => setRegCicManual(true)}
-                    >
-                      Ingresar otro CIC manualmente
-                    </button>
-                  </>
-                )}
-              </div>
+              {/* #109 — el CIC ya no lo elige el operador: el BE asigna uno aleatorio del pool. */}
+              <p className={styles.emptyHint}>
+                El CIC se asignará de forma aleatoria.
+              </p>
 
               {/* #70 rework — el ALTA ya NO pide contraseña: la genera el backend
                   automáticamente a partir del idGR. Nota sutil en lugar del campo. */}
@@ -910,7 +868,7 @@ function UnlinkedView({
                 <button
                   type="submit"
                   className={styles.btnPrimary}
-                  disabled={register.isPending || !form.firstName || !form.lastName || !form.email || !form.cic}
+                  disabled={register.isPending || !form.firstName || !form.lastName || !form.email}
                 >
                   {register.isPending ? 'Registrando…' : 'Registrar'}
                 </button>
@@ -919,6 +877,37 @@ function UnlinkedView({
           </form>
         )}
       </div>
+
+      {/* #109 — modal cuando el pool de CICs está agotado */}
+      {noCicModalOpen && (
+        <div
+          className={styles.confirmBackdrop}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="tv-no-cic-title"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setNoCicModalOpen(false);
+          }}
+        >
+          <div className={styles.dialog}>
+            <h2 id="tv-no-cic-title" className={styles.cardTitle}>No hay CIC de TV disponible</h2>
+            <p className={styles.emptyHint}>
+              No hay CIC de TV disponible en el pool. Contactá al administrador para que agregue
+              nuevos CICs antes de intentar registrar la cuenta.
+            </p>
+            <div className={styles.formActions}>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                aria-label="Cerrar"
+                onClick={() => setNoCicModalOpen(false)}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
