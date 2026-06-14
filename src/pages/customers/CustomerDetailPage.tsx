@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, Navigate, useNavigate, Link } from 'react-router-dom';
 import { Tabs } from '../../components/molecules/Tabs/Tabs';
 import { ConfirmModal } from '../../components/molecules/ConfirmModal/ConfirmModal';
@@ -39,9 +40,11 @@ export default function CustomerDetailPage() {
   });
 
   const [accionesOpen, setAccionesOpen] = useState(false);
+  const [accionesPos, setAccionesPos] = useState<{ top: number; left: number } | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const accionesRef = useRef<HTMLDivElement>(null);
+  const accionesTriggerRef = useRef<HTMLDivElement>(null);
+  const accionesDropdownRef = useRef<HTMLDivElement>(null);
 
   const activatedTabs = useRef<Set<string>>(new Set([activeTab]));
 
@@ -63,12 +66,23 @@ export default function CustomerDetailPage() {
   useEffect(() => {
     if (!accionesOpen) return;
     function handleClickOutside(e: MouseEvent) {
-      if (accionesRef.current && !accionesRef.current.contains(e.target as Node)) {
+      const t = e.target as Node;
+      const clickedTrigger = accionesTriggerRef.current?.contains(t);
+      const clickedDropdown = accionesDropdownRef.current?.contains(t);
+      if (!clickedTrigger && !clickedDropdown) {
         setAccionesOpen(false);
       }
     }
+    const onScroll = () => setAccionesOpen(false);
+    const onResize = () => setAccionesOpen(false);
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
+    };
   }, [accionesOpen]);
 
   const canViewEquipment = useCan('inventory.read');
@@ -202,12 +216,29 @@ export default function CustomerDetailPage() {
           </span>
         </div>
         <div className={styles.headerActions}>
-          <div ref={accionesRef} style={{ position: 'relative' }}>
-            <Button variant="secondary" size="sm" onClick={() => setAccionesOpen(o => !o)}>
+          <div ref={accionesTriggerRef} style={{ position: 'relative' }}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                if (accionesOpen) {
+                  setAccionesOpen(false);
+                  return;
+                }
+                const r = accionesTriggerRef.current?.getBoundingClientRect();
+                if (r) setAccionesPos({ top: r.bottom + 4, left: r.left });
+                setAccionesOpen(true);
+              }}
+            >
               Acciones ▾
             </Button>
-            {accionesOpen && (
-              <div className={styles.dropdown}>
+            {accionesOpen && accionesPos && createPortal(
+              <div
+                ref={accionesDropdownRef}
+                data-testid="acciones-dropdown"
+                className={styles.dropdown}
+                style={{ position: 'fixed', top: accionesPos.top, left: accionesPos.left }}
+              >
                 <Can permission="clients.write">
                   <button
                     className={styles.dropdownItem}
@@ -243,7 +274,8 @@ export default function CustomerDetailPage() {
                     Eliminar cliente
                   </button>
                 </Can>
-              </div>
+              </div>,
+              document.body,
             )}
           </div>
           <Button variant="secondary" size="sm" onClick={() => navigate(`/admin/scheduling/tasks?customerId=${id}`)}>Tareas ({taskCount}) ▾</Button>
