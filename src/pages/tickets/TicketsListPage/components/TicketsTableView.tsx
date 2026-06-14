@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import { Can } from '@/components/auth/Can';
 import { useTicketStatuses } from '@/hooks/useTicketStatuses';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
@@ -294,8 +295,9 @@ interface TicketsTableViewProps {
   onClearFilters?: () => void;
 }
 
-const ALL_COLUMNS: Array<{ label: string; key: string; sortable?: boolean; render?: (t: Ticket) => React.ReactNode }> = [
-  { label: 'ID', key: 'id',
+const ALL_COLUMNS: Array<{ label: string; key: string; sortable?: boolean; sortField?: string; render?: (t: Ticket) => React.ReactNode }> = [
+  // #112 — sortable by sequenceNumber (the visible #N), not by the UUID id.
+  { label: 'ID', key: 'id', sortable: true, sortField: 'sequenceNumber',
     render: (t) => <Link to={`/admin/tickets/${t.id}`} className={styles.idLink}>#{t.sequenceNumber}</Link> },
   { label: 'Tema', key: 'subject', sortable: true,
     render: (t) => <Link to={`/admin/tickets/${t.id}`} className={styles.titleLink}>{t.subject}</Link> },
@@ -321,7 +323,9 @@ const ALL_COLUMNS: Array<{ label: string; key: string; sortable?: boolean; rende
     <SlaTimerCell createdAt={t.createdAt} status={t.status} resolvedAt={t.resolvedAt} updatedAt={t.updatedAt} />
   ) },
   { label: 'Asignado a', key: 'assigneeName' },
-  { label: 'Creado de fecha y hora', key: 'createdAt', sortable: true },
+  // #113 — header simplified to "Creado"; cell uses the canonical formatDateTimeShort helper (#83).
+  { label: 'Creado', key: 'createdAt', sortable: true,
+    render: (t) => <>{formatDateTimeShort(t.createdAt)}</> },
 ];
 
 export function TicketsTableView({
