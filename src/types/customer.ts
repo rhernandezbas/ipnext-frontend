@@ -13,6 +13,19 @@ export interface ContractService {
   // La sección "Credenciales Gigared Play" las consume por GET /gigared/customers/:id/tv-credentials.
 }
 
+/** A single state-change event in a service's lifecycle (service-history-ledger). */
+export interface ServiceEvent {
+  id: string;
+  /** 'activated' | 'deactivated' | 'reactivated' — maps to Alta / Baja / Reactivación. */
+  eventType: 'activated' | 'deactivated' | 'reactivated';
+  /** ISO timestamp of when the event occurred. */
+  occurredAt: string;
+  /** Display name of the operator who triggered the event. */
+  actorName: string;
+  /** CIC identifier — only non-null for TV-related events. */
+  cic: string | null;
+}
+
 /** One entry in a contract's service history (#73). Includes inactive services. */
 export interface ServiceHistoryEntry {
   id: string;
@@ -25,6 +38,12 @@ export interface ServiceHistoryEntry {
   tvLogin: string | null;
   createdAt: string;
   deactivatedAt: string | null;
+  /**
+   * Ordered chronological sequence of state-change events for this service.
+   * The BE always sends this array (empty for legacy/pre-ledger services).
+   * The UI still guards with Array.isArray() for robustness against stale cache.
+   */
+  events: ServiceEvent[];
 }
 
 /** An entry in the service catalog ABM (#43). */

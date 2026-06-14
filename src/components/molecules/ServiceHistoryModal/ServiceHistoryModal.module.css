@@ -23,7 +23,7 @@
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
-  max-width: 760px;
+  max-width: 860px;
   width: calc(100% - var(--space-8));
   max-height: 85vh;
   display: flex;
@@ -75,12 +75,129 @@
 .body {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+}
+
+/* Loading / empty states */
+
+.loadingMsg,
+.emptyMsg {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding: var(--space-8) 0;
+}
+
+/* Service list */
+
+.serviceList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* Individual service block */
+
+.serviceBlock {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.serviceHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-hover, #f9fafb);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.serviceName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.serviceMeta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-left: auto;
+}
+
+.serviceNotes {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
 }
 
 .tvLogin {
-  display: block;
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
-  margin-top: var(--space-1);
+}
+
+/* Events sub-table */
+
+.eventsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.eventsTable th,
+.eventsTable td {
+  padding: var(--space-2) var(--space-4);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.eventsTable th {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: transparent;
+}
+
+.eventsTable tr:last-child td {
+  border-bottom: none;
+}
+
+/* Event type badges — same palette as ActivationHistoryModal */
+
+.badgeAlta {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  background: #d1fae5;
+  color: #065f46;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.badgeBaja {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.badgeReactivacion {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  background: #fffbeb;
+  color: #92400e;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
 }

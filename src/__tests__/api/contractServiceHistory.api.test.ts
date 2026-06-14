@@ -25,6 +25,7 @@ describe('contractServicesApi.getHistory', () => {
         tvLogin: null,
         createdAt: '2024-01-01T00:00:00Z',
         deactivatedAt: null,
+        events: [],
       },
     ];
     mockAxios.get.mockResolvedValue({ data: entries });
