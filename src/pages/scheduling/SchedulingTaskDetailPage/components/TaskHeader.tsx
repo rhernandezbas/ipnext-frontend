@@ -7,6 +7,9 @@ import { StageSelect } from '@/components/molecules/StageSelect/StageSelect';
 import { PrioritySelect } from '@/components/molecules/PrioritySelect/PrioritySelect';
 import { Can } from '@/components/auth/Can';
 import { IClassStatusBadge } from '@/components/molecules/IClassStatusBadge/IClassStatusBadge';
+import { CloseIClassOSModal } from '@/components/molecules/CloseIClassOSModal/CloseIClassOSModal';
+import { useCan } from '@/hooks/useMyPermissions';
+import { useFeatureFlag } from '@/hooks/useFeatureFlags';
 import styles from './TaskHeader.module.css';
 
 interface TaskHeaderProps {
@@ -43,8 +46,14 @@ export function TaskHeader({
   const [titleValue, setTitleValue] = useState(task.title);
   const [kebabOpen, setKebabOpen] = useState(false);
   const [titleError, setTitleError] = useState<string | null>(null);
+  const [closeOSOpen, setCloseOSOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const kebabRef = useRef<HTMLButtonElement>(null);
+
+  // Feature flag + permission for Close OS button — both must be true to show
+  const canCloseOS = useCan('scheduling.iclass_close');
+  const { data: closeOSFlag } = useFeatureFlag('iclass-close-action');
+  const showCloseOSBtn = canCloseOS && (closeOSFlag?.enabled ?? false) && !!task.iclassOrderCode;
 
   // Sync title if task changes externally
   useEffect(() => {
@@ -154,6 +163,16 @@ export function TaskHeader({
         <Can permission="iclass.read">
           <IClassStatusBadge iclassStatus={task.iclassStatus} />
         </Can>
+        {showCloseOSBtn && (
+          <button
+            className={styles.closeOSBtn}
+            onClick={() => setCloseOSOpen(true)}
+            data-testid="close-iclass-os-btn"
+            title="Cerrar / Validar OS en IClass"
+          >
+            Cerrar OS
+          </button>
+        )}
         {titleError && <span className={styles.titleError} role="alert">{titleError}</span>}
       </div>
 
@@ -252,6 +271,13 @@ export function TaskHeader({
           )}
         </div>
       </div>
+
+      {/* Close OS modal — gating is handled inside CloseIClassOSModal */}
+      <CloseIClassOSModal
+        taskId={task.id}
+        open={closeOSOpen}
+        onClose={() => setCloseOSOpen(false)}
+      />
     </header>
   );
 }

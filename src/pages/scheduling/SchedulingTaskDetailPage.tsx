@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/useMyPermissions';
 import { useIClassSendFeedback } from '@/hooks/useIClassSendFeedback';
 import { IClassSendResultModal } from '@/components/molecules/IClassSendResultModal/IClassSendResultModal';
+import { IClassTeamSelector } from '@/components/molecules/IClassTeamSelector/IClassTeamSelector';
 import type { ScheduledTask, TaskGeneralStatus } from '@/types/scheduling';
 import { applyTaskVariables } from './lib/taskVariables';
 import { TaskHeader } from './SchedulingTaskDetailPage/components/TaskHeader';
@@ -342,6 +343,11 @@ export default function SchedulingTaskDetailPage() {
 
       <div className={styles.layout}>
         <main className={styles.main}>
+          {/* IClass team assignment — shown only with permission + flag ON and
+              only when the task has an IClass OS (iclassOrderCode present) */}
+          {task.iclassOrderCode && (
+            <IClassTeamSelector taskId={task.id} />
+          )}
           <TaskTabs
             detailsProps={{
               datosForm: {

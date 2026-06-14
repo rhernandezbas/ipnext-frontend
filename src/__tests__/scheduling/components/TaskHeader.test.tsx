@@ -2,10 +2,30 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TaskHeader } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskHeader';
 import type { ScheduledTask } from '@/types/scheduling';
 import type { WorkflowStage } from '@/types/workflow';
 import type React from 'react';
+import { useCan, useMyPermissions } from '@/hooks/useMyPermissions';
+import { useFeatureFlag } from '@/hooks/useFeatureFlags';
+
+// TaskHeader now uses useFeatureFlag (for iclass-close-action gate) and useCan —
+// mock them so the component doesn't need a real QueryClient or network.
+vi.mock('@/hooks/useFeatureFlags', () => ({
+  useFeatureFlag: vi.fn(() => ({ data: { key: 'iclass-close-action', enabled: false }, isLoading: false, isError: false, refetch: vi.fn() })),
+  useSetFeatureFlag: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+}));
+
+// CloseIClassOSModal also needs mocks for its internal hooks
+vi.mock('@/hooks/useIClassOsActions', () => ({
+  useCloseIClassOS: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false, error: null, reset: vi.fn() })),
+  useAssignIClassTeam: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false, error: null, reset: vi.fn() })),
+}));
+
+vi.mock('@/hooks/useIClassResultCodes', () => ({
+  useIClassResultCodes: vi.fn(() => ({ data: [], isLoading: false })),
+}));
 
 const mockTask: ScheduledTask = {
   id: 'task-1',
@@ -67,11 +87,14 @@ function renderHeader(props: Partial<Parameters<typeof TaskHeader>[0]> = {}) {
     isSaving: false,
     ...props,
   };
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return {
     ...render(
-      <MemoryRouter>
-        <TaskHeader {...defaults} />
-      </MemoryRouter>
+      <QueryClientProvider client={qc}>
+        <MemoryRouter>
+          <TaskHeader {...defaults} />
+        </MemoryRouter>
+      </QueryClientProvider>
     ),
     ...defaults,
   };
@@ -221,5 +244,53 @@ describe('TaskHeader', () => {
     renderHeader({ onTitleSave, onStageMove, onPriorityChange, onDelete, isAdmin: true });
     await user.click(screen.getByTestId('kebab-menu'));
     expect(screen.getByTestId('kebab-delete')).toBeInTheDocument();
+  });
+
+  // ── FIX 4: Gate "Cerrar OS" button — lives in TaskHeader (not in modal) ─────
+
+  // FIX 4a: Without scheduling.iclass_close permission, button does NOT appear
+  it('does NOT show "Cerrar OS" button without scheduling.iclass_close permission', () => {
+    // useCan is globally mocked to return true; override to deny this permission.
+    vi.mocked(useCan).mockImplementation((perm) => perm !== 'scheduling.iclass_close');
+    // useMyPermissions.can() also needs to deny (Can component uses it)
+    vi.mocked(useMyPermissions).mockReturnValue({
+      permissions: [],
+      roles: [],
+      user: null,
+      isLoading: false,
+      isError: false,
+      can: (perm) => {
+        const p = Array.isArray(perm) ? perm : [perm];
+        return p.every(x => x !== 'scheduling.iclass_close');
+      },
+    });
+    // Flag ON so only permission blocks it
+    vi.mocked(useFeatureFlag).mockReturnValue({
+      data: { key: 'iclass-close-action', enabled: true },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as ReturnType<typeof useFeatureFlag>);
+
+    renderHeader({ task: { ...mockTask, iclassOrderCode: 'OS-001' } });
+
+    expect(screen.queryByTestId('close-iclass-os-btn')).not.toBeInTheDocument();
+  });
+
+  // FIX 4b (happy path): With permission + flag ON + iclassOrderCode set → button appears
+  it('shows "Cerrar OS" button with permission + flag ON + iclassOrderCode', () => {
+    // useCan: grant all (global default already does this, but be explicit)
+    vi.mocked(useCan).mockImplementation(() => true);
+    // Flag ON
+    vi.mocked(useFeatureFlag).mockReturnValue({
+      data: { key: 'iclass-close-action', enabled: true },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as ReturnType<typeof useFeatureFlag>);
+
+    renderHeader({ task: { ...mockTask, iclassOrderCode: 'OS-001' } });
+
+    expect(screen.getByTestId('close-iclass-os-btn')).toBeInTheDocument();
   });
 });

@@ -24,6 +24,9 @@ vi.mock('@/pages/scheduling/settings/ClosureProgressTable', () => ({
 vi.mock('@/pages/scheduling/settings/ClosureIntervalConfig', () => ({
   ClosureIntervalConfig: () => <div data-testid="closure-interval-config" />,
 }));
+vi.mock('@/pages/scheduling/settings/IClassTeamsCatalogBody', () => ({
+  IClassTeamsCatalogBody: () => <div data-testid="teams-catalog-body" />,
+}));
 
 import { IClassSettingsBody } from '@/pages/scheduling/settings/IClassSettingsBody';
 
@@ -38,8 +41,8 @@ function renderSettings() {
 describe('IClassSettingsBody', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  // REQ-LIST-4 SC1: 6 sub-tabs in order (updated to include "Estados de IClass")
-  it('renders exactly 6 sub-tabs: Integración, Catálogo, Mapeo de proyectos, Mapeo de estado, Estados de IClass, Procesamiento', () => {
+  // REQ-LIST-4 SC1: 7 sub-tabs in order (updated to include "Cuadrillas")
+  it('renders exactly 7 sub-tabs: Integración, Catálogo, Mapeo de proyectos, Mapeo de estado, Estados de IClass, Cuadrillas, Procesamiento', () => {
     renderSettings();
     const tabs = screen.getAllByRole('tab').map(t => t.textContent);
     expect(tabs).toEqual([
@@ -48,6 +51,7 @@ describe('IClassSettingsBody', () => {
       'Mapeo de proyectos',
       'Mapeo de estado',
       'Estados de IClass',
+      'Cuadrillas',
       'Procesamiento',
     ]);
     // Old "Cierre de OS" label must no longer exist

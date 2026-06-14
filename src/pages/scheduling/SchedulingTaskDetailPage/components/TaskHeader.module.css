@@ -166,6 +166,32 @@
   background: #FEF2F2;
 }
 
+/* Close OS in IClass — compact inline button next to the IClass badge */
+.closeOSBtn {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 150ms;
+}
+
+.closeOSBtn:hover {
+  background: #dbeafe;
+}
+
+.closeOSBtn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
 /* Closed task badge shown next to the title */
 .closedBadge {
   display: inline-block;
