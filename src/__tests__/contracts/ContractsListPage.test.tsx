@@ -34,6 +34,7 @@ const mockContracts: ContractSummary[] = [
     id: 'c1',
     clientId: 'client-1',
     clientName: 'Alice García',
+    code: 'CTR-204382',
     plan: 'Plan 50MB',
     status: 'active',
     technology: 'Fibra',
@@ -43,6 +44,7 @@ const mockContracts: ContractSummary[] = [
     id: 'c2',
     clientId: 'client-2',
     clientName: 'Bob Martínez',
+    code: null,
     plan: 'Plan 100MB',
     status: 'inactive',
     technology: null,
@@ -400,5 +402,32 @@ describe('CP-6: permission guard', () => {
     // NoPermissionPage renders "No tenés permisos" text
     expect(screen.getByText(/no ten[eé]s permisos/i)).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /contratos/i })).not.toBeInTheDocument();
+  });
+});
+
+// ── CP-7: columna ID GR ───────────────────────────────────────────────────────
+describe('CP-7: columna ID GR', () => {
+  it('renders the "ID GR" column header', () => {
+    renderPage();
+    expect(screen.getByRole('columnheader', { name: /id gr/i })).toBeInTheDocument();
+  });
+
+  it('renders the GR code for a contract with code', () => {
+    renderPage();
+    expect(screen.getByText('CTR-204382')).toBeInTheDocument();
+  });
+
+  it('renders "—" for a contract with null code', () => {
+    renderPage();
+    // Al menos un "—" viene de la columna ID GR (Bob, code=null)
+    // más el "—" de la columna Tecnología (Bob, technology=null)
+    const dashes = screen.getAllByText('—');
+    expect(dashes.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('renders the ID GR column as the first column', () => {
+    renderPage();
+    const headers = screen.getAllByRole('columnheader');
+    expect(headers[0]).toHaveTextContent(/id gr/i);
   });
 });

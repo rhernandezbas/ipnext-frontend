@@ -19,6 +19,12 @@ interface Column {
 function getColumns(): Column[] {
   return [
     {
+      label: 'ID GR',
+      key: 'code',
+      sortable: false,
+      render: (row) => row.code ?? '—',
+    },
+    {
       label: 'Cliente',
       key: 'clientName',
       sortable: false,
