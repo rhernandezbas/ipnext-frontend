@@ -178,6 +178,7 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
           customerId={clientId}
           contractId={contract.id}
           customer={customer}
+          grContratoId={contract.code}
           onClose={() => setTvPanelOpen(false)}
         />
       )}

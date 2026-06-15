@@ -42,6 +42,13 @@ interface GigaredPanelProps {
    * (or read-only contexts) still render.
    */
   customer?: { name: string; email: string; grClienteId?: string | null };
+  /**
+   * #118 — Gestión Real contract id. Used to derive the deterministic TV email
+   * preview ({lastName}{grContratoId}@gmail.com) and the change-password modal
+   * prefill. When absent, falls back to the real customer email / empty password
+   * (same graceful degradation as before for non-GR contracts).
+   */
+  grContratoId?: string | null;
   onClose: () => void;
 }
 
@@ -121,7 +128,7 @@ function localTvLine(c: Contract): ContractService | null {
  *   not-configured (banner) / not-linked (link CIC + register) / linked
  *   (pack add/remove + OTT toggle + account info).
  */
-export function GigaredPanel({ customerId, contractId, customer, onClose }: GigaredPanelProps) {
+export function GigaredPanel({ customerId, contractId, customer, grContratoId, onClose }: GigaredPanelProps) {
   const accountQuery = useGigaredCustomerAccount(customerId);
   const code = accountQuery.isError ? errorCode(accountQuery.error) : null;
   const status = accountQuery.isError ? errorStatus(accountQuery.error) : null;
@@ -240,7 +247,7 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
           customerId={customerId}
           contractId={effectiveContractId}
           account={account}
-          grClienteId={customer?.grClienteId ?? null}
+          grContratoId={grContratoId ?? null}
           ownerElsewhere={ownerElsewhere}
           onRequestCancel={() => setCancelConfirmOpen(true)}
           cancelPending={cancelTv.isPending}
@@ -253,6 +260,7 @@ export function GigaredPanel({ customerId, contractId, customer, onClose }: Giga
           customerId={customerId}
           effectiveContractId={effectiveContractId}
           customer={customer}
+          grContratoId={grContratoId}
         />
       );
   }
@@ -506,6 +514,7 @@ function UnlinkedView({
   customerId,
   effectiveContractId,
   customer,
+  grContratoId,
 }: {
   customerId: string;
   /**
@@ -516,6 +525,8 @@ function UnlinkedView({
   effectiveContractId: string;
   /** #47e B — the Prominense customer, source of the register prefill. */
   customer?: { name: string; email: string; grClienteId?: string | null };
+  /** #118 — GR contract id, used to derive the deterministic TV email preview. */
+  grContratoId?: string | null;
 }) {
   const link = useLinkCic(customerId);
   const register = useRegisterAccount(customerId);
@@ -538,11 +549,13 @@ function UnlinkedView({
 
   const prefill = customer ? splitName(customer.name) : { firstName: '', lastName: '' };
 
-  // #65 — alta determinística. Con grClienteId (idGR) prefillamos el correo FICTICIO
-  // ({apellido}{idGR}@gmail.com). Sin idGR degradamos al email real del cliente (#47e).
+  // #65 — alta determinística. Con grContratoId (#118) prefillamos el correo FICTICIO
+  // ({apellido}{grContratoId}@gmail.com). Sin grContratoId degradamos al email real del cliente (#47e).
   // #70 rework — la contraseña ya NO se prefillea en el form: la genera el backend a partir
-  // del idGR (queda visible en Credenciales). El campo de contraseña fue removido del alta.
-  const grId = customer?.grClienteId ?? '';
+  // del grContratoId (queda visible en Credenciales). El campo de contraseña fue removido del alta.
+  // #118 — grContratoId (ID del contrato GR) reemplaza a grClienteId (ID del cliente GR)
+  // como fuente del email ficticio y de la clave determinística.
+  const grId = grContratoId ?? '';
   const ficticioEmail = grId ? deterministicTvEmail(prefill.lastName, grId) : (customer?.email ?? '');
 
   const [registerOpen, setRegisterOpen] = useState(false);
@@ -918,7 +931,7 @@ function LinkedView({
   customerId,
   contractId,
   account,
-  grClienteId,
+  grContratoId,
   ownerElsewhere,
   onRequestCancel,
   cancelPending,
@@ -929,8 +942,9 @@ function LinkedView({
   customerId: string;
   contractId: string;
   account: GigaredAccount;
-  /** #65 — GR client id, used to default the change-password modal to a deterministic value. */
-  grClienteId: string | null;
+  /** #118 — GR contract id, used to default the change-password modal to a deterministic value.
+   *  Replaces grClienteId (#65) so the prefill matches what the BE generates server-side. */
+  grContratoId: string | null;
   /** F1 — set when the TV item lives in a DIFFERENT contract than the opener. */
   ownerElsewhere: Contract | null;
   /** C1 — triggers the cancel confirm modal in the PARENT (so it survives the flip). */
@@ -980,7 +994,7 @@ function LinkedView({
   const newPasswordInvalid = newPassword !== '' && !PASSWORD_RE.test(newPassword);
 
   function openPwModal() {
-    setNewPassword(grClienteId ? deterministicTvPassword(grClienteId) : '');
+    setNewPassword(grContratoId ? deterministicTvPassword(grContratoId) : '');
     setShowNewPassword(false);
     setPwError(null);
     setPwPersistWarning(null);
