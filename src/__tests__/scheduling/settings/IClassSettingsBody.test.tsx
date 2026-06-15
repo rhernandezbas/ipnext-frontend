@@ -27,6 +27,15 @@ vi.mock('@/pages/scheduling/settings/ClosureIntervalConfig', () => ({
 vi.mock('@/pages/scheduling/settings/IClassTeamsCatalogBody', () => ({
   IClassTeamsCatalogBody: () => <div data-testid="teams-catalog-body" />,
 }));
+vi.mock('@/pages/scheduling/settings/IClassTechnicianMappingBody', () => ({
+  IClassTechnicianMappingBody: () => <div data-testid="technician-mapping-body" />,
+}));
+vi.mock('@/pages/scheduling/settings/IClassOsActionsBody', () => ({
+  IClassOsActionsBody: () => <div data-testid="os-actions-body" />,
+}));
+vi.mock('@/pages/scheduling/settings/IClassDispatchPreviewBody', () => ({
+  IClassDispatchPreviewBody: () => <div data-testid="dispatch-preview-body" />,
+}));
 
 import { IClassSettingsBody } from '@/pages/scheduling/settings/IClassSettingsBody';
 
@@ -41,8 +50,8 @@ function renderSettings() {
 describe('IClassSettingsBody', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  // REQ-LIST-4 SC1: 7 sub-tabs in order (updated to include "Cuadrillas")
-  it('renders exactly 7 sub-tabs: Integración, Catálogo, Mapeo de proyectos, Mapeo de estado, Estados de IClass, Cuadrillas, Procesamiento', () => {
+  // REQ-LIST-4 SC1: 10 sub-tabs in order (incluyendo las 3 nuevas olas A/B/C)
+  it('renders exactly 10 sub-tabs including the 3 new OLA tabs', () => {
     renderSettings();
     const tabs = screen.getAllByRole('tab').map(t => t.textContent);
     expect(tabs).toEqual([
@@ -52,10 +61,31 @@ describe('IClassSettingsBody', () => {
       'Mapeo de estado',
       'Estados de IClass',
       'Cuadrillas',
+      'Técnicos → Cuadrillas',
+      'Acciones de OS',
+      'Qué se envía a IClass',
       'Procesamiento',
     ]);
     // Old "Cierre de OS" label must no longer exist
     expect(screen.queryByRole('tab', { name: 'Cierre de OS' })).not.toBeInTheDocument();
+  });
+
+  it('clicking Técnicos → Cuadrillas tab mounts its body', () => {
+    renderSettings();
+    fireEvent.click(screen.getByRole('tab', { name: 'Técnicos → Cuadrillas' }));
+    expect(screen.getByTestId('technician-mapping-body')).toBeInTheDocument();
+  });
+
+  it('clicking Acciones de OS tab mounts its body', () => {
+    renderSettings();
+    fireEvent.click(screen.getByRole('tab', { name: 'Acciones de OS' }));
+    expect(screen.getByTestId('os-actions-body')).toBeInTheDocument();
+  });
+
+  it('clicking Qué se envía a IClass tab mounts its body', () => {
+    renderSettings();
+    fireEvent.click(screen.getByRole('tab', { name: 'Qué se envía a IClass' }));
+    expect(screen.getByTestId('dispatch-preview-body')).toBeInTheDocument();
   });
 
   it('defaults to the Integración sub-tab', () => {

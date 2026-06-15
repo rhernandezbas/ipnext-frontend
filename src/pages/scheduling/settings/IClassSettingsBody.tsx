@@ -8,14 +8,20 @@ import { IClassResultCodeMappingBody } from './IClassResultCodeMappingBody';
 import { IClassStatusCatalogBody } from './IClassStatusCatalogBody';
 import { IClassTeamsCatalogBody } from './IClassTeamsCatalogBody';
 import { ClosureIntervalConfig } from './ClosureIntervalConfig';
+import { IClassTechnicianMappingBody } from './IClassTechnicianMappingBody';
+import { IClassOsActionsBody } from './IClassOsActionsBody';
+import { IClassDispatchPreviewBody } from './IClassDispatchPreviewBody';
 
 const SUB_TABS = [
-  { id: 'integracion',     label: 'Integración',        content: <IClassFlagBody /> },
-  { id: 'catalogo',        label: 'Catálogo',           content: <IClassSoTypesCatalogBody /> },
-  { id: 'mapeo',           label: 'Mapeo de proyectos', content: <IClassProjectMappingBody /> },
-  { id: 'mapeo-estado',    label: 'Mapeo de estado',    content: <IClassResultCodeMappingBody /> },
-  { id: 'estados-iclass',  label: 'Estados de IClass',  content: <IClassStatusCatalogBody /> },
-  { id: 'cuadrillas',      label: 'Cuadrillas',         content: <IClassTeamsCatalogBody /> },
+  { id: 'integracion',       label: 'Integración',          content: <IClassFlagBody /> },
+  { id: 'catalogo',          label: 'Catálogo',             content: <IClassSoTypesCatalogBody /> },
+  { id: 'mapeo',             label: 'Mapeo de proyectos',   content: <IClassProjectMappingBody /> },
+  { id: 'mapeo-estado',      label: 'Mapeo de estado',      content: <IClassResultCodeMappingBody /> },
+  { id: 'estados-iclass',    label: 'Estados de IClass',    content: <IClassStatusCatalogBody /> },
+  { id: 'cuadrillas',        label: 'Cuadrillas',           content: <IClassTeamsCatalogBody /> },
+  { id: 'tecnicos-cuadrilla', label: 'Técnicos → Cuadrillas', content: <IClassTechnicianMappingBody /> },
+  { id: 'acciones-os',       label: 'Acciones de OS',       content: <IClassOsActionsBody /> },
+  { id: 'despacho',          label: 'Qué se envía a IClass', content: <IClassDispatchPreviewBody /> },
   {
     id: 'cierre',
     label: 'Procesamiento',
