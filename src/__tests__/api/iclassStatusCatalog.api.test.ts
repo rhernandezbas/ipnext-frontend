@@ -16,6 +16,7 @@ const entry: IClassStatusCatalogEntry = {
   effectiveLabel: 'Instalación OK',
   color: '#22c55e',
   tracked: true,
+  prominenseStageId: 'stage-done',
   lastSyncedAt: '2026-06-01T00:00:00Z',
 };
 
@@ -43,6 +44,20 @@ describe('iclassStatusCatalogApi — URL fixture (FIX 1)', () => {
     const result = await iclassStatusCatalogApi.update('INSTALADO', payload);
     expect(axiosClient.patch).toHaveBeenCalledWith('/admin/iclass/statuses/INSTALADO', payload);
     expect(result).toEqual(entry);
+  });
+
+  it('update() PATCHes prominenseStageId (set and clear)', async () => {
+    vi.mocked(axiosClient.patch).mockResolvedValue({ data: entry });
+
+    await iclassStatusCatalogApi.update('PENDIENTE', { prominenseStageId: 'stage-triage' });
+    expect(axiosClient.patch).toHaveBeenCalledWith('/admin/iclass/statuses/PENDIENTE', {
+      prominenseStageId: 'stage-triage',
+    });
+
+    await iclassStatusCatalogApi.update('PENDIENTE', { prominenseStageId: null });
+    expect(axiosClient.patch).toHaveBeenCalledWith('/admin/iclass/statuses/PENDIENTE', {
+      prominenseStageId: null,
+    });
   });
 
   it('list() would 404 with the old /iclass/status-catalog URL — this test pins the correct path', async () => {

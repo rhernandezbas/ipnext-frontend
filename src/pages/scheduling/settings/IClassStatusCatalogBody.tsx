@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useIClassStatusCatalog, useSyncIClassStatuses, useUpdateIClassStatus } from '@/hooks/useIClassStatusCatalog';
+import { useWorkflows } from '@/hooks/useWorkflows';
 import { Can } from '@/components/auth/Can';
 import type { IClassStatusCatalogSyncResult } from '@/types/iclassStatusCatalog';
 import styles from './IClassSettings.module.css';
@@ -15,17 +16,34 @@ type RowStatus = 'saving' | 'saved' | 'error';
  *
  * Permisos:
  * - `iclass.read`: ver la tabla.
- * - `iclass.manage`: editar displayLabel/color/tracked + botón Sincronizar.
+ * - `iclass.manage`: editar displayLabel/color/tracked/prominenseStageId + botón Sincronizar.
+ *
+ * Mapeo de stage: cada estado IClass puede mapearse a un Stage de Prominense
+ * (columna del kanban). Los stages son POR-WORKFLOW, por eso el selector los
+ * agrupa por workflow (optgroup) — el BE solo auto-mueve tareas cuyo workflow
+ * coincide con el del stage elegido. El mapeo es global por estado IClass.
  *
  * Patrón idéntico a IClassResultCodeMappingBody (auto-save inline en PATCH).
  */
 export function IClassStatusCatalogBody() {
   const { data: entries, isLoading } = useIClassStatusCatalog();
+  const { data: workflows } = useWorkflows();
   const sync = useSyncIClassStatuses();
   const update = useUpdateIClassStatus();
 
   const [rowStatus, setRowStatus] = useState<Record<string, RowStatus>>({});
   const [lastSummary, setLastSummary] = useState<IClassStatusCatalogSyncResult | null>(null);
+
+  /** Índice stageId → "Workflow — Stage" para mostrar el mapeo en read-only. */
+  const stageLabelById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const wf of workflows ?? []) {
+      for (const stage of wf.stages) {
+        map.set(stage.id, `${wf.name} — ${stage.name}`);
+      }
+    }
+    return map;
+  }, [workflows]);
 
   async function handleSync() {
     try {
@@ -35,7 +53,7 @@ export function IClassStatusCatalogBody() {
     }
   }
 
-  async function handleUpdate(statusCode: string, field: 'displayLabel' | 'color' | 'tracked', value: string | boolean | null) {
+  async function handleUpdate(statusCode: string, field: 'displayLabel' | 'color' | 'tracked' | 'prominenseStageId', value: string | boolean | null) {
     setRowStatus(s => ({ ...s, [statusCode]: 'saving' }));
     try {
       await update.mutateAsync({ statusCode, payload: { [field]: value } });
@@ -81,6 +99,9 @@ export function IClassStatusCatalogBody() {
         <p className={styles.helper}>
           Los estados se descubren automáticamente cuando aparecen en una OS de IClass. Activá los que querés ver como badge en las tareas y personalizá la etiqueta y el color.
         </p>
+        <p className={styles.helper}>
+          El mapeo de Stage es global por estado IClass, pero el auto-move solo aplica a tareas del workflow del stage elegido.
+        </p>
 
         {lastSummary && (
           <div className={`${styles.banner} ${styles.bannerSuccess}`}>
@@ -119,6 +140,7 @@ export function IClassStatusCatalogBody() {
                   <th style={{ width: '25%' }}>Etiqueta IClass</th>
                   <th>Etiqueta personalizada</th>
                   <th style={{ width: '7rem' }}>Color</th>
+                  <th style={{ width: '16rem' }}>Stage Prominense</th>
                   <th style={{ width: '6rem' }}>Mostrar</th>
                   <th style={{ width: '3rem' }} aria-label="Estado" />
                 </tr>
@@ -199,6 +221,52 @@ export function IClassStatusCatalogBody() {
                               </button>
                             )}
                           </div>
+                        </Can>
+                      </td>
+                      {/* Stage de Prominense — selector agrupado por workflow */}
+                      <td>
+                        <Can
+                          permission="iclass.manage"
+                          fallback={
+                            <span className={catalogStyles.stageReadonly}>
+                              {entry.prominenseStageId
+                                ? (stageLabelById.get(entry.prominenseStageId) ?? entry.prominenseStageId)
+                                : <em className={catalogStyles.noCustom}>Sin mapeo</em>}
+                            </span>
+                          }
+                        >
+                          <select
+                            className={catalogStyles.stageSelect}
+                            value={entry.prominenseStageId ?? ''}
+                            disabled={isSaving}
+                            aria-label={`Stage de Prominense para ${entry.statusCode}`}
+                            onChange={e => {
+                              const val = e.target.value || null;
+                              if (val !== entry.prominenseStageId) {
+                                void handleUpdate(entry.statusCode, 'prominenseStageId', val);
+                              }
+                            }}
+                          >
+                            <option value="">Sin mapeo</option>
+                            {/* Stage huérfano: el mapeo apunta a un stage que ya no existe
+                                en ningún workflow. Sin esta option "fantasma" el value no
+                                matchearía ninguna opción y el browser mostraría "Sin mapeo"
+                                falsamente — el operador creería que no hay mapeo cuando sí lo hay. */}
+                            {entry.prominenseStageId && !stageLabelById.has(entry.prominenseStageId) && (
+                              <option value={entry.prominenseStageId} className={catalogStyles.stageOrphanOption}>
+                                ⚠ Stage inexistente ({entry.prominenseStageId})
+                              </option>
+                            )}
+                            {(workflows ?? []).map(wf => (
+                              <optgroup key={wf.id} label={wf.name}>
+                                {wf.stages.map(stage => (
+                                  <option key={stage.id} value={stage.id}>
+                                    {stage.name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))}
+                          </select>
                         </Can>
                       </td>
                       {/* tracked toggle */}

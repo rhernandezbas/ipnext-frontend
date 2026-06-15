@@ -8,6 +8,10 @@ vi.mock('@/hooks/useIClassStatusCatalog', () => ({
   useUpdateIClassStatus: vi.fn(),
 }));
 
+vi.mock('@/hooks/useWorkflows', () => ({
+  useWorkflows: vi.fn(),
+}));
+
 // NOTE: useMyPermissions is already mocked globally in setup.ts (grants '*').
 // Per-suite overrides use vi.mocked(useMyPermissions).mockReturnValue(...) — NO dynamic import.
 import { useMyPermissions } from '@/hooks/useMyPermissions';
@@ -16,6 +20,7 @@ import {
   useSyncIClassStatuses,
   useUpdateIClassStatus,
 } from '@/hooks/useIClassStatusCatalog';
+import { useWorkflows } from '@/hooks/useWorkflows';
 import { IClassStatusCatalogBody } from '@/pages/scheduling/settings/IClassStatusCatalogBody';
 
 const idle = {
@@ -35,6 +40,7 @@ const ENTRIES = [
     effectiveLabel: 'Instalación OK',
     color: '#22c55e',
     tracked: true,
+    prominenseStageId: 'stage-done',
     lastSyncedAt: '2026-06-01T00:00:00Z',
   },
   {
@@ -44,13 +50,46 @@ const ENTRIES = [
     effectiveLabel: 'Pendiente',
     color: null,
     tracked: false,
+    prominenseStageId: null,
     lastSyncedAt: '2026-06-01T00:00:00Z',
+  },
+];
+
+/** Workflows de prueba — dos workflows, cada uno con sus propios stages. */
+const WORKFLOWS = [
+  {
+    id: 'wf-instalaciones',
+    name: 'Instalaciones',
+    description: null,
+    createdAt: '2026-06-01T00:00:00Z',
+    updatedAt: '2026-06-01T00:00:00Z',
+    stages: [
+      { id: 'stage-new', workflowId: 'wf-instalaciones', name: 'Nueva', code: 'NEW', category: 'nuevo', order: 0, color: '#3b82f6' },
+      { id: 'stage-done', workflowId: 'wf-instalaciones', name: 'Finalizada', code: 'DONE', category: 'hecho', order: 1, color: '#22c55e' },
+    ],
+  },
+  {
+    id: 'wf-soporte',
+    name: 'Soporte',
+    description: null,
+    createdAt: '2026-06-01T00:00:00Z',
+    updatedAt: '2026-06-01T00:00:00Z',
+    stages: [
+      { id: 'stage-triage', workflowId: 'wf-soporte', name: 'Triage', code: 'TRIAGE', category: 'nuevo', order: 0, color: '#f59e0b' },
+    ],
   },
 ];
 
 function mockData(entries: typeof ENTRIES | undefined = ENTRIES, loading = false) {
   vi.mocked(useIClassStatusCatalog).mockReturnValue({
     data: loading ? undefined : entries,
+    isLoading: loading,
+  } as never);
+}
+
+function mockWorkflows(workflows: typeof WORKFLOWS | undefined = WORKFLOWS, loading = false) {
+  vi.mocked(useWorkflows).mockReturnValue({
+    data: loading ? undefined : workflows,
     isLoading: loading,
   } as never);
 }
@@ -78,6 +117,7 @@ describe('IClassStatusCatalogBody', () => {
     vi.clearAllMocks();
     vi.mocked(useSyncIClassStatuses).mockReturnValue(idle as never);
     vi.mocked(useUpdateIClassStatus).mockReturnValue(idle as never);
+    mockWorkflows();
     // Restore default permissive mock after clearAllMocks resets it
     mockPermissions(['*']);
   });
@@ -211,6 +251,138 @@ describe('IClassStatusCatalogBody', () => {
     mockData();
     render(<IClassStatusCatalogBody />);
     expect(screen.getByText(/no se pudieron sincronizar/i)).toBeInTheDocument();
+  });
+
+  // ── Prominense stage mapping (selector por fila) ─────────────────────────
+  describe('Prominense stage mapping selector', () => {
+    it('renders a stage select per row populated from all workflows, grouped by workflow', () => {
+      mockData();
+      render(<IClassStatusCatalogBody />);
+
+      const select = screen.getByRole('combobox', { name: /stage de prominense para INSTALADO/i }) as HTMLSelectElement;
+      expect(select).toBeInTheDocument();
+
+      // Grouped by workflow via optgroups
+      const groups = select.querySelectorAll('optgroup');
+      const groupLabels = Array.from(groups).map(g => g.label);
+      expect(groupLabels).toEqual(expect.arrayContaining(['Instalaciones', 'Soporte']));
+
+      // Stage options from BOTH workflows are present
+      expect(screen.getAllByRole('option', { name: /Finalizada/i }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole('option', { name: /Triage/i }).length).toBeGreaterThan(0);
+    });
+
+    it('reflects the current prominenseStageId as the selected option', () => {
+      mockData();
+      render(<IClassStatusCatalogBody />);
+      const select = screen.getByRole('combobox', { name: /stage de prominense para INSTALADO/i }) as HTMLSelectElement;
+      expect(select.value).toBe('stage-done');
+    });
+
+    it('shows the empty "sin mapeo" option selected when prominenseStageId is null', () => {
+      mockData();
+      render(<IClassStatusCatalogBody />);
+      const select = screen.getByRole('combobox', { name: /stage de prominense para PENDIENTE/i }) as HTMLSelectElement;
+      expect(select.value).toBe('');
+    });
+
+    it('calls mutateAsync with prominenseStageId when a stage is selected', () => {
+      const mutateAsync = vi.fn().mockResolvedValue({});
+      vi.mocked(useUpdateIClassStatus).mockReturnValue({ ...idle, mutateAsync } as never);
+      mockData();
+
+      render(<IClassStatusCatalogBody />);
+      const select = screen.getByRole('combobox', { name: /stage de prominense para PENDIENTE/i });
+      fireEvent.change(select, { target: { value: 'stage-triage' } });
+
+      expect(mutateAsync).toHaveBeenCalledWith({
+        statusCode: 'PENDIENTE',
+        payload: { prominenseStageId: 'stage-triage' },
+      });
+    });
+
+    it('calls mutateAsync with null when the mapping is cleared (empty option)', () => {
+      const mutateAsync = vi.fn().mockResolvedValue({});
+      vi.mocked(useUpdateIClassStatus).mockReturnValue({ ...idle, mutateAsync } as never);
+      mockData();
+
+      render(<IClassStatusCatalogBody />);
+      const select = screen.getByRole('combobox', { name: /stage de prominense para INSTALADO/i });
+      fireEvent.change(select, { target: { value: '' } });
+
+      expect(mutateAsync).toHaveBeenCalledWith({
+        statusCode: 'INSTALADO',
+        payload: { prominenseStageId: null },
+      });
+    });
+
+    it('does NOT fire PATCH when the selected value did not change', () => {
+      const mutateAsync = vi.fn().mockResolvedValue({});
+      vi.mocked(useUpdateIClassStatus).mockReturnValue({ ...idle, mutateAsync } as never);
+      mockData();
+
+      render(<IClassStatusCatalogBody />);
+      const select = screen.getByRole('combobox', { name: /stage de prominense para INSTALADO/i });
+      // Re-select the already-selected stage
+      fireEvent.change(select, { target: { value: 'stage-done' } });
+
+      expect(mutateAsync).not.toHaveBeenCalled();
+    });
+
+    it('renders a read-only stage label (no combobox) without iclass.manage', () => {
+      mockPermissions(['iclass.read']);
+      mockData();
+      render(<IClassStatusCatalogBody />);
+      expect(screen.queryByRole('combobox', { name: /stage de prominense para INSTALADO/i })).not.toBeInTheDocument();
+      // The mapped stage name is still shown read-only
+      expect(screen.getByText(/Instalaciones — Finalizada/i)).toBeInTheDocument();
+    });
+
+    // ── Orphaned stage — prominenseStageId apunta a un stage inexistente ─────
+    // BUG FIX-FIRST: si el value del <select> no matchea ninguna option, el
+    // navegador muestra "Sin mapeo" PERO el value real sigue seteado → el
+    // operador cree que no hay mapeo cuando sí lo hay (desync silenciosa).
+    // El fix: renderizar una option "fantasma" con ese value para que matchee.
+    it('renders a ghost option for an orphaned prominenseStageId (not in any workflow)', () => {
+      const orphanEntries = [
+        {
+          statusCode: 'HUERFANO',
+          iclassLabel: 'Huérfano',
+          displayLabel: null,
+          effectiveLabel: 'Huérfano',
+          color: null,
+          tracked: false,
+          // Este stage NO existe en ningún workflow del mock
+          prominenseStageId: 'stage-borrado',
+          lastSyncedAt: '2026-06-01T00:00:00Z',
+        },
+      ];
+      mockData(orphanEntries as never);
+      render(<IClassStatusCatalogBody />);
+
+      const select = screen.getByRole('combobox', { name: /stage de prominense para HUERFANO/i }) as HTMLSelectElement;
+      // El value DEBE matchear (no quedar en '') — sino el browser muestra "Sin mapeo" falsamente
+      expect(select.value).toBe('stage-borrado');
+
+      // Debe existir una option con ese value (la "fantasma")
+      const ghost = Array.from(select.options).find(o => o.value === 'stage-borrado');
+      expect(ghost).toBeDefined();
+      // Marcada como mapeo roto — NO debe decir "Sin mapeo"
+      expect(ghost!.textContent).toMatch(/inexistente|⚠/i);
+
+      // La option "Sin mapeo" (value='') NO debe estar seleccionada
+      const sinMapeo = Array.from(select.options).find(o => o.value === '');
+      expect(sinMapeo?.selected).toBe(false);
+    });
+
+    it('does NOT render a ghost option when prominenseStageId maps to an existing stage', () => {
+      mockData(); // INSTALADO → stage-done (existe en wf-instalaciones)
+      render(<IClassStatusCatalogBody />);
+      const select = screen.getByRole('combobox', { name: /stage de prominense para INSTALADO/i }) as HTMLSelectElement;
+      // No debe haber ninguna option marcada como inexistente
+      const ghost = Array.from(select.options).find(o => /inexistente|⚠/i.test(o.textContent ?? ''));
+      expect(ghost).toBeUndefined();
+    });
   });
 
   // ── FIX 3: color picker dispara PATCH solo en onBlur, no en onChange ──────

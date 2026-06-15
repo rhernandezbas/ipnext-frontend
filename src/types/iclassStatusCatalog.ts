@@ -7,6 +7,10 @@
  * - `effectiveLabel`: `displayLabel ?? iclassLabel` — lo que se muestra en la UI.
  * - `color`: color hex/css elegido por el operador (null = sin color).
  * - `tracked`: cuando true, el estado se muestra en el badge de la tarea.
+ * - `prominenseStageId`: Stage de Prominense al que se mapea este estado IClass
+ *   (null = sin mapeo). Cuando la OS avanza a este estado en IClass, el BE mueve
+ *   la tarea a este stage automáticamente — solo si el workflow de la tarea
+ *   coincide con el del stage. Los stages son por-workflow.
  * - `lastSyncedAt`: ISO datetime de la última sincronización desde IClass.
  */
 export interface IClassStatusCatalogEntry {
@@ -16,6 +20,7 @@ export interface IClassStatusCatalogEntry {
   effectiveLabel: string;
   color: string | null;
   tracked: boolean;
+  prominenseStageId: string | null;
   lastSyncedAt: string;
 }
 
@@ -29,4 +34,5 @@ export interface UpdateIClassStatusCatalogPayload {
   displayLabel?: string | null;
   color?: string | null;
   tracked?: boolean;
+  prominenseStageId?: string | null;
 }
