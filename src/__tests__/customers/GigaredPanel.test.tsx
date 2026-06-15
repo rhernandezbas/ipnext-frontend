@@ -296,7 +296,10 @@ function mockQuery(over: {
   } as unknown as ReturnType<typeof useServiceCatalog>);
 }
 
-function renderPanel(customer?: { name: string; email: string; grClienteId?: string | null }) {
+function renderPanel(
+  customer?: { name: string; email: string; grClienteId?: string | null },
+  grContratoId?: string | null,
+) {
   return render(
     <MemoryRouter>
       <GigaredPanel
@@ -304,6 +307,7 @@ function renderPanel(customer?: { name: string; email: string; grClienteId?: str
         contractId="ct-9"
         onClose={onClose}
         customer={customer}
+        grContratoId={grContratoId}
       />
     </MemoryRouter>,
   );
@@ -1223,9 +1227,9 @@ describe('GigaredPanel', () => {
       const user = userEvent.setup();
       registerMutate.mockResolvedValue({ account: linkedAccount });
       mockQuery({ account: { linked: false, account: null } });
-      // #70 rework — con grClienteId el form prefillea SOLO el email ficticio; la contraseña
+      // #70 rework — con grContratoId (#118) el form prefillea SOLO el email ficticio; la contraseña
       // ya NO se carga (la genera el backend) y NO viaja en el payload.
-      renderPanel({ name: 'DAMONTE JIMENA', email: 'jimena@example.com', grClienteId: '243200' });
+      renderPanel({ name: 'DAMONTE JIMENA', email: 'jimena@example.com', grClienteId: '243200' }, '243200');
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
       await user.click(screen.getByRole('button', { name: /^registrar$/i }));
       await waitFor(() =>
@@ -2183,12 +2187,13 @@ describe('GigaredPanel', () => {
 
   // ── #65 — deterministic register prefill + Gigared Play credentials ─────────
   describe('#65 deterministic register prefill', () => {
-    it('prefills the ficticio email from grClienteId (la contraseña ya NO se prefillea — autogenerada)', async () => {
+    it('prefills the ficticio email from grContratoId (#118 — not grClienteId; la contraseña ya NO se prefillea — autogenerada)', async () => {
       const user = userEvent.setup();
       mockQuery({ account: { linked: false, account: null } });
-      renderPanel({ name: 'HERNANDEZ RONALD', email: 'real@x.com', grClienteId: '2432' });
+      // #118 — grContratoId (contract id) drives the email, not grClienteId (client id).
+      renderPanel({ name: 'HERNANDEZ RONALD', email: 'real@x.com', grClienteId: '9999' }, '2432');
       await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
-      // email = {apellido}{idGR}@gmail.com (NOT the real email).
+      // email = {apellido}{grContratoId}@gmail.com (NOT grClienteId, NOT the real email).
       expect((screen.getByLabelText(/^email$/i) as HTMLInputElement).value).toBe('hernandez2432@gmail.com');
       // #70 rework — ya NO hay campo de contraseña que prefillear.
       expect(screen.queryByLabelText(/contraseña/i)).not.toBeInTheDocument();
@@ -2288,9 +2293,10 @@ describe('GigaredPanel', () => {
         account: { linked: true, account: { ...linkedAccount, cic: '0000001234', gigaredId: '2432' } },
         contracts: [contract('ct-9', [tvService()])],
       });
-      renderPanel({ name: 'HERNANDEZ RONALD', email: 'x@x.com', grClienteId: '2432' });
+      // #118 — grContratoId='2432' drives the password prefill (NOT grClienteId).
+      renderPanel({ name: 'HERNANDEZ RONALD', email: 'x@x.com', grClienteId: '9999' }, '2432');
       await user.click(screen.getByRole('button', { name: /cambiar contraseña/i }));
-      // Prefilled with the deterministic value from grClienteId.
+      // Prefilled with the deterministic value from grContratoId.
       const input = screen.getByLabelText(/nueva contraseña/i) as HTMLInputElement;
       expect(input.value).toBe('ip243200');
       // Submit (the modal's confirm button).
@@ -2313,7 +2319,8 @@ describe('GigaredPanel', () => {
         account: { linked: true, account: { ...linkedAccount, cic: '0000001234', gigaredId: '2432' } },
         contracts: [contract('ct-9', [tvService()])],
       });
-      renderPanel({ name: 'HERNANDEZ RONALD', email: 'x@x.com', grClienteId: '2432' });
+      // #118 — grContratoId='2432' drives the password prefill.
+      renderPanel({ name: 'HERNANDEZ RONALD', email: 'x@x.com', grClienteId: '9999' }, '2432');
       await user.click(screen.getByRole('button', { name: /cambiar contraseña/i }));
       const buttons = screen.getAllByRole('button', { name: /cambiar contraseña/i });
       await user.click(buttons[buttons.length - 1]);
@@ -2588,6 +2595,63 @@ describe('GigaredPanel', () => {
       await waitFor(() => expect(screen.getByText(/email ya en uso/i)).toBeInTheDocument());
       // NO debe haber un dialog de NO_CIC_AVAILABLE
       expect(screen.queryByRole('dialog', { name: /no hay cic/i })).not.toBeInTheDocument();
+    });
+  });
+
+  // ── #118 — email preview y password modal deben derivar de grContratoId ──────
+  describe('#118 — email/password prefill deriva de grContratoId (no grClienteId)', () => {
+    it('el preview del email usa grContratoId cuando está presente (NO grClienteId)', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: false, account: null } });
+      // grClienteId='999' (cliente) vs grContratoId='123' (contrato) — el email debe usar '123'
+      renderPanel(
+        { name: 'HERNANDEZ RONALD', email: 'real@x.com', grClienteId: '999' },
+        '123',
+      );
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      // deterministicTvEmail('HERNANDEZ', '123') = 'hernandez123@gmail.com'
+      expect((screen.getByLabelText(/^email$/i) as HTMLInputElement).value).toBe('hernandez123@gmail.com');
+    });
+
+    it('sin grContratoId pero con grClienteId → degrada al email real del cliente (sin romper)', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: false, account: null } });
+      // grContratoId ausente → degradar al email real
+      renderPanel({ name: 'HERNANDEZ RONALD', email: 'real@x.com', grClienteId: '999' }, null);
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      expect((screen.getByLabelText(/^email$/i) as HTMLInputElement).value).toBe('real@x.com');
+    });
+
+    it('el modal "Cambiar contraseña" prefillea deterministicTvPassword(grContratoId) (NO grClienteId)', async () => {
+      const user = userEvent.setup();
+      pwMutate.mockResolvedValue({ password: 'ip123000', persisted: true });
+      mockQuery({
+        account: { linked: true, account: { ...linkedAccount, gigaredId: '2432' } },
+        contracts: [contract('ct-9', [tvService()])],
+      });
+      // grClienteId='999' (cliente), grContratoId='123' (contrato)
+      // deterministicTvPassword('123') = 'ip12300'
+      renderPanel(
+        { name: 'HERNANDEZ RONALD', email: 'x@x.com', grClienteId: '999' },
+        '123',
+      );
+      await user.click(screen.getByRole('button', { name: /cambiar contraseña/i }));
+      const input = screen.getByLabelText(/nueva contraseña/i) as HTMLInputElement;
+      // MUST be derived from grContratoId '123', NOT from grClienteId '999'
+      // deterministicTvPassword('123') = 'ip123'.padEnd(8,'0') = 'ip123000'
+      expect(input.value).toBe('ip123000');
+    });
+
+    it('modal "Cambiar contraseña" sin grContratoId → campo vacío (degrada sin romper)', async () => {
+      const user = userEvent.setup();
+      mockQuery({
+        account: { linked: true, account: { ...linkedAccount, gigaredId: '2432' } },
+        contracts: [contract('ct-9', [tvService()])],
+      });
+      renderPanel({ name: 'HERNANDEZ RONALD', email: 'x@x.com', grClienteId: '999' }, null);
+      await user.click(screen.getByRole('button', { name: /cambiar contraseña/i }));
+      const input = screen.getByLabelText(/nueva contraseña/i) as HTMLInputElement;
+      expect(input.value).toBe('');
     });
   });
 });
