@@ -9,6 +9,8 @@ export interface AddContractServicePayload {
 export interface UpdateContractServicePayload {
   status?: 'active' | 'inactive';
   notes?: string | null;
+  /** Motivo del cambio de estado (registrado en el historial del servicio). */
+  reason?: string;
 }
 
 /** Service lines on a contract (#43). All ids are UUID strings, used verbatim. */

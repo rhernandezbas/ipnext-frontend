@@ -19,6 +19,13 @@ interface Props {
   divertTv?: boolean;
   /** Called when the TV entry is picked AND `divertTv` is true. */
   onPickTv?: () => void;
+  /**
+   * When true, picking the INTERNET catalog entry opens the InternetPanel
+   * instead of creating a plain ContractService.
+   */
+  divertInternet?: boolean;
+  /** Called when the INTERNET entry is picked AND `divertInternet` is true. */
+  onPickInternet?: () => void;
 }
 
 /**
@@ -35,6 +42,11 @@ type MenuPos =
 /** A catalog entry is the Gigared TV service when its `name` is exactly 'TV'. */
 function isTvEntry(name: string): boolean {
   return name === 'TV';
+}
+
+/** A catalog entry is the INTERNET service when its `name` is exactly 'INTERNET'. */
+function isInternetEntry(name: string): boolean {
+  return name === 'INTERNET';
 }
 
 /** Maps a mutation error onto a user-facing message (mapError pattern). */
@@ -74,7 +86,7 @@ function clampLeft(left: number): number {
  * Keyboard (basic ARIA menu pattern): Escape closes and returns focus to the
  * trigger; opening focuses the first item; ArrowUp/ArrowDown move between items.
  */
-export function ServicePickerMenu({ contractId, clientId, services, divertTv, onPickTv }: Props) {
+export function ServicePickerMenu({ contractId, clientId, services, divertTv, onPickTv, divertInternet, onPickInternet }: Props) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -188,6 +200,11 @@ export function ServicePickerMenu({ contractId, clientId, services, divertTv, on
     // reconcile-created local item) happens there, NOT as a plain add here.
     if (isTvEntry(name) && divertTv) {
       onPickTv?.();
+      return;
+    }
+    // INTERNET with pppoe.manage/cut active opens the InternetPanel.
+    if (isInternetEntry(name) && divertInternet) {
+      onPickInternet?.();
       return;
     }
     try {
