@@ -240,18 +240,18 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     setContractId(null);
   }, [customerId]);
 
-  // When the user sets Start (or its time) and End is still empty, default End
-  // to Start + 1h. If End already has a value, leave it alone — the user owns
-  // it. Same UX as DatosForm (task detail page).
+  // When the user sets Start (or its time), default End to Start + 1h on every
+  // startDate change — UNLESS the user manually edited End (endDateTouched).
+  // CreateTaskModal always starts with endDate='', so endDateTouched starts false
+  // and the mirror fires freely until the user explicitly edits the End field.
+  const endDateTouched = useRef(false);  // user manually edited Termina
   useEffect(() => {
-    if (!startDate) return;
-    if (endDate) return; // respect existing End value
+    if (!startDate || endDateTouched.current) return;
     const start = new Date(startDate);
     if (Number.isNaN(start.getTime())) return;
     const end = new Date(start.getTime() + 60 * 60 * 1000);
     setEndDate(toLocalInputString(end));
-    // Intentionally only run when startDate changes — re-running on endDate
-    // would clobber the user's manual edits.
+    // Only re-run when startDate changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate]);
 
@@ -661,7 +661,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
               className={styles.input}
               type="datetime-local"
               value={endDate}
-              onChange={e => setEndDate(e.target.value)}
+              onChange={e => { endDateTouched.current = true; setEndDate(e.target.value); }}
               disabled={!startDate}
               aria-describedby={!startDate ? 'create-end-hint' : undefined}
             />

@@ -43,6 +43,21 @@ const BULK_COPY = {
   archive:      { done: 'archivadas',   failVerb: 'archivar',     noun: 'tarea' },
 } satisfies Record<string, BulkCopy>;
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Ensures 'networkSiteName' (Nodo column) always sits at position 2 (index 1)
+ * in the visible column key list, regardless of drag-to-reorder state.
+ * Exported for unit testing.
+ */
+export function pinNodeSecond(keys: string[]): string[] {
+  if (!keys.includes('networkSiteName')) return keys;
+  const without = keys.filter(k => k !== 'networkSiteName');
+  return without.length === 0
+    ? ['networkSiteName']
+    : [without[0], 'networkSiteName', ...without.slice(1)];
+}
+
 // ── Atoms ────────────────────────────────────────────────────────────────────
 
 /** Priority pill — colour comes from the editable TaskPriority catalog. Falls
@@ -657,11 +672,13 @@ export function TasksTableView({
       ) },
   ];
 
-  // Build COLUMNS in the EXACT order of visibleColumnKeys (drag-to-reorder).
+  // Build COLUMNS in the EXACT order of visibleColumnKeys (drag-to-reorder),
+  // but always keep 'networkSiteName' (Nodo) pinned at position 2 (index 1).
   // When the prop is undefined (legacy callers), fall back to the canonical
   // ALL_COLUMNS order.
-  const COLUMNS = visibleColumnKeys
-    ? visibleColumnKeys
+  const orderedKeys = visibleColumnKeys ? pinNodeSecond(visibleColumnKeys) : null;
+  const COLUMNS = orderedKeys
+    ? orderedKeys
         .map(k => ALL_COLUMNS.find(c => c.key === k))
         .filter((c): c is typeof ALL_COLUMNS[number] => !!c)
     : ALL_COLUMNS;

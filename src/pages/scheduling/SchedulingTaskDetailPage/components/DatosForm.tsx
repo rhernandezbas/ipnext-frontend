@@ -252,13 +252,16 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
   }, [watchedContractId, customerContracts]);
 
   // Watch startDate to drive end-date UX: disable End while Start is empty, and
-  // auto-default End to Start + 1h when End is empty. If End already has a value
-  // (initial or user-edited), leave it alone — the user owns it.
+  // auto-default End to Start + 1h on every startDate change — UNLESS the user
+  // manually edited End or the task was loaded with an existing endDate
+  // (endDateTouched is initialised to true when initial.endDate is set, so saved
+  // values are never overwritten on mount or on subsequent startDate changes).
   const watchedStartDate = useWatch({ control, name: 'startDate' });
+  // Treat a non-empty initial endDate as "user owns it": pre-set the touched flag
+  // so the mirror never fires for existing tasks. Manual endDate edits also set it.
+  const endDateTouched = useRef(!!toLocalInput(initial.endDate));
   useEffect(() => {
-    if (!watchedStartDate) return;
-    const currentEnd = getValues('endDate');
-    if (currentEnd) return; // respect existing End value
+    if (!watchedStartDate || endDateTouched.current) return;
     const start = new Date(watchedStartDate);
     if (Number.isNaN(start.getTime())) return;
     const end = new Date(start.getTime() + 60 * 60 * 1000);
@@ -458,6 +461,10 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
               disabled={!watchedStartDate}
               aria-describedby={!watchedStartDate ? 'endDate-hint' : undefined}
               {...register('endDate')}
+              onChange={(e) => {
+                endDateTouched.current = true;
+                void register('endDate').onChange(e);
+              }}
             />
             {!watchedStartDate && (
               <span id="endDate-hint" className={styles.hint}>
