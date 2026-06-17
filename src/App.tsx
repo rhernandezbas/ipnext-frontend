@@ -156,6 +156,7 @@ const PortalUsersPage = lazy(() => import('@/pages/portal/PortalUsersPage'));
 const NetworkTopologyPage = lazy(() => import('@/pages/networking/NetworkTopologyPage'));
 const ContractsListPage = lazy(() => import('@/pages/contracts/ContractsListPage'));
 const RecaptacionPage = lazy(() => import('@/pages/customers/RecaptacionPage'));
+const PppoeCortesPage = lazy(() => import('@/pages/customers/PppoeCortesPage'));
 const ServiceTechnologiesPage = lazy(() => import('@/pages/contracts/ServiceTechnologiesPage'));
 const NodesPage = lazy(() => import('@/pages/networking/NodesPage'));
 const NodeDetailPage = lazy(() => import('@/pages/networking/NodeDetailPage'));
@@ -190,6 +191,8 @@ export function App() {
                 {/* #2 — tv/history route removed: history is now in ActivationHistoryModal. */}
                 {/* #80 — Recaptación: churned client recovery. MUST be before :id catch-all. */}
                 <Route path="recaptacion" element={<RequirePermission permission="recapture.read"><RecaptacionPage /></RequirePermission>} />
+                {/* Cortes PPPoE (Fase C) — MUST be before :id catch-all. */}
+                <Route path="pppoe-cortes" element={<RequirePermission permission="pppoe.cut"><PppoeCortesPage /></RequirePermission>} />
                 {/* CATCH-ALL — RR6 ranking ensures specific paths above win over :id.
                     Natural /admin/customers/:id redirects to canonical /view/:id. */}
                 <Route path=":id" element={<CustomerIdRedirect />} />
