@@ -11,5 +11,12 @@ import { TasksPageBase } from './TasksPageBase';
  * read from this same filtered query.
  */
 export default function SchedulingTasksPage() {
-  return <TasksPageBase title="Tareas" kind="customer" projectPredicate={p => !p.isNetworkProject} />;
+  return (
+    <TasksPageBase
+      title="Tareas"
+      kind="customer"
+      projectPredicate={p => !p.isNetworkProject}
+      hiddenColumns={['networkSiteName']}
+    />
+  );
 }

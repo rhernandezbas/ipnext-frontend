@@ -393,8 +393,9 @@ interface TasksTableViewProps {
 /** Full list of columns the table knows how to render — used both by the
  *  table itself and by the parent's <ColumnSelector /> dropdown. */
 export const ALL_TASK_COLUMNS: { key: string; label: string }[] = [
-  { key: 'sequenceNumber', label: '#' },
-  { key: 'title',          label: 'Título' },
+  { key: 'sequenceNumber',  label: '#' },
+  { key: 'networkSiteName', label: 'Nodo' },
+  { key: 'title',           label: 'Título' },
   { key: 'stageCategory',  label: 'Estado' },
   { key: 'projectName',    label: 'Proyecto' },
   { key: 'address',        label: 'Dirección' },
@@ -567,6 +568,8 @@ export function TasksTableView({
           #{t.sequenceNumber}
         </Link>
       ) },
+    { label: 'Nodo',      key: 'networkSiteName', sortable: true,
+      render: (t: ScheduledTask) => t.networkSiteName || '—' },
     { label: 'Título',    key: 'title',          sortable: true,
       render: (t: ScheduledTask) => {
         // #41 — pill by generalStatus (closed / dismissed). Fall back to the
