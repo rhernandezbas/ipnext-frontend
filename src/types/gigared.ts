@@ -247,6 +247,11 @@ export interface SetOttPayload {
 export interface CancelTvPayload {
   /** The contract that owns the TV item — the BE inactivates ITS local 'TV' line. */
   contractId: string;
+  /**
+   * #127 — operator-supplied reason for the cancellation.
+   * Required by the FE modal; treated as optional by the BE (wire contract).
+   */
+  reason?: string;
 }
 
 /**

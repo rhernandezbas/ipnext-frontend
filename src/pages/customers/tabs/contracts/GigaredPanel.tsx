@@ -21,6 +21,7 @@ import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { useConfirm } from '@/context/ConfirmContext';
 import { Can } from '@/components/auth/Can';
 import { GigaredNotConfigured } from '@/components/molecules/GigaredNotConfigured/GigaredNotConfigured';
+import { ServiceRemovalReasonModal } from '@/components/molecules/ServiceRemovalReasonModal/ServiceRemovalReasonModal';
 import { formatDateShort } from '@/utils/formatDate';
 import { LinkAccountPickerModal } from './LinkAccountPickerModal';
 import type { Contract, ContractService } from '@/types/customer';
@@ -157,8 +158,13 @@ export function GigaredPanel({ customerId, contractId, customer, grContratoId, o
   // Mirror to state so Reintentar always POSTs the ORIGINAL contractId even after
   // the linked→unlinked flip.
   const [frozenContractId, setFrozenContractId] = useState<string | null>(null);
+  // #127 / FIX 3 — snapshot the reason alongside the contractId so Reintentar
+  // re-sends the original reason (the operator cannot re-type it in retry).
+  const [frozenCancelReason, setFrozenCancelReason] = useState<string | undefined>(undefined);
 
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  // #127 — reason typed in the cancel confirm dialog.
+  const [cancelReason, setCancelReason] = useState('');
   // #10 — true after a 202 is received; enables the status poll.
   const [cancelPolling, setCancelPolling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -178,10 +184,10 @@ export function GigaredPanel({ customerId, contractId, customer, grContratoId, o
     cancelOutcomeVisible &&
     (cancelIsFailed || (cancelIsDone && (cancelResult?.failed?.length ?? 0) > 0));
 
-  async function doCancel(targetContractId: string) {
+  async function doCancel(targetContractId: string, reason?: string) {
     setCancelError(null);
     try {
-      const outcome = await cancelTv.mutateAsync({ contractId: targetContractId });
+      const outcome = await cancelTv.mutateAsync({ contractId: targetContractId, reason });
       if (outcome.status === 202) {
         // Async: enable the status poll and show the outcome modal.
         setCancelPolling(true);
@@ -197,17 +203,22 @@ export function GigaredPanel({ customerId, contractId, customer, grContratoId, o
 
   async function confirmCancel() {
     if (cancelTv.isPending) return;
+    // #127 — block confirm when reason is empty (button disabled guards this too).
+    const trimmedReason = cancelReason.trim();
+    if (!trimmedReason) return;
     // L3 — freeze the contractId NOW, before the POST.
     const snapshot = frozenContractId ?? effectiveContractId;
     setFrozenContractId(snapshot);
+    // #127 / FIX 3 — freeze the reason so Reintentar can re-send it.
+    setFrozenCancelReason(trimmedReason);
     setCancelConfirmOpen(false);
-    await doCancel(snapshot);
+    await doCancel(snapshot, trimmedReason);
   }
 
   async function handleRetryCancel() {
     if (cancelTv.isPending) return;
-    // Reintentar re-POSTs with the frozen contractId.
-    await doCancel(frozenContractId ?? effectiveContractId);
+    // #127 / FIX 3 — re-POST with the frozen contractId AND the original reason.
+    await doCancel(frozenContractId ?? effectiveContractId, frozenCancelReason);
   }
 
   function closeCancelOutcome() {
@@ -249,7 +260,7 @@ export function GigaredPanel({ customerId, contractId, customer, grContratoId, o
           account={account}
           grContratoId={grContratoId ?? null}
           ownerElsewhere={ownerElsewhere}
-          onRequestCancel={() => setCancelConfirmOpen(true)}
+          onRequestCancel={() => { setCancelReason(''); setCancelConfirmOpen(true); }}
           cancelPending={cancelTv.isPending}
           cancelError={cancelError}
           cancelOutcomeVisible={cancelOutcomeVisible}
@@ -303,7 +314,7 @@ export function GigaredPanel({ customerId, contractId, customer, grContratoId, o
       {/* C1 — CANCEL MODALS live in the PARENT, not in LinkedView. This ensures
           they survive the linked→unlinked flip that unmounts LinkedView on success. */}
 
-      {/* Strong confirm */}
+      {/* Strong confirm — #127: requires a reason before confirming */}
       {cancelConfirmOpen && (
         <div
           className={styles.confirmBackdrop}
@@ -322,6 +333,21 @@ export function GigaredPanel({ customerId, contractId, customer, grContratoId, o
               desactiva el ítem TV del contrato. El cliente quedará sin TV. ¿Confirmás
               la baja?
             </p>
+            {/* #127 — mandatory cancellation reason */}
+            <div className={styles.field}>
+              <label htmlFor="tv-cancel-reason" className={styles.fieldLabel}>
+                Motivo de la baja
+              </label>
+              <textarea
+                id="tv-cancel-reason"
+                className={styles.textarea}
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Ej: Cliente solicitó baja, traslado, mora…"
+                rows={3}
+                disabled={cancelTv.isPending}
+              />
+            </div>
             <div className={styles.formActions}>
               <button
                 type="button"
@@ -335,7 +361,7 @@ export function GigaredPanel({ customerId, contractId, customer, grContratoId, o
                 type="button"
                 className={`${styles.btnPrimary} ${styles.btnDanger}`}
                 onClick={confirmCancel}
-                disabled={cancelTv.isPending}
+                disabled={cancelTv.isPending || cancelReason.trim().length === 0}
               >
                 {cancelTv.isPending ? 'Procesando…' : 'Confirmar baja'}
               </button>
@@ -476,35 +502,39 @@ function LocalItemSection({
   line: ContractService;
 }) {
   const { can } = useMyPermissions();
-  const confirm = useConfirm();
   const remove = useRemoveContractService(customerId);
+  // #127 — collect a reason via ServiceRemovalReasonModal before removing.
+  const [modalOpen, setModalOpen] = useState(false);
 
   if (!can('clients.write')) return null;
 
-  async function handleRemove() {
-    const ok = await confirm({
-      message: '¿Quitar el ítem TV local de este contrato?',
-      tone: 'danger',
-      confirmLabel: 'Quitar',
-    });
-    if (!ok) return;
-    await remove.mutateAsync({ contractId, id: line.id });
+  async function handleRemoveConfirm(reason: string) {
+    setModalOpen(false);
+    await remove.mutateAsync({ contractId, id: line.id, reason });
   }
 
   return (
-    <section className={styles.card}>
-      <h4 className={styles.cardTitle}>Ítem local</h4>
-      <div className={styles.formActions}>
-        <button
-          type="button"
-          className={styles.btnLinkDanger}
-          onClick={handleRemove}
-          disabled={remove.isPending}
-        >
-          {remove.isPending ? 'Quitando…' : 'Quitar el ítem TV de este contrato'}
-        </button>
-      </div>
-    </section>
+    <>
+      <ServiceRemovalReasonModal
+        open={modalOpen}
+        serviceName={line.label ?? line.name}
+        onConfirm={handleRemoveConfirm}
+        onCancel={() => setModalOpen(false)}
+      />
+      <section className={styles.card}>
+        <h4 className={styles.cardTitle}>Ítem local</h4>
+        <div className={styles.formActions}>
+          <button
+            type="button"
+            className={styles.btnLinkDanger}
+            onClick={() => setModalOpen(true)}
+            disabled={remove.isPending}
+          >
+            {remove.isPending ? 'Quitando…' : 'Quitar el ítem TV de este contrato'}
+          </button>
+        </div>
+      </section>
+    </>
   );
 }
 

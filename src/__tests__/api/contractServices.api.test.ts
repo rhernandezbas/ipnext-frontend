@@ -36,9 +36,14 @@ describe('contractServicesApi (#43)', () => {
     expect(result.status).toBe('inactive');
   });
 
-  it('remove() DELETEs /contracts/:contractId/services/:id', async () => {
+  it('remove() DELETEs /contracts/:contractId/services/:id with reason body', async () => {
     vi.mocked(axiosClient.delete).mockResolvedValue({ data: undefined });
     await contractServicesApi.remove('ctr-9', 'cs-1');
-    expect(axiosClient.delete).toHaveBeenCalledWith('/contracts/ctr-9/services/cs-1');
+    // #127 — reason always goes in the DELETE body (wire contract);
+    // when omitted, reason is undefined in the body.
+    expect(axiosClient.delete).toHaveBeenCalledWith(
+      '/contracts/ctr-9/services/cs-1',
+      { data: { reason: undefined } },
+    );
   });
 });

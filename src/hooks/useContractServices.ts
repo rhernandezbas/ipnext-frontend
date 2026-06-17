@@ -42,8 +42,8 @@ export function useUpdateContractService(clientId: string) {
 export function useRemoveContractService(clientId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ contractId, id }: { contractId: string; id: string }) =>
-      contractServicesApi.remove(contractId, id),
+    mutationFn: ({ contractId, id, reason }: { contractId: string; id: string; reason?: string }) =>
+      contractServicesApi.remove(contractId, id, reason),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['client-contracts', clientId] });
       qc.invalidateQueries({ queryKey: SERVICE_HISTORY_ROOT });

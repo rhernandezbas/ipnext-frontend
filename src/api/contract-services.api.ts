@@ -21,8 +21,8 @@ export const contractServicesApi = {
     axiosClient
       .patch<ContractService>(`/contracts/${contractId}/services/${id}`, payload)
       .then(r => r.data),
-  remove: (contractId: string, id: string) =>
-    axiosClient.delete(`/contracts/${contractId}/services/${id}`),
+  remove: (contractId: string, id: string, reason?: string) =>
+    axiosClient.delete(`/contracts/${contractId}/services/${id}`, { data: { reason } }),
   getHistory: (contractId: string): Promise<ServiceHistoryEntry[]> =>
     axiosClient.get<ServiceHistoryEntry[]>(`/contracts/${contractId}/service-history`).then(r => r.data),
 };

@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
-import { useConfirm } from '@/context/ConfirmContext';
 import { useUpdateContractService, useRemoveContractService } from '@/hooks/useContractServices';
+import { ServiceRemovalReasonModal } from '@/components/molecules/ServiceRemovalReasonModal/ServiceRemovalReasonModal';
 import type { ContractService } from '@/types/customer';
 import styles from './ContractServiceChips.module.css';
 
@@ -35,23 +36,39 @@ function isTvService(name: string): boolean {
 export function ContractServiceChips({ contractId, clientId, services, onOpenTvManagement, tvSuspended }: Props) {
   const { can } = useMyPermissions();
   const canWrite = can('clients.write');
-  const confirm = useConfirm();
   const toggle = useUpdateContractService(clientId);
   const remove = useRemoveContractService(clientId);
+
+  // #127 — modal state: which service is pending removal (null = closed).
+  const [pendingRemoval, setPendingRemoval] = useState<ContractService | null>(null);
 
   async function handleToggle(svc: ContractService) {
     const next = svc.status === 'active' ? 'inactive' : 'active';
     await toggle.mutateAsync({ contractId, id: svc.id, payload: { status: next } });
   }
 
-  async function handleRemove(svc: ContractService) {
-    const text = svc.label ?? svc.name;
-    if (!(await confirm({ message: `¿Quitar el servicio "${text}"?`, tone: 'danger', confirmLabel: 'Quitar' }))) return;
-    await remove.mutateAsync({ contractId, id: svc.id });
+  function handleRemoveClick(svc: ContractService) {
+    setPendingRemoval(svc);
+  }
+
+  async function handleRemoveConfirm(reason: string) {
+    if (!pendingRemoval) return;
+    setPendingRemoval(null);
+    await remove.mutateAsync({ contractId, id: pendingRemoval.id, reason });
+  }
+
+  function handleRemoveCancel() {
+    setPendingRemoval(null);
   }
 
   return (
     <>
+      <ServiceRemovalReasonModal
+        open={pendingRemoval !== null}
+        serviceName={pendingRemoval ? (pendingRemoval.label ?? pendingRemoval.name) : ''}
+        onConfirm={handleRemoveConfirm}
+        onCancel={handleRemoveCancel}
+      />
       {services.map((svc) => {
         const text = svc.label ?? svc.name;
         const stateClass = svc.status === 'active' ? styles.active : styles.inactive;
@@ -110,7 +127,7 @@ export function ContractServiceChips({ contractId, clientId, services, onOpenTvM
             <button
               type="button"
               className={styles.chipRemove}
-              onClick={() => handleRemove(svc)}
+              onClick={() => handleRemoveClick(svc)}
               aria-label={`Quitar ${text}`}
             >
               ×

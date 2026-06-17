@@ -281,16 +281,20 @@ describe('ContractsTab (#42)', () => {
   // --- CTU-5.3: remove with confirm ---
   it('removes a service after confirm', async () => {
     const removeMutate = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(useConfirm).mockReturnValue(vi.fn().mockResolvedValue(true));
     setup({
       contracts: [contract({ id: 'ctr-1', services: [svc({ id: 'cs-1', label: 'Internet' })] })],
       removeMutate,
     });
     const user = userEvent.setup();
     render(<ContractsTab clientId="c-1" active />);
+    // #127 — clicking "×" opens the ServiceRemovalReasonModal, not the old useConfirm.
     await user.click(screen.getByRole('button', { name: /quitar Internet/i }));
+    // Modal appears — type a reason and confirm.
+    const modal = await screen.findByRole('dialog');
+    await user.type(within(modal).getByRole('textbox'), 'Cliente solicitó baja');
+    await user.click(within(modal).getByRole('button', { name: /dar de baja/i }));
     await waitFor(() =>
-      expect(removeMutate).toHaveBeenCalledWith({ contractId: 'ctr-1', id: 'cs-1' }),
+      expect(removeMutate).toHaveBeenCalledWith({ contractId: 'ctr-1', id: 'cs-1', reason: 'Cliente solicitó baja' }),
     );
   });
 

@@ -42,6 +42,7 @@ function EventsTable({ events, showCic }: { events: ServiceEvent[]; showCic: boo
           <th>Tipo</th>
           {showCic && <th>CIC</th>}
           <th>Operador</th>
+          <th>Motivo</th>
         </tr>
       </thead>
       <tbody>
@@ -51,6 +52,7 @@ function EventsTable({ events, showCic }: { events: ServiceEvent[]; showCic: boo
             <td><EventBadge type={ev.eventType} /></td>
             {showCic && <td>{ev.cic ?? '—'}</td>}
             <td>{ev.actorName}</td>
+            <td>{ev.reason ?? '—'}</td>
           </tr>
         ))}
       </tbody>

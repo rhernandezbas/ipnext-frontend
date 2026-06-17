@@ -825,14 +825,17 @@ describe('GigaredPanel', () => {
       await user.click(
         screen.getByRole('button', { name: /quitar el ítem tv de este contrato/i }),
       );
+      // #127 — ServiceRemovalReasonModal opens; type reason and confirm.
+      const modal = await screen.findByRole('dialog', { name: /dar de baja: tv/i });
+      await user.type(within(modal).getByRole('textbox'), 'Ítem TV local sobrante');
+      await user.click(within(modal).getByRole('button', { name: /dar de baja/i }));
       await waitFor(() =>
-        expect(removeLocalMutate).toHaveBeenCalledWith({ contractId: 'ct-9', id: 'cs-tv' }),
+        expect(removeLocalMutate).toHaveBeenCalledWith({ contractId: 'ct-9', id: 'cs-tv', reason: 'Ítem TV local sobrante' }),
       );
     });
 
-    it('cancelling the confirm does NOT remove the local item', async () => {
+    it('cancelling the modal does NOT remove the local item', async () => {
       const user = userEvent.setup();
-      vi.mocked(useConfirm).mockReturnValue(vi.fn().mockResolvedValue(false));
       mockQuery({
         account: { linked: false, account: null },
         contracts: [contract('ct-9', [tvService({ id: 'cs-tv' })])],
@@ -841,7 +844,9 @@ describe('GigaredPanel', () => {
       await user.click(
         screen.getByRole('button', { name: /quitar el ítem tv de este contrato/i }),
       );
-      await waitFor(() => expect(useConfirm).toHaveBeenCalled());
+      // #127 — ServiceRemovalReasonModal opens; cancel without confirming.
+      const modal = await screen.findByRole('dialog', { name: /dar de baja: tv/i });
+      await user.click(within(modal).getByRole('button', { name: /cancelar/i }));
       expect(removeLocalMutate).not.toHaveBeenCalled();
     });
 
@@ -1709,9 +1714,15 @@ describe('GigaredPanel', () => {
   // OTT yes/no, local yes/no) + a "Reintentar baja" that re-POSTs (idempotent).
   // Gated by tv.cancel.
   describe('#47k ② — Dar de baja TV', () => {
-    /** Open the strong confirm from the danger action. */
+    /**
+     * Open the strong confirm from the danger action and type a default reason.
+     * #127 — the confirm button is disabled until a reason is provided; this helper
+     * fills in the textarea so subsequent tests can click "Confirmar baja" directly.
+     */
     async function openCancel(user: ReturnType<typeof userEvent.setup>) {
       await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
+      const dialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      await user.type(within(dialog).getByRole('textbox'), 'Baja solicitada');
     }
 
     it('renders the danger "Dar de baja TV" action when linked', () => {
@@ -1740,7 +1751,8 @@ describe('GigaredPanel', () => {
       await openCancel(user);
       const dialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
       await user.click(within(dialog).getByRole('button', { name: /confirmar|dar de baja/i }));
-      await waitFor(() => expect(cancelMutate).toHaveBeenCalledWith({ contractId: 'ct-A' }));
+      // #127 — reason is now included in the payload (filled by openCancel helper).
+      await waitFor(() => expect(cancelMutate).toHaveBeenCalledWith({ contractId: 'ct-A', reason: 'Baja solicitada' }));
     });
 
     it('first activation contract (no owner) → cancel uses the opening contractId', async () => {
@@ -1750,7 +1762,8 @@ describe('GigaredPanel', () => {
       await openCancel(user);
       const dialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
       await user.click(within(dialog).getByRole('button', { name: /confirmar|dar de baja/i }));
-      await waitFor(() => expect(cancelMutate).toHaveBeenCalledWith({ contractId: 'ct-9' }));
+      // #127 — reason is now included in the payload (filled by openCancel helper).
+      await waitFor(() => expect(cancelMutate).toHaveBeenCalledWith({ contractId: 'ct-9', reason: 'Baja solicitada' }));
     });
 
     it('cancelling the strong confirm does NOT POST', async () => {
@@ -1898,8 +1911,9 @@ describe('GigaredPanel', () => {
       await user.click(within(confirm).getByRole('button', { name: /confirmar|dar de baja/i }));
       const retry = await screen.findByRole('button', { name: /reintentar baja/i });
       await user.click(retry);
+      // #127 / FIX 3 — retry re-sends the frozen reason from the original confirm.
       await waitFor(() =>
-        expect(cancelMutate).toHaveBeenLastCalledWith({ contractId: 'ct-9' }),
+        expect(cancelMutate).toHaveBeenLastCalledWith({ contractId: 'ct-9', reason: 'Baja solicitada' }),
       );
     });
 
@@ -1926,6 +1940,8 @@ describe('GigaredPanel', () => {
       // Open cancel, confirm → outcome modal appears
       await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
       const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      // #127 — must fill in reason before confirm button enables
+      await user.type(within(confirmDialog).getByRole('textbox'), 'Baja solicitada');
       await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
       const outcome = await screen.findByRole('dialog', { name: /baja de tv/i });
       // #10 — green ✓ success banner (done + no failures).
@@ -1966,6 +1982,8 @@ describe('GigaredPanel', () => {
       renderPanel();
       await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
       const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      // #127 — must fill in reason before confirm button enables
+      await user.type(within(confirmDialog).getByRole('textbox'), 'Baja solicitada');
       await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
       const outcome = await screen.findByRole('dialog', { name: /baja de tv/i });
       // Partial with failures → red banner (error icon present)
@@ -1986,6 +2004,8 @@ describe('GigaredPanel', () => {
       renderPanel();
       await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
       const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      // #127 — must fill in reason before confirm button enables
+      await user.type(within(confirmDialog).getByRole('textbox'), 'Baja solicitada');
       await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
       const outcome = await screen.findByRole('dialog', { name: /baja de tv/i });
       // No partial → no error icon, no Reintentar
@@ -2005,6 +2025,8 @@ describe('GigaredPanel', () => {
       });
       await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
       const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      // #127 — must fill in reason before confirm button enables
+      await user.type(within(confirmDialog).getByRole('textbox'), 'Baja solicitada');
       await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
 
       // Should show an error — not the outcome modal
@@ -2024,6 +2046,8 @@ describe('GigaredPanel', () => {
       });
       await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
       const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      // #127 — must fill in reason before confirm button enables
+      await user.type(within(confirmDialog).getByRole('textbox'), 'Baja solicitada');
       await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
 
       await waitFor(() =>
@@ -2050,8 +2074,11 @@ describe('GigaredPanel', () => {
       // Confirm cancel → snapshot ct-A
       await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
       const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      // #127 — must fill in reason before confirm button enables
+      await user.type(within(confirmDialog).getByRole('textbox'), 'Baja solicitada');
       await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
-      await waitFor(() => expect(cancelMutate).toHaveBeenCalledWith({ contractId: 'ct-A' }));
+      // #127 — reason is included in the first call; the snapshot is ct-A.
+      await waitFor(() => expect(cancelMutate).toHaveBeenCalledWith({ contractId: 'ct-A', reason: 'Baja solicitada' }));
 
       // After the flip: account unlinked + contracts change so effectiveContractId would shift
       vi.mocked(useGigaredCustomerAccount).mockReturnValue({
@@ -2070,11 +2097,12 @@ describe('GigaredPanel', () => {
         </MemoryRouter>,
       );
 
-      // Reintentar must still POST ct-A (the snapshot), not ct-X
+      // Reintentar must still POST ct-A (the snapshot), not ct-X.
+      // #127 / FIX 3 — retry re-sends the frozen reason from the original confirm.
       const retry = screen.getByRole('button', { name: /reintentar baja/i });
       await user.click(retry);
       await waitFor(() =>
-        expect(cancelMutate).toHaveBeenLastCalledWith({ contractId: 'ct-A' }),
+        expect(cancelMutate).toHaveBeenLastCalledWith({ contractId: 'ct-A', reason: 'Baja solicitada' }),
       );
     });
 
@@ -2170,6 +2198,8 @@ describe('GigaredPanel', () => {
       renderPanel();
       await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
       const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      // #127 — must fill in reason before confirm button enables
+      await user.type(within(confirmDialog).getByRole('textbox'), 'Baja solicitada');
       await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
       // Partial modal with Reintentar
       const retry = await screen.findByRole('button', { name: /reintentar baja/i });
@@ -2364,6 +2394,8 @@ describe('GigaredPanel', () => {
       renderPanel();
       await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
       const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      // #127 — must fill in reason before confirm button enables
+      await user.type(within(confirmDialog).getByRole('textbox'), 'Baja solicitada');
       await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
       // After 202 the panel enters polling state and shows the spinner
       await waitFor(() =>
@@ -2384,6 +2416,8 @@ describe('GigaredPanel', () => {
       renderPanel();
       await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
       const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      // #127 — must fill in reason before confirm button enables
+      await user.type(within(confirmDialog).getByRole('textbox'), 'Baja solicitada');
       await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
       const outcome = await screen.findByRole('dialog', { name: /baja de tv/i });
       // Green success — NO error icon
@@ -2405,6 +2439,8 @@ describe('GigaredPanel', () => {
       renderPanel();
       await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
       const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      // #127 — must fill in reason before confirm button enables
+      await user.type(within(confirmDialog).getByRole('textbox'), 'Baja solicitada');
       await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
       const outcome = await screen.findByRole('dialog', { name: /baja de tv/i });
       // Red partial banner → error icon present
@@ -2422,6 +2458,8 @@ describe('GigaredPanel', () => {
       renderPanel();
       await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
       const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      // #127 — must fill in reason before confirm button enables
+      await user.type(within(confirmDialog).getByRole('textbox'), 'Baja solicitada');
       await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
       const outcome = await screen.findByRole('dialog', { name: /baja de tv/i });
       // Error icon present on failed status
@@ -2439,6 +2477,8 @@ describe('GigaredPanel', () => {
       // Just confirm cancel and check the panel is in polling state
       await user.click(screen.getByRole('button', { name: /dar de baja tv/i }));
       const confirmDialog = screen.getByRole('dialog', { name: /dar de baja tv/i });
+      // #127 — must fill in reason before confirm button enables
+      await user.type(within(confirmDialog).getByRole('textbox'), 'Baja solicitada');
       await user.click(within(confirmDialog).getByRole('button', { name: /confirmar|dar de baja/i }));
       // Spinner shown → poll active but not done
       await waitFor(() => expect(screen.getByText(/dando de baja tv/i)).toBeInTheDocument());

@@ -24,6 +24,11 @@ export interface ServiceEvent {
   actorName: string;
   /** CIC identifier — only non-null for TV-related events. */
   cic: string | null;
+  /**
+   * #127 — operator-supplied reason for the state change (required on new events).
+   * Null for legacy events (pre-#127) that were created without a reason.
+   */
+  reason?: string | null;
 }
 
 /** One entry in a contract's service history (#73). Includes inactive services. */
