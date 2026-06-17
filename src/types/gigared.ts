@@ -192,6 +192,12 @@ export interface TvActivationEvent {
   contractId?: string;
   /** ISO timestamp (newest first). */
   createdAt: string;
+  /**
+   * #133-FE — operator-supplied reason for the state change.
+   * Wire contract: the DTO from GET /gigared/customers/activation-history
+   * returns reason: string | null. Null for legacy events (pre-#133).
+   */
+  reason?: string | null;
 }
 
 /** Query params for the activation history endpoint. All optional. */

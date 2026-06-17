@@ -201,3 +201,19 @@
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
 }
+
+/* #132 — "ver" link button in the Motivo column */
+.reasonLink {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-primary, #2563eb);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.reasonLink:hover {
+  opacity: 0.8;
+}

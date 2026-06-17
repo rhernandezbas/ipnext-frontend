@@ -19,6 +19,7 @@ import {
   useGigaredCustomerActivationHistory,
 } from '@/hooks/useGigared';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
+import { ReasonViewModal } from '@/components/molecules/ReasonViewModal/ReasonViewModal';
 import { formatDateTimeShort } from '@/utils/formatDate';
 import type { TvActivationEvent, ActivationHistoryFilter } from '@/types/gigared';
 import styles from './ActivationHistoryModal.module.css';
@@ -49,57 +50,87 @@ function EventTypeBadge({ type }: { type: TvActivationEvent['eventType'] }) {
 
 // ── Columns ───────────────────────────────────────────────────────────────────
 
-const COLUMNS = [
-  {
-    key: 'createdAt',
-    label: 'Fecha/hora',
-    render: (r: Row) => formatDateTimeShort(r.createdAt),
-  },
-  {
-    key: 'eventType',
-    label: 'Tipo',
-    render: (r: Row) => <EventTypeBadge type={r.eventType} />,
-  },
-  {
-    key: 'cic',
-    label: 'CIC',
-    render: (r: Row) => r.cic ?? '—',
-  },
-  {
-    key: 'customer',
-    label: 'Cliente',
-    render: (r: Row) => {
-      const name = r.customerName ?? '—';
-      return r.clientId ? (
-        <Link className={styles.nameLink} to={`/admin/customers/view/${r.clientId}`}>
-          {name}
-        </Link>
-      ) : (
-        <span>{name}</span>
-      );
+function buildColumns(onViewReason: (reason: string) => void) {
+  return [
+    {
+      key: 'createdAt',
+      label: 'Fecha/hora',
+      render: (r: Row) => formatDateTimeShort(r.createdAt),
     },
-  },
-  {
-    key: 'actorName',
-    label: 'Operador',
-    render: (r: Row) => r.actorName,
-  },
-];
+    {
+      key: 'eventType',
+      label: 'Tipo',
+      render: (r: Row) => <EventTypeBadge type={r.eventType} />,
+    },
+    {
+      key: 'cic',
+      label: 'CIC',
+      render: (r: Row) => r.cic ?? '—',
+    },
+    {
+      key: 'customer',
+      label: 'Cliente',
+      render: (r: Row) => {
+        const name = r.customerName ?? '—';
+        return r.clientId ? (
+          <Link className={styles.nameLink} to={`/admin/customers/view/${r.clientId}`}>
+            {name}
+          </Link>
+        ) : (
+          <span>{name}</span>
+        );
+      },
+    },
+    {
+      key: 'actorName',
+      label: 'Operador',
+      render: (r: Row) => r.actorName,
+    },
+    {
+      key: 'reason',
+      label: 'Motivo',
+      render: (r: Row) =>
+        r.reason ? (
+          <button
+            type="button"
+            className={styles.reasonLink}
+            aria-label="Ver motivo"
+            onClick={() => onViewReason(r.reason!)}
+          >
+            ver
+          </button>
+        ) : (
+          '—'
+        ),
+    },
+  ];
+}
 
 // ── Per-client body ───────────────────────────────────────────────────────────
 
 function PerClientBody({ customerId, open }: { customerId: string; open: boolean }) {
   const { data, isLoading } = useGigaredCustomerActivationHistory(customerId, open);
+  const [activeReason, setActiveReason] = useState<string | null>(null);
   const rows: Row[] = (data ?? []).map((e) => ({ ...e, id: e.id }));
+  const columns = buildColumns(setActiveReason);
   return (
-    <div className={styles.body}>
-      <DataTable
-        columns={COLUMNS}
-        data={rows}
-        loading={isLoading}
-        emptyMessage="Sin eventos para este cliente."
-      />
-    </div>
+    <>
+      <div className={styles.body}>
+        <DataTable
+          columns={columns}
+          data={rows}
+          loading={isLoading}
+          emptyMessage="Sin eventos para este cliente."
+        />
+      </div>
+      {activeReason !== null && (
+        <ReasonViewModal
+          open
+          reason={activeReason}
+          onClose={() => setActiveReason(null)}
+        />
+      )}
+    </>
   );
 }
 
@@ -110,6 +141,7 @@ function GlobalBody() {
   const [to, setTo] = useState('');
   const [actorId, setActorId] = useState('');
   const [customerId, setCustomerId] = useState('');
+  const [activeReason, setActiveReason] = useState<string | null>(null);
 
   const filter: ActivationHistoryFilter = {};
   if (from) filter.from = from;
@@ -120,6 +152,7 @@ function GlobalBody() {
   const { data, isLoading, isError } = useGigaredActivationHistory(filter);
 
   const rows: Row[] = (data ?? []).map((e) => ({ ...e, id: e.id }));
+  const columns = buildColumns(setActiveReason);
 
   return (
     <>
@@ -178,12 +211,19 @@ function GlobalBody() {
 
       <div className={styles.body}>
         <DataTable
-          columns={COLUMNS}
+          columns={columns}
           data={rows}
           loading={isLoading}
           emptyMessage="Sin eventos para el filtro."
         />
       </div>
+      {activeReason !== null && (
+        <ReasonViewModal
+          open
+          reason={activeReason}
+          onClose={() => setActiveReason(null)}
+        />
+      )}
     </>
   );
 }

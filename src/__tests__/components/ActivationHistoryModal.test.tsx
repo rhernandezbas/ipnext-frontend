@@ -226,4 +226,52 @@ describe('ActivationHistoryModal', () => {
     renderModal();
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
+
+  // ── #133-FE — Motivo column ─────────────────────────────────────────────────
+
+  it('shows "Motivo" column header in the table', () => {
+    renderModal();
+    expect(screen.getByText('Motivo')).toBeInTheDocument();
+  });
+
+  it('event with reason → shows "ver" link, not the reason text inline', () => {
+    const eventsWithReason: TvActivationEvent[] = [
+      {
+        ...events[0],
+        reason: 'Solicitud del cliente',
+      },
+    ];
+    mockGlobal(eventsWithReason);
+    renderModal();
+    expect(screen.getByRole('button', { name: /ver motivo/i })).toBeInTheDocument();
+    expect(screen.queryByText('Solicitud del cliente')).not.toBeInTheDocument();
+  });
+
+  it('event without reason → shows "—" in the Motivo column (no link)', () => {
+    const eventsNoReason: TvActivationEvent[] = [
+      {
+        ...events[0],
+        reason: null,
+      },
+    ];
+    mockGlobal(eventsNoReason);
+    renderModal();
+    expect(screen.queryByRole('button', { name: /ver motivo/i })).not.toBeInTheDocument();
+    const dashes = screen.getAllByText('—');
+    expect(dashes.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('clicking "ver" opens ReasonViewModal with the reason text', () => {
+    const eventsWithReason: TvActivationEvent[] = [
+      {
+        ...events[0],
+        reason: 'Baja por mudanza TV',
+      },
+    ];
+    mockGlobal(eventsWithReason);
+    renderModal();
+    fireEvent.click(screen.getByRole('button', { name: /ver motivo/i }));
+    expect(screen.getByText('Motivo de la baja')).toBeInTheDocument();
+    expect(screen.getByText('Baja por mudanza TV')).toBeInTheDocument();
+  });
 });

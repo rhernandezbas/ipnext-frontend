@@ -289,4 +289,102 @@ describe('ServiceHistoryModal', () => {
     expect(screen.getByText('Sistema Legacy')).toBeInTheDocument();
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
+
+  // ── #132 — reason column: link "ver" → ReasonViewModal ──────────────────────
+
+  it('event with reason → shows "ver" link, not the reason text inline', () => {
+    const entryWithReason: ServiceHistoryEntry = {
+      id: '7',
+      contractId: 'c5',
+      serviceCatalogId: 's7',
+      name: 'FIBER',
+      label: 'Fibra con motivo',
+      status: 'inactive',
+      notes: null,
+      tvLogin: null,
+      createdAt: '2023-01-01T00:00:00.000Z',
+      deactivatedAt: '2024-01-01T00:00:00.000Z',
+      events: [
+        {
+          id: 'ev-r1',
+          eventType: 'deactivated',
+          occurredAt: '2024-01-01T10:00:00',
+          actorName: 'Operador Test',
+          cic: null,
+          reason: 'Cliente solicitó baja por mudanza',
+        },
+      ],
+    };
+    mockUseHistory.mockReturnValue({ data: [entryWithReason], isLoading: false } as any);
+    render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c5" />);
+
+    // Shows "ver" link — not the raw reason text
+    expect(screen.getByRole('button', { name: /ver motivo/i })).toBeInTheDocument();
+    expect(screen.queryByText('Cliente solicitó baja por mudanza')).not.toBeInTheDocument();
+  });
+
+  it('event without reason → shows "—" (no link)', () => {
+    const entryNoReason: ServiceHistoryEntry = {
+      id: '8',
+      contractId: 'c6',
+      serviceCatalogId: 's8',
+      name: 'FIBER',
+      label: 'Fibra sin motivo',
+      status: 'inactive',
+      notes: null,
+      tvLogin: null,
+      createdAt: '2023-01-01T00:00:00.000Z',
+      deactivatedAt: '2024-01-01T00:00:00.000Z',
+      events: [
+        {
+          id: 'ev-r2',
+          eventType: 'deactivated',
+          occurredAt: '2024-01-01T10:00:00',
+          actorName: 'Operador Test',
+          cic: null,
+          reason: null,
+        },
+      ],
+    };
+    mockUseHistory.mockReturnValue({ data: [entryNoReason], isLoading: false } as any);
+    render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c6" />);
+
+    // No "ver" button; shows dash
+    expect(screen.queryByRole('button', { name: /ver motivo/i })).not.toBeInTheDocument();
+    const dashes = screen.getAllByText('—');
+    expect(dashes.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('clicking "ver" opens the ReasonViewModal with the reason text', () => {
+    const entryWithReason: ServiceHistoryEntry = {
+      id: '9',
+      contractId: 'c7',
+      serviceCatalogId: 's9',
+      name: 'FIBER',
+      label: 'Fibra click ver',
+      status: 'inactive',
+      notes: null,
+      tvLogin: null,
+      createdAt: '2023-01-01T00:00:00.000Z',
+      deactivatedAt: '2024-01-01T00:00:00.000Z',
+      events: [
+        {
+          id: 'ev-r3',
+          eventType: 'deactivated',
+          occurredAt: '2024-01-01T10:00:00',
+          actorName: 'Operador Test',
+          cic: null,
+          reason: 'Motivo de baja real',
+        },
+      ],
+    };
+    mockUseHistory.mockReturnValue({ data: [entryWithReason], isLoading: false } as any);
+    render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c7" />);
+
+    fireEvent.click(screen.getByRole('button', { name: /ver motivo/i }));
+
+    // ReasonViewModal opens with the reason text
+    expect(screen.getByText('Motivo de la baja')).toBeInTheDocument();
+    expect(screen.getByText('Motivo de baja real')).toBeInTheDocument();
+  });
 });

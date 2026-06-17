@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useContractServiceHistory } from '../../../hooks/useContractServiceHistory';
 import { StatusBadge } from '../../atoms/StatusBadge/StatusBadge';
+import { ReasonViewModal } from '../ReasonViewModal/ReasonViewModal';
 import type { ServiceHistoryEntry, ServiceEvent } from '../../../types/customer';
 import { formatDateShort, formatDateTimeShort } from '@/utils/formatDate';
 import styles from './ServiceHistoryModal.module.css';
@@ -33,30 +34,52 @@ function EventBadge({ type }: { type: ServiceEvent['eventType'] }) {
 // ── Events sub-table ───────────────────────────────────────────────────────────
 
 function EventsTable({ events, showCic }: { events: ServiceEvent[]; showCic: boolean }) {
+  const [activeReason, setActiveReason] = useState<string | null>(null);
+
   if (events.length === 0) return null;
   return (
-    <table className={styles.eventsTable}>
-      <thead>
-        <tr>
-          <th>Fecha/hora</th>
-          <th>Tipo</th>
-          {showCic && <th>CIC</th>}
-          <th>Operador</th>
-          <th>Motivo</th>
-        </tr>
-      </thead>
-      <tbody>
-        {events.map((ev) => (
-          <tr key={ev.id}>
-            <td>{formatDateTimeShort(ev.occurredAt)}</td>
-            <td><EventBadge type={ev.eventType} /></td>
-            {showCic && <td>{ev.cic ?? '—'}</td>}
-            <td>{ev.actorName}</td>
-            <td>{ev.reason ?? '—'}</td>
+    <>
+      <table className={styles.eventsTable}>
+        <thead>
+          <tr>
+            <th>Fecha/hora</th>
+            <th>Tipo</th>
+            {showCic && <th>CIC</th>}
+            <th>Operador</th>
+            <th>Motivo</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {events.map((ev) => (
+            <tr key={ev.id}>
+              <td>{formatDateTimeShort(ev.occurredAt)}</td>
+              <td><EventBadge type={ev.eventType} /></td>
+              {showCic && <td>{ev.cic ?? '—'}</td>}
+              <td>{ev.actorName}</td>
+              <td>
+                {ev.reason ? (
+                  <button
+                    type="button"
+                    className={styles.reasonLink}
+                    aria-label="Ver motivo"
+                    onClick={() => setActiveReason(ev.reason!)}
+                  >
+                    ver
+                  </button>
+                ) : '—'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {activeReason !== null && (
+        <ReasonViewModal
+          open
+          reason={activeReason}
+          onClose={() => setActiveReason(null)}
+        />
+      )}
+    </>
   );
 }
 
