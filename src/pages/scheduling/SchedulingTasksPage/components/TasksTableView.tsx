@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { formatDateShort } from '@/utils/formatDate';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { Can } from '@/components/auth/Can';
 import type { ScheduledTask, TaskGeneralStatus } from '@/types/scheduling';
@@ -424,6 +424,7 @@ export function TasksTableView({
   readOnly = false,
 }: TasksTableViewProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const moveToStage = useMoveTaskToStage();
   const bulkMoveToStage = useBulkMoveTasksToStage();
   const updateTask = useUpdateTask();
@@ -557,13 +558,13 @@ export function TasksTableView({
 
   function handleEditTask() {
     iclass.closeModal();
-    if (lastMove.current) navigate(`/admin/scheduling/tasks/${lastMove.current.id}`);
+    if (lastMove.current) navigate(`/admin/scheduling/tasks/${lastMove.current.id}`, { state: { from: location.pathname + location.search } });
   }
 
   const ALL_COLUMNS = [
     { label: '#',         key: 'sequenceNumber', sortable: true,
       render: (t: ScheduledTask) => (
-        <Link to={`/admin/scheduling/tasks/${t.id}`} className={styles.idLink}>
+        <Link to={`/admin/scheduling/tasks/${t.id}`} state={{ from: location.pathname + location.search }} className={styles.idLink}>
           #{t.sequenceNumber}
         </Link>
       ) },
@@ -574,7 +575,7 @@ export function TasksTableView({
         const status = t.generalStatus ?? (t.isClosed ? 'closed' : 'open');
         return (
         <span className={status !== 'open' ? styles.closedRow : undefined}>
-          <Link to={`/admin/scheduling/tasks/${t.id}`} className={styles.titleLink} title={t.title}>
+          <Link to={`/admin/scheduling/tasks/${t.id}`} state={{ from: location.pathname + location.search }} className={styles.titleLink} title={t.title}>
             {t.title}
           </Link>
           {status !== 'open' && (
@@ -663,7 +664,7 @@ export function TasksTableView({
     : ALL_COLUMNS;
 
   const ACTIONS = [
-    { label: 'Ver detalle', onClick: (t: ScheduledTask) => navigate(`/admin/scheduling/tasks/${t.id}`) },
+    { label: 'Ver detalle', onClick: (t: ScheduledTask) => navigate(`/admin/scheduling/tasks/${t.id}`, { state: { from: location.pathname + location.search } }) },
   ];
 
   return (

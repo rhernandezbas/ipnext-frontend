@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import type { ScheduledTask, TaskGeneralStatus } from '@/types/scheduling';
 import type { WorkflowStage } from '@/types/workflow';
 import type { TaskPriority } from '@/types/taskPriority';
@@ -42,6 +42,7 @@ export function TaskHeader({
   isSaving,
 }: TaskHeaderProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(task.title);
   const [kebabOpen, setKebabOpen] = useState(false);
@@ -119,7 +120,7 @@ export function TaskHeader({
       <div className={styles.breadcrumbs}>
         <button
           className={styles.backBtn}
-          onClick={() => navigate('/admin/scheduling/projects')}
+          onClick={() => navigate((location.state as { from?: string } | null)?.from || '/admin/scheduling/tasks')}
           aria-label="Volver a Scheduling"
         >
           ◀

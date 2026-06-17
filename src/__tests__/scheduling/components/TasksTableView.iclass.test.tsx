@@ -103,6 +103,6 @@ describe('TasksTableView — IClass send feedback', () => {
 
     await screen.findByRole('button', { name: 'Editar tarea' });
     fireEvent.click(screen.getByRole('button', { name: 'Editar tarea' }));
-    expect(navigateMock).toHaveBeenCalledWith('/admin/scheduling/tasks/t1');
+    expect(navigateMock).toHaveBeenCalledWith('/admin/scheduling/tasks/t1', { state: { from: '/' } });
   });
 });

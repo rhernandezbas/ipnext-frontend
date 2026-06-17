@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useProjects } from '@/hooks/useProjects';
 import { useWorkflow } from '@/hooks/useWorkflows';
 import { useIClassSendFeedback } from '@/hooks/useIClassSendFeedback';
@@ -42,6 +42,7 @@ export function TasksKanbanView({ tasks, filter }: TasksKanbanViewProps) {
   const [activeTask, setActiveTask] = useState<ScheduledTask | null>(null);
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
   const iclass = useIClassSendFeedback();
   // Remember the last move so "Reintentar" can re-dispatch it.
   const lastMove = useRef<{ id: string; stageId: string } | null>(null);
@@ -110,7 +111,7 @@ export function TasksKanbanView({ tasks, filter }: TasksKanbanViewProps) {
 
   function handleEditTask() {
     iclass.closeModal();
-    if (lastMove.current) navigate(`/admin/scheduling/tasks/${lastMove.current.id}`);
+    if (lastMove.current) navigate(`/admin/scheduling/tasks/${lastMove.current.id}`, { state: { from: location.pathname + location.search } });
   }
 
   // Empty state: no project selected (REQ-KANBAN-1, AD-2)
