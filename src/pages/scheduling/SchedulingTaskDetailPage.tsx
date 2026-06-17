@@ -335,8 +335,8 @@ export default function SchedulingTaskDetailPage() {
       <div className={styles.notFound}>
         <h1>Tarea no encontrada</h1>
         <p>La tarea que buscás no existe o fue eliminada.</p>
-        <Link to="/admin/scheduling/projects" className={styles.backLink}>
-          Volver a Scheduling
+        <Link to="/admin/scheduling/tasks" className={styles.backLink}>
+          Volver a Tareas
         </Link>
       </div>
     );
