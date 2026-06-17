@@ -72,6 +72,15 @@ vi.mock('@/hooks/useIClassTechnicianTeams', () => ({
   useIClassTechnicianTeams: vi.fn(() => ({ data: [], isLoading: false })),
 }));
 
+// Mock TaskHeader — renders a minimal stub that exposes a stage-move trigger.
+// Wrapped in vi.fn so tests can capture onStageMove and fire it directly
+// without needing to drive the StageSelect UI.
+// NOTE: the real implementation is in `defaultTaskHeaderImpl` (defined below),
+// restored in beforeEach so per-test overrides don't leak.
+vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskHeader', () => ({
+  TaskHeader: vi.fn(),
+}));
+
 // Mock TaskTabs — renders a stub with 7 role=tab elements (main tabs)
 // Wrapped in vi.fn so individual tests can override the implementation to
 // capture the props the page hands down (e.g. #122 datosForm wiring).
@@ -193,6 +202,7 @@ import { usePartners } from '@/hooks/usePartners';
 import { useProjects } from '@/hooks/useProjects';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/useMyPermissions';
+import { TaskHeader } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskHeader';
 
 const mockTask: ScheduledTask = {
   id: 'task-1',
@@ -246,9 +256,10 @@ const mockWorkflows = [
     name: 'Default',
     description: null,
     stages: [
-      { id: 'stage-1', workflowId: 'wf-1', name: 'Nuevo', category: 'nuevo', order: 1 },
-      { id: 'stage-2', workflowId: 'wf-1', name: 'En progreso', category: 'enProgreso', order: 2 },
-      { id: 'stage-3', workflowId: 'wf-1', name: 'Hecho', category: 'hecho', order: 3 },
+      { id: 'stage-1', workflowId: 'wf-1', name: 'Nuevo', code: 'nuevo', category: 'nuevo', order: 1 },
+      { id: 'stage-2', workflowId: 'wf-1', name: 'En progreso', code: 'en_progreso', category: 'enProgreso', order: 2 },
+      { id: 'stage-3', workflowId: 'wf-1', name: 'Hecho', code: 'hecho', category: 'hecho', order: 3 },
+      { id: 'stage-iclass', workflowId: 'wf-1', name: 'Registrar en IClass', code: 'send_to_iclass', category: 'enProgreso', order: 4 },
     ],
     createdAt: '',
     updatedAt: '',
@@ -319,11 +330,55 @@ function setupMocks(overrides?: { taskData?: Partial<ScheduledTask> | null; isLo
 // Import page after mocks are set up
 const { default: SchedulingTaskDetailPage } = await import('@/pages/scheduling/SchedulingTaskDetailPage');
 
+// Default TaskHeader implementation — restored in beforeEach so per-test
+// overrides via mockImplementation don't leak into subsequent tests.
+const defaultTaskHeaderImpl = ({ task, onStageMove: _onStageMove, onSetStatus, onDelete, isAdmin }: {
+  task: { title: string; generalStatus: string; isClosed?: boolean };
+  onStageMove: (stageId: string) => Promise<void>;
+  onSetStatus: (status: string) => void;
+  onDelete: () => void;
+  isAdmin: boolean;
+}) => (
+  <div data-testid="task-header">
+    <span>{task.title}</span>
+    <span data-testid="task-status-badge">{task.generalStatus === 'closed' ? 'Cerrada' : 'Activa'}</span>
+    <button data-testid="kebab-menu" onClick={() => {
+      const menu = document.getElementById('kebab-menu-content');
+      if (menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }}>⋮</button>
+    <div id="kebab-menu-content" style={{ display: 'none' }}>
+      <button data-testid="kebab-close" onClick={() => onSetStatus('closed')}>Cerrar tarea</button>
+      <button data-testid="kebab-dismiss" onClick={() => onSetStatus('dismissed')}>Descartar tarea</button>
+      {task.generalStatus === 'closed' && (
+        <button data-testid="kebab-reopen" onClick={() => onSetStatus('open')}>Reabrir tarea</button>
+      )}
+      {isAdmin && (
+        <button data-testid="kebab-delete" onClick={() => onDelete()}>Eliminar tarea</button>
+      )}
+    </div>
+  </div>
+);
+
 describe('SchedulingTaskDetailPage', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     // Restore permissive default for useCan after vi.clearAllMocks() wipes it
     vi.mocked(useCan).mockImplementation(() => true);
+    // Restore TaskHeader default so per-test mockImplementation overrides don't leak
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(TaskHeader).mockImplementation(defaultTaskHeaderImpl as any);
+    // Restore feature flag defaults (flag OFF, teams empty) so tests that call
+    // enableIclassAssign() don't leak state into subsequent tests.
+    const { useFeatureFlag } = await import('@/hooks/useFeatureFlags');
+    const { useIClassTechnicianTeams } = await import('@/hooks/useIClassTechnicianTeams');
+    vi.mocked(useFeatureFlag).mockReturnValue({
+      data: { key: 'iclass-assign-action', enabled: false },
+      isLoading: false,
+    } as ReturnType<typeof useFeatureFlag>);
+    vi.mocked(useIClassTechnicianTeams).mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as ReturnType<typeof useIClassTechnicianTeams>);
   });
 
   it('renders TaskHeader and layout structure', async () => {
@@ -600,6 +655,232 @@ describe('SchedulingTaskDetailPage', () => {
     await waitFor(() => {
       expect(inventoryMutateAsync).toHaveBeenCalledWith({ id: 'task-1', reviewed: true });
     });
+  });
+
+  // ── #130 — IClass pre-move validator ────────────────────────────────────────
+  // When operator moves a task to send_to_iclass AND iclassAssignActive is ON,
+  // the page must BLOCK the move and show a ConfirmModal if the task is missing
+  // a técnico or a valid time window (08:00–20:00 local, start < end).
+  // When flag is OFF, the move ALWAYS proceeds (today's behaviour).
+
+  // Helper: turn on the flag + teams so iclassAssignActive === true
+  async function enableIclassAssign() {
+    const { useFeatureFlag } = await import('@/hooks/useFeatureFlags');
+    const { useIClassTechnicianTeams } = await import('@/hooks/useIClassTechnicianTeams');
+    vi.mocked(useFeatureFlag).mockReturnValue({
+      data: { key: 'iclass-assign-action', enabled: true },
+      isLoading: false,
+      isError: false,
+      isSuccess: true,
+    } as ReturnType<typeof useFeatureFlag>);
+    vi.mocked(useIClassTechnicianTeams).mockReturnValue({
+      data: [{ userId: 'admin-1', userName: 'Ana', userLogin: 'ana', iclassTeamLogin: 'equipo-a', teamName: 'Alpha', teamActive: true }],
+      isLoading: false,
+      isError: false,
+      isSuccess: true,
+    } as ReturnType<typeof useIClassTechnicianTeams>);
+  }
+
+  it('#130 flag ON + no assignee → modal shows, moveToStage NOT called', async () => {
+    await enableIclassAssign();
+    const moveAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useMoveTaskToStage).mockReturnValue({ ...noopMutation, mutateAsync: moveAsync } as ReturnType<typeof useMoveTaskToStage>);
+
+    setupMocks({ taskData: { assigneeId: null, assigneeName: null } });
+
+    // Capture handleStageMove from TaskHeader's onStageMove prop
+    const { TaskTabs } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs');
+    let capturedOnStageMove: ((stageId: string) => void) | undefined;
+    const { TaskHeader } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskHeader');
+    vi.mocked(TaskHeader).mockImplementation(({ onStageMove }: { onStageMove: (stageId: string) => void }) => {
+      capturedOnStageMove = onStageMove;
+      return <div data-testid="task-header-capture" />;
+    });
+    vi.mocked(TaskTabs).mockImplementation(() => <div data-testid="task-tabs-capture" />);
+
+    const { fireEvent: fe } = await import('@testing-library/react');
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('task-header-capture')).toBeInTheDocument());
+
+    // Trigger move to send_to_iclass stage
+    await waitFor(() => { capturedOnStageMove?.('stage-iclass'); });
+
+    // Modal should appear
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('dialog').textContent).toMatch(/técnico/i);
+    // Move was NOT called
+    expect(moveAsync).not.toHaveBeenCalled();
+
+    // Dismiss modal
+    fe.click(screen.getByText('Entendido'));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('#130 flag ON + no startDate/endDate → modal shows, not moved', async () => {
+    await enableIclassAssign();
+    const moveAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useMoveTaskToStage).mockReturnValue({ ...noopMutation, mutateAsync: moveAsync } as ReturnType<typeof useMoveTaskToStage>);
+
+    setupMocks({ taskData: { assigneeId: 'admin-1', startDate: null, endDate: null } });
+
+    const { TaskTabs } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs');
+    let capturedOnStageMove: ((stageId: string) => void) | undefined;
+    const { TaskHeader } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskHeader');
+    vi.mocked(TaskHeader).mockImplementation(({ onStageMove }: { onStageMove: (stageId: string) => void }) => {
+      capturedOnStageMove = onStageMove;
+      return <div data-testid="task-header-capture" />;
+    });
+    vi.mocked(TaskTabs).mockImplementation(() => <div data-testid="task-tabs-capture" />);
+
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('task-header-capture')).toBeInTheDocument());
+
+    await waitFor(() => { capturedOnStageMove?.('stage-iclass'); });
+
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    expect(screen.getByRole('dialog').textContent).toMatch(/horario/i);
+    expect(moveAsync).not.toHaveBeenCalled();
+  });
+
+  it('#130 flag ON + time outside 08:00-20:00 (07:00 start) → modal shows, not moved', async () => {
+    await enableIclassAssign();
+    const moveAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useMoveTaskToStage).mockReturnValue({ ...noopMutation, mutateAsync: moveAsync } as ReturnType<typeof useMoveTaskToStage>);
+
+    // 07:00 AM local — below minimum
+    const tzOffset = new Date().getTimezoneOffset() * 60000;
+    const start = new Date(2026, 5, 20, 7, 0, 0).toISOString();
+    const end = new Date(2026, 5, 20, 9, 0, 0).toISOString();
+    setupMocks({ taskData: { assigneeId: 'admin-1', startDate: start, endDate: end } });
+
+    const { TaskTabs } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs');
+    let capturedOnStageMove: ((stageId: string) => void) | undefined;
+    const { TaskHeader } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskHeader');
+    vi.mocked(TaskHeader).mockImplementation(({ onStageMove }: { onStageMove: (stageId: string) => void }) => {
+      capturedOnStageMove = onStageMove;
+      return <div data-testid="task-header-capture" />;
+    });
+    vi.mocked(TaskTabs).mockImplementation(() => <div data-testid="task-tabs-capture" />);
+
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('task-header-capture')).toBeInTheDocument());
+    await waitFor(() => { capturedOnStageMove?.('stage-iclass'); });
+
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    expect(moveAsync).not.toHaveBeenCalled();
+    // suppress unused variable warning
+    void tzOffset;
+  });
+
+  it('#130 flag ON + end past 20:00 (21:00) → modal shows, not moved', async () => {
+    await enableIclassAssign();
+    const moveAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useMoveTaskToStage).mockReturnValue({ ...noopMutation, mutateAsync: moveAsync } as ReturnType<typeof useMoveTaskToStage>);
+
+    const start = new Date(2026, 5, 20, 10, 0, 0).toISOString();
+    const end = new Date(2026, 5, 20, 21, 0, 0).toISOString();
+    setupMocks({ taskData: { assigneeId: 'admin-1', startDate: start, endDate: end } });
+
+    const { TaskTabs } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs');
+    let capturedOnStageMove: ((stageId: string) => void) | undefined;
+    const { TaskHeader } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskHeader');
+    vi.mocked(TaskHeader).mockImplementation(({ onStageMove }: { onStageMove: (stageId: string) => void }) => {
+      capturedOnStageMove = onStageMove;
+      return <div data-testid="task-header-capture" />;
+    });
+    vi.mocked(TaskTabs).mockImplementation(() => <div data-testid="task-tabs-capture" />);
+
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('task-header-capture')).toBeInTheDocument());
+    await waitFor(() => { capturedOnStageMove?.('stage-iclass'); });
+
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    expect(moveAsync).not.toHaveBeenCalled();
+  });
+
+  it('#130 flag ON + valid técnico + valid window (13:00-14:00) → move proceeds', async () => {
+    await enableIclassAssign();
+    const start = new Date(2026, 5, 20, 13, 0, 0).toISOString();
+    const end = new Date(2026, 5, 20, 14, 0, 0).toISOString();
+    setupMocks({ taskData: { assigneeId: 'admin-1', startDate: start, endDate: end } });
+    // Must be AFTER setupMocks — setupMocks overwrites useMoveTaskToStage with noopMutation.
+    const moveAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useMoveTaskToStage).mockReturnValue({ ...noopMutation, mutateAsync: moveAsync } as ReturnType<typeof useMoveTaskToStage>);
+
+    const { TaskTabs } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs');
+    let capturedOnStageMove: ((stageId: string) => void) | undefined;
+    const { TaskHeader } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskHeader');
+    vi.mocked(TaskHeader).mockImplementation(({ onStageMove }: { onStageMove: (stageId: string) => void }) => {
+      capturedOnStageMove = onStageMove;
+      return <div data-testid="task-header-capture" />;
+    });
+    vi.mocked(TaskTabs).mockImplementation(() => <div data-testid="task-tabs-capture" />);
+
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('task-header-capture')).toBeInTheDocument());
+    await waitFor(() => { capturedOnStageMove?.('stage-iclass'); });
+
+    // Modal must NOT appear, move must be called
+    await waitFor(() => {
+      expect(moveAsync).toHaveBeenCalledWith({ id: 'task-1', stageId: 'stage-iclass' });
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('#130 flag OFF → move to send_to_iclass proceeds even without técnico/horario', async () => {
+    // Default mock has flag OFF (see vi.mock at top: enabled: false)
+    setupMocks({ taskData: { assigneeId: null, startDate: null, endDate: null } });
+    // Must be AFTER setupMocks — setupMocks overwrites useMoveTaskToStage with noopMutation.
+    const moveAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useMoveTaskToStage).mockReturnValue({ ...noopMutation, mutateAsync: moveAsync } as ReturnType<typeof useMoveTaskToStage>);
+
+    const { TaskTabs } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs');
+    let capturedOnStageMove: ((stageId: string) => void) | undefined;
+    const { TaskHeader } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskHeader');
+    vi.mocked(TaskHeader).mockImplementation(({ onStageMove }: { onStageMove: (stageId: string) => void }) => {
+      capturedOnStageMove = onStageMove;
+      return <div data-testid="task-header-capture" />;
+    });
+    vi.mocked(TaskTabs).mockImplementation(() => <div data-testid="task-tabs-capture" />);
+
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('task-header-capture')).toBeInTheDocument());
+    await waitFor(() => { capturedOnStageMove?.('stage-iclass'); });
+
+    await waitFor(() => {
+      expect(moveAsync).toHaveBeenCalledWith({ id: 'task-1', stageId: 'stage-iclass' });
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('#130 moving to a NON-send_to_iclass stage never validates (proceeds always)', async () => {
+    await enableIclassAssign();
+    // Task with no assignee, no dates — would fail validation if target were send_to_iclass
+    setupMocks({ taskData: { assigneeId: null, startDate: null, endDate: null } });
+    // Must be AFTER setupMocks — setupMocks overwrites useMoveTaskToStage with noopMutation.
+    const moveAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useMoveTaskToStage).mockReturnValue({ ...noopMutation, mutateAsync: moveAsync } as ReturnType<typeof useMoveTaskToStage>);
+
+    const { TaskTabs } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs');
+    let capturedOnStageMove: ((stageId: string) => void) | undefined;
+    const { TaskHeader } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskHeader');
+    vi.mocked(TaskHeader).mockImplementation(({ onStageMove }: { onStageMove: (stageId: string) => void }) => {
+      capturedOnStageMove = onStageMove;
+      return <div data-testid="task-header-capture" />;
+    });
+    vi.mocked(TaskTabs).mockImplementation(() => <div data-testid="task-tabs-capture" />);
+
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('task-header-capture')).toBeInTheDocument());
+    // Move to stage-2 (En progreso — code: 'en_progreso'), NOT send_to_iclass
+    await waitFor(() => { capturedOnStageMove?.('stage-2'); });
+
+    await waitFor(() => {
+      expect(moveAsync).toHaveBeenCalledWith({ id: 'task-1', stageId: 'stage-2' });
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   // TaskTabs is mocked in this file, so DatosForm never renders here.

@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/useMyPermissions';
 import { useIClassSendFeedback } from '@/hooks/useIClassSendFeedback';
 import { IClassSendResultModal } from '@/components/molecules/IClassSendResultModal/IClassSendResultModal';
+import { ConfirmModal } from '@/components/molecules/ConfirmModal/ConfirmModal';
 import { useFeatureFlag } from '@/hooks/useFeatureFlags';
 import { useIClassTechnicianTeams } from '@/hooks/useIClassTechnicianTeams';
 import type { ScheduledTask, TaskGeneralStatus } from '@/types/scheduling';
@@ -103,6 +104,10 @@ export default function SchedulingTaskDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [technicianTeams],
   );
+  // Collect all stages from all workflows — must be above handleStageMove so the
+  // #130 validator can look up the target stage's code before the move fires.
+  const allStages: WorkflowStage[] = workflows.flatMap(w => w.stages);
+
   // Customer detail + contracts — cached share with CustomerSidebar (same query keys).
   // Used only to resolve {{telefono}} / {{contrato}} / {{servicio}} in description merge variables.
   const customerId = task?.customerId ?? null;
@@ -121,6 +126,10 @@ export default function SchedulingTaskDetailPage() {
   const iclass = useIClassSendFeedback();
   // Last stageId attempted — used by the IClass modal's "Reintentar" CTA.
   const lastStageIdRef = useRef<string | null>(null);
+
+  // #130 — IClass pre-move validator modal.
+  // Non-null when the move was blocked due to missing técnico or invalid window.
+  const [iclassValidationMsg, setIclassValidationMsg] = useState<string | null>(null);
 
   const [formDirty, setFormDirty] = useState(false);
   const [descDirty, setDescDirty] = useState(false);
@@ -176,6 +185,43 @@ export default function SchedulingTaskDetailPage() {
   const handleStageMove = useCallback(async (stageId: string) => {
     if (!task) return;
     lastStageIdRef.current = stageId;
+
+    // #130 — IClass pre-move validator.
+    // When the operator moves to `send_to_iclass` with the flag ON, we validate:
+    // (1) a técnico is assigned, (2) the task has a valid time window (08:00–20:00
+    // local, start < end). If any condition fails we show a blocking modal and
+    // abort the move. When the flag is OFF the move proceeds as before (no-op).
+    const targetStage = allStages.find(s => s.id === stageId);
+    if (targetStage?.code === 'send_to_iclass' && iclassAssignActive) {
+      const problems: string[] = [];
+      if (!task.assigneeId) {
+        problems.push('un técnico asignado');
+      }
+      const start = task.startDate ? new Date(task.startDate) : null;
+      const end = task.endDate ? new Date(task.endDate) : null;
+      if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) {
+        problems.push('un horario (inicio y fin)');
+      } else {
+        const startH = start.getHours();
+        const endH = end.getHours();
+        const endM = end.getMinutes();
+        // Valid window: 08:00 ≤ start, end ≤ 20:00 (20:00:00 exact is allowed,
+        // 20:01 is not), and start < end.
+        const startOk = startH >= 8;
+        const endOk = endH < 20 || (endH === 20 && endM === 0);
+        const orderOk = start.getTime() < end.getTime();
+        if (!startOk || !endOk || !orderOk) {
+          problems.push('un horario válido entre las 8 y las 20 hs');
+        }
+      }
+      if (problems.length > 0) {
+        setIclassValidationMsg(
+          `Para registrar en IClass la tarea necesita: ${problems.join(' y ')}. Editá la tarea y reintentá.`,
+        );
+        return; // BLOCK the move
+      }
+    }
+
     try {
       const updated = await moveToStage.mutateAsync({ id: task.id, stageId });
       const code = (updated as ScheduledTask | undefined)?.iclassOrderCode;
@@ -192,7 +238,7 @@ export default function SchedulingTaskDetailPage() {
         showToast(mapError(err), 'error');
       }
     }
-  }, [task, moveToStage, iclass]);
+  }, [task, moveToStage, iclass, allStages, iclassAssignActive]);
 
   const handleIClassRetry = useCallback(() => {
     iclass.closeModal();
@@ -325,9 +371,6 @@ export default function SchedulingTaskDetailPage() {
     }
   }, [task, setInventoryReview]);
 
-  // Collect all stages from all workflows
-  const allStages: WorkflowStage[] = workflows.flatMap(w => w.stages);
-
   if (isLoading) return <Spinner fullPage />;
 
   if (isError || !task) {
@@ -451,6 +494,20 @@ export default function SchedulingTaskDetailPage() {
           {toastMsg ?? iclass.toast}
         </div>
       )}
+
+      {/* #130 — IClass pre-move validator: shown when operator tries to move to
+          send_to_iclass without a técnico or a valid time window. Single-action
+          (hideCancel) — operator must acknowledge and fix the task first. */}
+      <ConfirmModal
+        open={iclassValidationMsg !== null}
+        title="Falta info para registrar en IClass"
+        message={iclassValidationMsg ?? ''}
+        confirmLabel="Entendido"
+        tone="danger"
+        hideCancel
+        onConfirm={() => setIclassValidationMsg(null)}
+        onCancel={() => setIclassValidationMsg(null)}
+      />
 
       {/* IClass send result modal — same hook + component the list views use */}
       <IClassSendResultModal
