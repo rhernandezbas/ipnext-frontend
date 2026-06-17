@@ -62,9 +62,21 @@ vi.mock('@/hooks/useCustomers', () => ({
   useClientContracts: vi.fn(() => ({ data: [] })),
 }));
 
+// #122 — the page now reads the iclass-assign flag + the técnico→cuadrilla
+// mapping to drive the assignee block. Mock both so the page renders offline.
+vi.mock('@/hooks/useFeatureFlags', () => ({
+  useFeatureFlag: vi.fn(() => ({ data: { key: 'iclass-assign-action', enabled: false }, isLoading: false })),
+}));
+
+vi.mock('@/hooks/useIClassTechnicianTeams', () => ({
+  useIClassTechnicianTeams: vi.fn(() => ({ data: [], isLoading: false })),
+}));
+
 // Mock TaskTabs — renders a stub with 7 role=tab elements (main tabs)
+// Wrapped in vi.fn so individual tests can override the implementation to
+// capture the props the page hands down (e.g. #122 datosForm wiring).
 vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs', () => ({
-  TaskTabs: ({ detailsProps, commentsTaskId, reviewedByInventory, onInventoryToggle }: {
+  TaskTabs: vi.fn(({ detailsProps, commentsTaskId, reviewedByInventory, onInventoryToggle }: {
     detailsProps: Record<string, unknown>;
     commentsTaskId: string;
     reviewedByInventory: boolean;
@@ -105,7 +117,7 @@ vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs', () =>
         Toggle Inventory
       </button>
     </div>
-  ),
+  )),
 }));
 
 // Mock CustomerSidebar — renders a stub with 3 role=tab elements (sidebar tabs)
@@ -593,4 +605,156 @@ describe('SchedulingTaskDetailPage', () => {
   // TaskTabs is mocked in this file, so DatosForm never renders here.
   // The project select is thoroughly covered in DatosForm.test.tsx.
   it.todo('renders project select in task detail (covered by DatosForm.test.tsx component tests)');
+
+  // #122 — el selector manual de cuadrilla IClass se removió de la tarea. Aun
+  // con una OS de IClass presente (iclassOrderCode), no debe renderizarse.
+  it('does NOT render the IClass team selector even when the task has an iclassOrderCode (#122)', async () => {
+    setupMocks({ taskData: { iclassOrderCode: 'OS-99' } });
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByText('Instalación Cliente Pérez')).toBeInTheDocument();
+    });
+    expect(screen.queryByLabelText(/cuadrilla iclass/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /asignar cuadrilla/i })).not.toBeInTheDocument();
+  });
+
+  // #122 — el padre debe pasar a DatosForm la info de bloqueo de cuadrilla:
+  // el flag activo + un lookup técnico→cuadrilla.
+  it('passes iclassAssignActive + technicianHasTeam down to the Datos form (#122)', async () => {
+    const { useFeatureFlag } = await import('@/hooks/useFeatureFlags');
+    const { useIClassTechnicianTeams } = await import('@/hooks/useIClassTechnicianTeams');
+    vi.mocked(useFeatureFlag).mockReturnValue({
+      data: { key: 'iclass-assign-action', enabled: true },
+      isLoading: false,
+    } as ReturnType<typeof useFeatureFlag>);
+    vi.mocked(useIClassTechnicianTeams).mockReturnValue({
+      data: [
+        { userId: 'admin-1', userName: 'Ana', userLogin: 'ana', iclassTeamLogin: 'equipo-a', teamName: 'Alpha', teamActive: true },
+        { userId: 'admin-2', userName: 'Pedro', userLogin: 'pedro', iclassTeamLogin: null, teamName: null, teamActive: false },
+      ],
+      isLoading: false,
+    } as ReturnType<typeof useIClassTechnicianTeams>);
+
+    setupMocks();
+    let captured: { iclassAssignActive?: boolean; technicianHasTeam?: (id: string) => boolean } = {};
+    const { TaskTabs } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs');
+    vi.mocked(TaskTabs).mockImplementation(({ detailsProps }: { detailsProps: { datosForm: typeof captured } }) => {
+      captured = detailsProps.datosForm;
+      return <div data-testid="task-tabs-capture" />;
+    });
+
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('task-tabs-capture')).toBeInTheDocument());
+
+    expect(captured.iclassAssignActive).toBe(true);
+    expect(captured.technicianHasTeam?.('admin-1')).toBe(true);
+    expect(captured.technicianHasTeam?.('admin-2')).toBe(false);
+  });
+
+  // #122 FIX-FIRST #1 — FAIL-OPEN: el bloqueo se decide con un Set armado desde
+  // useIClassTechnicianTeams(). Mientras ese query está loading (data undefined)
+  // o si erroró, el Set queda vacío → technicianHasTeam devuelve false para TODOS
+  // → con el flag ON se bloquearía a TODOS los técnicos (incluso los que SÍ tienen
+  // cuadrilla). El bloqueo SOLO debe activarse cuando el mapeo cargó OK (isSuccess).
+  // Si el mapeo está cargando o falló → NO bloquear (iclassAssignActive=false).
+  it('flag ON pero mapeo de cuadrillas LOADING: NO bloquea (fail-open) (#122 FIX-1)', async () => {
+    const { useFeatureFlag } = await import('@/hooks/useFeatureFlags');
+    const { useIClassTechnicianTeams } = await import('@/hooks/useIClassTechnicianTeams');
+    vi.mocked(useFeatureFlag).mockReturnValue({
+      data: { key: 'iclass-assign-action', enabled: true },
+      isLoading: false,
+      isError: false,
+      isSuccess: true,
+    } as ReturnType<typeof useFeatureFlag>);
+    // Mapeo todavía cargando: data undefined, isSuccess false.
+    vi.mocked(useIClassTechnicianTeams).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      isSuccess: false,
+    } as ReturnType<typeof useIClassTechnicianTeams>);
+
+    setupMocks();
+    let captured: { iclassAssignActive?: boolean; technicianHasTeam?: (id: string) => boolean } = {};
+    const { TaskTabs } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs');
+    vi.mocked(TaskTabs).mockImplementation(({ detailsProps }: { detailsProps: { datosForm: typeof captured } }) => {
+      captured = detailsProps.datosForm;
+      return <div data-testid="task-tabs-capture" />;
+    });
+
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('task-tabs-capture')).toBeInTheDocument());
+
+    // FAIL-OPEN: aunque el flag esté ON, el mapeo no cargó → NO bloquear.
+    expect(captured.iclassAssignActive).toBe(false);
+  });
+
+  it('flag ON pero mapeo de cuadrillas ERROR: NO bloquea (fail-open) (#122 FIX-1)', async () => {
+    const { useFeatureFlag } = await import('@/hooks/useFeatureFlags');
+    const { useIClassTechnicianTeams } = await import('@/hooks/useIClassTechnicianTeams');
+    vi.mocked(useFeatureFlag).mockReturnValue({
+      data: { key: 'iclass-assign-action', enabled: true },
+      isLoading: false,
+      isError: false,
+      isSuccess: true,
+    } as ReturnType<typeof useFeatureFlag>);
+    // Mapeo erroró: data undefined, isError true, isSuccess false.
+    vi.mocked(useIClassTechnicianTeams).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      isSuccess: false,
+    } as ReturnType<typeof useIClassTechnicianTeams>);
+
+    setupMocks();
+    let captured: { iclassAssignActive?: boolean; technicianHasTeam?: (id: string) => boolean } = {};
+    const { TaskTabs } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs');
+    vi.mocked(TaskTabs).mockImplementation(({ detailsProps }: { detailsProps: { datosForm: typeof captured } }) => {
+      captured = detailsProps.datosForm;
+      return <div data-testid="task-tabs-capture" />;
+    });
+
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('task-tabs-capture')).toBeInTheDocument());
+
+    // FAIL-OPEN: el query erroró → NO bloquear (mejor dejar pasar que bloquear a todos).
+    expect(captured.iclassAssignActive).toBe(false);
+  });
+
+  // Consistencia con el WARNING #4: el mismo criterio de carga aplica al flag.
+  // Si el flag todavía no cargó (isSuccess false), no se puede afirmar que esté
+  // ON → NO bloquear, aun cuando el mapeo de cuadrillas ya cargó.
+  it('mapeo OK pero flag LOADING: NO bloquea (fail-open en el flag) (#122 FIX-1)', async () => {
+    const { useFeatureFlag } = await import('@/hooks/useFeatureFlags');
+    const { useIClassTechnicianTeams } = await import('@/hooks/useIClassTechnicianTeams');
+    // Flag todavía cargando: data undefined, isSuccess false.
+    vi.mocked(useFeatureFlag).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      isSuccess: false,
+    } as ReturnType<typeof useFeatureFlag>);
+    vi.mocked(useIClassTechnicianTeams).mockReturnValue({
+      data: [
+        { userId: 'admin-1', userName: 'Ana', userLogin: 'ana', iclassTeamLogin: 'equipo-a', teamName: 'Alpha', teamActive: true },
+      ],
+      isLoading: false,
+      isError: false,
+      isSuccess: true,
+    } as ReturnType<typeof useIClassTechnicianTeams>);
+
+    setupMocks();
+    let captured: { iclassAssignActive?: boolean; technicianHasTeam?: (id: string) => boolean } = {};
+    const { TaskTabs } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs');
+    vi.mocked(TaskTabs).mockImplementation(({ detailsProps }: { detailsProps: { datosForm: typeof captured } }) => {
+      captured = detailsProps.datosForm;
+      return <div data-testid="task-tabs-capture" />;
+    });
+
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('task-tabs-capture')).toBeInTheDocument());
+
+    expect(captured.iclassAssignActive).toBe(false);
+  });
 });

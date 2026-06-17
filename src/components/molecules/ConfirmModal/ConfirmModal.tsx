@@ -10,6 +10,9 @@ interface ConfirmModalProps {
   cancelLabel?: string;
   tone?: 'default' | 'danger';
   busy?: boolean;
+  /** Hide the cancel button — for single-action informative notices (e.g. an
+   *  "Entendido" acknowledgement). Default false: cancel stays visible. */
+  hideCancel?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -29,6 +32,7 @@ export function ConfirmModal({
   cancelLabel = 'Cancelar',
   tone = 'default',
   busy = false,
+  hideCancel = false,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
@@ -64,14 +68,16 @@ export function ConfirmModal({
         <h2 id="confirm-modal-title" className={styles.title}>{title}</h2>
         <p className={styles.message}>{message}</p>
         <div className={styles.actions}>
-          <button
-            type="button"
-            className={styles.cancel}
-            onClick={onCancel}
-            disabled={busy}
-          >
-            {cancelLabel}
-          </button>
+          {!hideCancel && (
+            <button
+              type="button"
+              className={styles.cancel}
+              onClick={onCancel}
+              disabled={busy}
+            >
+              {cancelLabel}
+            </button>
+          )}
           <button
             ref={confirmRef}
             type="button"

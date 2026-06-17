@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
+import { ConfirmModal } from '@/components/molecules/ConfirmModal/ConfirmModal';
 import type { Partner } from '@/types/partner';
 
 /**
@@ -54,6 +55,13 @@ interface DatosFormProps {
   networkType?: 'red' | 'fibra' | null;
   /** Notifies parent whenever any field changes vs initial values (REQ-EDIT-3/4) */
   onDirtyChange?: (isDirty: boolean) => void;
+  /** #122 — when true, the `iclass-assign-action` flag is ON and choosing a
+   *  técnico without an IClass cuadrilla is BLOCKED (modal + revert). When
+   *  false/omitted the assignee picker is free (current behaviour). */
+  iclassAssignActive?: boolean;
+  /** #122 — lookup: does this técnico (userId) have an IClass cuadrilla mapped?
+   *  Only consulted when `iclassAssignActive` is true. */
+  technicianHasTeam?: (userId: string) => boolean;
 }
 
 /** Convert ISO/offset string to datetime-local format "YYYY-MM-DDTHH:mm" in LOCAL time. */
@@ -82,7 +90,7 @@ function toIso(local: string): string | null {
   }
 }
 
-export function DatosForm({ initial, onSubmit, isSaving, admins, partners, projects = [], kind, iclassOrderCode, originalProjectId, networkType, onDirtyChange }: DatosFormProps) {
+export function DatosForm({ initial, onSubmit, isSaving, admins, partners, projects = [], kind, iclassOrderCode, originalProjectId, networkType, onDirtyChange, iclassAssignActive = false, technicianHasTeam }: DatosFormProps) {
   // Localidad (iclassCityCode) is only editable on network+fibra tasks (#3 tech-debt, #54/#66).
   const showLocalidad = kind === 'network' && networkType === 'fibra';
   // Filter the project select by the task's kind (#40 FIX-3). A customer task
@@ -265,6 +273,37 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 
+  // #122 — block picking a técnico without an IClass cuadrilla when the
+  // `iclass-assign-action` flag is ON. The block happens AT SELECTION (the
+  // <select> onChange), not at save: we open an informative modal and REVERT
+  // the value to whatever was selected before. "Sin asignar" ('') never blocks.
+  const [showNoTeamModal, setShowNoTeamModal] = useState(false);
+  // RHF's register provides the field onChange; wrap it so we can intercept.
+  const assigneeReg = register('assigneeId');
+  const handleAssigneeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    // Capture the value BEFORE we decide whether to commit, so we can revert.
+    const prevValue = getValues('assigneeId') ?? '';
+    const nextValue = e.target.value;
+    // Is this selection BLOCKED? (flag active + chosen técnico without cuadrilla).
+    // "Sin asignar" ('') and técnicos WITH a cuadrilla are always allowed.
+    const blocked =
+      iclassAssignActive && !!nextValue && !(technicianHasTeam?.(nextValue) ?? false);
+    if (blocked) {
+      // WARNING #2: do NOT commit the blocked change to RHF — otherwise
+      // assigneeReg.onChange(e) marks the form dirty and the later
+      // setValue(prev, {shouldDirty:false}) can't undo a dirty already applied,
+      // leaving isDirty=true and firing a spurious onDirtyChange(true). By never
+      // committing, RHF never marks dirty. Revert the native <select> to prev so
+      // the DOM stays in sync, then open the informative modal.
+      setValue('assigneeId', prevValue, { shouldDirty: false, shouldValidate: false });
+      e.target.value = prevValue;
+      setShowNoTeamModal(true);
+      return;
+    }
+    // Allowed: let RHF apply the change (keeps dirty/validation state consistent).
+    void assigneeReg.onChange(e);
+  };
+
   const onValid = async (data: DatosFormValues) => {
     // Validate endDate >= startDate
     if (data.startDate && data.endDate) {
@@ -299,7 +338,12 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
           {/* Asignado a */}
           <div className={styles.field}>
             <label htmlFor="assigneeId" className={styles.label}>Asignado a</label>
-            <select id="assigneeId" className={styles.select} {...register('assigneeId')}>
+            <select
+              id="assigneeId"
+              className={styles.select}
+              {...assigneeReg}
+              onChange={handleAssigneeChange}
+            >
               <option value="">Sin asignar</option>
               {admins.map(a => (
                 <option key={a.id} value={a.id}>{a.name}</option>
@@ -469,6 +513,21 @@ export function DatosForm({ initial, onSubmit, isSaving, admins, partners, proje
           </button>
         </div>
       </form>
+
+      {/* #122 — blocking notice when a técnico without IClass cuadrilla is
+          chosen. Single action: the selection was already reverted, this just
+          tells the user to map a cuadrilla first. */}
+      <ConfirmModal
+        open={showNoTeamModal}
+        title="Técnico sin cuadrilla IClass"
+        message="Este técnico no tiene una cuadrilla IClass asignada. Asignále una en Config → IClass → Técnicos→Cuadrillas antes de asignarlo a la tarea."
+        confirmLabel="Entendido"
+        tone="danger"
+        // #122 WARNING #3 — single-action notice: no "Cancelar" button.
+        hideCancel
+        onConfirm={() => setShowNoTeamModal(false)}
+        onCancel={() => setShowNoTeamModal(false)}
+      />
     </section>
   );
 }

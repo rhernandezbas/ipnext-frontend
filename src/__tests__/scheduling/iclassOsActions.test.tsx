@@ -7,10 +7,10 @@
  * 3. CloseIClassOSModal — hidden without permission scheduling.iclass_close
  * 4. CloseIClassOSModal — hidden when flag iclass-close-action is OFF
  *
- * Ola B — Asignar cuadrilla
- * 5. IClassTeamSelector — sends {teamLogin} on select
- * 6. IClassTeamSelector — hidden without permission scheduling.iclass_assign
- * 7. IClassTeamSelector — hidden when flag iclass-assign-action is OFF
+ * Ola B — Catálogo de cuadrillas (IClassTeamsCatalogBody)
+ * NOTE (#122): the inline IClassTeamSelector (Suite B1) was removed — the manual
+ * cuadrilla selector no longer lives on the task. Assignment now flows through
+ * the assignee picker gate (see DatosForm.test.tsx + SchedulingTaskDetailPage.test.tsx).
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -22,7 +22,6 @@ import type { ReactNode } from 'react';
 
 vi.mock('@/hooks/useIClassOsActions', () => ({
   useCloseIClassOS: vi.fn(),
-  useAssignIClassTeam: vi.fn(),
 }));
 
 vi.mock('@/hooks/useIClassTeams', () => ({
@@ -43,12 +42,11 @@ vi.mock('@/hooks/useFeatureFlags', () => ({
 import { useCan, useMyPermissions } from '@/hooks/useMyPermissions';
 import { useFeatureFlag } from '@/hooks/useFeatureFlags';
 import { useIClassResultCodes } from '@/hooks/useIClassResultCodes';
-import { useCloseIClassOS, useAssignIClassTeam } from '@/hooks/useIClassOsActions';
+import { useCloseIClassOS } from '@/hooks/useIClassOsActions';
 import { useIClassTeams, useSyncIClassTeams } from '@/hooks/useIClassTeams';
 
 // ── Imports under test ───────────────────────────────────────────────────────
 import { CloseIClassOSModal } from '@/components/molecules/CloseIClassOSModal/CloseIClassOSModal';
-import { IClassTeamSelector } from '@/components/molecules/IClassTeamSelector/IClassTeamSelector';
 import { IClassTeamsCatalogBody } from '@/pages/scheduling/settings/IClassTeamsCatalogBody';
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
@@ -191,71 +189,10 @@ describe('CloseIClassOSModal', () => {
   });
 });
 
-// ── Suite B1: IClassTeamSelector ─────────────────────────────────────────────
-
-describe('IClassTeamSelector', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(useCan).mockImplementation(() => true);
-    flagOn();
-    vi.mocked(useIClassTeams).mockReturnValue({
-      data: mockTeams,
-      isLoading: false,
-    } as ReturnType<typeof useIClassTeams>);
-    vi.mocked(useAssignIClassTeam).mockReturnValue(noopMutation as ReturnType<typeof useAssignIClassTeam>);
-  });
-
-  it('sends {teamLogin} when a team is selected and submitted', async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useAssignIClassTeam).mockReturnValue({ ...noopMutation, mutateAsync } as ReturnType<typeof useAssignIClassTeam>);
-
-    render(
-      <IClassTeamSelector taskId="task-1" />,
-      { wrapper }
-    );
-
-    // Only selectable teams should appear
-    fireEvent.change(screen.getByRole('combobox', { name: /cuadrilla/i }), {
-      target: { value: 'equipo-a' },
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /asignar/i }));
-
-    await waitFor(() => {
-      expect(mutateAsync).toHaveBeenCalledWith({
-        taskId: 'task-1',
-        teamLogin: 'equipo-a',
-      });
-    });
-  });
-
-  it('does not render without scheduling.iclass_assign permission', () => {
-    vi.mocked(useCan).mockImplementation((perm) => perm !== 'scheduling.iclass_assign');
-
-    render(
-      <IClassTeamSelector taskId="task-1" />,
-      { wrapper }
-    );
-
-    expect(screen.queryByRole('combobox', { name: /cuadrilla/i })).not.toBeInTheDocument();
-  });
-
-  it('does not render when flag iclass-assign-action is OFF', () => {
-    vi.mocked(useFeatureFlag).mockImplementation((key) => ({
-      data: { key, enabled: key !== 'iclass-assign-action' },
-      isLoading: false,
-      isError: false,
-      refetch: vi.fn(),
-    } as ReturnType<typeof useFeatureFlag>));
-
-    render(
-      <IClassTeamSelector taskId="task-1" />,
-      { wrapper }
-    );
-
-    expect(screen.queryByRole('combobox', { name: /cuadrilla/i })).not.toBeInTheDocument();
-  });
-});
+// ── Suite B1 (IClassTeamSelector) removed in #122 ────────────────────────────
+// The inline manual cuadrilla selector was removed from the task detail page.
+// Assignment now flows through the assignee picker (técnico → cuadrilla mapping
+// gate), covered in DatosForm.test.tsx + SchedulingTaskDetailPage.test.tsx.
 
 // ── Suite B2: IClassTeamsCatalogBody ─────────────────────────────────────────
 

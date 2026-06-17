@@ -749,4 +749,229 @@ describe('DatosForm', () => {
       await waitFor(() => expect(screen.queryByText(warningText)).not.toBeInTheDocument());
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // #122 — Bloqueo de asignación de técnico sin cuadrilla IClass
+  //
+  // Cuando el flag `iclass-assign-action` está ON, elegir un técnico que NO
+  // tiene cuadrilla IClass mapeada debe BLOQUEAR la selección: abre un modal
+  // de aviso y revierte el <select> al valor previo. Con el flag OFF la
+  // asignación es libre. "Sin asignar" (value '') nunca bloquea.
+  // ---------------------------------------------------------------------------
+  describe('#122 assignee sin cuadrilla IClass', () => {
+    const modalText = /no tiene una cuadrilla iclass/i;
+
+    // admin-1 tiene cuadrilla, admin-2 NO.
+    const technicianHasTeam = (userId: string) => userId === 'admin-1';
+
+    it('flag OFF: elegir un técnico sin cuadrilla NO bloquea (sin modal, queda elegido)', async () => {
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, assigneeId: null }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+            iclassAssignActive={false}
+            technicianHasTeam={technicianHasTeam}
+          />
+        </MemoryRouter>
+      );
+      const select = screen.getByLabelText(/asignado a/i) as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: 'admin-2' } });
+
+      expect(screen.queryByText(modalText)).not.toBeInTheDocument();
+      expect(select.value).toBe('admin-2');
+    });
+
+    it('flag ON + técnico SIN cuadrilla: abre modal y revierte el assignee al valor previo', async () => {
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, assigneeId: 'admin-1' }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+            iclassAssignActive={true}
+            technicianHasTeam={technicianHasTeam}
+          />
+        </MemoryRouter>
+      );
+      const select = screen.getByLabelText(/asignado a/i) as HTMLSelectElement;
+      // El valor previo es admin-1 (que SÍ tiene cuadrilla).
+      expect(select.value).toBe('admin-1');
+
+      // Elijo admin-2 (sin cuadrilla) → debe bloquear.
+      fireEvent.change(select, { target: { value: 'admin-2' } });
+
+      // Modal abierto.
+      expect(await screen.findByText(modalText)).toBeInTheDocument();
+      // El assignee NO debe quedar en admin-2: revierte al valor previo.
+      await waitFor(() => {
+        expect((screen.getByLabelText(/asignado a/i) as HTMLSelectElement).value).toBe('admin-1');
+      });
+    });
+
+    it('flag ON + técnico SIN cuadrilla desde "Sin asignar": revierte a vacío', async () => {
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, assigneeId: null }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+            iclassAssignActive={true}
+            technicianHasTeam={technicianHasTeam}
+          />
+        </MemoryRouter>
+      );
+      const select = screen.getByLabelText(/asignado a/i) as HTMLSelectElement;
+      expect(select.value).toBe('');
+      fireEvent.change(select, { target: { value: 'admin-2' } });
+
+      expect(await screen.findByText(modalText)).toBeInTheDocument();
+      await waitFor(() => {
+        expect((screen.getByLabelText(/asignado a/i) as HTMLSelectElement).value).toBe('');
+      });
+    });
+
+    it('flag ON + técnico CON cuadrilla: sin modal, queda elegido', async () => {
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, assigneeId: null }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+            iclassAssignActive={true}
+            technicianHasTeam={technicianHasTeam}
+          />
+        </MemoryRouter>
+      );
+      const select = screen.getByLabelText(/asignado a/i) as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: 'admin-1' } });
+
+      expect(screen.queryByText(modalText)).not.toBeInTheDocument();
+      expect(select.value).toBe('admin-1');
+    });
+
+    it('flag ON + "Sin asignar" (value vacío) nunca bloquea', async () => {
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, assigneeId: 'admin-1' }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+            iclassAssignActive={true}
+            technicianHasTeam={technicianHasTeam}
+          />
+        </MemoryRouter>
+      );
+      const select = screen.getByLabelText(/asignado a/i) as HTMLSelectElement;
+      // Pasar a "Sin asignar" desde un técnico con cuadrilla.
+      fireEvent.change(select, { target: { value: '' } });
+
+      expect(screen.queryByText(modalText)).not.toBeInTheDocument();
+      expect(select.value).toBe('');
+    });
+
+    it('cerrar el modal ("Entendido") lo oculta y mantiene el valor revertido', async () => {
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, assigneeId: 'admin-1' }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+            iclassAssignActive={true}
+            technicianHasTeam={technicianHasTeam}
+          />
+        </MemoryRouter>
+      );
+      const select = screen.getByLabelText(/asignado a/i) as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: 'admin-2' } });
+      expect(await screen.findByText(modalText)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /entendido/i }));
+
+      await waitFor(() => expect(screen.queryByText(modalText)).not.toBeInTheDocument());
+      expect((screen.getByLabelText(/asignado a/i) as HTMLSelectElement).value).toBe('admin-1');
+    });
+
+    // ── WARNING #2 — un intento BLOQUEADO no debe dejar el form DIRTY ─────────
+    // Hoy el handler hace assigneeReg.onChange(e) (marca dirty) y después
+    // setValue(prev, {shouldDirty:false}) (no limpia el dirty ya aplicado), así
+    // que isDirty queda true → onDirtyChange(true) sin cambio real. El fix: NO
+    // commitear el cambio bloqueado a RHF, así nunca se marca dirty.
+    it('intento bloqueado NO marca el form como dirty (onDirtyChange nunca con true) (#122 WARNING-2)', async () => {
+      const onDirtyChange = vi.fn();
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, assigneeId: 'admin-1' }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+            iclassAssignActive={true}
+            technicianHasTeam={technicianHasTeam}
+            onDirtyChange={onDirtyChange}
+          />
+        </MemoryRouter>
+      );
+      const select = screen.getByLabelText(/asignado a/i) as HTMLSelectElement;
+      // Intento bloqueado: elijo admin-2 (sin cuadrilla).
+      fireEvent.change(select, { target: { value: 'admin-2' } });
+
+      // El modal abre (confirma que el intento fue bloqueado).
+      expect(await screen.findByText(modalText)).toBeInTheDocument();
+      // El select revirtió a admin-1.
+      await waitFor(() => {
+        expect((screen.getByLabelText(/asignado a/i) as HTMLSelectElement).value).toBe('admin-1');
+      });
+      // CLAVE: onDirtyChange jamás debe haberse llamado con true por un intento
+      // bloqueado (no hubo cambio real).
+      expect(onDirtyChange).not.toHaveBeenCalledWith(true);
+    });
+
+    // Paridad: un cambio NO bloqueado (técnico con cuadrilla) SÍ debe marcar dirty.
+    it('cambio NO bloqueado (técnico con cuadrilla) SÍ marca dirty (#122 WARNING-2 paridad)', async () => {
+      const onDirtyChange = vi.fn();
+      render(
+        <MemoryRouter>
+          <DatosForm
+            initial={{ ...initialValues, assigneeId: 'admin-2' }}
+            onSubmit={onSubmit}
+            isSaving={false}
+            admins={mockAdmins}
+            partners={mockPartners}
+            projects={mockProjects}
+            iclassAssignActive={true}
+            technicianHasTeam={technicianHasTeam}
+            onDirtyChange={onDirtyChange}
+          />
+        </MemoryRouter>
+      );
+      const select = screen.getByLabelText(/asignado a/i) as HTMLSelectElement;
+      // admin-1 SÍ tiene cuadrilla → cambio permitido → debe marcar dirty.
+      fireEvent.change(select, { target: { value: 'admin-1' } });
+
+      await waitFor(() => expect(onDirtyChange).toHaveBeenCalledWith(true));
+      expect((screen.getByLabelText(/asignado a/i) as HTMLSelectElement).value).toBe('admin-1');
+    });
+  });
 });

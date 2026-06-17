@@ -20,7 +20,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/useMyPermissions';
 import { useIClassSendFeedback } from '@/hooks/useIClassSendFeedback';
 import { IClassSendResultModal } from '@/components/molecules/IClassSendResultModal/IClassSendResultModal';
-import { IClassTeamSelector } from '@/components/molecules/IClassTeamSelector/IClassTeamSelector';
+import { useFeatureFlag } from '@/hooks/useFeatureFlags';
+import { useIClassTechnicianTeams } from '@/hooks/useIClassTechnicianTeams';
 import type { ScheduledTask, TaskGeneralStatus } from '@/types/scheduling';
 import { applyTaskVariables } from './lib/taskVariables';
 import { TaskHeader } from './SchedulingTaskDetailPage/components/TaskHeader';
@@ -66,6 +67,42 @@ export default function SchedulingTaskDetailPage() {
   const { data: partners = [] } = usePartners();
   const { data: projects = [] } = useProjects();
   const { data: priorities = [] } = useTaskPriorities();
+
+  // #122 — IClass cuadrilla block on the assignee picker.
+  // With the `iclass-assign-action` flag ON, the Datos form blocks picking a
+  // técnico that has no IClass cuadrilla mapped (Config → IClass → Técnicos).
+  // With the flag OFF, assignment is free (no block). The actual modal + revert
+  // lives in DatosForm; the parent just supplies the flag state + a lookup.
+  //
+  // FAIL-OPEN (FIX-FIRST #1): the block is decided from a Set built off
+  // useIClassTechnicianTeams(). While that query is loading (data undefined) or
+  // if it errored, the Set is empty → technicianHasTeam returns false for ALL
+  // técnicos → with the flag ON we'd block EVERYONE (even técnicos who DO have a
+  // cuadrilla), and a permanent block on error. So the block only activates when
+  // BOTH the flag AND the mapping resolved successfully. If either is still
+  // loading or errored → DON'T block (better to let through than to block all on
+  // a network hiccup). Same load criterion applies to the flag for consistency.
+  const flagQuery = useFeatureFlag('iclass-assign-action');
+  const teamsQuery = useIClassTechnicianTeams();
+  const flagLoaded = !flagQuery.isLoading && !flagQuery.isError;
+  const teamsLoaded = !teamsQuery.isLoading && !teamsQuery.isError;
+  const iclassAssignActive =
+    (flagQuery.data?.enabled ?? false) && flagLoaded && teamsLoaded;
+  const technicianTeams = teamsQuery.data ?? [];
+  // A técnico HAS a cuadrilla when its mapping has a non-null iclassTeamLogin.
+  const techniciansWithTeam = new Set(
+    technicianTeams
+      .filter(m => m.iclassTeamLogin !== null)
+      .map(m => m.userId),
+  );
+  const technicianHasTeam = useCallback(
+    // #6 — a falsy userId can never have a cuadrilla (and would never be in the
+    // Set anyway); short-circuit to false to be explicit.
+    (userId: string) => (userId ? techniciansWithTeam.has(userId) : false),
+    // Recompute the lookup only when the mapping set changes (key is stable per data).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [technicianTeams],
+  );
   // Customer detail + contracts — cached share with CustomerSidebar (same query keys).
   // Used only to resolve {{telefono}} / {{contrato}} / {{servicio}} in description merge variables.
   const customerId = task?.customerId ?? null;
@@ -343,11 +380,6 @@ export default function SchedulingTaskDetailPage() {
 
       <div className={styles.layout}>
         <main className={styles.main}>
-          {/* IClass team assignment — shown only with permission + flag ON and
-              only when the task has an IClass OS (iclassOrderCode present) */}
-          {task.iclassOrderCode && (
-            <IClassTeamSelector taskId={task.id} />
-          )}
           <TaskTabs
             detailsProps={{
               datosForm: {
@@ -361,6 +393,9 @@ export default function SchedulingTaskDetailPage() {
                 iclassOrderCode: task.iclassOrderCode ?? null,
                 originalProjectId: task.projectId,
                 onDirtyChange: setFormDirty,
+                // #122 — drives the assignee cuadrilla block (modal + revert).
+                iclassAssignActive,
+                technicianHasTeam,
               },
               ubicacionMap: {
                 address: currentLocation.address,

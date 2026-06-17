@@ -23,6 +23,10 @@ export interface TaskDetailsTabProps {
     iclassOrderCode?: string | null;
     originalProjectId?: string | null;
     onDirtyChange?: (isDirty: boolean) => void;
+    /** #122 — IClass assign flag ON ⇒ block técnicos without a cuadrilla. */
+    iclassAssignActive?: boolean;
+    /** #122 — lookup: does this técnico have an IClass cuadrilla mapped? */
+    technicianHasTeam?: (userId: string) => boolean;
   };
   ubicacionMap: {
     address: string | null;
@@ -70,6 +74,8 @@ export function TaskDetailsTab({
         iclassOrderCode={datosForm.iclassOrderCode}
         originalProjectId={datosForm.originalProjectId}
         onDirtyChange={datosForm.onDirtyChange}
+        iclassAssignActive={datosForm.iclassAssignActive}
+        technicianHasTeam={datosForm.technicianHasTeam}
       />
 
       <hr className={styles.divider} />
