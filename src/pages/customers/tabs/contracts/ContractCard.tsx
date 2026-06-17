@@ -9,6 +9,7 @@ import { InlineNameEdit } from './InlineNameEdit';
 import { ContractServiceChips } from './ContractServiceChips';
 import { ServicePickerMenu } from './ServicePickerMenu';
 import { GigaredPanel } from './GigaredPanel';
+import { InternetPanel } from './InternetPanel';
 import { ServiceHistoryModal } from '@/components/molecules/ServiceHistoryModal/ServiceHistoryModal';
 import { formatDateShort } from '@/utils/formatDate';
 import styles from './ContractCard.module.css';
@@ -61,6 +62,10 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
   const gigaredActive = !!gigaredConfig?.configured && !!gigaredConfig?.enabled && canReadTv;
   const [tvPanelOpen, setTvPanelOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  // Internet panel — gated by pppoe.manage OR pppoe.cut
+  const canManageInternet = can('pppoe.manage') || can('pppoe.cut');
+  const [internetPanelOpen, setInternetPanelOpen] = useState(false);
 
   // #47k — the TV chip reflects suspension: when the linked Gigared account has
   // OTT disabled while it still holds packs, the chip turns amber ("TV
@@ -146,16 +151,18 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
           {/* #5A — filter out inactive TV rows: after a baja the reconcile leaves a
               status='inactive' TV ContractService row but does NOT delete it. That stale
               row must NOT produce a TV chip (clicking it would open the Gigared panel in
-              an inconsistent state). Non-TV inactive rows are left alone — only the TV
-              row carries this post-baja sentinel behavior. */}
+              an inconsistent state). INTERNET sigue la MISMA lógica: tras la baja del PPPoE
+              el servicio INTERNET queda inactive y su chip no debe reabrir el InternetPanel
+              (clickearlo caería en el form de carga → 409 por el username ya tomado). */}
           <ContractServiceChips
             contractId={contract.id}
             clientId={clientId}
             services={contract.services.filter(
-              (s) => !(s.name === 'TV' && s.status === 'inactive'),
+              (s) => !((s.name === 'TV' || s.name === 'INTERNET') && s.status === 'inactive'),
             )}
             onOpenTvManagement={gigaredActive ? () => setTvPanelOpen(true) : undefined}
             tvSuspended={tvSuspended}
+            onOpenInternetManagement={canManageInternet ? () => setInternetPanelOpen(true) : undefined}
           />
           {canWrite && (
             <ServicePickerMenu
@@ -164,6 +171,8 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
               services={contract.services}
               divertTv={gigaredActive}
               onPickTv={() => setTvPanelOpen(true)}
+              divertInternet={canManageInternet}
+              onPickInternet={() => setInternetPanelOpen(true)}
             />
           )}
         </div>
@@ -180,6 +189,14 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
           customer={customer}
           grContratoId={contract.code}
           onClose={() => setTvPanelOpen(false)}
+        />
+      )}
+      {internetPanelOpen && (
+        <InternetPanel
+          contractId={contract.id}
+          clientId={clientId}
+          contractServices={contract.services}
+          onClose={() => setInternetPanelOpen(false)}
         />
       )}
       {historyOpen && (

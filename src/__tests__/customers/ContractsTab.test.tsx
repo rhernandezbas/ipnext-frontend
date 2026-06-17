@@ -47,11 +47,13 @@ import { useServiceCatalog } from '@/hooks/useServiceCatalog';
 import { useConfirm } from '@/context/ConfirmContext';
 import { ContractsTab } from '@/pages/customers/tabs/ContractsTab';
 
+// Default = servicio GENÉRICO (VOZ): toggle/×/reason aplican a genéricos.
+// INTERNET y TV son GESTIONADOS (abren su panel); los tests que los necesitan los overridean.
 const svc = (over: Partial<ContractService> = {}): ContractService => ({
   id: 'cs-1',
-  serviceCatalogId: 'sc-int',
-  name: 'INTERNET',
-  label: 'Internet',
+  serviceCatalogId: 'sc-voz',
+  name: 'VOZ',
+  label: 'Voz IP',
   status: 'active',
   notes: null,
   createdAt: '2026-06-01T00:00:00.000Z',

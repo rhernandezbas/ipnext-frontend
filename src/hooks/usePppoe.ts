@@ -1,5 +1,6 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { pppoeApi } from '@/api/pppoe.api';
+import type { CreatePppoeBody, UpdatePppoeBody } from '@/api/pppoe.api';
 import type {
   EnforcementAction,
   EnforcementTarget,
@@ -66,5 +67,64 @@ export function useBulkEnforcementStatus(jobId: string | null, enabled: boolean)
 export function useEnforcePppoe() {
   return useMutation<PppoeServiceDto, unknown, { id: string; action: EnforcementAction }>({
     mutationFn: ({ id, action }) => pppoeApi.enforce(id, action),
+  });
+}
+
+// ── Hooks de gestión PPPoE por contrato ─────────────────────────────────────────
+
+/** Lista los PPPoE asociados a un contrato. */
+export function useContractPppoe(contractId: string) {
+  return useQuery<PppoeServiceDto[]>({
+    queryKey: ['contract-pppoe', contractId],
+    queryFn: () => pppoeApi.listByContract(contractId),
+    enabled: !!contractId,
+  });
+}
+
+/** Crea un PPPoE en un contrato. Invalida la lista del contrato + contratos del cliente. */
+export function useCreatePppoe(contractId: string, clientId: string | number) {
+  const qc = useQueryClient();
+  return useMutation<PppoeServiceDto, unknown, CreatePppoeBody>({
+    mutationFn: (body) => pppoeApi.create(contractId, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contract-pppoe', contractId] });
+      qc.invalidateQueries({ queryKey: ['client-contracts', String(clientId)] });
+    },
+  });
+}
+
+/** Edita profile/password/remoteAddress/status de un PPPoE. */
+export function useUpdatePppoe(contractId: string, clientId: string | number) {
+  const qc = useQueryClient();
+  return useMutation<PppoeServiceDto, unknown, { id: string; body: UpdatePppoeBody }>({
+    mutationFn: ({ id, body }) => pppoeApi.update(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contract-pppoe', contractId] });
+      qc.invalidateQueries({ queryKey: ['client-contracts', String(clientId)] });
+    },
+  });
+}
+
+/** Mueve un PPPoE a otro router (NAS). */
+export function useMovePppoe(contractId: string, clientId: string | number) {
+  const qc = useQueryClient();
+  return useMutation<PppoeServiceDto, unknown, { id: string; nasId: string }>({
+    mutationFn: ({ id, nasId }) => pppoeApi.move(id, nasId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contract-pppoe', contractId] });
+      qc.invalidateQueries({ queryKey: ['client-contracts', String(clientId)] });
+    },
+  });
+}
+
+/** Da de baja un PPPoE (DELETE en el router). Invalida lista del contrato + contratos del cliente. */
+export function useDeactivatePppoe(contractId: string, clientId: string | number) {
+  const qc = useQueryClient();
+  return useMutation<void, unknown, string>({
+    mutationFn: (id) => pppoeApi.deactivate(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contract-pppoe', contractId] });
+      qc.invalidateQueries({ queryKey: ['client-contracts', String(clientId)] });
+    },
   });
 }

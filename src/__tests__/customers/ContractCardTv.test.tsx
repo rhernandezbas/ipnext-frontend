@@ -190,17 +190,17 @@ describe('ContractCard — TV from contract (#47b)', () => {
     expect(screen.queryByTestId('gigared-panel')).not.toBeInTheDocument();
   });
 
-  it('picking a NON-TV service always creates the plain item (never the panel)', async () => {
+  it('picking a generic service (no TV/INTERNET) always creates the plain item (never the panel)', async () => {
     setup({
-      catalog: [catalogEntry({ id: 'sc-net', name: 'INTERNET', label: 'Internet Extra' })],
+      catalog: [catalogEntry({ id: 'sc-voz', name: 'VOZ', label: 'Voz IP' })],
       gigaredConfig: config({ configured: true, enabled: true }),
     });
     const user = userEvent.setup();
     renderCard();
     await user.click(screen.getByText(/Agregar servicio/i));
-    await user.click(within(screen.getByRole('menu')).getByText(/Internet Extra/i));
+    await user.click(within(screen.getByRole('menu')).getByText(/Voz IP/i));
     await waitFor(() =>
-      expect(addMutate).toHaveBeenCalledWith({ contractId: 'ctr-9', payload: { serviceCatalogId: 'sc-net' } }),
+      expect(addMutate).toHaveBeenCalledWith({ contractId: 'ctr-9', payload: { serviceCatalogId: 'sc-voz' } }),
     );
     expect(screen.queryByTestId('gigared-panel')).not.toBeInTheDocument();
   });
@@ -215,13 +215,13 @@ describe('ContractCard — TV from contract (#47b)', () => {
     expect(screen.getByTestId('gigared-panel')).toHaveAttribute('data-contract-id', 'ctr-9');
   });
 
-  it('a NON-TV chip toggles status (does NOT open the panel)', async () => {
+  it('a generic chip (no TV/INTERNET) toggles status (does NOT open a panel)', async () => {
     const toggleMutate = vi.fn().mockResolvedValue(undefined);
     setup({ gigaredConfig: config({ configured: true, enabled: true }) });
     vi.mocked(useUpdateContractService).mockReturnValue({ mutateAsync: toggleMutate, isPending: false } as unknown as ReturnType<typeof useUpdateContractService>);
     const user = userEvent.setup();
-    renderCard({ services: [svc({ id: 'cs-int', serviceCatalogId: 'sc-int', name: 'INTERNET', label: 'Internet' })] });
-    await user.click(screen.getByRole('button', { name: /^Internet$/ }));
+    renderCard({ services: [svc({ id: 'cs-voz', serviceCatalogId: 'sc-voz', name: 'VOZ', label: 'Voz IP' })] });
+    await user.click(screen.getByRole('button', { name: /^Voz IP$/ }));
     await waitFor(() => expect(toggleMutate).toHaveBeenCalled());
     expect(screen.queryByTestId('gigared-panel')).not.toBeInTheDocument();
   });
@@ -391,16 +391,16 @@ describe('ContractCard — TV from contract (#47b)', () => {
       expect(screen.getByRole('button', { name: /^TV$/ })).toBeInTheDocument();
     });
 
-    it('inactive non-TV service is still rendered (filter is TV-specific)', () => {
+    it('inactive generic service (no TV/INTERNET) is still rendered (filter is TV+INTERNET-specific)', () => {
       setup({ gigaredConfig: config({ configured: true, enabled: true }) });
       renderCard({
         services: [
-          svc({ id: 'cs-net', serviceCatalogId: 'sc-int', name: 'INTERNET', label: 'Internet', status: 'inactive' }),
+          svc({ id: 'cs-voz', serviceCatalogId: 'sc-voz', name: 'VOZ', label: 'Voz IP', status: 'inactive' }),
         ],
       });
-      // The inactive Internet chip renders as a static span (no button since no Gigared divert),
-      // but should still appear (filtering must not touch non-TV services).
-      expect(screen.getByText(/Internet/)).toBeInTheDocument();
+      // Un chip genérico inactivo renderiza como span estático; el filtro NO toca los genéricos
+      // (solo descarta TV e INTERNET inactivos, que son servicios gestionados por panel).
+      expect(screen.getByText(/Voz IP/)).toBeInTheDocument();
     });
   });
 });

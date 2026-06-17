@@ -25,12 +25,14 @@ import { useUpdateContractService, useRemoveContractService } from '@/hooks/useC
 
 const removeMutateAsync = vi.fn();
 
+// Servicio GENÉRICO (VOZ): el flujo de × con motivo aplica a servicios genéricos.
+// INTERNET y TV son servicios GESTIONADOS (abren su panel, sin toggle/× genérico).
 const services: ContractService[] = [
   {
     id: 'cs-1',
     serviceCatalogId: 'sc-1',
-    name: 'INTERNET',
-    label: 'Internet Fibra',
+    name: 'VOZ',
+    label: 'Voz IP',
     status: 'active',
     notes: null,
     createdAt: '2024-01-01T00:00:00Z',
@@ -64,7 +66,7 @@ describe('ContractServiceChips — #127 remove with reason', () => {
     render(
       <ContractServiceChips contractId="ct-9" clientId="cust-1" services={services} />,
     );
-    await user.click(screen.getByRole('button', { name: /quitar Internet Fibra/i }));
+    await user.click(screen.getByRole('button', { name: /quitar Voz IP/i }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
@@ -74,7 +76,7 @@ describe('ContractServiceChips — #127 remove with reason', () => {
     render(
       <ContractServiceChips contractId="ct-9" clientId="cust-1" services={services} />,
     );
-    await user.click(screen.getByRole('button', { name: /quitar Internet Fibra/i }));
+    await user.click(screen.getByRole('button', { name: /quitar Voz IP/i }));
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByRole('button', { name: /dar de baja/i })).toBeDisabled();
   });
@@ -85,7 +87,7 @@ describe('ContractServiceChips — #127 remove with reason', () => {
     render(
       <ContractServiceChips contractId="ct-9" clientId="cust-1" services={services} />,
     );
-    await user.click(screen.getByRole('button', { name: /quitar Internet Fibra/i }));
+    await user.click(screen.getByRole('button', { name: /quitar Voz IP/i }));
     const dialog = screen.getByRole('dialog');
     await user.type(within(dialog).getByRole('textbox'), 'Cliente con deuda');
     await user.click(within(dialog).getByRole('button', { name: /dar de baja/i }));
@@ -103,7 +105,7 @@ describe('ContractServiceChips — #127 remove with reason', () => {
     render(
       <ContractServiceChips contractId="ct-9" clientId="cust-1" services={services} />,
     );
-    await user.click(screen.getByRole('button', { name: /quitar Internet Fibra/i }));
+    await user.click(screen.getByRole('button', { name: /quitar Voz IP/i }));
     const dialog = screen.getByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: /cancelar/i }));
     expect(removeMutateAsync).not.toHaveBeenCalled();
