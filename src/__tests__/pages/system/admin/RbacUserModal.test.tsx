@@ -120,7 +120,7 @@ describe('RbacUserModal', () => {
     });
   });
 
-  it('shows password validation error when password < 8 chars in create mode', async () => {
+  it('shows password validation error when password < 10 chars in create mode', async () => {
     const onClose = vi.fn();
     const onSave = vi.fn();
     render(
@@ -136,11 +136,14 @@ describe('RbacUserModal', () => {
     fireEvent.change(screen.getByLabelText(/nombre/i), { target: { value: 'Test' } });
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@test.com' } });
     fireEvent.change(screen.getByLabelText(/login/i), { target: { value: 'testlogin' } });
-    fireEvent.change(screen.getByLabelText(/contraseña/i), { target: { value: 'short' } });
+    // "Passw0rd" = 8 chars with a letter and a digit → only the length rule fails,
+    // mirroring the backend policy (min 10). The client-side guard must block it
+    // before the request leaves the browser.
+    fireEvent.change(screen.getByLabelText(/contraseña/i), { target: { value: 'Passw0rd' } });
 
     fireEvent.click(screen.getByRole('button', { name: /guardar/i }));
     await waitFor(() => {
-      expect(screen.getByText(/mínimo 8|8 caracteres/i)).toBeInTheDocument();
+      expect(screen.getByText(/10 caracteres/i)).toBeInTheDocument();
     });
     expect(onSave).not.toHaveBeenCalled();
   });
@@ -275,5 +278,52 @@ describe('RbacUserModal', () => {
       />,
     );
     expect(screen.getByRole('button', { name: /guardando/i })).toBeDisabled();
+  });
+
+  // Fill every required field with valid values + pick a role, leaving the modal
+  // ready to submit. Password satisfies the client-side policy (>=10, letter, digit)
+  // so the request actually reaches onSave and we can assert on the SERVER error.
+  function fillValidCreateForm() {
+    fireEvent.change(screen.getByLabelText(/nombre/i), { target: { value: 'Juan Mosca' } });
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'juanmosca@ipnext.net.ar' } });
+    fireEvent.change(screen.getByLabelText(/login/i), { target: { value: 'JuanM' } });
+    fireEvent.change(screen.getByLabelText(/contraseña/i), { target: { value: 'Password123' } });
+    fireEvent.click(screen.getByRole('button', { name: /seleccionar roles/i }));
+    fireEvent.click(screen.getByRole('option', { name: /noc/i }));
+  }
+
+  it('surfaces the backend message verbatim when the server rejects with PASSWORD_POLICY', async () => {
+    const backendMessage = 'La contraseña debe tener al menos 10 caracteres, al menos un número';
+    const serverError = Object.assign(new Error('bad request'), {
+      response: { data: { code: 'PASSWORD_POLICY', error: backendMessage } },
+    });
+    const onSave = vi.fn().mockRejectedValue(serverError);
+    render(
+      <RbacUserModal mode="create" roles={ROLES} onClose={vi.fn()} onSave={onSave} loading={false} />,
+    );
+
+    fillValidCreateForm();
+    fireEvent.click(screen.getByRole('button', { name: /guardar/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    // The real backend detail must reach the user — NOT the generic fallback.
+    expect(await screen.findByText(backendMessage)).toBeInTheDocument();
+    expect(screen.queryByText(/ocurrió un error\. intentá de nuevo/i)).not.toBeInTheDocument();
+  });
+
+  it('falls back to the generic banner only when the backend sends no message', async () => {
+    const serverError = Object.assign(new Error('boom'), {
+      response: { data: { code: 'SOME_UNKNOWN_CODE' } },
+    });
+    const onSave = vi.fn().mockRejectedValue(serverError);
+    render(
+      <RbacUserModal mode="create" roles={ROLES} onClose={vi.fn()} onSave={onSave} loading={false} />,
+    );
+
+    fillValidCreateForm();
+    fireEvent.click(screen.getByRole('button', { name: /guardar/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(await screen.findByText(/ocurrió un error\. intentá de nuevo/i)).toBeInTheDocument();
   });
 });

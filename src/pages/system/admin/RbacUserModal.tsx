@@ -23,6 +23,18 @@ interface FormValues {
   status?: 'active' | 'disabled';
 }
 
+// Mirror of the backend password policy (domain/services/passwordPolicy.ts):
+// >= 10 chars, at least one letter and one digit. Keeping it in sync lets the
+// form reject a weak password locally instead of round-tripping to a 400.
+const PASSWORD_MIN_LENGTH = 10;
+function validatePasswordPolicy(value: string): true | string {
+  const reasons: string[] = [];
+  if (value.length < PASSWORD_MIN_LENGTH) reasons.push(`al menos ${PASSWORD_MIN_LENGTH} caracteres`);
+  if (!/[a-zA-Z]/.test(value)) reasons.push('al menos una letra');
+  if (!/[0-9]/.test(value)) reasons.push('al menos un número');
+  return reasons.length === 0 ? true : `La contraseña debe tener ${reasons.join(', ')}`;
+}
+
 // Server error code → user-friendly message + field
 type ErrorField = 'login' | 'email' | 'password' | 'banner';
 interface MappedError {
@@ -30,14 +42,18 @@ interface MappedError {
   message: string;
 }
 
-function mapServerError(code: string | undefined): MappedError {
+// `serverMessage` is the backend's own `error` string. The backend is the source
+// of truth for business-rule wording (e.g. the exact password policy detail), so
+// we prefer it whenever it's present and only fall back to a hard-coded message.
+function mapServerError(code: string | undefined, serverMessage?: string): MappedError {
   switch (code) {
     case 'LOGIN_ALREADY_TAKEN':
       return { field: 'login', message: 'Ese login ya está en uso' };
     case 'EMAIL_ALREADY_TAKEN':
       return { field: 'email', message: 'Ese email ya está en uso' };
+    case 'PASSWORD_POLICY':
     case 'PASSWORD_TOO_SHORT':
-      return { field: 'password', message: 'Contraseña: mínimo 8 caracteres' };
+      return { field: 'password', message: serverMessage ?? 'La contraseña no cumple los requisitos' };
     case 'AT_LEAST_ONE_ROLE_REQUIRED':
       return { field: 'banner', message: 'Tenés que asignar al menos un rol' };
     case 'CANNOT_DELETE_SELF':
@@ -48,7 +64,8 @@ function mapServerError(code: string | undefined): MappedError {
         message: 'Quedaría el sistema sin Super Administradores — asigná otro primero',
       };
     default:
-      return { field: 'banner', message: 'Ocurrió un error. Intentá de nuevo.' };
+      // Unknown code: surface the backend's message instead of a useless generic.
+      return { field: 'banner', message: serverMessage ?? 'Ocurrió un error. Intentá de nuevo.' };
   }
 }
 
@@ -140,8 +157,8 @@ export function RbacUserModal({
         await onSave(payload);
       }
     } catch (err: unknown) {
-      const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code;
-      const mapped = mapServerError(code);
+      const data = (err as { response?: { data?: { code?: string; error?: string } } })?.response?.data;
+      const mapped = mapServerError(data?.code, data?.error);
       if (mapped.field === 'banner') {
         setServerBanner(mapped.message);
       } else {
@@ -267,7 +284,7 @@ export function RbacUserModal({
                 aria-describedby={errors.password ? 'rbac-password-error' : undefined}
                 {...register('password', {
                   required: 'La contraseña es obligatoria',
-                  minLength: { value: 8, message: 'Mínimo 8 caracteres' },
+                  validate: validatePasswordPolicy,
                 })}
               />
               {errors.password && (
@@ -294,7 +311,8 @@ export function RbacUserModal({
                     autoComplete="new-password"
                     aria-describedby={errors.password ? 'rbac-password-edit-error' : undefined}
                     {...register('password', {
-                      minLength: { value: 8, message: 'Mínimo 8 caracteres' },
+                      // Edit: empty = keep current password; only validate a new one.
+                      validate: value => !value || validatePasswordPolicy(value),
                     })}
                   />
                   {errors.password && (
