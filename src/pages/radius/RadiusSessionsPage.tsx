@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRadiusSessions, useDisconnectSession } from '@/hooks/useRadiusSessions';
 import { formatDateTimeShort } from '@/utils/formatDate';
+import { Can } from '@/components/auth/Can';
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -153,21 +154,23 @@ export default function RadiusSessionsPage() {
                   </span>
                 </td>
                 <td style={{ padding: '0.75rem 1rem' }}>
-                  <button
-                    onClick={() => disconnect(session.id)}
-                    style={{
-                      padding: '0.25rem 0.75rem',
-                      background: '#fff',
-                      border: '1px solid #dc2626',
-                      color: '#dc2626',
-                      borderRadius: '0.375rem',
-                      cursor: 'pointer',
-                      fontSize: '0.8rem',
-                      fontWeight: 500,
-                    }}
-                  >
-                    Desconectar
-                  </button>
+                  <Can permission="network.manage">
+                    <button
+                      onClick={() => disconnect(session.id)}
+                      style={{
+                        padding: '0.25rem 0.75rem',
+                        background: '#fff',
+                        border: '1px solid #dc2626',
+                        color: '#dc2626',
+                        borderRadius: '0.375rem',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 500,
+                      }}
+                    >
+                      Desconectar
+                    </button>
+                  </Can>
                 </td>
               </tr>
             ))}

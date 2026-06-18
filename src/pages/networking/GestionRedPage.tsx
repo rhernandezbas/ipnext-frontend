@@ -3,6 +3,9 @@ import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { useNasServers, useCreateNasServer, useUpdateNasServer, useDeleteNasServer, useRadiusConfig, useUpdateRadiusConfig } from '@/hooks/useNas';
 import { useIpNetworks, useCreateIpNetwork, useDeleteIpNetwork, useIpPools, useCreateIpPool, useDeleteIpPool, useIpAssignments, useIpv6Networks, useCreateIpv6Network } from '@/hooks/useNetwork';
 import { useConfirm } from '@/context/ConfirmContext';
+import { Can } from '@/components/auth/Can';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
+import { cutoverStats, nextCutoverType, isRadius } from '@/utils/cutover';
 import type { NasServer, NasType, RadiusConfig } from '@/types/nas';
 import type { IpNetwork, IpPool, Ipv6Network } from '@/types/network';
 import { formatDateTimeShort } from '@/utils/formatDate';
@@ -29,7 +32,7 @@ const NAS_TYPE_LABELS: Record<NasType, string> = {
 
 const NAS_TYPE_COLORS: Record<NasType, string> = {
   mikrotik_api: styles.badgeOrange,
-  mikrotik_radius: styles.badgeOrange,
+  mikrotik_radius: styles.badgeGreen,
   cisco: styles.badgeBlue,
   ubiquiti: styles.badgeGreen,
   cambium: styles.badgePurple,
@@ -353,9 +356,9 @@ function RadiusConfigSection() {
             Habilitar Accounting
           </label>
         </div>
-        <div>
+        <Can permission="network.manage">
           <button type="submit" className={styles.btnPrimary}>Guardar configuración RADIUS</button>
-        </div>
+        </Can>
       </form>
     </div>
   );
@@ -590,6 +593,9 @@ export default function GestionRedPage() {
   const { data: ipv6Networks = [], isLoading: ipv6Loading } = useIpv6Networks();
   const { mutate: createIpv6Network } = useCreateIpv6Network();
   const confirm = useConfirm();
+  const { can } = useMyPermissions();
+  const canManage = can('network.manage');
+  const cutover = cutoverStats(nasServers);
 
   // NAS summary counts
   const totalNas = nasServers.length;
@@ -598,43 +604,63 @@ export default function GestionRedPage() {
   const errorNas = nasServers.filter(n => n.status === 'error').length;
 
   const nasActions = [
-    { label: 'Editar', onClick: (row: NasServer) => setEditingNas(row) },
     { label: 'Probar conexión', onClick: async (row: NasServer) => { if (await confirm({ message: `¿Probar conexión con ${row.name}?`, confirmLabel: 'Probar' })) alert(`Conexión a ${row.name} (${row.ipAddress}) probada correctamente.`); } },
-    { label: 'Desactivar', onClick: async (row: NasServer) => { if (await confirm({ message: `¿Desactivar ${row.name}?`, tone: 'danger', confirmLabel: 'Desactivar' })) updateNas({ id: row.id, data: { status: 'inactive' } }); } },
-    { label: 'Eliminar', onClick: async (row: NasServer) => { if (await confirm({ message: `¿Eliminar ${row.name}?`, tone: 'danger', confirmLabel: 'Eliminar' })) deleteNas(row.id); } },
+    ...(canManage ? [
+      { label: 'Editar', onClick: (row: NasServer) => setEditingNas(row) },
+      { label: 'Cutover ⇄', onClick: async (row: NasServer) => {
+        const toRadius = !isRadius(row.type);
+        const ok = await confirm({
+          message: toRadius
+            ? `¿Marcar ${row.name} como RADIUS? Los cortes de este router pasarán a rutearse por el orchestrator (camino RADIUS).`
+            : `¿Volver ${row.name} a legacy (MikroTik API directo)? Los cortes volverán al camino MK-directo.`,
+          confirmLabel: toRadius ? 'Marcar RADIUS' : 'Volver a legacy',
+        });
+        if (ok) updateNas({ id: row.id, data: { type: nextCutoverType(row.type) } });
+      } },
+      { label: 'Desactivar', onClick: async (row: NasServer) => { if (await confirm({ message: `¿Desactivar ${row.name}?`, tone: 'danger', confirmLabel: 'Desactivar' })) updateNas({ id: row.id, data: { status: 'inactive' } }); } },
+      { label: 'Eliminar', onClick: async (row: NasServer) => { if (await confirm({ message: `¿Eliminar ${row.name}?`, tone: 'danger', confirmLabel: 'Eliminar' })) deleteNas(row.id); } },
+    ] : []),
   ];
 
-  const networkActions = [
+  const networkActions = canManage ? [
     { label: 'Eliminar', onClick: async (row: IpNetwork) => { if (await confirm({ message: `¿Eliminar red ${row.network}?`, tone: 'danger', confirmLabel: 'Eliminar' })) deleteNetwork(row.id); } },
-  ];
+  ] : [];
 
-  const poolActions = [
+  const poolActions = canManage ? [
     { label: 'Eliminar', onClick: async (row: IpPool) => { if (await confirm({ message: `¿Eliminar pool ${row.name}?`, tone: 'danger', confirmLabel: 'Eliminar' })) deletePool(row.id); } },
-  ];
+  ] : [];
 
   return (
     <div className={styles.page}>
       <div className={styles.header}>
         <h1 className={styles.title}>Gestión de red</h1>
         {activeTab === 'nas' && (
-          <button className={styles.btnPrimary} onClick={() => setShowNasModal(true)}>
-            Agregar NAS
-          </button>
+          <Can permission="network.manage">
+            <button className={styles.btnPrimary} onClick={() => setShowNasModal(true)}>
+              Agregar NAS
+            </button>
+          </Can>
         )}
         {activeTab === 'redes' && (
-          <button className={styles.btnPrimary} onClick={() => setShowNetworkModal(true)}>
-            Nueva red
-          </button>
+          <Can permission="network.manage">
+            <button className={styles.btnPrimary} onClick={() => setShowNetworkModal(true)}>
+              Nueva red
+            </button>
+          </Can>
         )}
         {activeTab === 'pools' && (
-          <button className={styles.btnPrimary} onClick={() => setShowPoolModal(true)}>
-            Nuevo pool
-          </button>
+          <Can permission="network.manage">
+            <button className={styles.btnPrimary} onClick={() => setShowPoolModal(true)}>
+              Nuevo pool
+            </button>
+          </Can>
         )}
         {activeTab === 'ipv6' && (
-          <button className={styles.btnPrimary} onClick={() => setShowIpv6Modal(true)}>
-            Nueva red IPv6
-          </button>
+          <Can permission="network.manage">
+            <button className={styles.btnPrimary} onClick={() => setShowIpv6Modal(true)}>
+              Nueva red IPv6
+            </button>
+          </Can>
         )}
       </div>
 
@@ -653,6 +679,10 @@ export default function GestionRedPage() {
       {activeTab === 'nas' && (
         <>
           <div className={styles.summaryCards}>
+            <div className={styles.card}>
+              <span className={styles.cardLabel}>Cutover a RADIUS</span>
+              <span className={`${styles.cardValue} ${styles.cardValueOnline}`}>{cutover.radius}/{cutover.total} ({cutover.pct}%)</span>
+            </div>
             <div className={styles.card}>
               <span className={styles.cardLabel}>Total NAS</span>
               <span className={styles.cardValue}>{totalNas}</span>
