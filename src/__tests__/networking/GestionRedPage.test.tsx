@@ -231,8 +231,9 @@ describe('GestionRedPage', () => {
     expect(screen.getByText('Activos')).toBeInTheDocument();
     expect(screen.getByText('Inactivos')).toBeInTheDocument();
     expect(screen.getByText('Error')).toBeInTheDocument();
-    // 2 NAS servers total
-    expect(screen.getByText('2')).toBeInTheDocument();
+    // 2 NAS servers total — count now appears in both the KPI value and the
+    // tab badge (prototype redesign), so assert it's rendered at least once.
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0);
   });
 
   it('switching to "Redes IP" tab shows network table', async () => {
