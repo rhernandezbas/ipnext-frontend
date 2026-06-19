@@ -1,4 +1,5 @@
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
+import { Button } from '@/components/atoms/Button';
 import {
   RECAPTURE_STATUS_LABELS,
   RECAPTURE_STATUS_COLOR,
@@ -90,9 +91,9 @@ export function RecaptacionTableView({
           <>
             <p className={styles.emptyTitle}>Sin resultados para los filtros</p>
             <p className={styles.emptyHint}>Ajustá o limpiá los filtros para ver más leads.</p>
-            <button type="button" className={styles.btnPrimary} onClick={onClearFilters}>
+            <Button variant="primary" onClick={onClearFilters}>
               Limpiar filtros
-            </button>
+            </Button>
           </>
         ) : (
           <>

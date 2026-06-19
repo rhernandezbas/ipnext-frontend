@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Can } from '@/components/auth/Can';
+import { Button } from '@/components/atoms/Button';
 import { useRecaptacionLead, useClaimLead, useReleaseLead, useAddContact, useUpdateLeadStatus, useAssignLead } from '@/hooks/useRecaptacion';
 import { useAdmins } from '@/hooks/useAdmins';
 import { formatDateTimeShort } from '@/utils/formatDate';
@@ -117,13 +118,9 @@ function RegisterContactForm({ leadId, onSuccess }: RegisterContactFormProps) {
       )}
 
       <div className={styles.formActions}>
-        <button
-          type="submit"
-          className={styles.btnPrimary}
-          disabled={addContact.isPending}
-        >
-          {addContact.isPending ? 'Guardando…' : 'Guardar contacto'}
-        </button>
+        <Button type="submit" variant="primary" loading={addContact.isPending}>
+          Guardar contacto
+        </Button>
       </div>
     </form>
   );
@@ -254,32 +251,32 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
                 </select>
               </div>
               {!isAssigned && (
-                <button
+                <Button
                   type="button"
-                  className={styles.btnPrimary}
-                  disabled={claimLead.isPending}
+                  variant="primary"
+                  loading={claimLead.isPending}
                   onClick={() => claimLead.mutate(lead.id)}
                 >
-                  {claimLead.isPending ? 'Tomando…' : 'Tomar lead'}
-                </button>
+                  Tomar lead
+                </Button>
               )}
               {isAssigned && (
-                <button
+                <Button
                   type="button"
-                  className={styles.btnDanger}
-                  disabled={releaseLead.isPending}
+                  variant="danger"
+                  loading={releaseLead.isPending}
                   onClick={() => releaseLead.mutate(lead.id)}
                 >
-                  {releaseLead.isPending ? 'Liberando…' : 'Liberar lead'}
-                </button>
+                  Liberar lead
+                </Button>
               )}
-              <button
+              <Button
                 type="button"
-                className={styles.btnPrimary}
+                variant="secondary"
                 onClick={() => setShowForm((v) => !v)}
               >
                 {showForm ? 'Cancelar' : 'Registrar contacto'}
-              </button>
+              </Button>
             </Can>
           </div>
 
@@ -327,7 +324,7 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
                   {c.note && <p className={styles.contactNote}>{c.note}</p>}
                   {c.proposal && <p className={styles.metaValue}>Propuesta: {c.proposal}</p>}
                   {c.nextStepAt && (
-                    <p className={styles.metaValue} style={{ fontSize: 12 }}>
+                    <p className={styles.metaValue}>
                       Próximo paso: {formatDatetime(c.nextStepAt)}
                     </p>
                   )}

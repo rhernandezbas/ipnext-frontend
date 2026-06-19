@@ -18,24 +18,24 @@
 }
 
 .header {
-  padding: 20px 24px 16px;
+  padding: var(--space-5) var(--space-6) var(--space-4);
   border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .headerLeft {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
 .title {
-  font-size: 17px;
-  font-weight: 700;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   margin: 0;
   white-space: nowrap;
@@ -44,7 +44,7 @@
 }
 
 .subtitle {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   margin: 0;
 }
@@ -53,15 +53,21 @@
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 20px;
+  font-size: var(--font-size-xl);
   color: var(--color-text-secondary);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
   line-height: 1;
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
-.closeBtn:hover { background: var(--color-gray-100); }
+.closeBtn:hover { background: var(--color-gray-100); color: var(--color-text-primary); }
+
+.closeBtn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
 
 .body {
   flex: 1;
@@ -74,23 +80,23 @@
 /* ── Info section ── */
 
 .section {
-  padding: 16px 24px;
+  padding: var(--space-4) var(--space-6);
   border-bottom: 1px solid var(--color-border);
 }
 
 .sectionTitle {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--color-text-secondary);
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-3);
 }
 
 .metaGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px 16px;
+  gap: var(--space-2) var(--space-4);
 }
 
 .metaItem {
@@ -102,103 +108,73 @@
 .metaLabel {
   font-size: 11px;
   color: var(--color-text-secondary);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .metaValue {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-primary);
 }
 
 /* ── Actions bar ── */
 
 .actions {
-  padding: 12px 24px;
+  padding: var(--space-3) var(--space-6);
   border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
 .statusPill {
   display: inline-flex;
   align-items: center;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   padding: 2px 10px;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   white-space: nowrap;
-  color: #fff;
-}
-
-.btnPrimary {
-  padding: 6px 14px;
-  background: var(--color-accent);
   color: var(--color-white);
-  border: none;
-  border-radius: var(--radius-button);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
 }
-
-.btnPrimary:hover:not(:disabled) { background: #4f46e5; }
-.btnPrimary:disabled { opacity: 0.55; cursor: not-allowed; }
-
-.btnDanger {
-  padding: 6px 14px;
-  background: none;
-  color: #dc2626;
-  border: 1px solid #dc2626;
-  border-radius: var(--radius-button);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.btnDanger:hover:not(:disabled) { background: #fef2f2; }
-.btnDanger:disabled { opacity: 0.55; cursor: not-allowed; }
 
 /* ── Timeline ── */
 
 .timeline {
-  padding: 16px 24px;
+  padding: var(--space-4) var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
   flex: 1;
 }
 
 .timelineEmpty {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   text-align: center;
-  padding: 24px 0;
+  padding: var(--space-6) 0;
 }
 
 .contactCard {
-  background: var(--color-gray-50, #f8fafc);
+  background: var(--color-gray-50);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 12px 14px;
+  padding: var(--space-3) var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .contactCardHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .channelBadge {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-accent);
@@ -212,15 +188,15 @@
 .outcomeBadge {
   display: inline-block;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   padding: 2px 8px;
-  border-radius: 9999px;
-  background: var(--color-gray-100, #f1f5f9);
+  border-radius: var(--radius-full);
+  background: var(--color-gray-100);
   color: var(--color-text-secondary);
 }
 
 .contactNote {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   font-style: italic;
 }
@@ -228,16 +204,16 @@
 /* ── Register contact form ── */
 
 .form {
-  padding: 16px 24px;
+  padding: var(--space-4) var(--space-6);
   border-top: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .formTitle {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   margin: 0;
 }
@@ -245,18 +221,18 @@
 .formRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .formField {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .formLabel {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -265,15 +241,16 @@
 .formSelect,
 .formInput,
 .formTextarea {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  padding: 6px 10px;
+  padding: var(--space-2) var(--space-3);
   outline: none;
   width: 100%;
   box-sizing: border-box;
+  transition: border-color var(--transition-fast);
 }
 
 .formSelect:focus,
@@ -290,30 +267,12 @@
 .formActions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-}
-
-.btnSecondary {
-  padding: 6px 14px;
-  background: none;
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-button);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.btnSecondary:hover { background: var(--color-gray-100); }
-
-.spinnerInline {
-  font-size: 12px;
-  color: var(--color-text-secondary);
+  gap: var(--space-2);
 }
 
 .errorMsg {
-  font-size: 12px;
-  color: #dc2626;
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
 }
 
 /* ── Status selector (replaces static pill for managers) ── */
@@ -326,22 +285,23 @@
 
 .statusSelectLabel {
   font-size: 10px;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-secondary);
 }
 
 .statusSelect {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 8px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text-primary);
   cursor: pointer;
   outline: none;
+  transition: border-color var(--transition-fast);
 }
 
 .statusSelect:disabled {
