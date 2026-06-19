@@ -114,6 +114,20 @@
   /* ------------------------------------------------------------------ */
   --radius-button: 8px;
 
+  /* ------------------------------------------------------------------ */
+  /* Interactive hover states — tokenized (replaces hardcoded hex)        */
+  /* ------------------------------------------------------------------ */
+  --color-primary-hover: #0b5ed7;
+  --color-accent-hover: #5a35a0;
+
+  /* ------------------------------------------------------------------ */
+  /* Semantic feedback                                                    */
+  /* ------------------------------------------------------------------ */
+  --color-success: #28a745;
+  --color-success-strong: #16a34a;
+  --color-danger: #dc3545;
+  --color-danger-bg-hover: #fff0f1;
+
   /* Badge tokens */
   --badge-active-bg: #dbeafe;
   --badge-active-fg: #1e40af;

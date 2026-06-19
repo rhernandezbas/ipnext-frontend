@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { FilterBar } from '@/components/molecules/FilterBar/FilterBar';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import { Can } from '@/components/auth/Can';
+import { Button } from '@/components/atoms/Button';
 import { useRecaptacionLeads, useClaimNext, useIngestChurned } from '@/hooks/useRecaptacion';
 import { RECAPTURE_STATUS_LABELS } from '@/types/recaptacion';
 import type { RecaptureLeadDto, RecaptureLeadStatus, RecaptureLeadSource } from '@/types/recaptacion';
@@ -113,35 +114,35 @@ export default function RecaptacionPage() {
           <h1 className={styles.title}>Recaptación</h1>
         </div>
         <div className={styles.headerRight}>
-          <button
-            className={styles.btnIcon}
+          <Button
+            variant="icon"
             title="Recargar"
             onClick={() => void refetch()}
             aria-label="Recargar"
           >
             <IconRefresh />
-          </button>
+          </Button>
           <Can permission="recapture.manage">
-            <button
-              className={styles.btnSecondary}
-              disabled={ingestChurned.isPending}
+            <Button
+              variant="secondary"
+              loading={ingestChurned.isPending}
               onClick={() => void handleIngestChurned()}
             >
-              {ingestChurned.isPending ? 'Ingresando…' : 'Ingestar bajas'}
-            </button>
-            <button
-              className={styles.btnSecondary}
+              Ingestar bajas
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => setImportModalOpen(true)}
             >
               Importar CSV
-            </button>
-            <button
-              className={styles.btnPrimary}
-              disabled={claimNext.isPending}
+            </Button>
+            <Button
+              variant="primary"
+              loading={claimNext.isPending}
               onClick={() => void handleClaimNext()}
             >
-              {claimNext.isPending ? 'Buscando…' : 'Tomar siguiente'}
-            </button>
+              Tomar siguiente
+            </Button>
           </Can>
         </div>
       </div>

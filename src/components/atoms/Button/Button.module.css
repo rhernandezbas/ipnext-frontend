@@ -2,16 +2,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   height: 36px;
-  padding: 0 16px;
+  padding: 0 var(--space-4);
   border: none;
   border-radius: var(--radius-button);
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: opacity 0.15s, background-color 0.15s;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  transition: opacity var(--transition-fast), background-color var(--transition-fast), color var(--transition-fast);
 }
 
 .btn:disabled {
@@ -27,9 +27,9 @@
 /* Variants */
 .primary {
   background-color: var(--color-primary);
-  color: #ffffff;
+  color: var(--color-white);
 }
-.primary:hover:not(:disabled) { background-color: #0b5ed7; }
+.primary:hover:not(:disabled) { background-color: var(--color-primary-hover); }
 
 .secondary {
   background-color: var(--color-surface);
@@ -40,10 +40,10 @@
 
 .danger {
   background-color: transparent;
-  color: #dc3545;
-  border: 1px solid #dc3545;
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
 }
-.danger:hover:not(:disabled) { background-color: #fff0f1; }
+.danger:hover:not(:disabled) { background-color: var(--color-danger-bg-hover); }
 
 .ghost {
   background-color: transparent;
@@ -51,7 +51,27 @@
 }
 .ghost:hover:not(:disabled) { background-color: var(--color-surface-hover); }
 
+/* Icon-only — square button for toolbar actions. ALWAYS pair with aria-label. */
+.icon {
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  padding: 0;
+  width: 36px;
+}
+.icon:hover:not(:disabled) {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
 /* Sizes */
-.sm { padding: 0.25rem 0.625rem; font-size: 0.8125rem; height: auto; }
-.md { padding: 0.5rem 1rem; font-size: 0.875rem; }
-.lg { padding: 0.625rem 1.25rem; font-size: 1rem; height: auto; }
+.sm { padding: var(--space-1) 0.625rem; font-size: 0.8125rem; height: auto; }
+.md { padding: var(--space-2) var(--space-4); font-size: var(--font-size-sm); }
+.lg { padding: 0.625rem var(--space-5); font-size: var(--font-size-md); height: auto; }
+
+/* Touch ergonomics: guarantee >=44px tap targets on touch devices (pointer:
+   coarse) without inflating dense desktop toolbars (pointer: fine stays 36px). */
+@media (pointer: coarse) {
+  .btn { min-height: 44px; }
+  .icon { min-width: 44px; }
+}

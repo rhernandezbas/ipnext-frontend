@@ -45,4 +45,21 @@ describe('Button', () => {
     render(<Button type="submit">Submit</Button>);
     expect(screen.getByRole('button')).toHaveAttribute('type', 'submit');
   });
+
+  it('renders an icon-only button that stays accessible via aria-label', async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    render(
+      <Button variant="icon" aria-label="Recargar" onClick={onClick}>
+        <svg data-testid="refresh-icon" width="16" height="16" />
+      </Button>,
+    );
+    // Icon-only buttons MUST expose an accessible name (aria-label), since the
+    // SVG has no text. The variant must not break that.
+    const btn = screen.getByRole('button', { name: 'Recargar' });
+    expect(btn).toBeInTheDocument();
+    expect(screen.getByTestId('refresh-icon')).toBeInTheDocument();
+    await user.click(btn);
+    expect(onClick).toHaveBeenCalledOnce();
+  });
 });
