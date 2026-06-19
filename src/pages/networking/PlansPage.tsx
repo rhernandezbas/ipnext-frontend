@@ -72,7 +72,7 @@ interface KpiData {
 }
 
 function computeKpis(plans: PlanDto[]): KpiData {
-  const active = plans.filter(p => p.status === 'active');
+  const active = plans.filter(p => p.status === 'enabled');
   const real = active.filter(p => p.category !== 'Corte').map(p => p.downloadKbps);
   const cut = active.filter(p => p.category === 'Corte');
   return {
