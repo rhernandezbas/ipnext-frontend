@@ -132,6 +132,7 @@ const EMPRESA_ITEMS: NavParentItem[] = [
       { to: '/admin/networking/ipv6-networks', label: 'Redes IPv6' },
       { to: '/admin/networking/topology', label: 'Topología' },
       { to: '/admin/networking/settings', label: 'Configuración' },
+      { to: '/admin/networking/plans', label: 'Catálogo de planes', requiredPermission: 'plan.read' },
     ],
   },
   {

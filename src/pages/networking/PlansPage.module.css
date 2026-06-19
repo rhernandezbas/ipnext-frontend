@@ -1,0 +1,514 @@
+.page {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Banner */
+.banner {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  background: linear-gradient(90deg, #eff6ff, #f8fafc);
+  border: 1px solid #dbeafe;
+  border-radius: 0.75rem;
+  padding: 0.875rem 1rem;
+}
+
+.bannerIcon {
+  color: #2563eb;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.bannerText {
+  font-size: 0.85rem;
+  color: #334155;
+  margin: 0;
+}
+
+.bannerBold {
+  color: #1e40af;
+  font-weight: 600;
+}
+
+/* Page head */
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.headerLeft {}
+
+.title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  color: var(--color-text-muted, #6b7280);
+  font-size: 0.875rem;
+  margin: 0.25rem 0 0;
+}
+
+/* KPIs */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.875rem;
+}
+
+.kpiCard {
+  background: #fff;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 0.75rem;
+  padding: 1rem 1.125rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.1);
+}
+
+.kpiLabel {
+  font-size: 0.7rem;
+  color: var(--color-text-muted, #6b7280);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kpiValue {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-top: 0.375rem;
+  letter-spacing: -0.03em;
+  color: var(--color-text, #111827);
+}
+
+.kpiValueCut {
+  color: #475569;
+}
+
+.kpiSub {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 0.125rem;
+}
+
+.kpiUnit {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.searchWrapper {
+  flex: 1;
+  min-width: 200px;
+  position: relative;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 0.625rem 0.75rem 0.625rem 2.25rem;
+  border: 1px solid var(--color-border, #d1d5db);
+  border-radius: 0.625rem;
+  font-size: 0.875rem;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+
+.searchInput:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.chips {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  background: #fff;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-muted, #6b7280);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.chip:hover {
+  border-color: #2563eb;
+  color: #1e40af;
+}
+
+.chipActive {
+  background: #1e40af;
+  border-color: #1e40af;
+  color: #fff;
+}
+
+.chipCount {
+  font-size: 0.6875rem;
+  opacity: 0.7;
+}
+
+/* Table card */
+.tableCard {
+  background: #fff;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 0.875rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.1);
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table thead th {
+  text-align: left;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.8125rem 1.125rem;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  white-space: nowrap;
+}
+
+.table thead th.thNum {
+  text-align: right;
+}
+
+.table tbody td {
+  padding: 0.75rem 1.125rem;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.875rem;
+  vertical-align: middle;
+}
+
+.table tbody tr {
+  transition: background 0.1s;
+}
+
+.table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Group separator */
+.groupRow td {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.875rem 1.125rem 0.375rem;
+  background: #fbfcfe;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+/* Cells */
+.planCode {
+  font-weight: 600;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 0.8125rem;
+}
+
+.tdNum {
+  text-align: right;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.speedValue {
+  font-weight: 600;
+}
+
+.speedUnit {
+  color: #94a3b8;
+  font-weight: 400;
+  font-size: 0.75rem;
+  margin-left: 2px;
+}
+
+.rateLimitChip {
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.1875rem 0.5625rem;
+  border-radius: 0.375rem;
+  color: #1e40af;
+  display: inline-block;
+}
+
+.tdActions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Category badge */
+.catBadge {
+  font-size: 0.75rem;
+  padding: 0.1875rem 0.5625rem;
+  border-radius: 0.375rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.catAir {
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.catAlta {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.catCorte {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* Buttons */
+.btnPrimary {
+  padding: 0.625rem 1rem;
+  background: #1e40af;
+  color: #fff;
+  border: none;
+  border-radius: 0.625rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.btnPrimary:hover {
+  background: #1e3a8a;
+}
+
+.btnEdit {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #1e40af;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.4375rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-right: 0.375rem;
+}
+
+.btnEdit:hover {
+  background: #1e40af;
+  color: #fff;
+  border-color: #1e40af;
+}
+
+.btnDelete {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #991b1b;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.4375rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btnDelete:hover {
+  background: #991b1b;
+  color: #fff;
+  border-color: #991b1b;
+}
+
+/* Empty state */
+.emptyRow td {
+  text-align: center;
+  color: var(--color-text-muted, #6b7280);
+  padding: 3rem 1rem;
+  font-size: 0.875rem;
+}
+
+/* Loading skeleton */
+.skeleton {
+  background: #f1f5f9;
+  border-radius: 0.25rem;
+  animation: pulse 1.4s ease-in-out infinite;
+  display: inline-block;
+  height: 1em;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Modal */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 2rem;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.modalTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.formGroup label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary, #374151);
+}
+
+.formGroup input,
+.formGroup select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border, #d1d5db);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+}
+
+.formGroup input:focus,
+.formGroup select:focus {
+  border-color: #2563eb;
+}
+
+.formGroup input.inputMono {
+  font-family: 'Fira Code', 'Courier New', monospace;
+}
+
+.formHint {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 0.125rem;
+}
+
+.formError {
+  font-size: 0.75rem;
+  color: #991b1b;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.codeReadonly {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #f1f5f9;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  background: #f8fafc;
+  color: #374151;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.btnSecondary {
+  padding: 0.5rem 1.25rem;
+  background: transparent;
+  color: var(--color-text-secondary, #374151);
+  border: 1px solid var(--color-border, #d1d5db);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnDanger {
+  padding: 0.5rem 1.25rem;
+  background: #991b1b;
+  color: #fff;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+
+.btnDanger:hover {
+  opacity: 0.9;
+}
