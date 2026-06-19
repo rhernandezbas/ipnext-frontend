@@ -128,26 +128,6 @@ describe('GestionRedPage', () => {
       isPending: false,
     } as unknown as ReturnType<typeof useNasModule.useDeleteNasServer>);
 
-    vi.mocked(useNasModule.useRadiusConfig).mockReturnValue({
-      data: {
-        authPort: 1812,
-        acctPort: 1813,
-        coaPort: 3799,
-        sessionTimeout: 86400,
-        idleTimeout: 3600,
-        interimUpdateInterval: 300,
-        nasType: 'other',
-        enableCoa: true,
-        enableAccounting: true,
-      },
-      isLoading: false,
-    } as ReturnType<typeof useNasModule.useRadiusConfig>);
-
-    vi.mocked(useNasModule.useUpdateRadiusConfig).mockReturnValue({
-      mutate: vi.fn(),
-      isPending: false,
-    } as unknown as ReturnType<typeof useNasModule.useUpdateRadiusConfig>);
-
     vi.mocked(useNetworkModule.useIpNetworks).mockReturnValue({
       data: mockNetworks,
       isLoading: false,

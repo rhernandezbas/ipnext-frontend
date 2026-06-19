@@ -1,12 +1,12 @@
 import { useState, useMemo, Fragment } from 'react';
 import { KebabMenu } from '@/components/atoms/KebabMenu/KebabMenu';
-import { useNasServers, useCreateNasServer, useUpdateNasServer, useDeleteNasServer, useRadiusConfig, useUpdateRadiusConfig } from '@/hooks/useNas';
+import { useNasServers, useCreateNasServer, useUpdateNasServer, useDeleteNasServer } from '@/hooks/useNas';
 import { useIpNetworks, useCreateIpNetwork, useDeleteIpNetwork, useIpPools, useCreateIpPool, useDeleteIpPool, useIpAssignments, useIpv6Networks, useCreateIpv6Network } from '@/hooks/useNetwork';
 import { useConfirm } from '@/context/ConfirmContext';
 import { Can } from '@/components/auth/Can';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { cutoverStats, nextCutoverType, isRadius } from '@/utils/cutover';
-import type { NasServer, NasType, RadiusConfig } from '@/types/nas';
+import type { NasServer, NasType } from '@/types/nas';
 import type { IpNetwork, IpPool, IpAssignment, Ipv6Network } from '@/types/network';
 import { formatDateTimeShort } from '@/utils/formatDate';
 import styles from './GestionRedPage.module.css';
@@ -501,81 +501,6 @@ function EditNasModal({ nas, onClose, onSubmit }: EditNasModalProps) {
 }
 
 // ---------------------------------------------------------------------------
-// RADIUS config section
-// ---------------------------------------------------------------------------
-function RadiusConfigSection() {
-  const { data: config } = useRadiusConfig();
-  const { mutate: updateConfig } = useUpdateRadiusConfig();
-
-  const [authPort, setAuthPort] = useState<number>(config?.authPort ?? 1812);
-  const [acctPort, setAcctPort] = useState<number>(config?.acctPort ?? 1813);
-  const [coaPort, setCoaPort] = useState<number>(config?.coaPort ?? 3799);
-  const [sessionTimeout, setSessionTimeout] = useState<number>(config?.sessionTimeout ?? 86400);
-  const [idleTimeout, setIdleTimeout] = useState<number>(config?.idleTimeout ?? 3600);
-  const [interimUpdateInterval, setInterimUpdateInterval] = useState<number>(config?.interimUpdateInterval ?? 300);
-  const [enableCoa, setEnableCoa] = useState<boolean>(config?.enableCoa ?? true);
-  const [enableAccounting, setEnableAccounting] = useState<boolean>(config?.enableAccounting ?? true);
-
-  function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    const data: Partial<RadiusConfig> = {
-      authPort, acctPort, coaPort, sessionTimeout, idleTimeout,
-      interimUpdateInterval, enableCoa, enableAccounting,
-    };
-    updateConfig(data);
-  }
-
-  return (
-    <div className={styles.radiusSection}>
-      <h3 className={styles.sectionTitle}>Configuración RADIUS</h3>
-      <form onSubmit={handleSave} className={styles.radiusForm}>
-        <div className={styles.formRow}>
-          <div className={styles.formGroup}>
-            <label htmlFor="radius-auth-port">Puerto Auth</label>
-            <input id="radius-auth-port" type="number" value={authPort} onChange={e => setAuthPort(Number(e.target.value))} />
-          </div>
-          <div className={styles.formGroup}>
-            <label htmlFor="radius-acct-port">Puerto Acct</label>
-            <input id="radius-acct-port" type="number" value={acctPort} onChange={e => setAcctPort(Number(e.target.value))} />
-          </div>
-          <div className={styles.formGroup}>
-            <label htmlFor="radius-coa-port">Puerto CoA</label>
-            <input id="radius-coa-port" type="number" value={coaPort} onChange={e => setCoaPort(Number(e.target.value))} />
-          </div>
-        </div>
-        <div className={styles.formRow}>
-          <div className={styles.formGroup}>
-            <label htmlFor="radius-session-timeout">Timeout sesión (seg)</label>
-            <input id="radius-session-timeout" type="number" value={sessionTimeout} onChange={e => setSessionTimeout(Number(e.target.value))} />
-          </div>
-          <div className={styles.formGroup}>
-            <label htmlFor="radius-idle-timeout">Timeout inactividad (seg)</label>
-            <input id="radius-idle-timeout" type="number" value={idleTimeout} onChange={e => setIdleTimeout(Number(e.target.value))} />
-          </div>
-          <div className={styles.formGroup}>
-            <label htmlFor="radius-interim">Intervalo interim update</label>
-            <input id="radius-interim" type="number" value={interimUpdateInterval} onChange={e => setInterimUpdateInterval(Number(e.target.value))} />
-          </div>
-        </div>
-        <div className={styles.checkboxRow}>
-          <label className={styles.checkboxLabel}>
-            <input type="checkbox" checked={enableCoa} onChange={e => setEnableCoa(e.target.checked)} />
-            Habilitar CoA
-          </label>
-          <label className={styles.checkboxLabel}>
-            <input type="checkbox" checked={enableAccounting} onChange={e => setEnableAccounting(e.target.checked)} />
-            Habilitar Accounting
-          </label>
-        </div>
-        <Can permission="network.manage">
-          <button type="submit" className={styles.btnPrimary}>Guardar configuración RADIUS</button>
-        </Can>
-      </form>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 export default function GestionRedPage() {
@@ -1054,9 +979,6 @@ export default function GestionRedPage() {
           )
         )}
       </div>
-
-      {/* RADIUS config solo en la pestaña NAS */}
-      {activeTab === 'nas' && <RadiusConfigSection />}
 
       {showNasModal && (
         <AddNasModal
