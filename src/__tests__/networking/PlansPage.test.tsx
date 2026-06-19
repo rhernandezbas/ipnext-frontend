@@ -32,7 +32,7 @@ const PLAN_AIR: PlanDto = {
   downloadKbps: 30000,
   uploadKbps: 10000,
   rateLimit: '10M/30M',
-  status: 'active',
+  status: 'enabled',
   createdAt: '2026-01-01T00:00:00.000Z',
 };
 
@@ -44,7 +44,7 @@ const PLAN_ALTA: PlanDto = {
   downloadKbps: 300000,
   uploadKbps: 100000,
   rateLimit: '100M/300M',
-  status: 'active',
+  status: 'enabled',
   createdAt: '2026-01-01T00:00:00.000Z',
 };
 
@@ -56,7 +56,7 @@ const PLAN_CORTE: PlanDto = {
   downloadKbps: 256,
   uploadKbps: 256,
   rateLimit: '256k/256k',
-  status: 'active',
+  status: 'enabled',
   createdAt: '2026-01-01T00:00:00.000Z',
 };
 
