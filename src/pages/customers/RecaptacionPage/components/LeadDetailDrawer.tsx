@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Can } from '@/components/auth/Can';
 import { Button } from '@/components/atoms/Button';
+import { ContractHistoryModal } from '@/components/molecules/ContractHistoryModal';
 import { useRecaptacionLead, useClaimLead, useReleaseLead, useAddContact, useUpdateLeadStatus, useAssignLead } from '@/hooks/useRecaptacion';
 import { useAdmins } from '@/hooks/useAdmins';
 import { formatDateTimeShort } from '@/utils/formatDate';
@@ -144,6 +145,7 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
   const { data: admins = [] } = useAdmins();
 
   const [showForm, setShowForm] = useState(false);
+  const [showContracts, setShowContracts] = useState(false);
 
   if (!lead) return null;
 
@@ -198,6 +200,13 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
                 <span className={styles.metaValue}>{lead.assigneeName ?? '—'}</span>
               </div>
             </div>
+            {lead.clientId && (
+              <div className={styles.contractsAction}>
+                <Button variant="secondary" onClick={() => setShowContracts(true)}>
+                  Ver contratos
+                </Button>
+              </div>
+            )}
           </section>
 
           {/* Actions */}
@@ -334,6 +343,14 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
           </section>
         </div>
       </aside>
+      {lead.clientId && (
+        <ContractHistoryModal
+          open={showContracts}
+          clientId={lead.clientId}
+          clientName={lead.contactName}
+          onClose={() => setShowContracts(false)}
+        />
+      )}
     </div>
   );
 }

@@ -1,0 +1,1 @@
+export { ContractHistoryModal } from './ContractHistoryModal';

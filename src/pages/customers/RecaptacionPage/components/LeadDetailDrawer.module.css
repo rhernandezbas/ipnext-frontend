@@ -116,6 +116,10 @@
   color: var(--color-text-primary);
 }
 
+.contractsAction {
+  margin-top: var(--space-3);
+}
+
 /* ── Actions bar ── */
 
 .actions {
