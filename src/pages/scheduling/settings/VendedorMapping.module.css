@@ -1,0 +1,191 @@
+/* ──────────────────────────────────────────────────────────────────────────
+ * Vendedor Mapping (Gestión Real) — self-contained styles for the agente↔vendedor
+ * sub-tab. GR is slated for deprecation, so this module is intentionally NOT
+ * shared with IClass: it can be deleted as a unit. Tokens only, no hardcodes.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.helper {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* === Banners ============================================================ */
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.bannerError {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* === Table ============================================================== */
+
+.tableWrap {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow-x: auto; /* UX: wide tables scroll instead of breaking layout */
+  background: var(--color-surface);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.table thead {
+  background: var(--color-gray-50);
+}
+
+.table th {
+  padding: 11px 14px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-secondary);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.table tbody tr:hover {
+  background: var(--color-surface-hover);
+}
+
+.tableLoading {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.userName {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.userLogin {
+  font-family: monospace;
+  font-size: 0.85em;
+  color: var(--color-text-secondary);
+}
+
+.selectCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* === Select (mapping dropdown) ========================================== */
+
+.select {
+  width: 100%;
+  height: 36px;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface)
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%236c757d' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>")
+    no-repeat right 10px center;
+  appearance: none;
+  font-size: 13.5px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.select:hover {
+  border-color: var(--color-gray-300);
+}
+
+.select:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+
+.select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* === Row status icons =================================================== */
+
+.rowStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+}
+
+.rowStatusSaving {
+  color: var(--color-text-secondary);
+}
+
+.rowStatusSaved {
+  color: var(--color-company-green);
+  font-weight: var(--font-weight-bold);
+}
+
+.rowStatusError {
+  color: var(--color-status-late);
+}
+
+/* === Empty state ======================================================== */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+}
+
+.emptyStateTitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.emptyStateText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+  max-width: 360px;
+  line-height: 1.55;
+}
