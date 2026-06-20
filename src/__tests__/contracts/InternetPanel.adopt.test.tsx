@@ -50,7 +50,7 @@ const ACTIVE_PPPOE: PppoeServiceDto = {
   username: 'cliente.activo',
   profile: '10M',
   remoteAddress: '10.0.0.9',
-  status: 'active',
+  status: 'enabled',
   enforcedState: 'active',
   nasId: 'nas-1',
   contractId: 'contract-1',

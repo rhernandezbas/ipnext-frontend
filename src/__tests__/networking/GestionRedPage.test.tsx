@@ -81,6 +81,29 @@ const mockPools: IpPool[] = [
 
 const mockAssignments: IpAssignment[] = [];
 
+const mockAssignmentsWithData: IpAssignment[] = [
+  {
+    id: 'asgn-1',
+    ip: '100.64.10.1',
+    username: 'juan.perez',
+    contractId: 'contract-abc',
+    profile: '20M',
+    nasId: 'nas-1',
+    status: 'enabled',
+    createdAt: '2026-06-01T00:00:00Z',
+  },
+  {
+    id: 'asgn-2',
+    ip: '100.64.10.2',
+    username: 'maria.gomez',
+    contractId: 'contract-xyz',
+    profile: null,
+    nasId: 'nas-1',
+    status: 'disabled',
+    createdAt: '2026-06-02T00:00:00Z',
+  },
+];
+
 const mockIpv6Networks: Ipv6Network[] = [
   {
     id: '1',
@@ -237,5 +260,56 @@ describe('GestionRedPage', () => {
     await user.click(screen.getByRole('button', { name: /ipv6/i }));
 
     expect(screen.getByText('2001:db8::/32')).toBeInTheDocument();
+  });
+});
+
+// ── Bug 3: Asignaciones tab — new PppoeAssignmentDto shape ───────────────────
+describe('Asignaciones tab — new DTO shape (Bug 3)', () => {
+  it('shows IP and username from new DTO, does NOT show "No se encontraron asignaciones"', async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(useNetworkModule.useIpAssignments).mockReturnValue({
+      data: mockAssignmentsWithData,
+      isLoading: false,
+    } as ReturnType<typeof useNetworkModule.useIpAssignments>);
+
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /asignaciones/i }));
+
+    expect(screen.getByText('100.64.10.1')).toBeInTheDocument();
+    expect(screen.getByText('juan.perez')).toBeInTheDocument();
+    expect(screen.queryByText('No se encontraron asignaciones.')).not.toBeInTheDocument();
+  });
+
+  it('shows profile when present and "—" when null', async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(useNetworkModule.useIpAssignments).mockReturnValue({
+      data: mockAssignmentsWithData,
+      isLoading: false,
+    } as ReturnType<typeof useNetworkModule.useIpAssignments>);
+
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /asignaciones/i }));
+
+    expect(screen.getByText('20M')).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
+  });
+
+  it('shows "No se encontraron asignaciones" when list is empty', async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(useNetworkModule.useIpAssignments).mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as ReturnType<typeof useNetworkModule.useIpAssignments>);
+
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /asignaciones/i }));
+
+    expect(screen.getByText('No se encontraron asignaciones.')).toBeInTheDocument();
   });
 });

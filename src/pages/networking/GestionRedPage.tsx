@@ -569,7 +569,7 @@ export default function GestionRedPage() {
 
   const filteredAssignments = useMemo(
     () => (!q ? assignments : assignments.filter(a =>
-      a.ip.toLowerCase().includes(q) || a.clientId.toLowerCase().includes(q) || a.status.toLowerCase().includes(q))),
+      a.ip.toLowerCase().includes(q) || a.username.toLowerCase().includes(q) || a.status.toLowerCase().includes(q))),
     [assignments, q],
   );
 
@@ -906,8 +906,8 @@ export default function GestionRedPage() {
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th>IP</th><th>Pool</th><th>Cliente (ID)</th>
-                    <th>Plan</th><th>Estado</th><th>Asignada el</th>
+                    <th>IP</th><th>Usuario</th><th>Contrato</th>
+                    <th>Plan</th><th>Estado</th><th>Creada</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -918,15 +918,15 @@ export default function GestionRedPage() {
                   ) : filteredAssignments.map((a: IpAssignment) => (
                     <tr key={a.id} className={styles.bodyRow}>
                       <td className={styles.mono}>{a.ip}</td>
-                      <td className={`${styles.mono} ${styles.muted}`}>{a.poolId}</td>
-                      <td className={styles.muted}>{a.clientId}</td>
-                      <td className={styles.muted}>{a.servicePlanId}</td>
+                      <td className={`${styles.mono} ${styles.muted}`}>{a.username}</td>
+                      <td className={styles.muted}>{a.contractId}</td>
+                      <td className={styles.muted}>{a.profile ?? '—'}</td>
                       <td>
-                        <span className={`${styles.status} ${a.status === 'assigned' ? styles.statusOnline : styles.statusOffline}`}>
+                        <span className={`${styles.status} ${a.status === 'enabled' ? styles.statusOnline : styles.statusOffline}`}>
                           <span className={styles.dot} />{a.status}
                         </span>
                       </td>
-                      <td className={`${styles.mono} ${styles.muted}`}>{a.assignedAt}</td>
+                      <td className={`${styles.mono} ${styles.muted}`}>{a.createdAt}</td>
                     </tr>
                   ))}
                 </tbody>
