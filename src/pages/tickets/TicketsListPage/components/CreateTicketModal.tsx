@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { useTicketAreas } from '@/hooks/useTicketAreas';
+import { useClientContracts } from '@/hooks/useCustomers';
+import { buildContractLabel } from '@/lib/buildContractLabel';
 import { CustomerPicker } from '@/pages/scheduling/SchedulingTasksPage/components/CustomerPicker';
 import type { CreateTicketData } from '@/types/ticket';
 import styles from './CreateTicketModal.module.css';
@@ -15,6 +17,8 @@ interface FormErrors {
   subject?: string;
   message?: string;
   priority?: string;
+  customerId?: string;
+  contractId?: string;
   areaId?: string;
 }
 
@@ -32,14 +36,30 @@ export function CreateTicketModal({ onClose, onCreate, loading }: CreateTicketMo
   const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'critical' | ''>('');
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState<string | null>(null);
+  // contractId is INTENTIONALLY never seeded — the operator must pick it.
+  const [contractId, setContractId] = useState<string | null>(null);
   const [assignedTo, setAssignedTo] = useState('');
   const [areaId, setAreaId] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
+
+  // Contracts of the selected customer (mirrors CreateTaskModal).
+  const {
+    data: contracts = [],
+    isLoading: contractsLoading,
+  } = useClientContracts(customerId ?? '', !!customerId);
+
+  // Reset the contract whenever the customer changes — a stale contract from the
+  // previous customer would 422 (CONTRACT_CUSTOMER_MISMATCH) at the BE.
+  useEffect(() => {
+    setContractId(null);
+  }, [customerId]);
 
   function validate(): boolean {
     const errs: FormErrors = {};
     if (!subject.trim()) errs.subject = 'El asunto es requerido.';
     if (!message.trim()) errs.message = 'El mensaje es requerido.';
+    if (!customerId) errs.customerId = 'Seleccioná un cliente.';
+    if (!contractId) errs.contractId = 'Seleccioná un contrato.';
     if (!areaId) errs.areaId = 'El area es requerida.';
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -56,6 +76,8 @@ export function CreateTicketModal({ onClose, onCreate, loading }: CreateTicketMo
       description: message.trim(),
       priority: (priority || 'medium') as CreateTicketData['priority'],
       customerId: customerId,
+      // Required by the BE — validated above, so it's non-null here.
+      contractId: contractId,
       assigneeId: assignedTo || undefined,
       areaId: areaId,
     });
@@ -154,12 +176,44 @@ export function CreateTicketModal({ onClose, onCreate, loading }: CreateTicketMo
           </div>
 
           <div className={styles.field}>
-            <label className={styles.label}>Cliente</label>
+            <label className={styles.label}>Cliente *</label>
             <CustomerPicker
               value={customerId}
               valueName={customerName}
               onChange={(id, name) => { setCustomerId(id); setCustomerName(name); }}
             />
+            {errors.customerId && <span className={styles.error}>{errors.customerId}</span>}
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor="ticket-contract" className={styles.label}>Contrato *</label>
+            <select
+              id="ticket-contract"
+              className={[styles.select, errors.contractId ? styles.inputError : ''].join(' ')}
+              value={contractId ?? ''}
+              onChange={e => setContractId(e.target.value || null)}
+              disabled={loading || !customerId || contractsLoading || contracts.length === 0}
+              aria-label="Contrato"
+            >
+              <option value="">
+                {!customerId
+                  ? 'Seleccioná un cliente primero'
+                  : contractsLoading
+                    ? 'Cargando contratos…'
+                    : contracts.length === 0
+                      ? 'Este cliente no tiene contratos'
+                      : 'Seleccioná un contrato'}
+              </option>
+              {contracts.map(c => (
+                <option key={c.id} value={c.id}>{buildContractLabel(c)}</option>
+              ))}
+            </select>
+            {customerId && !contractsLoading && contracts.length === 0 && (
+              <span className={styles.error}>
+                Este cliente no tiene contratos. No se puede crear el ticket.
+              </span>
+            )}
+            {errors.contractId && <span className={styles.error}>{errors.contractId}</span>}
           </div>
 
           <div className={styles.field}>

@@ -7,10 +7,12 @@ import CreateTicketPage from '@/pages/tickets/CreateTicketPage';
 import * as useTicketsModule from '@/hooks/useTickets';
 import * as clientsApi from '@/api/customers.api';
 import * as useTicketAreasModule from '@/hooks/useTicketAreas';
+import * as useCustomersModule from '@/hooks/useCustomers';
 
 vi.mock('@/hooks/useTickets');
 vi.mock('@/api/customers.api');
 vi.mock('@/hooks/useTicketAreas');
+vi.mock('@/hooks/useCustomers');
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -31,6 +33,21 @@ function renderCreate() {
 
 const mockMutateAsync = vi.fn();
 
+// Minimal Contract shape buildContractLabel needs ({ id, plan, address?, technology? }).
+const CONTRACTS = [
+  { id: 'contract-1', plan: 'Plan 100MB', address: 'Calle 1', technology: 'FTTH' },
+  { id: 'contract-2', plan: 'Plan 50MB' },
+];
+
+/** Default the contracts hook; pass overrides to simulate loading/empty/etc. */
+function mockContracts(over: Partial<ReturnType<typeof useCustomersModule.useClientContracts>> = {}) {
+  vi.mocked(useCustomersModule.useClientContracts).mockReturnValue({
+    data: CONTRACTS,
+    isLoading: false,
+    ...over,
+  } as unknown as ReturnType<typeof useCustomersModule.useClientContracts>);
+}
+
 describe('CreateTicketPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -40,8 +57,8 @@ describe('CreateTicketPage', () => {
     } as ReturnType<typeof useTicketsModule.useCreateTicket>);
 
     vi.mocked(clientsApi.getClients).mockResolvedValue({
-      data: [],
-      total: 0,
+      data: [{ id: 'client-1', name: 'Juan Pérez' } as never],
+      total: 1,
       page: 1,
       totalPages: 1,
     });
@@ -54,6 +71,8 @@ describe('CreateTicketPage', () => {
       isLoading: false,
       isError: false,
     } as ReturnType<typeof useTicketAreasModule.useTicketAreas>);
+
+    mockContracts();
   });
 
   it('renders page title', () => {
@@ -61,29 +80,26 @@ describe('CreateTicketPage', () => {
     expect(screen.getByRole('heading', { name: 'Nuevo Ticket' })).toBeInTheDocument();
   });
 
-  it('renders all form fields', () => {
+  it('renders all form fields including the contract selector', () => {
     renderCreate();
     expect(screen.getByPlaceholderText('Asunto del ticket')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Buscar cliente...')).toBeInTheDocument();
-    // two comboboxes: prioridad + area
+    // three comboboxes now: contrato + prioridad + area
     const selects = screen.getAllByRole('combobox');
-    expect(selects).toHaveLength(2);
+    expect(selects).toHaveLength(3);
+    expect(screen.getByRole('combobox', { name: 'Contrato' })).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Descripción del problema...')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('ID de agente')).toBeInTheDocument();
   });
 
-  it('renders area options from useTicketAreas', () => {
+  it('contract select is disabled and prompts to pick a client first', () => {
     renderCreate();
-    expect(screen.getByRole('option', { name: 'Soporte Técnico' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Facturación' })).toBeInTheDocument();
+    const contractSelect = screen.getByRole('combobox', { name: 'Contrato' }) as HTMLSelectElement;
+    expect(contractSelect).toBeDisabled();
+    expect(screen.getByRole('option', { name: 'Seleccioná un cliente primero' })).toBeInTheDocument();
   });
 
-  it('renders Crear Ticket submit button', () => {
-    renderCreate();
-    expect(screen.getByRole('button', { name: 'Crear Ticket' })).toBeInTheDocument();
-  });
-
-  it('shows validation errors when submitting empty form', async () => {
+  it('shows validation errors when submitting empty form (contract included)', async () => {
     const user = userEvent.setup();
     renderCreate();
 
@@ -92,57 +108,113 @@ describe('CreateTicketPage', () => {
     await waitFor(() => {
       expect(screen.getByText('El asunto es requerido.')).toBeInTheDocument();
       expect(screen.getByText('Seleccioná un cliente.')).toBeInTheDocument();
+      expect(screen.getByText('Seleccioná un contrato.')).toBeInTheDocument();
       expect(screen.getByText('La prioridad es requerida.')).toBeInTheDocument();
       expect(screen.getByText('La descripción es requerida.')).toBeInTheDocument();
-      expect(screen.getByText('El area es requerida.')).toBeInTheDocument();
-    });
-  });
-
-  it('blocks submit and shows area error when area is not selected', async () => {
-    const user = userEvent.setup();
-    renderCreate();
-
-    // Fill every required field except area
-    fireEvent.change(screen.getByPlaceholderText('Asunto del ticket'), {
-      target: { value: 'Internet caído' },
-    });
-    fireEvent.change(screen.getByPlaceholderText('Descripción del problema...'), {
-      target: { value: 'No tengo señal.' },
-    });
-    // priority select is first combobox
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'alta' } });
-    // leave area (second combobox) empty
-
-    await user.click(screen.getByRole('button', { name: 'Crear Ticket' }));
-
-    await waitFor(() => {
       expect(screen.getByText('El area es requerida.')).toBeInTheDocument();
     });
     expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
-  it('shows API error on mutation failure', async () => {
+  it('populates the contract select once a client is chosen, then blocks submit until a contract is picked', async () => {
     const user = userEvent.setup();
-    mockMutateAsync.mockRejectedValueOnce(new Error('Server error'));
-
     renderCreate();
 
-    // Fill required fields except clientId (which requires autocomplete selection)
-    fireEvent.change(screen.getByPlaceholderText('Asunto del ticket'), {
-      target: { value: 'Internet caído' },
+    // Pick a client via the autocomplete (getClients returns Juan Pérez).
+    fireEvent.change(screen.getByPlaceholderText('Buscar cliente...'), {
+      target: { value: 'Juan' },
     });
-    fireEvent.change(screen.getAllByRole('combobox')[0], {
-      target: { value: 'alta' },
-    });
-    fireEvent.change(screen.getByPlaceholderText('Descripción del problema...'), {
-      target: { value: 'No tengo señal.' },
-    });
+    const clientOption = await screen.findByText('Juan Pérez');
+    fireEvent.click(clientOption);
 
-    // Simulate clientId being set (validation checks form.clientId)
-    // The form won't submit without clientId — test API error path by mocking validate:
-    // Instead, let's just verify the Cancelar button works
-    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
-    // After cancel, navigates back — but in test there's no history, so it stays
+    // Contract select is now enabled and lists the client's contracts.
+    const contractSelect = await screen.findByRole('combobox', { name: 'Contrato' });
+    await waitFor(() => expect(contractSelect).not.toBeDisabled());
+    expect(screen.getByRole('option', { name: 'Plan 100MB - Calle 1 - FTTH' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Plan 50MB' })).toBeInTheDocument();
+
+    // Fill the rest but leave the contract empty → submit blocked with field error.
+    fireEvent.change(screen.getByPlaceholderText('Asunto del ticket'), { target: { value: 'Sin señal' } });
+    fireEvent.change(screen.getByPlaceholderText('Descripción del problema...'), { target: { value: 'No anda.' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Prioridad' }), { target: { value: 'alta' } });
+
+    await user.click(screen.getByRole('button', { name: 'Crear Ticket' }));
+    await waitFor(() => {
+      expect(screen.getByText('Seleccioná un contrato.')).toBeInTheDocument();
+    });
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('resets the picked contract when the client changes', async () => {
+    renderCreate();
+
+    // Pick client + contract.
+    fireEvent.change(screen.getByPlaceholderText('Buscar cliente...'), { target: { value: 'Juan' } });
+    fireEvent.click(await screen.findByText('Juan Pérez'));
+
+    const contractSelect = await screen.findByRole('combobox', { name: 'Contrato' }) as HTMLSelectElement;
+    await waitFor(() => expect(contractSelect).not.toBeDisabled());
+    fireEvent.change(contractSelect, { target: { value: 'contract-1' } });
+    expect(contractSelect.value).toBe('contract-1');
+
+    // Typing in the client search clears the client → the contract must reset to ''.
+    fireEvent.change(screen.getByPlaceholderText('Buscar cliente...'), { target: { value: 'Ma' } });
+    await waitFor(() => {
+      expect((screen.getByRole('combobox', { name: 'Contrato' }) as HTMLSelectElement).value).toBe('');
+    });
+  });
+
+  it('submits with contractId once client + contract are selected', async () => {
+    const user = userEvent.setup();
+    mockMutateAsync.mockResolvedValueOnce({ id: 'ticket-1' });
+    renderCreate();
+
+    fireEvent.change(screen.getByPlaceholderText('Asunto del ticket'), { target: { value: 'Internet caído' } });
+    fireEvent.change(screen.getByPlaceholderText('Descripción del problema...'), { target: { value: 'No tengo señal.' } });
+
+    // client
+    fireEvent.change(screen.getByPlaceholderText('Buscar cliente...'), { target: { value: 'Juan' } });
+    fireEvent.click(await screen.findByText('Juan Pérez'));
+    const contractSelect = await screen.findByRole('combobox', { name: 'Contrato' }) as HTMLSelectElement;
+    await waitFor(() => expect(contractSelect).not.toBeDisabled());
+    fireEvent.change(contractSelect, { target: { value: 'contract-2' } });
+
+    // priority + area
+    fireEvent.change(screen.getByRole('combobox', { name: 'Prioridad' }), { target: { value: 'alta' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Area' }), { target: { value: 'area-1' } });
+
+    await user.click(screen.getByRole('button', { name: 'Crear Ticket' }));
+
+    await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledTimes(1));
+    expect(mockMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ clientId: 'client-1', contractId: 'contract-2', areaId: 'area-1' }),
+    );
+  });
+
+  it('maps the BE 422 CONTRACT_CUSTOMER_MISMATCH code to a clear message', async () => {
+    const user = userEvent.setup();
+    mockMutateAsync.mockRejectedValueOnce({
+      response: { status: 422, data: { code: 'CONTRACT_CUSTOMER_MISMATCH' } },
+    });
+    renderCreate();
+
+    fireEvent.change(screen.getByPlaceholderText('Asunto del ticket'), { target: { value: 'X' } });
+    fireEvent.change(screen.getByPlaceholderText('Descripción del problema...'), { target: { value: 'Y' } });
+    fireEvent.change(screen.getByPlaceholderText('Buscar cliente...'), { target: { value: 'Juan' } });
+    fireEvent.click(await screen.findByText('Juan Pérez'));
+    const contractSelect = await screen.findByRole('combobox', { name: 'Contrato' }) as HTMLSelectElement;
+    await waitFor(() => expect(contractSelect).not.toBeDisabled());
+    fireEvent.change(contractSelect, { target: { value: 'contract-1' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Prioridad' }), { target: { value: 'alta' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Area' }), { target: { value: 'area-1' } });
+
+    await user.click(screen.getByRole('button', { name: 'Crear Ticket' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('El contrato no pertenece al cliente seleccionado. Volvé a elegir el contrato.'),
+      ).toBeInTheDocument();
+    });
   });
 
   it('shows spinner on Crear Ticket button when pending', () => {
@@ -152,7 +224,6 @@ describe('CreateTicketPage', () => {
     } as ReturnType<typeof useTicketsModule.useCreateTicket>);
 
     renderCreate();
-    // Button renders Spinner instead of text when loading=true
     expect(screen.queryByText('Crear Ticket')).not.toBeInTheDocument();
     expect(screen.getByRole('status')).toBeInTheDocument(); // Spinner
   });

@@ -76,6 +76,10 @@ export interface CreateTicketData {
   description: string;
   priority: TicketPriority;
   customerId: string | null;
+  // contractId is REQUIRED by the BE (POST /tickets → 400 if missing, 422 if it
+  // doesn't exist or doesn't belong to the customer). The FE picks it from the
+  // selected client's contracts (AD-2: tickets have no implicit contract).
+  contractId: string | null;
   assigneeId?: string;
   areaId: string;
   tags?: string[];

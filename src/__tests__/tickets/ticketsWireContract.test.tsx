@@ -59,12 +59,13 @@ describe('useAssignTicket — real BE route', () => {
 });
 
 describe('createTicket — real BE body (description + assigneeId)', () => {
-  it('modal payload (CreateTicketData) posts description and assigneeId', async () => {
+  it('modal payload (CreateTicketData) posts description, assigneeId and contractId', async () => {
     await createTicket({
       subject: 'Sin señal',
       description: 'El cliente no tiene servicio.',
       priority: 'high',
       customerId: 'cust-1',
+      contractId: 'contract-9',
       assigneeId: 'luis-uuid',
     });
 
@@ -73,14 +74,16 @@ describe('createTicket — real BE body (description + assigneeId)', () => {
       description: 'El cliente no tiene servicio.',
       priority: 'high',
       customerId: 'cust-1',
+      contractId: 'contract-9',
       assigneeId: 'luis-uuid',
     });
   });
 
-  it('legacy page payload (CreateTicketInput) maps to the same wire shape', async () => {
+  it('legacy page payload (CreateTicketInput) maps to the same wire shape, incl. contractId', async () => {
     await createTicket({
       subject: 'Sin señal',
       clientId: 'cust-1',
+      contractId: 'contract-9',
       priority: 'alta',
       description: 'Detalle del problema.',
       assignedTo: 'luis-uuid',
@@ -91,6 +94,7 @@ describe('createTicket — real BE body (description + assigneeId)', () => {
       description: 'Detalle del problema.',
       priority: 'high',
       customerId: 'cust-1',
+      contractId: 'contract-9',
       assigneeId: 'luis-uuid',
     }));
   });

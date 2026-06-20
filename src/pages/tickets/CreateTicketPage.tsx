@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '../../components/atoms/Input/Input';
 import { Button } from '../../components/atoms/Button/Button';
 import { useCreateTicket } from '../../hooks/useTickets';
 import { useTicketAreas } from '../../hooks/useTicketAreas';
+import { useClientContracts } from '../../hooks/useCustomers';
+import { buildContractLabel } from '../../lib/buildContractLabel';
 import { getClients } from '../../api/customers.api';
 import styles from './CreateTicketPage.module.css';
 
@@ -11,6 +13,7 @@ interface FormState {
   subject: string;
   clientId: string;
   clientSearch: string;
+  contractId: string;
   priority: 'alta' | 'media' | 'baja' | '';
   description: string;
   assignedTo: string;
@@ -20,10 +23,18 @@ interface FormState {
 interface FormErrors {
   subject?: string;
   clientId?: string;
+  contractId?: string;
   priority?: string;
   description?: string;
   areaId?: string;
 }
+
+/** Maps the BE error `code` (POST /tickets) to a clear, field-aware message. */
+const BE_ERROR_MESSAGES: Record<string, string> = {
+  CUSTOMER_NOT_FOUND: 'El cliente seleccionado no existe. Elegí otro cliente.',
+  CONTRACT_NOT_FOUND: 'El contrato seleccionado no existe. Elegí otro contrato.',
+  CONTRACT_CUSTOMER_MISMATCH: 'El contrato no pertenece al cliente seleccionado. Volvé a elegir el contrato.',
+};
 
 interface ClientOption { id: string; name: string; }
 
@@ -41,6 +52,7 @@ export default function CreateTicketPage() {
     subject: '',
     clientId: '',
     clientSearch: '',
+    contractId: '',
     priority: '',
     description: '',
     assignedTo: '',
@@ -51,8 +63,22 @@ export default function CreateTicketPage() {
   const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
 
+  // Contracts of the selected client. Only fetched once a client is picked
+  // (mirrors CreateTaskModal's `useClientContracts(customerId, !!customerId)`).
+  const {
+    data: contracts = [],
+    isLoading: contractsLoading,
+  } = useClientContracts(form.clientId, !!form.clientId);
+
+  // Reset the contract whenever the client changes — a stale contract from the
+  // previous client would never belong to the new one (BE → 422 MISMATCH).
+  useEffect(() => {
+    setForm((f) => ({ ...f, contractId: '' }));
+  }, [form.clientId]);
+
   function handleClientSearch(value: string) {
-    setForm((f) => ({ ...f, clientSearch: value, clientId: '' }));
+    // Clearing/changing the client also clears the picked contract.
+    setForm((f) => ({ ...f, clientSearch: value, clientId: '', contractId: '' }));
     if (searchTimer) clearTimeout(searchTimer);
     if (!value) { setClientOptions([]); return; }
     const timer = setTimeout(async () => {
@@ -66,6 +92,7 @@ export default function CreateTicketPage() {
     const errs: FormErrors = {};
     if (!form.subject.trim()) errs.subject = 'El asunto es requerido.';
     if (!form.clientId) errs.clientId = 'Seleccioná un cliente.';
+    if (!form.contractId) errs.contractId = 'Seleccioná un contrato.';
     if (!form.priority) errs.priority = 'La prioridad es requerida.';
     if (!form.description.trim()) errs.description = 'La descripción es requerida.';
     if (!form.areaId) errs.areaId = 'El area es requerida.';
@@ -81,14 +108,20 @@ export default function CreateTicketPage() {
       await mutateAsync({
         subject: form.subject,
         clientId: form.clientId,
+        contractId: form.contractId,
         priority: form.priority as 'alta' | 'media' | 'baja',
         description: form.description,
         assignedTo: form.assignedTo || undefined,
         areaId: form.areaId,
       });
       navigate('/admin/tickets');
-    } catch {
-      setApiError('Error al crear el ticket. Intentá de nuevo.');
+    } catch (err) {
+      // Surface the BE validation code with a clear, contract-aware message; fall
+      // back to a generic one for unmapped/transport errors.
+      const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code;
+      setApiError(
+        (code && BE_ERROR_MESSAGES[code]) ?? 'Error al crear el ticket. Intentá de nuevo.',
+      );
     }
   }
 
@@ -133,11 +166,45 @@ export default function CreateTicketPage() {
         </div>
 
         <div className={styles.field}>
+          <label className={styles.label} htmlFor="ticket-contract">Contrato *</label>
+          <select
+            id="ticket-contract"
+            className={[styles.select, errors.contractId ? styles.selectError : ''].join(' ')}
+            value={form.contractId}
+            onChange={(e) => setForm((f) => ({ ...f, contractId: e.target.value }))}
+            // No client → nothing to choose. Loading / empty contracts → also
+            // non-selectable, so the placeholder explains why.
+            disabled={!form.clientId || contractsLoading || contracts.length === 0}
+            aria-label="Contrato"
+          >
+            <option value="">
+              {!form.clientId
+                ? 'Seleccioná un cliente primero'
+                : contractsLoading
+                  ? 'Cargando contratos…'
+                  : contracts.length === 0
+                    ? 'Este cliente no tiene contratos'
+                    : 'Seleccioná un contrato'}
+            </option>
+            {contracts.map((c) => (
+              <option key={c.id} value={c.id}>{buildContractLabel(c)}</option>
+            ))}
+          </select>
+          {form.clientId && !contractsLoading && contracts.length === 0 && (
+            <span className={styles.error}>
+              Este cliente no tiene contratos. No se puede crear el ticket.
+            </span>
+          )}
+          {errors.contractId && <span className={styles.error}>{errors.contractId}</span>}
+        </div>
+
+        <div className={styles.field}>
           <label className={styles.label}>Prioridad *</label>
           <select
             className={[styles.select, errors.priority ? styles.selectError : ''].join(' ')}
             value={form.priority}
             onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value as FormState['priority'] }))}
+            aria-label="Prioridad"
           >
             <option value="">Seleccioná prioridad</option>
             <option value="alta">Alta</option>

@@ -21,13 +21,29 @@ vi.mock('@/pages/scheduling/SchedulingTasksPage/components/CustomerPicker', () =
 
 vi.mock('@/hooks/useRbacUsers');
 vi.mock('@/hooks/useTicketAreas');
+vi.mock('@/hooks/useCustomers');
 
 import * as useRbacUsersModule from '@/hooks/useRbacUsers';
 import * as useTicketAreasModule from '@/hooks/useTicketAreas';
+import * as useCustomersModule from '@/hooks/useCustomers';
 
 const mockUsers = [
   { id: 'u1', name: 'Ana García', roles: [] },
 ];
+
+// Minimal Contract shape buildContractLabel needs.
+const CONTRACTS = [
+  { id: 'contract-1', plan: 'Plan 100MB', address: 'Calle 1', technology: 'FTTH' },
+  { id: 'contract-2', plan: 'Plan 50MB' },
+];
+
+function mockContracts(over: Partial<ReturnType<typeof useCustomersModule.useClientContracts>> = {}) {
+  vi.mocked(useCustomersModule.useClientContracts).mockReturnValue({
+    data: CONTRACTS,
+    isLoading: false,
+    ...over,
+  } as unknown as ReturnType<typeof useCustomersModule.useClientContracts>);
+}
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -63,6 +79,7 @@ describe('CreateTicketModal', () => {
       data: [{ id: 'area-1', name: 'Soporte' }, { id: 'area-2', name: 'Facturacion' }],
       isLoading: false,
     } as ReturnType<typeof useTicketAreasModule.useTicketAreas>);
+    mockContracts();
   });
 
   it('renders form with required fields', () => {
@@ -112,12 +129,17 @@ describe('CreateTicketModal', () => {
   // #28 follow-up: the payload must match the BE wire shape — `description`
   // (the BE 400s without it; `message` was the legacy mock field).
   // #49: areaId is now required — validate and include in payload.
-  it('calls onCreate with the BE wire shape when form is filled', async () => {
+  it('calls onCreate with the BE wire shape (incl. contractId) when form is filled', async () => {
     const { onCreate } = renderModal({});
     fireEvent.input(screen.getByLabelText(/asunto/i), { target: { value: 'Falla de red' } });
     fireEvent.input(screen.getByLabelText(/mensaje/i), { target: { value: 'Sin internet desde ayer' } });
     fireEvent.change(screen.getByRole('combobox', { name: /prioridad/i }), { target: { value: 'high' } });
     fireEvent.change(screen.getByRole('combobox', { name: /area/i }), { target: { value: 'area-1' } });
+    // pick customer (id '42') then contract — both required by the BE
+    fireEvent.click(screen.getByTestId('customer-picker-select'));
+    const contractSelect = await screen.findByRole('combobox', { name: 'Contrato' });
+    await waitFor(() => expect(contractSelect).not.toBeDisabled());
+    fireEvent.change(contractSelect, { target: { value: 'contract-2' } });
     fireEvent.click(screen.getByRole('button', { name: /crear/i }));
     await waitFor(() => {
       expect(onCreate).toHaveBeenCalledWith(
@@ -126,9 +148,38 @@ describe('CreateTicketModal', () => {
           description: 'Sin internet desde ayer',
           priority: 'high',
           areaId: 'area-1',
+          customerId: '42',
+          contractId: 'contract-2',
         })
       );
     });
+  });
+
+  it('blocks submit and shows a contract error when no contract is picked', async () => {
+    const { onCreate } = renderModal({});
+    fireEvent.input(screen.getByLabelText(/asunto/i), { target: { value: 'Falla' } });
+    fireEvent.input(screen.getByLabelText(/mensaje/i), { target: { value: 'Sin internet' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /area/i }), { target: { value: 'area-1' } });
+    fireEvent.click(screen.getByTestId('customer-picker-select')); // customer picked, no contract
+    fireEvent.click(screen.getByRole('button', { name: /crear/i }));
+    await waitFor(() => {
+      expect(screen.getByText('Seleccioná un contrato.')).toBeInTheDocument();
+    });
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+
+  it('contract select is disabled until a customer is chosen, then populates with labelled options', async () => {
+    renderModal({});
+    const contractSelect = screen.getByRole('combobox', { name: 'Contrato' }) as HTMLSelectElement;
+    expect(contractSelect).toBeDisabled();
+    expect(screen.getByRole('option', { name: 'Seleccioná un cliente primero' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('customer-picker-select'));
+    await waitFor(() => expect(contractSelect).not.toBeDisabled());
+    expect(screen.getByRole('option', { name: 'Plan 100MB - Calle 1 - FTTH' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Plan 50MB' })).toBeInTheDocument();
+    fireEvent.change(contractSelect, { target: { value: 'contract-1' } });
+    expect(contractSelect.value).toBe('contract-1');
   });
 
   // #49 — area is required

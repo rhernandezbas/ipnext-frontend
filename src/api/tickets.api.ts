@@ -31,6 +31,9 @@ export interface TicketsQuery {
 export interface CreateTicketInput {
   subject: string;
   clientId: string;
+  // contractId is REQUIRED by the BE (400 if missing, 422 if it doesn't exist or
+  // doesn't belong to the client). Picked from the selected client's contracts.
+  contractId: string;
   priority: 'alta' | 'media' | 'baja';
   description: string;
   assignedTo?: string;
@@ -83,6 +86,8 @@ export async function createTicket(data: CreateTicketData | CreateTicketInput): 
       description: data.description,
       priority: (data.priority === 'alta' ? 'high' : data.priority === 'media' ? 'medium' : 'low') as CreateTicketData['priority'],
       customerId: data.clientId,
+      // contractId is required by the BE — forward it verbatim (UUID, no coercion).
+      contractId: data.contractId,
       assigneeId: data.assignedTo || undefined,
       areaId: data.areaId,
     };
