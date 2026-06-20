@@ -133,6 +133,10 @@ function setupBaseMocks({
     mutateAsync: vi.fn(),
     isPending: false,
   } as unknown as ReturnType<typeof usePppoeModule.useMovePppoe>);
+  vi.mocked(usePppoeModule.useDeassociatePppoe).mockReturnValue({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  } as unknown as ReturnType<typeof usePppoeModule.useDeassociatePppoe>);
 }
 
 function renderPanel() {

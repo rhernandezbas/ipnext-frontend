@@ -165,6 +165,23 @@ export function useAssociatePppoe(contractId: string, clientId: string | number)
 }
 
 /**
+ * Desasocia un PPPoE de un contrato: lo devuelve al inventario de huérfanos
+ * (contractId = null) SIN darlo de baja en el router. Invalida la lista del
+ * contrato, la lista de huérfanos y los contratos del cliente.
+ */
+export function useDeassociatePppoe(contractId: string, clientId: string | number) {
+  const qc = useQueryClient();
+  return useMutation<void, unknown, string>({
+    mutationFn: (pppoeId) => pppoeApi.deassociate(contractId, pppoeId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contract-pppoe', contractId] });
+      qc.invalidateQueries({ queryKey: unassignedKey() });
+      qc.invalidateQueries({ queryKey: ['client-contracts', String(clientId)] });
+    },
+  });
+}
+
+/**
  * Lectura LAZY de las credenciales de un PPPoE. `enabled` deja que el panel las
  * pida solo cuando el operador revela el password (click en el ojo), nunca eager.
  * Es la única vía para obtener el password (el DTO de lista/detalle no lo trae).
