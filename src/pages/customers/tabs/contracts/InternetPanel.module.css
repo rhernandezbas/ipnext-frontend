@@ -389,6 +389,106 @@
   color: var(--color-text-secondary);
 }
 
+/* ── Sección colapsable (disclosure / accordion) ──────────────────────────── */
+
+.collapse {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+/* El heading existe para semántica (h4) pero no aporta estilo propio. */
+.collapseHeading {
+  margin: 0;
+  font: inherit;
+}
+
+.collapseHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  /* Touch target ≥ 44px de alto. */
+  min-height: 48px;
+  padding: var(--space-3) var(--space-5);
+  background: none;
+  border: none;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.collapseHeader:hover {
+  background: var(--color-gray-50);
+}
+
+.collapseHeader:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  border-radius: var(--radius-lg);
+}
+
+.collapseTitle {
+  flex: 1;
+  min-width: 0;
+}
+
+.collapseChevron {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  transition: transform var(--transition-normal);
+}
+
+/* Chevron rota 180° cuando la sección está abierta. */
+.collapseHeader[aria-expanded='true'] .collapseChevron {
+  transform: rotate(180deg);
+}
+
+/*
+ * Transición de altura con grid-template-rows: 0fr → 1fr.
+ * Más robusto que max-height (no necesita un valor mágico) y anima suave.
+ */
+.collapseRegion {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--transition-normal);
+}
+
+.collapseRegionOpen {
+  grid-template-rows: 1fr;
+}
+
+.collapseInner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* El padding del cuerpo vive en el inner para que no “sangre” cuando está a 0fr. */
+.collapseRegionOpen .collapseInner {
+  padding: 0 var(--space-5) var(--space-5);
+}
+
+/* Contenido interno (form de crear / lista de asociar). El chrome de card lo
+   aporta .collapse; acá solo el ritmo vertical interno. */
+.collapseContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collapseChevron,
+  .collapseRegion {
+    transition: none;
+  }
+}
+
 /* ── Tipo de IP toggle ────────────────────────────────────────────────────── */
 
 .ipTypeToggle {

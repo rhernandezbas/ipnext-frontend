@@ -148,6 +148,18 @@ function renderPanel() {
   );
 }
 
+/**
+ * El form de crear PPPoE ahora vive en una sección colapsable que arranca cerrada.
+ * Estos tests ejercitan el form, así que primero hay que expandirlo (mirror de la
+ * nueva UX: el operador abre la sección "Cargar PPPoE" antes de cargar datos).
+ */
+async function expandCreateForm(user: ReturnType<typeof userEvent.setup>) {
+  const createHeader = screen.getByRole('button', { name: /Cargar PPPoE/i });
+  if (createHeader.getAttribute('aria-expanded') === 'false') {
+    await user.click(createHeader);
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -186,6 +198,7 @@ describe('IT-2: auto-asignación de IP al elegir tipo + router', () => {
     });
 
     renderPanel();
+    await expandCreateForm(user);
 
     // Elegir router
     await user.selectOptions(screen.getByRole('combobox', { name: /router/i }), 'nas-1');
@@ -204,6 +217,7 @@ describe('IT-2: auto-asignación de IP al elegir tipo + router', () => {
     const user = userEvent.setup();
     setupBaseMocks();
     renderPanel();
+    await expandCreateForm(user);
 
     await user.selectOptions(screen.getByRole('combobox', { name: /router/i }), 'nas-2');
     await user.click(screen.getByRole('button', { name: 'Pública' }));
@@ -230,6 +244,7 @@ describe('IT-3: botón "cambiar" re-fetchea', () => {
     });
 
     renderPanel();
+    await expandCreateForm(user);
 
     await user.selectOptions(screen.getByRole('combobox', { name: /router/i }), 'nas-1');
     await user.click(screen.getByRole('button', { name: 'Privada' }));
@@ -260,6 +275,7 @@ describe('IT-4: error 404 — sin pool', () => {
     });
 
     renderPanel();
+    await expandCreateForm(user);
 
     await user.selectOptions(screen.getByRole('combobox', { name: /router/i }), 'nas-1');
     await user.click(screen.getByRole('button', { name: 'Privada' }));
@@ -290,6 +306,7 @@ describe('IT-5: error 422 — pool lleno', () => {
     });
 
     renderPanel();
+    await expandCreateForm(user);
 
     await user.selectOptions(screen.getByRole('combobox', { name: /router/i }), 'nas-1');
     await user.click(screen.getByRole('button', { name: 'Pública' }));
@@ -319,6 +336,7 @@ describe('IT-6: error 502 — router no disponible', () => {
     });
 
     renderPanel();
+    await expandCreateForm(user);
 
     await user.selectOptions(screen.getByRole('combobox', { name: /router/i }), 'nas-1');
     await user.click(screen.getByRole('button', { name: 'Privada' }));
@@ -347,6 +365,7 @@ describe('IT-7: edición manual no es pisada por re-fetch', () => {
     });
 
     const { rerender } = renderPanel();
+    await expandCreateForm(user);
 
     // Operador escribe manualmente
     const ipInput = screen.getByLabelText(/IP remota/i);
@@ -389,6 +408,7 @@ describe('IT-8: cambio de tipo resetea auto-fill', () => {
 
     setupBaseMocks();
     renderPanel();
+    await expandCreateForm(user);
 
     await user.click(screen.getByRole('button', { name: 'Privada' }));
     expect(screen.getByRole('button', { name: 'Privada' })).toHaveAttribute('aria-pressed', 'true');
