@@ -185,6 +185,9 @@ vi.mock('@/pages/radius/RadiusSessionsPage', () => ({
 vi.mock('@/pages/networking/NetworkingSettingsPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:NetworkingSettings]'),
 }));
+vi.mock('@/pages/customers/PppoeCortesPage', () => ({
+  default: () => React.createElement('div', null, '[PAGE:PppoeCortes]'),
+}));
 
 // Scheduling
 vi.mock('@/pages/scheduling/SchedulingDashboardPage', () => ({
@@ -418,6 +421,8 @@ const directCases: Array<{ url: string; marker: string }> = [
   { url: '/admin/networking/gpon', marker: '[PAGE:Gpon]' },
   { url: '/admin/networking/radius-sessions', marker: '[PAGE:RadiusSessions]' },
   { url: '/admin/networking/settings', marker: '[PAGE:NetworkingSettings]' },
+  // Cortes PPPoE — moved from Clientes to Gestión de Red (pppoe.cut)
+  { url: '/admin/networking/pppoe-cortes', marker: '[PAGE:PppoeCortes]' },
   // Scheduling
   { url: '/admin/scheduling/dashboard', marker: '[PAGE:SchedulingDashboard]' },
   { url: '/admin/scheduling/projects', marker: '[PAGE:SchedulingProjects]' },
@@ -486,6 +491,8 @@ const redirectCases: Array<{ url: string; redirectsTo: string; marker: string }>
   { url: '/admin/finance/dashboard', redirectsTo: '/admin/finance', marker: '[PAGE:FinanzasDashboard]' },
   { url: '/admin/finance/proformas', redirectsTo: '/admin/finance/proforma-invoices', marker: '[PAGE:Proformas]' },
   { url: '/admin/networking/sites', redirectsTo: '/admin/networking/network-sites', marker: '[PAGE:NetworkSites]' },
+  // Cortes PPPoE moved to Gestión de Red — old Clientes path redirects (preserves bookmarks)
+  { url: '/admin/customers/pppoe-cortes', redirectsTo: '/admin/networking/pppoe-cortes', marker: '[PAGE:PppoeCortes]' },
   { url: '/admin/scheduling', redirectsTo: '/admin/scheduling/tasks', marker: '[PAGE:SchedulingTasks]' },
 ];
 

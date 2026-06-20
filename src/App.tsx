@@ -196,8 +196,9 @@ export function App() {
                 {/* Mis clientes (Fase 4) — the agent's own portfolio. Gated by recapture.read.
                     MUST be before :id catch-all. */}
                 <Route path="mis-clientes" element={<RequirePermission permission="recapture.read"><MisClientesPage /></RequirePermission>} />
-                {/* Cortes PPPoE (Fase C) — MUST be before :id catch-all. */}
-                <Route path="pppoe-cortes" element={<RequirePermission permission="pppoe.cut"><PppoeCortesPage /></RequirePermission>} />
+                {/* Cortes PPPoE moved to Gestión de Red (/admin/networking/pppoe-cortes).
+                    Redirect preserves old bookmarks. MUST be before :id catch-all. */}
+                <Route path="pppoe-cortes" element={<Navigate to="/admin/networking/pppoe-cortes" replace />} />
                 {/* CATCH-ALL — RR6 ranking ensures specific paths above win over :id.
                     Natural /admin/customers/:id redirects to canonical /view/:id. */}
                 <Route path=":id" element={<CustomerIdRedirect />} />
@@ -254,6 +255,8 @@ export function App() {
                 <Route path="nodes/:uispId" element={<RequirePermission permission="uisp.read"><NodeDetailPage /></RequirePermission>} />
                 <Route path="settings" element={<RequirePermission permission="network.read"><NetworkingSettingsPage /></RequirePermission>} />
                 <Route path="plans" element={<RequirePermission permission="plan.read"><PlansPage /></RequirePermission>} />
+                {/* Cortes PPPoE (Fase C) — bulk enforcement. Moved here from Clientes. */}
+                <Route path="pppoe-cortes" element={<RequirePermission permission="pppoe.cut"><PppoeCortesPage /></RequirePermission>} />
               </Route>
               {/* ── Scheduling (scheduling.read) ───────────────────────────── */}
               <Route path="scheduling">

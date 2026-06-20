@@ -58,7 +58,6 @@ const CRM_ITEMS: NavParentItem[] = [
       { to: '/admin/customers/recaptacion', label: 'Recaptación', requiredPermission: 'recapture.read' },
       // Mis clientes (Fase 4) — agent's own portfolio. Same gate as Recaptación (recapture.read).
       { to: '/admin/customers/mis-clientes', label: 'Mis clientes', requiredPermission: 'recapture.read' },
-      { to: '/admin/customers/pppoe-cortes', label: 'Cortes PPPoE', requiredPermission: 'pppoe.cut' },
       { to: '/admin/customers/settings', label: 'Configuración' },
     ],
   },
@@ -134,6 +133,8 @@ const EMPRESA_ITEMS: NavParentItem[] = [
       { to: '/admin/networking/ipv6-networks', label: 'Redes IPv6' },
       { to: '/admin/networking/topology', label: 'Topología' },
       { to: '/admin/networking/plans', label: 'Catálogo de planes', requiredPermission: 'plan.read' },
+      // Cortes PPPoE (Fase C) — moved here from the Clientes group. Gate intact.
+      { to: '/admin/networking/pppoe-cortes', label: 'Cortes PPPoE', requiredPermission: 'pppoe.cut' },
       { to: '/admin/networking/settings', label: 'Configuración' },
     ],
   },
