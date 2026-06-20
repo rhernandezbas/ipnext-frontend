@@ -484,3 +484,131 @@
   color: #991b1b;
   margin-top: var(--space-1);
 }
+
+/* ── Revelar credenciales (eye reveal) ───────────────────────────────────── */
+
+.passwordRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* El valor revelado usa fuente monoespaciada para que no se confundan 0/O, l/1. */
+.passwordValue {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  word-break: break-all;
+}
+
+.btnIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.btnIcon:hover:not(:disabled) {
+  background: var(--color-gray-50);
+  color: var(--color-text-primary);
+  border-color: var(--color-primary);
+}
+
+.btnIcon:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.btnIcon:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnLink {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.btnLink:hover {
+  color: #0b5ed7;
+}
+
+.btnLink:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.copyHint {
+  font-size: var(--font-size-xs);
+  color: #166534;
+}
+
+/* ── Asociar PPPoE existente (adopción de inventario) ────────────────────── */
+
+.searchRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.unassignedList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.unassignedItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.unassignedItem:hover {
+  background: var(--color-gray-50);
+  border-color: var(--color-primary);
+}
+
+.unassignedInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.unassignedUser {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  word-break: break-all;
+}
+
+.unassignedMeta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
