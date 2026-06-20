@@ -7,9 +7,6 @@ import { TaskTemplatesBody } from './settings/TaskTemplatesBody';
 import { IClassSettingsBody } from './settings/IClassSettingsBody';
 import { GestionRealBody } from './settings/GestionRealBody';
 import { NetworkProjectsBody } from './settings/NetworkProjectsBody';
-// GR (Gestión Real) está en camino a deprecarse — este tab + su árbol (Body/CSS/api/hook)
-// viven aislados para poder borrarse de una pieza sin tocar el núcleo.
-import { VendedorMappingBody } from './settings/VendedorMappingBody';
 import styles from './SchedulingTaskCategoriesPage.module.css';
 
 const TABS = [
@@ -20,7 +17,6 @@ const TABS = [
   { id: 'proyectos-red',     label: 'Proyectos de red',   content: <NetworkProjectsBody /> },
   { id: 'iclass',            label: 'IClass',             content: <IClassSettingsBody /> },
   { id: 'gestion-real',      label: 'Gestión Real',       content: <GestionRealBody /> },
-  { id: 'vendedores-gr',     label: 'Vendedores GR',      content: <VendedorMappingBody /> },
 ];
 
 const TAB_IDS = TABS.map(t => t.id);

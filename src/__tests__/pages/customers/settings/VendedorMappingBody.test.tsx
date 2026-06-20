@@ -15,7 +15,7 @@ import {
   useSetGrVendedorMapping,
 } from '@/hooks/useGrVendedorMappings';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
-import { VendedorMappingBody } from '@/pages/scheduling/settings/VendedorMappingBody';
+import { VendedorMappingBody } from '@/pages/customers/settings/VendedorMappingBody';
 import type { VendedorMappingItem } from '@/types/grVendedorMapping';
 
 const makeItem = (over: Partial<VendedorMappingItem> = {}): VendedorMappingItem => ({

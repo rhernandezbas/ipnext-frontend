@@ -5,6 +5,8 @@ import { GestionRealSyncBody } from './settings/GestionRealSyncBody';
 import { ServiceTechnologiesBody } from '../contracts/ServiceTechnologiesBody';
 import { ServiceCatalogBody } from './settings/ServiceCatalogBody';
 import { GigaredTvBody } from './settings/GigaredTvBody';
+// GR (Gestión Real) en deprecación: el mapeo agente↔vendedor vive aislado (Body/CSS/api/hook) para borrarse de una pieza.
+import { VendedorMappingBody } from './settings/VendedorMappingBody';
 import styles from './CustomersSettingsPage.module.css';
 
 /**
@@ -28,6 +30,9 @@ export default function CustomersSettingsPage() {
       : []),
     ...(can('tv.manage')
       ? [{ id: 'gigared', label: 'Gigared TV', content: <GigaredTvBody /> }]
+      : []),
+    ...(can('recapture.read')
+      ? [{ id: 'vendedores-gr', label: 'Vendedores GR', content: <VendedorMappingBody /> }]
       : []),
   ];
   const tabIds = tabs.map((t) => t.id);
