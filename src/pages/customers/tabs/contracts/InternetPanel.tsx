@@ -50,7 +50,7 @@ export function InternetPanel({ contractId, clientId, contractServices, onClose 
   // Resolve the local INTERNET ContractService so we can update its status on baja.
   const internetLine = localInternetLine(contractServices);
 
-  const activePppoe = (pppoeQuery.data ?? []).find((p) => p.status === 'active') ?? null;
+  const activePppoe = (pppoeQuery.data ?? []).find((p) => p.status === 'enabled') ?? null;
 
   let body: React.ReactNode;
 
@@ -644,7 +644,7 @@ function ActivePppoeView({
               </Can>
             </dl>
             <div className={styles.badgeRow}>
-              {pppoe.status === 'active' ? (
+              {pppoe.status === 'enabled' ? (
                 <span className={styles.badgeActive}>Activo</span>
               ) : (
                 <span className={styles.badgeInactive}>Desactivado</span>

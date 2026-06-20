@@ -27,11 +27,12 @@ export interface IpPool {
 export interface IpAssignment {
   id: string;
   ip: string;
-  poolId: string;
-  clientId: string;
-  servicePlanId: string;
-  assignedAt: string;
-  status: 'assigned' | 'free' | 'reserved';
+  username: string;
+  contractId: string;
+  profile: string | null;
+  nasId: string;
+  status: string;
+  createdAt: string;
 }
 
 export interface Ipv6Network {
