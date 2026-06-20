@@ -7,6 +7,7 @@ import {
   useUpdatePppoe,
   useMovePppoe,
   useDeactivatePppoe,
+  useDeassociatePppoe,
   useUnassignedPppoe,
   useAssociatePppoe,
   usePppoeCredentials,
@@ -503,6 +504,7 @@ function ActivePppoeView({
   const update = useUpdatePppoe(contractId, clientId);
   const move = useMovePppoe(contractId, clientId);
   const deactivate = useDeactivatePppoe(contractId, clientId);
+  const deassociate = useDeassociatePppoe(contractId, clientId);
   const updateService = useUpdateContractService(String(clientId));
 
   const [editing, setEditing] = useState(false);
@@ -516,6 +518,8 @@ function ActivePppoeView({
 
   const [bajaModalOpen, setBajaModalOpen] = useState(false);
   const [bajaError, setBajaError] = useState<string | null>(null);
+
+  const [deassociateConfirmOpen, setDeassociateConfirmOpen] = useState(false);
 
   function nasName(id: string): string {
     return nasServers.find((n) => n.id === id)?.name ?? id;
@@ -746,6 +750,22 @@ function ActivePppoeView({
         )}
       </section>
 
+      {/* Desasociar PPPoE (sin dar de baja — vuelve al inventario de huérfanos) */}
+      <Can permission="pppoe.manage">
+        <section className={styles.bajaSection}>
+          <div className={styles.formActions}>
+            <button
+              type="button"
+              className={styles.btnLinkDanger}
+              onClick={() => setDeassociateConfirmOpen(true)}
+              disabled={deassociate.isPending}
+            >
+              {deassociate.isPending ? 'Desasociando…' : 'Desasociar'}
+            </button>
+          </div>
+        </section>
+      </Can>
+
       {/* Dar de baja */}
       <Can permission="pppoe.cut">
         <section className={styles.bajaSection}>
@@ -774,6 +794,61 @@ function ActivePppoeView({
         onConfirm={handleBaja}
         onCancel={() => setBajaModalOpen(false)}
       />
+
+      {/* Diálogo de confirmación para desasociar */}
+      {deassociateConfirmOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="deassociate-dialog-title"
+          className={styles.backdrop}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setDeassociateConfirmOpen(false);
+          }}
+        >
+          <div className={styles.panel} style={{ maxWidth: '400px' }}>
+            <div className={styles.panelHeader}>
+              <h2 id="deassociate-dialog-title" className={styles.panelTitle}>
+                Desasociar PPPoE
+              </h2>
+              <button
+                type="button"
+                className={styles.closeBtn}
+                onClick={() => setDeassociateConfirmOpen(false)}
+                aria-label="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+            <div className={styles.panelBody}>
+              <p>
+                ¿Desasociar este PPPoE del contrato? Volverá al inventario de PPPoE libres, sin darse de baja.
+              </p>
+              <div className={styles.formActions} style={{ marginTop: 'var(--space-4)' }}>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  onClick={() => setDeassociateConfirmOpen(false)}
+                  disabled={deassociate.isPending}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className={styles.btnPrimary}
+                  disabled={deassociate.isPending}
+                  onClick={async () => {
+                    setDeassociateConfirmOpen(false);
+                    await deassociate.mutateAsync(pppoe.id);
+                  }}
+                >
+                  {deassociate.isPending ? 'Desasociando…' : 'Confirmar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

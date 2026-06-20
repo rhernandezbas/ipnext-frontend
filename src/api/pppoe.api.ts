@@ -116,6 +116,14 @@ export const pppoeApi = {
   },
 
   /**
+   * Desasocia un PPPoE de un contrato: vuelve al inventario de huérfanos (contractId = null)
+   * SIN darse de baja en el router. El BE responde 200 con el DTO huérfano (lo ignoramos). Gated `pppoe.manage`.
+   */
+  async deassociate(contractId: string, pppoeId: string): Promise<void> {
+    await axiosClient.delete(`${CONTRACTS_BASE}/${contractId}/pppoe/${pppoeId}`);
+  },
+
+  /**
    * Revela las credenciales de un PPPoE bajo demanda. ES LA ÚNICA vía para
    * obtener el password (la lista/detalle nunca lo trae). Gated `pppoe.manage`.
    */
