@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import type { IpNetwork, IpPool, Ipv6Network } from '@/types/network';
 import * as api from '@/api/network.api';
+import type { GetIpAssignmentsParams } from '@/api/network.api';
 
 export function useIpNetworks() {
   return useQuery({ queryKey: ['ip-networks'], queryFn: api.getIpNetworks });
@@ -42,8 +43,12 @@ export function useDeleteIpPool() {
   });
 }
 
-export function useIpAssignments() {
-  return useQuery({ queryKey: ['ip-assignments'], queryFn: api.getIpAssignments });
+export function useIpAssignments(params: GetIpAssignmentsParams) {
+  return useQuery({
+    queryKey: ['ip-assignments', params],
+    queryFn: () => api.getIpAssignments(params),
+    placeholderData: keepPreviousData,
+  });
 }
 
 export function useIpv6Networks() {

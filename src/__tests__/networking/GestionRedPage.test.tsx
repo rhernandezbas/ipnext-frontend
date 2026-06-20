@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -7,7 +7,7 @@ import { default as GestionRedPage } from '@/pages/networking/GestionRedPage';
 import * as useNasModule from '@/hooks/useNas';
 import * as useNetworkModule from '@/hooks/useNetwork';
 import type { NasServer } from '@/types/nas';
-import type { IpNetwork, IpPool, IpAssignment, Ipv6Network } from '@/types/network';
+import type { IpNetwork, IpPool, IpAssignment, Ipv6Network, PaginatedAssignments } from '@/types/network';
 
 vi.mock('@/hooks/useNas');
 vi.mock('@/hooks/useNetwork');
@@ -79,7 +79,13 @@ const mockPools: IpPool[] = [
   },
 ];
 
-const mockAssignments: IpAssignment[] = [];
+// Paginated shape — new contract
+const mockPaginatedEmpty: PaginatedAssignments = {
+  data: [],
+  total: 0,
+  page: 1,
+  pageSize: 25,
+};
 
 const mockAssignmentsWithData: IpAssignment[] = [
   {
@@ -103,6 +109,13 @@ const mockAssignmentsWithData: IpAssignment[] = [
     createdAt: '2026-06-02T00:00:00Z',
   },
 ];
+
+const mockPaginatedWithData: PaginatedAssignments = {
+  data: mockAssignmentsWithData,
+  total: 2,
+  page: 1,
+  pageSize: 25,
+};
 
 const mockIpv6Networks: Ipv6Network[] = [
   {
@@ -134,7 +147,9 @@ describe('GestionRedPage', () => {
     vi.mocked(useNasModule.useNasServers).mockReturnValue({
       data: mockNasServers,
       isLoading: false,
-    } as ReturnType<typeof useNasModule.useNasServers>);
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNasModule.useNasServers>);
 
     vi.mocked(useNasModule.useCreateNasServer).mockReturnValue({
       mutate: vi.fn(),
@@ -154,7 +169,9 @@ describe('GestionRedPage', () => {
     vi.mocked(useNetworkModule.useIpNetworks).mockReturnValue({
       data: mockNetworks,
       isLoading: false,
-    } as ReturnType<typeof useNetworkModule.useIpNetworks>);
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpNetworks>);
 
     vi.mocked(useNetworkModule.useCreateIpNetwork).mockReturnValue({
       mutate: vi.fn(),
@@ -174,22 +191,30 @@ describe('GestionRedPage', () => {
     vi.mocked(useNetworkModule.useIpPools).mockReturnValue({
       data: mockPools,
       isLoading: false,
-    } as ReturnType<typeof useNetworkModule.useIpPools>);
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpPools>);
 
     vi.mocked(useNetworkModule.useCreateIpPool).mockReturnValue({
       mutate: vi.fn(),
       isPending: false,
     } as unknown as ReturnType<typeof useNetworkModule.useCreateIpPool>);
 
+    // Now returns PaginatedAssignments (new shape)
     vi.mocked(useNetworkModule.useIpAssignments).mockReturnValue({
-      data: mockAssignments,
+      data: mockPaginatedEmpty,
       isLoading: false,
-    } as ReturnType<typeof useNetworkModule.useIpAssignments>);
+      isFetching: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpAssignments>);
 
     vi.mocked(useNetworkModule.useIpv6Networks).mockReturnValue({
       data: mockIpv6Networks,
       isLoading: false,
-    } as ReturnType<typeof useNetworkModule.useIpv6Networks>);
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpv6Networks>);
 
     vi.mocked(useNetworkModule.useCreateIpv6Network).mockReturnValue({
       mutate: vi.fn(),
@@ -263,18 +288,66 @@ describe('GestionRedPage', () => {
   });
 });
 
-// ── Bug 3: Asignaciones tab — new PppoeAssignmentDto shape ───────────────────
-describe('Asignaciones tab — new DTO shape (Bug 3)', () => {
-  it('shows IP and username from new DTO, does NOT show "No se encontraron asignaciones"', async () => {
+// ── Asignaciones tab — server-side paginated shape ───────────────────────────
+describe('Asignaciones tab — server-side paginated shape', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    vi.mocked(useNasModule.useNasServers).mockReturnValue({
+      data: mockNasServers,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNasModule.useNasServers>);
+
+    vi.mocked(useNasModule.useCreateNasServer).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNasModule.useCreateNasServer>);
+    vi.mocked(useNasModule.useUpdateNasServer).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNasModule.useUpdateNasServer>);
+    vi.mocked(useNasModule.useDeleteNasServer).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNasModule.useDeleteNasServer>);
+
+    vi.mocked(useNetworkModule.useIpNetworks).mockReturnValue({
+      data: mockNetworks, isLoading: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpNetworks>);
+    vi.mocked(useNetworkModule.useCreateIpNetwork).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useCreateIpNetwork>);
+    vi.mocked(useNetworkModule.useDeleteIpNetwork).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useDeleteIpNetwork>);
+    vi.mocked(useNetworkModule.useIpPools).mockReturnValue({
+      data: mockPools, isLoading: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpPools>);
+    vi.mocked(useNetworkModule.useCreateIpPool).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useCreateIpPool>);
+    vi.mocked(useNetworkModule.useDeleteIpPool).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useDeleteIpPool>);
+    vi.mocked(useNetworkModule.useIpv6Networks).mockReturnValue({
+      data: mockIpv6Networks, isLoading: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpv6Networks>);
+    vi.mocked(useNetworkModule.useCreateIpv6Network).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useCreateIpv6Network>);
+  });
+
+  it('shows IP and username from paginated data, does NOT show "No se encontraron asignaciones"', async () => {
     const user = userEvent.setup();
 
     vi.mocked(useNetworkModule.useIpAssignments).mockReturnValue({
-      data: mockAssignmentsWithData,
+      data: mockPaginatedWithData,
       isLoading: false,
-    } as ReturnType<typeof useNetworkModule.useIpAssignments>);
+      isFetching: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpAssignments>);
 
     renderPage();
-
     await user.click(screen.getByRole('button', { name: /asignaciones/i }));
 
     expect(screen.getByText('100.64.10.1')).toBeInTheDocument();
@@ -286,30 +359,150 @@ describe('Asignaciones tab — new DTO shape (Bug 3)', () => {
     const user = userEvent.setup();
 
     vi.mocked(useNetworkModule.useIpAssignments).mockReturnValue({
-      data: mockAssignmentsWithData,
+      data: mockPaginatedWithData,
       isLoading: false,
-    } as ReturnType<typeof useNetworkModule.useIpAssignments>);
+      isFetching: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpAssignments>);
 
     renderPage();
-
     await user.click(screen.getByRole('button', { name: /asignaciones/i }));
 
     expect(screen.getByText('20M')).toBeInTheDocument();
     expect(screen.getByText('—')).toBeInTheDocument();
   });
 
-  it('shows "No se encontraron asignaciones" when list is empty', async () => {
+  it('shows "No se encontraron asignaciones." when paginated data is empty', async () => {
     const user = userEvent.setup();
 
     vi.mocked(useNetworkModule.useIpAssignments).mockReturnValue({
-      data: [],
+      data: mockPaginatedEmpty,
       isLoading: false,
-    } as ReturnType<typeof useNetworkModule.useIpAssignments>);
+      isFetching: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpAssignments>);
 
     renderPage();
-
     await user.click(screen.getByRole('button', { name: /asignaciones/i }));
 
     expect(screen.getByText('No se encontraron asignaciones.')).toBeInTheDocument();
+  });
+
+  it('shows skeleton row while isFetching', async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(useNetworkModule.useIpAssignments).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isFetching: true,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpAssignments>);
+
+    renderPage();
+    await user.click(screen.getByRole('button', { name: /asignaciones/i }));
+
+    // skeleton rows must exist (aria-busy on the wrapper or skeleton cells)
+    expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+
+  it('shows error state with "Reintentar" button on isError', async () => {
+    const user = userEvent.setup();
+    const mockRefetch = vi.fn();
+
+    vi.mocked(useNetworkModule.useIpAssignments).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isFetching: false,
+      isError: true,
+      refetch: mockRefetch,
+    } as unknown as ReturnType<typeof useNetworkModule.useIpAssignments>);
+
+    renderPage();
+    await user.click(screen.getByRole('button', { name: /asignaciones/i }));
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toBeInTheDocument();
+    expect(alert).toHaveTextContent(/no se pudo cargar/i);
+
+    const retryBtn = screen.getByRole('button', { name: /reintentar/i });
+    await user.click(retryBtn);
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('clicking next page triggers useIpAssignments with page=2', async () => {
+    // We need enough total to show pagination (totalPages > 1)
+    const page1: PaginatedAssignments = {
+      data: mockAssignmentsWithData,
+      total: 30, // 30 > pageSize=25, so totalPages=2
+      page: 1,
+      pageSize: 25,
+    };
+
+    vi.mocked(useNetworkModule.useIpAssignments).mockReturnValue({
+      data: page1,
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpAssignments>);
+
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole('button', { name: /asignaciones/i }));
+
+    // Click next page (›)
+    await user.click(screen.getByRole('button', { name: /siguiente/i }));
+
+    // After clicking next, useIpAssignments should have been called with page=2
+    // The mock will be called again by React re-render; we check the LAST call args
+    await waitFor(() => {
+      const calls = vi.mocked(useNetworkModule.useIpAssignments).mock.calls;
+      const lastCall = calls[calls.length - 1];
+      expect(lastCall[0]).toMatchObject({ page: 2 });
+    });
+  });
+
+  it('selecting a router filter calls useIpAssignments with nasId', async () => {
+    vi.mocked(useNetworkModule.useIpAssignments).mockReturnValue({
+      data: mockPaginatedWithData,
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpAssignments>);
+
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole('button', { name: /asignaciones/i }));
+
+    // Select the first NAS (id='1')
+    const routerSelect = screen.getByRole('combobox', { name: /router/i });
+    await user.selectOptions(routerSelect, '1');
+
+    await waitFor(() => {
+      const calls = vi.mocked(useNetworkModule.useIpAssignments).mock.calls;
+      const lastCall = calls[calls.length - 1];
+      expect(lastCall[0]).toMatchObject({ nasId: '1', page: 1 });
+    });
+  });
+
+  it('uses total from server for the counter', async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(useNetworkModule.useIpAssignments).mockReturnValue({
+      data: { data: mockAssignmentsWithData, total: 999, page: 1, pageSize: 25 },
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpAssignments>);
+
+    renderPage();
+    await user.click(screen.getByRole('button', { name: /asignaciones/i }));
+
+    expect(screen.getByText(/999 asignaciones/i)).toBeInTheDocument();
   });
 });
