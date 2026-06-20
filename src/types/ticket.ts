@@ -31,6 +31,9 @@ export interface Ticket {
   type?: string | null;
   customerId: string;
   customerName: string;
+  // El BE expone contractId en TicketDto (el contrato es obligatorio al crear el
+  // ticket). null para tickets legacy creados antes de la regla del contrato.
+  contractId: string | null;
   // #28 follow-up — the BE returns `assigneeId` (RbacUser id, string) and
   // `assigneeName`; the legacy `assignedTo:number`/`assignedToName` never existed
   // in the real payload, so assignment rendered empty everywhere.

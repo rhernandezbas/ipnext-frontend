@@ -11,14 +11,31 @@
   padding: var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
+  box-shadow: var(--shadow-sm);
 }
 
 .sideCardTitle {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* Visual grouping: related metadata stays tight, groups are separated by a
+   hairline divider (UX: grouping + whitespace reduce scan cost). */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--color-gray-200);
+  margin: 0;
 }
 
 .sideRow {
@@ -36,69 +53,69 @@
   flex-shrink: 0;
 }
 
+/* Read-only values: high-contrast, right-aligned, truncate if long. */
+.sideValue {
+  color: var(--color-text-primary);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+.sideMuted {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  text-align: right;
+}
+
 .sideLink {
   color: var(--color-primary);
   text-decoration: none;
   text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
 }
 
 .sideLink:hover {
   text-decoration: underline;
 }
 
+.sideLink:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 .sideSelect {
   font-size: var(--font-size-sm);
   font-family: inherit;
   padding: 5px var(--space-2);
-  border: 1px solid var(--color-gray-200);
+  border: 1px solid var(--color-gray-300);
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text-primary);
-  max-width: 160px;
+  max-width: 170px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.sideSelect:focus {
-  outline: none;
+.sideSelect:hover:not(:disabled) {
   border-color: var(--color-accent);
 }
 
-.statusBadge {
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: var(--radius-full);
-  background: var(--color-gray-100);
-  color: var(--color-text-primary);
-  text-transform: capitalize;
+.sideSelect:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-surface-hover);
 }
 
-.priorityBadge {
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: var(--radius-full);
-  background: var(--color-gray-100);
-  color: var(--color-text-primary);
-}
-
-.priorityLow {
-  background: hsl(210 16% 93%);
-  color: hsl(210 12% 38%);
-}
-
-.priorityMedium {
-  background: hsl(43 96% 90%);
-  color: hsl(35 80% 32%);
-}
-
-.priorityHigh {
-  background: hsl(25 95% 90%);
-  color: hsl(18 80% 38%);
-}
-
-.priorityCritical {
-  background: hsl(0 80% 94%);
-  color: hsl(0 65% 42%);
+.sideSelect:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* #48 — unified save action in the Detalles panel. */
@@ -110,21 +127,4 @@
 
 .saveBtn {
   width: 100%;
-  height: 36px;
-  border: none;
-  border-radius: var(--radius-md);
-  background: var(--color-primary);
-  color: #fff;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.saveBtn:disabled {
-  background: var(--color-gray-300, #9ca3af);
-  cursor: not-allowed;
-}
-
-.saveBtn:not(:disabled):hover {
-  filter: brightness(0.95);
 }

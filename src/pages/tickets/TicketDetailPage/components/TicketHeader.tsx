@@ -137,39 +137,38 @@ export function TicketHeader({
             {ticket.subject}
           </h1>
         )}
-      </div>
 
-      <div className={styles.controls}>
-        {/* StatusSelect — catalog-driven. #48: controlled by the page draft;
-            staging only — persistence is the unified GUARDAR. */}
-        <select
-          value={statusValue}
-          onChange={e => onStatusChange(e.target.value)}
-          className={styles.statusSelect}
-          disabled={isSaving || !canWrite}
-          aria-label="Estado"
-        >
-          {statuses.map(s => (
-            <option key={s.id} value={s.name} disabled={isStatusOptionDisabled(s.name)}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-
-        {/* Kebab "Acciones" */}
-        <div className={styles.kebabWrapper} data-kebab-wrapper="">
-          <button
-            ref={kebabRef}
-            className={styles.kebabBtn}
-            onClick={() => setKebabOpen(o => !o)}
-            aria-label="Acciones"
-            aria-haspopup="menu"
-            aria-expanded={kebabOpen}
-            data-testid="kebab-menu"
+        <div className={styles.controls}>
+          {/* StatusSelect — catalog-driven. #48: controlled by the page draft;
+              staging only — persistence is the unified GUARDAR. */}
+          <select
+            value={statusValue}
+            onChange={e => onStatusChange(e.target.value)}
+            className={styles.statusSelect}
+            disabled={isSaving || !canWrite}
+            aria-label="Estado"
           >
-            ⋮
-          </button>
-          {kebabOpen && (
+            {statuses.map(s => (
+              <option key={s.id} value={s.name} disabled={isStatusOptionDisabled(s.name)}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Kebab "Acciones" */}
+          <div className={styles.kebabWrapper} data-kebab-wrapper="">
+            <button
+              ref={kebabRef}
+              className={styles.kebabBtn}
+              onClick={() => setKebabOpen(o => !o)}
+              aria-label="Acciones"
+              aria-haspopup="menu"
+              aria-expanded={kebabOpen}
+              data-testid="kebab-menu"
+            >
+              ⋮
+            </button>
+            {kebabOpen && (
             <ul className={styles.kebabMenu} role="menu">
               {canClose && !isClosedStatus && (
                 <li>
@@ -209,6 +208,7 @@ export function TicketHeader({
               )}
             </ul>
           )}
+          </div>
         </div>
       </div>
     </header>

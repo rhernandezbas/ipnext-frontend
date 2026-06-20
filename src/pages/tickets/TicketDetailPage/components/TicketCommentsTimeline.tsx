@@ -6,6 +6,7 @@ import { useCan } from '@/hooks/useMyPermissions';
 import type { AddTicketCommentInput, TicketCommentAttachment } from '@/types/ticketComments';
 import type { AuthUser } from '@/types/auth';
 import { formatDateTime } from '@/utils/formatDate';
+import { Button } from '@/components/atoms/Button';
 import styles from './TicketCommentsTimeline.module.css';
 
 interface AttachmentDraft {
@@ -301,27 +302,30 @@ function Composer({
           aria-label="Adjuntar imagen"
           onChange={handleFileChange}
         />
-        <button
+        <Button
           type="button"
-          className={styles.btnAttach}
+          variant="secondary"
+          size="sm"
           onClick={() => fileInputRef.current?.click()}
         >
           📎 Adjuntar imagen
-        </button>
+        </Button>
 
         <span className={styles.spacer} />
 
         {authorName === null ? (
           <span className={styles.loginPrompt}>Iniciá sesión para comentar</span>
         ) : (
-          <button
+          <Button
             type="submit"
-            className={styles.btnSubmit}
+            variant="primary"
+            size="md"
             disabled={!canSubmit}
+            loading={pending}
             aria-label="Agregar comentario"
           >
-            {pending ? 'Guardando…' : 'Comentar'}
-          </button>
+            Comentar
+          </Button>
         )}
       </div>
 
@@ -540,9 +544,9 @@ export function TicketCommentsTimeline({ ticketId, description, reporterName, cr
       {!isLoading && isError && (
         <div className={styles.errorState} role="alert">
           <p className={styles.errorText}>No se pudieron cargar los comentarios.</p>
-          <button type="button" className={styles.btnRetry} onClick={() => void refetch()}>
+          <Button type="button" variant="secondary" size="sm" onClick={() => void refetch()}>
             Reintentar
-          </button>
+          </Button>
         </div>
       )}
 

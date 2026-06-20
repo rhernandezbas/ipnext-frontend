@@ -21,6 +21,21 @@ vi.mock('@/hooks/useTicketComments');
 vi.mock('@/hooks/useTicketAreas', () => ({
   useTicketAreas: () => ({ data: [{ id: 'area-1', name: 'Soporte' }] }),
 }));
+// Contrato — el sidebar resuelve el label del contrato del ticket vía
+// useClientContracts. Override SOLO ese hook; el resto (useClientDetail, etc.,
+// que usa el CreateTaskModal) se conserva del módulo real con importOriginal.
+vi.mock('@/hooks/useCustomers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/hooks/useCustomers')>();
+  return {
+    ...actual,
+    useClientContracts: () => ({
+      data: [
+        { id: 'contract-9', code: 'GR-9', name: null, type: 'internet', plan: 'Fibra 500MB', status: 'active', price: 0, startDate: '', endDate: null, description: '', address: 'Calle Falsa 123', technology: 'FTTH', services: [] },
+      ],
+      isLoading: false,
+    }),
+  };
+});
 // The "Crear tarea" path mounts CreateTaskModal lazily; stub the data hooks it
 // (and the page) rely on so the detail page renders without real network.
 const useProjectsMock = vi.fn(() => ({ data: [] as unknown[] }));
@@ -43,6 +58,7 @@ const mockTicket: Ticket = {
   type: null,
   customerId: '42',
   customerName: 'Alice García',
+  contractId: 'contract-9',
   assigneeId: '5',
   assigneeName: 'Juan Técnico',
   reporterId: '7',
@@ -183,6 +199,14 @@ describe('TicketDetailPage (Prominense layout)', () => {
   it('renders customerName in the Detalles sidebar', () => {
     renderPage();
     expect(screen.getByText('Alice García')).toBeInTheDocument();
+  });
+
+  // El contrato del ticket (obligatorio) se resuelve a un label legible en el
+  // sidebar a partir de los contratos del cliente.
+  it('renders the resolved contract label in the Detalles sidebar', () => {
+    renderPage();
+    const contractRow = screen.getByText('Contrato').closest('div') as HTMLElement;
+    expect(contractRow.textContent).toContain('Fibra 500MB');
   });
 
   // #48 — Reporter is a read-only display of the creator's name (reporterName).
