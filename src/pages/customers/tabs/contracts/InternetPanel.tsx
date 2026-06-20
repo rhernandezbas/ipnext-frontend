@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useId, useState, useEffect } from 'react';
 import { Can } from '@/components/auth/Can';
 import { ServiceRemovalReasonModal } from '@/components/molecules/ServiceRemovalReasonModal/ServiceRemovalReasonModal';
 import {
@@ -102,12 +102,16 @@ export function InternetPanel({ contractId, clientId, contractServices, onClose 
         }
       >
         <div className={styles.section}>
-          <AssociatePppoeSection contractId={contractId} clientId={clientId} />
-          <CreatePppoeForm
-            contractId={contractId}
-            clientId={clientId}
-            nasServers={nasServers}
-          />
+          <CollapsibleSection title="Asociar PPPoE existente">
+            <AssociatePppoeSection contractId={contractId} clientId={clientId} />
+          </CollapsibleSection>
+          <CollapsibleSection title="Cargar PPPoE">
+            <CreatePppoeForm
+              contractId={contractId}
+              clientId={clientId}
+              nasServers={nasServers}
+            />
+          </CollapsibleSection>
         </div>
       </Can>
     );
@@ -137,6 +141,80 @@ export function InternetPanel({ contractId, clientId, contractServices, onClose 
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Sección colapsable (disclosure) ─────────────────────────────────────────
+
+/** Chevron SVG — rota 180° vía CSS cuando la sección está abierta. Sin emojis. */
+function ChevronIcon() {
+  return (
+    <svg
+      className={styles.collapseChevron}
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+/**
+ * Sección colapsable (patrón disclosure/accordion).
+ *
+ * - Header = `<button>` real con `aria-expanded` + `aria-controls` (a11y de disclosure).
+ * - Toggle por click / Enter / Space (gratis al ser un `<button>`).
+ * - Por defecto COLAPSADA (`defaultOpen=false`).
+ * - El cuerpo SIEMPRE se monta (transición de altura via grid-template-rows);
+ *   `inert` cuando está cerrado lo saca del foco y del árbol de accesibilidad,
+ *   sin desmontar el contenido — el estado de los forms internos se conserva.
+ */
+function CollapsibleSection({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const bodyId = useId();
+
+  // `inert` saca el contenido colapsado del tab-order y del árbol de accesibilidad,
+  // pero lo deja en el DOM para que la transición de altura funcione. @types/react
+  // 18.2 todavía no tipa `inert`, así que lo inyectamos por un record sin tipar.
+  const inertProps: Record<string, string> = open ? {} : { inert: '' };
+
+  return (
+    <section className={styles.collapse}>
+      <h4 className={styles.collapseHeading}>
+        <button
+          type="button"
+          className={styles.collapseHeader}
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <span className={styles.collapseTitle}>{title}</span>
+          <ChevronIcon />
+        </button>
+      </h4>
+      <div
+        id={bodyId}
+        className={`${styles.collapseRegion} ${open ? styles.collapseRegionOpen : ''}`}
+        {...inertProps}
+      >
+        <div className={styles.collapseInner}>{children}</div>
+      </div>
+    </section>
   );
 }
 
@@ -245,8 +323,7 @@ function CreatePppoeForm({
   const showIpError = ipQuery.isError && !ipQuery.isFetching;
 
   return (
-    <section className={styles.card}>
-      <h4 className={styles.cardTitle}>Cargar PPPoE</h4>
+    <div className={styles.collapseContent}>
       <form onSubmit={handleSubmit}>
         <div className={styles.formGrid}>
           <div className={styles.field}>
@@ -402,7 +479,7 @@ function CreatePppoeForm({
           </button>
         </div>
       </form>
-    </section>
+    </div>
   );
 }
 
@@ -873,8 +950,7 @@ function AssociatePppoeSection({
   }
 
   return (
-    <section className={styles.card}>
-      <h4 className={styles.cardTitle}>Asociar PPPoE existente</h4>
+    <div className={styles.collapseContent}>
       <div className={styles.searchRow}>
         <label className={styles.fieldLabel} htmlFor="pppoe-adopt-filter">
           Buscar por usuario
@@ -895,6 +971,6 @@ function AssociatePppoeSection({
         </div>
       )}
       {listBody}
-    </section>
+    </div>
   );
 }

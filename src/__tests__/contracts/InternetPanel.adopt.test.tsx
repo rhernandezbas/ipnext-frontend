@@ -169,6 +169,18 @@ function renderPanel() {
   );
 }
 
+/**
+ * La sección "Asociar PPPoE existente" ahora es colapsable y arranca cerrada.
+ * Estos tests ejercitan la adopción, así que primero hay que expandirla
+ * (mirror de la nueva UX: el operador abre la sección antes de operar).
+ */
+async function expandAssociate(user: ReturnType<typeof userEvent.setup>) {
+  const assocHeader = screen.getByRole('button', { name: /Asociar PPPoE existente/i });
+  if (assocHeader.getAttribute('aria-expanded') === 'false') {
+    await user.click(assocHeader);
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -206,6 +218,7 @@ describe('AD-4: filtro por usuario', () => {
     const user = userEvent.setup();
     setup();
     renderPanel();
+    await expandAssociate(user);
 
     await user.type(screen.getByLabelText(/Buscar por usuario/i), 'juan');
 
@@ -217,6 +230,7 @@ describe('AD-4: filtro por usuario', () => {
     const user = userEvent.setup();
     setup();
     renderPanel();
+    await expandAssociate(user);
 
     await user.type(screen.getByLabelText(/Buscar por usuario/i), 'zzz');
 
@@ -230,6 +244,7 @@ describe('AD-5: asociar — éxito', () => {
     const mutate = vi.fn().mockResolvedValue({});
     setup({ associateMutateAsync: mutate });
     renderPanel();
+    await expandAssociate(user);
 
     const row = screen.getByText('juan.perez').closest('li')!;
     await user.click(within(row).getByRole('button', { name: 'Asociar' }));
@@ -249,6 +264,7 @@ describe('AD-6: asociar — 409', () => {
     const mutate = vi.fn().mockRejectedValue(err);
     setup({ associateMutateAsync: mutate });
     renderPanel();
+    await expandAssociate(user);
 
     const row = screen.getByText('maria.gomez').closest('li')!;
     await user.click(within(row).getByRole('button', { name: 'Asociar' }));
