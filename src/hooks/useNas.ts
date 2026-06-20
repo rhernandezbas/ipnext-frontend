@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { NasServer, RadiusConfig } from '@/types/nas';
 import * as api from '@/api/nas.api';
+import type { IpType } from '@/api/nas.api';
 
 export function useNasServers() {
   return useQuery({ queryKey: ['nas-servers'], queryFn: api.getNasServers });
@@ -40,5 +41,22 @@ export function useUpdateRadiusConfig() {
   return useMutation({
     mutationFn: (data: Partial<RadiusConfig>) => api.updateRadiusConfig(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['radius-config'] }),
+  });
+}
+
+/**
+ * Obtiene la siguiente IP libre de un pool del router (NAS) según el tipo.
+ * enabled: solo cuando nasId y type estén presentes.
+ * Expone `refetch` para el botón "cambiar".
+ */
+export function useNextFreeIp(nasId: string | null, type: IpType | null) {
+  return useQuery<{ ip: string }>({
+    queryKey: ['nas-next-free-ip', nasId, type],
+    queryFn: () => api.getNextFreeIp(nasId as string, type as IpType),
+    enabled: !!nasId && !!type,
+    // No cache entre selecciones distintas — cada asignación debe ser fresca.
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
   });
 }

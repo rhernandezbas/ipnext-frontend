@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Can } from '@/components/auth/Can';
 import { ServiceRemovalReasonModal } from '@/components/molecules/ServiceRemovalReasonModal/ServiceRemovalReasonModal';
 import {
@@ -9,7 +9,8 @@ import {
   useDeactivatePppoe,
 } from '@/hooks/usePppoe';
 import { useUpdateContractService } from '@/hooks/useContractServices';
-import { useNasServers } from '@/hooks/useNas';
+import { useNasServers, useNextFreeIp } from '@/hooks/useNas';
+import type { IpType } from '@/api/nas.api';
 import type { ContractService } from '@/types/customer';
 import type { PppoeServiceDto } from '@/types/pppoe';
 import styles from './InternetPanel.module.css';
@@ -135,6 +136,15 @@ export function InternetPanel({ contractId, clientId, contractServices, onClose 
 
 // ── Crear PPPoE ──────────────────────────────────────────────────────────────
 
+/** Returns a human-readable error hint for next-free-ip failures. */
+function ipFetchHint(err: unknown): string {
+  const status = errorStatus(err);
+  if (status === 404) return 'Sin pool configurado para ese tipo de IP.';
+  if (status === 422) return 'Pool lleno — asigná la IP manualmente.';
+  if (status === 502) return 'Router no disponible. Asigná la IP manualmente.';
+  return 'No se pudo obtener la IP. Asigná manualmente.';
+}
+
 function CreatePppoeForm({
   contractId,
   clientId,
@@ -153,8 +163,49 @@ function CreatePppoeForm({
     profile: '',
     remoteAddress: '',
   });
+  const [ipType, setIpType] = useState<IpType | null>(null);
+  /**
+   * ipAutoFilled: true when the current value of remoteAddress was placed by the
+   * auto-assign logic (not typed by the operator). Using state so the
+   * "auto-asignada" hint and "cambiar" button re-render correctly.
+   */
+  const [ipAutoFilled, setIpAutoFilled] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  const ipQuery = useNextFreeIp(form.nasId || null, ipType);
+
+  /**
+   * Single effect that runs whenever the selection (nasId, ipType) OR the query
+   * result (data, isSuccess) changes.
+   *
+   * Logic:
+   * - If data is ready AND the field is empty or was previously auto-filled → fill + mark.
+   * - If the query is not successful (includes the moment after nasId/ipType change
+   *   before the new fetch completes) → clear the auto-fill flag.
+   *
+   * `form.remoteAddress` and `ipAutoFilled` are read at effect time (stable snapshot)
+   * so they're listed in deps. The guard conditions prevent infinite loops:
+   * `setIpAutoFilled(false)` only fires when `ipAutoFilled` is already true, and
+   * the fill branch only updates `remoteAddress` and/or `ipAutoFilled` to a new value.
+   */
+  useEffect(() => {
+    if (ipQuery.isSuccess && ipQuery.data?.ip) {
+      if (!form.remoteAddress || ipAutoFilled) {
+        setForm((f) => ({ ...f, remoteAddress: ipQuery.data.ip }));
+        setIpAutoFilled(true);
+      }
+    } else if (!ipQuery.isSuccess && ipAutoFilled) {
+      setIpAutoFilled(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ipQuery.data, ipQuery.isSuccess, form.nasId, ipType]);
+
+  function handleRemoteAddressChange(val: string) {
+    setIpAutoFilled(false);
+    setForm((f) => ({ ...f, remoteAddress: val }));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -171,6 +222,8 @@ function CreatePppoeForm({
       });
       setSuccess(true);
       setForm({ username: '', password: '', nasId: '', profile: '', remoteAddress: '' });
+      setIpType(null);
+      setIpAutoFilled(false);
     } catch (err) {
       const status = errorStatus(err);
       if (status === 409) {
@@ -180,6 +233,10 @@ function CreatePppoeForm({
       }
     }
   }
+
+  const showAutoHint = ipAutoFilled && ipQuery.isSuccess && !!form.remoteAddress;
+  const showIpFetching = ipQuery.isFetching;
+  const showIpError = ipQuery.isError && !ipQuery.isFetching;
 
   return (
     <section className={styles.card}>
@@ -248,18 +305,70 @@ function CreatePppoeForm({
               placeholder="Opcional"
             />
           </div>
+
+          {/* Tipo de IP — toggle Privada / Pública */}
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>Tipo de IP</span>
+            <div className={styles.ipTypeToggle} role="group" aria-label="Tipo de IP">
+              <button
+                type="button"
+                className={`${styles.ipTypeBtn} ${ipType === 'cgnat' ? styles.ipTypeBtnActive : ''}`}
+                onClick={() => setIpType('cgnat')}
+                disabled={create.isPending}
+                aria-pressed={ipType === 'cgnat'}
+              >
+                Privada
+              </button>
+              <button
+                type="button"
+                className={`${styles.ipTypeBtn} ${ipType === 'public' ? styles.ipTypeBtnActive : ''}`}
+                onClick={() => setIpType('public')}
+                disabled={create.isPending}
+                aria-pressed={ipType === 'public'}
+              >
+                Pública
+              </button>
+            </div>
+          </div>
+
+          {/* IP remota — con feedback de auto-asignación */}
           <div className={styles.field}>
             <label className={styles.fieldLabel} htmlFor="pppoe-remote-address">
               IP remota
             </label>
-            <input
-              id="pppoe-remote-address"
-              className={styles.input}
-              value={form.remoteAddress}
-              onChange={(e) => setForm((f) => ({ ...f, remoteAddress: e.target.value }))}
-              disabled={create.isPending}
-              placeholder="Opcional"
-            />
+            <div className={styles.ipRow}>
+              <input
+                id="pppoe-remote-address"
+                className={styles.input}
+                value={form.remoteAddress}
+                onChange={(e) => handleRemoteAddressChange(e.target.value)}
+                disabled={create.isPending}
+                placeholder={showIpFetching ? 'Buscando IP…' : 'Opcional'}
+                aria-describedby={showIpError ? 'ip-fetch-error' : undefined}
+              />
+              {showAutoHint && !showIpFetching && (
+                <button
+                  type="button"
+                  className={styles.btnCambiar}
+                  onClick={() => { setIpAutoFilled(true); void ipQuery.refetch(); }}
+                  disabled={create.isPending || ipQuery.isFetching}
+                  title="Obtener otra IP libre"
+                >
+                  cambiar
+                </button>
+              )}
+            </div>
+            {showIpFetching && (
+              <span className={styles.ipHint}>Buscando IP…</span>
+            )}
+            {showAutoHint && !showIpFetching && (
+              <span className={styles.ipHint}>auto-asignada</span>
+            )}
+            {showIpError && (
+              <span id="ip-fetch-error" className={styles.ipHintError}>
+                {ipFetchHint(ipQuery.error)}
+              </span>
+            )}
           </div>
         </div>
         {error && (

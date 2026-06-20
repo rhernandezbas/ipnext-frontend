@@ -388,3 +388,99 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
+
+/* ── Tipo de IP toggle ────────────────────────────────────────────────────── */
+
+.ipTypeToggle {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  width: fit-content;
+}
+
+.ipTypeBtn {
+  height: 36px;
+  padding: 0 14px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border: none;
+  border-right: 1px solid var(--color-border);
+  font-size: 13.5px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.ipTypeBtn:last-child {
+  border-right: none;
+}
+
+.ipTypeBtn:hover:not(:disabled) {
+  background: var(--color-gray-50);
+  color: var(--color-text-primary);
+}
+
+.ipTypeBtnActive {
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+
+.ipTypeBtnActive:hover:not(:disabled) {
+  background: #0b5ed7;
+  color: var(--color-white);
+}
+
+.ipTypeBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── IP remota row (input + cambiar) ─────────────────────────────────────── */
+
+.ipRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ipRow .input {
+  flex: 1;
+}
+
+.btnCambiar {
+  flex-shrink: 0;
+  height: 36px;
+  padding: 0 12px;
+  background: none;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.btnCambiar:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+
+.btnCambiar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ipHint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-1);
+}
+
+.ipHintError {
+  font-size: var(--font-size-xs);
+  color: #991b1b;
+  margin-top: var(--space-1);
+}
