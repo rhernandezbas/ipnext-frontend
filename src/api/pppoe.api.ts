@@ -26,6 +26,12 @@ export interface UpdatePppoeBody {
   status?: string;
 }
 
+/** Credenciales reveladas bajo demanda (frontera de seguridad: NUNCA viajan en el DTO de lista/detalle). */
+export interface PppoeCredentials {
+  username: string;
+  password: string;
+}
+
 export const pppoeApi = {
   /** Impacto del corte SIN ejecutar: total + desglose por router + muestra. */
   async preview(body: { action: EnforcementAction; target: EnforcementTarget }): Promise<EnforcementPreview> {
@@ -86,5 +92,35 @@ export const pppoeApi = {
   /** Da de baja (DELETE) un PPPoE — corte real en el router. 204 sin body. */
   async deactivate(id: string): Promise<void> {
     await axiosClient.delete(`${BASE}/${id}`);
+  },
+
+  // ── Adopción de inventario PPPoE (huérfanos) ─────────────────────────────────
+
+  /**
+   * Lista los PPPoE huérfanos (contractId = null) ingeridos del router pero sin
+   * asociar a un contrato. El DTO NUNCA incluye password (frontera de seguridad).
+   * Gated `pppoe.read`.
+   */
+  async listUnassigned(): Promise<PppoeServiceDto[]> {
+    const r = await axiosClient.get<PppoeServiceDto[]>(`${BASE}/unassigned`);
+    return r.data;
+  },
+
+  /**
+   * Asocia un PPPoE huérfano a un contrato. Devuelve el PPPoE ya asociado.
+   * 409 si ya está asociado a OTRO contrato. Gated `pppoe.manage`.
+   */
+  async associate(id: string, contractId: string): Promise<PppoeServiceDto> {
+    const r = await axiosClient.post<PppoeServiceDto>(`${BASE}/${id}/associate`, { contractId });
+    return r.data;
+  },
+
+  /**
+   * Revela las credenciales de un PPPoE bajo demanda. ES LA ÚNICA vía para
+   * obtener el password (la lista/detalle nunca lo trae). Gated `pppoe.manage`.
+   */
+  async credentials(id: string): Promise<PppoeCredentials> {
+    const r = await axiosClient.get<PppoeCredentials>(`${BASE}/${id}/credentials`);
+    return r.data;
   },
 };

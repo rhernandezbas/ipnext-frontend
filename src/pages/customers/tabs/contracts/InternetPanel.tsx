@@ -7,6 +7,9 @@ import {
   useUpdatePppoe,
   useMovePppoe,
   useDeactivatePppoe,
+  useUnassignedPppoe,
+  useAssociatePppoe,
+  usePppoeCredentials,
 } from '@/hooks/usePppoe';
 import { useUpdateContractService } from '@/hooks/useContractServices';
 import { useNasServers, useNextFreeIp } from '@/hooks/useNas';
@@ -98,11 +101,14 @@ export function InternetPanel({ contractId, clientId, contractServices, onClose 
           </div>
         }
       >
-        <CreatePppoeForm
-          contractId={contractId}
-          clientId={clientId}
-          nasServers={nasServers}
-        />
+        <div className={styles.section}>
+          <AssociatePppoeSection contractId={contractId} clientId={clientId} />
+          <CreatePppoeForm
+            contractId={contractId}
+            clientId={clientId}
+            nasServers={nasServers}
+          />
+        </div>
       </Can>
     );
   }
@@ -549,6 +555,16 @@ function ActivePppoeView({
                 <dt className={styles.dt}>IP remota</dt>
                 <dd className={styles.dd}>{pppoe.remoteAddress ?? '—'}</dd>
               </div>
+              {/* Doble capa: el endpoint /credentials exige pppoe.manage — la fila de
+                  contraseña solo se renderiza (y el fetch lazy solo se dispara) con ese permiso. */}
+              <Can permission="pppoe.manage">
+                <div>
+                  <dt className={styles.dt}>Contraseña</dt>
+                  <dd className={styles.dd}>
+                    <RevealCredentials pppoeId={pppoe.id} />
+                  </dd>
+                </div>
+              </Can>
             </dl>
             <div className={styles.badgeRow}>
               {pppoe.status === 'active' ? (
@@ -682,5 +698,203 @@ function ActivePppoeView({
         onCancel={() => setBajaModalOpen(false)}
       />
     </div>
+  );
+}
+
+// ── Revelar credenciales ────────────────────────────────────────────────────────
+
+/** Eye icon (open). Heroicons-style inline SVG — sin librería de iconos ni emojis. */
+function EyeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+/** Eye-off icon (slashed). */
+function EyeOffIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+      <path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3.5 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+      <path d="M14.12 14.12A3 3 0 1 1 9.88 9.88" />
+      <line x1="2" y1="2" x2="22" y2="22" />
+    </svg>
+  );
+}
+
+/**
+ * Revela el password de un PPPoE BAJO DEMANDA (espejo de la UX de credenciales de TV).
+ * El query es lazy (`enabled` atado a `show`): el secreto NUNCA se pide eager, solo
+ * al click en el ojo. Toggle show/hide + copiar al portapapeles (nice-to-have).
+ */
+function RevealCredentials({ pppoeId }: { pppoeId: string }) {
+  const [show, setShow] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const credentialsQuery = usePppoeCredentials(pppoeId, show);
+  const password = credentialsQuery.data?.password ?? null;
+
+  async function handleCopy() {
+    if (!password) return;
+    try {
+      await navigator.clipboard?.writeText(password);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Sin clipboard (contexto inseguro / permiso denegado) → no rompemos el flujo.
+    }
+  }
+
+  return (
+    <span className={styles.passwordRow}>
+      <button
+        type="button"
+        className={styles.btnIcon}
+        aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+        aria-pressed={show}
+        onClick={() => setShow((s) => !s)}
+      >
+        {show ? <EyeOffIcon /> : <EyeIcon />}
+      </button>
+      <span className={styles.passwordValue}>
+        {!show
+          ? '••••••••'
+          : credentialsQuery.isLoading
+            ? 'Cargando…'
+            : credentialsQuery.isError
+              ? 'No disponible'
+              : (password ?? '—')}
+      </span>
+      {show && credentialsQuery.isSuccess && password && (
+        copied ? (
+          <span className={styles.copyHint} role="status">Copiada</span>
+        ) : (
+          <button type="button" className={styles.btnLink} onClick={handleCopy}>
+            Copiar
+          </button>
+        )
+      )}
+    </span>
+  );
+}
+
+// ── Asociar PPPoE existente (adopción de inventario) ────────────────────────────
+
+/**
+ * Sección "Asociar PPPoE existente": lista los huérfanos del router (ingest sin
+ * contrato), filtra por usuario, y asocia el elegido al contrato. En éxito,
+ * la invalidación del hook refetchea el PPPoE del contrato → el panel muestra el activo.
+ */
+function AssociatePppoeSection({
+  contractId,
+  clientId,
+}: {
+  contractId: string;
+  clientId: string | number;
+}) {
+  const unassignedQuery = useUnassignedPppoe(true);
+  const associate = useAssociatePppoe(contractId, clientId);
+
+  const [filter, setFilter] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  const all = unassignedQuery.data ?? [];
+  const term = filter.trim().toLowerCase();
+  const visible = term
+    ? all.filter((p) => p.username.toLowerCase().includes(term))
+    : all;
+
+  async function handleAssociate(id: string) {
+    if (associate.isPending) return;
+    setError(null);
+    setPendingId(id);
+    try {
+      await associate.mutateAsync({ id });
+      // En éxito el hook invalida ['contract-pppoe'] → el panel re-renderiza con el activo.
+    } catch (err) {
+      const status = errorStatus(err);
+      if (status === 409) {
+        setError('Ese PPPoE ya está asociado a otro contrato. Refrescá la lista y elegí otro.');
+      } else {
+        setError('No se pudo asociar el PPPoE. Reintentá en unos segundos.');
+      }
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  let listBody: React.ReactNode;
+  if (unassignedQuery.isLoading) {
+    listBody = <p className={styles.loading}>Cargando PPPoE sin asignar…</p>;
+  } else if (unassignedQuery.isError) {
+    listBody = (
+      <div className={`${styles.banner} ${styles.bannerError}`}>
+        <span>No se pudo cargar la lista. Reintentá en unos segundos.</span>
+      </div>
+    );
+  } else if (all.length === 0) {
+    listBody = (
+      <p className={styles.emptyHint}>
+        No hay PPPoE sin asignar — corré el ingest del router para traer el inventario.
+      </p>
+    );
+  } else if (visible.length === 0) {
+    listBody = (
+      <p className={styles.emptyHint}>Ningún PPPoE coincide con «{filter.trim()}».</p>
+    );
+  } else {
+    listBody = (
+      <ul className={styles.unassignedList}>
+        {visible.map((p) => (
+          <li key={p.id} className={styles.unassignedItem}>
+            <span className={styles.unassignedInfo}>
+              <span className={styles.unassignedUser}>{p.username}</span>
+              <span className={styles.unassignedMeta}>
+                {p.profile ? `${p.profile} · ` : ''}{p.remoteAddress ?? 'sin IP'}
+              </span>
+            </span>
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              onClick={() => handleAssociate(p.id)}
+              disabled={associate.isPending}
+            >
+              {associate.isPending && pendingId === p.id ? 'Asociando…' : 'Asociar'}
+            </button>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return (
+    <section className={styles.card}>
+      <h4 className={styles.cardTitle}>Asociar PPPoE existente</h4>
+      <div className={styles.searchRow}>
+        <label className={styles.fieldLabel} htmlFor="pppoe-adopt-filter">
+          Buscar por usuario
+        </label>
+        <input
+          id="pppoe-adopt-filter"
+          className={styles.input}
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filtrar la lista…"
+          autoComplete="off"
+          disabled={unassignedQuery.isLoading || all.length === 0}
+        />
+      </div>
+      {error && (
+        <div className={`${styles.banner} ${styles.bannerError}`} role="alert">
+          <span>{error}</span>
+        </div>
+      )}
+      {listBody}
+    </section>
   );
 }

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { pppoeApi } from '@/api/pppoe.api';
-import type { CreatePppoeBody, UpdatePppoeBody } from '@/api/pppoe.api';
+import type { CreatePppoeBody, UpdatePppoeBody, PppoeCredentials } from '@/api/pppoe.api';
 import type {
   EnforcementAction,
   EnforcementTarget,
@@ -20,6 +20,10 @@ import type {
 
 const ROOT = ['pppoe'] as const;
 export const batchKey = (jobId: string) => [...ROOT, 'batch', jobId] as const;
+/** Clave de la lista de PPPoE huérfanos (sin contrato) — adopción de inventario. */
+export const unassignedKey = () => [...ROOT, 'unassigned'] as const;
+/** Clave de las credenciales reveladas bajo demanda de un PPPoE. */
+export const credentialsKey = (id: string) => [...ROOT, 'credentials', id] as const;
 
 /** Preview del corte (mutation: SIN cache — es un cálculo on-demand, sin efectos). */
 export function usePreviewEnforcement() {
@@ -126,5 +130,50 @@ export function useDeactivatePppoe(contractId: string, clientId: string | number
       qc.invalidateQueries({ queryKey: ['contract-pppoe', contractId] });
       qc.invalidateQueries({ queryKey: ['client-contracts', String(clientId)] });
     },
+  });
+}
+
+// ── Hooks de adopción de inventario PPPoE ───────────────────────────────────────
+
+/**
+ * Lista los PPPoE huérfanos (ingeridos del router, sin contrato). `enabled` ata
+ * el fetch a que la sección de adopción esté abierta para no pegarle al BE de más.
+ */
+export function useUnassignedPppoe(enabled = true) {
+  return useQuery<PppoeServiceDto[]>({
+    queryKey: unassignedKey(),
+    queryFn: () => pppoeApi.listUnassigned(),
+    enabled,
+  });
+}
+
+/**
+ * Asocia un PPPoE huérfano a un contrato. En éxito invalida la lista de huérfanos,
+ * la del contrato y los contratos del cliente (el chip INTERNET aparece). Un 409
+ * (ya asociado a otro contrato) lo lanza axios → el caller lo detecta por status.
+ */
+export function useAssociatePppoe(contractId: string, clientId: string | number) {
+  const qc = useQueryClient();
+  return useMutation<PppoeServiceDto, unknown, { id: string }>({
+    mutationFn: ({ id }) => pppoeApi.associate(id, contractId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: unassignedKey() });
+      qc.invalidateQueries({ queryKey: ['contract-pppoe', contractId] });
+      qc.invalidateQueries({ queryKey: ['client-contracts', String(clientId)] });
+    },
+  });
+}
+
+/**
+ * Lectura LAZY de las credenciales de un PPPoE. `enabled` deja que el panel las
+ * pida solo cuando el operador revela el password (click en el ojo), nunca eager.
+ * Es la única vía para obtener el password (el DTO de lista/detalle no lo trae).
+ */
+export function usePppoeCredentials(id: string, enabled: boolean) {
+  return useQuery<PppoeCredentials>({
+    queryKey: credentialsKey(id),
+    queryFn: () => pppoeApi.credentials(id),
+    enabled: enabled && id !== '',
+    staleTime: 60_000,
   });
 }

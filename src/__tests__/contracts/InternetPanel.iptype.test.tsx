@@ -72,6 +72,25 @@ function setupBaseMocks({
     isPending: false,
   } as unknown as ReturnType<typeof usePppoeModule.useCreatePppoe>);
 
+  // Adopción de inventario (#pppoe-adopt) — el branch "sin PPPoE activo" ahora
+  // monta también AssociatePppoeSection, así que estos hooks deben tener stub.
+  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue({
+    data: [],
+    isLoading: false,
+    isError: false,
+    isSuccess: true,
+  } as ReturnType<typeof usePppoeModule.useUnassignedPppoe>);
+  vi.mocked(usePppoeModule.useAssociatePppoe).mockReturnValue({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  } as unknown as ReturnType<typeof usePppoeModule.useAssociatePppoe>);
+  vi.mocked(usePppoeModule.usePppoeCredentials).mockReturnValue({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    isSuccess: false,
+  } as ReturnType<typeof usePppoeModule.usePppoeCredentials>);
+
   vi.mocked(useNasModule.useNasServers).mockReturnValue({
     data: NAS_SERVERS,
   } as ReturnType<typeof useNasModule.useNasServers>);
