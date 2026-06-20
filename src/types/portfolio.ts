@@ -52,3 +52,22 @@ export interface Portfolio {
   /** True when the agent has no GR vendedor mapping → no portfolio to show. */
   unmapped: boolean;
 }
+
+/**
+ * A portfolio item carrying its owning vendedor — admin "all agents" view.
+ * Mirrors the BE `PortfolioItemWithVendedorDto`.
+ */
+export interface PortfolioItemWithVendedor extends PortfolioItem {
+  vendedor: string;
+}
+
+/**
+ * Full payload returned by GET /api/portfolio/all (admin — ALL agents).
+ * One item per (client, vendedor); `summary` is GLOBAL (across all vendedores).
+ * No `unmapped` — the view spans every mapped vendedor by definition.
+ * Mirrors the BE `AllPortfoliosDto`.
+ */
+export interface AllPortfolios {
+  items: PortfolioItemWithVendedor[];
+  summary: PortfolioSummary;
+}
