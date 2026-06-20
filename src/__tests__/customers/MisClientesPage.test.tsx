@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -103,6 +103,29 @@ const allPortfolios: AllPortfolios = {
   },
 };
 
+/** Build N synthetic clients to exercise pagination (25 per page). */
+function bigPortfolio(count: number): Portfolio {
+  const items: PortfolioItem[] = Array.from({ length: count }, (_, i) =>
+    item({ clientId: `c-${i}`, clientName: `Cliente ${String(i).padStart(3, '0')}`, ageBucket: '0-3' }),
+  );
+  return {
+    unmapped: false,
+    items,
+    summary: {
+      total: count,
+      byBucket: { '0-3': count, '3-6': 0, '6-12': 0, '12+': 0 },
+      active: count,
+      withDebt: 0,
+      withClaims: 0,
+    },
+  };
+}
+
+/** The rendered data table (excludes the selector/options, focuses on rows). */
+function getTable() {
+  return screen.getByRole('table');
+}
+
 describe('MisClientesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -123,35 +146,46 @@ describe('MisClientesPage', () => {
     expect(screen.getByRole('heading', { name: /mis clientes/i, level: 1 })).toBeInTheDocument();
   });
 
-  it('renders the summary cards from the summary payload', () => {
+  it('renders the summary KPI cards from the summary payload', () => {
     renderPage();
-    expect(screen.getByText('Total')).toBeInTheDocument();
-    expect(screen.getByText('Activos')).toBeInTheDocument();
-    expect(screen.getByText('Con deuda')).toBeInTheDocument();
-    expect(screen.getByText('Con reclamos')).toBeInTheDocument();
+    // "Con deuda" / "Con reclamos" also exist as filter toggle buttons, so scope
+    // the KPI assertions to the summary region.
+    const summary = screen.getByLabelText('Resumen de la cartera');
+    expect(within(summary).getByText('Total')).toBeInTheDocument();
+    expect(within(summary).getByText('Activos')).toBeInTheDocument();
+    expect(within(summary).getByText('Con deuda')).toBeInTheDocument();
+    expect(within(summary).getByText('Con reclamos')).toBeInTheDocument();
   });
 
-  it('groups clients by age bucket and hides empty buckets', () => {
+  it('renders the clickable age breakdown with every bucket count', () => {
     renderPage();
-    expect(screen.getByRole('heading', { name: '0 a 3 meses' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Más de 12 meses' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: '3 a 6 meses' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: '6 a 12 meses' })).not.toBeInTheDocument();
+    const breakdown = screen.getByLabelText('Antigüedad de la cartera');
+    // All four buckets render as toggle buttons (even empty ones).
+    expect(within(breakdown).getByRole('button', { name: /0 a 3 meses/ })).toBeInTheDocument();
+    expect(within(breakdown).getByRole('button', { name: /3 a 6 meses/ })).toBeInTheDocument();
+    expect(within(breakdown).getByRole('button', { name: /6 a 12 meses/ })).toBeInTheDocument();
+    expect(within(breakdown).getByRole('button', { name: /Más de 12 meses/ })).toBeInTheDocument();
   });
 
-  it('renders client names, status badge, debt chip and claims chip', () => {
+  it('renders client names, status badge, debt chip and claims chip in the table', () => {
     renderPage();
-    expect(screen.getByText('Ana Nueva')).toBeInTheDocument();
-    expect(screen.getByText('Beto Deudor')).toBeInTheDocument();
-    expect(screen.getByText('Deudor')).toBeInTheDocument();
-    expect(screen.getByText(/ARS\s*15\.000,00/)).toBeInTheDocument();
-    expect(screen.getByText('2 reclamos')).toBeInTheDocument();
+    const table = getTable();
+    expect(within(table).getByText('Ana Nueva')).toBeInTheDocument();
+    expect(within(table).getByText('Beto Deudor')).toBeInTheDocument();
+    expect(within(table).getByText('Deudor')).toBeInTheDocument();
+    expect(within(table).getByText(/ARS\s*15\.000,00/)).toBeInTheDocument();
+    expect(within(table).getByText('2 reclamos')).toBeInTheDocument();
   });
 
-  it('makes each client row link to the client detail route', () => {
+  it('makes each client name link to the client detail route', () => {
     renderPage();
     const link = screen.getByText('Ana Nueva').closest('a');
     expect(link).toHaveAttribute('href', '/admin/customers/view/c-1');
+  });
+
+  it('shows a "Mostrando X–Y de Z" counter', () => {
+    renderPage();
+    expect(screen.getByText(/Mostrando 1–2 de 2/)).toBeInTheDocument();
   });
 
   it('shows the unmapped state when the agent has no vendedor', () => {
@@ -181,6 +215,8 @@ describe('MisClientesPage', () => {
     );
     renderPage();
     expect(screen.getByText(/todavía no tenés clientes en tu cartera/i)).toBeInTheDocument();
+    // No table when there's no data at all.
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
   it('shows a spinner while loading', () => {
@@ -195,6 +231,133 @@ describe('MisClientesPage', () => {
     renderPage();
     expect(screen.getByRole('alert')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /reintentar/i })).toBeInTheDocument();
+  });
+
+  // ── Filters (client-side) ───────────────────────────────────────────────────
+
+  it('search by name reduces the list to matching clients', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const table = getTable();
+    expect(within(table).getByText('Ana Nueva')).toBeInTheDocument();
+    expect(within(table).getByText('Beto Deudor')).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Buscar cliente por nombre'), 'ana');
+
+    expect(within(getTable()).getByText('Ana Nueva')).toBeInTheDocument();
+    expect(within(getTable()).queryByText('Beto Deudor')).not.toBeInTheDocument();
+  });
+
+  it('filtering by status keeps only matching clients', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.selectOptions(screen.getByLabelText('Filtrar por estado'), 'late');
+
+    const table = getTable();
+    expect(within(table).getByText('Beto Deudor')).toBeInTheDocument();
+    expect(within(table).queryByText('Ana Nueva')).not.toBeInTheDocument();
+  });
+
+  it('the "Con deuda" toggle keeps only clients with debt', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole('button', { name: 'Con deuda' }));
+
+    const table = getTable();
+    expect(within(table).getByText('Beto Deudor')).toBeInTheDocument();
+    expect(within(table).queryByText('Ana Nueva')).not.toBeInTheDocument();
+  });
+
+  it('the "Con reclamos" toggle keeps only clients with open claims', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole('button', { name: 'Con reclamos' }));
+
+    const table = getTable();
+    expect(within(table).getByText('Beto Deudor')).toBeInTheDocument();
+    expect(within(table).queryByText('Ana Nueva')).not.toBeInTheDocument();
+  });
+
+  it('clicking an age-breakdown card filters the table by that bucket', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const breakdown = screen.getByLabelText('Antigüedad de la cartera');
+    // Beto is 12+; clicking "Más de 12 meses" should drop Ana (0-3).
+    await user.click(within(breakdown).getByRole('button', { name: /Más de 12 meses/ }));
+
+    const table = getTable();
+    expect(within(table).getByText('Beto Deudor')).toBeInTheDocument();
+    expect(within(table).queryByText('Ana Nueva')).not.toBeInTheDocument();
+  });
+
+  it('shows a no-results state with a clear button when filters match nothing', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.type(screen.getByLabelText('Buscar cliente por nombre'), 'zzzz-no-match');
+
+    expect(screen.getByTestId('no-results')).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+
+    // Clearing restores the full list.
+    await user.click(within(screen.getByTestId('no-results')).getByRole('button', { name: /limpiar filtros/i }));
+    expect(within(getTable()).getByText('Ana Nueva')).toBeInTheDocument();
+    expect(within(getTable()).getByText('Beto Deudor')).toBeInTheDocument();
+  });
+
+  it('"Limpiar filtros" appears only when a filter is active and resets everything', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    // No clear button at rest.
+    expect(screen.queryByRole('button', { name: /limpiar filtros/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Con deuda' }));
+    const clearBtn = screen.getByRole('button', { name: /limpiar filtros/i });
+    expect(clearBtn).toBeInTheDocument();
+
+    await user.click(clearBtn);
+    expect(within(getTable()).getByText('Ana Nueva')).toBeInTheDocument();
+    expect(within(getTable()).getByText('Beto Deudor')).toBeInTheDocument();
+  });
+
+  // ── Pagination (25 per page) ────────────────────────────────────────────────
+
+  it('paginates the list to 25 rows per page and renders only the current page', () => {
+    vi.mocked(usePortfolioModule.useMyPortfolio).mockReturnValue(mockQuery({ data: bigPortfolio(30) }));
+    renderPage();
+
+    const table = getTable();
+    const bodyRows = within(table).getAllByRole('row').slice(1); // drop the header row
+    expect(bodyRows).toHaveLength(25);
+    // First page shows the first 25 clients, not the last 5.
+    expect(within(table).getByText('Cliente 000')).toBeInTheDocument();
+    expect(within(table).queryByText('Cliente 029')).not.toBeInTheDocument();
+    expect(screen.getByText(/Mostrando 1–25 de 30/)).toBeInTheDocument();
+  });
+
+  it('navigating to page 2 shows the remaining rows', async () => {
+    const user = userEvent.setup();
+    vi.mocked(usePortfolioModule.useMyPortfolio).mockReturnValue(mockQuery({ data: bigPortfolio(30) }));
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: '2' }));
+
+    const table = getTable();
+    expect(within(table).getByText('Cliente 029')).toBeInTheDocument();
+    expect(within(table).queryByText('Cliente 000')).not.toBeInTheDocument();
+    expect(screen.getByText(/Mostrando 26–30 de 30/)).toBeInTheDocument();
+  });
+
+  it('changing a filter resets pagination back to page 1', async () => {
+    const user = userEvent.setup();
+    vi.mocked(usePortfolioModule.useMyPortfolio).mockReturnValue(mockQuery({ data: bigPortfolio(30) }));
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: '2' }));
+    expect(screen.getByText(/Mostrando 26–30 de 30/)).toBeInTheDocument();
+
+    // Typing a search resets to page 1 (all 30 match "cliente").
+    await user.type(screen.getByLabelText('Buscar cliente por nombre'), 'cliente');
+    expect(screen.getByText(/Mostrando 1–/)).toBeInTheDocument();
   });
 
   // ── Super admin: selector gating ────────────────────────────────────────────
@@ -242,8 +405,8 @@ describe('MisClientesPage', () => {
     expect(usePortfolioModule.usePortfolioByVendedor).toHaveBeenLastCalledWith('Juan Vendedor', true);
     // Title reflects the vendedor.
     expect(screen.getByRole('heading', { name: /cartera de juan vendedor/i, level: 1 })).toBeInTheDocument();
-    // Clients still render (reused body).
-    expect(screen.getByText('Ana Nueva')).toBeInTheDocument();
+    // Clients still render in the table.
+    expect(within(getTable()).getByText('Ana Nueva')).toBeInTheDocument();
   });
 
   // ── Super admin: todos mode ─────────────────────────────────────────────────
@@ -258,19 +421,22 @@ describe('MisClientesPage', () => {
 
     expect(usePortfolioModule.useAllPortfolios).toHaveBeenLastCalledWith(true);
     expect(screen.getByRole('heading', { name: /todas las carteras/i, level: 1 })).toBeInTheDocument();
-    // Each client shows its owning agente/vendedor as a row badge. The vendedor
-    // names ALSO appear as <select> options, so scope to the Agente badge.
-    expect(screen.getByText('Ana Nueva')).toBeInTheDocument();
-    expect(screen.getByText('Carlos Otro')).toBeInTheDocument();
-    expect(screen.getByLabelText('Agente: Juan Vendedor')).toBeInTheDocument();
-    expect(screen.getByLabelText('Agente: Maria Vendedora')).toBeInTheDocument();
+    // Each client shows its owning agente/vendedor as a table cell chip. The
+    // vendedor names ALSO appear as <select> options, so scope to the Agente chip.
+    const table = getTable();
+    expect(within(table).getByText('Ana Nueva')).toBeInTheDocument();
+    expect(within(table).getByText('Carlos Otro')).toBeInTheDocument();
+    expect(within(table).getByLabelText('Agente: Juan Vendedor')).toBeInTheDocument();
+    expect(within(table).getByLabelText('Agente: Maria Vendedora')).toBeInTheDocument();
+    // The Agente column header is present.
+    expect(within(table).getByRole('columnheader', { name: 'Agente' })).toBeInTheDocument();
   });
 
-  it('does not show the Agente badge in mi-cartera mode', () => {
+  it('does not show the Agente column in mi-cartera mode', () => {
     mockPermissions((p) => p === 'recapture.manage');
     renderPage();
-    // Vendedor names appear only as <select> options here, never as Agente badges.
-    expect(screen.queryByLabelText('Agente: Juan Vendedor')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Agente: Maria Vendedora')).not.toBeInTheDocument();
+    const table = getTable();
+    expect(within(table).queryByLabelText('Agente: Juan Vendedor')).not.toBeInTheDocument();
+    expect(within(table).queryByRole('columnheader', { name: 'Agente' })).not.toBeInTheDocument();
   });
 });

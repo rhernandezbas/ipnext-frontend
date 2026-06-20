@@ -1,5 +1,6 @@
-/* "Mis clientes" (Fase 4) — agent portfolio grouped by client age.
-   Uses shared atoms (<Button>, <StatusBadge>) + design tokens only (no magic hex). */
+/* "Mis clientes" (Fase 4) — agent portfolio: summary + filters + paginated table.
+   Uses shared atoms (<Button>, <StatusBadge>, <Spinner>, <Pagination>) + design
+   tokens only (no magic hex). */
 
 .page {
   padding: var(--space-6);
@@ -70,7 +71,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: border-color var(--transition-fast);
+  transition: border-color var(--transition-normal);
 }
 
 .selector:hover {
@@ -82,7 +83,7 @@
   outline-offset: 1px;
 }
 
-/* ── Summary cards ───────────────────────────────────────────────────────── */
+/* ── Summary cards (KPIs) ─────────────────────────────────────────────────── */
 
 .summaryRow {
   display: grid;
@@ -122,103 +123,277 @@
 .debt   { border-left-color: var(--color-status-blocked); }
 .claims { border-left-color: var(--color-status-late); }
 
-/* ── Bucket sections ─────────────────────────────────────────────────────── */
+/* ── Age breakdown (clickable filter cards) ──────────────────────────────── */
 
-.bucketSection {
+.breakdownRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+}
+
+.breakdownCard {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-}
-
-.bucketHeader {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.bucketTitle {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  margin: 0;
-}
-
-.bucketCount {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 var(--space-2);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-secondary);
-  background: var(--color-gray-100);
-  border-radius: var(--radius-full);
-}
-
-/* ── Client rows ─────────────────────────────────────────────────────────── */
-
-.clientList {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--color-surface);
-}
-
-.clientRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
+  align-items: flex-start;
+  gap: var(--space-1);
   padding: var(--space-3) var(--space-4);
-  text-decoration: none;
-  color: inherit;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  border-bottom: 1px solid var(--color-border);
-  transition: background var(--transition-fast);
+  text-align: left;
+  font: inherit;
+  transition: border-color var(--transition-normal), background var(--transition-normal),
+    box-shadow var(--transition-normal);
 }
 
-.clientRow:last-child {
-  border-bottom: none;
-}
-
-.clientRow:hover {
+.breakdownCard:hover {
+  border-color: var(--color-accent);
   background: var(--color-surface-hover);
 }
 
-.clientRow:focus-visible {
+.breakdownCard:focus-visible {
   outline: 2px solid var(--color-primary);
-  outline-offset: -2px;
+  outline-offset: 1px;
 }
 
-.clientName {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+.breakdownCardActive {
+  border-color: var(--color-accent);
+  background: var(--color-surface-hover);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+.breakdownValue {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: var(--line-height-tight);
 }
 
-.clientMeta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.contracts {
+.breakdownLabel {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
 
-/* ── Chips (debt + claims) ───────────────────────────────────────────────── */
+.breakdownCardActive .breakdownLabel {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── Filter bar ──────────────────────────────────────────────────────────── */
+
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.searchWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: var(--space-3);
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-8);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-normal);
+}
+
+.searchInput::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.searchInput:hover {
+  border-color: var(--color-gray-300);
+}
+
+.searchInput:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--badge-active-bg);
+}
+
+.statusFilter {
+  display: inline-flex;
+}
+
+.statusSelect {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color var(--transition-normal);
+}
+
+.statusSelect:hover {
+  border-color: var(--color-accent);
+}
+
+.statusSelect:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.toggle {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: border-color var(--transition-normal), background var(--transition-normal),
+    color var(--transition-normal);
+}
+
+.toggle:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.toggleActive {
+  color: var(--color-white);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.toggleActive:hover {
+  color: var(--color-white);
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+/* Visually-hidden label kept for screen readers. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Result meta ─────────────────────────────────────────────────────────── */
+
+.resultMeta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+
+.tableScroll {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.table thead th {
+  position: sticky;
+  top: 0;
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--color-text-secondary);
+  background: var(--color-gray-50);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.table tbody td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr {
+  transition: background var(--transition-normal);
+}
+
+.table tbody tr:hover {
+  background: var(--color-surface-hover);
+}
+
+.numCol {
+  text-align: right;
+}
+
+.ageCell {
+  color: var(--color-text-secondary);
+}
+
+.muted {
+  color: var(--color-gray-400);
+}
+
+.clientLink {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--transition-normal);
+}
+
+.clientLink:hover {
+  color: var(--color-primary-hover);
+  text-decoration: underline;
+}
+
+.clientLink:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Chips (debt + claims + agente) ──────────────────────────────────────── */
 
 .chip {
   display: inline-flex;
@@ -246,12 +421,12 @@
 .chipAgente {
   background: var(--color-gray-100);
   color: var(--color-text-secondary);
-  max-width: 160px;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* ── State boxes (empty / unmapped / error) ──────────────────────────────── */
+/* ── State boxes (empty / unmapped / error / no-results) ──────────────────── */
 
 .centered {
   display: flex;
@@ -297,7 +472,8 @@
 }
 
 @media (max-width: 900px) {
-  .summaryRow {
+  .summaryRow,
+  .breakdownRow {
     grid-template-columns: repeat(2, 1fr);
   }
 }
