@@ -56,6 +56,8 @@ const CRM_ITEMS: NavParentItem[] = [
       // #2 — "Historial TV" sidebar item removed: history is now in ActivationHistoryModal.
       // #80 — Recaptación: recovery of churned clients as leads. Placed above Configuración.
       { to: '/admin/customers/recaptacion', label: 'Recaptación', requiredPermission: 'recapture.read' },
+      // Mis clientes (Fase 4) — agent's own portfolio. Same gate as Recaptación (recapture.read).
+      { to: '/admin/customers/mis-clientes', label: 'Mis clientes', requiredPermission: 'recapture.read' },
       { to: '/admin/customers/pppoe-cortes', label: 'Cortes PPPoE', requiredPermission: 'pppoe.cut' },
       { to: '/admin/customers/settings', label: 'Configuración' },
     ],
