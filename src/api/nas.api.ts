@@ -21,3 +21,8 @@ export const getRadiusConfig = () =>
 
 export const updateRadiusConfig = (data: Partial<RadiusConfig>) =>
   axiosClient.put<RadiusConfig>('/radius-config', data).then(r => r.data);
+
+export type IpType = 'cgnat' | 'public';
+
+export const getNextFreeIp = (nasId: string, type: IpType): Promise<{ ip: string }> =>
+  axiosClient.get<{ ip: string }>(`/nas/${nasId}/next-free-ip`, { params: { type } }).then(r => r.data);
