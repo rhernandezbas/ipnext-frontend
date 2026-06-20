@@ -705,8 +705,119 @@
   cursor: pointer;
 }
 
+/* ---------- router filter select ---------- */
+.routerSelect {
+  padding: 7px 10px;
+  border: 1px solid var(--gr-border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--gr-text);
+  background: var(--gr-bg);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.routerSelect:focus-visible {
+  border-color: var(--gr-primary-2);
+  outline: 2px solid var(--gr-primary-2);
+  outline-offset: 1px;
+}
+
+/* ---------- error panel ---------- */
+.errorPanel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  color: var(--gr-red);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.btnRetry {
+  border: 1px solid var(--gr-red);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--gr-red);
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btnRetry:hover {
+  background: var(--gr-red-soft);
+}
+
+.btnRetry:focus-visible {
+  outline: 2px solid var(--gr-red);
+  outline-offset: 1px;
+}
+
+/* ---------- skeleton ---------- */
+.skeleton {
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--gr-slate-soft) 25%, #e8edf4 50%, var(--gr-slate-soft) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  margin: 8px 0;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ---------- a11y: focus-visible on all interactive elements ---------- */
+.filter input:focus-visible {
+  outline: 2px solid var(--gr-primary-2);
+  outline-offset: 1px;
+}
+
+/* Make filter fluid (remove fixed 260px) */
+@media (max-width: 768px) {
+  .filter {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .toolbar {
+    flex-wrap: wrap;
+  }
+
+  .kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .tableWrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 1024px) {
+  .filter {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 180px;
+  }
+}
+
 @media (max-width: 1100px) {
   .kpis {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
   }
 }

@@ -45,3 +45,10 @@ export interface Ipv6Network {
   totalPrefixes: number;
   status: 'active' | 'inactive';
 }
+
+export interface PaginatedAssignments {
+  data: IpAssignment[];
+  total: number;
+  page: number;
+  pageSize: number;
+}

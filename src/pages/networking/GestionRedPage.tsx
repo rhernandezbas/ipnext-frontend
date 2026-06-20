@@ -1,4 +1,4 @@
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useMemo, Fragment, useEffect } from 'react';
 import { KebabMenu } from '@/components/atoms/KebabMenu/KebabMenu';
 import { useNasServers, useCreateNasServer, useUpdateNasServer, useDeleteNasServer } from '@/hooks/useNas';
 import { useIpNetworks, useCreateIpNetwork, useDeleteIpNetwork, useIpPools, useCreateIpPool, useDeleteIpPool, useIpAssignments, useIpv6Networks, useCreateIpv6Network } from '@/hooks/useNetwork';
@@ -9,6 +9,7 @@ import { cutoverStats, nextCutoverType, isRadius } from '@/utils/cutover';
 import type { NasServer, NasType } from '@/types/nas';
 import type { IpNetwork, IpPool, IpAssignment, Ipv6Network } from '@/types/network';
 import { formatDateTimeShort } from '@/utils/formatDate';
+import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import styles from './GestionRedPage.module.css';
 
 type Tab = 'nas' | 'redes' | 'pools' | 'asignaciones' | 'ipv6';
@@ -503,6 +504,16 @@ function EditNasModal({ nas, onClose, onSubmit }: EditNasModalProps) {
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
+// ── Debounce hook ─────────────────────────────────────────────────────────────
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
+
 export default function GestionRedPage() {
   const [activeTab, setActiveTab] = useState<Tab>('nas');
   const [showNasModal, setShowNasModal] = useState(false);
@@ -512,26 +523,39 @@ export default function GestionRedPage() {
   const [editingNas, setEditingNas] = useState<NasServer | null>(null);
   const [query, setQuery] = useState('');
 
-  const { data: nasServers = [], isLoading: nasLoading } = useNasServers();
+  // ── Asignaciones server-side pagination state ──────────────────────────────
+  const [asignPage, setAsignPage] = useState(1);
+  const [asignSearchRaw, setAsignSearchRaw] = useState('');
+  const [asignNasId, setAsignNasId] = useState('');
+  const asignSearch = useDebounce(asignSearchRaw, 300);
+
+  const { data: nasServers = [], isLoading: nasLoading, isError: nasError, refetch: refetchNas } = useNasServers();
   const { mutate: createNas } = useCreateNasServer();
   const { mutate: updateNas } = useUpdateNasServer();
   const { mutate: deleteNas } = useDeleteNasServer();
 
-  const { data: networks = [], isLoading: networksLoading } = useIpNetworks();
+  const { data: networks = [], isLoading: networksLoading, isError: networksError, refetch: refetchNetworks } = useIpNetworks();
   const { mutate: createNetwork } = useCreateIpNetwork();
   const { mutate: deleteNetwork } = useDeleteIpNetwork();
 
-  const { data: pools = [], isLoading: poolsLoading } = useIpPools();
+  const { data: pools = [], isLoading: poolsLoading, isError: poolsError, refetch: refetchPools } = useIpPools();
   const { mutate: createPool } = useCreateIpPool();
   const { mutate: deletePool } = useDeleteIpPool();
 
-  const { data: assignments = [], isLoading: assignmentsLoading } = useIpAssignments();
-  const { data: ipv6Networks = [], isLoading: ipv6Loading } = useIpv6Networks();
+  const asignParams = { page: asignPage, pageSize: 25, search: asignSearch || undefined, nasId: asignNasId || undefined };
+  const { data: assignmentsPage, isLoading: assignmentsLoading, isFetching: assignmentsFetching, isError: assignmentsError, refetch: refetchAssignments } = useIpAssignments(asignParams);
+
+  const { data: ipv6Networks = [], isLoading: ipv6Loading, isError: ipv6Error, refetch: refetchIpv6 } = useIpv6Networks();
   const { mutate: createIpv6Network } = useCreateIpv6Network();
   const confirm = useConfirm();
   const { can } = useMyPermissions();
   const canManage = can('network.manage');
   const cutover = cutoverStats(nasServers);
+
+  // Derived assignment values from paginated response
+  const assignments: IpAssignment[] = assignmentsPage?.data ?? [];
+  const assignmentsTotal = assignmentsPage?.total ?? 0;
+  const assignmentsTotalPages = Math.max(1, Math.ceil(assignmentsTotal / 25));
 
   // NAS summary counts
   const totalNas = nasServers.length;
@@ -565,12 +589,6 @@ export default function GestionRedPage() {
     () => (!q ? pools : pools.filter(p =>
       p.name.toLowerCase().includes(q) || p.rangeStart.toLowerCase().includes(q) || p.rangeEnd.toLowerCase().includes(q))),
     [pools, q],
-  );
-
-  const filteredAssignments = useMemo(
-    () => (!q ? assignments : assignments.filter(a =>
-      a.ip.toLowerCase().includes(q) || a.username.toLowerCase().includes(q) || a.status.toLowerCase().includes(q))),
-    [assignments, q],
   );
 
   // Pools grouped by NAS/router (prototype: group header + pool rows)
@@ -627,13 +645,18 @@ export default function GestionRedPage() {
     nas: nasServers.length,
     redes: networks.length,
     pools: pools.length,
-    asignaciones: assignments.length,
+    asignaciones: assignmentsTotal,
     ipv6: ipv6Networks.length,
   };
 
   function changeTab(key: Tab) {
     setQuery('');
     setActiveTab(key);
+    if (key !== 'asignaciones') {
+      setAsignPage(1);
+      setAsignSearchRaw('');
+      setAsignNasId('');
+    }
   }
 
   const headerCta = (
@@ -758,8 +781,10 @@ export default function GestionRedPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {nasLoading ? (
-                    <tr><td colSpan={8} className={styles.muted}>Cargando…</td></tr>
+                  {nasError ? (
+                    <tr><td colSpan={8}><div className={styles.errorPanel} role="alert">No se pudo cargar. <button className={styles.btnRetry} onClick={() => refetchNas()}>Reintentar</button></div></td></tr>
+                  ) : nasLoading ? (
+                    <tr><td colSpan={8}><div role="status" className={styles.skeleton} aria-label="Cargando…" /></td></tr>
                   ) : filteredNas.length === 0 ? (
                     <tr><td colSpan={8} className={styles.muted}>No se encontraron dispositivos NAS.</td></tr>
                   ) : filteredNas.map(n => (
@@ -804,8 +829,10 @@ export default function GestionRedPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {networksLoading ? (
-                    <tr><td colSpan={7} className={styles.muted}>Cargando…</td></tr>
+                  {networksError ? (
+                    <tr><td colSpan={7}><div className={styles.errorPanel} role="alert">No se pudo cargar. <button className={styles.btnRetry} onClick={() => refetchNetworks()}>Reintentar</button></div></td></tr>
+                  ) : networksLoading ? (
+                    <tr><td colSpan={7}><div role="status" className={styles.skeleton} aria-label="Cargando…" /></td></tr>
                   ) : filteredNetworks.length === 0 ? (
                     <tr><td colSpan={7} className={styles.muted}>No se encontraron redes IP.</td></tr>
                   ) : filteredNetworks.map(net => (
@@ -849,8 +876,10 @@ export default function GestionRedPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {poolsLoading ? (
-                    <tr><td colSpan={5} className={styles.muted}>Cargando…</td></tr>
+                  {poolsError ? (
+                    <tr><td colSpan={5}><div className={styles.errorPanel} role="alert">No se pudo cargar. <button className={styles.btnRetry} onClick={() => refetchPools()}>Reintentar</button></div></td></tr>
+                  ) : poolsLoading ? (
+                    <tr><td colSpan={5}><div role="status" className={styles.skeleton} aria-label="Cargando…" /></td></tr>
                   ) : filteredPools.length === 0 ? (
                     <tr><td colSpan={5} className={styles.muted}>No se encontraron pools IP.</td></tr>
                   ) : poolGroups.map(group => (
@@ -887,20 +916,31 @@ export default function GestionRedPage() {
           </>
         )}
 
-        {/* Asignaciones */}
+        {/* Asignaciones — server-side paginated */}
         {activeTab === 'asignaciones' && (
           <>
             <div className={styles.toolbar}>
               <div className={styles.filter}>
                 <IconSearch />
                 <input
-                  placeholder="Buscar por cliente, IP o estado…"
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
+                  placeholder="Buscar por cliente, IP o contrato…"
+                  value={asignSearchRaw}
+                  onChange={e => { setAsignSearchRaw(e.target.value); setAsignPage(1); }}
                   aria-label="Buscar asignaciones"
                 />
               </div>
-              <span className={styles.toolbarRight}>{assignments.length} asignaciones</span>
+              <select
+                className={styles.routerSelect}
+                aria-label="Filtrar por router"
+                value={asignNasId}
+                onChange={e => { setAsignNasId(e.target.value); setAsignPage(1); }}
+              >
+                <option value="">Todos los routers</option>
+                {nasServers.map(n => (
+                  <option key={n.id} value={n.id}>{n.name}</option>
+                ))}
+              </select>
+              <span className={styles.toolbarRight}>{assignmentsTotal} asignaciones</span>
             </div>
             <div className={styles.tableWrap}>
               <table className={styles.table}>
@@ -911,11 +951,13 @@ export default function GestionRedPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {assignmentsLoading ? (
-                    <tr><td colSpan={6} className={styles.muted}>Cargando…</td></tr>
-                  ) : filteredAssignments.length === 0 ? (
+                  {assignmentsError ? (
+                    <tr><td colSpan={6}><div className={styles.errorPanel} role="alert">No se pudo cargar. <button className={styles.btnRetry} onClick={() => refetchAssignments()}>Reintentar</button></div></td></tr>
+                  ) : (assignmentsLoading || assignmentsFetching) && !assignmentsPage ? (
+                    <tr><td colSpan={6}><div role="status" className={styles.skeleton} aria-label="Cargando…" /></td></tr>
+                  ) : assignments.length === 0 ? (
                     <tr><td colSpan={6} className={styles.muted}>No se encontraron asignaciones.</td></tr>
-                  ) : filteredAssignments.map((a: IpAssignment) => (
+                  ) : assignments.map((a: IpAssignment) => (
                     <tr key={a.id} className={styles.bodyRow}>
                       <td className={styles.mono}>{a.ip}</td>
                       <td className={`${styles.mono} ${styles.muted}`}>{a.username}</td>
@@ -926,58 +968,88 @@ export default function GestionRedPage() {
                           <span className={styles.dot} />{a.status}
                         </span>
                       </td>
-                      <td className={`${styles.mono} ${styles.muted}`}>{a.createdAt}</td>
+                      <td className={`${styles.mono} ${styles.muted}`}>{formatDate(a.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            <Pagination
+              currentPage={asignPage}
+              totalPages={assignmentsTotalPages}
+              onPageChange={setAsignPage}
+            />
           </>
         )}
 
         {/* IPv6 */}
-        {activeTab === 'ipv6' && (
-          ipv6Loading ? (
-            <div className={styles.empty}><p>Cargando…</p></div>
-          ) : ipv6Networks.length === 0 ? (
-            <div className={styles.empty}>
-              <IconCube className={styles.emptyIcon} />
-              <h3 className={styles.emptyTitle}>Sin redes IPv6 todavía</h3>
-              <p>Cuando despleguemos IPv6, las redes y delegaciones de prefijo aparecen acá.</p>
-              <Can permission="network.manage">
-                <button className={styles.btnGhost} onClick={() => setShowIpv6Modal(true)}>
-                  <IconPlus />Agregar red IPv6
-                </button>
-              </Can>
-            </div>
-          ) : (
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Red</th><th>Prefijo delegación</th><th>Tipo</th>
-                    <th className="num">Usados / Total</th><th>Estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ipv6Networks.map(net => (
-                    <tr key={net.id} className={styles.bodyRow}>
-                      <td className={`${styles.nm} ${styles.mono}`}>{net.network}</td>
-                      <td className={`${styles.mono} ${styles.muted}`}>/{net.delegationPrefix}</td>
-                      <td><span className={`${styles.badge} ${styles.badgePurple}`}>{net.type}</span></td>
-                      <td className="num">{net.usedPrefixes} / {net.totalPrefixes}</td>
-                      <td>
-                        <span className={`${styles.status} ${net.status === 'active' ? styles.statusOnline : styles.statusOffline}`}>
-                          <span className={styles.dot} />{net.status === 'active' ? 'Activa' : 'Inactiva'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
-        )}
+        {activeTab === 'ipv6' && (() => {
+          const filteredIpv6 = !q ? ipv6Networks : ipv6Networks.filter(n =>
+            n.network.toLowerCase().includes(q) || n.type.toLowerCase().includes(q)
+          );
+          return (
+            <>
+              {ipv6Networks.length > 0 && (
+                <div className={styles.toolbar}>
+                  <div className={styles.filter}>
+                    <IconSearch />
+                    <input
+                      placeholder="Filtrar por red o tipo…"
+                      value={query}
+                      onChange={e => setQuery(e.target.value)}
+                      aria-label="Filtrar IPv6"
+                    />
+                  </div>
+                  <span className={styles.toolbarRight}>{ipv6Networks.length} redes IPv6</span>
+                </div>
+              )}
+              {ipv6Error ? (
+                <div className={styles.errorPanel} role="alert">
+                  No se pudo cargar. <button className={styles.btnRetry} onClick={() => refetchIpv6()}>Reintentar</button>
+                </div>
+              ) : ipv6Loading ? (
+                <div role="status" className={styles.empty}><div className={styles.skeleton} aria-label="Cargando…" /></div>
+              ) : ipv6Networks.length === 0 ? (
+                <div className={styles.empty}>
+                  <IconCube className={styles.emptyIcon} />
+                  <h3 className={styles.emptyTitle}>Sin redes IPv6 todavía</h3>
+                  <p>Cuando despleguemos IPv6, las redes y delegaciones de prefijo aparecen acá.</p>
+                  <Can permission="network.manage">
+                    <button className={styles.btnGhost} onClick={() => setShowIpv6Modal(true)}>
+                      <IconPlus />Agregar red IPv6
+                    </button>
+                  </Can>
+                </div>
+              ) : (
+                <div className={styles.tableWrap}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>Red</th><th>Prefijo delegación</th><th>Tipo</th>
+                        <th className="num">Usados / Total</th><th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredIpv6.map(net => (
+                        <tr key={net.id} className={styles.bodyRow}>
+                          <td className={`${styles.nm} ${styles.mono}`}>{net.network}</td>
+                          <td className={`${styles.mono} ${styles.muted}`}>/{net.delegationPrefix}</td>
+                          <td><span className={`${styles.badge} ${styles.badgePurple}`}>{net.type}</span></td>
+                          <td className="num">{net.usedPrefixes} / {net.totalPrefixes}</td>
+                          <td>
+                            <span className={`${styles.status} ${net.status === 'active' ? styles.statusOnline : styles.statusOffline}`}>
+                              <span className={styles.dot} />{net.status === 'active' ? 'Activa' : 'Inactiva'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
 
       {showNasModal && (
