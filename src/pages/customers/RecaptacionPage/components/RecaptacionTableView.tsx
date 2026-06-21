@@ -169,11 +169,20 @@ export function RecaptacionTableView({
               Limpiar filtros
             </Button>
           </>
-        ) : (
+        ) : canAssign ? (
           <>
             <p className={styles.emptyTitle}>No hay leads de recaptación</p>
             <p className={styles.emptyHint}>
               Ejecutá "Ingestar bajas" para cargar clientes dados de baja como leads.
+            </p>
+          </>
+        ) : (
+          // Agent (no recapture.assign): they cannot ingest, so the admin copy
+          // is misleading. Address them directly.
+          <>
+            <p className={styles.emptyTitle}>Todavía no tenés leads asignados</p>
+            <p className={styles.emptyHint}>
+              El administrador todavía no te asignó leads de recaptación.
             </p>
           </>
         )}

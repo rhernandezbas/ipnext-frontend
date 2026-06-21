@@ -414,32 +414,54 @@ export function Sidebar({ open = true, onToggle }: SidebarProps) {
   const location = useLocation();
 
   /**
+   * Returns true if a child item should be rendered.
+   * While loading → show all (no layout shift).
+   * A child WITHOUT its own requiredPermission inherits the parent's — this
+   * preserves the original "child inherits parent visibility" contract while
+   * letting the parent be a pure container (its visibility derives from its
+   * children, see `canSee`). A child WITH its own permission uses that and is
+   * NOT additionally gated by the parent's permission.
+   */
+  function canSeeChild(child: SubItem, parent: NavParentItem): boolean {
+    if (isLoading) return true;
+    const perm = child.requiredPermission ?? parent.requiredPermission;
+    if (!perm) return true;
+    return can(perm);
+  }
+
+  /**
    * Returns true if the nav item should be rendered.
    * While loading → show all (no layout shift).
-   * No requiredPermission → always show.
+   * Container items (with children) are visible iff at least one child is
+   * visible — the parent's requiredPermission is inherited by permission-less
+   * children rather than acting as a hard wall (a sales agent with only
+   * recapture.read must still reach the Recaptación child inside "Clientes").
+   * Direct-link items (no children) keep their own requiredPermission.
    */
   function canSee(item: NavParentItem): boolean {
     if (isLoading) return true;
+    if (item.children && item.children.length > 0) {
+      return item.children.some((child) => canSeeChild(child, item));
+    }
     if (!item.requiredPermission) return true;
     return can(item.requiredPermission);
   }
 
-  function canSeeChild(child: SubItem): boolean {
-    if (isLoading) return true;
-    if (!child.requiredPermission) return true;
-    return can(child.requiredPermission);
-  }
-
   // Build the visible section list, dropping any section with no visible items.
-  // Also filter each item's children by optional per-child requiredPermission.
+  // For each item: filter its children (with parent-permission inheritance) and
+  // drop container items left with zero visible children. Direct-link items
+  // (with `to`, no children) survive on their own canSee result above.
   const visibleSections = SECTIONS.map((section) => ({
     ...section,
     items: section.items
       .filter(canSee)
       .map((item) => ({
         ...item,
-        children: item.children ? item.children.filter(canSeeChild) : item.children,
-      })),
+        children: item.children
+          ? item.children.filter((child) => canSeeChild(child, item))
+          : item.children,
+      }))
+      .filter((item) => !item.children || item.children.length > 0 || !!item.to),
   })).filter((section) => section.items.length > 0);
 
   // Auto-expand: derive the active section + item from the pathname.
