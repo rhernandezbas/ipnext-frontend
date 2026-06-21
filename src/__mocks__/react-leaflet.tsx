@@ -19,4 +19,12 @@ export const CircleMarker = ({ children }: { children?: React.ReactNode }) => (
   <div data-testid="map-circle">{children}</div>
 );
 
+export const Polygon = ({ children }: { children?: React.ReactNode }) => (
+  <div data-testid="polygon">{children}</div>
+);
+
+export const Tooltip = ({ children }: { children?: React.ReactNode }) => (
+  <div data-testid="tooltip">{children}</div>
+);
+
 export const useMap = vi.fn(() => ({ setView: vi.fn(), fitBounds: vi.fn() }));

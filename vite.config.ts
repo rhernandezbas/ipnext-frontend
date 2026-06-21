@@ -29,6 +29,9 @@ export default defineConfig({
     alias: {
       leaflet: resolve(__dirname, './src/__mocks__/leaflet.ts'),
       'react-leaflet': resolve(__dirname, './src/__mocks__/react-leaflet.tsx'),
+      // Mock leaflet-draw (JS augmentation) and its CSS so tests don't hit the real UMD bundle
+      'leaflet-draw/dist/leaflet.draw.css': resolve(__dirname, './src/__mocks__/leaflet-draw.css'),
+      'leaflet-draw': resolve(__dirname, './src/__mocks__/leaflet-draw.ts'),
     },
   },
   plugins: [react()],
