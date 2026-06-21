@@ -4,6 +4,7 @@ import {
   useAddInstalledItem,
   useUpdateInstalledItem,
   useRemoveInstalledItem,
+  useInspectPppoeDevices,
 } from '@/hooks/useServiceInventory';
 import { useDeviceTypes } from '@/hooks/useDeviceTypes';
 import { Can } from '@/components/auth/Can';
@@ -14,8 +15,10 @@ import type {
   ServiceInstalledItem,
   AddInstalledItemInput,
   UpdateInstalledItemInput,
+  InspectPppoeDevicesResult,
 } from '@/types/serviceInventory';
 import { InstalledItemFormModal } from './contracts/InstalledItemFormModal';
+import { AddByPppoeReviewModal } from './contracts/AddByPppoeReviewModal';
 import styles from './ServiceInventorySection.module.css';
 
 const FALLBACK_TYPES: InstalledItemType[] = ['ONU', 'ROUTER', 'ANTENA', 'REPETIDOR', 'OTROS'];
@@ -34,11 +37,12 @@ interface Props {
   enabled?: boolean;
 }
 
-/** Which modal flow is open: none, create, or editing a specific item. */
+/** Which modal flow is open: none, create, editing a specific item, or pppoe review. */
 type ModalState =
   | { mode: 'closed' }
   | { mode: 'create' }
-  | { mode: 'edit'; item: ServiceInstalledItem };
+  | { mode: 'edit'; item: ServiceInstalledItem }
+  | { mode: 'pppoe-review'; result: InspectPppoeDevicesResult };
 
 const SOURCE_LABELS: Record<string, string> = {
   MANUAL: 'Manual',
@@ -62,6 +66,7 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
   const removeItem = useRemoveInstalledItem(serviceId);
   const { data: deviceTypes = [], isLoading: typesLoading } = useDeviceTypes();
   const confirm = useConfirm();
+  const { inspect, isPending: inspecting } = useInspectPppoeDevices();
 
   // Active types ordered by sortOrder; fall back to hardcoded list while loading
   const activeTypes: InstalledItemType[] = !typesLoading && deviceTypes.length > 0
@@ -70,10 +75,27 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
 
   const [modal, setModal] = useState<ModalState>({ mode: 'closed' });
   const [formError, setFormError] = useState<string | null>(null);
+  const [inspectError, setInspectError] = useState<string | null>(null);
 
   function closeModal() {
     setModal({ mode: 'closed' });
     setFormError(null);
+  }
+
+  async function handleInspectPppoe() {
+    setInspectError(null);
+    try {
+      const result = await inspect(serviceId);
+      setModal({ mode: 'pppoe-review', result });
+    } catch {
+      setInspectError('No se pudo inspeccionar. Revisá la conexión o intentá de nuevo.');
+    }
+  }
+
+  function handlePppoeCreate(input: AddInstalledItemInput): Promise<void> {
+    return new Promise((resolve, reject) => {
+      addItem.mutate(input, { onSuccess: () => resolve(), onError: reject });
+    });
   }
 
   function handleCreate(input: AddInstalledItemInput) {
@@ -113,16 +135,49 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
           )}
         </div>
         <Can permission="inventory.write">
-          <button
-            type="button"
-            className={styles.addBtn}
-            onClick={() => { setFormError(null); setModal({ mode: 'create' }); }}
-          >
-            <span aria-hidden="true" className={styles.addIcon}>+</span>
-            Agregar SN
-          </button>
+          <div className={styles.headerActions}>
+            <button
+              type="button"
+              className={styles.addBtn}
+              onClick={handleInspectPppoe}
+              disabled={inspecting}
+              title="Inspeccioná los equipos conectados via PPPoE en vivo"
+            >
+              {inspecting ? (
+                <>
+                  {/* Spinner SVG */}
+                  <svg className={styles.spinner} width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                    <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="20 14" strokeLinecap="round"/>
+                  </svg>
+                  Inspeccionando…
+                </>
+              ) : (
+                <>
+                  {/* Wireless/PPPoE SVG icon */}
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                    <path d="M7 11a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z" fill="currentColor"/>
+                    <path d="M4.5 9c.7-.7 1.55-1.1 2.5-1.1s1.8.4 2.5 1.1" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+                    <path d="M2.5 6.8C3.8 5.4 5.3 4.6 7 4.6s3.2.8 4.5 2.2" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+                    <path d="M0.5 4.5C2.3 2.6 4.5 1.5 7 1.5s4.7 1.1 6.5 3" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+                  </svg>
+                  Agregar por PPPoE
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              className={styles.addBtn}
+              onClick={() => { setFormError(null); setInspectError(null); setModal({ mode: 'create' }); }}
+            >
+              <span aria-hidden="true" className={styles.addIcon}>+</span>
+              Agregar SN
+            </button>
+          </div>
         </Can>
       </div>
+      {inspectError && (
+        <p className={styles.inspectError} role="alert">{inspectError}</p>
+      )}
 
       {isLoading ? (
         <p className={styles.muted}>Cargando equipos…</p>
@@ -168,7 +223,7 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
         </div>
       )}
 
-      {modal.mode !== 'closed' && (
+      {(modal.mode === 'create' || modal.mode === 'edit') && (
         <InstalledItemFormModal
           types={activeTypes}
           item={modal.mode === 'edit' ? modal.item : null}
@@ -177,6 +232,15 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
           onCreate={handleCreate}
           onUpdate={(patch) => { if (modal.mode === 'edit') handleUpdate(modal.item, patch); }}
           onClose={closeModal}
+        />
+      )}
+
+      {modal.mode === 'pppoe-review' && (
+        <AddByPppoeReviewModal
+          contractId={serviceId}
+          result={modal.result}
+          onClose={closeModal}
+          onCreate={handlePppoeCreate}
         />
       )}
     </div>

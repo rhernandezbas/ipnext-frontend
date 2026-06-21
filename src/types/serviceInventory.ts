@@ -1,6 +1,19 @@
 export type InstalledItemType = string;
 export type InstalledItemStatus = 'active' | 'removed' | 'replaced';
 
+/** Result from GET /contracts/:contractId/inspect-pppoe-devices */
+export interface InspectPppoeDevicesResult {
+  antenna: {
+    mac: string | null;
+    model: string | null;
+  };
+  router: {
+    mac: string;
+    brand: string | null;
+  } | null;
+  warnings: string[];
+}
+
 /** A physical device installed on a contract (Service). One row = one device. */
 export interface ServiceInstalledItem {
   id: string;
