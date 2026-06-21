@@ -361,6 +361,45 @@
   cursor: not-allowed;
 }
 
+/* ── Edit button — more prominent than plain btnSecondary ────────────────── */
+
+.btnEdit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 16px;
+  background: var(--color-white);
+  color: var(--color-primary);
+  border: 1.5px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.btnEdit:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+
+.btnEdit:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.btnEdit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btnEdit {
+    transition: none;
+  }
+}
+
 .btnDanger {
   background: var(--color-status-late);
 }
