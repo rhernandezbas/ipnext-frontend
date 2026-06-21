@@ -19,9 +19,10 @@ import { LogsTab } from './tabs/LogsTab';
 import { ActivityTab } from './tabs/ActivityTab';
 import { CommentsTab } from './tabs/CommentsTab';
 import { ClientEquipmentTab } from './tabs/ClientEquipmentTab';
+import { UbicacionTab } from './tabs/UbicacionTab';
 import styles from './CustomerDetailPage.module.css';
 
-const TAB_IDS = ['information', 'contracts', 'billing', 'statistics', 'documents', 'files', 'logs', 'equipos', 'actividad', 'comentarios'];
+const TAB_IDS = ['information', 'contracts', 'billing', 'statistics', 'documents', 'files', 'logs', 'equipos', 'ubicacion', 'actividad', 'comentarios'];
 const HASH_ALIASES: Record<string, string> = { services: 'contracts' };
 
 function formatBalance(b: number | undefined | null) {
@@ -161,6 +162,11 @@ export default function CustomerDetailPage() {
           },
         ]
       : []),
+    {
+      id: 'ubicacion',
+      label: 'Ubicación',
+      content: <UbicacionTab customer={customer} />,
+    },
     {
       id: 'actividad',
       label: 'Actividad',

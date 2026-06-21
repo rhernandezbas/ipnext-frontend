@@ -19,6 +19,7 @@ import {
   getOnlineSessions,
   disconnectSession,
   deleteCustomer,
+  updateContractLocation,
 } from '../api/customers.api';
 import type {
   ClientsQuery,
@@ -28,10 +29,19 @@ import type {
   ClientDocument,
   ClientFile,
   OnlineSession,
+  ContractLocationPayload,
 } from '../api/customers.api';
 import type { CreateCustomerData, UpdateCustomerData } from '../types/customer';
 
-export type { ClientsQuery, LogsQuery, ClientComment, ClientDocument, ClientFile, OnlineSession };
+export type {
+  ClientsQuery,
+  LogsQuery,
+  ClientComment,
+  ClientDocument,
+  ClientFile,
+  OnlineSession,
+  ContractLocationPayload,
+};
 
 export function useClientList(query: ClientsQuery) {
   return useQuery({
@@ -213,6 +223,28 @@ export function useDeleteCustomer() {
     mutationFn: (id: string) => deleteCustomer(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['clients'] });
+    },
+  });
+}
+
+/**
+ * client-geolocation — Update Prominense GPS data for a contract installation.
+ * Invalidates client-contracts (list) and client (detail) queries so the map
+ * reflects the new location immediately without a manual refresh.
+ */
+export function useUpdateContractLocation(clientId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      contractId,
+      data,
+    }: {
+      contractId: string;
+      data: ContractLocationPayload;
+    }) => updateContractLocation(contractId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['client-contracts', clientId] });
+      qc.invalidateQueries({ queryKey: ['client', clientId] });
     },
   });
 }

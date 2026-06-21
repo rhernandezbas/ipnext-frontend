@@ -201,3 +201,24 @@ export async function disconnectSession(sessionId: number): Promise<void> {
 export async function deleteCustomer(id: string): Promise<void> {
   await axiosClient.delete(`/clients/${id}`);
 }
+
+export interface ContractLocationPayload {
+  gpsLat: number | null;
+  gpsLng: number | null;
+  gpsPlusCode: string | null;
+}
+
+/**
+ * client-geolocation — PATCH /contracts/:id/location
+ * Updates Prominense-owned GPS data for a contract installation point.
+ */
+export async function updateContractLocation(
+  contractId: string,
+  data: ContractLocationPayload,
+): Promise<{ id: string } & ContractLocationPayload> {
+  const response = await axiosClient.patch<{ id: string } & ContractLocationPayload>(
+    `/contracts/${contractId}/location`,
+    data,
+  );
+  return response.data;
+}

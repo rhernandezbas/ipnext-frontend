@@ -14,6 +14,19 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type { Contract, ContractService, ServiceCatalogEntry } from '@/types/customer';
 import type { GigaredConfig } from '@/types/gigared';
 
+// client-geolocation: ContractCard now uses useUpdateContractLocation from
+// useCustomers. Stub it so tests don't require a QueryClientProvider.
+vi.mock('@/hooks/useCustomers', () => ({
+  useUpdateContractLocation: vi.fn(() => ({
+    mutateAsync: vi.fn().mockResolvedValue({}),
+    isPending: false,
+  })),
+  useUpdateContractName: vi.fn(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+  })),
+}));
+
 vi.mock('@/hooks/useContractServices', () => ({
   useAddContractService: vi.fn(),
   useUpdateContractService: vi.fn(),

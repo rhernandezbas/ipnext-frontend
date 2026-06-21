@@ -11,6 +11,8 @@ import { ServicePickerMenu } from './ServicePickerMenu';
 import { GigaredPanel } from './GigaredPanel';
 import { InternetPanel } from './InternetPanel';
 import { ServiceHistoryModal } from '@/components/molecules/ServiceHistoryModal/ServiceHistoryModal';
+import { GeoLocationEditor } from '@/components/molecules/GeoLocationEditor/GeoLocationEditor';
+import { useUpdateContractLocation } from '@/hooks/useCustomers';
 import { formatDateShort } from '@/utils/formatDate';
 import styles from './ContractCard.module.css';
 
@@ -49,6 +51,7 @@ function formatDateRange(start: string, end: string | null): string {
 export function ContractCard({ contract, clientId, active, customer }: Props) {
   const { can } = useMyPermissions();
   const canWrite = can('clients.write');
+  const updateContractLocation = useUpdateContractLocation(clientId);
   const display = contract.name ?? contract.plan;
   const variant = badgeStatus(contract.status);
 
@@ -181,6 +184,24 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
       <div className={styles.equipment}>
         <ServiceInventorySection serviceId={contract.id} enabled={active} />
       </div>
+
+      {/* client-geolocation — GPS editor for this contract's installation point */}
+      <GeoLocationEditor
+        value={{
+          lat: contract.gpsLat ?? null,
+          lng: contract.gpsLng ?? null,
+          plusCode: contract.gpsPlusCode ?? null,
+        }}
+        onSave={async (v) => {
+          await updateContractLocation.mutateAsync({
+            contractId: contract.id,
+            data: { gpsLat: v.lat, gpsLng: v.lng, gpsPlusCode: v.plusCode },
+          });
+        }}
+        canEdit={canWrite}
+        title="Ubicación GPS de la instalación"
+        referenceAddress={contract.address ?? null}
+      />
 
       {tvPanelOpen && (
         <GigaredPanel
