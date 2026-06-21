@@ -49,6 +49,7 @@ import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
 import RecaptacionPage from '@/pages/customers/RecaptacionPage';
 import type { RecaptureLeadsQuery, RecaptureLeadDto } from '@/types/recaptacion';
 import type { RbacUserWithRolesDto } from '@/types/rbacUser';
+import type { RbacRoleDto } from '@/types/rbacRole';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -67,15 +68,32 @@ const lead = (id: string): RecaptureLeadDto => ({
   updatedAt: '2026-06-13T00:00:00Z',
 });
 
+// Sales role — only users carrying this role can be assignees in Recaptación.
+const VENTAS_ROLE: RbacRoleDto = { id: 'role-ventas', code: 'ventas', label: 'Ventas', isSystem: true };
+// A non-sales system role used to prove non-ventas users are excluded.
+const ADMIN_ROLE: RbacRoleDto = { id: 'role-admin', code: 'administrador', label: 'Administrador', isSystem: true };
+
 // Operators come from RbacUser (GET /admin/rbac/users) — NOT the Admin table.
+// Only users with the 'ventas' role belong in the assignee pool.
 const RBAC_USERS: RbacUserWithRolesDto[] = [
-  { id: 'op-1', name: 'Operador Uno', email: 'op1@test.com', login: 'op1', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [] },
-  { id: 'op-2', name: 'Operador Dos', email: 'op2@test.com', login: 'op2', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [] },
+  { id: 'op-1', name: 'Operador Uno', email: 'op1@test.com', login: 'op1', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [VENTAS_ROLE] },
+  { id: 'op-2', name: 'Operador Dos', email: 'op2@test.com', login: 'op2', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [VENTAS_ROLE] },
 ];
 
-// A disabled RbacUser — must NEVER show up in the operator pool (inline or bulk).
+// A disabled RbacUser (with ventas role) — must NEVER show up in the operator
+// pool (inline or bulk) because they are not active.
 const DISABLED_USER: RbacUserWithRolesDto = {
-  id: 'op-off', name: 'Operador Baja', email: 'off@test.com', login: 'off', status: 'disabled', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [],
+  id: 'op-off', name: 'Operador Baja', email: 'off@test.com', login: 'off', status: 'disabled', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [VENTAS_ROLE],
+};
+
+// An active RbacUser WITHOUT the ventas role — must be excluded from the pool.
+const NO_VENTAS_USER: RbacUserWithRolesDto = {
+  id: 'op-noventas', name: 'Sin Ventas', email: 'nv@test.com', login: 'nv', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [],
+};
+
+// An active admin WITHOUT the ventas role — must be excluded from the pool.
+const ADMIN_NO_VENTAS_USER: RbacUserWithRolesDto = {
+  id: 'op-admin', name: 'Admin Solo', email: 'adm@test.com', login: 'adm', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [ADMIN_ROLE],
 };
 
 const EMPTY_RESULT = { data: [], total: 0, page: 1, limit: 25 };
@@ -316,6 +334,54 @@ describe('RecaptacionPage — admin (recapture.assign)', () => {
     const select = screen.getByRole('combobox', { name: /asignar lead lead a/i });
     expect(within(select).getByRole('option', { name: 'Operador Uno' })).toBeInTheDocument();
     expect(within(select).queryByRole('option', { name: 'Operador Baja' })).not.toBeInTheDocument();
+  });
+
+  it('A12 — active users WITHOUT the ventas role are excluded from the bulk pool', async () => {
+    const user = userEvent.setup();
+    mockHooks({
+      leads: [lead('a')],
+      rbacUsers: [...RBAC_USERS, NO_VENTAS_USER, ADMIN_NO_VENTAS_USER],
+    });
+    renderPage();
+
+    await user.click(screen.getByLabelText('Seleccionar fila a'));
+    const select = await screen.findByRole('combobox', { name: /asignar a/i });
+    // ventas users present…
+    expect(within(select).getByRole('option', { name: 'Operador Uno' })).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: 'Operador Dos' })).toBeInTheDocument();
+    // …non-ventas active user and admin-without-ventas excluded.
+    expect(within(select).queryByRole('option', { name: 'Sin Ventas' })).not.toBeInTheDocument();
+    expect(within(select).queryByRole('option', { name: 'Admin Solo' })).not.toBeInTheDocument();
+  });
+
+  it('A13 — active users WITHOUT the ventas role are excluded from the inline pool', () => {
+    mockHooks({
+      leads: [lead('a')],
+      rbacUsers: [...RBAC_USERS, NO_VENTAS_USER, ADMIN_NO_VENTAS_USER],
+    });
+    renderPage();
+
+    const select = screen.getByRole('combobox', { name: /asignar lead lead a/i });
+    expect(within(select).getByRole('option', { name: 'Operador Uno' })).toBeInTheDocument();
+    expect(within(select).queryByRole('option', { name: 'Sin Ventas' })).not.toBeInTheDocument();
+    expect(within(select).queryByRole('option', { name: 'Admin Solo' })).not.toBeInTheDocument();
+  });
+
+  it('A14 — a lead assigned to a user OUTSIDE the ventas pool still shows their name (phantom intact)', () => {
+    // The lead is assigned to an admin who lacks the ventas role, so they are NOT
+    // in the operator pool. The inline select must still reflect the real
+    // assignee via the phantom <option> — the filter must not erase history.
+    mockHooks({
+      leads: [{ ...lead('a'), assigneeId: 'op-admin', assigneeName: 'Admin Solo' }],
+      rbacUsers: [...RBAC_USERS, ADMIN_NO_VENTAS_USER],
+    });
+    renderPage();
+
+    const select = screen.getByRole('combobox', { name: /asignar lead lead a/i }) as HTMLSelectElement;
+    // The phantom keeps the real assignee visible even though they're out of pool.
+    expect(select.value).toBe('op-admin');
+    const phantom = within(select).getByRole('option', { name: 'Admin Solo' }) as HTMLOptionElement;
+    expect(phantom.value).toBe('op-admin');
   });
 
   it('A9 — bulk-assign failure shows an error toast and keeps the selection', async () => {

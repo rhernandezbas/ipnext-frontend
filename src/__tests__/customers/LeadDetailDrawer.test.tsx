@@ -35,6 +35,7 @@ import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
 import { LeadDetailDrawer } from '@/pages/customers/RecaptacionPage/components/LeadDetailDrawer';
 import type { RecaptureLeadDto } from '@/types/recaptacion';
 import type { RbacUserWithRolesDto } from '@/types/rbacUser';
+import type { RbacRoleDto } from '@/types/rbacRole';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -63,11 +64,32 @@ const LEAD_WITH_ASSIGNEE: RecaptureLeadDto = {
 const mutateStatus = vi.fn();
 const mutateAssign = vi.fn();
 
+// Sales role — only users carrying this role qualify as Recaptación assignees.
+const VENTAS_ROLE: RbacRoleDto = { id: 'role-ventas', code: 'ventas', label: 'Ventas', isSystem: true };
+// A non-sales system role used to prove non-ventas users are excluded.
+const ADMIN_ROLE: RbacRoleDto = { id: 'role-admin', code: 'administrador', label: 'Administrador', isSystem: true };
+
 // Assignee pool comes from RbacUser (GET /admin/rbac/users), NOT the Admin table.
+// Same predicate as the rest of the page: ACTIVE + 'ventas' role.
 const RBAC_USERS: RbacUserWithRolesDto[] = [
-  { id: 'op-1', name: 'Operador Uno', email: 'op1@test.com', login: 'op1', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [] },
-  { id: 'op-2', name: 'Operador Dos', email: 'op2@test.com', login: 'op2', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [] },
+  { id: 'op-1', name: 'Operador Uno', email: 'op1@test.com', login: 'op1', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [VENTAS_ROLE] },
+  { id: 'op-2', name: 'Operador Dos', email: 'op2@test.com', login: 'op2', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [VENTAS_ROLE] },
 ];
+
+// A disabled RbacUser (with ventas role) — must NEVER show up in the pool.
+const DISABLED_USER: RbacUserWithRolesDto = {
+  id: 'op-off', name: 'Operador Baja', email: 'off@test.com', login: 'off', status: 'disabled', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [VENTAS_ROLE],
+};
+
+// An active RbacUser WITHOUT the ventas role — must be excluded from the pool.
+const NO_VENTAS_USER: RbacUserWithRolesDto = {
+  id: 'op-noventas', name: 'Sin Ventas', email: 'nv@test.com', login: 'nv', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [],
+};
+
+// An active admin WITHOUT the ventas role — must be excluded from the pool.
+const ADMIN_NO_VENTAS_USER: RbacUserWithRolesDto = {
+  id: 'op-admin', name: 'Admin Solo', email: 'adm@test.com', login: 'adm', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [ADMIN_ROLE],
+};
 
 /**
  * @param opts.has predicate over a SINGLE permission string. Default: grant all.
@@ -204,7 +226,11 @@ describe('LeadDetailDrawer — status selector (#3a)', () => {
 describe('LeadDetailDrawer — assignee name (#3b)', () => {
   it('D6 — shows assigneeName in meta grid when present', () => {
     renderDrawer(LEAD_WITH_ASSIGNEE);
-    expect(screen.getByText('María López')).toBeInTheDocument();
+    // The name appears in the meta grid value span. It may ALSO appear as the
+    // phantom <option> in the operator select (assignee outside the ventas pool),
+    // so scope the assertion to the non-option element.
+    const matches = screen.getAllByText('María López');
+    expect(matches.some((el) => el.tagName !== 'OPTION')).toBe(true);
   });
 
   it('D7 — shows fallback "—" when assigneeName is null', () => {
@@ -307,6 +333,65 @@ describe('LeadDetailDrawer — operator select (recapture.assign)', () => {
     renderDrawer();
     // The agent lacks admin/rbac; GET /admin/rbac/users must stay disabled.
     expect(useRbacUsers).toHaveBeenCalledWith(false);
+  });
+});
+
+// ── ventas-only filter on the drawer operator select ──────────────────────────
+
+describe('LeadDetailDrawer — operator pool restricted to ventas (active)', () => {
+  it('R10 — active users WITHOUT the ventas role are excluded from the operator select', () => {
+    mockHooks({ users: [...RBAC_USERS, NO_VENTAS_USER, ADMIN_NO_VENTAS_USER] });
+    renderDrawer();
+
+    const select = screen.getByRole('combobox', { name: /operador/i });
+    // ventas users present…
+    expect(within(select).getByRole('option', { name: 'Operador Uno' })).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: 'Operador Dos' })).toBeInTheDocument();
+    // …non-ventas active user and admin-without-ventas excluded.
+    expect(within(select).queryByRole('option', { name: 'Sin Ventas' })).not.toBeInTheDocument();
+    expect(within(select).queryByRole('option', { name: 'Admin Solo' })).not.toBeInTheDocument();
+  });
+
+  it('R11 — disabled users (even with ventas role) are excluded from the operator select', () => {
+    mockHooks({ users: [...RBAC_USERS, DISABLED_USER] });
+    renderDrawer();
+
+    const select = screen.getByRole('combobox', { name: /operador/i });
+    expect(within(select).getByRole('option', { name: 'Operador Uno' })).toBeInTheDocument();
+    expect(within(select).queryByRole('option', { name: 'Operador Baja' })).not.toBeInTheDocument();
+  });
+
+  it('R12 — a lead assigned to a user OUTSIDE the ventas pool keeps its assignee (phantom)', () => {
+    // The lead is assigned to an admin who lacks the ventas role, so they are NOT
+    // in the operator pool. The select must STILL reflect the real assignee via a
+    // phantom <option> — the ventas filter must not erase the assignment.
+    const leadOutsidePool: RecaptureLeadDto = {
+      ...BASE_LEAD,
+      assigneeId: 'op-admin',
+      assigneeName: 'Admin Solo',
+      claimedAt: '2026-06-13T10:05:00.000Z',
+    };
+    mockHooks({ users: [...RBAC_USERS, ADMIN_NO_VENTAS_USER] });
+    renderDrawer(leadOutsidePool);
+
+    const select = screen.getByRole('combobox', { name: /operador/i }) as HTMLSelectElement;
+    // value stays on the real assignee even though they are out of pool…
+    expect(select.value).toBe('op-admin');
+    // …and a phantom option carries their name so the select isn't blank.
+    const phantom = within(select).getByRole('option', { name: 'Admin Solo' }) as HTMLOptionElement;
+    expect(phantom.value).toBe('op-admin');
+  });
+
+  it('R13 — empty-pool hint surfaces when canAssign but no ventas user qualifies', () => {
+    mockHooks({ users: [ADMIN_NO_VENTAS_USER] });
+    renderDrawer();
+    expect(screen.getByText(/no hay usuarios con rol ventas/i)).toBeInTheDocument();
+  });
+
+  it('R14 — no empty-pool hint when there IS at least one ventas operator', () => {
+    mockHooks({ users: RBAC_USERS });
+    renderDrawer();
+    expect(screen.queryByText(/no hay usuarios con rol ventas/i)).not.toBeInTheDocument();
   });
 });
 

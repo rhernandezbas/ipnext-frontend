@@ -3,7 +3,7 @@ import { Can } from '@/components/auth/Can';
 import { Button } from '@/components/atoms/Button';
 import { ContractHistoryModal } from '@/components/molecules/ContractHistoryModal';
 import { useRecaptacionLead, useAddContact, useUpdateLeadStatus, useAssignLead } from '@/hooks/useRecaptacion';
-import { useRbacUsers } from '@/hooks/useRbacUsers';
+import { useAssignableOperators } from '@/hooks/useAssignableOperators';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { formatDateTimeShort } from '@/utils/formatDate';
 import {
@@ -147,15 +147,26 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
   const { data: detail, isLoading } = useRecaptacionLead(lead?.id ?? null);
   const updateLeadStatus = useUpdateLeadStatus();
   const assignLead       = useAssignLead();
-  // Assignee candidates come from RbacUser — the BE validates `operatorId`
-  // against RbacUser (NOT the Admin table), so agents live here, and their ids
-  // match `lead.assigneeId` (which is an RbacUser id).
-  const { data: rbacUsers = [] } = useRbacUsers(canAssign);
+  // Assignee candidates come from the SAME shared pool as the page's inline +
+  // bulk selects: ACTIVE RbacUsers WITH the 'ventas' role. The BE validates
+  // `operatorId` against RbacUser (NOT the Admin table), so their ids match
+  // `lead.assigneeId`. Gated by `canAssign` so a manage-only agent never fires
+  // GET /admin/rbac/users.
+  const { operators } = useAssignableOperators(canAssign);
 
   const [showForm, setShowForm] = useState(false);
   const [showContracts, setShowContracts] = useState(false);
 
   if (!lead) return null;
+
+  // A controlled <select> only shows what's in its <option> list. If the lead's
+  // assignee is NOT in the (ventas-only) pool — e.g. an admin assigned before the
+  // filter existed — the select would render blank and silently misreport "Sin
+  // asignar". Inject a phantom option so the select ALWAYS reflects the real
+  // assignee. The ventas filter trims the CHOICES, it never erases an assignment.
+  const assigneeInPool =
+    lead.assigneeId != null && operators.some((op) => op.id === lead.assigneeId);
+  const showPhantom = lead.assigneeId != null && !assigneeInPool;
 
   return (
     <div
@@ -261,10 +272,20 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
                   }}
                 >
                   <option value="">— Sin asignar —</option>
-                  {rbacUsers.map((user) => (
-                    <option key={user.id} value={user.id}>{user.name}</option>
+                  {showPhantom && (
+                    <option value={lead.assigneeId!}>
+                      {lead.assigneeName ?? 'Asignado (fuera de lista)'}
+                    </option>
+                  )}
+                  {operators.map((op) => (
+                    <option key={op.id} value={op.id}>{op.name}</option>
                   ))}
                 </select>
+                {operators.length === 0 && (
+                  <p className={styles.operatorHint} role="note">
+                    No hay usuarios con rol ventas para asignar.
+                  </p>
+                )}
               </div>
             </Can>
 

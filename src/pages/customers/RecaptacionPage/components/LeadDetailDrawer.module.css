@@ -316,3 +316,11 @@
 .statusSelect:focus {
   border-color: var(--color-accent);
 }
+
+/* Subtle hint when the ventas operator pool is empty — tells the admin WHY
+   there is nobody to assign (no active user carries the 'ventas' role). */
+.operatorHint {
+  margin: 2px 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}

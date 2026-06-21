@@ -4,7 +4,7 @@ import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import { Can } from '@/components/auth/Can';
 import { Button } from '@/components/atoms/Button';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
-import { useRbacUsers } from '@/hooks/useRbacUsers';
+import { useAssignableOperators } from '@/hooks/useAssignableOperators';
 import { useRecaptacionLeads, useIngestChurned, useAssignBulk, useAssignLead } from '@/hooks/useRecaptacion';
 import { RECAPTURE_STATUS_LABELS } from '@/types/recaptacion';
 import type { RecaptureLeadDto, RecaptureLeadStatus, RecaptureLeadSource } from '@/types/recaptacion';
@@ -55,16 +55,13 @@ export default function RecaptacionPage() {
   const assignBulk = useAssignBulk();
   // Single-assign from the inline column — same hook the detail drawer uses.
   const assignLead = useAssignLead();
-  // Operator candidates for bulk assign — same pool as the single-assign select.
-  // These are RbacUsers (the BE validates `operatorId` against `RbacUser`, NOT
-  // the `Admin` table). Gated by `canAssign` so a plain agent — who lacks the
-  // admin/rbac permission GET /admin/rbac/users requires — never fires it.
-  const { data: rbacUsers = [] } = useRbacUsers(canAssign);
-  // Only ACTIVE users can be assigned leads — disabled users must never appear
-  // in the operator pool (inline single-assign nor bulk toolbar).
-  const operators = rbacUsers
-    .filter((u) => u.status === 'active')
-    .map((u) => ({ id: u.id, name: u.name }));
+  // Operator pool — single source of truth shared by ALL three assignee selects
+  // (inline column, bulk toolbar, LeadDetailDrawer). Restricted to ACTIVE users
+  // WITH the 'ventas' role; gated by `canAssign` so a plain agent (who lacks the
+  // admin/rbac permission GET /admin/rbac/users requires) never fires it. A lead
+  // already assigned to someone outside this pool keeps showing their name via
+  // the InlineAssignSelect phantom option (intentional).
+  const { operators } = useAssignableOperators(canAssign);
 
   const query = {
     status:     (filter.status || undefined) as RecaptureLeadStatus | undefined,
