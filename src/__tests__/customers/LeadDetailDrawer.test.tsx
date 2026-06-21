@@ -2,6 +2,7 @@
  * LeadDetailDrawer — tests for:
  *   #3a  status selector (6 options, change calls useUpdateLeadStatus, gated by recapture.manage)
  *   #3b  assignee name (assigneeName shown in the meta grid)
+ *   operator select re-gated to recapture.assign; claim/release removed
  */
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -12,32 +13,28 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 vi.mock('@/hooks/useRecaptacion', () => ({
   useRecaptacionLead:   vi.fn(),
-  useClaimLead:         vi.fn(),
-  useReleaseLead:       vi.fn(),
   useAddContact:        vi.fn(),
   useUpdateLeadStatus:  vi.fn(),
   useAssignLead:        vi.fn(),
 }));
 
-vi.mock('@/hooks/useAdmins', () => ({
-  useAdmins: vi.fn(),
+vi.mock('@/hooks/useRbacUsers', () => ({
+  useRbacUsers: vi.fn(),
 }));
 
 import {
   useRecaptacionLead,
-  useClaimLead,
-  useReleaseLead,
   useAddContact,
   useUpdateLeadStatus,
   useAssignLead,
 } from '@/hooks/useRecaptacion';
-import { useAdmins } from '@/hooks/useAdmins';
+import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
 
 import { LeadDetailDrawer } from '@/pages/customers/RecaptacionPage/components/LeadDetailDrawer';
 import type { RecaptureLeadDto } from '@/types/recaptacion';
-import type { Admin } from '@/types/admin';
+import type { RbacUserWithRolesDto } from '@/types/rbacUser';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -63,46 +60,42 @@ const LEAD_WITH_ASSIGNEE: RecaptureLeadDto = {
   claimedAt: '2026-06-13T10:05:00.000Z',
 };
 
-const mutate       = vi.fn();
 const mutateStatus = vi.fn();
 const mutateAssign = vi.fn();
 
-const ADMINS: Admin[] = [
-  { id: 'op-1', name: 'Operador Uno', email: 'op1@test.com', role: 'agent', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', lastLogin: null },
-  { id: 'op-2', name: 'Operador Dos', email: 'op2@test.com', role: 'agent', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', lastLogin: null },
+// Assignee pool comes from RbacUser (GET /admin/rbac/users), NOT the Admin table.
+const RBAC_USERS: RbacUserWithRolesDto[] = [
+  { id: 'op-1', name: 'Operador Uno', email: 'op1@test.com', login: 'op1', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [] },
+  { id: 'op-2', name: 'Operador Dos', email: 'op2@test.com', login: 'op2', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [] },
 ];
 
-function mockHooks(opts?: { hasPermission?: boolean; admins?: Admin[] }) {
-  const hasPermission = opts?.hasPermission ?? true;
-  const admins = opts?.admins ?? ADMINS;
+/**
+ * @param opts.has predicate over a SINGLE permission string. Default: grant all.
+ *   - manage-only agent: `(p) => p === 'recapture.manage'`
+ *   - admin: default (all)
+ * The returned `can` mirrors the real one (accepts string | string[], mode 'any').
+ */
+function mockHooks(opts?: { can?: (p: string) => boolean; users?: RbacUserWithRolesDto[] }) {
+  const has = opts?.can ?? (() => true);
+  const users = opts?.users ?? RBAC_USERS;
+  const can = (perm: string | string[]) => {
+    const list = Array.isArray(perm) ? perm : [perm];
+    return list.some((p) => has(p));
+  };
 
   vi.mocked(useMyPermissions).mockReturnValue({
     user: null,
     roles: [],
-    permissions: hasPermission ? ['*'] : [],
+    permissions: [],
     isLoading: false,
     isError: false,
-    can: () => hasPermission,
+    can: can as never,
   } as UseMyPermissionsResult);
 
   vi.mocked(useRecaptacionLead).mockReturnValue({
     data: undefined,
     isLoading: false,
   } as ReturnType<typeof useRecaptacionLead>);
-
-  vi.mocked(useClaimLead).mockReturnValue({
-    mutate,
-    isPending: false,
-    isError: false,
-    error: null,
-  } as unknown as ReturnType<typeof useClaimLead>);
-
-  vi.mocked(useReleaseLead).mockReturnValue({
-    mutate,
-    isPending: false,
-    isError: false,
-    error: null,
-  } as unknown as ReturnType<typeof useReleaseLead>);
 
   vi.mocked(useAddContact).mockReturnValue({
     mutateAsync: vi.fn().mockResolvedValue({}),
@@ -122,11 +115,11 @@ function mockHooks(opts?: { hasPermission?: boolean; admins?: Admin[] }) {
     isError: false,
   } as unknown as ReturnType<typeof useAssignLead>);
 
-  vi.mocked(useAdmins).mockReturnValue({
-    data: admins,
+  vi.mocked(useRbacUsers).mockReturnValue({
+    data: users,
     isLoading: false,
     isError: false,
-  } as unknown as ReturnType<typeof useAdmins>);
+  } as unknown as ReturnType<typeof useRbacUsers>);
 }
 
 function renderDrawer(lead: RecaptureLeadDto | null = BASE_LEAD) {
@@ -193,9 +186,16 @@ describe('LeadDetailDrawer — status selector (#3a)', () => {
   });
 
   it('D5 — status selector is NOT rendered when user lacks recapture.manage', () => {
-    mockHooks({ hasPermission: false });
+    mockHooks({ can: () => false });
     renderDrawer();
     expect(screen.queryByRole('combobox', { name: /estado/i })).not.toBeInTheDocument();
+  });
+
+  it('D5b — status selector + contact form stay under recapture.manage (no assign needed)', () => {
+    mockHooks({ can: (p) => p === 'recapture.manage' });
+    renderDrawer();
+    expect(screen.getByRole('combobox', { name: /estado/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /registrar contacto/i })).toBeInTheDocument();
   });
 });
 
@@ -224,8 +224,8 @@ describe('LeadDetailDrawer — assignee name (#3b)', () => {
 
 // ── #108 — operator reassign select ──────────────────────────────────────────
 
-describe('LeadDetailDrawer — operator select (#108)', () => {
-  it('R1 — renders operator select with admins as options inside recapture.manage gate', () => {
+describe('LeadDetailDrawer — operator select (recapture.assign)', () => {
+  it('R1 — renders operator select with RbacUser operators inside recapture.assign gate', () => {
     renderDrawer();
     const select = screen.getByRole('combobox', { name: /operador/i });
     expect(select).toBeInTheDocument();
@@ -285,9 +285,41 @@ describe('LeadDetailDrawer — operator select (#108)', () => {
     expect(select).toBeDisabled();
   });
 
-  it('R6 — operator select is NOT rendered when user lacks recapture.manage', () => {
-    mockHooks({ hasPermission: false });
+  it('R6 — operator select is NOT rendered when user lacks recapture.assign', () => {
+    mockHooks({ can: () => false });
     renderDrawer();
     expect(screen.queryByRole('combobox', { name: /operador/i })).not.toBeInTheDocument();
+  });
+
+  it('R7 — operator select is NOT rendered for a manage-only agent (no assign)', () => {
+    mockHooks({ can: (p) => p === 'recapture.manage' });
+    renderDrawer();
+    expect(screen.queryByRole('combobox', { name: /operador/i })).not.toBeInTheDocument();
+  });
+
+  it('R8 — fetches the RbacUser pool (enabled) for an actor who can assign', () => {
+    renderDrawer();
+    expect(useRbacUsers).toHaveBeenCalledWith(true);
+  });
+
+  it('R9 — does NOT fetch the RbacUser pool (enabled=false) for a manage-only agent', () => {
+    mockHooks({ can: (p) => p === 'recapture.manage' });
+    renderDrawer();
+    // The agent lacks admin/rbac; GET /admin/rbac/users must stay disabled.
+    expect(useRbacUsers).toHaveBeenCalledWith(false);
+  });
+});
+
+// ── self-take removed ─────────────────────────────────────────────────────────
+
+describe('LeadDetailDrawer — claim/release removed', () => {
+  it('C1 — no "Tomar lead" button (admin, unassigned lead)', () => {
+    renderDrawer({ ...BASE_LEAD, assigneeId: null });
+    expect(screen.queryByRole('button', { name: /tomar lead/i })).not.toBeInTheDocument();
+  });
+
+  it('C2 — no "Liberar lead" button (admin, assigned lead)', () => {
+    renderDrawer(LEAD_WITH_ASSIGNEE);
+    expect(screen.queryByRole('button', { name: /liberar lead/i })).not.toBeInTheDocument();
   });
 });

@@ -4,11 +4,22 @@ import type { CreateRbacUserPayload, UpdateRbacUserPayload, ChangeRbacUserPasswo
 
 const LIST_KEY = ['rbac', 'users'] as const;
 
-export function useRbacUsers() {
+/**
+ * Lists every RBAC user (admins + agents). Backs the recaptación assignee
+ * dropdowns (single + bulk), since `operatorId` is validated against `RbacUser`
+ * on the BE — NOT the `Admin` table.
+ *
+ * `enabled` gates the request: GET /admin/rbac/users requires the admin/rbac
+ * permission, so a plain agent (who can read recaptación but not assign) must
+ * NOT fire it. Callers pass their `recapture.assign` flag. Defaults to `true`
+ * to preserve existing call sites.
+ */
+export function useRbacUsers(enabled = true) {
   return useQuery({
     queryKey: LIST_KEY,
     queryFn: rbacUsersApi.list,
     staleTime: 30_000,
+    enabled,
   });
 }
 

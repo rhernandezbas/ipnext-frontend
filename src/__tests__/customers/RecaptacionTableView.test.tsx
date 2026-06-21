@@ -1,8 +1,10 @@
 /**
  * RecaptacionTableView — tests for:
  *   #3b  Assignee column shows assigneeName (not assigneeId)
+ *   multi-select passthrough to DataTable (admin bulk-assign)
  */
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { RecaptacionTableView } from '@/pages/customers/RecaptacionPage/components/RecaptacionTableView';
 import type { RecaptureLeadDto } from '@/types/recaptacion';
@@ -54,5 +56,59 @@ describe('RecaptacionTableView — assignee name (#3b)', () => {
     render(<RecaptacionTableView leads={[lead]} />);
     // Should show the id as last resort, not "—"
     expect(screen.getByText('user-42')).toBeInTheDocument();
+  });
+});
+
+describe('RecaptacionTableView — multi-select passthrough', () => {
+  const lead = (id: string): RecaptureLeadDto => ({ ...BASE_LEAD, id, contactName: `Lead ${id}` });
+
+  it('S1 — renders no checkboxes by default (selectable off)', () => {
+    render(<RecaptacionTableView leads={[lead('a'), lead('b')]} />);
+    expect(screen.queryByLabelText('Seleccionar todos')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Seleccionar fila/)).not.toBeInTheDocument();
+  });
+
+  it('S2 — renders row + "select all" checkboxes when selectable', () => {
+    render(
+      <RecaptacionTableView
+        leads={[lead('a'), lead('b')]}
+        selectable
+        selectedIds={[]}
+        onSelectionChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText('Seleccionar todos')).toBeInTheDocument();
+    expect(screen.getByLabelText('Seleccionar fila a')).toBeInTheDocument();
+    expect(screen.getByLabelText('Seleccionar fila b')).toBeInTheDocument();
+  });
+
+  it('S3 — toggling a row checkbox reports the new selection', async () => {
+    const user = userEvent.setup();
+    const onSelectionChange = vi.fn();
+    render(
+      <RecaptacionTableView
+        leads={[lead('a'), lead('b')]}
+        selectable
+        selectedIds={[]}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+
+    await user.click(screen.getByLabelText('Seleccionar fila a'));
+
+    expect(onSelectionChange).toHaveBeenCalledWith(['a']);
+  });
+
+  it('S4 — reflects controlled selectedIds', () => {
+    render(
+      <RecaptacionTableView
+        leads={[lead('a'), lead('b')]}
+        selectable
+        selectedIds={['a']}
+        onSelectionChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText('Seleccionar fila a')).toBeChecked();
+    expect(screen.getByLabelText('Seleccionar fila b')).not.toBeChecked();
   });
 });

@@ -161,4 +161,19 @@ describe('CustomersSettingsPage', () => {
     // GigaredTvBody status text proves the body mounted.
     expect(screen.getByText(/sin configurar/i)).toBeInTheDocument();
   });
+
+  // --- recapture-admin-assign: Vendedores GR tab gated by recapture.assign ---
+  it('shows the "Vendedores GR" tab when the user has recapture.assign', () => {
+    renderPage();
+    expect(screen.getByRole('tab', { name: 'Vendedores GR' })).toBeInTheDocument();
+  });
+
+  it('hides the "Vendedores GR" tab when the user lacks recapture.assign', () => {
+    permHandle.can = (p) => {
+      const perms = Array.isArray(p) ? p : [p];
+      return !perms.includes('recapture.assign');
+    };
+    renderPage();
+    expect(screen.queryByRole('tab', { name: 'Vendedores GR' })).not.toBeInTheDocument();
+  });
 });

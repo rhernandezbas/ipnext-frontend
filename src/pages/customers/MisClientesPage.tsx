@@ -471,7 +471,7 @@ interface CarteraSelectorProps {
 }
 
 /**
- * Super-admin-only picker (gated by recapture.manage at the call site).
+ * Super-admin-only picker (gated by recapture.assign at the call site).
  * Native <select>: vendedores can be many, so a dropdown scales past the
  * 2–5 sweet spot of a segmented control. Options: Mi cartera (default),
  * Todos los agentes, then each vendedor.
@@ -506,7 +506,10 @@ function CarteraSelector({ mode, vendedores, onChange }: CarteraSelectorProps) {
 
 export default function MisClientesPage() {
   const { can } = useMyPermissions();
-  const canManage = can('recapture.manage');
+  // The cross-agent portfolio views (/by-vendedor, /all) are gated by
+  // `recapture.assign` on the BE; the cartera selector that triggers them must
+  // match so an agent never sees a control that 403s.
+  const canManage = can('recapture.assign');
 
   const [mode, setMode] = useState<ViewMode>(MODE_MINE);
   // A non-admin can never be in an admin mode; coerce defensively.
@@ -522,7 +525,9 @@ export default function MisClientesPage() {
   const mineQuery = useMyPortfolio();
   const vendedorQuery = usePortfolioByVendedor(selectedVendedor, canManage && isVendedor);
   const allQuery = useAllPortfolios(canManage && isAll);
-  const { data: vendedores = [] } = useGrVendedores();
+  // GET /vendedores is gated by recapture.assign on the BE; only fetch the
+  // catalog for a manager so a plain agent never triggers a 403.
+  const { data: vendedores = [] } = useGrVendedores(canManage);
 
   // Pick the active query for the current mode.
   const active = isAll ? allQuery : isVendedor ? vendedorQuery : mineQuery;

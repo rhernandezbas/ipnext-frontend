@@ -31,7 +31,7 @@ export default function CustomersSettingsPage() {
     ...(can('tv.manage')
       ? [{ id: 'gigared', label: 'Gigared TV', content: <GigaredTvBody /> }]
       : []),
-    ...(can('recapture.read')
+    ...(can('recapture.assign')
       ? [{ id: 'vendedores-gr', label: 'Vendedores GR', content: <VendedorMappingBody /> }]
       : []),
   ];

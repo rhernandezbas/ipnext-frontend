@@ -6,7 +6,7 @@ const VENDEDORES_KEY = ['gr-vendedores'] as const;
 
 /**
  * Lista los usuarios con su vendedor de Gestión Real mapeado (o null si sin mapeo).
- * Gate: recapture.read
+ * Gate: recapture.assign
  */
 export function useGrVendedorMappings() {
   return useQuery({
@@ -18,20 +18,25 @@ export function useGrVendedorMappings() {
 
 /**
  * Catálogo de nombres de vendedor distintos de Gestión Real (para el dropdown).
- * Gate: recapture.read
+ * Gate: recapture.assign
+ *
+ * `enabled` evita el 403: GET /vendedores exige `recapture.assign` en el BE, así
+ * que un agente sin ese permiso NO debe dispararlo. El default `true` preserva
+ * los call sites ya gateados aguas arriba (p.ej. settings de admin).
  */
-export function useGrVendedores() {
+export function useGrVendedores(enabled = true) {
   return useQuery({
     queryKey: VENDEDORES_KEY,
     queryFn: grVendedorMappingsApi.listVendedores,
     staleTime: 5 * 60_000,
+    enabled,
   });
 }
 
 /**
  * Cambia (o borra con null) el mapeo usuario → vendedor GR.
  * Invalida la lista de mapeos al éxito.
- * Gate: recapture.manage
+ * Gate: recapture.assign
  */
 export function useSetGrVendedorMapping() {
   const qc = useQueryClient();

@@ -74,6 +74,12 @@ interface RecaptacionTableViewProps {
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
   onRowClick?: (lead: RecaptureLeadDto) => void;
+  /** Admin bulk-assign: when true, DataTable renders selection checkboxes. */
+  selectable?: boolean;
+  /** Controlled selection ids (lead ids). Owned by the page. */
+  selectedIds?: string[];
+  /** Reports the new selection back to the page. */
+  onSelectionChange?: (selectedIds: string[]) => void;
 }
 
 export function RecaptacionTableView({
@@ -82,6 +88,9 @@ export function RecaptacionTableView({
   hasActiveFilters = false,
   onClearFilters,
   onRowClick,
+  selectable = false,
+  selectedIds,
+  onSelectionChange,
 }: RecaptacionTableViewProps) {
   // Custom empty state so we can offer a "clear filters" CTA.
   if (!loading && leads.length === 0) {
@@ -131,6 +140,9 @@ export function RecaptacionTableView({
         data={leads}
         loading={loading}
         emptyMessage="No hay leads."
+        selectable={selectable}
+        selectedIds={selectedIds}
+        onSelectionChange={onSelectionChange}
         actions={
           onRowClick
             ? [{ label: 'Ver detalle', onClick: onRowClick }]

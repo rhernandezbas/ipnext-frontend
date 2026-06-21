@@ -6,43 +6,25 @@ import type { ReactNode } from 'react';
 vi.mock('@/api/recaptacion.api', () => ({
   listRecaptureLeads:        vi.fn(),
   getRecaptureLead:          vi.fn(),
-  claimRecaptureLead:        vi.fn(),
-  claimNextRecaptureLead:    vi.fn(),
-  releaseRecaptureLead:      vi.fn(),
   updateRecaptureLeadStatus: vi.fn(),
   addRecaptureContact:       vi.fn(),
   assignRecaptureLead:       vi.fn(),
-  // Real-ish implementation: detect the 409 shape the api would reject with.
-  isLeadConflictError: (err: unknown) =>
-    typeof err === 'object' && err !== null &&
-    (err as { response?: { status?: number } }).response?.status === 409,
+  assignBulkRecaptureLeads:  vi.fn(),
 }));
 
 import {
   listRecaptureLeads,
   getRecaptureLead,
-  claimRecaptureLead,
-  claimNextRecaptureLead,
-  releaseRecaptureLead,
   assignRecaptureLead,
+  assignBulkRecaptureLeads,
 } from '@/api/recaptacion.api';
 import {
   useRecaptacionLeads,
   useRecaptacionLead,
-  useClaimLead,
-  useClaimNext,
-  useReleaseLead,
   useAssignLead,
-  CLAIM_CONFLICT_MESSAGE,
+  useAssignBulk,
 } from '@/hooks/useRecaptacion';
 
-/** Build an axios-like 409 error (the shape claimRecaptureLead rejects with). */
-function make409(): unknown {
-  return {
-    isAxiosError: true,
-    response: { status: 409, data: { code: 'RECAPTURE_LEAD_ALREADY_CLAIMED' } },
-  };
-}
 import type { RecaptureLeadDto, RecaptureLeadDetailDto } from '@/types/recaptacion';
 
 const LEAD: RecaptureLeadDto = {
@@ -114,88 +96,6 @@ describe('useRecaptacionLead', () => {
   });
 });
 
-describe('useClaimLead', () => {
-  it('calls claimRecaptureLead with the given id', async () => {
-    vi.mocked(claimRecaptureLead).mockResolvedValue({ ...LEAD, assigneeId: 'user-1', status: 'en_gestion', claimedAt: '2026-06-13T00:01:00.000Z' });
-
-    const { result } = renderHook(() => useClaimLead(), { wrapper });
-
-    result.current.mutate('lead-1');
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(claimRecaptureLead).toHaveBeenCalledWith('lead-1');
-  });
-});
-
-describe('useClaimNext', () => {
-  it('returns null when no free leads (204)', async () => {
-    vi.mocked(claimNextRecaptureLead).mockResolvedValue(null);
-
-    const { result } = renderHook(() => useClaimNext(), { wrapper });
-
-    result.current.mutate();
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toBeNull();
-  });
-
-  it('returns the claimed lead on success', async () => {
-    vi.mocked(claimNextRecaptureLead).mockResolvedValue({ ...LEAD, assigneeId: 'user-1', status: 'en_gestion', claimedAt: '2026-06-13T00:02:00.000Z' });
-
-    const { result } = renderHook(() => useClaimNext(), { wrapper });
-
-    result.current.mutate();
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.assigneeId).toBe('user-1');
-  });
-});
-
-// ── 409 conflict handling on claim ─────────────────────────────────────────────
-// The 409 (another operator already claimed the lead) is expected business state,
-// not a crash. The mutation must surface a clear message AND invalidate the
-// queries even on error, so the list/detail refresh and the lead stops looking free.
-
-describe('useClaimLead — 409 conflict', () => {
-  it('surfaces a friendly message and invalidates queries on 409', async () => {
-    vi.mocked(claimRecaptureLead).mockRejectedValue(make409());
-
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
-    const localWrapper = ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
-    );
-
-    const { result } = renderHook(() => useClaimLead(), { wrapper: localWrapper });
-
-    result.current.mutate('lead-1');
-
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    // Friendly, user-facing message — not a raw axios error
-    expect(result.current.error?.message).toBe(CLAIM_CONFLICT_MESSAGE);
-    // Invalidation happened on error (refresh the stale "free" view)
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['recaptacion'] });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['recaptacion-lead', 'lead-1'] });
-  });
-});
-
-describe('useReleaseLead — 409 conflict', () => {
-  it('invalidates queries on error', async () => {
-    vi.mocked(releaseRecaptureLead).mockRejectedValue(make409());
-
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
-    const localWrapper = ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
-    );
-
-    const { result } = renderHook(() => useReleaseLead(), { wrapper: localWrapper });
-
-    result.current.mutate('lead-1');
-
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['recaptacion'] });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['recaptacion-lead', 'lead-1'] });
-  });
-});
-
 // ── useAssignLead ─────────────────────────────────────────────────────────────
 
 describe('useAssignLead', () => {
@@ -245,5 +145,49 @@ describe('useAssignLead', () => {
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['recaptacion'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['recaptacion-lead', 'lead-1'] });
+  });
+});
+
+// ── useAssignBulk ─────────────────────────────────────────────────────────────
+
+describe('useAssignBulk', () => {
+  it('calls assignBulkRecaptureLeads with leadIds and operatorId', async () => {
+    vi.mocked(assignBulkRecaptureLeads).mockResolvedValue({ assigned: 2 });
+
+    const { result } = renderHook(() => useAssignBulk(), { wrapper });
+
+    result.current.mutate({ leadIds: ['l1', 'l2'], operatorId: 'op-2' });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(assignBulkRecaptureLeads).toHaveBeenCalledWith({ leadIds: ['l1', 'l2'], operatorId: 'op-2' });
+    expect(result.current.data).toEqual({ assigned: 2 });
+  });
+
+  it('passes null operatorId to bulk-unassign', async () => {
+    vi.mocked(assignBulkRecaptureLeads).mockResolvedValue({ assigned: 1 });
+
+    const { result } = renderHook(() => useAssignBulk(), { wrapper });
+
+    result.current.mutate({ leadIds: ['l1'], operatorId: null });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(assignBulkRecaptureLeads).toHaveBeenCalledWith({ leadIds: ['l1'], operatorId: null });
+  });
+
+  it('invalidates the recaptacion list on success', async () => {
+    vi.mocked(assignBulkRecaptureLeads).mockResolvedValue({ assigned: 3 });
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    const localWrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useAssignBulk(), { wrapper: localWrapper });
+
+    result.current.mutate({ leadIds: ['l1', 'l2', 'l3'], operatorId: 'op-1' });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['recaptacion'] });
   });
 });

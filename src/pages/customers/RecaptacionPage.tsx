@@ -3,12 +3,15 @@ import { FilterBar } from '@/components/molecules/FilterBar/FilterBar';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import { Can } from '@/components/auth/Can';
 import { Button } from '@/components/atoms/Button';
-import { useRecaptacionLeads, useClaimNext, useIngestChurned } from '@/hooks/useRecaptacion';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
+import { useRbacUsers } from '@/hooks/useRbacUsers';
+import { useRecaptacionLeads, useIngestChurned, useAssignBulk } from '@/hooks/useRecaptacion';
 import { RECAPTURE_STATUS_LABELS } from '@/types/recaptacion';
 import type { RecaptureLeadDto, RecaptureLeadStatus, RecaptureLeadSource } from '@/types/recaptacion';
 import { RecaptacionTableView } from './RecaptacionPage/components/RecaptacionTableView';
 import { LeadDetailDrawer } from './RecaptacionPage/components/LeadDetailDrawer';
 import { ImportCsvModal } from './RecaptacionPage/components/ImportCsvModal';
+import { BulkAssignToolbar } from './RecaptacionPage/components/BulkAssignToolbar';
 import { useRecaptacionFilterUrl } from './RecaptacionPage/hooks/useRecaptacionFilterUrl';
 import styles from './RecaptacionPage.module.css';
 
@@ -42,18 +45,30 @@ const STATUS_OPTIONS = [
 ];
 
 export default function RecaptacionPage() {
+  const { can } = useMyPermissions();
+  // Admin assignment capability: drives the entire admin-only surface on this
+  // page (multi-select, bulk toolbar, ingest, CSV, assignment filter).
+  const canAssign = can('recapture.assign');
+
   const [page, setPage] = useState(1);
   const { filter, setFilter, clearFilter } = useRecaptacionFilterUrl();
   const [selectedLead, setSelectedLead] = useState<RecaptureLeadDto | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [toast, setToast] = useState<{ msg: string; variant: 'success' | 'error' } | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Source tab: default to 'churned_client' when not set in URL
   const activeSource: RecaptureLeadSource = filter.source ?? 'churned_client';
 
-  const claimNext = useClaimNext();
   const ingestChurned = useIngestChurned();
+  const assignBulk = useAssignBulk();
+  // Operator candidates for bulk assign — same pool as the single-assign select.
+  // These are RbacUsers (the BE validates `operatorId` against `RbacUser`, NOT
+  // the `Admin` table). Gated by `canAssign` so a plain agent — who lacks the
+  // admin/rbac permission GET /admin/rbac/users requires — never fires it.
+  const { data: rbacUsers = [] } = useRbacUsers(canAssign);
+  const operators = rbacUsers.map((u) => ({ id: u.id, name: u.name }));
 
   const query = {
     status:     (filter.status || undefined) as RecaptureLeadStatus | undefined,
@@ -71,20 +86,10 @@ export default function RecaptacionPage() {
   const hasActiveFilters =
     !!filter.status || !!filter.assigneeId || !!filter.unassigned;
 
-  function showToast(msg: string) {
-    setToast(msg);
+  function showToast(msg: string, variant: 'success' | 'error' = 'success') {
+    setToast({ msg, variant });
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 4000);
-  }
-
-  async function handleClaimNext() {
-    const lead = await claimNext.mutateAsync();
-    if (lead) {
-      showToast(`Lead "${lead.contactName}" tomado correctamente.`);
-      setSelectedLead(lead);
-    } else {
-      showToast('No hay leads libres disponibles en este momento.');
-    }
   }
 
   async function handleIngestChurned() {
@@ -92,8 +97,25 @@ export default function RecaptacionPage() {
     showToast(`${created} leads creados, ${skipped} ya existían.`);
   }
 
+  async function handleBulkAssign(operatorId: string | null) {
+    const requested = selectedIds.length;
+    try {
+      const { assigned } = await assignBulk.mutateAsync({ leadIds: selectedIds, operatorId });
+      const noun = operatorId === null ? 'desasignados' : 'asignados';
+      const msg = assigned === requested
+        ? `${assigned} leads ${noun} correctamente.`
+        : `${assigned} de ${requested} leads ${noun}.`;
+      showToast(msg);
+      // Only clear on success; on error keep the selection so the admin can retry.
+      setSelectedIds([]);
+    } catch {
+      showToast('No se pudo completar la asignación. Intentá nuevamente.', 'error');
+    }
+  }
+
   function handleFilterChange(key: string, value: string) {
     setPage(1);
+    setSelectedIds([]); // selection is scoped to the current view
     if (key === 'status') {
       setFilter({ status: (value as RecaptureLeadStatus) || undefined });
     } else if (key === 'unassigned') {
@@ -104,6 +126,25 @@ export default function RecaptacionPage() {
   function handleSearch(_value: string) {
     // The recaptacion API doesn't support full-text search; no-op for now.
   }
+
+  // Filters: status is shown to everyone; the assignment filter is admin-only.
+  const filters = [
+    {
+      key: 'status',
+      label: 'Estado',
+      options: STATUS_OPTIONS,
+    },
+    ...(canAssign
+      ? [{
+          key: 'unassigned',
+          label: 'Asignación',
+          options: [
+            { value: '', label: 'Todos' },
+            { value: 'true', label: 'Sin asignar' },
+          ],
+        }]
+      : []),
+  ];
 
   return (
     <div className={styles.page}>
@@ -122,7 +163,7 @@ export default function RecaptacionPage() {
           >
             <IconRefresh />
           </Button>
-          <Can permission="recapture.manage">
+          <Can permission="recapture.assign">
             <Button
               variant="secondary"
               loading={ingestChurned.isPending}
@@ -136,13 +177,6 @@ export default function RecaptacionPage() {
             >
               Importar CSV
             </Button>
-            <Button
-              variant="primary"
-              loading={claimNext.isPending}
-              onClick={() => void handleClaimNext()}
-            >
-              Tomar siguiente
-            </Button>
           </Can>
         </div>
       </div>
@@ -155,34 +189,31 @@ export default function RecaptacionPage() {
             type="button"
             aria-pressed={activeSource === source}
             className={activeSource === source ? styles.sourceTabActive : styles.sourceTab}
-            onClick={() => { setPage(1); setFilter({ source }); }}
+            onClick={() => { setPage(1); setSelectedIds([]); setFilter({ source }); }}
           >
             {label}
           </button>
         ))}
       </div>
 
-      {/* FilterBar — status select + unassigned toggle */}
+      {/* FilterBar — status select (all) + assignment filter (admin only) */}
       <FilterBar
         onSearch={handleSearch}
         searchPlaceholder="Buscar lead…"
-        filters={[
-          {
-            key: 'status',
-            label: 'Estado',
-            options: STATUS_OPTIONS,
-          },
-          {
-            key: 'unassigned',
-            label: 'Asignación',
-            options: [
-              { value: '', label: 'Todos' },
-              { value: 'true', label: 'Sin asignar' },
-            ],
-          },
-        ]}
+        filters={filters}
         onFilterChange={handleFilterChange}
       />
+
+      {/* Bulk-assign toolbar — admin only, when at least one lead is selected */}
+      {canAssign && selectedIds.length > 0 && (
+        <BulkAssignToolbar
+          count={selectedIds.length}
+          operators={operators}
+          pending={assignBulk.isPending}
+          onAssign={(operatorId) => void handleBulkAssign(operatorId)}
+          onClear={() => setSelectedIds([])}
+        />
+      )}
 
       {/* Table + pagination */}
       <div className={styles.tableSection}>
@@ -190,11 +221,18 @@ export default function RecaptacionPage() {
           leads={data?.data ?? []}
           loading={isLoading}
           hasActiveFilters={hasActiveFilters}
-          onClearFilters={() => { setPage(1); clearFilter(); }}
+          onClearFilters={() => { setPage(1); setSelectedIds([]); clearFilter(); }}
           onRowClick={(lead) => setSelectedLead(lead)}
+          selectable={canAssign}
+          selectedIds={selectedIds}
+          onSelectionChange={setSelectedIds}
         />
         {(data?.data?.length ?? 0) > 0 && (
-          <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={(p) => { setSelectedIds([]); setPage(p); }}
+          />
         )}
       </div>
 
@@ -220,8 +258,13 @@ export default function RecaptacionPage() {
 
       {/* Toast */}
       {toast && (
-        <div className={styles.toastSuccess} role="status" aria-live="polite" aria-atomic="true">
-          {toast}
+        <div
+          className={toast.variant === 'error' ? styles.toastError : styles.toastSuccess}
+          role={toast.variant === 'error' ? 'alert' : 'status'}
+          aria-live={toast.variant === 'error' ? 'assertive' : 'polite'}
+          aria-atomic="true"
+        >
+          {toast.msg}
         </div>
       )}
     </div>

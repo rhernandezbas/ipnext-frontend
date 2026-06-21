@@ -162,32 +162,36 @@ describe('VendedorMappingBody', () => {
     expect(screen.getByText(/no se pudo cargar/i)).toBeInTheDocument();
   });
 
-  it('disables the dropdown when the user lacks recapture.manage', () => {
+  it('renders the table and enables the dropdown with recapture.assign', () => {
     vi.mocked(useMyPermissions).mockReturnValue({
-      permissions: ['recapture.read'],
+      permissions: ['recapture.assign'],
       roles: [],
       user: null,
       isLoading: false,
       isError: false,
       can: (perm: string | string[]) => {
         const list = Array.isArray(perm) ? perm : [perm];
-        return list.includes('recapture.read');
+        return list.includes('recapture.assign');
       },
     } as never);
     mockMappings([makeItem({ userName: 'Ana Pérez' })]);
     render(<VendedorMappingBody />);
 
-    expect(screen.getByLabelText(/vendedor de ana pérez/i)).toBeDisabled();
+    expect(screen.getByText('Ana Pérez')).toBeInTheDocument();
+    expect(screen.getByLabelText(/vendedor de ana pérez/i)).not.toBeDisabled();
   });
 
-  it('hides the whole table when the user lacks recapture.read', () => {
+  it('hides the whole table when the user lacks recapture.assign (read/manage are not enough)', () => {
     vi.mocked(useMyPermissions).mockReturnValue({
-      permissions: [],
+      permissions: ['recapture.read', 'recapture.manage'],
       roles: [],
       user: null,
       isLoading: false,
       isError: false,
-      can: () => false,
+      can: (perm: string | string[]) => {
+        const list = Array.isArray(perm) ? perm : [perm];
+        return list.some((p) => p === 'recapture.read' || p === 'recapture.manage');
+      },
     } as never);
     mockMappings([makeItem({ userName: 'Ana Pérez' })]);
     render(<VendedorMappingBody />);

@@ -52,12 +52,12 @@
   overflow: hidden;
 }
 
-.toastSuccess {
+.toastSuccess,
+.toastError {
   position: fixed;
   bottom: var(--space-6);
   left: 50%;
   transform: translateX(-50%);
-  background: var(--color-success-strong);
   color: var(--color-white);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
@@ -65,6 +65,14 @@
   border-radius: var(--radius-md);
   z-index: 200;
   box-shadow: var(--shadow-lg);
+}
+
+.toastSuccess {
+  background: var(--color-success-strong);
+}
+
+.toastError {
+  background: var(--color-danger);
 }
 
 /* ── Source tabs (Bajas / CSV) ── */

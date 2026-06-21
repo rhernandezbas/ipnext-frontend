@@ -25,7 +25,7 @@ export function useMyPortfolio() {
 }
 
 /**
- * Loads a single vendedor's portfolio (super admin view, gate recapture.manage).
+ * Loads a single vendedor's portfolio (super admin view, gate recapture.assign).
  *
  * `enabled` lets the caller hold the request until a vendedor is selected AND
  * the admin gate is satisfied — never fire this for a non-admin agent. The
@@ -41,7 +41,7 @@ export function usePortfolioByVendedor(vendedor: string, enabled = true) {
 }
 
 /**
- * Loads every agent's portfolio (super admin view, gate recapture.manage).
+ * Loads every agent's portfolio (super admin view, gate recapture.assign).
  *
  * `enabled` guards the request so it only fires for the "Todos los agentes"
  * mode under an admin — never for a plain agent or another mode.

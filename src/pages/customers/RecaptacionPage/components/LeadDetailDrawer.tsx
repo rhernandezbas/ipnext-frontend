@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Can } from '@/components/auth/Can';
 import { Button } from '@/components/atoms/Button';
 import { ContractHistoryModal } from '@/components/molecules/ContractHistoryModal';
-import { useRecaptacionLead, useClaimLead, useReleaseLead, useAddContact, useUpdateLeadStatus, useAssignLead } from '@/hooks/useRecaptacion';
-import { useAdmins } from '@/hooks/useAdmins';
+import { useRecaptacionLead, useAddContact, useUpdateLeadStatus, useAssignLead } from '@/hooks/useRecaptacion';
+import { useRbacUsers } from '@/hooks/useRbacUsers';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { formatDateTimeShort } from '@/utils/formatDate';
 import {
   RECAPTURE_STATUS_LABELS,
@@ -137,19 +138,24 @@ interface LeadDetailDrawerProps {
 const STATUS_OPTIONS = Object.entries(RECAPTURE_STATUS_LABELS) as [RecaptureLeadStatus, string][];
 
 export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
+  const { can } = useMyPermissions();
+  // The operator select is gated by recapture.assign; only an actor that can
+  // assign may fetch the candidate pool. GET /admin/rbac/users requires the
+  // admin/rbac permission, so a manage-only agent must NOT fire it.
+  const canAssign = can('recapture.assign');
+
   const { data: detail, isLoading } = useRecaptacionLead(lead?.id ?? null);
-  const claimLead        = useClaimLead();
-  const releaseLead      = useReleaseLead();
   const updateLeadStatus = useUpdateLeadStatus();
   const assignLead       = useAssignLead();
-  const { data: admins = [] } = useAdmins();
+  // Assignee candidates come from RbacUser — the BE validates `operatorId`
+  // against RbacUser (NOT the Admin table), so agents live here, and their ids
+  // match `lead.assigneeId` (which is an RbacUser id).
+  const { data: rbacUsers = [] } = useRbacUsers(canAssign);
 
   const [showForm, setShowForm] = useState(false);
   const [showContracts, setShowContracts] = useState(false);
 
   if (!lead) return null;
-
-  const isAssigned = !!lead.assigneeId;
 
   return (
     <div
@@ -239,7 +245,8 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
               </div>
             </Can>
 
-            <Can permission="recapture.manage">
+            {/* Operator assignment — admin only (recapture.assign) */}
+            <Can permission="recapture.assign">
               <div className={styles.statusSelectWrapper}>
                 <label htmlFor="lead-operator-select" className={styles.statusSelectLabel}>Operador</label>
                 <select
@@ -254,31 +261,15 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
                   }}
                 >
                   <option value="">— Sin asignar —</option>
-                  {admins.map((admin) => (
-                    <option key={admin.id} value={admin.id}>{admin.name}</option>
+                  {rbacUsers.map((user) => (
+                    <option key={user.id} value={user.id}>{user.name}</option>
                   ))}
                 </select>
               </div>
-              {!isAssigned && (
-                <Button
-                  type="button"
-                  variant="primary"
-                  loading={claimLead.isPending}
-                  onClick={() => claimLead.mutate(lead.id)}
-                >
-                  Tomar lead
-                </Button>
-              )}
-              {isAssigned && (
-                <Button
-                  type="button"
-                  variant="danger"
-                  loading={releaseLead.isPending}
-                  onClick={() => releaseLead.mutate(lead.id)}
-                >
-                  Liberar lead
-                </Button>
-              )}
+            </Can>
+
+            {/* Register contact — agent + admin (recapture.manage) */}
+            <Can permission="recapture.manage">
               <Button
                 type="button"
                 variant="secondary"
@@ -288,18 +279,6 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
               </Button>
             </Can>
           </div>
-
-          {/* Claim/release feedback — 409 means another operator beat us to it */}
-          {claimLead.isError && (
-            <p className={styles.errorMsg} role="alert">
-              {claimLead.error instanceof Error
-                ? claimLead.error.message
-                : 'No se pudo tomar el lead.'}
-            </p>
-          )}
-          {releaseLead.isError && (
-            <p className={styles.errorMsg} role="alert">No se pudo liberar el lead.</p>
-          )}
 
           {/* Register contact form (gated) */}
           <Can permission="recapture.manage">

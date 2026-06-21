@@ -24,16 +24,16 @@ type RowStatus = 'saving' | 'saved' | 'error';
  * GR está en camino a deprecarse: este componente + su CSS + api + hook viven
  * aislados (no comparten módulos con el núcleo) para poder borrarse de una pieza.
  *
- * Permisos:
- * - `recapture.read`: ver la tabla.
- * - `recapture.manage`: editar el selector.
+ * Permisos: `recapture.assign` (admin). El BE re-gateó GET + PATCH + vendedores
+ * de gr-vendedor-mappings a `recapture.assign`, así que ver Y editar requieren
+ * el mismo permiso; un agente sin `assign` no debe ver la tabla (evita el 403).
  */
 export function VendedorMappingBody() {
   const { data: mappings, isLoading, isError, refetch } = useGrVendedorMappings();
   const { data: vendedores } = useGrVendedores();
   const setMapping = useSetGrVendedorMapping();
   const { can } = useMyPermissions();
-  const canManage = can('recapture.manage');
+  const canManage = can('recapture.assign');
 
   const [rowStatus, setRowStatus] = useState<Record<string, RowStatus>>({});
 
@@ -60,7 +60,7 @@ export function VendedorMappingBody() {
 
   return (
     <div className={styles.section}>
-      <Can permission="recapture.read">
+      <Can permission="recapture.assign">
         <p className={styles.helper}>
           Asigná a cada usuario su nombre de vendedor en Gestión Real. El cambio es
           inmediato y se usa para armar la cartera "Mis clientes" de cada agente a

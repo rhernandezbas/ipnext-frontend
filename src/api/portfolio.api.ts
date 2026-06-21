@@ -15,7 +15,7 @@ export async function getMyPortfolio(): Promise<Portfolio> {
 
 /**
  * GET /api/portfolio/by-vendedor?vendedor=<nombre> — one vendedor's portfolio
- * (super admin view). Gate: recapture.manage. Returns the same `Portfolio`
+ * (super admin view). Gate: recapture.assign. Returns the same `Portfolio`
  * shape as /mine, but `unmapped` is always false (a concrete vendedor is given).
  */
 export async function getPortfolioByVendedor(vendedor: string): Promise<Portfolio> {
@@ -27,7 +27,7 @@ export async function getPortfolioByVendedor(vendedor: string): Promise<Portfoli
 
 /**
  * GET /api/portfolio/all — every agent's clients (super admin view).
- * Gate: recapture.manage. Each item is tagged with its owning `vendedor`; the
+ * Gate: recapture.assign. Each item is tagged with its owning `vendedor`; the
  * summary is GLOBAL. No `unmapped` (the view spans all mapped vendedores).
  */
 export async function getAllPortfolios(): Promise<AllPortfolios> {

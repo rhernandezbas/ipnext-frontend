@@ -1,4 +1,3 @@
-import axios from 'axios';
 import axiosClient from './axios-client';
 import type {
   RecaptureLeadDto,
@@ -8,15 +7,6 @@ import type {
   AddContactInput,
   RecapturePaginatedResult,
 } from '@/types/recaptacion';
-
-/**
- * True when the error is a 409 conflict from a claim/release — i.e. another
- * operator already took (or freed) the lead. This is expected business state,
- * not a failure, and callers handle it with explicit feedback + a refresh.
- */
-export function isLeadConflictError(err: unknown): boolean {
-  return axios.isAxiosError(err) && err.response?.status === 409;
-}
 
 /** GET /recapture/leads — paginated lead list */
 export async function listRecaptureLeads(
@@ -44,32 +34,6 @@ export async function getRecaptureLead(id: string): Promise<RecaptureLeadDetailD
   return response.data;
 }
 
-/** POST /recapture/leads/:id/claim — 200 on success, 409 if already claimed */
-export async function claimRecaptureLead(id: string): Promise<RecaptureLeadDto> {
-  const response = await axiosClient.post<RecaptureLeadDto>(`/recapture/leads/${id}/claim`);
-  return response.data;
-}
-
-/**
- * POST /recapture/leads/claim-next
- * Returns the claimed lead, or null when the BE responds 204 (no free leads).
- */
-export async function claimNextRecaptureLead(): Promise<RecaptureLeadDto | null> {
-  const response = await axiosClient.post<RecaptureLeadDto | null>(
-    '/recapture/leads/claim-next',
-    null,
-    { validateStatus: (s) => s === 200 || s === 204 },
-  );
-  if (response.status === 204) return null;
-  return response.data;
-}
-
-/** POST /recapture/leads/:id/release */
-export async function releaseRecaptureLead(id: string): Promise<RecaptureLeadDto> {
-  const response = await axiosClient.post<RecaptureLeadDto>(`/recapture/leads/${id}/release`);
-  return response.data;
-}
-
 /** PATCH /recapture/leads/:id — update status */
 export async function updateRecaptureLeadStatus(
   id: string,
@@ -87,6 +51,22 @@ export async function assignRecaptureLead(
   const response = await axiosClient.patch<RecaptureLeadDto>(
     `/recapture/leads/${id}/assign`,
     { operatorId },
+  );
+  return response.data;
+}
+
+/**
+ * PATCH /recapture/leads/assign-bulk — assign (or unassign when null) many leads
+ * at once. Returns the number actually assigned, which MAY be less than the
+ * number requested (the BE skips leads it could not assign).
+ */
+export async function assignBulkRecaptureLeads(input: {
+  leadIds: string[];
+  operatorId: string | null;
+}): Promise<{ assigned: number }> {
+  const response = await axiosClient.patch<{ assigned: number }>(
+    '/recapture/leads/assign-bulk',
+    input,
   );
   return response.data;
 }

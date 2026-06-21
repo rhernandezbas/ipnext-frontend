@@ -362,14 +362,27 @@ describe('MisClientesPage', () => {
 
   // ── Super admin: selector gating ────────────────────────────────────────────
 
-  it('does NOT render the cartera selector without recapture.manage', () => {
-    mockPermissions(() => false);
+  it('does NOT render the cartera selector without recapture.assign (manage alone is not enough)', () => {
+    mockPermissions((p) => p === 'recapture.manage');
     renderPage();
     expect(screen.queryByLabelText(/ver cartera/i)).not.toBeInTheDocument();
   });
 
-  it('renders the cartera selector with recapture.manage', () => {
-    mockPermissions((p) => p === 'recapture.manage');
+  it('does NOT fetch the GR vendedores catalog (enabled=false) for a plain agent', () => {
+    // Default beforeEach already sets a no-permission agent.
+    renderPage();
+    // GET /vendedores is gated by recapture.assign on the BE → must stay disabled.
+    expect(useVendedoresModule.useGrVendedores).toHaveBeenCalledWith(false);
+  });
+
+  it('fetches the GR vendedores catalog (enabled) for a manager with recapture.assign', () => {
+    mockPermissions((p) => p === 'recapture.assign');
+    renderPage();
+    expect(useVendedoresModule.useGrVendedores).toHaveBeenCalledWith(true);
+  });
+
+  it('renders the cartera selector with recapture.assign', () => {
+    mockPermissions((p) => p === 'recapture.assign');
     renderPage();
     const selector = screen.getByLabelText(/ver cartera/i);
     expect(selector).toBeInTheDocument();
@@ -383,7 +396,7 @@ describe('MisClientesPage', () => {
   });
 
   it('defaults an admin to "mi cartera" (uses useMyPortfolio, not the admin hooks)', () => {
-    mockPermissions((p) => p === 'recapture.manage');
+    mockPermissions((p) => p === 'recapture.assign');
     renderPage();
     expect(usePortfolioModule.useMyPortfolio).toHaveBeenCalled();
     // Admin hooks are present but DISABLED in mi-cartera mode.
@@ -395,7 +408,7 @@ describe('MisClientesPage', () => {
 
   it('switching to a vendedor consumes the by-vendedor portfolio', async () => {
     const user = userEvent.setup();
-    mockPermissions((p) => p === 'recapture.manage');
+    mockPermissions((p) => p === 'recapture.assign');
     vi.mocked(usePortfolioModule.usePortfolioByVendedor).mockReturnValue(mockQuery({ data: fullPortfolio }));
     renderPage();
 
@@ -413,7 +426,7 @@ describe('MisClientesPage', () => {
 
   it('"Todos los agentes" consumes the all-portfolios hook and shows the Agente column', async () => {
     const user = userEvent.setup();
-    mockPermissions((p) => p === 'recapture.manage');
+    mockPermissions((p) => p === 'recapture.assign');
     vi.mocked(usePortfolioModule.useAllPortfolios).mockReturnValue(mockQuery({ data: allPortfolios }));
     renderPage();
 
@@ -433,7 +446,7 @@ describe('MisClientesPage', () => {
   });
 
   it('does not show the Agente column in mi-cartera mode', () => {
-    mockPermissions((p) => p === 'recapture.manage');
+    mockPermissions((p) => p === 'recapture.assign');
     renderPage();
     const table = getTable();
     expect(within(table).queryByLabelText('Agente: Juan Vendedor')).not.toBeInTheDocument();

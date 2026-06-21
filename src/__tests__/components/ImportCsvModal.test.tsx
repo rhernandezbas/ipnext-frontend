@@ -9,12 +9,10 @@ vi.mock('@/api/recaptacion.api', () => ({
   ingestChurnedClients: vi.fn(),
   listRecaptureLeads:        vi.fn(),
   getRecaptureLead:          vi.fn(),
-  claimRecaptureLead:        vi.fn(),
-  claimNextRecaptureLead:    vi.fn(),
-  releaseRecaptureLead:      vi.fn(),
   updateRecaptureLeadStatus: vi.fn(),
   addRecaptureContact:       vi.fn(),
-  isLeadConflictError:       vi.fn(),
+  assignRecaptureLead:       vi.fn(),
+  assignBulkRecaptureLeads:  vi.fn(),
 }));
 
 vi.mock('@/hooks/useRecaptacion', async (importOriginal) => {
