@@ -97,6 +97,13 @@ export interface Contract {
   technology?: string | null;
   /** Service lines attached to the contract, eager-loaded with the list (#43). */
   services: ContractService[];
+  /**
+   * client-geolocation — Prominense-owned GPS coordinates for this contract's
+   * installation point. Distinct from the GR lat/lng which are read-only.
+   */
+  gpsLat?: number | null;
+  gpsLng?: number | null;
+  gpsPlusCode?: string | null;
 }
 
 export interface LogEntry {
@@ -133,6 +140,13 @@ export interface Customer {
   balanceOverdue?: number | null;
   invoicesQty?: number | null;
   lastBalanceAt?: string | null;
+  /**
+   * client-geolocation — Prominense-owned GPS coordinates, editable by
+   * operators via the "Ubicación" tab. Distinct from any GR address.
+   */
+  lat?: number | null;
+  lng?: number | null;
+  plusCode?: string | null;
 }
 
 export interface CustomerSummary {
@@ -166,4 +180,8 @@ export interface UpdateCustomerData {
   email?: string;
   phone?: string;
   address?: string;
+  /** client-geolocation: GPS fields managed by Prominense operators. */
+  lat?: number | null;
+  lng?: number | null;
+  plusCode?: string | null;
 }

@@ -7,6 +7,12 @@ import type { Contract, ContractService, ServiceCatalogEntry } from '@/types/cus
 vi.mock('@/hooks/useCustomers', () => ({
   useClientContracts: vi.fn(),
   useUpdateContractName: vi.fn(),
+  // client-geolocation: ContractCard now uses this hook; stub it so existing
+  // tests don't require a QueryClientProvider.
+  useUpdateContractLocation: vi.fn(() => ({
+    mutateAsync: vi.fn().mockResolvedValue({}),
+    isPending: false,
+  })),
 }));
 vi.mock('@/hooks/useContractServices', () => ({
   useAddContractService: vi.fn(),
@@ -34,6 +40,12 @@ vi.mock('@/pages/customers/tabs/ServiceInventorySection', () => ({
   ServiceInventorySection: ({ serviceId }: { serviceId: string }) => (
     <div data-testid="equipos" data-service-id={serviceId} />
   ),
+}));
+// client-geolocation: GeoLocationEditor is now embedded in ContractCard.
+// Stub it to prevent it from rendering extra textboxes/labels that would break
+// existing tests that use getByRole('textbox') or getByText(/Instalación/i).
+vi.mock('@/components/molecules/GeoLocationEditor/GeoLocationEditor', () => ({
+  GeoLocationEditor: () => <div data-testid="geo-location-editor-stub" />,
 }));
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 
