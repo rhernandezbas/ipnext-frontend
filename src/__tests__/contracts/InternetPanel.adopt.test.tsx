@@ -129,6 +129,7 @@ function setup(opts: SetupOpts = {}) {
   vi.mocked(usePppoeModule.useMovePppoe).mockReturnValue(neutralMutation());
   vi.mocked(usePppoeModule.useDeactivatePppoe).mockReturnValue(neutralMutation());
   vi.mocked(usePppoeModule.useDeassociatePppoe).mockReturnValue(neutralMutation());
+  vi.mocked(usePppoeModule.useEnforcePppoeForContract).mockReturnValue(neutralMutation());
 
   vi.mocked(useNasModule.useNasServers).mockReturnValue({
     data: [{ id: 'nas-1', name: 'Router Central' }],

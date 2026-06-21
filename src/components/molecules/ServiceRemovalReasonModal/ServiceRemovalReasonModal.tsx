@@ -8,6 +8,16 @@ interface ServiceRemovalReasonModalProps {
   open: boolean;
   /** Display label of the service being removed (e.g. "Internet Fibra"). */
   serviceName: string;
+  /**
+   * Optional modal title override. Defaults to "Dar de baja: {serviceName}".
+   * Use when the action is not a deactivation (e.g. "Reducir servicio: …").
+   */
+  title?: string;
+  /**
+   * Optional confirm button label override. Defaults to "Dar de baja".
+   * Use when the action is not a deactivation (e.g. "Reducir", "Cortar").
+   */
+  confirmLabel?: string;
   /** Called with the trimmed reason string when the operator confirms. */
   onConfirm: (reason: string) => void;
   /** Called when the operator cancels or dismisses the modal. */
@@ -22,6 +32,8 @@ interface ServiceRemovalReasonModalProps {
 export function ServiceRemovalReasonModal({
   open,
   serviceName,
+  title,
+  confirmLabel,
   onConfirm,
   onCancel,
 }: ServiceRemovalReasonModalProps) {
@@ -74,10 +86,10 @@ export function ServiceRemovalReasonModal({
         aria-labelledby={DIALOG_TITLE_ID}
       >
         <h2 id={DIALOG_TITLE_ID} className={styles.title}>
-          Dar de baja: {serviceName}
+          {title ?? `Dar de baja: ${serviceName}`}
         </h2>
         <p className={styles.description}>
-          Ingresá el motivo de la baja. Este campo es obligatorio.
+          Ingresá el motivo. Este campo es obligatorio.
         </p>
         <div>
           <label htmlFor="removal-reason" className={styles.label}>
@@ -107,7 +119,7 @@ export function ServiceRemovalReasonModal({
             onClick={handleConfirm}
             disabled={!canConfirm}
           >
-            Dar de baja
+            {confirmLabel ?? 'Dar de baja'}
           </button>
         </div>
       </div>

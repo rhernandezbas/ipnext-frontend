@@ -58,8 +58,8 @@ export const pppoeApi = {
   },
 
   /** Corte INDIVIDUAL de un PPPoE (reduce/block/restore). Devuelve el DTO con enforcedState. */
-  async enforce(id: string, action: EnforcementAction): Promise<PppoeServiceDto> {
-    const r = await axiosClient.post<PppoeServiceDto>(`${BASE}/${id}/enforce`, { action });
+  async enforce(id: string, action: EnforcementAction, reason?: string): Promise<PppoeServiceDto> {
+    const r = await axiosClient.post<PppoeServiceDto>(`${BASE}/${id}/enforce`, { action, reason });
     return r.data;
   },
 

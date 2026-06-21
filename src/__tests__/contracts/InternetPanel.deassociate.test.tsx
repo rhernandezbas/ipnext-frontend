@@ -132,6 +132,7 @@ function setup(opts: SetupOpts = {}) {
   vi.mocked(usePppoeModule.useMovePppoe).mockReturnValue(neutralMutation());
   vi.mocked(usePppoeModule.useDeactivatePppoe).mockReturnValue(neutralMutation());
   vi.mocked(usePppoeModule.useAssociatePppoe).mockReturnValue(neutralMutation());
+  vi.mocked(usePppoeModule.useEnforcePppoeForContract).mockReturnValue(neutralMutation());
 
   vi.mocked(usePppoeModule.useDeassociatePppoe).mockReturnValue({
     mutateAsync: deassociateMutateAsync,

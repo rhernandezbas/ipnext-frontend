@@ -74,6 +74,23 @@ export function useEnforcePppoe() {
   });
 }
 
+/**
+ * Corte individual de un PPPoE desde la ficha del contrato.
+ * A diferencia de useEnforcePppoe, acepta `reason` en las variables e invalida
+ * `['contract-pppoe', contractId]` en éxito para que el panel refleje el nuevo
+ * enforcedState sin recargar la página.
+ */
+export function useEnforcePppoeForContract(contractId: string, clientId: string | number) {
+  const qc = useQueryClient();
+  return useMutation<PppoeServiceDto, unknown, { id: string; action: EnforcementAction; reason?: string }>({
+    mutationFn: ({ id, action, reason }) => pppoeApi.enforce(id, action, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contract-pppoe', contractId] });
+      qc.invalidateQueries({ queryKey: ['client-contracts', String(clientId)] });
+    },
+  });
+}
+
 // ── Hooks de gestión PPPoE por contrato ─────────────────────────────────────────
 
 /** Lista los PPPoE asociados a un contrato. */

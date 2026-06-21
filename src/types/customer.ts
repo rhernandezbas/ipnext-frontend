@@ -16,8 +16,9 @@ export interface ContractService {
 /** A single state-change event in a service's lifecycle (service-history-ledger). */
 export interface ServiceEvent {
   id: string;
-  /** 'activated' | 'deactivated' | 'reactivated' — maps to Alta / Baja / Reactivación. */
-  eventType: 'activated' | 'deactivated' | 'reactivated';
+  /** 'activated' | 'deactivated' | 'reactivated' — maps to Alta / Baja / Reactivación.
+   *  'reduced' | 'blocked' | 'restored' — corte individual PPPoE (pppoe-corte-individual). */
+  eventType: 'activated' | 'deactivated' | 'reactivated' | 'reduced' | 'blocked' | 'restored';
   /** ISO timestamp of when the event occurred. */
   occurredAt: string;
   /** Display name of the operator who triggered the event. */

@@ -11,7 +11,9 @@ import {
   useUnassignedPppoe,
   useAssociatePppoe,
   usePppoeCredentials,
+  useEnforcePppoeForContract,
 } from '@/hooks/usePppoe';
+import type { EnforcementAction } from '@/types/pppoe';
 
 import { useNasServers, useNextFreeIp } from '@/hooks/useNas';
 import type { IpType } from '@/api/nas.api';
@@ -494,6 +496,7 @@ function ActivePppoeView({
   const move = useMovePppoe(contractId, clientId);
   const deactivate = useDeactivatePppoe(contractId, clientId);
   const deassociate = useDeassociatePppoe(contractId, clientId);
+  const enforceForContract = useEnforcePppoeForContract(contractId, clientId);
 
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -509,6 +512,9 @@ function ActivePppoeView({
 
   const [deassociateReasonOpen, setDeassociateReasonOpen] = useState(false);
   const [deassociateError, setDeassociateError] = useState<string | null>(null);
+
+  const [enforceModal, setEnforceModal] = useState<EnforcementAction | null>(null);
+  const [enforceError, setEnforceError] = useState<string | null>(null);
 
   function nasName(id: string): string {
     return nasServers.find((n) => n.id === id)?.name ?? id;
@@ -571,6 +577,16 @@ function ActivePppoeView({
       if (errorStatus(err) !== 404) {
         setDeassociateError('No se pudo desasociar el PPPoE. Reintentá.');
       }
+    }
+  }
+
+  async function handleEnforce(action: EnforcementAction, reason: string) {
+    setEnforceModal(null);
+    setEnforceError(null);
+    try {
+      await enforceForContract.mutateAsync({ id: pppoe.id, action, reason });
+    } catch {
+      setEnforceError('No se pudo aplicar el cambio. Revisá la conexión con el router e intentá de nuevo.');
     }
   }
 
@@ -758,6 +774,49 @@ function ActivePppoeView({
         </section>
       </Can>
 
+      {/* Corte individual — Reducir / Cortar / Restaurar (adaptive to enforcedState) */}
+      <Can permission="pppoe.cut">
+        <section className={styles.bajaSection}>
+          {enforceError && (
+            <div className={`${styles.banner} ${styles.bannerError}`} role="alert">
+              <span>{enforceError}</span>
+            </div>
+          )}
+          <div className={styles.formActions}>
+            {pppoe.enforcedState === 'active' && (
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => { setEnforceError(null); setEnforceModal('reduce'); }}
+                disabled={enforceForContract.isPending}
+              >
+                Reducir
+              </button>
+            )}
+            {(pppoe.enforcedState === 'active' || pppoe.enforcedState === 'reduced') && (
+              <button
+                type="button"
+                className={styles.btnLinkDanger}
+                onClick={() => { setEnforceError(null); setEnforceModal('block'); }}
+                disabled={enforceForContract.isPending}
+              >
+                Cortar
+              </button>
+            )}
+            {(pppoe.enforcedState === 'reduced' || pppoe.enforcedState === 'blocked') && (
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => { setEnforceError(null); setEnforceModal('restore'); }}
+                disabled={enforceForContract.isPending}
+              >
+                Restaurar
+              </button>
+            )}
+          </div>
+        </section>
+      </Can>
+
       {/* Dar de baja */}
       <Can permission="pppoe.cut">
         <section className={styles.bajaSection}>
@@ -793,6 +852,32 @@ function ActivePppoeView({
         serviceName="Internet (PPPoE) — Desasociar"
         onConfirm={handleDeassociate}
         onCancel={() => setDeassociateReasonOpen(false)}
+      />
+
+      {/* Modales de motivo para enforce (Reducir / Cortar / Restaurar) */}
+      <ServiceRemovalReasonModal
+        open={enforceModal === 'reduce'}
+        serviceName="Internet (PPPoE)"
+        title="Reducir servicio: Internet (PPPoE)"
+        confirmLabel="Reducir"
+        onConfirm={(reason) => handleEnforce('reduce', reason)}
+        onCancel={() => setEnforceModal(null)}
+      />
+      <ServiceRemovalReasonModal
+        open={enforceModal === 'block'}
+        serviceName="Internet (PPPoE)"
+        title="Cortar servicio: Internet (PPPoE)"
+        confirmLabel="Cortar"
+        onConfirm={(reason) => handleEnforce('block', reason)}
+        onCancel={() => setEnforceModal(null)}
+      />
+      <ServiceRemovalReasonModal
+        open={enforceModal === 'restore'}
+        serviceName="Internet (PPPoE)"
+        title="Restaurar servicio: Internet (PPPoE)"
+        confirmLabel="Restaurar"
+        onConfirm={(reason) => handleEnforce('restore', reason)}
+        onCancel={() => setEnforceModal(null)}
       />
     </div>
   );
