@@ -601,12 +601,37 @@ function ActivePppoeView({
 
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({
-    profile: pppoe.profile ?? '',
     password: '',
     remoteAddress: pppoe.remoteAddress ?? '',
     nasId: pppoe.nasId,
   });
   const [editError, setEditError] = useState<string | null>(null);
+
+  // ── Auto-asignación de IP en el form de Editar ─────────────────────────────
+  const [editIpType, setEditIpType] = useState<IpType | null>(null);
+  /**
+   * editIpAutoFilled: true cuando remoteAddress fue puesto por auto-asignación
+   * (no tipeo manual). Previene que el useEffect pise ediciones manuales.
+   */
+  const [editIpAutoFilled, setEditIpAutoFilled] = useState(false);
+
+  const editIpQuery = useNextFreeIp(editing ? editForm.nasId : null, editIpType);
+
+  /**
+   * Mismo patrón que CreatePppoeForm: fill solo si la IP está vacía o fue
+   * auto-asignada previamente; resetear el flag si el query deja de ser success.
+   */
+  useEffect(() => {
+    if (editIpQuery.isSuccess && editIpQuery.data?.ip) {
+      if (!editForm.remoteAddress || editIpAutoFilled) {
+        setEditForm((f) => ({ ...f, remoteAddress: editIpQuery.data.ip }));
+        setEditIpAutoFilled(true);
+      }
+    } else if (!editIpQuery.isSuccess && editIpAutoFilled) {
+      setEditIpAutoFilled(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editIpQuery.data, editIpQuery.isSuccess, editForm.nasId, editIpType]);
 
   const [bajaModalOpen, setBajaModalOpen] = useState(false);
   const [bajaError, setBajaError] = useState<string | null>(null);
@@ -630,8 +655,7 @@ function ActivePppoeView({
       if (nasChanged) {
         await move.mutateAsync({ id: pppoe.id, nasId: editForm.nasId });
       }
-      const updateBody: { profile?: string; password?: string; remoteAddress?: string } = {};
-      if (editForm.profile !== (pppoe.profile ?? '')) updateBody.profile = editForm.profile.trim() || undefined;
+      const updateBody: { password?: string; remoteAddress?: string } = {};
       if (editForm.password) updateBody.password = editForm.password;
       if (editForm.remoteAddress !== (pppoe.remoteAddress ?? '')) updateBody.remoteAddress = editForm.remoteAddress.trim() || undefined;
       const hasChanges = Object.keys(updateBody).length > 0;
@@ -749,16 +773,17 @@ function ActivePppoeView({
         <section className={styles.actionGroup}>
           <h5 className={styles.actionGroupTitle}>Modificar</h5>
 
-          {/* Editar: password / IP remota / router */}
+          {/* Editar: password / IP remota (+ auto-asignación) / router */}
           <div className={styles.actionGroupItem}>
             {!editing ? (
               <button
                 type="button"
-                className={styles.btnSecondary}
+                className={styles.btnEdit}
                 onClick={() => {
                   setEditError(null);
+                  setEditIpType(null);
+                  setEditIpAutoFilled(false);
                   setEditForm({
-                    profile: pppoe.profile ?? '',
                     password: '',
                     remoteAddress: pppoe.remoteAddress ?? '',
                     nasId: pppoe.nasId,
@@ -766,24 +791,12 @@ function ActivePppoeView({
                   setEditing(true);
                 }}
               >
+                <PencilIcon />
                 Editar
               </button>
             ) : (
               <form onSubmit={handleEdit} className={styles.editForm}>
                 <div className={styles.formGrid}>
-                  <div className={styles.field}>
-                    <label className={styles.fieldLabel} htmlFor="pppoe-edit-profile">
-                      Perfil
-                    </label>
-                    <input
-                      id="pppoe-edit-profile"
-                      className={styles.input}
-                      value={editForm.profile}
-                      onChange={(e) => setEditForm((f) => ({ ...f, profile: e.target.value }))}
-                      disabled={isPending}
-                      placeholder="Opcional"
-                    />
-                  </div>
                   <div className={styles.field}>
                     <label className={styles.fieldLabel} htmlFor="pppoe-edit-password">
                       Nueva contraseña
@@ -799,19 +812,82 @@ function ActivePppoeView({
                       autoComplete="new-password"
                     />
                   </div>
+
+                  {/* Tipo de IP — toggle Privada / Pública (igual al form de crear) */}
+                  <div className={styles.field}>
+                    <span className={styles.fieldLabel}>Tipo de IP</span>
+                    <div className={styles.ipTypeToggle} role="group" aria-label="Tipo de IP">
+                      <button
+                        type="button"
+                        className={`${styles.ipTypeBtn} ${editIpType === 'cgnat' ? styles.ipTypeBtnActive : ''}`}
+                        onClick={() => { setEditIpType('cgnat'); setEditIpAutoFilled(false); }}
+                        disabled={isPending}
+                        aria-pressed={editIpType === 'cgnat'}
+                      >
+                        Privada
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.ipTypeBtn} ${editIpType === 'public' ? styles.ipTypeBtnActive : ''}`}
+                        onClick={() => { setEditIpType('public'); setEditIpAutoFilled(false); }}
+                        disabled={isPending}
+                        aria-pressed={editIpType === 'public'}
+                      >
+                        Pública
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* IP remota — con feedback de auto-asignación */}
                   <div className={styles.field}>
                     <label className={styles.fieldLabel} htmlFor="pppoe-edit-remote">
                       IP remota
                     </label>
-                    <input
-                      id="pppoe-edit-remote"
-                      className={styles.input}
-                      value={editForm.remoteAddress}
-                      onChange={(e) => setEditForm((f) => ({ ...f, remoteAddress: e.target.value }))}
-                      disabled={isPending}
-                      placeholder="Opcional"
-                    />
+                    <div className={styles.ipRow}>
+                      <input
+                        id="pppoe-edit-remote"
+                        className={styles.input}
+                        value={editForm.remoteAddress}
+                        onChange={(e) => {
+                          setEditIpAutoFilled(false);
+                          setEditForm((f) => ({ ...f, remoteAddress: e.target.value }));
+                        }}
+                        disabled={isPending}
+                        placeholder={editIpQuery.isFetching ? 'Buscando IP…' : 'Opcional'}
+                        aria-describedby={editIpQuery.isError && !editIpQuery.isFetching ? 'edit-ip-fetch-error' : undefined}
+                      />
+                      <button
+                        type="button"
+                        className={styles.btnCambiar}
+                        onClick={() => {
+                          setEditIpAutoFilled(true);
+                          // Si la data ya está disponible (mismo nasId/tipo), úsala directamente;
+                          // de lo contrario, refetch la trae y el useEffect la aplica.
+                          if (editIpQuery.isSuccess && editIpQuery.data?.ip) {
+                            setEditForm((f) => ({ ...f, remoteAddress: editIpQuery.data.ip }));
+                          } else {
+                            void editIpQuery.refetch();
+                          }
+                        }}
+                        disabled={isPending || !editIpType || editIpQuery.isFetching}
+                        aria-label="Auto-asignar IP"
+                      >
+                        Auto-asignar IP
+                      </button>
+                    </div>
+                    {editIpQuery.isFetching && (
+                      <span className={styles.ipHint}>Buscando IP…</span>
+                    )}
+                    {editIpAutoFilled && editIpQuery.isSuccess && !editIpQuery.isFetching && (
+                      <span className={styles.ipHint}>auto-asignada</span>
+                    )}
+                    {editIpQuery.isError && !editIpQuery.isFetching && (
+                      <span id="edit-ip-fetch-error" className={styles.ipHintError}>
+                        {ipFetchHint(editIpQuery.error)}
+                      </span>
+                    )}
                   </div>
+
                   <div className={styles.field}>
                     <label className={styles.fieldLabel} htmlFor="pppoe-edit-nas">
                       Router
@@ -840,7 +916,7 @@ function ActivePppoeView({
                   <button
                     type="button"
                     className={styles.btnSecondary}
-                    onClick={() => { setEditing(false); setEditError(null); }}
+                    onClick={() => { setEditing(false); setEditError(null); setEditIpType(null); setEditIpAutoFilled(false); }}
                     disabled={isPending}
                   >
                     Cancelar
@@ -1014,6 +1090,17 @@ function EyeIcon() {
       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
       <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+/** Pencil / edit icon. Heroicons-style inline SVG — sin librería de iconos ni emojis. */
+function PencilIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
     </svg>
   );
 }
