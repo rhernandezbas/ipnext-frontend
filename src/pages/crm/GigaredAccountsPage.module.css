@@ -111,6 +111,59 @@
   color: #92400e;
 }
 
+/* #57 (tv-todofutbol-cupos) — Pack Todo Fútbol cupo inline card.
+   Sits alongside the account counts inside .summary; visually separated by a
+   left border so it reads as a distinct (but related) block. */
+.todoFutbolCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding-left: var(--space-5);
+  border-left: 2px solid var(--color-border);
+}
+
+.todoFutbolLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-right: var(--space-2);
+}
+
+.todoFutbolStat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.todoFutbolKey {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.todoFutbolVal {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* "Sin cupo" badge — NOT color-only: the word "Sin cupo" is always visible.
+   A11y: amber background with dark text meets contrast ratio ≥ 4.5:1. */
+.todoFutbolNoCupo {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: #fef3c7;
+  color: #92400e;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid #fde68a;
+}
+
 /* #47j Fix 3 — the linked-customer name link in the accounts table. Matches the
    design-system customer link (accent color, underline on hover). */
 .nameLink {

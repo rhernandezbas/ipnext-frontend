@@ -259,9 +259,22 @@ export default function GigaredAccountsPage() {
 
   // #111 — service quota table (qtyUsed / qtyPurchased per service) removed.
   // Only account counters (total / registered / unregistered) remain.
+  // #57 (tv-todofutbol-cupos) — exception: the "Pack Todo Fútbol" pack cupo card
+  // is shown inline because operators need to track that specific pack's usage.
   function SummaryStrip() {
     if (summaryQuery.isLoading || !summaryQuery.data) return null;
     const { accounts: counts } = summaryQuery.data;
+    const services = summaryQuery.data.services ?? [];
+
+    // Normalize name: strip accents, lowercase, then match 'todo futbol'.
+    const todoFutbol = services.find((s) =>
+      s.name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .includes('todo futbol'),
+    );
+
     return (
       <div className={styles.summary}>
         <div className={styles.counts}>
@@ -269,6 +282,28 @@ export default function GigaredAccountsPage() {
           <span className={styles.count}><strong>{counts.registered}</strong> registrados</span>
           <span className={styles.count}><strong>{counts.unregistered}</strong> sin registrar</span>
         </div>
+        {todoFutbol && (
+          <div className={styles.todoFutbolCard}>
+            <span className={styles.todoFutbolLabel}>Pack Todo Fútbol</span>
+            <span className={styles.todoFutbolStat}>
+              <span className={styles.todoFutbolKey}>Instalado</span>
+              <strong className={styles.todoFutbolVal}>{todoFutbol.qtyUsed ?? '—'}</strong>
+            </span>
+            <span className={styles.todoFutbolStat}>
+              <span className={styles.todoFutbolKey}>Restante</span>
+              <strong className={styles.todoFutbolVal}>{todoFutbol.qtyAvailable ?? '—'}</strong>
+            </span>
+            <span className={styles.todoFutbolStat}>
+              <span className={styles.todoFutbolKey}>Total</span>
+              <strong className={styles.todoFutbolVal}>{todoFutbol.qtyPurchased ?? '—'}</strong>
+            </span>
+            {typeof todoFutbol.qtyAvailable === 'number' && todoFutbol.qtyAvailable <= 0 && (
+              <span className={styles.todoFutbolNoCupo} aria-label="Sin cupo disponible">
+                Sin cupo
+              </span>
+            )}
+          </div>
+        )}
       </div>
     );
   }

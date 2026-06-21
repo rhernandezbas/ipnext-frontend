@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -230,6 +230,103 @@ describe('GigaredAccountsPage', () => {
       renderPage();
       expect(screen.queryByRole('link', { name: /Ana García/i })).not.toBeInTheDocument();
       expect(screen.getByText('Ana García')).toBeInTheDocument();
+    });
+  });
+
+  // ── #57 (tv-todofutbol-cupos) — Pack Todo Fútbol cupo card in SummaryStrip ──
+  describe('#57 — Pack Todo Fútbol cupo card', () => {
+    it('shows Instalado / Restante / Total when services includes a Todo Futbol pack', () => {
+      const withTodoFutbol: GigaredSummary = {
+        accounts: { registered: 5, unregistered: 2, total: 7 },
+        services: [
+          { id: 'tf1', name: 'Pack Todo Futbol', qtyUsed: 63, qtyAvailable: 17, qtyPurchased: 80 },
+        ],
+      };
+      mockHooks({ summaryData: withTodoFutbol });
+      renderPage();
+      // The card must show all three counts
+      expect(screen.getByText('Instalado')).toBeInTheDocument();
+      expect(screen.getByText('63')).toBeInTheDocument();
+      expect(screen.getByText('Restante')).toBeInTheDocument();
+      expect(screen.getByText('17')).toBeInTheDocument();
+      expect(screen.getByText('Total')).toBeInTheDocument();
+      expect(screen.getByText('80')).toBeInTheDocument();
+    });
+
+    it('matches accent and case variants: "Pack Todo Fútbol" (with accent)', () => {
+      const withAccent: GigaredSummary = {
+        accounts: { registered: 5, unregistered: 2, total: 7 },
+        services: [
+          { id: 'tf1', name: 'Pack Todo Fútbol', qtyUsed: 10, qtyAvailable: 5, qtyPurchased: 15 },
+        ],
+      };
+      mockHooks({ summaryData: withAccent });
+      renderPage();
+      expect(screen.getByText('Instalado')).toBeInTheDocument();
+      expect(screen.getByText('10')).toBeInTheDocument();
+    });
+
+    it('shows "Sin cupo" badge when qtyAvailable === 0', () => {
+      const withZeroCupo: GigaredSummary = {
+        accounts: { registered: 5, unregistered: 2, total: 7 },
+        services: [
+          { id: 'tf1', name: 'Pack Todo Futbol', qtyUsed: 80, qtyAvailable: 0, qtyPurchased: 80 },
+        ],
+      };
+      mockHooks({ summaryData: withZeroCupo });
+      renderPage();
+      expect(screen.getByText(/sin cupo/i)).toBeInTheDocument();
+    });
+
+    it('does NOT show the card when services has no todo-futbol pack', () => {
+      const withoutTodoFutbol: GigaredSummary = {
+        accounts: { registered: 5, unregistered: 2, total: 7 },
+        services: [
+          { id: 's1', name: 'Play Full', qtyUsed: 3, qtyAvailable: 2, qtyPurchased: 5 },
+        ],
+      };
+      mockHooks({ summaryData: withoutTodoFutbol });
+      renderPage();
+      expect(screen.queryByText('Instalado')).not.toBeInTheDocument();
+      expect(screen.queryByText('Restante')).not.toBeInTheDocument();
+    });
+
+    it('does NOT crash when services is empty', () => {
+      const noServices: GigaredSummary = {
+        accounts: { registered: 5, unregistered: 2, total: 7 },
+        services: [],
+      };
+      mockHooks({ summaryData: noServices });
+      renderPage();
+      // summary counts still render, no crash
+      expect(screen.getByText('7')).toBeInTheDocument();
+      expect(screen.queryByText('Instalado')).not.toBeInTheDocument();
+    });
+
+    it('renders "—" and hides "Sin cupo" when qtyAvailable is missing (defensive)', () => {
+      // Gigared can omit fields on the wire — do not show blank, do not falsely claim "sin cupo".
+      const missingQty = {
+        accounts: { registered: 5, unregistered: 2, total: 7 },
+        services: [{ id: 'tf1', name: 'Pack Todo Futbol', qtyUsed: 63, qtyPurchased: 80 }],
+      } as unknown as GigaredSummary;
+      mockHooks({ summaryData: missingQty });
+      renderPage();
+      // Scope to the card — other '—' exist elsewhere on the page (empty table cells).
+      const card = screen.getByText('Pack Todo Fútbol').closest('div') as HTMLElement;
+      expect(within(card).getByText('Instalado')).toBeInTheDocument();
+      expect(within(card).getByText('63')).toBeInTheDocument();
+      expect(within(card).getByText('—')).toBeInTheDocument(); // Restante falls back, not blank
+      expect(within(card).queryByText(/sin cupo/i)).not.toBeInTheDocument();
+    });
+
+    it('does NOT crash when the summary omits the services array', () => {
+      const noServicesKey = {
+        accounts: { registered: 5, unregistered: 2, total: 7 },
+      } as unknown as GigaredSummary;
+      mockHooks({ summaryData: noServicesKey });
+      renderPage();
+      expect(screen.getByText('7')).toBeInTheDocument();
+      expect(screen.queryByText('Instalado')).not.toBeInTheDocument();
     });
   });
 
