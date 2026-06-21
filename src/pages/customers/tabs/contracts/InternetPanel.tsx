@@ -12,6 +12,7 @@ import {
   useAssociatePppoe,
   usePppoeCredentials,
   useEnforcePppoeForContract,
+  usePppoeCallerId,
 } from '@/hooks/usePppoe';
 import type { EnforcementAction } from '@/types/pppoe';
 import { usePlans } from '@/hooks/usePlans';
@@ -598,6 +599,7 @@ function ActivePppoeView({
   const deactivate = useDeactivatePppoe(contractId, clientId);
   const deassociate = useDeassociatePppoe(contractId, clientId);
   const enforceForContract = useEnforcePppoeForContract(contractId, clientId);
+  const callerIdQuery = usePppoeCallerId(pppoe.id);
 
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -755,6 +757,18 @@ function ActivePppoeView({
           <div>
             <dt className={styles.dt}>IP remota</dt>
             <dd className={styles.dd}>{pppoe.remoteAddress ?? '—'}</dd>
+          </div>
+          <div>
+            <dt className={styles.dt}>Caller-ID (MAC)</dt>
+            <dd className={styles.dd}>
+              {callerIdQuery.isLoading
+                ? '…'
+                : callerIdQuery.isError
+                  ? <span className={styles.ipHint}>—</span>
+                  : callerIdQuery.data?.callerId
+                    ? callerIdQuery.data.callerId
+                    : <span className={styles.ipHint}>— sin sesión activa</span>}
+            </dd>
           </div>
           {/* Doble capa: el endpoint /credentials exige pppoe.manage */}
           <Can permission="pppoe.manage">
@@ -1033,7 +1047,7 @@ function ActivePppoeView({
               {deactivate.isPending ? 'Dando de baja…' : 'Dar de baja PPPoE'}
             </button>
             <span className={styles.lifecycleHint}>
-              Corta el servicio en el router y registra la baja en el historial.
+              Borra el usuario del RADIUS, libera la IP y registra la baja en el historial. Esta acción es irreversible.
             </span>
           </div>
         </Can>
