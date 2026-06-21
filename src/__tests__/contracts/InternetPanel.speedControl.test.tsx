@@ -208,6 +208,9 @@ function setup(opts: SetupOpts = {}) {
     mutateAsync: enforceMutateAsync,
     isPending: false,
   } as unknown as ReturnType<typeof usePppoeModule.useEnforcePppoeForContract>);
+  vi.mocked(usePppoeModule.usePppoeCallerId).mockReturnValue({
+    data: undefined, isLoading: false, isError: false, isSuccess: false,
+  } as ReturnType<typeof usePppoeModule.usePppoeCallerId>);
 
   vi.mocked(useNasModule.useNasServers).mockReturnValue({
     data: [{ id: 'nas-1', name: 'Router Central' }],

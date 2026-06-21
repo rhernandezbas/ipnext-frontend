@@ -211,3 +211,21 @@ export function usePppoeCredentials(id: string, enabled: boolean) {
     staleTime: 60_000,
   });
 }
+
+/** Clave del caller-id (MAC de sesión RADIUS activa) de un PPPoE. */
+export const callerIdKey = (id: string) => [...ROOT, 'caller-id', id] as const;
+
+/**
+ * Devuelve el caller-id (MAC del dispositivo conectado) de la sesión RADIUS activa.
+ * Retorna `{ callerId: string | null }` — null = sin sesión activa (no es error).
+ * Query habilitado solo cuando `pppoeId` no es null (panel PPPoE activo abierto).
+ * Degradación silenciosa: si falla, `isError=true` → el panel muestra "—" y sigue funcional.
+ */
+export function usePppoeCallerId(pppoeId: string | null) {
+  return useQuery<{ callerId: string | null }>({
+    queryKey: callerIdKey(pppoeId ?? ''),
+    queryFn: () => pppoeApi.getCallerId(pppoeId as string),
+    enabled: !!pppoeId,
+    staleTime: 30_000,
+  });
+}

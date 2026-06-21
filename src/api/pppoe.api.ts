@@ -131,4 +131,13 @@ export const pppoeApi = {
     const r = await axiosClient.get<PppoeCredentials>(`${BASE}/${id}/credentials`);
     return r.data;
   },
+
+  /**
+   * Devuelve el caller-id (MAC del dispositivo conectado) de la sesión RADIUS activa,
+   * o null si no hay sesión activa. Gated `pppoe.read`.
+   */
+  async getCallerId(id: string): Promise<{ callerId: string | null }> {
+    const r = await axiosClient.get<{ callerId: string | null }>(`${BASE}/${id}/caller-id`);
+    return r.data;
+  },
 };
