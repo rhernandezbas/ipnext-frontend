@@ -124,8 +124,8 @@ export function useMovePppoe(contractId: string, clientId: string | number) {
 /** Da de baja un PPPoE (DELETE en el router). Invalida lista del contrato + contratos del cliente. */
 export function useDeactivatePppoe(contractId: string, clientId: string | number) {
   const qc = useQueryClient();
-  return useMutation<void, unknown, string>({
-    mutationFn: (id) => pppoeApi.deactivate(id),
+  return useMutation<void, unknown, { id: string; reason?: string }>({
+    mutationFn: ({ id, reason }) => pppoeApi.deactivate(id, reason),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['contract-pppoe', contractId] });
       qc.invalidateQueries({ queryKey: ['client-contracts', String(clientId)] });
@@ -171,8 +171,8 @@ export function useAssociatePppoe(contractId: string, clientId: string | number)
  */
 export function useDeassociatePppoe(contractId: string, clientId: string | number) {
   const qc = useQueryClient();
-  return useMutation<void, unknown, string>({
-    mutationFn: (pppoeId) => pppoeApi.deassociate(contractId, pppoeId),
+  return useMutation<void, unknown, { pppoeId: string; reason?: string }>({
+    mutationFn: ({ pppoeId, reason }) => pppoeApi.deassociate(contractId, pppoeId, reason),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['contract-pppoe', contractId] });
       qc.invalidateQueries({ queryKey: unassignedKey() });

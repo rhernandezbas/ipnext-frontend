@@ -12,7 +12,7 @@ import {
   useAssociatePppoe,
   usePppoeCredentials,
 } from '@/hooks/usePppoe';
-import { useUpdateContractService } from '@/hooks/useContractServices';
+
 import { useNasServers, useNextFreeIp } from '@/hooks/useNas';
 import type { IpType } from '@/api/nas.api';
 import type { ContractService } from '@/types/customer';
@@ -32,24 +32,16 @@ function errorStatus(err: unknown): number | null {
   return e?.response?.status ?? null;
 }
 
-/** The active local 'INTERNET' ContractService line on this contract, if any. */
-function localInternetLine(services: ContractService[]): ContractService | null {
-  return services.find((s) => s.name === 'INTERNET' && s.status === 'active') ?? null;
-}
-
 /**
  * PPPoE management panel for the INTERNET service of a contract.
  * Opened from ContractCard when the operator clicks the INTERNET chip or
  * picks Internet from the service picker.
  */
-export function InternetPanel({ contractId, clientId, contractServices, onClose }: InternetPanelProps) {
+export function InternetPanel({ contractId, clientId, contractServices: _contractServices, onClose }: InternetPanelProps) {
   const pppoeQuery = useContractPppoe(contractId);
   const { data: nasServers = [] } = useNasServers();
   // Resultado terminal de la baja: 'full' (corte + historial) | 'partial' (corte OK, historial no).
   const [bajaOutcome, setBajaOutcome] = useState<null | 'full' | 'partial'>(null);
-
-  // Resolve the local INTERNET ContractService so we can update its status on baja.
-  const internetLine = localInternetLine(contractServices);
 
   const activePppoe = (pppoeQuery.data ?? []).find((p) => p.status === 'enabled') ?? null;
 
@@ -87,7 +79,6 @@ export function InternetPanel({ contractId, clientId, contractServices, onClose 
         contractId={contractId}
         clientId={clientId}
         pppoe={activePppoe}
-        internetLine={internetLine}
         nasServers={nasServers}
         onBaja={setBajaOutcome}
       />
@@ -490,14 +481,12 @@ function ActivePppoeView({
   contractId,
   clientId,
   pppoe,
-  internetLine,
   nasServers,
   onBaja,
 }: {
   contractId: string;
   clientId: string | number;
   pppoe: PppoeServiceDto;
-  internetLine: ContractService | null;
   nasServers: { id: string; name: string }[];
   onBaja: (outcome: 'full' | 'partial') => void;
 }) {
@@ -505,7 +494,6 @@ function ActivePppoeView({
   const move = useMovePppoe(contractId, clientId);
   const deactivate = useDeactivatePppoe(contractId, clientId);
   const deassociate = useDeassociatePppoe(contractId, clientId);
-  const updateService = useUpdateContractService(String(clientId));
 
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -519,7 +507,7 @@ function ActivePppoeView({
   const [bajaModalOpen, setBajaModalOpen] = useState(false);
   const [bajaError, setBajaError] = useState<string | null>(null);
 
-  const [deassociateConfirmOpen, setDeassociateConfirmOpen] = useState(false);
+  const [deassociateReasonOpen, setDeassociateReasonOpen] = useState(false);
 
   function nasName(id: string): string {
     return nasServers.find((n) => n.id === id)?.name ?? id;
@@ -552,13 +540,13 @@ function ActivePppoeView({
   async function handleBaja(reason: string) {
     setBajaModalOpen(false);
     setBajaError(null);
-    // 1) Corte real en el router (DELETE /pppoe/:id).
+    // Corte real en el router (DELETE /pppoe/:id) — el BE registra el motivo en el historial.
     try {
-      await deactivate.mutateAsync(pppoe.id);
+      await deactivate.mutateAsync({ id: pppoe.id, reason });
     } catch (err) {
       const status = errorStatus(err);
       if (status === 404) {
-        // El PPPoE ya no estaba en el router → idempotente, seguimos a registrar el historial.
+        // El PPPoE ya no estaba en el router → idempotente, consideramos éxito.
       } else if (status === 502) {
         setBajaError(
           'El router está caído, el corte no se pudo completar. Intentá de nuevo cuando el router esté disponible.',
@@ -569,22 +557,12 @@ function ActivePppoeView({
         return;
       }
     }
-    // 2) Registra la baja + motivo en el historial (PATCH ContractService INTERNET).
-    //    Si no hay línea INTERNET o el PATCH falla, el corte YA se hizo → 'partial' (no mentimos).
-    let historyOk = false;
-    if (internetLine) {
-      try {
-        await updateService.mutateAsync({
-          contractId,
-          id: internetLine.id,
-          payload: { status: 'inactive', reason },
-        });
-        historyOk = true;
-      } catch {
-        historyOk = false;
-      }
-    }
-    onBaja(historyOk ? 'full' : 'partial');
+    onBaja('full');
+  }
+
+  async function handleDeassociate(reason: string) {
+    setDeassociateReasonOpen(false);
+    await deassociate.mutateAsync({ pppoeId: pppoe.id, reason });
   }
 
   const isPending = update.isPending || move.isPending;
@@ -757,7 +735,7 @@ function ActivePppoeView({
             <button
               type="button"
               className={styles.btnLinkDanger}
-              onClick={() => setDeassociateConfirmOpen(true)}
+              onClick={() => setDeassociateReasonOpen(true)}
               disabled={deassociate.isPending}
             >
               {deassociate.isPending ? 'Desasociando…' : 'Desasociar'}
@@ -779,9 +757,9 @@ function ActivePppoeView({
               type="button"
               className={styles.btnLinkDanger}
               onClick={() => { setBajaError(null); setBajaModalOpen(true); }}
-              disabled={deactivate.isPending || updateService.isPending}
+              disabled={deactivate.isPending}
             >
-              {deactivate.isPending || updateService.isPending ? 'Dando de baja…' : 'Dar de baja PPPoE'}
+              {deactivate.isPending ? 'Dando de baja…' : 'Dar de baja PPPoE'}
             </button>
           </div>
         </section>
@@ -795,60 +773,13 @@ function ActivePppoeView({
         onCancel={() => setBajaModalOpen(false)}
       />
 
-      {/* Diálogo de confirmación para desasociar */}
-      {deassociateConfirmOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="deassociate-dialog-title"
-          className={styles.backdrop}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setDeassociateConfirmOpen(false);
-          }}
-        >
-          <div className={styles.panel} style={{ maxWidth: '400px' }}>
-            <div className={styles.panelHeader}>
-              <h2 id="deassociate-dialog-title" className={styles.panelTitle}>
-                Desasociar PPPoE
-              </h2>
-              <button
-                type="button"
-                className={styles.closeBtn}
-                onClick={() => setDeassociateConfirmOpen(false)}
-                aria-label="Cerrar"
-              >
-                ×
-              </button>
-            </div>
-            <div className={styles.panelBody}>
-              <p>
-                ¿Desasociar este PPPoE del contrato? Volverá al inventario de PPPoE libres, sin darse de baja.
-              </p>
-              <div className={styles.formActions} style={{ marginTop: 'var(--space-4)' }}>
-                <button
-                  type="button"
-                  className={styles.btnSecondary}
-                  onClick={() => setDeassociateConfirmOpen(false)}
-                  disabled={deassociate.isPending}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  className={styles.btnPrimary}
-                  disabled={deassociate.isPending}
-                  onClick={async () => {
-                    setDeassociateConfirmOpen(false);
-                    await deassociate.mutateAsync(pppoe.id);
-                  }}
-                >
-                  {deassociate.isPending ? 'Desasociando…' : 'Confirmar'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal de motivo para desasociar */}
+      <ServiceRemovalReasonModal
+        open={deassociateReasonOpen}
+        serviceName="Internet (PPPoE) — Desasociar"
+        onConfirm={handleDeassociate}
+        onCancel={() => setDeassociateReasonOpen(false)}
+      />
     </div>
   );
 }

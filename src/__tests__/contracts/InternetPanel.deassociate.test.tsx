@@ -3,8 +3,9 @@
  *
  * Cubre:
  *  DA-1  Con PPPoE activo + pppoe.manage → el botón "Desasociar" se renderiza
- *  DA-2  Click en "Desasociar" → muestra diálogo de confirmación
- *  DA-3  Confirmar diálogo → llama a la mutation deassociate con (pppoeId)
+ *  DA-2  Click en "Desasociar" → abre ServiceRemovalReasonModal (textarea visible)
+ *  DA-3a Confirmar motivo en el modal → llama a deassociate con { pppoeId, reason }
+ *  DA-3b Cancelar el modal → NO llama a la mutation
  *  DA-4  Sin pppoe.manage → el botón "Desasociar" NO se renderiza
  *  DA-5  "Desasociar" y "Dar de baja PPPoE" son acciones distintas y coexisten
  */
@@ -26,9 +27,42 @@ vi.mock('@/hooks/usePppoe');
 vi.mock('@/hooks/useNas');
 vi.mock('@/hooks/useMyPermissions');
 vi.mock('@/hooks/useContractServices');
+// ServiceRemovalReasonModal usa createPortal; renderizamos una versión real pero
+// simplificada para poder interactuar con el textarea y los botones.
 vi.mock(
   '@/components/molecules/ServiceRemovalReasonModal/ServiceRemovalReasonModal',
-  () => ({ ServiceRemovalReasonModal: () => null }),
+  () => ({
+    ServiceRemovalReasonModal: ({
+      open,
+      serviceName,
+      onConfirm,
+      onCancel,
+    }: {
+      open: boolean;
+      serviceName: string;
+      onConfirm: (reason: string) => void;
+      onCancel: () => void;
+    }) => {
+      if (!open) return null;
+      return (
+        <div role="dialog" aria-label={serviceName}>
+          <textarea data-testid="reason-textarea" placeholder="Motivo" />
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.querySelector<HTMLTextAreaElement>('[data-testid="reason-textarea"]');
+              onConfirm(el?.value ?? 'motivo-test');
+            }}
+          >
+            Dar de baja
+          </button>
+          <button type="button" onClick={onCancel}>
+            Cancelar
+          </button>
+        </div>
+      );
+    },
+  }),
 );
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -99,7 +133,6 @@ function setup(opts: SetupOpts = {}) {
   vi.mocked(usePppoeModule.useDeactivatePppoe).mockReturnValue(neutralMutation());
   vi.mocked(usePppoeModule.useAssociatePppoe).mockReturnValue(neutralMutation());
 
-  // Stub useDeassociatePppoe — el hook que añadiremos
   vi.mocked(usePppoeModule.useDeassociatePppoe).mockReturnValue({
     mutateAsync: deassociateMutateAsync,
     isPending: deassociatePending,
@@ -166,51 +199,51 @@ describe('DA-1: botón Desasociar aparece con PPPoE activo y pppoe.manage', () =
   });
 });
 
-describe('DA-2: click en Desasociar muestra diálogo de confirmación', () => {
-  it('al hacer click en "Desasociar" aparece el diálogo de confirmación', async () => {
+describe('DA-2: click en Desasociar abre ServiceRemovalReasonModal (textarea)', () => {
+  it('al hacer click en "Desasociar" aparece el modal con un textarea para el motivo', async () => {
     const user = userEvent.setup();
     setup();
     renderPanel();
 
     await user.click(screen.getByRole('button', { name: /^Desasociar$/i }));
 
-    // El diálogo de confirmación tiene el título "Desasociar PPPoE"
-    expect(screen.getByText('Desasociar PPPoE')).toBeInTheDocument();
-    expect(screen.getByText(/Desasociar este PPPoE del contrato/i)).toBeInTheDocument();
-    expect(screen.getByText(/Volverá al inventario de PPPoE libres/i)).toBeInTheDocument();
+    // El mock del modal renderiza un textarea cuando open=true
+    expect(screen.getByTestId('reason-textarea')).toBeInTheDocument();
   });
 });
 
-describe('DA-3: confirmar diálogo llama a la mutation deassociate', () => {
-  it('confirmar dispara deassociateMutateAsync con el id del PPPoE', async () => {
+describe('DA-3a: confirmar motivo llama a deassociate con { pppoeId, reason }', () => {
+  it('confirmar en el modal dispara deassociateMutateAsync con pppoeId y reason', async () => {
     const user = userEvent.setup();
     const mutate = vi.fn().mockResolvedValue({});
     setup({ deassociateMutateAsync: mutate });
     renderPanel();
 
     await user.click(screen.getByRole('button', { name: /^Desasociar$/i }));
-    // Dialog is now open — click Confirmar
-    expect(screen.getByText('Desasociar PPPoE')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /^Confirmar$/i }));
+    // Escribe el motivo en el textarea del modal mock
+    await user.type(screen.getByTestId('reason-textarea'), 'Cliente se va');
+    // Confirma
+    await user.click(screen.getByRole('button', { name: /^Dar de baja$/i }));
 
     await waitFor(() => {
-      expect(mutate).toHaveBeenCalledWith('pppoe-active');
+      expect(mutate).toHaveBeenCalledWith({ pppoeId: 'pppoe-active', reason: 'Cliente se va' });
     });
   });
+});
 
-  it('cancelar el diálogo NO llama a la mutation', async () => {
+describe('DA-3b: cancelar el modal NO llama a la mutation', () => {
+  it('cancelar el modal cierra sin llamar a deassociate', async () => {
     const user = userEvent.setup();
     const mutate = vi.fn();
     setup({ deassociateMutateAsync: mutate });
     renderPanel();
 
     await user.click(screen.getByRole('button', { name: /^Desasociar$/i }));
-    // Verify dialog is open then cancel
-    expect(screen.getByText('Desasociar PPPoE')).toBeInTheDocument();
+    expect(screen.getByTestId('reason-textarea')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /^Cancelar$/i }));
 
     expect(mutate).not.toHaveBeenCalled();
-    expect(screen.queryByText('Desasociar PPPoE')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('reason-textarea')).not.toBeInTheDocument();
   });
 });
 

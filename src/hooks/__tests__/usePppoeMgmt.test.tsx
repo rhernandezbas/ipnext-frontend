@@ -117,16 +117,16 @@ describe('useCreatePppoe', () => {
 });
 
 describe('useDeactivatePppoe', () => {
-  it('llama a pppoeApi.deactivate con el id correcto', async () => {
+  it('llama a pppoeApi.deactivate con el id y reason correctos', async () => {
     vi.mocked(pppoeApi.deactivate).mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useDeactivatePppoe('contract-1', 'client-42'), { wrapper });
 
     await act(async () => {
-      await result.current.mutateAsync('pppoe-1');
+      await result.current.mutateAsync({ id: 'pppoe-1', reason: 'Cliente solicitó baja' });
     });
 
-    expect(pppoeApi.deactivate).toHaveBeenCalledWith('pppoe-1');
+    expect(pppoeApi.deactivate).toHaveBeenCalledWith('pppoe-1', 'Cliente solicitó baja');
   });
 
   it('invalida cache ["contract-pppoe", contractId] y ["client-contracts", clientId] al tener éxito', async () => {
@@ -144,7 +144,7 @@ describe('useDeactivatePppoe', () => {
     });
 
     await act(async () => {
-      await result.current.mutateAsync('pppoe-1');
+      await result.current.mutateAsync({ id: 'pppoe-1' });
     });
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['contract-pppoe', 'contract-1'] });
@@ -158,7 +158,7 @@ describe('useDeactivatePppoe', () => {
     const { result } = renderHook(() => useDeactivatePppoe('contract-1', 'client-42'), { wrapper });
 
     await expect(
-      result.current.mutateAsync('pppoe-1'),
+      result.current.mutateAsync({ id: 'pppoe-1' }),
     ).rejects.toMatchObject({ response: { status: 502 } });
   });
 });

@@ -90,8 +90,8 @@ export const pppoeApi = {
   },
 
   /** Da de baja (DELETE) un PPPoE — corte real en el router. 204 sin body. */
-  async deactivate(id: string): Promise<void> {
-    await axiosClient.delete(`${BASE}/${id}`);
+  async deactivate(id: string, reason?: string): Promise<void> {
+    await axiosClient.delete(`${BASE}/${id}`, { data: { reason } });
   },
 
   // ── Adopción de inventario PPPoE (huérfanos) ─────────────────────────────────
@@ -119,8 +119,8 @@ export const pppoeApi = {
    * Desasocia un PPPoE de un contrato: vuelve al inventario de huérfanos (contractId = null)
    * SIN darse de baja en el router. El BE responde 200 con el DTO huérfano (lo ignoramos). Gated `pppoe.manage`.
    */
-  async deassociate(contractId: string, pppoeId: string): Promise<void> {
-    await axiosClient.delete(`${CONTRACTS_BASE}/${contractId}/pppoe/${pppoeId}`);
+  async deassociate(contractId: string, pppoeId: string, reason?: string): Promise<void> {
+    await axiosClient.delete(`${CONTRACTS_BASE}/${contractId}/pppoe/${pppoeId}`, { data: { reason } });
   },
 
   /**
