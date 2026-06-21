@@ -712,3 +712,166 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
+
+/* ── Card header (badge + título en la misma fila) ───────────────────────── */
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* ── Grupos de acciones (Modificar / Control de servicio / Ciclo de vida) ─── */
+
+.actionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.actionGroupTitle {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.actionGroupItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.actionGroupActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* editForm gets its own block styling inside the group */
+.editForm {
+  width: 100%;
+}
+
+/* ── Ciclo de vida: items con hint descriptivo ───────────────────────────── */
+
+.lifecycleItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.lifecycleItem:first-of-type {
+  padding-top: 0;
+  border-top: none;
+}
+
+.lifecycleHint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* ── Warning button (Cortar — between secondary and danger) ──────────────── */
+
+.btnWarning {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 16px;
+  background: #fff7ed;
+  color: #92400e;
+  border: 1px solid #fed7aa;
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.btnWarning:hover:not(:disabled) {
+  background: #ffedd5;
+  border-color: #fb923c;
+  color: #7c2d12;
+}
+
+.btnWarning:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+}
+
+.btnWarning:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Speed control (Cambiar velocidad) ───────────────────────────────────── */
+
+.speedControl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.speedRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.speedInputRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.speedInputRow .select {
+  flex: 1;
+  min-width: 0;
+}
+
+.speedProfileReadonly {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+}
+
+/* All clickable elements: cursor-pointer, focus-visible ring */
+.btnPrimary:focus-visible,
+.btnSecondary:focus-visible,
+.btnLinkDanger:focus-visible,
+.btnWarning:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.btnLinkDanger:focus-visible {
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btnPrimary,
+  .btnSecondary,
+  .btnWarning,
+  .btnLinkDanger,
+  .btnCambiar,
+  .unassignedItem,
+  .actionGroup,
+  .input,
+  .select {
+    transition: none;
+  }
+}

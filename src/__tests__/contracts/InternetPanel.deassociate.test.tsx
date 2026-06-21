@@ -20,6 +20,7 @@ import * as usePppoeModule from '@/hooks/usePppoe';
 import * as useNasModule from '@/hooks/useNas';
 import * as useMyPermissionsModule from '@/hooks/useMyPermissions';
 import * as useContractServicesModule from '@/hooks/useContractServices';
+import * as usePlansModule from '@/hooks/usePlans';
 import type { PppoeServiceDto } from '@/types/pppoe';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
@@ -27,6 +28,7 @@ vi.mock('@/hooks/usePppoe');
 vi.mock('@/hooks/useNas');
 vi.mock('@/hooks/useMyPermissions');
 vi.mock('@/hooks/useContractServices');
+vi.mock('@/hooks/usePlans');
 // ServiceRemovalReasonModal usa createPortal; renderizamos una versión real pero
 // simplificada para poder interactuar con el textarea y los botones.
 vi.mock(
@@ -105,6 +107,13 @@ function setup(opts: SetupOpts = {}) {
     deassociateMutateAsync = vi.fn().mockResolvedValue({}),
     deassociatePending = false,
   } = opts;
+
+  vi.mocked(usePlansModule.usePlans).mockReturnValue({
+    data: [],
+    isLoading: false,
+    isError: false,
+    isSuccess: true,
+  } as ReturnType<typeof usePlansModule.usePlans>);
 
   vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue({
     data: [ACTIVE_PPPOE],

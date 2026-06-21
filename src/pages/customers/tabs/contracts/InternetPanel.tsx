@@ -14,6 +14,7 @@ import {
   useEnforcePppoeForContract,
 } from '@/hooks/usePppoe';
 import type { EnforcementAction } from '@/types/pppoe';
+import { usePlans } from '@/hooks/usePlans';
 
 import { useNasServers, useNextFreeIp } from '@/hooks/useNas';
 import type { IpType } from '@/api/nas.api';
@@ -479,6 +480,106 @@ function CreatePppoeForm({
 
 // ── PPPoE activo ──────────────────────────────────────────────────────────────
 
+/**
+ * SpeedControl — inline control para cambiar el plan/velocidad del PPPoE.
+ * Se renderiza FUERA del form de Editar para no pisar password/IP al cambiar plan.
+ * Degradación: si usePlans() retorna vacío o error, muestra el perfil actual como texto.
+ * Gateado por pppoe.manage (el padre <Can> lo envuelve).
+ */
+function SpeedControl({
+  pppoeId,
+  currentProfile,
+  onApply,
+  isPending,
+}: {
+  pppoeId: string;
+  currentProfile: string | null;
+  onApply: (profile: string) => Promise<unknown>;
+  isPending: boolean;
+}) {
+  const plansQuery = usePlans();
+  const allPlans = plansQuery.data ?? [];
+  const eligiblePlans = allPlans.filter(
+    (p) => p.status === 'enabled' && p.category !== 'Corte',
+  );
+
+  const [selected, setSelected] = useState<string>(currentProfile ?? '');
+  const [speedError, setSpeedError] = useState<string | null>(null);
+
+  // Keep selection in sync when pppoe.profile changes from outside (e.g. after a successful apply)
+  const [lastApplied, setLastApplied] = useState<string>(currentProfile ?? '');
+  if (currentProfile !== lastApplied) {
+    setLastApplied(currentProfile ?? '');
+    setSelected(currentProfile ?? '');
+  }
+
+  const unchanged = selected === (currentProfile ?? '');
+  const applyDisabled = unchanged || isPending;
+
+  async function handleApply() {
+    if (applyDisabled) return;
+    setSpeedError(null);
+    try {
+      await onApply(selected);
+    } catch {
+      setSpeedError('No se pudo cambiar la velocidad. Reintentá.');
+    }
+  }
+
+  // Graceful degradation: no eligible plans or query error → read-only text
+  if (plansQuery.isError || eligiblePlans.length === 0) {
+    return (
+      <div className={styles.speedControl}>
+        <span className={styles.fieldLabel}>Velocidad</span>
+        <span
+          className={styles.speedProfileReadonly}
+          data-testid="speed-profile-readonly"
+        >
+          {currentProfile ?? '—'}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.speedControl}>
+      {speedError && (
+        <div className={`${styles.banner} ${styles.bannerError}`} role="alert" style={{ marginBottom: 'var(--space-2)' }}>
+          <span>{speedError}</span>
+        </div>
+      )}
+      <div className={styles.speedRow}>
+        <label className={styles.fieldLabel} htmlFor={`speed-select-${pppoeId}`}>
+          Velocidad
+        </label>
+        <div className={styles.speedInputRow}>
+          <select
+            id={`speed-select-${pppoeId}`}
+            className={styles.select}
+            value={selected}
+            onChange={(e) => { setSpeedError(null); setSelected(e.target.value); }}
+            disabled={isPending}
+          >
+            {eligiblePlans.map((plan) => (
+              <option key={plan.id} value={plan.code}>
+                {plan.name ? `${plan.name} — ${plan.rateLimit}` : `${plan.code} — ${plan.rateLimit}`}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className={styles.btnPrimary}
+            onClick={handleApply}
+            disabled={applyDisabled}
+          >
+            {isPending ? 'Aplicando…' : 'Aplicar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ActivePppoeView({
   contractId,
   clientId,
@@ -594,12 +695,63 @@ function ActivePppoeView({
 
   return (
     <div className={styles.section}>
-      {/* Detalle */}
+      {/* ── Detalle: badge + data grid ──────────────────────────────────── */}
       <section className={styles.card}>
-        <div className={styles.actionRow}>
+        <div className={styles.cardHeader}>
           <h4 className={styles.cardTitle}>PPPoE activo</h4>
+          {/* Badges prominentes en el header de la card */}
+          <div className={styles.badgeRow}>
+            {pppoe.status === 'enabled' ? (
+              <span className={styles.badgeActive}>Activo</span>
+            ) : (
+              <span className={styles.badgeInactive}>Desactivado</span>
+            )}
+            {pppoe.enforcedState === 'reduced' && (
+              <span className={styles.badgeReduced}>Reducido</span>
+            )}
+            {pppoe.enforcedState === 'blocked' && (
+              <span className={styles.badgeInactive}>Bloqueado</span>
+            )}
+          </div>
+        </div>
+
+        <dl className={styles.detailGrid}>
+          <div>
+            <dt className={styles.dt}>Usuario</dt>
+            <dd className={styles.dd}>{pppoe.username}</dd>
+          </div>
+          <div>
+            <dt className={styles.dt}>Perfil</dt>
+            <dd className={styles.dd}>{pppoe.profile ?? '—'}</dd>
+          </div>
+          <div>
+            <dt className={styles.dt}>Router</dt>
+            <dd className={styles.dd}>{nasName(pppoe.nasId)}</dd>
+          </div>
+          <div>
+            <dt className={styles.dt}>IP remota</dt>
+            <dd className={styles.dd}>{pppoe.remoteAddress ?? '—'}</dd>
+          </div>
+          {/* Doble capa: el endpoint /credentials exige pppoe.manage */}
           <Can permission="pppoe.manage">
-            {!editing && (
+            <div>
+              <dt className={styles.dt}>Contraseña</dt>
+              <dd className={styles.dd}>
+                <RevealCredentials pppoeId={pppoe.id} />
+              </dd>
+            </div>
+          </Can>
+        </dl>
+      </section>
+
+      {/* ── Grupo: Modificar ─────────────────────────────────────────────── */}
+      <Can permission="pppoe.manage">
+        <section className={styles.actionGroup}>
+          <h5 className={styles.actionGroupTitle}>Modificar</h5>
+
+          {/* Editar: password / IP remota / router */}
+          <div className={styles.actionGroupItem}>
+            {!editing ? (
               <button
                 type="button"
                 className={styles.btnSecondary}
@@ -616,173 +768,117 @@ function ActivePppoeView({
               >
                 Editar
               </button>
-            )}
-          </Can>
-        </div>
-
-        {!editing ? (
-          <>
-            <dl className={styles.detailGrid}>
-              <div>
-                <dt className={styles.dt}>Usuario</dt>
-                <dd className={styles.dd}>{pppoe.username}</dd>
-              </div>
-              <div>
-                <dt className={styles.dt}>Perfil</dt>
-                <dd className={styles.dd}>{pppoe.profile ?? '—'}</dd>
-              </div>
-              <div>
-                <dt className={styles.dt}>Router</dt>
-                <dd className={styles.dd}>{nasName(pppoe.nasId)}</dd>
-              </div>
-              <div>
-                <dt className={styles.dt}>IP remota</dt>
-                <dd className={styles.dd}>{pppoe.remoteAddress ?? '—'}</dd>
-              </div>
-              {/* Doble capa: el endpoint /credentials exige pppoe.manage — la fila de
-                  contraseña solo se renderiza (y el fetch lazy solo se dispara) con ese permiso. */}
-              <Can permission="pppoe.manage">
-                <div>
-                  <dt className={styles.dt}>Contraseña</dt>
-                  <dd className={styles.dd}>
-                    <RevealCredentials pppoeId={pppoe.id} />
-                  </dd>
+            ) : (
+              <form onSubmit={handleEdit} className={styles.editForm}>
+                <div className={styles.formGrid}>
+                  <div className={styles.field}>
+                    <label className={styles.fieldLabel} htmlFor="pppoe-edit-profile">
+                      Perfil
+                    </label>
+                    <input
+                      id="pppoe-edit-profile"
+                      className={styles.input}
+                      value={editForm.profile}
+                      onChange={(e) => setEditForm((f) => ({ ...f, profile: e.target.value }))}
+                      disabled={isPending}
+                      placeholder="Opcional"
+                    />
+                  </div>
+                  <div className={styles.field}>
+                    <label className={styles.fieldLabel} htmlFor="pppoe-edit-password">
+                      Nueva contraseña
+                    </label>
+                    <input
+                      id="pppoe-edit-password"
+                      type="password"
+                      className={styles.input}
+                      value={editForm.password}
+                      onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))}
+                      disabled={isPending}
+                      placeholder="Dejar vacío para no cambiar"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <div className={styles.field}>
+                    <label className={styles.fieldLabel} htmlFor="pppoe-edit-remote">
+                      IP remota
+                    </label>
+                    <input
+                      id="pppoe-edit-remote"
+                      className={styles.input}
+                      value={editForm.remoteAddress}
+                      onChange={(e) => setEditForm((f) => ({ ...f, remoteAddress: e.target.value }))}
+                      disabled={isPending}
+                      placeholder="Opcional"
+                    />
+                  </div>
+                  <div className={styles.field}>
+                    <label className={styles.fieldLabel} htmlFor="pppoe-edit-nas">
+                      Router
+                    </label>
+                    <select
+                      id="pppoe-edit-nas"
+                      className={styles.select}
+                      value={editForm.nasId}
+                      onChange={(e) => setEditForm((f) => ({ ...f, nasId: e.target.value }))}
+                      disabled={isPending}
+                    >
+                      {nasServers.map((nas) => (
+                        <option key={nas.id} value={nas.id}>
+                          {nas.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-              </Can>
-            </dl>
-            <div className={styles.badgeRow}>
-              {pppoe.status === 'enabled' ? (
-                <span className={styles.badgeActive}>Activo</span>
-              ) : (
-                <span className={styles.badgeInactive}>Desactivado</span>
-              )}
-              {pppoe.enforcedState === 'reduced' && (
-                <span className={styles.badgeReduced}>Reducido</span>
-              )}
-              {pppoe.enforcedState === 'blocked' && (
-                <span className={styles.badgeInactive}>Bloqueado</span>
-              )}
-            </div>
-          </>
-        ) : (
-          <form onSubmit={handleEdit}>
-            <div className={styles.formGrid}>
-              <div className={styles.field}>
-                <label className={styles.fieldLabel} htmlFor="pppoe-edit-profile">
-                  Perfil
-                </label>
-                <input
-                  id="pppoe-edit-profile"
-                  className={styles.input}
-                  value={editForm.profile}
-                  onChange={(e) => setEditForm((f) => ({ ...f, profile: e.target.value }))}
-                  disabled={isPending}
-                  placeholder="Opcional"
-                />
-              </div>
-              <div className={styles.field}>
-                <label className={styles.fieldLabel} htmlFor="pppoe-edit-password">
-                  Nueva contraseña
-                </label>
-                <input
-                  id="pppoe-edit-password"
-                  type="password"
-                  className={styles.input}
-                  value={editForm.password}
-                  onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))}
-                  disabled={isPending}
-                  placeholder="Dejar vacío para no cambiar"
-                  autoComplete="new-password"
-                />
-              </div>
-              <div className={styles.field}>
-                <label className={styles.fieldLabel} htmlFor="pppoe-edit-remote">
-                  IP remota
-                </label>
-                <input
-                  id="pppoe-edit-remote"
-                  className={styles.input}
-                  value={editForm.remoteAddress}
-                  onChange={(e) => setEditForm((f) => ({ ...f, remoteAddress: e.target.value }))}
-                  disabled={isPending}
-                  placeholder="Opcional"
-                />
-              </div>
-              <div className={styles.field}>
-                <label className={styles.fieldLabel} htmlFor="pppoe-edit-nas">
-                  Router
-                </label>
-                <select
-                  id="pppoe-edit-nas"
-                  className={styles.select}
-                  value={editForm.nasId}
-                  onChange={(e) => setEditForm((f) => ({ ...f, nasId: e.target.value }))}
-                  disabled={isPending}
-                >
-                  {nasServers.map((nas) => (
-                    <option key={nas.id} value={nas.id}>
-                      {nas.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            {editError && (
-              <div className={`${styles.banner} ${styles.bannerError}`} style={{ marginTop: 'var(--space-4)' }}>
-                <span>{editError}</span>
-              </div>
+                {editError && (
+                  <div className={`${styles.banner} ${styles.bannerError}`} style={{ marginTop: 'var(--space-4)' }}>
+                    <span>{editError}</span>
+                  </div>
+                )}
+                <div className={styles.formActions} style={{ marginTop: 'var(--space-4)' }}>
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    onClick={() => { setEditing(false); setEditError(null); }}
+                    disabled={isPending}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className={styles.btnPrimary}
+                    disabled={isPending}
+                  >
+                    {isPending ? 'Guardando…' : 'Guardar cambios'}
+                  </button>
+                </div>
+              </form>
             )}
-            <div className={styles.formActions} style={{ marginTop: 'var(--space-4)' }}>
-              <button
-                type="button"
-                className={styles.btnSecondary}
-                onClick={() => { setEditing(false); setEditError(null); }}
-                disabled={isPending}
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className={styles.btnPrimary}
-                disabled={isPending}
-              >
-                {isPending ? 'Guardando…' : 'Guardar cambios'}
-              </button>
-            </div>
-          </form>
-        )}
-      </section>
+          </div>
 
-      {/* Desasociar PPPoE (sin dar de baja — vuelve al inventario de huérfanos) */}
-      <Can permission="pppoe.manage">
-        <section className={styles.bajaSection}>
-          {deassociateError && (
-            <div className={`${styles.banner} ${styles.bannerError}`} role="alert">
-              <span>{deassociateError}</span>
-            </div>
-          )}
-          <div className={styles.formActions}>
-            <button
-              type="button"
-              className={styles.btnLinkDanger}
-              onClick={() => setDeassociateReasonOpen(true)}
-              disabled={deassociate.isPending}
-            >
-              {deassociate.isPending ? 'Desasociando…' : 'Desasociar'}
-            </button>
+          {/* Cambiar velocidad */}
+          <div className={styles.actionGroupItem}>
+            <SpeedControl
+              pppoeId={pppoe.id}
+              currentProfile={pppoe.profile ?? null}
+              onApply={(profile) => update.mutateAsync({ id: pppoe.id, body: { profile } })}
+              isPending={update.isPending}
+            />
           </div>
         </section>
       </Can>
 
-      {/* Corte individual — Reducir / Cortar / Restaurar (adaptive to enforcedState) */}
+      {/* ── Grupo: Control de servicio ───────────────────────────────────── */}
       <Can permission="pppoe.cut">
-        <section className={styles.bajaSection}>
+        <section className={styles.actionGroup}>
+          <h5 className={styles.actionGroupTitle}>Control de servicio</h5>
           {enforceError && (
             <div className={`${styles.banner} ${styles.bannerError}`} role="alert">
               <span>{enforceError}</span>
             </div>
           )}
-          <div className={styles.formActions}>
+          <div className={styles.actionGroupActions}>
             {pppoe.enforcedState === 'active' && (
               <button
                 type="button"
@@ -796,7 +892,7 @@ function ActivePppoeView({
             {(pppoe.enforcedState === 'active' || pppoe.enforcedState === 'reduced') && (
               <button
                 type="button"
-                className={styles.btnLinkDanger}
+                className={styles.btnWarning}
                 onClick={() => { setEnforceError(null); setEnforceModal('block'); }}
                 disabled={enforceForContract.isPending}
               >
@@ -817,15 +913,41 @@ function ActivePppoeView({
         </section>
       </Can>
 
-      {/* Dar de baja */}
-      <Can permission="pppoe.cut">
-        <section className={styles.bajaSection}>
-          {bajaError && (
-            <div className={`${styles.banner} ${styles.bannerError}`} role="alert">
-              <span>{bajaError}</span>
-            </div>
-          )}
-          <div className={styles.formActions}>
+      {/* ── Grupo: Ciclo de vida ─────────────────────────────────────────── */}
+      <Can permissions={['pppoe.manage', 'pppoe.cut']} mode="any">
+      <section className={styles.actionGroup}>
+        <h5 className={styles.actionGroupTitle}>Ciclo de vida</h5>
+
+        {/* Desasociar — pppoe.manage */}
+        <Can permission="pppoe.manage">
+          <div className={styles.lifecycleItem}>
+            {deassociateError && (
+              <div className={`${styles.banner} ${styles.bannerError}`} role="alert">
+                <span>{deassociateError}</span>
+              </div>
+            )}
+            <button
+              type="button"
+              className={styles.btnLinkDanger}
+              onClick={() => setDeassociateReasonOpen(true)}
+              disabled={deassociate.isPending}
+            >
+              {deassociate.isPending ? 'Desasociando…' : 'Desasociar'}
+            </button>
+            <span className={styles.lifecycleHint}>
+              Quita el PPPoE del contrato y lo devuelve al inventario de huérfanos.
+            </span>
+          </div>
+        </Can>
+
+        {/* Dar de baja — pppoe.cut */}
+        <Can permission="pppoe.cut">
+          <div className={styles.lifecycleItem}>
+            {bajaError && (
+              <div className={`${styles.banner} ${styles.bannerError}`} role="alert">
+                <span>{bajaError}</span>
+              </div>
+            )}
             <button
               type="button"
               className={styles.btnLinkDanger}
@@ -834,27 +956,27 @@ function ActivePppoeView({
             >
               {deactivate.isPending ? 'Dando de baja…' : 'Dar de baja PPPoE'}
             </button>
+            <span className={styles.lifecycleHint}>
+              Corta el servicio en el router y registra la baja en el historial.
+            </span>
           </div>
-        </section>
+        </Can>
+      </section>
       </Can>
 
-      {/* Modal de motivo de baja */}
+      {/* Modales de motivo */}
       <ServiceRemovalReasonModal
         open={bajaModalOpen}
         serviceName="Internet (PPPoE)"
         onConfirm={handleBaja}
         onCancel={() => setBajaModalOpen(false)}
       />
-
-      {/* Modal de motivo para desasociar */}
       <ServiceRemovalReasonModal
         open={deassociateReasonOpen}
         serviceName="Internet (PPPoE) — Desasociar"
         onConfirm={handleDeassociate}
         onCancel={() => setDeassociateReasonOpen(false)}
       />
-
-      {/* Modales de motivo para enforce (Reducir / Cortar / Restaurar) */}
       <ServiceRemovalReasonModal
         open={enforceModal === 'reduce'}
         serviceName="Internet (PPPoE)"
