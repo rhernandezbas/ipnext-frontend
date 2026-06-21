@@ -23,6 +23,11 @@ interface ServiceRemovalReasonModalProps {
    * actions (baja/corte). Use 'primary' for neutral actions (e.g. "Cambiar velocidad").
    */
   tone?: 'danger' | 'primary';
+  /**
+   * Optional placeholder for the reason textarea. Defaults to a baja-oriented example.
+   * Use a neutral example for non-baja actions (e.g. "Ej: Upgrade de plan…").
+   */
+  placeholder?: string;
   /** Called with the trimmed reason string when the operator confirms. */
   onConfirm: (reason: string) => void;
   /** Called when the operator cancels or dismisses the modal. */
@@ -40,6 +45,7 @@ export function ServiceRemovalReasonModal({
   title,
   confirmLabel,
   tone = 'danger',
+  placeholder = 'Ej: Cliente solicitó baja, equipo retirado…',
   onConfirm,
   onCancel,
 }: ServiceRemovalReasonModalProps) {
@@ -107,7 +113,7 @@ export function ServiceRemovalReasonModal({
             className={styles.textarea}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="Ej: Cliente solicitó baja, equipo retirado…"
+            placeholder={placeholder}
             rows={4}
           />
         </div>

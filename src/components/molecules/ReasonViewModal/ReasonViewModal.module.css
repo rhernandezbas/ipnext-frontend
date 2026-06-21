@@ -35,6 +35,18 @@
   word-break: break-word;
 }
 
+.detailText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+  word-break: break-word;
+}
+
+.detailLabel {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
 .actions {
   display: flex;
   justify-content: flex-end;
