@@ -159,29 +159,36 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
 
   if (!lead) return null;
 
+  // `lead` is a frozen snapshot from the page; `detail` is the re-fetched, always-fresh
+  // copy (RecaptureLeadDetailDto extends RecaptureLeadDto + contacts). Mutations that
+  // invalidate recaptacionLeadKey(id) — status, assign, contact — refresh `detail`, so
+  // rendering from `view` makes the drawer reflect changes instantly. Falls back to the
+  // prop while the detail is still loading.
+  const view = detail ?? lead;
+
   // A controlled <select> only shows what's in its <option> list. If the lead's
   // assignee is NOT in the (ventas-only) pool — e.g. an admin assigned before the
   // filter existed — the select would render blank and silently misreport "Sin
   // asignar". Inject a phantom option so the select ALWAYS reflects the real
   // assignee. The ventas filter trims the CHOICES, it never erases an assignment.
   const assigneeInPool =
-    lead.assigneeId != null && operators.some((op) => op.id === lead.assigneeId);
-  const showPhantom = lead.assigneeId != null && !assigneeInPool;
+    view.assigneeId != null && operators.some((op) => op.id === view.assigneeId);
+  const showPhantom = view.assigneeId != null && !assigneeInPool;
 
   return (
     <div
       className={styles.overlay}
       role="dialog"
       aria-modal="true"
-      aria-label={`Detalle lead: ${lead.contactName}`}
+      aria-label={`Detalle lead: ${view.contactName}`}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <aside className={styles.drawer}>
         {/* Header */}
         <div className={styles.header}>
           <div className={styles.headerLeft}>
-            <h2 className={styles.title}>{lead.contactName}</h2>
-            <p className={styles.subtitle}>{lead.email ?? lead.phone ?? 'Sin contacto directo'}</p>
+            <h2 className={styles.title}>{view.contactName}</h2>
+            <p className={styles.subtitle}>{view.email ?? view.phone ?? 'Sin contacto directo'}</p>
           </div>
           <button className={styles.closeBtn} onClick={onClose} aria-label="Cerrar">×</button>
         </div>
@@ -194,30 +201,30 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
             <div className={styles.metaGrid}>
               <div className={styles.metaItem}>
                 <span className={styles.metaLabel}>Teléfono</span>
-                <span className={styles.metaValue}>{lead.phone ?? '—'}</span>
+                <span className={styles.metaValue}>{view.phone ?? '—'}</span>
               </div>
               <div className={styles.metaItem}>
                 <span className={styles.metaLabel}>Email</span>
-                <span className={styles.metaValue}>{lead.email ?? '—'}</span>
+                <span className={styles.metaValue}>{view.email ?? '—'}</span>
               </div>
               <div className={styles.metaItem}>
                 <span className={styles.metaLabel}>Origen</span>
-                <span className={styles.metaValue}>{lead.source === 'churned_client' ? 'Cliente dado de baja' : 'CSV'}</span>
+                <span className={styles.metaValue}>{view.source === 'churned_client' ? 'Cliente dado de baja' : 'CSV'}</span>
               </div>
               <div className={styles.metaItem}>
                 <span className={styles.metaLabel}>Creado</span>
-                <span className={styles.metaValue}>{formatDatetime(lead.createdAt)}</span>
+                <span className={styles.metaValue}>{formatDatetime(view.createdAt)}</span>
               </div>
               <div className={styles.metaItem}>
                 <span className={styles.metaLabel}>Tomado el</span>
-                <span className={styles.metaValue}>{formatDatetime(lead.claimedAt)}</span>
+                <span className={styles.metaValue}>{formatDatetime(view.claimedAt)}</span>
               </div>
               <div className={styles.metaItem}>
                 <span className={styles.metaLabel}>Asignado</span>
-                <span className={styles.metaValue}>{lead.assigneeName ?? '—'}</span>
+                <span className={styles.metaValue}>{view.assigneeName ?? '—'}</span>
               </div>
             </div>
-            {lead.clientId && (
+            {view.clientId && (
               <div className={styles.contractsAction}>
                 <Button variant="secondary" onClick={() => setShowContracts(true)}>
                   Ver contratos
@@ -232,9 +239,9 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
             <Can permission="recapture.manage" fallback={
               <span
                 className={styles.statusPill}
-                style={{ backgroundColor: RECAPTURE_STATUS_COLOR[lead.status] ?? '#94a3b8' }}
+                style={{ backgroundColor: RECAPTURE_STATUS_COLOR[view.status] ?? '#94a3b8' }}
               >
-                {RECAPTURE_STATUS_LABELS[lead.status]}
+                {RECAPTURE_STATUS_LABELS[view.status]}
               </span>
             }>
               <div className={styles.statusSelectWrapper}>
@@ -243,7 +250,7 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
                   id="lead-status-select"
                   aria-label="Estado"
                   className={styles.statusSelect}
-                  value={lead.status}
+                  value={view.status}
                   disabled={updateLeadStatus.isPending}
                   onChange={(e) =>
                     updateLeadStatus.mutate({ id: lead.id, status: e.target.value as RecaptureLeadStatus })
@@ -264,7 +271,7 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
                   id="lead-operator-select"
                   aria-label="Operador"
                   className={styles.statusSelect}
-                  value={lead.assigneeId ?? ''}
+                  value={view.assigneeId ?? ''}
                   disabled={assignLead.isPending}
                   onChange={(e) => {
                     const operatorId = e.target.value === '' ? null : e.target.value;
@@ -273,8 +280,8 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
                 >
                   <option value="">— Sin asignar —</option>
                   {showPhantom && (
-                    <option value={lead.assigneeId!}>
-                      {lead.assigneeName ?? 'Asignado (fuera de lista)'}
+                    <option value={view.assigneeId!}>
+                      {view.assigneeName ?? 'Asignado (fuera de lista)'}
                     </option>
                   )}
                   {operators.map((op) => (
@@ -343,11 +350,11 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
           </section>
         </div>
       </aside>
-      {lead.clientId && (
+      {view.clientId && (
         <ContractHistoryModal
           open={showContracts}
-          clientId={lead.clientId}
-          clientName={lead.contactName}
+          clientId={view.clientId}
+          clientName={view.contactName}
           onClose={() => setShowContracts(false)}
         />
       )}

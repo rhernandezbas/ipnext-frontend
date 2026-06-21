@@ -408,3 +408,87 @@ describe('LeadDetailDrawer — claim/release removed', () => {
     expect(screen.queryByRole('button', { name: /liberar lead/i })).not.toBeInTheDocument();
   });
 });
+
+// ── live detail wins over prop snapshot (#recapture-drawer-live) ──────────────
+
+import type { RecaptureLeadDetailDto } from '@/types/recaptacion';
+
+describe('LeadDetailDrawer — live detail wins over prop snapshot (#recapture-drawer-live)', () => {
+  it('L1 — status select reflects detail, not the stale prop (detail wins)', () => {
+    // Prop has status 'nuevo'; detail comes back with 'recuperado' after a mutation.
+    // The drawer must show 'recuperado' — not 'nuevo'.
+    const freshDetail: RecaptureLeadDetailDto = {
+      ...BASE_LEAD,
+      status: 'recuperado',
+      contacts: [],
+    };
+    vi.mocked(useRecaptacionLead).mockReturnValue({
+      data: freshDetail,
+      isLoading: false,
+    } as ReturnType<typeof useRecaptacionLead>);
+
+    renderDrawer({ ...BASE_LEAD, status: 'nuevo' });
+
+    const select = screen.getByRole('combobox', { name: /estado/i }) as HTMLSelectElement;
+    expect(select.value).toBe('recuperado');
+  });
+
+  it('L1b — statusPill text reflects detail when user lacks recapture.manage', () => {
+    // Without recapture.manage the pill renders instead of the select.
+    mockHooks({ can: () => false });
+    const freshDetail: RecaptureLeadDetailDto = {
+      ...BASE_LEAD,
+      status: 'recuperado',
+      contacts: [],
+    };
+    vi.mocked(useRecaptacionLead).mockReturnValue({
+      data: freshDetail,
+      isLoading: false,
+    } as ReturnType<typeof useRecaptacionLead>);
+
+    renderDrawer({ ...BASE_LEAD, status: 'nuevo' });
+
+    // The pill shows the DETAIL's label, not the stale prop's label.
+    expect(screen.getByText('Recuperado')).toBeInTheDocument();
+    expect(screen.queryByText('Nuevo')).not.toBeInTheDocument();
+  });
+
+  it('L2 — falls back to prop when detail is still loading (no crash)', () => {
+    // detail = undefined → view = lead (the prop). No crash, renders prop status.
+    vi.mocked(useRecaptacionLead).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+    } as ReturnType<typeof useRecaptacionLead>);
+
+    renderDrawer({ ...BASE_LEAD, status: 'interesado' });
+
+    const select = screen.getByRole('combobox', { name: /estado/i }) as HTMLSelectElement;
+    expect(select.value).toBe('interesado');
+  });
+
+  it('L3 — operator select and meta-grid "Asignado" reflect detail assignee, not prop', () => {
+    // Prop: unassigned. Detail: assigned to op-2 (which IS in the ventas pool).
+    // After a mutation + invalidation, detail has the new assignee.
+    const freshDetail: RecaptureLeadDetailDto = {
+      ...BASE_LEAD,
+      assigneeId: 'op-2',
+      assigneeName: 'Operador Dos',
+      contacts: [],
+    };
+    vi.mocked(useRecaptacionLead).mockReturnValue({
+      data: freshDetail,
+      isLoading: false,
+    } as ReturnType<typeof useRecaptacionLead>);
+
+    // Prop is unassigned
+    renderDrawer({ ...BASE_LEAD, assigneeId: null, assigneeName: null });
+
+    // Operator select must reflect the DETAIL's assigneeId
+    const opSelect = screen.getByRole('combobox', { name: /operador/i }) as HTMLSelectElement;
+    expect(opSelect.value).toBe('op-2');
+
+    // Meta-grid "Asignado" must show the detail's assigneeName (not '—')
+    const assignedSection = screen.getByText('Asignado').closest('div')!;
+    expect(within(assignedSection).getByText('Operador Dos')).toBeInTheDocument();
+  });
+});
