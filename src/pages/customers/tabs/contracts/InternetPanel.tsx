@@ -508,6 +508,7 @@ function ActivePppoeView({
   const [bajaError, setBajaError] = useState<string | null>(null);
 
   const [deassociateReasonOpen, setDeassociateReasonOpen] = useState(false);
+  const [deassociateError, setDeassociateError] = useState<string | null>(null);
 
   function nasName(id: string): string {
     return nasServers.find((n) => n.id === id)?.name ?? id;
@@ -562,7 +563,15 @@ function ActivePppoeView({
 
   async function handleDeassociate(reason: string) {
     setDeassociateReasonOpen(false);
-    await deassociate.mutateAsync({ pppoeId: pppoe.id, reason });
+    setDeassociateError(null);
+    try {
+      await deassociate.mutateAsync({ pppoeId: pppoe.id, reason });
+    } catch (err) {
+      // 404 = el PPPoE ya no estaba asociado → idempotente, éxito silencioso.
+      if (errorStatus(err) !== 404) {
+        setDeassociateError('No se pudo desasociar el PPPoE. Reintentá.');
+      }
+    }
   }
 
   const isPending = update.isPending || move.isPending;
@@ -731,6 +740,11 @@ function ActivePppoeView({
       {/* Desasociar PPPoE (sin dar de baja — vuelve al inventario de huérfanos) */}
       <Can permission="pppoe.manage">
         <section className={styles.bajaSection}>
+          {deassociateError && (
+            <div className={`${styles.banner} ${styles.bannerError}`} role="alert">
+              <span>{deassociateError}</span>
+            </div>
+          )}
           <div className={styles.formActions}>
             <button
               type="button"
