@@ -22,12 +22,19 @@ const EVENT_LABELS: Record<ServiceEvent['eventType'], string> = {
   activated: 'Alta',
   deactivated: 'Baja',
   reactivated: 'Reactivación',
+  // pppoe-corte-individual: enforce events
+  reduced: 'Reducción',
+  blocked: 'Corte',
+  restored: 'Restauración',
 };
 
 function EventBadge({ type }: { type: ServiceEvent['eventType'] }) {
   const label = EVENT_LABELS[type];
   if (type === 'activated') return <span className={styles.badgeAlta}>{label}</span>;
   if (type === 'deactivated') return <span className={styles.badgeBaja}>{label}</span>;
+  if (type === 'reduced') return <span className={styles.badgeReactivacion}>{label}</span>;
+  if (type === 'blocked') return <span className={styles.badgeBaja}>{label}</span>;
+  if (type === 'restored') return <span className={styles.badgeAlta}>{label}</span>;
   return <span className={styles.badgeReactivacion}>{label}</span>;
 }
 
