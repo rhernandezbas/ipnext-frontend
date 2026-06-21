@@ -24,6 +24,7 @@ import * as usePppoeModule from '@/hooks/usePppoe';
 import * as useNasModule from '@/hooks/useNas';
 import * as useMyPermissionsModule from '@/hooks/useMyPermissions';
 import * as useContractServicesModule from '@/hooks/useContractServices';
+import * as usePlansModule from '@/hooks/usePlans';
 import type { PppoeServiceDto } from '@/types/pppoe';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
@@ -31,6 +32,7 @@ vi.mock('@/hooks/usePppoe');
 vi.mock('@/hooks/useNas');
 vi.mock('@/hooks/useMyPermissions');
 vi.mock('@/hooks/useContractServices');
+vi.mock('@/hooks/usePlans');
 vi.mock(
   '@/components/molecules/ServiceRemovalReasonModal/ServiceRemovalReasonModal',
   () => ({ ServiceRemovalReasonModal: () => null }),
@@ -93,6 +95,13 @@ function setup(opts: SetupOpts = {}) {
     credentials,
     canManage = true,
   } = opts;
+
+  vi.mocked(usePlansModule.usePlans).mockReturnValue({
+    data: [],
+    isLoading: false,
+    isError: false,
+    isSuccess: true,
+  } as ReturnType<typeof usePlansModule.usePlans>);
 
   vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue({
     data: [],
