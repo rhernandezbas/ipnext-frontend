@@ -8,6 +8,7 @@ import type {
   InstalledItemType,
   ConfirmSuggestionResult,
   CreateManualSuggestionInput,
+  InspectPppoeDevicesResult,
 } from '@/types/serviceInventory';
 
 // ── Contract installed items ────────────────────────────────────────────────
@@ -75,3 +76,8 @@ export const createManualSuggestion = (taskId: string, input: CreateManualSugges
   axiosClient
     .post<TaskInventorySuggestion>(`/scheduling/${taskId}/inventory/suggestions`, input)
     .then(r => r.data);
+
+// ── PPPoE live inspection ──────────────────────────────────────────────────
+/** GET /contracts/:contractId/inspect-pppoe-devices — live SSH (~8s), best-effort */
+export const inspectPppoeDevices = (contractId: string): Promise<InspectPppoeDevicesResult> =>
+  axiosClient.get<InspectPppoeDevicesResult>(`/contracts/${contractId}/inspect-pppoe-devices`).then(r => r.data);

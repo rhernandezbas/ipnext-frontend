@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useCallback } from 'react';
 import * as api from '@/api/serviceInventory.api';
-import type { AddInstalledItemInput, UpdateInstalledItemInput, InstalledItemType, ConfirmSuggestionResult, CreateManualSuggestionInput } from '@/types/serviceInventory';
+import type { AddInstalledItemInput, UpdateInstalledItemInput, InstalledItemType, ConfirmSuggestionResult, CreateManualSuggestionInput, InspectPppoeDevicesResult } from '@/types/serviceInventory';
 
 const itemsKey = (serviceId: string) => ['service-inventory', serviceId];
 const suggestionsKey = (taskId: string) => ['task-inventory-suggestions', taskId];
@@ -143,4 +144,29 @@ export function useCorrectSuggestionType(taskId: string, contractId?: string) {
       }
     },
   });
+}
+
+// ── PPPoE live inspection ──────────────────────────────────────────────────
+/**
+ * Lazy (manual trigger) hook for inspecting a contract's PPPoE devices live
+ * via SSH. Returns an `inspect(contractId)` function that triggers on demand,
+ * plus `isPending` for loading state (~8s SSH round-trip).
+ *
+ * Does NOT auto-fetch — the operator triggers it explicitly. Uses a manual
+ * useState + api call pattern (simpler than useMutation for this UX: we want
+ * a stable `inspect` reference without needing .mutate() callback indirection).
+ */
+export function useInspectPppoeDevices() {
+  const [isPending, setIsPending] = useState(false);
+
+  const inspect = useCallback(async (contractId: string): Promise<InspectPppoeDevicesResult> => {
+    setIsPending(true);
+    try {
+      return await api.inspectPppoeDevices(contractId);
+    } finally {
+      setIsPending(false);
+    }
+  }, []);
+
+  return { inspect, isPending };
 }

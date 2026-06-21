@@ -10,6 +10,7 @@ vi.mock('@/hooks/useServiceInventory', () => ({
   useAddInstalledItem: vi.fn(),
   useUpdateInstalledItem: vi.fn(),
   useRemoveInstalledItem: vi.fn(),
+  useInspectPppoeDevices: vi.fn(),
 }));
 
 vi.mock('@/hooks/useDeviceTypes', () => ({
@@ -21,6 +22,7 @@ import {
   useAddInstalledItem,
   useUpdateInstalledItem,
   useRemoveInstalledItem,
+  useInspectPppoeDevices,
 } from '@/hooks/useServiceInventory';
 import { useDeviceTypes } from '@/hooks/useDeviceTypes';
 import { useConfirm } from '@/context/ConfirmContext';
@@ -71,6 +73,7 @@ function setupMocks({
   vi.mocked(useUpdateInstalledItem).mockReturnValue({ mutate: updateMutate, isPending: false } as unknown as ReturnType<typeof useUpdateInstalledItem>);
   vi.mocked(useRemoveInstalledItem).mockReturnValue({ mutateAsync: removeMutate, isPending: false } as unknown as ReturnType<typeof useRemoveInstalledItem>);
   vi.mocked(useDeviceTypes).mockReturnValue({ data: deviceTypes, isLoading: false } as ReturnType<typeof useDeviceTypes>);
+  vi.mocked(useInspectPppoeDevices).mockReturnValue({ inspect: vi.fn().mockResolvedValue({ antenna: { mac: null, model: null }, router: null, warnings: [] }), isPending: false } as ReturnType<typeof useInspectPppoeDevices>);
 }
 
 /** The modal portals to document.body; scope queries to the dialog. */
