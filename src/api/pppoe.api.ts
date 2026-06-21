@@ -24,6 +24,7 @@ export interface UpdatePppoeBody {
   password?: string;
   remoteAddress?: string;
   status?: string;
+  reason?: string | null;
 }
 
 /** Credenciales reveladas bajo demanda (frontera de seguridad: NUNCA viajan en el DTO de lista/detalle). */

@@ -7,6 +7,7 @@
  *  SHE-3  evento eventType:'restored' → label "Restauración" + badge success
  *  SHE-4  evento blocked con reason → muestra link "ver"
  *  SHE-5  eventos anteriores (activated/deactivated/reactivated) siguen verdes/rojos/amber
+ *  SHE-6  evento eventType:'modified' → label "Cambio de plan" + actorName + motivo
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -117,5 +118,52 @@ describe('SHE-5: eventos anteriores siguen renderizando sus labels', () => {
     // 'Baja' appears at least once (as event badge; service is 'active' so no status badge for inactive)
     expect(screen.getByText('Baja')).toBeInTheDocument();
     expect(screen.getByText('Reactivación')).toBeInTheDocument();
+  });
+});
+
+describe('SHE-6: eventType:"modified" → label "Cambio de plan" + actorName + motivo', () => {
+  it('renderiza el label "Cambio de plan" para un evento modified', () => {
+    const ev: ServiceEvent = {
+      id: 'ev-mod1',
+      eventType: 'modified',
+      occurredAt: '2026-06-15T10:00:00',
+      actorName: 'Operador X',
+      cic: null,
+      reason: 'Cliente pidió upgrade',
+    };
+    mockUseHistory.mockReturnValue({ data: [makeEntry([ev])], isLoading: false } as any);
+    render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c1" />);
+
+    expect(screen.getByText('Cambio de plan')).toBeInTheDocument();
+  });
+
+  it('renderiza el actorName del evento modified', () => {
+    const ev: ServiceEvent = {
+      id: 'ev-mod2',
+      eventType: 'modified',
+      occurredAt: '2026-06-15T10:00:00',
+      actorName: 'Operador X',
+      cic: null,
+      reason: null,
+    };
+    mockUseHistory.mockReturnValue({ data: [makeEntry([ev])], isLoading: false } as any);
+    render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c1" />);
+
+    expect(screen.getByText('Operador X')).toBeInTheDocument();
+  });
+
+  it('evento modified con reason muestra el botón "ver"', () => {
+    const ev: ServiceEvent = {
+      id: 'ev-mod3',
+      eventType: 'modified',
+      occurredAt: '2026-06-15T10:00:00',
+      actorName: 'Operador Y',
+      cic: null,
+      reason: 'Upgrade solicitado por el cliente',
+    };
+    mockUseHistory.mockReturnValue({ data: [makeEntry([ev])], isLoading: false } as any);
+    render(<ServiceHistoryModal open onClose={vi.fn()} contractId="c1" />);
+
+    expect(screen.getByRole('button', { name: /ver motivo/i })).toBeInTheDocument();
   });
 });

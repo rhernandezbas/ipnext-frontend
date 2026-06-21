@@ -26,6 +26,8 @@ const EVENT_LABELS: Record<ServiceEvent['eventType'], string> = {
   reduced: 'Reducción',
   blocked: 'Corte',
   restored: 'Restauración',
+  // pppoe-plan-change-history: plan modification
+  modified: 'Cambio de plan',
 };
 
 function EventBadge({ type }: { type: ServiceEvent['eventType'] }) {
@@ -35,6 +37,7 @@ function EventBadge({ type }: { type: ServiceEvent['eventType'] }) {
   if (type === 'reduced') return <span className={styles.badgeReactivacion}>{label}</span>;
   if (type === 'blocked') return <span className={styles.badgeBaja}>{label}</span>;
   if (type === 'restored') return <span className={styles.badgeAlta}>{label}</span>;
+  // 'modified' and any future neutral events use the amber/info badge
   return <span className={styles.badgeReactivacion}>{label}</span>;
 }
 

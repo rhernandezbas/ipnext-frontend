@@ -102,3 +102,25 @@
 .btnDanger:not(:disabled):hover {
   opacity: 0.88;
 }
+
+/* Neutral confirm (e.g. "Cambiar velocidad") — primary blue, not destructive red. */
+.btnPrimary {
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-primary, #2563eb);
+  color: #fff;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btnPrimary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btnPrimary:not(:disabled):hover {
+  opacity: 0.88;
+}

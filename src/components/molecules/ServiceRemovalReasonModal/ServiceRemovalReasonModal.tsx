@@ -18,6 +18,11 @@ interface ServiceRemovalReasonModalProps {
    * Use when the action is not a deactivation (e.g. "Reducir", "Cortar").
    */
   confirmLabel?: string;
+  /**
+   * Visual tone of the confirm button. Defaults to 'danger' (red) for destructive
+   * actions (baja/corte). Use 'primary' for neutral actions (e.g. "Cambiar velocidad").
+   */
+  tone?: 'danger' | 'primary';
   /** Called with the trimmed reason string when the operator confirms. */
   onConfirm: (reason: string) => void;
   /** Called when the operator cancels or dismisses the modal. */
@@ -34,6 +39,7 @@ export function ServiceRemovalReasonModal({
   serviceName,
   title,
   confirmLabel,
+  tone = 'danger',
   onConfirm,
   onCancel,
 }: ServiceRemovalReasonModalProps) {
@@ -115,7 +121,7 @@ export function ServiceRemovalReasonModal({
           </button>
           <button
             type="button"
-            className={styles.btnDanger}
+            className={tone === 'primary' ? styles.btnPrimary : styles.btnDanger}
             onClick={handleConfirm}
             disabled={!canConfirm}
           >
