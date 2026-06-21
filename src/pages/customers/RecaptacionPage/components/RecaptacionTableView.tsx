@@ -5,8 +5,58 @@ import {
   RECAPTURE_STATUS_COLOR,
 } from '@/types/recaptacion';
 import type { RecaptureLeadDto, RecaptureLeadStatus } from '@/types/recaptacion';
+import type { AssigneeOption } from './BulkAssignToolbar';
 import { formatDateShort } from '@/utils/formatDate';
 import styles from './RecaptacionTableView.module.css';
+
+// ── Inline assign select ───────────────────────────────────────────────────────
+
+interface InlineAssignSelectProps {
+  lead: RecaptureLeadDto;
+  operators: AssigneeOption[];
+  onAssign: (leadId: string, operatorId: string | null) => void;
+  disabled: boolean;
+}
+
+/**
+ * Editable assignee cell. Reuses the same operator pool as the bulk toolbar
+ * (RbacUsers). `stopPropagation` keeps clicks/changes from bubbling to the
+ * row-click wrapper that opens the detail drawer.
+ */
+function InlineAssignSelect({ lead, operators, onAssign, disabled }: InlineAssignSelectProps) {
+  // A controlled <select> only shows what's in its <option> list. If the lead's
+  // assignee is NOT in the operator pool (e.g. a disabled/removed user), the
+  // select would render blank and silently misreport "Sin asignar". Inject a
+  // phantom option so the select ALWAYS reflects the real assignee.
+  const assigneeInPool =
+    lead.assigneeId != null && operators.some((op) => op.id === lead.assigneeId);
+  const showPhantom = lead.assigneeId != null && !assigneeInPool;
+
+  return (
+    <select
+      className={styles.assignSelect}
+      aria-label={`Asignar lead ${lead.contactName}`}
+      value={lead.assigneeId ?? ''}
+      disabled={disabled}
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => {
+        e.stopPropagation();
+        const value = e.target.value;
+        onAssign(lead.id, value === '' ? null : value);
+      }}
+    >
+      <option value="">— Sin asignar —</option>
+      {showPhantom && (
+        <option value={lead.assigneeId!}>
+          {lead.assigneeName ?? 'Asignado (fuera de lista)'}
+        </option>
+      )}
+      {operators.map((op) => (
+        <option key={op.id} value={op.id}>{op.name}</option>
+      ))}
+    </select>
+  );
+}
 
 // ── Status pill ──────────────────────────────────────────────────────────────
 
@@ -66,6 +116,8 @@ const COLUMNS: Array<{
   },
 ];
 
+const ASSIGNEE_KEY = 'assigneeId';
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 interface RecaptacionTableViewProps {
@@ -80,6 +132,15 @@ interface RecaptacionTableViewProps {
   selectedIds?: string[];
   /** Reports the new selection back to the page. */
   onSelectionChange?: (selectedIds: string[]) => void;
+  /** Admin single-assign: when true, the "Asignado" column renders an editable
+   *  <select> per row instead of read-only text. */
+  canAssign?: boolean;
+  /** Operator pool for the inline select (RbacUsers). */
+  operators?: AssigneeOption[];
+  /** Fired when the admin changes a row's inline assign select. null = unassign. */
+  onAssign?: (leadId: string, operatorId: string | null) => void;
+  /** Id of the lead whose inline assign is in flight — its select is disabled. */
+  assigningId?: string | null;
 }
 
 export function RecaptacionTableView({
@@ -91,6 +152,10 @@ export function RecaptacionTableView({
   selectable = false,
   selectedIds,
   onSelectionChange,
+  canAssign = false,
+  operators = [],
+  onAssign,
+  assigningId = null,
 }: RecaptacionTableViewProps) {
   // Custom empty state so we can offer a "clear filters" CTA.
   if (!loading && leads.length === 0) {
@@ -116,22 +181,49 @@ export function RecaptacionTableView({
     );
   }
 
-  // Wrap columns to inject the row-click handler via render if present.
-  const columns = onRowClick
-    ? COLUMNS.map((col) => ({
-        ...col,
-        render: col.render
-          ? (row: RecaptureLeadDto) => (
-              <span
-                onClick={() => onRowClick(row)}
-                style={{ cursor: 'pointer' }}
-              >
-                {col.render!(row)}
-              </span>
-            )
-          : undefined,
-      }))
+  // When admin can assign, swap the "Asignado" column for an inline editable
+  // select. The select handles its own clicks (stopPropagation) so it is NOT
+  // wrapped by the row-click handler below.
+  const inlineAssign = canAssign && !!onAssign;
+  const baseColumns = inlineAssign
+    ? COLUMNS.map((col) =>
+        col.key === ASSIGNEE_KEY
+          ? {
+              ...col,
+              render: (row: RecaptureLeadDto) => (
+                <InlineAssignSelect
+                  lead={row}
+                  operators={operators}
+                  onAssign={onAssign!}
+                  disabled={assigningId === row.id}
+                />
+              ),
+            }
+          : col,
+      )
     : COLUMNS;
+
+  // Wrap columns to inject the row-click handler via render if present. The
+  // inline-assign column is left untouched so its select doesn't open the drawer.
+  const columns = onRowClick
+    ? baseColumns.map((col) =>
+        inlineAssign && col.key === ASSIGNEE_KEY
+          ? col
+          : {
+              ...col,
+              render: col.render
+                ? (row: RecaptureLeadDto) => (
+                    <span
+                      onClick={() => onRowClick(row)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      {col.render!(row)}
+                    </span>
+                  )
+                : undefined,
+            },
+      )
+    : baseColumns;
 
   return (
     <div className={styles.wrapper}>

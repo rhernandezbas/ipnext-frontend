@@ -75,6 +75,23 @@
   background: var(--color-danger);
 }
 
+/* ── Multi-select hint (admin, no selection) ── */
+
+.assignHint {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.assignHint strong {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
 /* ── Source tabs (Bajas / CSV) ── */
 
 .sourceTabs {

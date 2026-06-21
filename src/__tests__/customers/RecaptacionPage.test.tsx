@@ -41,6 +41,7 @@ import {
   useIngestChurned,
   useImportCsvLeads,
   useAssignBulk,
+  useAssignLead,
 } from '@/hooks/useRecaptacion';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
@@ -72,6 +73,11 @@ const RBAC_USERS: RbacUserWithRolesDto[] = [
   { id: 'op-2', name: 'Operador Dos', email: 'op2@test.com', login: 'op2', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [] },
 ];
 
+// A disabled RbacUser — must NEVER show up in the operator pool (inline or bulk).
+const DISABLED_USER: RbacUserWithRolesDto = {
+  id: 'op-off', name: 'Operador Baja', email: 'off@test.com', login: 'off', status: 'disabled', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [],
+};
+
 const EMPTY_RESULT = { data: [], total: 0, page: 1, limit: 25 };
 
 /** Permission stub. `perms` is the granted set; '*' grants everything. */
@@ -91,10 +97,12 @@ function mockPerms(perms: string[]) {
 }
 
 const bulkMutateAsync = vi.fn().mockResolvedValue({ assigned: 0 });
+const singleMutateAsync = vi.fn().mockResolvedValue({ id: 'lead-x' });
 
-function mockHooks(opts?: { leads?: RecaptureLeadDto[] }) {
+function mockHooks(opts?: { leads?: RecaptureLeadDto[]; rbacUsers?: RbacUserWithRolesDto[] }) {
   let capturedQuery: RecaptureLeadsQuery = {};
   const leads = opts?.leads ?? [];
+  const rbacUsers = opts?.rbacUsers ?? RBAC_USERS;
 
   vi.mocked(useRecaptacionLeads).mockImplementation((q) => {
     capturedQuery = q;
@@ -122,8 +130,13 @@ function mockHooks(opts?: { leads?: RecaptureLeadDto[] }) {
     isPending: false,
   } as unknown as ReturnType<typeof useAssignBulk>);
 
+  vi.mocked(useAssignLead).mockReturnValue({
+    mutateAsync: singleMutateAsync,
+    isPending: false,
+  } as unknown as ReturnType<typeof useAssignLead>);
+
   vi.mocked(useRbacUsers).mockReturnValue({
-    data: RBAC_USERS,
+    data: rbacUsers,
     isLoading: false,
     isError: false,
   } as unknown as ReturnType<typeof useRbacUsers>);
@@ -145,6 +158,7 @@ function renderPage() {
 beforeEach(() => {
   vi.clearAllMocks();
   bulkMutateAsync.mockResolvedValue({ assigned: 0 });
+  singleMutateAsync.mockResolvedValue({ id: 'lead-x' });
   mockPerms(['*']); // admin by default
 });
 
@@ -283,6 +297,27 @@ describe('RecaptacionPage — admin (recapture.assign)', () => {
     expect(useRbacUsers).toHaveBeenCalledWith(true);
   });
 
+  it('A10 — disabled RbacUsers are excluded from the bulk-assign operator pool', async () => {
+    const user = userEvent.setup();
+    mockHooks({ leads: [lead('a')], rbacUsers: [...RBAC_USERS, DISABLED_USER] });
+    renderPage();
+
+    await user.click(screen.getByLabelText('Seleccionar fila a'));
+    const select = await screen.findByRole('combobox', { name: /asignar a/i });
+    expect(within(select).getByRole('option', { name: 'Operador Uno' })).toBeInTheDocument();
+    // The disabled user must NOT be assignable.
+    expect(within(select).queryByRole('option', { name: 'Operador Baja' })).not.toBeInTheDocument();
+  });
+
+  it('A11 — disabled RbacUsers are excluded from the inline-assign operator pool', () => {
+    mockHooks({ leads: [lead('a')], rbacUsers: [...RBAC_USERS, DISABLED_USER] });
+    renderPage();
+
+    const select = screen.getByRole('combobox', { name: /asignar lead lead a/i });
+    expect(within(select).getByRole('option', { name: 'Operador Uno' })).toBeInTheDocument();
+    expect(within(select).queryByRole('option', { name: 'Operador Baja' })).not.toBeInTheDocument();
+  });
+
   it('A9 — bulk-assign failure shows an error toast and keeps the selection', async () => {
     const user = userEvent.setup();
     bulkMutateAsync.mockRejectedValue(new Error('boom'));
@@ -297,6 +332,104 @@ describe('RecaptacionPage — admin (recapture.assign)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/no se pudo completar la asignación/i);
     // …and the selection is NOT cleared (toolbar stays so the admin can retry).
     expect(screen.getByRole('region', { name: /asignación masiva/i })).toBeInTheDocument();
+  });
+});
+
+// ── inline single-assign (column "Asignado") ─────────────────────────────────
+
+describe('RecaptacionPage — inline single-assign', () => {
+  beforeEach(() => mockPerms(['recapture.read', 'recapture.manage', 'recapture.assign']));
+
+  it('IS1 — changing the inline select fires useAssignLead with (leadId, operatorId) and toasts success', async () => {
+    const user = userEvent.setup();
+    mockHooks({ leads: [lead('a')] });
+    renderPage();
+
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /asignar lead lead a/i }),
+      'op-1',
+    );
+
+    expect(singleMutateAsync).toHaveBeenCalledWith({ leadId: 'a', operatorId: 'op-1' });
+    expect(await screen.findByRole('status')).toBeInTheDocument();
+  });
+
+  it('IS2 — choosing "— Sin asignar —" fires with operatorId null', async () => {
+    const user = userEvent.setup();
+    mockHooks({
+      leads: [{ ...lead('a'), assigneeId: 'op-1', assigneeName: 'Operador Uno' }],
+    });
+    renderPage();
+
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /asignar lead lead a/i }),
+      '',
+    );
+
+    expect(singleMutateAsync).toHaveBeenCalledWith({ leadId: 'a', operatorId: null });
+  });
+
+  it('IS3 — single-assign failure surfaces an error toast', async () => {
+    const user = userEvent.setup();
+    singleMutateAsync.mockRejectedValue(new Error('boom'));
+    mockHooks({ leads: [lead('a')] });
+    renderPage();
+
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /asignar lead lead a/i }),
+      'op-1',
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no se pudo asignar/i);
+  });
+});
+
+// ── reload button removed ─────────────────────────────────────────────────────
+
+describe('RecaptacionPage — reload button removed', () => {
+  it('RB1 — no "Recargar" button for admin', () => {
+    mockHooks();
+    renderPage();
+    expect(screen.queryByRole('button', { name: /recargar/i })).not.toBeInTheDocument();
+  });
+
+  it('RB2 — no "Recargar" button for agent', () => {
+    mockPerms(['recapture.read', 'recapture.manage']);
+    mockHooks();
+    renderPage();
+    expect(screen.queryByRole('button', { name: /recargar/i })).not.toBeInTheDocument();
+  });
+});
+
+// ── multi-select hint ─────────────────────────────────────────────────────────
+
+describe('RecaptacionPage — multi-select hint', () => {
+  it('MH1 — admin with no selection sees the hint', () => {
+    mockPerms(['recapture.read', 'recapture.manage', 'recapture.assign']);
+    mockHooks({ leads: [lead('a'), lead('b')] });
+    renderPage();
+    expect(screen.getByText(/asignarlos en lote/i)).toBeInTheDocument();
+  });
+
+  it('MH2 — hint disappears once a lead is selected, toolbar appears', async () => {
+    const user = userEvent.setup();
+    mockPerms(['recapture.read', 'recapture.manage', 'recapture.assign']);
+    mockHooks({ leads: [lead('a'), lead('b')] });
+    renderPage();
+
+    await user.click(screen.getByLabelText('Seleccionar fila a'));
+
+    await waitFor(() =>
+      expect(screen.queryByText(/asignarlos en lote/i)).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('region', { name: /asignación masiva/i })).toBeInTheDocument();
+  });
+
+  it('MH3 — agent does NOT see the hint', () => {
+    mockPerms(['recapture.read', 'recapture.manage']);
+    mockHooks({ leads: [lead('a')] });
+    renderPage();
+    expect(screen.queryByText(/asignarlos en lote/i)).not.toBeInTheDocument();
   });
 });
 

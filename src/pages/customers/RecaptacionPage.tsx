@@ -5,7 +5,7 @@ import { Can } from '@/components/auth/Can';
 import { Button } from '@/components/atoms/Button';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
-import { useRecaptacionLeads, useIngestChurned, useAssignBulk } from '@/hooks/useRecaptacion';
+import { useRecaptacionLeads, useIngestChurned, useAssignBulk, useAssignLead } from '@/hooks/useRecaptacion';
 import { RECAPTURE_STATUS_LABELS } from '@/types/recaptacion';
 import type { RecaptureLeadDto, RecaptureLeadStatus, RecaptureLeadSource } from '@/types/recaptacion';
 import { RecaptacionTableView } from './RecaptacionPage/components/RecaptacionTableView';
@@ -14,18 +14,6 @@ import { ImportCsvModal } from './RecaptacionPage/components/ImportCsvModal';
 import { BulkAssignToolbar } from './RecaptacionPage/components/BulkAssignToolbar';
 import { useRecaptacionFilterUrl } from './RecaptacionPage/hooks/useRecaptacionFilterUrl';
 import styles from './RecaptacionPage.module.css';
-
-// ── SVG icons ────────────────────────────────────────────────────────────────
-
-function IconRefresh() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="23 4 23 10 17 10" />
-      <polyline points="1 20 1 14 7 14" />
-      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-    </svg>
-  );
-}
 
 // ── Source tabs ───────────────────────────────────────────────────────────────
 
@@ -54,6 +42,8 @@ export default function RecaptacionPage() {
   const { filter, setFilter, clearFilter } = useRecaptacionFilterUrl();
   const [selectedLead, setSelectedLead] = useState<RecaptureLeadDto | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // Id of the lead whose inline single-assign is in flight (disables that row's select).
+  const [assigningId, setAssigningId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; variant: 'success' | 'error' } | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -63,12 +53,18 @@ export default function RecaptacionPage() {
 
   const ingestChurned = useIngestChurned();
   const assignBulk = useAssignBulk();
+  // Single-assign from the inline column — same hook the detail drawer uses.
+  const assignLead = useAssignLead();
   // Operator candidates for bulk assign — same pool as the single-assign select.
   // These are RbacUsers (the BE validates `operatorId` against `RbacUser`, NOT
   // the `Admin` table). Gated by `canAssign` so a plain agent — who lacks the
   // admin/rbac permission GET /admin/rbac/users requires — never fires it.
   const { data: rbacUsers = [] } = useRbacUsers(canAssign);
-  const operators = rbacUsers.map((u) => ({ id: u.id, name: u.name }));
+  // Only ACTIVE users can be assigned leads — disabled users must never appear
+  // in the operator pool (inline single-assign nor bulk toolbar).
+  const operators = rbacUsers
+    .filter((u) => u.status === 'active')
+    .map((u) => ({ id: u.id, name: u.name }));
 
   const query = {
     status:     (filter.status || undefined) as RecaptureLeadStatus | undefined,
@@ -79,7 +75,9 @@ export default function RecaptacionPage() {
     limit: LIMIT,
   };
 
-  const { data, isLoading, refetch } = useRecaptacionLeads(query);
+  // The list refreshes itself: useAssignLead / useAssignBulk / filters all
+  // invalidate the ['recaptacion'] query, so an explicit reload button is moot.
+  const { data, isLoading } = useRecaptacionLeads(query);
 
   const totalPages = data ? Math.ceil(data.total / LIMIT) : 1;
 
@@ -110,6 +108,20 @@ export default function RecaptacionPage() {
       setSelectedIds([]);
     } catch {
       showToast('No se pudo completar la asignación. Intentá nuevamente.', 'error');
+    }
+  }
+
+  // Single-assign from the inline column. Mirrors handleBulkAssign: try/catch +
+  // toast. `assigningId` drives the per-row pending state in the table.
+  async function handleAssignSingle(leadId: string, operatorId: string | null) {
+    setAssigningId(leadId);
+    try {
+      await assignLead.mutateAsync({ leadId, operatorId });
+      showToast(operatorId === null ? 'Lead desasignado.' : 'Lead asignado correctamente.');
+    } catch {
+      showToast('No se pudo asignar el lead. Intentá nuevamente.', 'error');
+    } finally {
+      setAssigningId(null);
     }
   }
 
@@ -155,14 +167,6 @@ export default function RecaptacionPage() {
           <h1 className={styles.title}>Recaptación</h1>
         </div>
         <div className={styles.headerRight}>
-          <Button
-            variant="icon"
-            title="Recargar"
-            onClick={() => void refetch()}
-            aria-label="Recargar"
-          >
-            <IconRefresh />
-          </Button>
           <Can permission="recapture.assign">
             <Button
               variant="secondary"
@@ -204,8 +208,9 @@ export default function RecaptacionPage() {
         onFilterChange={handleFilterChange}
       />
 
-      {/* Bulk-assign toolbar — admin only, when at least one lead is selected */}
-      {canAssign && selectedIds.length > 0 && (
+      {/* Bulk-assign toolbar — admin only, when at least one lead is selected.
+          When nothing is selected, a subtle hint surfaces BOTH assign paths. */}
+      {canAssign && selectedIds.length > 0 ? (
         <BulkAssignToolbar
           count={selectedIds.length}
           operators={operators}
@@ -213,7 +218,12 @@ export default function RecaptacionPage() {
           onAssign={(operatorId) => void handleBulkAssign(operatorId)}
           onClear={() => setSelectedIds([])}
         />
-      )}
+      ) : canAssign ? (
+        <p className={styles.assignHint} role="note">
+          Marcá leads con los checkbox para asignarlos en lote, o asignalos uno por uno
+          desde la columna <strong>Asignado</strong>.
+        </p>
+      ) : null}
 
       {/* Table + pagination */}
       <div className={styles.tableSection}>
@@ -226,6 +236,10 @@ export default function RecaptacionPage() {
           selectable={canAssign}
           selectedIds={selectedIds}
           onSelectionChange={setSelectedIds}
+          canAssign={canAssign}
+          operators={operators}
+          onAssign={(leadId, operatorId) => void handleAssignSingle(leadId, operatorId)}
+          assigningId={assigningId}
         />
         {(data?.data?.length ?? 0) > 0 && (
           <Pagination
