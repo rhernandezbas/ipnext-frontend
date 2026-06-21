@@ -486,6 +486,8 @@ function CreatePppoeForm({
  * Se renderiza FUERA del form de Editar para no pisar password/IP al cambiar plan.
  * Degradación: si usePlans() retorna vacío o error, muestra el perfil actual como texto.
  * Gateado por pppoe.manage (el padre <Can> lo envuelve).
+ *
+ * Flujo: click "Aplicar" → modal de motivo → confirmar(reason) → onApply(profile, reason).
  */
 function SpeedControl({
   pppoeId,
@@ -495,7 +497,7 @@ function SpeedControl({
 }: {
   pppoeId: string;
   currentProfile: string | null;
-  onApply: (profile: string) => Promise<unknown>;
+  onApply: (profile: string, reason: string) => Promise<unknown>;
   isPending: boolean;
 }) {
   const plansQuery = usePlans();
@@ -506,6 +508,8 @@ function SpeedControl({
 
   const [selected, setSelected] = useState<string>(currentProfile ?? '');
   const [speedError, setSpeedError] = useState<string | null>(null);
+  const [speedSuccess, setSpeedSuccess] = useState(false);
+  const [speedModalOpen, setSpeedModalOpen] = useState(false);
 
   // Keep selection in sync when pppoe.profile changes from outside (e.g. after a successful apply)
   const [lastApplied, setLastApplied] = useState<string>(currentProfile ?? '');
@@ -517,11 +521,19 @@ function SpeedControl({
   const unchanged = selected === (currentProfile ?? '');
   const applyDisabled = unchanged || isPending;
 
-  async function handleApply() {
-    if (applyDisabled) return;
+  // The plan label shown in the modal title (name + rate or just code)
+  const selectedPlan = eligiblePlans.find((p) => p.code === selected);
+  const planLabel = selectedPlan
+    ? (selectedPlan.name ? `${selectedPlan.name} — ${selectedPlan.rateLimit}` : `${selectedPlan.code} — ${selectedPlan.rateLimit}`)
+    : selected;
+
+  async function handleConfirmApply(reason: string) {
+    setSpeedModalOpen(false);
     setSpeedError(null);
+    setSpeedSuccess(false);
     try {
-      await onApply(selected);
+      await onApply(selected, reason);
+      setSpeedSuccess(true);
     } catch {
       setSpeedError('No se pudo cambiar la velocidad. Reintentá.');
     }
@@ -543,41 +555,57 @@ function SpeedControl({
   }
 
   return (
-    <div className={styles.speedControl}>
-      {speedError && (
-        <div className={`${styles.banner} ${styles.bannerError}`} role="alert" style={{ marginBottom: 'var(--space-2)' }}>
-          <span>{speedError}</span>
-        </div>
-      )}
-      <div className={styles.speedRow}>
-        <label className={styles.fieldLabel} htmlFor={`speed-select-${pppoeId}`}>
-          Velocidad
-        </label>
-        <div className={styles.speedInputRow}>
-          <select
-            id={`speed-select-${pppoeId}`}
-            className={styles.select}
-            value={selected}
-            onChange={(e) => { setSpeedError(null); setSelected(e.target.value); }}
-            disabled={isPending}
-          >
-            {eligiblePlans.map((plan) => (
-              <option key={plan.id} value={plan.code}>
-                {plan.name ? `${plan.name} — ${plan.rateLimit}` : `${plan.code} — ${plan.rateLimit}`}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            onClick={handleApply}
-            disabled={applyDisabled}
-          >
-            {isPending ? 'Aplicando…' : 'Aplicar'}
-          </button>
+    <>
+      <div className={styles.speedControl}>
+        {speedError && (
+          <div className={`${styles.banner} ${styles.bannerError}`} role="alert" style={{ marginBottom: 'var(--space-2)' }}>
+            <span>{speedError}</span>
+          </div>
+        )}
+        {speedSuccess && (
+          <div className={`${styles.banner} ${styles.bannerSuccess}`} role="status" style={{ marginBottom: 'var(--space-2)' }}>
+            <span>Velocidad cambiada correctamente.</span>
+          </div>
+        )}
+        <div className={styles.speedRow}>
+          <label className={styles.fieldLabel} htmlFor={`speed-select-${pppoeId}`}>
+            Velocidad
+          </label>
+          <div className={styles.speedInputRow}>
+            <select
+              id={`speed-select-${pppoeId}`}
+              className={styles.select}
+              value={selected}
+              onChange={(e) => { setSpeedError(null); setSpeedSuccess(false); setSelected(e.target.value); }}
+              disabled={isPending}
+            >
+              {eligiblePlans.map((plan) => (
+                <option key={plan.id} value={plan.code}>
+                  {plan.name ? `${plan.name} — ${plan.rateLimit}` : `${plan.code} — ${plan.rateLimit}`}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              onClick={() => { if (!applyDisabled) { setSpeedError(null); setSpeedSuccess(false); setSpeedModalOpen(true); } }}
+              disabled={applyDisabled}
+            >
+              {isPending ? 'Aplicando…' : 'Aplicar'}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+      <ServiceRemovalReasonModal
+        open={speedModalOpen}
+        serviceName="Internet (PPPoE)"
+        title={`Cambiar velocidad a ${planLabel}`}
+        confirmLabel="Aplicar"
+        tone="primary"
+        onConfirm={handleConfirmApply}
+        onCancel={() => setSpeedModalOpen(false)}
+      />
+    </>
   );
 }
 
@@ -952,7 +980,7 @@ function ActivePppoeView({
             <SpeedControl
               pppoeId={pppoe.id}
               currentProfile={pppoe.profile ?? null}
-              onApply={(profile) => update.mutateAsync({ id: pppoe.id, body: { profile } })}
+              onApply={(profile, reason) => update.mutateAsync({ id: pppoe.id, body: { profile, reason } })}
               isPending={update.isPending}
             />
           </div>

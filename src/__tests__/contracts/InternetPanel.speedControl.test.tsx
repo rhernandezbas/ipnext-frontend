@@ -4,11 +4,13 @@
  * SC-1  Con planes disponibles se renderiza un <select> con las opciones filtradas
  *       (enabled && category !== 'Corte') + el perfil actual pre-seleccionado
  * SC-2  Selecting a different plan enables "Aplicar"; unchanged selection keeps it disabled
- * SC-3  Click "Aplicar" → update.mutateAsync({ id, body: { profile: code } })
+ * SC-3  Click "Aplicar" → abre modal de motivo → confirmar llama update con { profile, reason }
  * SC-4  Si usePlans() devuelve [] → NO hay select, se muestra el perfil como texto (sin crash)
  * SC-5  Si usePlans() devuelve error / isError → NO hay select, no se rompe el panel
  * SC-6  Gate pppoe.manage: sin el permiso el control no se renderiza
- * SC-7  Error en Aplicar → muestra un banner role="alert"
+ * SC-7  Error en Aplicar (tras confirmar motivo) → muestra un banner role="alert"
+ * SC-8  Éxito en Aplicar → muestra banner role="status" con "correctamente"
+ * SC-9  Cancelar en el modal de motivo → NO llama update
  *
  * Regresiones tras el rediseño (layout reorg):
  * RG-1  "Cortar" abre el modal de motivo → confirmar llama enforce con action:'block'
@@ -323,9 +325,9 @@ describe('SC-2: Aplicar deshabilitado cuando el plan no cambió', () => {
   });
 });
 
-// ── SC-3: Click Aplicar llama update con { profile: code } ───────────────────
-describe('SC-3: click Aplicar llama update.mutateAsync con { profile: code }', () => {
-  it('al confirmar el cambio de plan llama update con el code del plan elegido', async () => {
+// ── SC-3: Click Aplicar abre modal y confirmar llama update con { profile, reason } ──
+describe('SC-3: click Aplicar abre modal de motivo; confirmar llama update con { profile, reason }', () => {
+  it('click Aplicar abre el modal de motivo (no llama update de inmediato)', async () => {
     const user = userEvent.setup();
     const updateFn = vi.fn().mockResolvedValue({});
     setup({ updateMutateAsync: updateFn });
@@ -336,10 +338,35 @@ describe('SC-3: click Aplicar llama update.mutateAsync con { profile: code }', (
 
     await user.click(screen.getByRole('button', { name: /^Aplicar$/i }));
 
+    // El modal de motivo debe estar abierto
+    expect(screen.getByTestId('reason-textarea')).toBeInTheDocument();
+    // Aun NO se llamó update
+    expect(updateFn).not.toHaveBeenCalled();
+  });
+
+  it('confirmar en el modal llama update con { profile, reason }', async () => {
+    const user = userEvent.setup();
+    const updateFn = vi.fn().mockResolvedValue({});
+    setup({ updateMutateAsync: updateFn });
+    renderPanel();
+
+    const select = screen.getByRole('combobox', { name: /velocidad/i });
+    await user.selectOptions(select, 'IP-Air-30-10');
+
+    await user.click(screen.getByRole('button', { name: /^Aplicar$/i }));
+
+    // Escribir motivo y confirmar
+    await user.type(screen.getByTestId('reason-textarea'), 'Upgrade solicitado');
+    const dialog = screen.getByTestId('reason-textarea').closest('[role="dialog"]') as HTMLElement;
+    const confirmBtn = Array.from(dialog.querySelectorAll('button')).find(
+      (b) => b.textContent !== 'Cancelar',
+    )!;
+    await user.click(confirmBtn);
+
     await waitFor(() => {
       expect(updateFn).toHaveBeenCalledWith({
         id: 'pppoe-1',
-        body: { profile: 'IP-Air-30-10' },
+        body: { profile: 'IP-Air-30-10', reason: 'Upgrade solicitado' },
       });
     });
   });
@@ -388,8 +415,8 @@ describe('SC-6: sin pppoe.manage el control de velocidad no se renderiza', () =>
   });
 });
 
-// ── SC-7: Error en Aplicar → banner role="alert" ──────────────────────────────
-describe('SC-7: error en Aplicar → muestra banner role="alert"', () => {
+// ── SC-7: Error en Aplicar (tras confirmar motivo) → banner role="alert" ──────
+describe('SC-7: error en Aplicar (post-modal) → muestra banner role="alert"', () => {
   it('cuando update rechaza muestra un banner de error', async () => {
     const user = userEvent.setup();
     const updateFn = vi.fn().mockRejectedValue(new Error('network error'));
@@ -400,9 +427,68 @@ describe('SC-7: error en Aplicar → muestra banner role="alert"', () => {
     await user.selectOptions(select, 'IP-Air-30-10');
     await user.click(screen.getByRole('button', { name: /^Aplicar$/i }));
 
+    // Confirmar en el modal
+    await user.type(screen.getByTestId('reason-textarea'), 'motivo-error');
+    const dialog = screen.getByTestId('reason-textarea').closest('[role="dialog"]') as HTMLElement;
+    const confirmBtn = Array.from(dialog.querySelectorAll('button')).find(
+      (b) => b.textContent !== 'Cancelar',
+    )!;
+    await user.click(confirmBtn);
+
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument();
     });
+  });
+});
+
+// ── SC-8: Éxito en Aplicar → banner "correctamente" (role="status") ───────────
+describe('SC-8: éxito en Aplicar → muestra banner role="status" con "correctamente"', () => {
+  it('tras el éxito aparece el banner de confirmación', async () => {
+    const user = userEvent.setup();
+    const updateFn = vi.fn().mockResolvedValue({});
+    setup({ updateMutateAsync: updateFn });
+    renderPanel();
+
+    const select = screen.getByRole('combobox', { name: /velocidad/i });
+    await user.selectOptions(select, 'IP-Air-30-10');
+    await user.click(screen.getByRole('button', { name: /^Aplicar$/i }));
+
+    await user.type(screen.getByTestId('reason-textarea'), 'Upgrade');
+    const dialog = screen.getByTestId('reason-textarea').closest('[role="dialog"]') as HTMLElement;
+    const confirmBtn = Array.from(dialog.querySelectorAll('button')).find(
+      (b) => b.textContent !== 'Cancelar',
+    )!;
+    await user.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent(/correctamente/i);
+    });
+  });
+});
+
+// ── SC-9: Cancelar en el modal NO llama update ────────────────────────────────
+describe('SC-9: cancelar en el modal de motivo no llama update', () => {
+  it('cancelar no dispara la mutación', async () => {
+    const user = userEvent.setup();
+    const updateFn = vi.fn().mockResolvedValue({});
+    setup({ updateMutateAsync: updateFn });
+    renderPanel();
+
+    const select = screen.getByRole('combobox', { name: /velocidad/i });
+    await user.selectOptions(select, 'IP-Air-30-10');
+    await user.click(screen.getByRole('button', { name: /^Aplicar$/i }));
+
+    // Modal está abierto, cancelar
+    const dialog = screen.getByTestId('reason-textarea').closest('[role="dialog"]') as HTMLElement;
+    const cancelBtn = Array.from(dialog.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Cancelar',
+    )!;
+    await user.click(cancelBtn);
+
+    // Modal cerrado, update NO fue llamado
+    expect(updateFn).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('reason-textarea')).not.toBeInTheDocument();
   });
 });
 
