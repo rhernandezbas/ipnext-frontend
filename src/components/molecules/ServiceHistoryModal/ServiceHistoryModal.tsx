@@ -41,10 +41,29 @@ function EventBadge({ type }: { type: ServiceEvent['eventType'] }) {
   return <span className={styles.badgeReactivacion}>{label}</span>;
 }
 
+// ── Event-aware modal title ────────────────────────────────────────────────────
+
+const EVENT_REASON_TITLES: Record<ServiceEvent['eventType'], string> = {
+  modified: 'Detalle del cambio de plan',
+  deactivated: 'Motivo de la baja',
+  reduced: 'Motivo de la reducción',
+  blocked: 'Motivo del corte',
+  restored: 'Motivo de la restauración',
+  activated: 'Motivo',
+  reactivated: 'Motivo',
+};
+
 // ── Events sub-table ───────────────────────────────────────────────────────────
 
+/** Tracks which event's reason/detail is currently being viewed. */
+interface ActiveEventView {
+  reason: string;
+  title: string;
+  detail: string | null;
+}
+
 function EventsTable({ events, showCic }: { events: ServiceEvent[]; showCic: boolean }) {
-  const [activeReason, setActiveReason] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<ActiveEventView | null>(null);
 
   if (events.length === 0) return null;
   return (
@@ -72,7 +91,11 @@ function EventsTable({ events, showCic }: { events: ServiceEvent[]; showCic: boo
                     type="button"
                     className={styles.reasonLink}
                     aria-label="Ver motivo"
-                    onClick={() => setActiveReason(ev.reason!)}
+                    onClick={() => setActiveView({
+                      reason: ev.reason!,
+                      title: EVENT_REASON_TITLES[ev.eventType],
+                      detail: ev.notes ?? null,
+                    })}
                   >
                     ver
                   </button>
@@ -82,11 +105,13 @@ function EventsTable({ events, showCic }: { events: ServiceEvent[]; showCic: boo
           ))}
         </tbody>
       </table>
-      {activeReason !== null && (
+      {activeView !== null && (
         <ReasonViewModal
           open
-          reason={activeReason}
-          onClose={() => setActiveReason(null)}
+          reason={activeView.reason}
+          title={activeView.title}
+          detail={activeView.detail}
+          onClose={() => setActiveView(null)}
         />
       )}
     </>

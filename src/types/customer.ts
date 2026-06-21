@@ -31,6 +31,12 @@ export interface ServiceEvent {
    * Null for legacy events (pre-#127) that were created without a reason.
    */
   reason?: string | null;
+  /**
+   * reason-modal-event-aware — change detail stored by the BE (e.g. old→new plan for
+   * 'modified' events: "IP-Air-40-40 → IP-Air-30-10"). Null for all other event types.
+   * Optional to avoid breaking existing fixtures that were created before this field was added.
+   */
+  notes?: string | null;
 }
 
 /** One entry in a contract's service history (#73). Includes inactive services. */

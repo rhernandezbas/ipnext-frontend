@@ -8,6 +8,16 @@ interface ReasonViewModalProps {
   open: boolean;
   /** The reason text to display. */
   reason: string;
+  /**
+   * Optional modal title. Defaults to "Motivo de la baja" (back-compat for baja/TV callers).
+   * Pass a custom title for non-baja events (e.g. "Detalle del cambio de plan").
+   */
+  title?: string;
+  /**
+   * Optional change detail to display below the reason (e.g. old→new plan for 'modified' events).
+   * When null/undefined/empty the detail block is not rendered.
+   */
+  detail?: string | null;
   /** Called when the modal is dismissed. */
   onClose: () => void;
 }
@@ -17,7 +27,7 @@ interface ReasonViewModalProps {
  * Follows the portal + z-index + Escape + backdrop + focus pattern from
  * ServiceRemovalReasonModal and ServiceHistoryModal.
  */
-export function ReasonViewModal({ open, reason, onClose }: ReasonViewModalProps) {
+export function ReasonViewModal({ open, reason, title, detail, onClose }: ReasonViewModalProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -58,9 +68,14 @@ export function ReasonViewModal({ open, reason, onClose }: ReasonViewModalProps)
         aria-labelledby={DIALOG_TITLE_ID}
       >
         <h2 id={DIALOG_TITLE_ID} className={styles.title}>
-          Motivo de la baja
+          {title ?? 'Motivo de la baja'}
         </h2>
         <p className={styles.reasonText}>{reason}</p>
+        {detail && (
+          <p className={styles.detailText}>
+            <span className={styles.detailLabel}>Detalle:</span> {detail}
+          </p>
+        )}
         <div className={styles.actions}>
           <button ref={closeRef} type="button" className={styles.btnClose} onClick={onClose} aria-label="Cerrar">
             Cerrar

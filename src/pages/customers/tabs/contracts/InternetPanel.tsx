@@ -602,6 +602,7 @@ function SpeedControl({
         title={`Cambiar velocidad a ${planLabel}`}
         confirmLabel="Aplicar"
         tone="primary"
+        placeholder="Ej: Upgrade de plan, ajuste comercial, pedido del cliente…"
         onConfirm={handleConfirmApply}
         onCancel={() => setSpeedModalOpen(false)}
       />
