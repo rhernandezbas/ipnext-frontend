@@ -612,6 +612,12 @@
   cursor: not-allowed;
 }
 
+.fieldHint {
+  margin: 0.25rem 0 0;
+  font-size: var(--font-size-sm, 0.75rem);
+  color: var(--color-text-subtle, #6b7280);
+}
+
 .ipHint {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
