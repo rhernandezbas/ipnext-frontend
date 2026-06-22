@@ -506,3 +506,115 @@ describe('Asignaciones tab — server-side paginated shape', () => {
     expect(screen.getByText(/999 asignaciones/i)).toBeInTheDocument();
   });
 });
+
+// ── NasTypeBadge — displayType override logic ────────────────────────────────
+describe('NasTypeBadge — displayType override', () => {
+  // Helper: wirear todos los hooks necesarios con defaults vacíos
+  function setupHooks(overrideNasServers: NasServer[]) {
+    vi.mocked(useNasModule.useNasServers).mockReturnValue({
+      data: overrideNasServers,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNasModule.useNasServers>);
+
+    vi.mocked(useNasModule.useCreateNasServer).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNasModule.useCreateNasServer>);
+    vi.mocked(useNasModule.useUpdateNasServer).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNasModule.useUpdateNasServer>);
+    vi.mocked(useNasModule.useDeleteNasServer).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNasModule.useDeleteNasServer>);
+
+    vi.mocked(useNetworkModule.useIpNetworks).mockReturnValue({
+      data: [], isLoading: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpNetworks>);
+    vi.mocked(useNetworkModule.useCreateIpNetwork).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useCreateIpNetwork>);
+    vi.mocked(useNetworkModule.useDeleteIpNetwork).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useDeleteIpNetwork>);
+    vi.mocked(useNetworkModule.useIpPools).mockReturnValue({
+      data: [], isLoading: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpPools>);
+    vi.mocked(useNetworkModule.useCreateIpPool).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useCreateIpPool>);
+    vi.mocked(useNetworkModule.useDeleteIpPool).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useDeleteIpPool>);
+    vi.mocked(useNetworkModule.useIpAssignments).mockReturnValue({
+      data: mockPaginatedEmpty,
+      isLoading: false, isFetching: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpAssignments>);
+    vi.mocked(useNetworkModule.useIpv6Networks).mockReturnValue({
+      data: [], isLoading: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpv6Networks>);
+    vi.mocked(useNetworkModule.useCreateIpv6Network).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useCreateIpv6Network>);
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('muestra displayType cuando es un override real (distinto del type crudo)', () => {
+    // BE manda "BRAS RADIUS" para mikrotik_radius → override real
+    const nasConOverride: NasServer = {
+      id: 'bras-1',
+      name: 'NE8000 BRAS Sur',
+      type: 'mikrotik_radius',
+      displayType: 'BRAS RADIUS',
+      ipAddress: '10.0.0.1',
+      radiusSecret: 'secret',
+      nasIpAddress: '10.0.0.1',
+      apiPort: null,
+      apiLogin: null,
+      apiPassword: null,
+      status: 'active',
+      lastSeen: null,
+      clientCount: 0,
+      description: '',
+    };
+
+    setupHooks([nasConOverride]);
+    renderPage();
+
+    // El badge debe mostrar el override "BRAS RADIUS"
+    expect(screen.getByText('BRAS RADIUS')).toBeInTheDocument();
+    // No debe mostrar el label lindo del type (MikroTik RADIUS)
+    expect(screen.queryByText('MikroTik RADIUS')).not.toBeInTheDocument();
+  });
+
+  it('muestra el label lindo cuando displayType === type crudo (el BE no hizo override)', () => {
+    // BE manda "mikrotik_api" como displayType (sin override), el FE debe mostrar "MikroTik API"
+    const nasConCrudo: NasServer = {
+      id: 'mk-1',
+      name: 'MikroTik API router',
+      type: 'mikrotik_api',
+      displayType: 'mikrotik_api', // BE envía el type crudo → no es override
+      ipAddress: '10.0.1.1',
+      radiusSecret: 'secret',
+      nasIpAddress: '10.0.1.1',
+      apiPort: 8728,
+      apiLogin: 'admin',
+      apiPassword: null,
+      status: 'active',
+      lastSeen: null,
+      clientCount: 0,
+      description: '',
+    };
+
+    setupHooks([nasConCrudo]);
+    renderPage();
+
+    // Debe mostrar el label lindo del mapa NAS_TYPE_LABELS
+    expect(screen.getByText('MikroTik API')).toBeInTheDocument();
+    // No debe mostrar el string crudo
+    expect(screen.queryByText('mikrotik_api')).not.toBeInTheDocument();
+  });
+});
