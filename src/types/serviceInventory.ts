@@ -61,6 +61,56 @@ export interface AddInstalledItemInput {
   mac?: string;
   model?: string;
   notes?: string;
+  /**
+   * Dedup decision: enrich the existing item with this id instead of creating a
+   * new one. Used to resolve a SAME_TYPE_NEEDS_DECISION 409 by choosing which
+   * existing item the operator wants to complete. Mutually exclusive with `force`.
+   */
+  completeItemId?: string;
+  /**
+   * Dedup decision: bypass the same-type dedup check and create a NEW item even
+   * if one of the same type already exists. Used to resolve a
+   * SAME_TYPE_NEEDS_DECISION 409 with "agregar como nuevo".
+   */
+  force?: boolean;
+}
+
+/**
+ * Outcome of `addInstalledItem`. The BE distinguishes a freshly created item
+ * (HTTP 201) from an enriched/revived existing one (HTTP 200) ONLY via the
+ * status code — the body shape is identical. `outcome` makes that explicit for
+ * the UI so it can say "agregado" vs "datos completados".
+ */
+export interface AddInstalledItemResult {
+  /** 'created' ← HTTP 201; 'enriched' ← HTTP 200. */
+  outcome: 'created' | 'enriched';
+  item: ServiceInstalledItem;
+}
+
+/** A SAME_TYPE candidate the operator can choose to complete (from the 409 body). */
+export interface SameTypeCandidate {
+  id: string;
+  type: InstalledItemType;
+  serialNumber: string | null;
+  mac: string | null;
+  model: string | null;
+}
+
+/** Machine-readable dedup conflict codes the BE returns on a 409. */
+export type InventoryConflictCode = 'SAME_TYPE_NEEDS_DECISION' | 'ASSET_NOT_REVIVABLE';
+
+/**
+ * Normalized 409 conflict surfaced by the add-inventory flow. The BE returns a
+ * 409 with `{ error: <human msg>, code, candidates? }`; the api client maps the
+ * axios error into this shape so the UI can branch on `code` without digging
+ * into `err.response.data`.
+ */
+export interface InventoryConflict {
+  code: InventoryConflictCode;
+  /** Human-readable message from the BE (the `error` field). */
+  message: string;
+  /** Present only for SAME_TYPE_NEEDS_DECISION. */
+  candidates: SameTypeCandidate[];
 }
 
 export interface UpdateInstalledItemInput {
