@@ -16,6 +16,7 @@ import {
 } from '@/hooks/usePppoe';
 import type { EnforcementAction } from '@/types/pppoe';
 import { usePlans } from '@/hooks/usePlans';
+import { isEligiblePlan } from '@/utils/plans';
 
 import { useNasServers, useNextFreeIp } from '@/hooks/useNas';
 import type { IpType } from '@/api/nas.api';
@@ -235,6 +236,9 @@ function CreatePppoeForm({
   nasServers: { id: string; name: string }[];
 }) {
   const create = useCreatePppoe(contractId, clientId);
+  const plansQuery = usePlans();
+  const allPlans = plansQuery.data ?? [];
+  const eligiblePlans = allPlans.filter(isEligiblePlan);
 
   const [form, setForm] = useState({
     username: '',
@@ -373,16 +377,46 @@ function CreatePppoeForm({
           </div>
           <div className={styles.field}>
             <label className={styles.fieldLabel} htmlFor="pppoe-profile">
-              Perfil
+              Plan <span aria-hidden="true">*</span>
             </label>
-            <input
-              id="pppoe-profile"
-              className={styles.input}
-              value={form.profile}
-              onChange={(e) => setForm((f) => ({ ...f, profile: e.target.value }))}
-              disabled={create.isPending}
-              placeholder="Opcional"
-            />
+            {plansQuery.isLoading ? (
+              <select
+                id="pppoe-profile"
+                className={styles.select}
+                disabled
+              >
+                <option disabled>Cargando planes…</option>
+              </select>
+            ) : plansQuery.isError || eligiblePlans.length === 0 ? (
+              <>
+                <input
+                  id="pppoe-profile"
+                  className={styles.input}
+                  value={form.profile}
+                  onChange={(e) => setForm((f) => ({ ...f, profile: e.target.value }))}
+                  disabled={create.isPending}
+                  required
+                  placeholder="Ingresá el código del plan"
+                />
+                <p className={styles.fieldHint}>No se pudieron cargar los planes — ingresá el código del plan manualmente</p>
+              </>
+            ) : (
+              <select
+                id="pppoe-profile"
+                className={styles.select}
+                value={form.profile}
+                onChange={(e) => setForm((f) => ({ ...f, profile: e.target.value }))}
+                required
+                disabled={create.isPending}
+              >
+                <option value="">Elegí un plan…</option>
+                {eligiblePlans.map((plan) => (
+                  <option key={plan.id} value={plan.code}>
+                    {plan.name ? `${plan.name} — ${plan.rateLimit}` : `${plan.code} — ${plan.rateLimit}`}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Tipo de IP — toggle Privada / Pública */}
@@ -468,7 +502,8 @@ function CreatePppoeForm({
               create.isPending ||
               !form.username.trim() ||
               !form.password ||
-              !form.nasId
+              !form.nasId ||
+              !form.profile
             }
           >
             {create.isPending ? 'Creando…' : 'Crear PPPoE'}
@@ -502,9 +537,7 @@ function SpeedControl({
 }) {
   const plansQuery = usePlans();
   const allPlans = plansQuery.data ?? [];
-  const eligiblePlans = allPlans.filter(
-    (p) => p.status === 'enabled' && p.category !== 'Corte',
-  );
+  const eligiblePlans = allPlans.filter(isEligiblePlan);
 
   const [selected, setSelected] = useState<string>(currentProfile ?? '');
   const [speedError, setSpeedError] = useState<string | null>(null);
