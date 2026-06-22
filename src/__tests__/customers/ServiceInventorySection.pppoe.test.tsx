@@ -122,6 +122,25 @@ describe('ServiceInventorySection — Agregar por PPPoE', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/no se pudo inspeccionar/i);
   });
 
+  it('muestra el modal "Sin conexión" cuando no hay nada para agregar (offline)', async () => {
+    const confirmMock = vi.fn().mockResolvedValue(true);
+    vi.mocked(useConfirm).mockReturnValue(confirmMock);
+    const inspect = vi.fn().mockResolvedValue({
+      antenna: { mac: null, model: null },
+      router: null,
+      warnings: ['No se pudo entrar a la antena por SSH (offline?).'],
+    });
+    setupMocks({ inspect });
+    const user = userEvent.setup();
+    render(<ServiceInventorySection serviceId="svc-1" />);
+    await user.click(screen.getByRole('button', { name: /agregar por pppoe/i }));
+    await waitFor(() =>
+      expect(confirmMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Sin conexión' })),
+    );
+    // NO abre el modal de revisión cuando no hay nada para agregar
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('confirm in review modal calls addInstalledItem for antenna', async () => {
     const addMutate = vi.fn((input, { onSuccess } = {}) => { onSuccess?.(); });
     const inspect = vi.fn().mockResolvedValue(inspectResult);
