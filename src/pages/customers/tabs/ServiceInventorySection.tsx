@@ -3,7 +3,7 @@ import {
   useServiceInstalledItems,
   useAddInstalledItem,
   useUpdateInstalledItem,
-  useRemoveInstalledItem,
+  useRetireInstalledItem,
   useInspectPppoeDevices,
 } from '@/hooks/useServiceInventory';
 import { useDeviceTypes } from '@/hooks/useDeviceTypes';
@@ -17,9 +17,11 @@ import type {
   AddInstalledItemResult,
   UpdateInstalledItemInput,
   InspectPppoeDevicesResult,
+  RetireInstalledItemInput,
 } from '@/types/serviceInventory';
 import { InstalledItemFormModal } from './contracts/InstalledItemFormModal';
 import { AddByPppoeReviewModal } from './contracts/AddByPppoeReviewModal';
+import { RetireInstalledItemModal } from './contracts/RetireInstalledItemModal';
 import styles from './ServiceInventorySection.module.css';
 
 const FALLBACK_TYPES: InstalledItemType[] = ['ONU', 'ROUTER', 'ANTENA', 'REPETIDOR', 'OTROS'];
@@ -38,11 +40,12 @@ interface Props {
   enabled?: boolean;
 }
 
-/** Which modal flow is open: none, create, editing a specific item, or pppoe review. */
+/** Which modal flow is open: none, create, editing a specific item, retiring one, or pppoe review. */
 type ModalState =
   | { mode: 'closed' }
   | { mode: 'create' }
   | { mode: 'edit'; item: ServiceInstalledItem }
+  | { mode: 'retire'; item: ServiceInstalledItem }
   | { mode: 'pppoe-review'; result: InspectPppoeDevicesResult };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -64,7 +67,7 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
   const { data, isLoading } = useServiceInstalledItems(serviceId, enabled);
   const addItem = useAddInstalledItem(serviceId);
   const updateItem = useUpdateInstalledItem(serviceId);
-  const removeItem = useRemoveInstalledItem(serviceId);
+  const retireItem = useRetireInstalledItem(serviceId);
   const { data: deviceTypes = [], isLoading: typesLoading } = useDeviceTypes();
   const confirm = useConfirm();
   const { inspect, isPending: inspecting } = useInspectPppoeDevices();
@@ -131,10 +134,14 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
     );
   }
 
-  async function handleRemove(item: ServiceInstalledItem) {
-    const label = `${item.type}${item.serialNumber ? ` (${item.serialNumber})` : ''}`;
-    if (!(await confirm({ message: `¿Quitar el equipo "${label}"?`, tone: 'danger', confirmLabel: 'Quitar' }))) return;
-    await removeItem.mutateAsync(item.id);
+  /**
+   * Submit handler the retire modal calls. Resolves on success, re-throws on
+   * error so the modal can show the right message (e.g. the 409
+   * ASSET_NOT_INSTALLED → AssetNotInstalledError). The mutation invalidates the
+   * inventory query on success.
+   */
+  function handleRetire(item: ServiceInstalledItem, input: RetireInstalledItemInput): Promise<void> {
+    return retireItem.mutateAsync({ itemId: item.id, input }).then(() => undefined);
   }
 
   const items = data ?? [];
@@ -227,7 +234,7 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
                   <td className={styles.actions}>
                     <Can permission="inventory.write">
                       <button type="button" onClick={() => { setFormError(null); setModal({ mode: 'edit', item: it }); }} className={styles.linkBtn}>Editar</button>
-                      <button type="button" onClick={() => handleRemove(it)} disabled={removeItem.isPending} className={styles.linkDanger}>Quitar</button>
+                      <button type="button" onClick={() => { setFormError(null); setModal({ mode: 'retire', item: it }); }} disabled={retireItem.isPending} className={styles.linkDanger}>Quitar</button>
                     </Can>
                   </td>
                 </tr>
@@ -245,6 +252,16 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
           error={formError}
           onCreate={handleCreate}
           onUpdate={(patch) => { if (modal.mode === 'edit') handleUpdate(modal.item, patch); }}
+          onClose={closeModal}
+        />
+      )}
+
+      {modal.mode === 'retire' && (
+        <RetireInstalledItemModal
+          item={modal.item}
+          saving={retireItem.isPending}
+          error={null}
+          onRetire={(input) => handleRetire(modal.item, input)}
           onClose={closeModal}
         />
       )}

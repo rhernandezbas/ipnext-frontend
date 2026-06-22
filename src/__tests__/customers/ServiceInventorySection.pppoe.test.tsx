@@ -20,7 +20,8 @@ vi.mock('@/hooks/useServiceInventory', () => ({
   useServiceInstalledItems: vi.fn(),
   useAddInstalledItem: vi.fn(),
   useUpdateInstalledItem: vi.fn(),
-  useRemoveInstalledItem: vi.fn(),
+  useRetireInstalledItem: vi.fn(),
+  useInventoryTechnicians: vi.fn(),
   useInspectPppoeDevices: vi.fn(),
 }));
 
@@ -32,7 +33,8 @@ import {
   useServiceInstalledItems,
   useAddInstalledItem,
   useUpdateInstalledItem,
-  useRemoveInstalledItem,
+  useRetireInstalledItem,
+  useInventoryTechnicians,
   useInspectPppoeDevices,
 } from '@/hooks/useServiceInventory';
 import { useDeviceTypes } from '@/hooks/useDeviceTypes';
@@ -81,7 +83,8 @@ function setupMocks({
   vi.mocked(useServiceInstalledItems).mockReturnValue({ data: items, isLoading } as ReturnType<typeof useServiceInstalledItems>);
   vi.mocked(useAddInstalledItem).mockReturnValue({ mutate: noop, mutateAsync: addMutateAsync, isPending: false } as unknown as ReturnType<typeof useAddInstalledItem>);
   vi.mocked(useUpdateInstalledItem).mockReturnValue({ mutate: noop, isPending: false } as unknown as ReturnType<typeof useUpdateInstalledItem>);
-  vi.mocked(useRemoveInstalledItem).mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false } as unknown as ReturnType<typeof useRemoveInstalledItem>);
+  vi.mocked(useRetireInstalledItem).mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false } as unknown as ReturnType<typeof useRetireInstalledItem>);
+  vi.mocked(useInventoryTechnicians).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useInventoryTechnicians>);
   vi.mocked(useDeviceTypes).mockReturnValue({ data: DEFAULT_TYPES, isLoading: false } as ReturnType<typeof useDeviceTypes>);
   vi.mocked(useInspectPppoeDevices).mockReturnValue({ inspect, isPending: false } as ReturnType<typeof useInspectPppoeDevices>);
 }
