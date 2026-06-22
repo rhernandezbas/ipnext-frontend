@@ -121,6 +121,39 @@ export interface UpdateInstalledItemInput {
   mac?: string | null;
 }
 
+/**
+ * Where a removed equipment item ends up. Mirrors the BE retire contract
+ * (POST /contracts/:contractId/inventory/:itemId/retire). `TECNICO` is the only
+ * disposition that requires a `technicianId`.
+ */
+export type RetireDisposition =
+  | 'DEPOSITO'
+  | 'TECNICO'
+  | 'CLIENTE'
+  | 'DAMAGED'
+  | 'RETIRED';
+
+/** Disposition → Spanish label for the UI (radio options / summaries). */
+export const RETIRE_DISPOSITION_LABELS: Record<RetireDisposition, string> = {
+  DEPOSITO: 'Depósito',
+  TECNICO: 'Con un técnico',
+  CLIENTE: 'Se lo queda el cliente',
+  DAMAGED: 'Dañado',
+  RETIRED: 'Baja definitiva',
+};
+
+/** Body for the retire endpoint. `technicianId` is required iff disposition === 'TECNICO'. */
+export interface RetireInstalledItemInput {
+  disposition: RetireDisposition;
+  /** Required only when disposition === 'TECNICO'. */
+  technicianId?: string;
+  /** Optional free-text note. */
+  note?: string;
+}
+
+/** Machine-readable conflict code the retire endpoint returns on a 409. */
+export type RetireConflictCode = 'ASSET_NOT_INSTALLED';
+
 /** Discriminated union returned by POST .../confirm — a device OR a material consumption. */
 export type ConfirmSuggestionResult =
   | { kind: 'DEVICE'; item: ServiceInstalledItem }
