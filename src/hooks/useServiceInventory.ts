@@ -1,7 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback } from 'react';
 import * as api from '@/api/serviceInventory.api';
-import type { AddInstalledItemInput, UpdateInstalledItemInput, InstalledItemType, ConfirmSuggestionResult, CreateManualSuggestionInput, InspectPppoeDevicesResult } from '@/types/serviceInventory';
+import type { AddInstalledItemInput, UpdateInstalledItemInput, InstalledItemType, ConfirmSuggestionResult, CreateManualSuggestionInput, InspectPppoeDevicesResult, RetireInstalledItemInput } from '@/types/serviceInventory';
+
+// Technicians for the retire "Con un técnico" picker come from the inventory
+// technician list (GET /inventory/technicians) — reused here so the equipment
+// retire flow has a domain-local hook name.
+export { useTechnicianList as useInventoryTechnicians } from '@/hooks/useTechnicianList';
 
 const itemsKey = (serviceId: string) => ['service-inventory', serviceId];
 const suggestionsKey = (taskId: string) => ['task-inventory-suggestions', taskId];
@@ -60,6 +65,20 @@ export function useRemoveInstalledItem(serviceId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (itemId: string) => api.deleteInstalledItem(serviceId, itemId),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: itemsKey(serviceId) }),
+  });
+}
+
+/**
+ * Retire an installed item with a destination (disposition + optional technician
+ * + note). Replaces the plain delete for the "Quitar" flow. Invalidates the
+ * contract inventory query on success so the table reflects the removal.
+ */
+export function useRetireInstalledItem(serviceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ itemId, input }: { itemId: string; input: RetireInstalledItemInput }) =>
+      api.retireInstalledItem(serviceId, itemId, input),
     onSuccess: () => void qc.invalidateQueries({ queryKey: itemsKey(serviceId) }),
   });
 }

@@ -1,0 +1,335 @@
+/* RetireInstalledItemModal — pick a destination before removing an installed item.
+   Reuses the same token / animation system as AddByPppoeReviewModal.
+   Portal'd to body at z-index 1200 (above card popovers). */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(var(--space-4), 8vh, var(--space-12)) var(--space-4) var(--space-4);
+  z-index: 1200;
+  animation: fadeIn 0.12s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  width: min(480px, 96vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow:
+    0 24px 48px rgba(15, 23, 42, 0.22),
+    0 8px 16px rgba(15, 23, 42, 0.1);
+  animation: slideUp 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+.header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 6px 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
+.itemMeta {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  color: var(--color-text-primary);
+}
+
+.closeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.closeBtn:hover {
+  background: var(--color-gray-100);
+  color: var(--color-text-primary);
+}
+
+.closeBtn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ── Body ─────────────────────────────────────────────────────────────── */
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Disposition radios ───────────────────────────────────────────────── */
+.dispositionList {
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.dispositionRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.dispositionRow:hover {
+  background: var(--color-gray-50);
+}
+
+.dispositionRowSelected {
+  border-color: var(--color-primary);
+  background: var(--badge-active-bg);
+}
+
+.dispositionRow:has(.radio:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.radio {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.dispositionInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dispositionLabel {
+  font-size: 13.5px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.dispositionHint {
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+/* ── Fields (technician select + note) ────────────────────────────────── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-secondary);
+}
+
+.optional {
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-secondary);
+}
+
+.control {
+  height: 38px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.control:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+}
+
+.textarea {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  font-family: inherit;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  resize: vertical;
+  min-height: 64px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.textarea:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+}
+
+.fieldHint {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.typeTag {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  background: var(--color-gray-100);
+  border-radius: var(--radius-full);
+}
+
+/* ── Error banner ─────────────────────────────────────────────────────── */
+.errorBanner {
+  margin: 0;
+  padding: var(--space-3);
+  font-size: 13px;
+  color: var(--badge-late-fg);
+  background: var(--badge-late-bg);
+  border-radius: var(--radius-md);
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────── */
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-gray-50);
+}
+
+.cancelBtn,
+.dangerBtn {
+  height: 38px;
+  padding: 0 var(--space-4);
+  font-size: 13.5px;
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-button);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background var(--transition-fast), filter var(--transition-fast);
+}
+
+.cancelBtn {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+.cancelBtn:hover:not(:disabled) {
+  background: var(--color-gray-100);
+}
+
+.dangerBtn {
+  background: var(--color-danger);
+  color: #fff;
+}
+.dangerBtn:hover:not(:disabled) {
+  filter: brightness(0.93);
+}
+
+.cancelBtn:focus-visible,
+.dangerBtn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.cancelBtn:disabled,
+.dangerBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Icons / a11y ─────────────────────────────────────────────────────── */
+.icon {
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .modal {
+    animation: none;
+  }
+}

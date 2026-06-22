@@ -9,7 +9,8 @@ vi.mock('@/hooks/useServiceInventory', () => ({
   useServiceInstalledItems: vi.fn(),
   useAddInstalledItem: vi.fn(),
   useUpdateInstalledItem: vi.fn(),
-  useRemoveInstalledItem: vi.fn(),
+  useRetireInstalledItem: vi.fn(),
+  useInventoryTechnicians: vi.fn(),
   useInspectPppoeDevices: vi.fn(),
 }));
 
@@ -21,7 +22,8 @@ import {
   useServiceInstalledItems,
   useAddInstalledItem,
   useUpdateInstalledItem,
-  useRemoveInstalledItem,
+  useRetireInstalledItem,
+  useInventoryTechnicians,
   useInspectPppoeDevices,
 } from '@/hooks/useServiceInventory';
 import { useDeviceTypes } from '@/hooks/useDeviceTypes';
@@ -65,13 +67,14 @@ function setupMocks({
   isLoading = false,
   addMutate = noop,
   updateMutate = noop,
-  removeMutate = vi.fn().mockResolvedValue(undefined),
+  retireMutate = vi.fn().mockResolvedValue(undefined),
   deviceTypes = DEFAULT_TYPES,
 } = {}) {
   vi.mocked(useServiceInstalledItems).mockReturnValue({ data: items, isLoading } as ReturnType<typeof useServiceInstalledItems>);
   vi.mocked(useAddInstalledItem).mockReturnValue({ mutate: addMutate, isPending: false } as unknown as ReturnType<typeof useAddInstalledItem>);
   vi.mocked(useUpdateInstalledItem).mockReturnValue({ mutate: updateMutate, isPending: false } as unknown as ReturnType<typeof useUpdateInstalledItem>);
-  vi.mocked(useRemoveInstalledItem).mockReturnValue({ mutateAsync: removeMutate, isPending: false } as unknown as ReturnType<typeof useRemoveInstalledItem>);
+  vi.mocked(useRetireInstalledItem).mockReturnValue({ mutateAsync: retireMutate, isPending: false } as unknown as ReturnType<typeof useRetireInstalledItem>);
+  vi.mocked(useInventoryTechnicians).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useInventoryTechnicians>);
   vi.mocked(useDeviceTypes).mockReturnValue({ data: deviceTypes, isLoading: false } as ReturnType<typeof useDeviceTypes>);
   vi.mocked(useInspectPppoeDevices).mockReturnValue({ inspect: vi.fn().mockResolvedValue({ antenna: { mac: null, model: null }, router: null, warnings: [] }), isPending: false } as ReturnType<typeof useInspectPppoeDevices>);
 }
@@ -146,24 +149,38 @@ describe('ServiceInventorySection', () => {
     expect(addMutate).not.toHaveBeenCalled();
   });
 
-  it('calls removeInstalledItem after confirm when clicking Quitar', async () => {
-    const removeMutate = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(useConfirm).mockReturnValue(vi.fn().mockResolvedValue(true));
-    setupMocks({ removeMutate });
+  it('opens the retire modal when clicking Quitar (no bare confirm)', async () => {
+    const retireMutate = vi.fn().mockResolvedValue(undefined);
+    setupMocks({ retireMutate });
     const user = userEvent.setup();
     render(<ServiceInventorySection serviceId="svc-1" />);
     await user.click(screen.getByText('Quitar'));
-    await waitFor(() => expect(removeMutate).toHaveBeenCalledWith('item-1'));
+    // Destination modal opens; nothing posted yet
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(within(dialog()).getByRole('radio', { name: /depósito/i })).toBeInTheDocument();
+    expect(retireMutate).not.toHaveBeenCalled();
   });
 
-  it('does NOT call removeInstalledItem when confirm is cancelled', async () => {
-    const removeMutate = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(useConfirm).mockReturnValue(vi.fn().mockResolvedValue(false));
-    setupMocks({ removeMutate });
+  it('calls retireInstalledItem with the chosen disposition when submitting the modal', async () => {
+    const retireMutate = vi.fn().mockResolvedValue(undefined);
+    setupMocks({ retireMutate });
     const user = userEvent.setup();
     render(<ServiceInventorySection serviceId="svc-1" />);
     await user.click(screen.getByText('Quitar'));
-    expect(removeMutate).not.toHaveBeenCalled();
+    await user.click(within(dialog()).getByRole('button', { name: /^quitar$/i }));
+    await waitFor(() =>
+      expect(retireMutate).toHaveBeenCalledWith({ itemId: 'item-1', input: { disposition: 'DEPOSITO' } }),
+    );
+  });
+
+  it('does NOT call retireInstalledItem when the modal is cancelled', async () => {
+    const retireMutate = vi.fn().mockResolvedValue(undefined);
+    setupMocks({ retireMutate });
+    const user = userEvent.setup();
+    render(<ServiceInventorySection serviceId="svc-1" />);
+    await user.click(screen.getByText('Quitar'));
+    await user.click(within(dialog()).getByRole('button', { name: /cancelar/i }));
+    expect(retireMutate).not.toHaveBeenCalled();
   });
 
   it('opens the edit modal prefilled when clicking Editar', async () => {

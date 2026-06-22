@@ -13,6 +13,7 @@ import type {
   ConfirmSuggestionResult,
   CreateManualSuggestionInput,
   InspectPppoeDevicesResult,
+  RetireInstalledItemInput,
 } from '@/types/serviceInventory';
 
 const CONFLICT_CODES: readonly InventoryConflictCode[] = [
@@ -87,6 +88,54 @@ export const updateInstalledItem = (contractId: string, itemId: string, patch: U
 
 export const deleteInstalledItem = (contractId: string, itemId: string) =>
   axiosClient.delete<ServiceInstalledItem>(`/contracts/${contractId}/inventory/${itemId}`).then(r => r.data);
+
+/**
+ * Thrown by {@link retireInstalledItem} when the BE returns a 409
+ * `{ code: 'ASSET_NOT_INSTALLED' }` — the underlying asset drifted out of the
+ * "installed" state (rare). Lets the modal show a clear, specific message
+ * instead of a generic error.
+ */
+export class AssetNotInstalledError extends Error {
+  constructor(message = 'ASSET_NOT_INSTALLED') {
+    super(message);
+    this.name = 'AssetNotInstalledError';
+  }
+}
+
+/** True if the error is a 409 carrying the ASSET_NOT_INSTALLED code (in `code` or `error`). */
+function isAssetNotInstalled(err: unknown): boolean {
+  const resp = (err as { response?: { status?: number; data?: unknown } })?.response;
+  if (resp?.status !== 409) return false;
+  const data = (resp.data ?? {}) as { error?: string; code?: string };
+  return data.code === 'ASSET_NOT_INSTALLED' || data.error === 'ASSET_NOT_INSTALLED';
+}
+
+/**
+ * Retire (remove) an installed equipment item with a destination. Replaces the
+ * plain DELETE for the "Quitar" flow.
+ *
+ * POST /contracts/:contractId/inventory/:itemId/retire
+ *   body: { disposition, technicianId?, note? }
+ *   200  → the removed item
+ *   409 `{ code: 'ASSET_NOT_INSTALLED' }` → throws {@link AssetNotInstalledError}
+ *   any other error propagates unchanged (400 validation, 404 not found, …)
+ */
+export const retireInstalledItem = async (
+  contractId: string,
+  itemId: string,
+  input: RetireInstalledItemInput,
+): Promise<ServiceInstalledItem> => {
+  try {
+    const res = await axiosClient.post<ServiceInstalledItem>(
+      `/contracts/${contractId}/inventory/${itemId}/retire`,
+      input,
+    );
+    return res.data;
+  } catch (err) {
+    if (isAssetNotInstalled(err)) throw new AssetNotInstalledError();
+    throw err;
+  }
+};
 
 // ── Task-scoped suggestion staging ──────────────────────────────────────────
 export const listTaskInventorySuggestions = (taskId: string) =>
