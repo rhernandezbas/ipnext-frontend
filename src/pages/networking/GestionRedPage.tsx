@@ -6,7 +6,7 @@ import { useConfirm } from '@/context/ConfirmContext';
 import { Can } from '@/components/auth/Can';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { cutoverStats, nextCutoverType, isRadius } from '@/utils/cutover';
-import type { NasServer, NasType } from '@/types/nas';
+import type { NasServer, NasServerInput, NasType } from '@/types/nas';
 import type { IpNetwork, IpPool, IpAssignment, Ipv6Network } from '@/types/network';
 import { formatDateTimeShort } from '@/utils/formatDate';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
@@ -78,10 +78,14 @@ const TAB_ICONS: Record<Tab, ({ className }: IcoProps) => JSX.Element> = {
 // ---------------------------------------------------------------------------
 // Small presentational atoms
 // ---------------------------------------------------------------------------
-function NasTypeBadge({ type }: { type: NasType }) {
+function NasTypeBadge({ type, displayType }: { type: NasType; displayType?: string }) {
+  // El BE puede enviar un label de presentación (ej. "BRAS RADIUS" para un NE8000 sobre RADIUS).
+  // Para tipos no-override el BE reenvía el type crudo (ej. "mikrotik_api" === type),
+  // así que solo usamos displayType cuando es un override real (distinto del type crudo y no vacío).
+  // Si no, derivamos el label lindo de NAS_TYPE_LABELS para no mostrar strings crudos.
   return (
     <span className={`${styles.badge} ${NAS_TYPE_COLORS[type]}`}>
-      {NAS_TYPE_LABELS[type]}
+      {displayType && displayType !== type ? displayType : NAS_TYPE_LABELS[type]}
     </span>
   );
 }
@@ -143,7 +147,7 @@ function formatDate(iso: string | null): string {
 // ---------------------------------------------------------------------------
 interface AddNasModalProps {
   onClose: () => void;
-  onSubmit: (data: Omit<NasServer, 'id'>) => void;
+  onSubmit: (data: NasServerInput) => void;
 }
 
 function AddNasModal({ onClose, onSubmit }: AddNasModalProps) {
@@ -423,7 +427,7 @@ function AddIpv6Modal({ onClose, onSubmit }: AddIpv6ModalProps) {
 interface EditNasModalProps {
   nas: NasServer;
   onClose: () => void;
-  onSubmit: (data: Partial<NasServer>) => void;
+  onSubmit: (data: Partial<NasServerInput>) => void;
 }
 
 function EditNasModal({ nas, onClose, onSubmit }: EditNasModalProps) {
@@ -790,7 +794,7 @@ export default function GestionRedPage() {
                   ) : filteredNas.map(n => (
                     <tr key={n.id} className={styles.bodyRow}>
                       <td className={styles.nm}>{n.name}</td>
-                      <td><NasTypeBadge type={n.type} /></td>
+                      <td><NasTypeBadge type={n.type} displayType={n.displayType} /></td>
                       <td className={styles.mono}>{n.ipAddress}</td>
                       <td><NasStatusBadge status={n.status} /></td>
                       <td className="num">{n.clientCount}</td>

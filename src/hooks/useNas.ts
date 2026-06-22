@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { NasServer, RadiusConfig } from '@/types/nas';
+import type { NasServerInput, RadiusConfig } from '@/types/nas';
 import * as api from '@/api/nas.api';
 import type { IpType } from '@/api/nas.api';
 
@@ -10,7 +10,7 @@ export function useNasServers() {
 export function useCreateNasServer() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Omit<NasServer, 'id'>) => api.createNasServer(data),
+    mutationFn: (data: NasServerInput) => api.createNasServer(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['nas-servers'] }),
   });
 }
@@ -18,7 +18,7 @@ export function useCreateNasServer() {
 export function useUpdateNasServer() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<NasServer> }) =>
+    mutationFn: ({ id, data }: { id: string; data: Partial<NasServerInput> }) =>
       api.updateNasServer(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['nas-servers'] }),
   });

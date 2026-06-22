@@ -1,5 +1,5 @@
 import axiosClient from './axios-client';
-import type { NasServer, RadiusConfig } from '../types/nas';
+import type { NasServer, NasServerInput, RadiusConfig } from '../types/nas';
 
 export const getNasServers = () =>
   axiosClient.get<NasServer[]>('/nas-servers').then(r => r.data);
@@ -7,10 +7,10 @@ export const getNasServers = () =>
 export const getNasServer = (id: string) =>
   axiosClient.get<NasServer>(`/nas-servers/${id}`).then(r => r.data);
 
-export const createNasServer = (data: Omit<NasServer, 'id'>) =>
+export const createNasServer = (data: NasServerInput) =>
   axiosClient.post<NasServer>('/nas-servers', data).then(r => r.data);
 
-export const updateNasServer = (id: string, data: Partial<NasServer>) =>
+export const updateNasServer = (id: string, data: Partial<NasServerInput>) =>
   axiosClient.put<NasServer>(`/nas-servers/${id}`, data).then(r => r.data);
 
 export const deleteNasServer = (id: string) =>
