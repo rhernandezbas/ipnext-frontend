@@ -12,7 +12,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import type { ServiceInstalledItem, InspectPppoeDevicesResult } from '@/types/serviceInventory';
+import type { ServiceInstalledItem, InspectPppoeDevicesResult, AddInstalledItemResult } from '@/types/serviceInventory';
 import type { DeviceType } from '@/types/deviceType';
 
 // Mock hooks and api
@@ -54,14 +54,32 @@ const inspectResult: InspectPppoeDevicesResult = {
 
 const noop = vi.fn();
 
+/** A device that the BE created (HTTP 201). */
+function createdResult(item: Partial<ServiceInstalledItem> = {}): AddInstalledItemResult {
+  return {
+    outcome: 'created',
+    item: {
+      id: 'new-1', serviceId: 'svc-1', type: 'ANTENA', serialNumber: null, mac: null, model: null,
+      source: 'MANUAL', sourceTaskId: null, addedByUserId: null, addedByUserName: null,
+      confirmedAt: null, status: 'active', notes: null, createdAt: '2026-06-01T00:00:00.000Z',
+      ...item,
+    },
+  };
+}
+
 function setupMocks({
   items = [] as ServiceInstalledItem[],
   isLoading = false,
-  addMutate = noop,
+  addMutateAsync = vi.fn().mockResolvedValue(createdResult()),
   inspect = vi.fn().mockResolvedValue(inspectResult),
+}: {
+  items?: ServiceInstalledItem[];
+  isLoading?: boolean;
+  addMutateAsync?: ReturnType<typeof vi.fn>;
+  inspect?: ReturnType<typeof vi.fn>;
 } = {}) {
   vi.mocked(useServiceInstalledItems).mockReturnValue({ data: items, isLoading } as ReturnType<typeof useServiceInstalledItems>);
-  vi.mocked(useAddInstalledItem).mockReturnValue({ mutate: addMutate, isPending: false } as unknown as ReturnType<typeof useAddInstalledItem>);
+  vi.mocked(useAddInstalledItem).mockReturnValue({ mutate: noop, mutateAsync: addMutateAsync, isPending: false } as unknown as ReturnType<typeof useAddInstalledItem>);
   vi.mocked(useUpdateInstalledItem).mockReturnValue({ mutate: noop, isPending: false } as unknown as ReturnType<typeof useUpdateInstalledItem>);
   vi.mocked(useRemoveInstalledItem).mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false } as unknown as ReturnType<typeof useRemoveInstalledItem>);
   vi.mocked(useDeviceTypes).mockReturnValue({ data: DEFAULT_TYPES, isLoading: false } as ReturnType<typeof useDeviceTypes>);
@@ -141,30 +159,51 @@ describe('ServiceInventorySection — Agregar por PPPoE', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('confirm in review modal calls addInstalledItem for antenna', async () => {
-    const addMutate = vi.fn((input, { onSuccess } = {}) => { onSuccess?.(); });
+  it('confirm in review modal calls addInstalledItem (mutateAsync) for antenna', async () => {
+    const addMutateAsync = vi.fn().mockResolvedValue(createdResult());
     const inspect = vi.fn().mockResolvedValue(inspectResult);
-    setupMocks({ addMutate, inspect });
+    setupMocks({ addMutateAsync, inspect });
     const user = userEvent.setup();
     render(<ServiceInventorySection serviceId="svc-1" />);
     await user.click(screen.getByRole('button', { name: /agregar por pppoe/i }));
     await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
     await user.click(within(dialog()).getByRole('button', { name: /agregar equipos/i }));
-    await waitFor(() => expect(addMutate).toHaveBeenCalledWith(
+    await waitFor(() => expect(addMutateAsync).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'ANTENA', mac: 'AA:BB:CC:DD:EE:01' }),
-      expect.anything(),
     ));
   });
 
-  it('after confirm, modal closes', async () => {
-    const addMutate = vi.fn((_input, { onSuccess } = {}) => { onSuccess?.(); });
+  it('after a successful confirm, the modal shows a result summary (does not auto-close)', async () => {
+    const addMutateAsync = vi.fn().mockResolvedValue(createdResult());
     const inspect = vi.fn().mockResolvedValue(inspectResult);
-    setupMocks({ addMutate, inspect });
+    setupMocks({ addMutateAsync, inspect });
     const user = userEvent.setup();
     render(<ServiceInventorySection serviceId="svc-1" />);
     await user.click(screen.getByRole('button', { name: /agregar por pppoe/i }));
     await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
     await user.click(within(dialog()).getByRole('button', { name: /agregar equipos/i }));
+    // Summary step: stays open, shows the outcome (antenna + router), then "Listo" closes it.
+    expect((await within(dialog()).findAllByText(/agregad[oa]/i)).length).toBeGreaterThan(0);
+    await user.click(within(dialog()).getByRole('button', { name: /^listo$/i }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('200 enriched from the BE → summary says "datos completados"', async () => {
+    const addMutateAsync = vi.fn().mockResolvedValue({
+      outcome: 'enriched',
+      item: createdResult({ id: 'existing-1' }).item,
+    } satisfies AddInstalledItemResult);
+    const inspect = vi.fn().mockResolvedValue({
+      antenna: { mac: 'AA:BB:CC:DD:EE:01', model: 'Mimosa' },
+      router: null,
+      warnings: [],
+    });
+    setupMocks({ addMutateAsync, inspect });
+    const user = userEvent.setup();
+    render(<ServiceInventorySection serviceId="svc-1" />);
+    await user.click(screen.getByRole('button', { name: /agregar por pppoe/i }));
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    await user.click(within(dialog()).getByRole('button', { name: /agregar equipos/i }));
+    expect(await within(dialog()).findByText(/datos completados/i)).toBeInTheDocument();
   });
 });
