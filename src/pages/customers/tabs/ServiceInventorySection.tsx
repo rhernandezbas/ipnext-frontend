@@ -14,6 +14,7 @@ import type {
   InstalledItemType,
   ServiceInstalledItem,
   AddInstalledItemInput,
+  AddInstalledItemResult,
   UpdateInstalledItemInput,
   InspectPppoeDevicesResult,
 } from '@/types/serviceInventory';
@@ -104,10 +105,11 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
     }
   }
 
-  function handlePppoeCreate(input: AddInstalledItemInput): Promise<void> {
-    return new Promise((resolve, reject) => {
-      addItem.mutate(input, { onSuccess: () => resolve(), onError: reject });
-    });
+  function handlePppoeCreate(input: AddInstalledItemInput): Promise<AddInstalledItemResult> {
+    // Surface the dedup outcome ('created' | 'enriched') and propagate
+    // InventoryConflictError (409) so the modal can drive the decision flow.
+    // The mutation invalidates the inventory query on every success.
+    return addItem.mutateAsync(input);
   }
 
   function handleCreate(input: AddInstalledItemInput) {

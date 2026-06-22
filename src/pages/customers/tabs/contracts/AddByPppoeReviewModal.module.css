@@ -267,7 +267,8 @@
 }
 
 .cancelBtn,
-.submitBtn {
+.submitBtn,
+.secondaryBtn {
   height: 38px;
   padding: 0 var(--space-4);
   font-size: 13.5px;
@@ -278,12 +279,14 @@
   transition: background var(--transition-fast), filter var(--transition-fast);
 }
 
-.cancelBtn {
+.cancelBtn,
+.secondaryBtn {
   background: var(--color-surface);
   border-color: var(--color-border);
   color: var(--color-text-primary);
 }
-.cancelBtn:hover:not(:disabled) {
+.cancelBtn:hover:not(:disabled),
+.secondaryBtn:hover:not(:disabled) {
   background: var(--color-gray-100);
 }
 
@@ -296,15 +299,183 @@
 }
 
 .cancelBtn:focus-visible,
-.submitBtn:focus-visible {
+.submitBtn:focus-visible,
+.secondaryBtn:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
 .cancelBtn:disabled,
-.submitBtn:disabled {
+.submitBtn:disabled,
+.secondaryBtn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+/* ── Decision step (409 SAME_TYPE_NEEDS_DECISION) ──────────────────────── */
+.decisionLead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--badge-blocked-bg);
+  border: 1px solid var(--badge-blocked-fg);
+  border-radius: var(--radius-md);
+  color: var(--badge-blocked-fg);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.decisionLead p {
+  margin: 0;
+}
+.decisionLead .icon {
+  margin-top: 1px;
+}
+
+.macStrong {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.candidateList {
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.candidateRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+.candidateRow:hover {
+  background: var(--color-gray-50);
+}
+.candidateRow:has(.candidateRadio:checked) {
+  border-color: var(--color-primary);
+  background: var(--badge-active-bg);
+}
+.candidateRow:has(.candidateRadio:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.candidateRadio {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.candidateInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.candidateMeta {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.decisionHint {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+
+.mono {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  color: var(--color-text-primary);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Summary step ──────────────────────────────────────────────────────── */
+.summaryList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.summaryRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+}
+
+.summary_created {
+  background: var(--color-gray-50);
+}
+.summary_created .summaryIcon {
+  color: var(--color-success-strong);
+}
+
+.summary_enriched {
+  background: var(--badge-active-bg);
+  border-color: var(--badge-active-fg);
+}
+.summary_enriched .summaryIcon {
+  color: var(--badge-active-fg);
+}
+
+.summary_not_revivable,
+.summary_error {
+  background: var(--badge-late-bg);
+  border-color: var(--badge-late-fg);
+  color: var(--badge-late-fg);
+}
+.summary_not_revivable .summaryIcon,
+.summary_error .summaryIcon {
+  color: var(--badge-late-fg);
+}
+
+.summaryIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  display: inline-flex;
+}
+
+.summaryText {
+  min-width: 0;
+}
+
+.summaryEmpty {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--color-text-secondary);
 }
 
 /* ── SVG icons ────────────────────────────────────────────────────────── */
