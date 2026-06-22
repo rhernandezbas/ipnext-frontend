@@ -86,6 +86,18 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
     setInspectError(null);
     try {
       const result = await inspect(serviceId);
+      // Si no hay nada para agregar (antena sin MAC y sin router) = no se pudo conectar /
+      // el cliente o la antena está offline. Mostramos un modal claro en vez del de revisión.
+      if (!result.antenna.mac && !result.router) {
+        await confirm({
+          title: 'Sin conexión',
+          message:
+            (result.warnings[0] ?? 'No se pudo conectar a la antena del cliente.') +
+            ' Probá de nuevo cuando el cliente esté conectado.',
+          confirmLabel: 'Entendido',
+        });
+        return;
+      }
       setModal({ mode: 'pppoe-review', result });
     } catch {
       setInspectError('No se pudo inspeccionar. Revisá la conexión o intentá de nuevo.');
