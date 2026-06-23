@@ -135,6 +135,8 @@ const EMPRESA_ITEMS: NavParentItem[] = [
       { to: '/admin/networking/plans', label: 'Catálogo de planes', requiredPermission: 'plan.read' },
       // Cortes PPPoE (Fase C) — moved here from the Clientes group. Gate intact.
       { to: '/admin/networking/pppoe-cortes', label: 'Cortes PPPoE', requiredPermission: 'pppoe.cut' },
+      { to: '/admin/networking/radius-logs', label: 'Logs RADIUS', requiredPermission: 'network.read' },
+      { to: '/admin/networking/ne8000-audit', label: 'Auditoría NE8000', requiredPermission: 'network.read' },
       { to: '/admin/networking/settings', label: 'Configuración' },
     ],
   },

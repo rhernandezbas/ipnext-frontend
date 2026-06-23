@@ -89,6 +89,8 @@ const NotificationsPage = lazy(() => import('@/pages/notifications/Notifications
 const ApiDocsPage = lazy(() => import('@/pages/api-docs/ApiDocsPage'));
 const GponPage = lazy(() => import('@/pages/gpon/GponPage'));
 const RadiusSessionsPage = lazy(() => import('@/pages/radius/RadiusSessionsPage'));
+const RadiusLogsPage = lazy(() => import('@/pages/radius/RadiusLogsPage'));
+const Ne8000AuditPage = lazy(() => import('@/pages/radius/Ne8000AuditPage'));
 // Removed: ClientesOnlinePage — /admin/customers/online deprecated per user request 2026-05-22.
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'));
 
@@ -257,6 +259,8 @@ export function App() {
                 <Route path="plans" element={<RequirePermission permission="plan.read"><PlansPage /></RequirePermission>} />
                 {/* Cortes PPPoE (Fase C) — bulk enforcement. Moved here from Clientes. */}
                 <Route path="pppoe-cortes" element={<RequirePermission permission="pppoe.cut"><PppoeCortesPage /></RequirePermission>} />
+                <Route path="radius-logs" element={<RequirePermission permission="network.read"><RadiusLogsPage /></RequirePermission>} />
+                <Route path="ne8000-audit" element={<RequirePermission permission="network.read"><Ne8000AuditPage /></RequirePermission>} />
               </Route>
               {/* ── Scheduling (scheduling.read) ───────────────────────────── */}
               <Route path="scheduling">
