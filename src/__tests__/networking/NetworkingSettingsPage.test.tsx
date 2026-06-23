@@ -192,4 +192,27 @@ describe('NetworkingSettingsPage', () => {
     // Table should not be present
     expect(screen.queryByRole('columnheader', { name: /nombre/i })).not.toBeInTheDocument();
   });
+
+  // ── RadiusAccountingCard section ────────────────────────────────────────
+
+  it('renders RADIUS section heading', () => {
+    setupHooks(['uisp.read', 'admin.flags']);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /^radius$/i })).toBeInTheDocument();
+  });
+
+  it('renders RadiusAccountingCard when user has admin.flags', () => {
+    setupHooks(['uisp.read', 'admin.flags']);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /ingesta de auditoría radius/i })).toBeInTheDocument();
+  });
+
+  it('renders RADIUS section fallback when user lacks admin.flags', () => {
+    setupHooks(['uisp.read']);
+    renderPage();
+    // The RADIUS Can section renders the no-permission fallback
+    const fallbacks = screen.getAllByText(/no tenés permiso/i);
+    expect(fallbacks.length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByRole('heading', { name: /ingesta de auditoría radius/i })).not.toBeInTheDocument();
+  });
 });

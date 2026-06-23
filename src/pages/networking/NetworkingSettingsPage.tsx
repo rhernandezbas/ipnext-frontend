@@ -1,5 +1,6 @@
 import { Can } from '@/components/auth/Can';
 import { UispSyncCard } from '@/components/settings/UispSyncCard';
+import { RadiusAccountingCard } from '@/components/settings/RadiusAccountingCard';
 import { UispNodeMappingBody } from '@/components/networking/UispNodeMappingBody';
 import { UispNodesList } from '@/components/networking/UispNodesList';
 import styles from './NetworkingSettingsPage.module.css';
@@ -23,6 +24,16 @@ export default function NetworkingSettingsPage() {
         <h2 className={styles.sectionHeading}>UISP</h2>
         <Can permission="uisp.read" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
           <UispSyncCard />
+        </Can>
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionHeading}>RADIUS</h2>
+        <p className={styles.sectionDescription}>
+          Configurá la ingesta de eventos del servidor RADIUS (accounting).
+        </p>
+        <Can permission="admin.flags" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
+          <RadiusAccountingCard />
         </Can>
       </section>
 
