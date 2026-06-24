@@ -6,10 +6,16 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import NetworkAuditPage from '@/pages/radius/NetworkAuditPage';
 import * as useRadiusEventsModule from '@/hooks/useRadiusEvents';
 import * as useNe8000AuditModule from '@/hooks/useNe8000Audit';
-import type { PaginatedRadiusEvents, PaginatedNe8000Audit } from '@/types/networkAudit';
+import * as useRadiusAuthFailuresModule from '@/hooks/useRadiusAuthFailures';
+import type {
+  PaginatedRadiusEvents,
+  PaginatedNe8000Audit,
+  PaginatedRadiusAuthEvents,
+} from '@/types/networkAudit';
 
 vi.mock('@/hooks/useRadiusEvents');
 vi.mock('@/hooks/useNe8000Audit');
+vi.mock('@/hooks/useRadiusAuthFailures');
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -66,6 +72,22 @@ const NE8000_DATA: PaginatedNe8000Audit = {
   hasNext: false,
 };
 
+const AUTH_DATA: PaginatedRadiusAuthEvents = {
+  data: [
+    {
+      id: 'auth-1',
+      username: 'auth.user@isp.com',
+      reply: 'Access-Reject',
+      authdate: '2026-06-22T07:00:00Z',
+      class: null,
+    },
+  ],
+  total: 1,
+  page: 1,
+  limit: 50,
+  hasNext: false,
+};
+
 function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
@@ -89,12 +111,30 @@ describe('NetworkAuditPage', () => {
       isLoading: false,
       isError: false,
     } as unknown as ReturnType<typeof useNe8000AuditModule.useNe8000Audit>);
+    vi.mocked(useRadiusAuthFailuresModule.useRadiusAuthFailures).mockReturnValue({
+      data: AUTH_DATA,
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useRadiusAuthFailuresModule.useRadiusAuthFailures>);
   });
 
-  it('renders two internal tabs (Logs RADIUS + Auditoría NE8000)', () => {
+  it('renders three internal tabs (Logs RADIUS + Auditoría NE8000 + Errores de auth)', () => {
     renderPage();
     expect(screen.getByRole('button', { name: /logs radius/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /auditoría ne8000/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /errores de auth/i })).toBeInTheDocument();
+  });
+
+  it('switches to the Errores de auth tab and shows its content', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /errores de auth/i }));
+
+    expect(screen.getByText('auth.user@isp.com')).toBeInTheDocument();
+    // The other tabs' rows are not mounted while this tab is active.
+    expect(screen.queryByText('logs.user@isp.com')).not.toBeInTheDocument();
+    expect(screen.queryByText('ne8000.user@isp.com')).not.toBeInTheDocument();
   });
 
   it('shows Logs RADIUS content by default', () => {

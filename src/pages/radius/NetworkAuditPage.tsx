@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import RadiusLogsPage from './RadiusLogsPage';
 import Ne8000AuditPage from './Ne8000AuditPage';
+import RadiusAuthErrorsPage from './RadiusAuthErrorsPage';
 import styles from './NetworkAuditPage.module.css';
 
 /**
@@ -16,11 +17,12 @@ import styles from './NetworkAuditPage.module.css';
  * pantalla, manteniendo una sola jerarquía de título por vista.
  */
 
-type AuditTab = 'logs' | 'ne8000';
+type AuditTab = 'logs' | 'ne8000' | 'authErrors';
 
 const TABS: { key: AuditTab; label: string }[] = [
   { key: 'logs', label: 'Logs RADIUS' },
   { key: 'ne8000', label: 'Auditoría NE8000' },
+  { key: 'authErrors', label: 'Errores de auth' },
 ];
 
 export default function NetworkAuditPage() {
@@ -46,7 +48,9 @@ export default function NetworkAuditPage() {
       </div>
 
       <div className={styles.panel}>
-        {activeTab === 'logs' ? <RadiusLogsPage /> : <Ne8000AuditPage />}
+        {activeTab === 'logs' && <RadiusLogsPage />}
+        {activeTab === 'ne8000' && <Ne8000AuditPage />}
+        {activeTab === 'authErrors' && <RadiusAuthErrorsPage />}
       </div>
     </div>
   );

@@ -52,3 +52,23 @@ export interface PaginatedNe8000Audit {
   limit: number;
   hasNext: boolean;
 }
+
+// ── RADIUS Auth Events (intentos de autenticación) ───────────────────────────────
+
+export type RadiusAuthReply = 'Access-Accept' | 'Access-Reject';
+
+export interface RadiusAuthEvent {
+  id: string;
+  username: string;
+  reply: RadiusAuthReply;
+  authdate: string;        // ISO 8601
+  class: string | null;
+}
+
+export interface PaginatedRadiusAuthEvents {
+  data: RadiusAuthEvent[];
+  total: number;
+  page: number;
+  limit: number;
+  hasNext: boolean;
+}

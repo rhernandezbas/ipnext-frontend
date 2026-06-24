@@ -1,5 +1,10 @@
 import axiosClient from './axios-client';
-import type { PaginatedRadiusEvents, PaginatedNe8000Audit } from '@/types/networkAudit';
+import type {
+  PaginatedRadiusEvents,
+  PaginatedNe8000Audit,
+  PaginatedRadiusAuthEvents,
+  RadiusAuthReply,
+} from '@/types/networkAudit';
 
 // ── RADIUS Events params ───────────────────────────────────────────────────────
 
@@ -26,6 +31,17 @@ export interface Ne8000AuditParams {
   limit?: number;
 }
 
+// ── RADIUS Auth Failures params ──────────────────────────────────────────────────
+
+export interface RadiusAuthFailuresParams {
+  username?: string;
+  reply?: RadiusAuthReply;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+}
+
 // ── API functions ──────────────────────────────────────────────────────────────
 
 export const getRadiusEvents = (params: RadiusEventsParams): Promise<PaginatedRadiusEvents> =>
@@ -36,4 +52,11 @@ export const getRadiusEvents = (params: RadiusEventsParams): Promise<PaginatedRa
 export const getNe8000Audit = (params: Ne8000AuditParams): Promise<PaginatedNe8000Audit> =>
   axiosClient
     .get<PaginatedNe8000Audit>('/radius/ne8000/audit', { params })
+    .then((r) => r.data);
+
+export const getRadiusAuthFailures = (
+  params: RadiusAuthFailuresParams,
+): Promise<PaginatedRadiusAuthEvents> =>
+  axiosClient
+    .get<PaginatedRadiusAuthEvents>('/radius/auth-failures', { params })
     .then((r) => r.data);
