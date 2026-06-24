@@ -53,6 +53,9 @@ const CRM_ITEMS: NavParentItem[] = [
       // TV (Gigared) lives in Clientes (#47b). Note: the Clientes group itself
       // gates on clients.read, so TV requires clients.read + tv.read.
       { to: '/admin/customers/tv', label: 'TV', requiredPermission: 'tv.read' },
+      // Servicios de Internet (espejo de TV). El grupo Clientes ya gatea clients.read,
+      // así que Internet requiere clients.read + pppoe.read.
+      { to: '/admin/customers/internet', label: 'Internet', requiredPermission: 'pppoe.read' },
       // #2 — "Historial TV" sidebar item removed: history is now in ActivationHistoryModal.
       // #80 — Recaptación: recovery of churned clients as leads. Placed above Configuración.
       { to: '/admin/customers/recaptacion', label: 'Recaptación', requiredPermission: 'recapture.read' },

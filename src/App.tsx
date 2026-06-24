@@ -24,6 +24,9 @@ const CustomerDetailPage = lazy(() => import('@/pages/customers/CustomerDetailPa
 const GigaredAccountsPage = lazy(() => import('@/pages/crm/GigaredAccountsPage'));
 // #2 — GigaredActivationHistoryPage removed: history now lives in ActivationHistoryModal.
 
+// Servicios de Internet (espejo de TV) — inventario PPPoE + historial de activaciones.
+const InternetServicesPage = lazy(() => import('@/pages/customers/InternetServicesPage'));
+
 const TicketsDashboardPage = lazy(() => import('@/pages/tickets/TicketsDashboardPage'));
 const TicketsListPage = lazy(() => import('@/pages/tickets/TicketsListPage'));
 const TicketsArchivePage = lazy(() => import('@/pages/tickets/TicketsArchivePage'));
@@ -192,6 +195,8 @@ export function App() {
                 <Route path="settings" element={<RequirePermission permission="clients.read"><CustomersSettingsPage /></RequirePermission>} />
                 {/* TV (Gigared accounts) lives in the Clientes section (#47b). tv.read intact. */}
                 <Route path="tv" element={<RequirePermission permission="tv.read"><GigaredAccountsPage /></RequirePermission>} />
+                {/* Servicios de Internet (espejo de TV) — gated pppoe.read. */}
+                <Route path="internet" element={<RequirePermission permission="pppoe.read"><InternetServicesPage /></RequirePermission>} />
                 {/* #2 — tv/history route removed: history is now in ActivationHistoryModal. */}
                 {/* #80 — Recaptación: churned client recovery. MUST be before :id catch-all. */}
                 <Route path="recaptacion" element={<RequirePermission permission="recapture.read"><RecaptacionPage /></RequirePermission>} />

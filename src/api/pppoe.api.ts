@@ -7,6 +7,12 @@ import type {
   ServiceCutBatch,
   PppoeServiceDto,
 } from '@/types/pppoe';
+import type {
+  PppoeServiceListResult,
+  PppoeServiceListFilter,
+  InternetServiceEvent,
+  InternetActivationHistoryFilter,
+} from '@/types/internetService';
 
 const BASE = '/pppoe';
 const CONTRACTS_BASE = '/contracts';
@@ -34,6 +40,39 @@ export interface PppoeCredentials {
 }
 
 export const pppoeApi = {
+  /**
+   * Lista paginada (server-side) de servicios de Internet (PPPoE). Gated `pppoe.read`.
+   * Devuelve { data, total, page, limit }. El DTO NUNCA incluye password.
+   * Los filtros vacíos se omiten del query string para no mandar `?status=`.
+   */
+  async list(filter: PppoeServiceListFilter = {}): Promise<PppoeServiceListResult> {
+    const params: Record<string, string | number> = {};
+    if (filter.search && filter.search.trim()) params.search = filter.search.trim();
+    if (filter.status) params.status = filter.status;
+    if (filter.nasId) params.nasId = filter.nasId;
+    if (filter.page !== undefined) params.page = filter.page;
+    if (filter.limit !== undefined) params.limit = filter.limit;
+    const r = await axiosClient.get<PppoeServiceListResult>(BASE, { params });
+    return r.data;
+  },
+
+  /**
+   * Historial de activaciones de Internet (alta/baja/reactivación). Gated `pppoe.read`.
+   * Devuelve InternetServiceEvent[] newest-first. Filtros opcionales por actor/cliente/fecha.
+   */
+  async activationHistory(
+    filter: InternetActivationHistoryFilter = {},
+  ): Promise<InternetServiceEvent[]> {
+    const params: Record<string, string> = {};
+    if (filter.actorId) params.actorId = filter.actorId;
+    if (filter.customerId) params.customerId = filter.customerId;
+    if (filter.clientId) params.clientId = filter.clientId;
+    if (filter.from) params.from = filter.from;
+    if (filter.to) params.to = filter.to;
+    const r = await axiosClient.get<InternetServiceEvent[]>(`${BASE}/activation-history`, { params });
+    return r.data;
+  },
+
   /** Impacto del corte SIN ejecutar: total + desglose por router + muestra. */
   async preview(body: { action: EnforcementAction; target: EnforcementTarget }): Promise<EnforcementPreview> {
     const r = await axiosClient.post<EnforcementPreview>(`${BASE}/enforce/preview`, body);
