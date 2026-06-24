@@ -1,6 +1,7 @@
 import { Can } from '@/components/auth/Can';
 import { UispSyncCard } from '@/components/settings/UispSyncCard';
 import { RadiusAccountingCard } from '@/components/settings/RadiusAccountingCard';
+import { RadiusAuthIngestCard } from '@/components/settings/RadiusAuthIngestCard';
 import { UispNodeMappingBody } from '@/components/networking/UispNodeMappingBody';
 import { UispNodesList } from '@/components/networking/UispNodesList';
 import styles from './NetworkingSettingsPage.module.css';
@@ -34,6 +35,7 @@ export default function NetworkingSettingsPage() {
         </p>
         <Can permission="admin.flags" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
           <RadiusAccountingCard />
+          <RadiusAuthIngestCard />
         </Can>
       </section>
 

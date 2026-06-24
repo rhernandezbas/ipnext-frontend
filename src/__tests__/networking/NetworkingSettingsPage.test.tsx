@@ -207,6 +207,19 @@ describe('NetworkingSettingsPage', () => {
     expect(screen.getByRole('heading', { name: /ingesta de auditoría radius/i })).toBeInTheDocument();
   });
 
+  it('renders RadiusAuthIngestCard when user has admin.flags', () => {
+    setupHooks(['uisp.read', 'admin.flags']);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /ingesta de errores de auth radius/i })).toBeInTheDocument();
+  });
+
+  it('renders both RADIUS cards (accounting + auth ingest) when user has admin.flags', () => {
+    setupHooks(['uisp.read', 'admin.flags']);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /ingesta de auditoría radius/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /ingesta de errores de auth radius/i })).toBeInTheDocument();
+  });
+
   it('renders RADIUS section fallback when user lacks admin.flags', () => {
     setupHooks(['uisp.read']);
     renderPage();
