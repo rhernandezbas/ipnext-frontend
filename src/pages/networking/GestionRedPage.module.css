@@ -374,6 +374,42 @@
   font-weight: 700;
 }
 
+/* ---------- cliente cell + sesiones ---------- */
+.clientCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.clientLink {
+  color: var(--gr-primary);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+
+.clientLink:hover {
+  text-decoration: underline;
+  color: var(--gr-primary-2);
+}
+
+.clientLink:focus-visible {
+  outline: 2px solid var(--gr-primary-2);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Indicador "sin contrato" — ícono de advertencia (no emoji).
+   amber-700 (#b45309) ≈ 5.3:1 sobre fondo blanco → cumple contraste AA. */
+.warnIco {
+  width: 16px;
+  height: 16px;
+  color: #b45309;
+  stroke: #b45309;
+  flex-shrink: 0;
+  cursor: help;
+}
+
 /* ---------- badges ---------- */
 .badge {
   display: inline-flex;

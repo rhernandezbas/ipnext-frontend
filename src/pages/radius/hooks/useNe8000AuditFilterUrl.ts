@@ -1,10 +1,20 @@
 /**
- * useNe8000AuditFilterUrl — URL-backed filter state for Ne8000AuditPage.
- * Filter keys: username, status, enforcedState, online.
- * All writes use replace: true.
+ * useNe8000AuditFilterUrl — URL-backed filter state for the "Auditoría NE8000" tab.
+ *
+ * Filter fields (public API, unchanged): username, status, enforcedState, online, page.
+ *
+ * URL keys are NAMESPACED with the `ne_` prefix (ne_username, ne_online, ne_page, …).
+ * This hook shares the query string of /admin/networking/audit with
+ * useRadiusLogsFilterUrl; namespacing prevents the two tabs from colliding on the
+ * shared keys (username / online / page) — each tab keeps its own filters and never
+ * overwrites the other's. All writes use replace: true and PRESERVE params that
+ * don't belong to this namespace (i.e. the other tab's filters).
  */
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
+
+const NS = 'ne_';
+const k = (key: string) => `${NS}${key}`;
 
 export interface Ne8000AuditFilter {
   username?: string;
@@ -24,32 +34,39 @@ export function useNe8000AuditFilterUrl(): Ne8000AuditFilterUrlResult {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const filter: Ne8000AuditFilter = {
-    username:      searchParams.get('username')      ?? undefined,
-    status:        (searchParams.get('status')        ?? '') as Ne8000AuditFilter['status'],
-    enforcedState: (searchParams.get('enforcedState') ?? '') as Ne8000AuditFilter['enforcedState'],
-    online:        (searchParams.get('online')        ?? '') as Ne8000AuditFilter['online'],
-    page:          searchParams.get('page') ? Number(searchParams.get('page')) : undefined,
+    username:      searchParams.get(k('username'))      ?? undefined,
+    status:        (searchParams.get(k('status'))        ?? '') as Ne8000AuditFilter['status'],
+    enforcedState: (searchParams.get(k('enforcedState')) ?? '') as Ne8000AuditFilter['enforcedState'],
+    online:        (searchParams.get(k('online'))        ?? '') as Ne8000AuditFilter['online'],
+    page:          searchParams.get(k('page')) ? Number(searchParams.get(k('page'))) : undefined,
   };
 
   const setFilter = useCallback(
     (patch: Partial<Ne8000AuditFilter>) => {
       setSearchParams(
         (prev) => {
-          const next = new URLSearchParams();
+          // Start from prev so we PRESERVE the other tab's params (logs_*), then
+          // rewrite only this namespace's keys.
+          const next = new URLSearchParams(prev);
 
           const merged: Ne8000AuditFilter = {
-            username:      'username'      in patch ? patch.username      : (prev.get('username')      ?? undefined),
-            status:        'status'        in patch ? patch.status        : (prev.get('status')        ?? '') as Ne8000AuditFilter['status'],
-            enforcedState: 'enforcedState' in patch ? patch.enforcedState : (prev.get('enforcedState') ?? '') as Ne8000AuditFilter['enforcedState'],
-            online:        'online'        in patch ? patch.online        : (prev.get('online')        ?? '') as Ne8000AuditFilter['online'],
-            page:          'page'          in patch ? patch.page          : (prev.get('page') ? Number(prev.get('page')) : undefined),
+            username:      'username'      in patch ? patch.username      : (prev.get(k('username'))      ?? undefined),
+            status:        'status'        in patch ? patch.status        : (prev.get(k('status'))        ?? '') as Ne8000AuditFilter['status'],
+            enforcedState: 'enforcedState' in patch ? patch.enforcedState : (prev.get(k('enforcedState')) ?? '') as Ne8000AuditFilter['enforcedState'],
+            online:        'online'        in patch ? patch.online        : (prev.get(k('online'))        ?? '') as Ne8000AuditFilter['online'],
+            page:          'page'          in patch ? patch.page          : (prev.get(k('page')) ? Number(prev.get(k('page'))) : undefined),
           };
 
-          if (merged.username)      next.set('username',      merged.username);
-          if (merged.status)        next.set('status',        merged.status);
-          if (merged.enforcedState) next.set('enforcedState', merged.enforcedState);
-          if (merged.online)        next.set('online',        merged.online);
-          if (merged.page && merged.page > 1) next.set('page', String(merged.page));
+          const setOrDelete = (key: string, value?: string) => {
+            if (value) next.set(k(key), value);
+            else next.delete(k(key));
+          };
+
+          setOrDelete('username',      merged.username);
+          setOrDelete('status',        merged.status);
+          setOrDelete('enforcedState', merged.enforcedState);
+          setOrDelete('online',        merged.online);
+          setOrDelete('page', merged.page && merged.page > 1 ? String(merged.page) : undefined);
 
           return next;
         },
@@ -60,7 +77,19 @@ export function useNe8000AuditFilterUrl(): Ne8000AuditFilterUrlResult {
   );
 
   const clearFilter = useCallback(
-    () => setSearchParams(() => new URLSearchParams(), { replace: true }),
+    () => {
+      setSearchParams(
+        (prev) => {
+          // Clear only THIS tab's namespaced keys; leave the other tab's intact.
+          const next = new URLSearchParams(prev);
+          for (const key of [...next.keys()]) {
+            if (key.startsWith(NS)) next.delete(key);
+          }
+          return next;
+        },
+        { replace: true },
+      );
+    },
     [setSearchParams],
   );
 

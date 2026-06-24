@@ -1,18 +1,21 @@
 import { useState, useMemo, Fragment, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { KebabMenu } from '@/components/atoms/KebabMenu/KebabMenu';
 import { useNasServers, useCreateNasServer, useUpdateNasServer, useDeleteNasServer } from '@/hooks/useNas';
 import { useIpNetworks, useCreateIpNetwork, useDeleteIpNetwork, useIpPools, useCreateIpPool, useDeleteIpPool, useIpAssignments, useIpv6Networks, useCreateIpv6Network } from '@/hooks/useNetwork';
+import { useRadiusSessions } from '@/hooks/useRadiusSessions';
 import { useConfirm } from '@/context/ConfirmContext';
 import { Can } from '@/components/auth/Can';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { cutoverStats, nextCutoverType, isRadius } from '@/utils/cutover';
 import type { NasServer, NasServerInput, NasType } from '@/types/nas';
 import type { IpNetwork, IpPool, IpAssignment, Ipv6Network } from '@/types/network';
+import type { RadiusSession } from '@/types/radiusSessions';
 import { formatDateTimeShort } from '@/utils/formatDate';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import styles from './GestionRedPage.module.css';
 
-type Tab = 'nas' | 'redes' | 'pools' | 'asignaciones' | 'ipv6';
+type Tab = 'nas' | 'redes' | 'pools' | 'asignaciones' | 'ipv6' | 'sesiones';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'nas', label: 'Dispositivos NAS' },
@@ -20,6 +23,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'pools', label: 'Pools IP' },
   { key: 'asignaciones', label: 'Asignaciones' },
   { key: 'ipv6', label: 'IPv6' },
+  { key: 'sesiones', label: 'Sesiones activas' },
 ];
 
 const NAS_TYPE_LABELS: Record<NasType, string> = {
@@ -66,6 +70,24 @@ const IconCheck = ({ className }: IcoProps) => (
 const IconCube = ({ className }: IcoProps) => (
   <svg className={`${styles.ico} ${className ?? ''}`} viewBox="0 0 24 24"><path d="M4 4h16v16H4z" /></svg>
 );
+// Actividad (señal de sesión en vivo) — usado por el tab "Sesiones activas".
+const IconActivity = ({ className }: IcoProps) => (
+  <svg className={`${styles.ico} ${className ?? ''}`} viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
+);
+// Triángulo de advertencia — indicador "sin contrato" (NO emoji, SVG inline).
+const IconWarning = ({ className }: IcoProps) => (
+  <svg
+    className={`${styles.ico} ${className ?? ''}`}
+    viewBox="0 0 24 24"
+    role="img"
+    aria-label="Sin contrato asociado"
+  >
+    {/* a11y: el nombre accesible viene del aria-label; un <title> sería redundante. */}
+    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <path d="M12 9v4" />
+    <path d="M12 17h.01" />
+  </svg>
+);
 
 const TAB_ICONS: Record<Tab, ({ className }: IcoProps) => JSX.Element> = {
   nas: IconServer,
@@ -73,6 +95,7 @@ const TAB_ICONS: Record<Tab, ({ className }: IcoProps) => JSX.Element> = {
   pools: IconPools,
   asignaciones: IconCheck,
   ipv6: IconCube,
+  sesiones: IconActivity,
 };
 
 // ---------------------------------------------------------------------------
@@ -551,6 +574,9 @@ export default function GestionRedPage() {
 
   const { data: ipv6Networks = [], isLoading: ipv6Loading, isError: ipv6Error, refetch: refetchIpv6 } = useIpv6Networks();
   const { mutate: createIpv6Network } = useCreateIpv6Network();
+
+  const { data: sessions = [], isLoading: sessionsLoading, isError: sessionsError, refetch: refetchSessions } = useRadiusSessions();
+
   const confirm = useConfirm();
   const { can } = useMyPermissions();
   const canManage = can('network.manage');
@@ -616,6 +642,17 @@ export default function GestionRedPage() {
     }));
   }, [filteredPools, nasNameById]);
 
+  // Sesiones RADIUS activas agrupadas por nasName (mismo patrón que poolGroups).
+  const sessionGroups = useMemo(() => {
+    const groups = new Map<string, RadiusSession[]>();
+    sessions.forEach(s => {
+      const key = s.nasName || 'Sin NAS';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(s);
+    });
+    return [...groups.entries()].map(([nasName, items]) => ({ nasName, items }));
+  }, [sessions]);
+
   // ---- actions (functionality preserved) ----------------------------------
   const nasActions = [
     { label: 'Probar conexión', onClick: async (row: NasServer) => { if (await confirm({ message: `¿Probar conexión con ${row.name}?`, confirmLabel: 'Probar' })) alert(`Conexión a ${row.name} (${row.ipAddress}) probada correctamente.`); } },
@@ -651,6 +688,7 @@ export default function GestionRedPage() {
     pools: pools.length,
     asignaciones: assignmentsTotal,
     ipv6: ipv6Networks.length,
+    sesiones: sessions.length,
   };
 
   function changeTab(key: Tab) {
@@ -1054,6 +1092,71 @@ export default function GestionRedPage() {
             </>
           );
         })()}
+
+        {/* Sesiones activas (RADIUS en vivo, agrupadas por NAS) */}
+        {activeTab === 'sesiones' && (
+          <>
+            <div className={styles.toolbar}>
+              <span className={styles.toolbarRight}>{sessions.length} sesiones · agrupadas por NAS</span>
+            </div>
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Cliente</th><th>Usuario PPPoE</th><th>IP</th><th>MAC</th>
+                    <th className="num">Descarga</th><th className="num">Carga</th><th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sessionsError ? (
+                    <tr><td colSpan={7}><div className={styles.errorPanel} role="alert">No se pudo cargar. <button className={styles.btnRetry} onClick={() => refetchSessions()}>Reintentar</button></div></td></tr>
+                  ) : sessionsLoading ? (
+                    <tr><td colSpan={7}><div role="status" className={styles.skeleton} aria-label="Cargando…" /></td></tr>
+                  ) : sessions.length === 0 ? (
+                    <tr><td colSpan={7} className={styles.muted}>No hay sesiones activas.</td></tr>
+                  ) : sessionGroups.map(group => (
+                    <Fragment key={`sgrp-${group.nasName}`}>
+                      <tr className={styles.grp}>
+                        <td colSpan={7}>
+                          {group.nasName}
+                          <span className={styles.gcount}>{group.items.length} sesión{group.items.length === 1 ? '' : 'es'}</span>
+                        </td>
+                      </tr>
+                      {group.items.map(s => (
+                        <tr key={s.id} className={styles.bodyRow}>
+                          <td className={styles.nm}>
+                            <span className={styles.clientCell}>
+                              {s.clientId ? (
+                                <Link className={styles.clientLink} to={`/admin/customers/view/${s.clientId}`}>
+                                  {s.customerName ?? s.clientName ?? '—'}
+                                </Link>
+                              ) : (
+                                <span>{s.customerName ?? s.clientName ?? '—'}</span>
+                              )}
+                              {s.contractId === null && (
+                                <IconWarning className={styles.warnIco} />
+                              )}
+                            </span>
+                          </td>
+                          <td className={styles.mono}>{s.username}</td>
+                          <td className={styles.mono}>{s.ipAddress}</td>
+                          <td className={styles.mono}>{s.macAddress}</td>
+                          <td className="num">{s.downloadMbps.toFixed(1)}</td>
+                          <td className="num">{s.uploadMbps.toFixed(1)}</td>
+                          <td>
+                            <span className={`${styles.status} ${s.status === 'active' ? styles.statusOnline : styles.statusOffline}`}>
+                              <span className={styles.dot} />{s.status === 'active' ? 'Activo' : 'Idle'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
       {showNasModal && (

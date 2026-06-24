@@ -6,11 +6,14 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { default as GestionRedPage } from '@/pages/networking/GestionRedPage';
 import * as useNasModule from '@/hooks/useNas';
 import * as useNetworkModule from '@/hooks/useNetwork';
+import * as useRadiusSessionsModule from '@/hooks/useRadiusSessions';
 import type { NasServer } from '@/types/nas';
 import type { IpNetwork, IpPool, IpAssignment, Ipv6Network, PaginatedAssignments } from '@/types/network';
+import type { RadiusSession } from '@/types/radiusSessions';
 
 vi.mock('@/hooks/useNas');
 vi.mock('@/hooks/useNetwork');
+vi.mock('@/hooks/useRadiusSessions');
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -130,6 +133,16 @@ const mockIpv6Networks: Ipv6Network[] = [
   },
 ];
 
+// ── RADIUS sessions (tab "Sesiones activas") ─────────────────────────────────
+function mockRadiusSessions(sessions: RadiusSession[]) {
+  vi.mocked(useRadiusSessionsModule.useRadiusSessions).mockReturnValue({
+    data: sessions,
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useRadiusSessionsModule.useRadiusSessions>);
+}
+
 function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
@@ -220,6 +233,8 @@ describe('GestionRedPage', () => {
       mutate: vi.fn(),
       isPending: false,
     } as unknown as ReturnType<typeof useNetworkModule.useCreateIpv6Network>);
+
+    mockRadiusSessions([]);
   });
 
   it('renders "Gestión de red" heading', () => {
@@ -334,6 +349,8 @@ describe('Asignaciones tab — server-side paginated shape', () => {
     vi.mocked(useNetworkModule.useCreateIpv6Network).mockReturnValue({
       mutate: vi.fn(), isPending: false,
     } as unknown as ReturnType<typeof useNetworkModule.useCreateIpv6Network>);
+
+    mockRadiusSessions([]);
   });
 
   it('shows IP and username from paginated data, does NOT show "No se encontraron asignaciones"', async () => {
@@ -556,6 +573,8 @@ describe('NasTypeBadge — displayType override', () => {
     vi.mocked(useNetworkModule.useCreateIpv6Network).mockReturnValue({
       mutate: vi.fn(), isPending: false,
     } as unknown as ReturnType<typeof useNetworkModule.useCreateIpv6Network>);
+
+    mockRadiusSessions([]);
   }
 
   beforeEach(() => {
@@ -616,5 +635,195 @@ describe('NasTypeBadge — displayType override', () => {
     expect(screen.getByText('MikroTik API')).toBeInTheDocument();
     // No debe mostrar el string crudo
     expect(screen.queryByText('mikrotik_api')).not.toBeInTheDocument();
+  });
+});
+
+// ── Sesiones activas tab — 6º tab (RADIUS live sessions) ─────────────────────
+describe('GestionRedPage — tab "Sesiones activas"', () => {
+  // Wire every non-session hook with safe defaults so only sessions vary.
+  function setupBaseHooks() {
+    vi.mocked(useNasModule.useNasServers).mockReturnValue({
+      data: mockNasServers, isLoading: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNasModule.useNasServers>);
+    vi.mocked(useNasModule.useCreateNasServer).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNasModule.useCreateNasServer>);
+    vi.mocked(useNasModule.useUpdateNasServer).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNasModule.useUpdateNasServer>);
+    vi.mocked(useNasModule.useDeleteNasServer).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNasModule.useDeleteNasServer>);
+    vi.mocked(useNetworkModule.useIpNetworks).mockReturnValue({
+      data: mockNetworks, isLoading: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpNetworks>);
+    vi.mocked(useNetworkModule.useCreateIpNetwork).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useCreateIpNetwork>);
+    vi.mocked(useNetworkModule.useDeleteIpNetwork).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useDeleteIpNetwork>);
+    vi.mocked(useNetworkModule.useIpPools).mockReturnValue({
+      data: mockPools, isLoading: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpPools>);
+    vi.mocked(useNetworkModule.useCreateIpPool).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useCreateIpPool>);
+    vi.mocked(useNetworkModule.useDeleteIpPool).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useDeleteIpPool>);
+    vi.mocked(useNetworkModule.useIpAssignments).mockReturnValue({
+      data: mockPaginatedEmpty, isLoading: false, isFetching: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpAssignments>);
+    vi.mocked(useNetworkModule.useIpv6Networks).mockReturnValue({
+      data: mockIpv6Networks, isLoading: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpv6Networks>);
+    vi.mocked(useNetworkModule.useCreateIpv6Network).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useCreateIpv6Network>);
+  }
+
+  const baseSession: RadiusSession = {
+    id: 's-1',
+    sessionId: 'sess-1',
+    contractId: 'contract-1',
+    clientId: 'client-1',
+    customerName: 'Juan Pérez',
+    clientName: 'Juan Pérez (legacy)',
+    nasId: 'nas-1',
+    nasName: 'NE8000 Sur',
+    ipAddress: '100.64.0.10',
+    macAddress: 'AA:BB:CC:DD:EE:01',
+    startedAt: '2026-06-22T10:00:00Z',
+    duration: 3600,
+    downloadBytes: 1000,
+    uploadBytes: 500,
+    downloadMbps: 25.4,
+    uploadMbps: 5.1,
+    status: 'active',
+    username: 'juan.perez@isp',
+  };
+
+  // Same NAS as base — grouping must collapse both under "NE8000 Sur".
+  const sameNasSession: RadiusSession = {
+    ...baseSession,
+    id: 's-2',
+    sessionId: 'sess-2',
+    contractId: null, // ← orphan: warning must appear ONLY here
+    clientId: null,
+    customerName: null,
+    clientName: 'Sin nombre',
+    ipAddress: '100.64.0.11',
+    macAddress: 'AA:BB:CC:DD:EE:02',
+    downloadMbps: 10.0,
+    uploadMbps: 2.0,
+    status: 'idle',
+    username: 'orphan@isp',
+  };
+
+  // Different NAS — must create a second group header.
+  const otherNasSession: RadiusSession = {
+    ...baseSession,
+    id: 's-3',
+    sessionId: 'sess-3',
+    nasId: 'nas-2',
+    nasName: 'MikroTik RDA1',
+    contractId: 'contract-3',
+    clientId: 'client-3',
+    customerName: 'María Gómez',
+    ipAddress: '100.64.1.10',
+    macAddress: 'AA:BB:CC:DD:EE:03',
+    username: 'maria.gomez@isp',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupBaseHooks();
+  });
+
+  async function openSesiones() {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole('button', { name: /sesiones activas/i }));
+    return user;
+  }
+
+  it('renders the "Sesiones activas" tab button', () => {
+    mockRadiusSessions([]);
+    renderPage();
+    expect(screen.getByRole('button', { name: /sesiones activas/i })).toBeInTheDocument();
+  });
+
+  it('groups sessions by nasName (one group header per NAS)', async () => {
+    mockRadiusSessions([baseSession, sameNasSession, otherNasSession]);
+    await openSesiones();
+
+    // Two distinct NAS → two group headers.
+    expect(screen.getByText('NE8000 Sur')).toBeInTheDocument();
+    expect(screen.getByText('MikroTik RDA1')).toBeInTheDocument();
+  });
+
+  it('round-trips session data (customerName, username, IP, MAC, mbps)', async () => {
+    mockRadiusSessions([baseSession]);
+    await openSesiones();
+
+    expect(screen.getByText('Juan Pérez')).toBeInTheDocument();
+    expect(screen.getByText('juan.perez@isp')).toBeInTheDocument();
+    expect(screen.getByText('100.64.0.10')).toBeInTheDocument();
+    expect(screen.getByText('AA:BB:CC:DD:EE:01')).toBeInTheDocument();
+    expect(screen.getByText('25.4')).toBeInTheDocument();
+    expect(screen.getByText('5.1')).toBeInTheDocument();
+  });
+
+  it('shows the "sin contrato" warning ONLY on the row with contractId=null', async () => {
+    mockRadiusSessions([baseSession, sameNasSession]);
+    await openSesiones();
+
+    const warnings = screen.getAllByLabelText(/sin contrato asociado/i);
+    // Exactly one orphan row → exactly one warning indicator.
+    expect(warnings).toHaveLength(1);
+  });
+
+  it('links to the customer when clientId is present', async () => {
+    mockRadiusSessions([baseSession]);
+    await openSesiones();
+
+    const link = screen.getByRole('link', { name: /juan pérez/i });
+    expect(link).toHaveAttribute('href', '/admin/customers/view/client-1');
+  });
+
+  it('does NOT render a customer link when clientId is null', async () => {
+    mockRadiusSessions([sameNasSession]);
+    await openSesiones();
+
+    // Orphan row has no clientId → plain text, no link.
+    expect(screen.queryByRole('link', { name: /sin nombre/i })).not.toBeInTheDocument();
+  });
+
+  it('shows empty state when there are no sessions', async () => {
+    mockRadiusSessions([]);
+    await openSesiones();
+    expect(screen.getByText('No hay sesiones activas.')).toBeInTheDocument();
+  });
+
+  it('shows loading skeleton (role="status") while isLoading', async () => {
+    vi.mocked(useRadiusSessionsModule.useRadiusSessions).mockReturnValue({
+      data: undefined, isLoading: true, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useRadiusSessionsModule.useRadiusSessions>);
+    await openSesiones();
+    expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+
+  it('shows error panel with "Reintentar" that calls refetch', async () => {
+    const refetch = vi.fn();
+    vi.mocked(useRadiusSessionsModule.useRadiusSessions).mockReturnValue({
+      data: undefined, isLoading: false, isError: true, refetch,
+    } as unknown as ReturnType<typeof useRadiusSessionsModule.useRadiusSessions>);
+    const user = await openSesiones();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(/no se pudo cargar/i);
+    await user.click(screen.getByRole('button', { name: /reintentar/i }));
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 });

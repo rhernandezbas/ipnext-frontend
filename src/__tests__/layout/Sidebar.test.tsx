@@ -141,9 +141,22 @@ describe('Sidebar', () => {
     );
   });
 
-  it('Gestión de red has Topología sub-item', () => {
-    renderSidebar('/admin/networking/topology');
-    expect(screen.getByRole('link', { name: /topología/i })).toBeInTheDocument();
+  it('Gestión de red no longer has Topología / Redes IPv4 / Redes IPv6 / Sesiones RADIUS sub-items (consolidated into Gestión de Red tabs)', () => {
+    renderSidebar('/admin/networking/network-sites');
+    expect(screen.queryByRole('link', { name: /topología/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /redes ipv4/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /redes ipv6/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /sesiones radius/i })).not.toBeInTheDocument();
+  });
+
+  it('Gestión de red has a unified "Auditoría / Logs" sub-item (replaces Logs RADIUS + Auditoría NE8000)', () => {
+    renderSidebar('/admin/networking/network-sites');
+    const auditLink = screen.getByRole('link', { name: /auditoría \/ logs/i });
+    expect(auditLink).toBeInTheDocument();
+    expect(auditLink).toHaveAttribute('href', '/admin/networking/audit');
+    // The old standalone audit items are gone.
+    expect(screen.queryByRole('link', { name: /^logs radius$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /auditoría ne8000/i })).not.toBeInTheDocument();
   });
 
   it('Gestión de red does NOT have a Nodos sidebar entry (concept moved to config embeds)', () => {

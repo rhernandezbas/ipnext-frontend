@@ -91,9 +91,9 @@ const MonitoringPage = lazy(() => import('@/pages/monitoring/MonitoringPage'));
 const NotificationsPage = lazy(() => import('@/pages/notifications/NotificationsPage'));
 const ApiDocsPage = lazy(() => import('@/pages/api-docs/ApiDocsPage'));
 const GponPage = lazy(() => import('@/pages/gpon/GponPage'));
-const RadiusSessionsPage = lazy(() => import('@/pages/radius/RadiusSessionsPage'));
-const RadiusLogsPage = lazy(() => import('@/pages/radius/RadiusLogsPage'));
-const Ne8000AuditPage = lazy(() => import('@/pages/radius/Ne8000AuditPage'));
+// Auditoría / Logs RADIUS — página contenedora con 2 tabs internos (Logs + NE8000).
+// RadiusLogsPage / Ne8000AuditPage ya NO se montan sueltas: viven dentro de NetworkAuditPage.
+const NetworkAuditPage = lazy(() => import('@/pages/radius/NetworkAuditPage'));
 // Removed: ClientesOnlinePage — /admin/customers/online deprecated per user request 2026-05-22.
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'));
 
@@ -109,8 +109,6 @@ const SupportInboxPage = lazy(() => import('@/pages/support/SupportInboxPage'));
 const MassSendPage = lazy(() => import('@/pages/support/MassSendPage'));
 const MessengersPage = lazy(() => import('@/pages/support/MessengersPage'));
 const NewsPage = lazy(() => import('@/pages/support/NewsPage'));
-const Ipv4NetworksPage = lazy(() => import('@/pages/networking/Ipv4NetworksPage'));
-const Ipv6NetworksPage = lazy(() => import('@/pages/networking/Ipv6NetworksPage'));
 const NetworkMapPage = lazy(() => import('@/pages/networking/NetworkMapPage'));
 const SchedulingDashboardPage = lazy(() => import('@/pages/scheduling/SchedulingDashboardPage'));
 const SchedulingProjectsPage = lazy(() => import('@/pages/scheduling/SchedulingProjectsPage'));
@@ -158,7 +156,6 @@ const PaymentPlansPage = lazy(() => import('@/pages/finance/PaymentPlansPage'));
 const CDRPage = lazy(() => import('@/pages/voice/CDRPage'));
 const PortalConfigPage = lazy(() => import('@/pages/portal/PortalConfigPage'));
 const PortalUsersPage = lazy(() => import('@/pages/portal/PortalUsersPage'));
-const NetworkTopologyPage = lazy(() => import('@/pages/networking/NetworkTopologyPage'));
 const ContractsListPage = lazy(() => import('@/pages/contracts/ContractsListPage'));
 const RecaptacionPage = lazy(() => import('@/pages/customers/RecaptacionPage'));
 const MisClientesPage = lazy(() => import('@/pages/customers/MisClientesPage'));
@@ -253,19 +250,25 @@ export function App() {
                 <Route path="tr069" element={<RequirePermission permission="network.read"><Tr069Page /></RequirePermission>} />
                 <Route path="hardware" element={<RequirePermission permission="network.read"><HardwarePage /></RequirePermission>} />
                 <Route path="gpon" element={<RequirePermission permission="network.read"><GponPage /></RequirePermission>} />
-                <Route path="radius-sessions" element={<RequirePermission permission="network.read"><RadiusSessionsPage /></RequirePermission>} />
-                <Route path="ipv4-networks" element={<RequirePermission permission="network.read"><Ipv4NetworksPage /></RequirePermission>} />
-                <Route path="ipv6-networks" element={<RequirePermission permission="network.read"><Ipv6NetworksPage /></RequirePermission>} />
+                {/* Auditoría / Logs RADIUS — página unificada con 2 tabs (Logs + NE8000). */}
+                <Route path="audit" element={<RequirePermission permission="network.read"><NetworkAuditPage /></RequirePermission>} />
+                {/* Sesiones / Redes IPv4 / IPv6 / Topología ya NO son páginas sueltas:
+                    sus datos viven en tabs dentro de Gestión de Red (routers/list).
+                    Redirect preserva bookmarks viejos. */}
+                <Route path="radius-sessions" element={<Navigate to="/admin/networking/routers/list" replace />} />
+                <Route path="ipv4-networks" element={<Navigate to="/admin/networking/routers/list" replace />} />
+                <Route path="ipv6-networks" element={<Navigate to="/admin/networking/routers/list" replace />} />
                 <Route path="map" element={<RequirePermission permission="network.read"><NetworkMapPage /></RequirePermission>} />
-                <Route path="topology" element={<RequirePermission permission="network.read"><NetworkTopologyPage /></RequirePermission>} />
+                <Route path="topology" element={<Navigate to="/admin/networking/routers/list" replace />} />
                 <Route path="nodes" element={<RequirePermission permission="uisp.read"><NodesPage /></RequirePermission>} />
                 <Route path="nodes/:uispId" element={<RequirePermission permission="uisp.read"><NodeDetailPage /></RequirePermission>} />
                 <Route path="settings" element={<RequirePermission permission="network.read"><NetworkingSettingsPage /></RequirePermission>} />
                 <Route path="plans" element={<RequirePermission permission="plan.read"><PlansPage /></RequirePermission>} />
                 {/* Cortes PPPoE (Fase C) — bulk enforcement. Moved here from Clientes. */}
                 <Route path="pppoe-cortes" element={<RequirePermission permission="pppoe.cut"><PppoeCortesPage /></RequirePermission>} />
-                <Route path="radius-logs" element={<RequirePermission permission="network.read"><RadiusLogsPage /></RequirePermission>} />
-                <Route path="ne8000-audit" element={<RequirePermission permission="network.read"><Ne8000AuditPage /></RequirePermission>} />
+                {/* Logs RADIUS / Auditoría NE8000 ahora son tabs dentro de /audit. Redirect. */}
+                <Route path="radius-logs" element={<Navigate to="/admin/networking/audit" replace />} />
+                <Route path="ne8000-audit" element={<Navigate to="/admin/networking/audit" replace />} />
               </Route>
               {/* ── Scheduling (scheduling.read) ───────────────────────────── */}
               <Route path="scheduling">

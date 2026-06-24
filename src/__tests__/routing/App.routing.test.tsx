@@ -164,23 +164,15 @@ vi.mock('@/pages/networking/Tr069Page', () => ({
 vi.mock('@/pages/networking/HardwarePage', () => ({
   default: () => React.createElement('div', null, '[PAGE:Hardware]'),
 }));
-vi.mock('@/pages/networking/Ipv4NetworksPage', () => ({
-  default: () => React.createElement('div', null, '[PAGE:Ipv4Networks]'),
-}));
-vi.mock('@/pages/networking/Ipv6NetworksPage', () => ({
-  default: () => React.createElement('div', null, '[PAGE:Ipv6Networks]'),
-}));
 vi.mock('@/pages/networking/NetworkMapPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:NetworkMap]'),
-}));
-vi.mock('@/pages/networking/NetworkTopologyPage', () => ({
-  default: () => React.createElement('div', null, '[PAGE:NetworkTopology]'),
 }));
 vi.mock('@/pages/gpon/GponPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:Gpon]'),
 }));
-vi.mock('@/pages/radius/RadiusSessionsPage', () => ({
-  default: () => React.createElement('div', null, '[PAGE:RadiusSessions]'),
+// Auditoría / Logs RADIUS — página unificada (reemplaza las vistas sueltas).
+vi.mock('@/pages/radius/NetworkAuditPage', () => ({
+  default: () => React.createElement('div', null, '[PAGE:NetworkAudit]'),
 }));
 vi.mock('@/pages/networking/NetworkingSettingsPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:NetworkingSettings]'),
@@ -414,12 +406,10 @@ const directCases: Array<{ url: string; marker: string }> = [
   { url: '/admin/networking/cpe', marker: '[PAGE:Cpe]' },
   { url: '/admin/networking/tr069', marker: '[PAGE:Tr069]' },
   { url: '/admin/networking/hardware', marker: '[PAGE:Hardware]' },
-  { url: '/admin/networking/ipv4-networks', marker: '[PAGE:Ipv4Networks]' },
-  { url: '/admin/networking/ipv6-networks', marker: '[PAGE:Ipv6Networks]' },
   { url: '/admin/networking/map', marker: '[PAGE:NetworkMap]' },
-  { url: '/admin/networking/topology', marker: '[PAGE:NetworkTopology]' },
   { url: '/admin/networking/gpon', marker: '[PAGE:Gpon]' },
-  { url: '/admin/networking/radius-sessions', marker: '[PAGE:RadiusSessions]' },
+  // Auditoría / Logs RADIUS — página unificada (Logs + NE8000 en tabs).
+  { url: '/admin/networking/audit', marker: '[PAGE:NetworkAudit]' },
   { url: '/admin/networking/settings', marker: '[PAGE:NetworkingSettings]' },
   // Cortes PPPoE — moved from Clientes to Gestión de Red (pppoe.cut)
   { url: '/admin/networking/pppoe-cortes', marker: '[PAGE:PppoeCortes]' },
@@ -491,6 +481,14 @@ const redirectCases: Array<{ url: string; redirectsTo: string; marker: string }>
   { url: '/admin/finance/dashboard', redirectsTo: '/admin/finance', marker: '[PAGE:FinanzasDashboard]' },
   { url: '/admin/finance/proformas', redirectsTo: '/admin/finance/proforma-invoices', marker: '[PAGE:Proformas]' },
   { url: '/admin/networking/sites', redirectsTo: '/admin/networking/network-sites', marker: '[PAGE:NetworkSites]' },
+  // Sesiones / Redes IPv4 / IPv6 / Topología → consolidadas en Gestión de Red (routers/list)
+  { url: '/admin/networking/radius-sessions', redirectsTo: '/admin/networking/routers/list', marker: '[PAGE:GestionRed]' },
+  { url: '/admin/networking/ipv4-networks', redirectsTo: '/admin/networking/routers/list', marker: '[PAGE:GestionRed]' },
+  { url: '/admin/networking/ipv6-networks', redirectsTo: '/admin/networking/routers/list', marker: '[PAGE:GestionRed]' },
+  { url: '/admin/networking/topology', redirectsTo: '/admin/networking/routers/list', marker: '[PAGE:GestionRed]' },
+  // Logs RADIUS / Auditoría NE8000 → página unificada /audit
+  { url: '/admin/networking/radius-logs', redirectsTo: '/admin/networking/audit', marker: '[PAGE:NetworkAudit]' },
+  { url: '/admin/networking/ne8000-audit', redirectsTo: '/admin/networking/audit', marker: '[PAGE:NetworkAudit]' },
   // Cortes PPPoE moved to Gestión de Red — old Clientes path redirects (preserves bookmarks)
   { url: '/admin/customers/pppoe-cortes', redirectsTo: '/admin/networking/pppoe-cortes', marker: '[PAGE:PppoeCortes]' },
   { url: '/admin/scheduling', redirectsTo: '/admin/scheduling/tasks', marker: '[PAGE:SchedulingTasks]' },

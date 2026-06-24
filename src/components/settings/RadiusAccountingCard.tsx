@@ -7,7 +7,8 @@ const FLAG_KEY = 'radius-accounting-ingest';
 /**
  * RADIUS Accounting Ingest card for NetworkingSettingsPage → sección RADIUS.
  * Permite activar/desactivar la ingesta del historial de conexión/desconexión PPPoE
- * desde el RADIUS (~5 minutos por corrida) — expuesto en /radius-logs y /ne8000-audit.
+ * desde el RADIUS (~5 minutos por corrida) — expuesto en /admin/networking/audit
+ * (tabs "Logs RADIUS" y "Auditoría NE8000").
  *
  * Flag gate: admin.flags (solo lectura sin el permiso — toggle oculto).
  * Clona el patrón de UispSyncCard (misma estructura, mismo CSS, mismos hooks).

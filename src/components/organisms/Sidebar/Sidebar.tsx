@@ -131,15 +131,13 @@ const EMPRESA_ITEMS: NavParentItem[] = [
       { to: '/admin/networking/tr069', label: 'TR-069' },
       { to: '/admin/networking/hardware', label: 'Hardware' },
       { to: '/admin/networking/gpon', label: 'GPON' },
-      { to: '/admin/networking/radius-sessions', label: 'Sesiones RADIUS' },
-      { to: '/admin/networking/ipv4-networks', label: 'Redes IPv4' },
-      { to: '/admin/networking/ipv6-networks', label: 'Redes IPv6' },
-      { to: '/admin/networking/topology', label: 'Topología' },
+      // Sesiones RADIUS / Redes IPv4 / Redes IPv6 / Topología se consolidaron como
+      // tabs dentro de Gestión de Red (Routers); ya no son items sueltos del sidebar.
       { to: '/admin/networking/plans', label: 'Catálogo de planes', requiredPermission: 'plan.read' },
       // Cortes PPPoE (Fase C) — moved here from the Clientes group. Gate intact.
       { to: '/admin/networking/pppoe-cortes', label: 'Cortes PPPoE', requiredPermission: 'pppoe.cut' },
-      { to: '/admin/networking/radius-logs', label: 'Logs RADIUS', requiredPermission: 'network.read' },
-      { to: '/admin/networking/ne8000-audit', label: 'Auditoría NE8000', requiredPermission: 'network.read' },
+      // Logs RADIUS + Auditoría NE8000 se unificaron en una sola página con tabs.
+      { to: '/admin/networking/audit', label: 'Auditoría / Logs', requiredPermission: 'network.read' },
       { to: '/admin/networking/settings', label: 'Configuración' },
     ],
   },
