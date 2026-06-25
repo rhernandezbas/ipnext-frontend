@@ -29,6 +29,7 @@ const TABS: { key: Tab; label: string }[] = [
 const NAS_TYPE_LABELS: Record<NasType, string> = {
   mikrotik_api: 'MikroTik API',
   mikrotik_radius: 'MikroTik RADIUS',
+  radius_orchestrator: 'RADIUS (orchestrator)',
   cisco: 'Cisco',
   ubiquiti: 'Ubiquiti',
   cambium: 'Cambium',
@@ -38,6 +39,7 @@ const NAS_TYPE_LABELS: Record<NasType, string> = {
 const NAS_TYPE_COLORS: Record<NasType, string> = {
   mikrotik_api: styles.badgeOrange,
   mikrotik_radius: styles.badgeBlue,
+  radius_orchestrator: styles.badgeBlue,
   cisco: styles.badgeBlue,
   ubiquiti: styles.badgeGreen,
   cambium: styles.badgePurple,

@@ -1,4 +1,4 @@
-export type NasType = 'mikrotik_api' | 'mikrotik_radius' | 'cisco' | 'ubiquiti' | 'cambium' | 'other';
+export type NasType = 'mikrotik_api' | 'mikrotik_radius' | 'radius_orchestrator' | 'cisco' | 'ubiquiti' | 'cambium' | 'other';
 
 export interface NasServer {
   id: string;

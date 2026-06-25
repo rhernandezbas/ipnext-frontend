@@ -60,4 +60,34 @@ describe('isRadius', () => {
     expect(isRadius('mikrotik_api')).toBe(false);
     expect(isRadius('ubiquiti')).toBe(false);
   });
+
+  it('true para radius_orchestrator (expand: ambos valores son RADIUS)', () => {
+    expect(isRadius('radius_orchestrator')).toBe(true);
+  });
+
+  it('otros types siguen siendo false', () => {
+    expect(isRadius('cisco')).toBe(false);
+    expect(isRadius('cambium')).toBe(false);
+    expect(isRadius('other')).toBe(false);
+  });
+});
+
+describe('cutoverStats con radius_orchestrator', () => {
+  it('cuenta radius_orchestrator como NAS RADIUS', () => {
+    const s = cutoverStats([
+      mk('1', 'radius_orchestrator'),
+      mk('2', 'mikrotik_radius'),
+      mk('3', 'mikrotik_api'),
+    ]);
+    expect(s.total).toBe(3);
+    expect(s.radius).toBe(2);
+    expect(s.legacy).toBe(1);
+    expect(s.pct).toBe(67);
+  });
+
+  it('solo radius_orchestrator → 100%', () => {
+    const s = cutoverStats([mk('1', 'radius_orchestrator')]);
+    expect(s.radius).toBe(1);
+    expect(s.pct).toBe(100);
+  });
 });
