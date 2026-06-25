@@ -1,9 +1,9 @@
 import type { NasServer, NasType } from '@/types/nas';
 
 /**
- * Estado del cutover a RADIUS. Un NAS `mikrotik_radius` o `radius_orchestrator` rutea
+ * Estado del cutover a RADIUS. Un NAS `radius_orchestrator` rutea
  * sus cortes por el orchestrator (camino RADIUS); cualquier otro type es "legacy" (camino MK-directo).
- * EXPAND: ambos valores son reconocidos como RADIUS durante la transición rename.
+ * CONTRACT: el alias legacy eliminado; único valor RADIUS es `radius_orchestrator`.
  */
 export interface CutoverStats {
   total: number;
@@ -14,7 +14,7 @@ export interface CutoverStats {
 }
 
 export function isRadius(type: NasType): boolean {
-  return type === 'mikrotik_radius' || type === 'radius_orchestrator';
+  return type === 'radius_orchestrator';
 }
 
 export function cutoverStats(nasServers: NasServer[]): CutoverStats {
@@ -27,5 +27,5 @@ export function cutoverStats(nasServers: NasServer[]): CutoverStats {
 
 /** El `type` al que flipear (toggle del cutover): legacy⇄RADIUS. */
 export function nextCutoverType(current: NasType): NasType {
-  return isRadius(current) ? 'mikrotik_api' : 'mikrotik_radius';
+  return isRadius(current) ? 'mikrotik_api' : 'radius_orchestrator';
 }

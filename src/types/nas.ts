@@ -1,10 +1,10 @@
-export type NasType = 'mikrotik_api' | 'mikrotik_radius' | 'radius_orchestrator' | 'cisco' | 'ubiquiti' | 'cambium' | 'other';
+export type NasType = 'mikrotik_api' | 'radius_orchestrator' | 'cisco' | 'ubiquiti' | 'cambium' | 'other';
 
 export interface NasServer {
   id: string;
   name: string;
   type: NasType;
-  /** Etiqueta de presentación del tipo, computada en el BE (ej. "BRAS RADIUS" para mikrotik_radius). Aditiva/opcional: si no viene, el FE deriva el label de `type`. */
+  /** Etiqueta de presentación del tipo, computada en el BE (ej. "BRAS RADIUS" para radius_orchestrator). Aditiva/opcional: si no viene, el FE deriva el label de `type`. */
   displayType?: string;
   ipAddress: string;
   radiusSecret: string;

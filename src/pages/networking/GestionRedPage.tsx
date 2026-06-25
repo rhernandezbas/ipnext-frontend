@@ -28,7 +28,6 @@ const TABS: { key: Tab; label: string }[] = [
 
 const NAS_TYPE_LABELS: Record<NasType, string> = {
   mikrotik_api: 'MikroTik API',
-  mikrotik_radius: 'MikroTik RADIUS',
   radius_orchestrator: 'RADIUS (orchestrator)',
   cisco: 'Cisco',
   ubiquiti: 'Ubiquiti',
@@ -38,7 +37,6 @@ const NAS_TYPE_LABELS: Record<NasType, string> = {
 
 const NAS_TYPE_COLORS: Record<NasType, string> = {
   mikrotik_api: styles.badgeOrange,
-  mikrotik_radius: styles.badgeBlue,
   radius_orchestrator: styles.badgeBlue,
   cisco: styles.badgeBlue,
   ubiquiti: styles.badgeGreen,
@@ -217,7 +215,7 @@ function AddNasModal({ onClose, onSubmit }: AddNasModalProps) {
               <label htmlFor="nas-type">Tipo</label>
               <select id="nas-type" value={type} onChange={e => setType(e.target.value as NasType)}>
                 <option value="mikrotik_api">MikroTik API</option>
-                <option value="mikrotik_radius">MikroTik RADIUS</option>
+                <option value="radius_orchestrator">RADIUS (orchestrator)</option>
                 <option value="cisco">Cisco</option>
                 <option value="ubiquiti">Ubiquiti</option>
                 <option value="cambium">Cambium</option>
@@ -484,7 +482,7 @@ function EditNasModal({ nas, onClose, onSubmit }: EditNasModalProps) {
               <label htmlFor="edit-nas-type">Tipo</label>
               <select id="edit-nas-type" value={type} onChange={e => setType(e.target.value as NasType)}>
                 <option value="mikrotik_api">MikroTik API</option>
-                <option value="mikrotik_radius">MikroTik RADIUS</option>
+                <option value="radius_orchestrator">RADIUS (orchestrator)</option>
                 <option value="cisco">Cisco</option>
                 <option value="ubiquiti">Ubiquiti</option>
                 <option value="cambium">Cambium</option>

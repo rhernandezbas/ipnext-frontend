@@ -21,10 +21,10 @@ const mk = (id: string, type: NasType): NasServer => ({
 describe('cutoverStats', () => {
   it('cuenta radius vs legacy + pct', () => {
     const s = cutoverStats([
-      mk('1', 'mikrotik_radius'),
+      mk('1', 'radius_orchestrator'),
       mk('2', 'mikrotik_api'),
       mk('3', 'ubiquiti'),
-      mk('4', 'mikrotik_radius'),
+      mk('4', 'radius_orchestrator'),
     ]);
     expect(s.total).toBe(4);
     expect(s.radius).toBe(2);
@@ -37,32 +37,28 @@ describe('cutoverStats', () => {
   });
 
   it('redondea el pct', () => {
-    const s = cutoverStats([mk('1', 'mikrotik_radius'), mk('2', 'mikrotik_api'), mk('3', 'mikrotik_api')]);
+    const s = cutoverStats([mk('1', 'radius_orchestrator'), mk('2', 'mikrotik_api'), mk('3', 'mikrotik_api')]);
     expect(s.pct).toBe(33);
   });
 });
 
 describe('nextCutoverType (toggle del flip)', () => {
-  it('legacy (mikrotik_api) → mikrotik_radius', () => {
-    expect(nextCutoverType('mikrotik_api')).toBe('mikrotik_radius');
+  it('legacy (mikrotik_api) → radius_orchestrator', () => {
+    expect(nextCutoverType('mikrotik_api')).toBe('radius_orchestrator');
   });
-  it('mikrotik_radius → mikrotik_api (volver a legacy)', () => {
-    expect(nextCutoverType('mikrotik_radius')).toBe('mikrotik_api');
+  it('radius_orchestrator → mikrotik_api (volver a legacy)', () => {
+    expect(nextCutoverType('radius_orchestrator')).toBe('mikrotik_api');
   });
-  it('otro type (ubiquiti) → mikrotik_radius', () => {
-    expect(nextCutoverType('ubiquiti')).toBe('mikrotik_radius');
+  it('otro type (ubiquiti) → radius_orchestrator', () => {
+    expect(nextCutoverType('ubiquiti')).toBe('radius_orchestrator');
   });
 });
 
 describe('isRadius', () => {
-  it('true solo para mikrotik_radius', () => {
-    expect(isRadius('mikrotik_radius')).toBe(true);
+  it('true solo para radius_orchestrator', () => {
+    expect(isRadius('radius_orchestrator')).toBe(true);
     expect(isRadius('mikrotik_api')).toBe(false);
     expect(isRadius('ubiquiti')).toBe(false);
-  });
-
-  it('true para radius_orchestrator (expand: ambos valores son RADIUS)', () => {
-    expect(isRadius('radius_orchestrator')).toBe(true);
   });
 
   it('otros types siguen siendo false', () => {
@@ -76,7 +72,7 @@ describe('cutoverStats con radius_orchestrator', () => {
   it('cuenta radius_orchestrator como NAS RADIUS', () => {
     const s = cutoverStats([
       mk('1', 'radius_orchestrator'),
-      mk('2', 'mikrotik_radius'),
+      mk('2', 'radius_orchestrator'),
       mk('3', 'mikrotik_api'),
     ]);
     expect(s.total).toBe(3);

@@ -582,11 +582,11 @@ describe('NasTypeBadge — displayType override', () => {
   });
 
   it('muestra displayType cuando es un override real (distinto del type crudo)', () => {
-    // BE manda "BRAS RADIUS" para mikrotik_radius → override real
+    // BE manda "BRAS RADIUS" para radius_orchestrator → override real
     const nasConOverride: NasServer = {
       id: 'bras-1',
       name: 'NE8000 BRAS Sur',
-      type: 'mikrotik_radius',
+      type: 'radius_orchestrator',
       displayType: 'BRAS RADIUS',
       ipAddress: '10.0.0.1',
       radiusSecret: 'secret',
