@@ -894,6 +894,47 @@
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
 }
 
+/* ── IP fija badge (inline en el detail grid de IP remota) ──────────────── */
+
+.badgeFixed {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--space-2);
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+/* ── Asignación de IP (IpAssignmentControl) ─────────────────────────────── */
+
+.ipAssignmentControl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ipAssignmentRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ipAssignmentInner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.ipAssignmentCurrent {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
 /* All clickable elements: cursor-pointer, focus-visible ring */
 .btnPrimary:focus-visible,
 .btnSecondary:focus-visible,

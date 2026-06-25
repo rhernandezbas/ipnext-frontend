@@ -119,6 +119,10 @@ function setup(opts: SetupOpts = {}) {
     isPending: false,
   } as unknown as ReturnType<typeof usePppoeModule.useUpdatePppoe>);
 
+  vi.mocked(usePppoeModule.usePinPppoeIp).mockReturnValue(neutralMutation());
+  vi.mocked(usePppoeModule.useUnpinPppoeIp).mockReturnValue(neutralMutation());
+
+  // Fixture NAS honesto y completo (main/Ola 1) + mocks pin/unpin (FE sqlippool).
   vi.mocked(useNasModule.useNasServers).mockReturnValue(mockQuery({
     data: [{ id: 'nas-1', name: 'Router Central', type: 'mikrotik_api', ipAddress: '192.168.1.1', radiusSecret: 'secret', nasIpAddress: '192.168.1.1', apiPort: null, apiLogin: null, apiPassword: null, status: 'active', lastSeen: null, clientCount: 0, description: '' }],
   }));

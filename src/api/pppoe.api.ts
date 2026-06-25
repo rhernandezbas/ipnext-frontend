@@ -190,4 +190,24 @@ export const pppoeApi = {
     const r = await axiosClient.get<{ callerId: string | null }>(`${BASE}/${id}/caller-id`);
     return r.data;
   },
+
+  /**
+   * Fija una IP estática en el PPPoE (ipMode='fixed', remoteAddress=ip).
+   * 422 IP inválida, 409 IP ya tomada, 502 router/orquestador caído.
+   * Gated `pppoe.manage`.
+   */
+  async pinIp(id: string, ip: string): Promise<PppoeServiceDto> {
+    const r = await axiosClient.post<PppoeServiceDto>(`${BASE}/${id}/pin-ip`, { ip });
+    return r.data;
+  },
+
+  /**
+   * Libera la IP fija del PPPoE (ipMode='pool', remoteAddress=null).
+   * 409 si el NAS no tiene pool configurado, 502 router/orquestador caído.
+   * Gated `pppoe.manage`.
+   */
+  async unpinIp(id: string): Promise<PppoeServiceDto> {
+    const r = await axiosClient.post<PppoeServiceDto>(`${BASE}/${id}/unpin-ip`, {});
+    return r.data;
+  },
 };

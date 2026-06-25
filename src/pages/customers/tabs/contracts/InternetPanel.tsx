@@ -13,6 +13,8 @@ import {
   usePppoeCredentials,
   useEnforcePppoeForContract,
   usePppoeCallerId,
+  usePinPppoeIp,
+  useUnpinPppoeIp,
 } from '@/hooks/usePppoe';
 import type { EnforcementAction } from '@/types/pppoe';
 import { usePlans } from '@/hooks/usePlans';
@@ -449,6 +451,7 @@ function CreatePppoeForm({
             <label className={styles.fieldLabel} htmlFor="pppoe-remote-address">
               IP remota
             </label>
+            <p className={styles.fieldHint}>Dejá la IP vacía para asignación automática del pool del router.</p>
             <div className={styles.ipRow}>
               <input
                 id="pppoe-remote-address"
@@ -643,6 +646,160 @@ function SpeedControl({
   );
 }
 
+// ── Asignación de IP (pin / unpin) ──────────────────────────────────────────
+
+/**
+ * IpAssignmentControl — control inline para fijar o liberar la IP del PPPoE.
+ *
+ * - ipMode === 'fixed': muestra "IP fija: {ip}" + botón "Liberar".
+ * - ipMode === 'pool': muestra "IP automática del pool" + botón "Fijar IP"
+ *   que revela un input IPv4 + botón "Fijar" de confirmación.
+ *
+ * El manejo de estado es local (igual que SpeedControl): pending/error/success
+ * se resetean al cambiar de modo o al montar. Los errores HTTP se mapean a
+ * mensajes en español.
+ */
+function IpAssignmentControl({
+  pppoe,
+  onPin,
+  onUnpin,
+  isPinPending,
+  isUnpinPending,
+}: {
+  pppoe: PppoeServiceDto;
+  onPin: (ip: string) => Promise<unknown>;
+  onUnpin: () => Promise<unknown>;
+  isPinPending: boolean;
+  isUnpinPending: boolean;
+}) {
+  const [ipInput, setIpInput] = useState('');
+  const [showInput, setShowInput] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const isPending = isPinPending || isUnpinPending;
+
+  function resetFeedback() {
+    setError(null);
+    setSuccess(null);
+  }
+
+  async function handleUnpin() {
+    resetFeedback();
+    try {
+      await onUnpin();
+      setSuccess('IP liberada — vuelve al pool.');
+    } catch (err) {
+      const status = errorStatus(err);
+      if (status === 409) {
+        setError('Este router no tiene pool — no se puede liberar.');
+      } else if (status === 502) {
+        setError('Router no disponible, reintentá.');
+      } else {
+        setError('No se pudo liberar la IP. Reintentá.');
+      }
+    }
+  }
+
+  async function handlePin() {
+    if (!ipInput.trim()) return;
+    resetFeedback();
+    try {
+      await onPin(ipInput.trim());
+      setSuccess(`IP fijada: ${ipInput.trim()}.`);
+      setShowInput(false);
+      setIpInput('');
+    } catch (err) {
+      const status = errorStatus(err);
+      if (status === 422) {
+        setError('IP inválida.');
+      } else if (status === 409) {
+        setError('Esa IP ya está asignada a otro cliente.');
+      } else if (status === 502) {
+        setError('Router no disponible.');
+      } else {
+        setError('No se pudo fijar la IP. Reintentá.');
+      }
+    }
+  }
+
+  return (
+    <div className={styles.ipAssignmentControl}>
+      {error && (
+        <div className={`${styles.banner} ${styles.bannerError}`} role="alert" style={{ marginBottom: 'var(--space-2)' }}>
+          <span>{error}</span>
+        </div>
+      )}
+      {success && (
+        <div className={`${styles.banner} ${styles.bannerSuccess}`} role="status" style={{ marginBottom: 'var(--space-2)' }}>
+          <span>{success}</span>
+        </div>
+      )}
+
+      <div className={styles.ipAssignmentRow}>
+        <span className={styles.fieldLabel}>Asignación de IP</span>
+
+        {pppoe.ipMode === 'fixed' ? (
+          <div className={styles.ipAssignmentInner}>
+            <span className={styles.ipAssignmentCurrent}>
+              IP fija: {pppoe.remoteAddress ?? '—'}
+            </span>
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              onClick={() => { resetFeedback(); void handleUnpin(); }}
+              disabled={isPending}
+            >
+              {isUnpinPending ? 'Liberando…' : 'Liberar (volver al pool)'}
+            </button>
+          </div>
+        ) : (
+          <div className={styles.ipAssignmentInner}>
+            <span className={styles.ipAssignmentCurrent}>IP automática del pool</span>
+            {!showInput ? (
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => { resetFeedback(); setShowInput(true); }}
+                disabled={isPending}
+              >
+                Fijar IP
+              </button>
+            ) : (
+              <div className={styles.ipRow}>
+                <input
+                  className={styles.input}
+                  value={ipInput}
+                  onChange={(e) => setIpInput(e.target.value)}
+                  placeholder="Ej: 10.0.0.5"
+                  disabled={isPending}
+                  aria-label="IP a fijar"
+                />
+                <button
+                  type="button"
+                  className={styles.btnPrimary}
+                  onClick={() => { void handlePin(); }}
+                  disabled={isPending || !ipInput.trim()}
+                >
+                  {isPinPending ? 'Fijando…' : 'Fijar'}
+                </button>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  onClick={() => { setShowInput(false); setIpInput(''); resetFeedback(); }}
+                  disabled={isPending}
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ActivePppoeView({
   contractId,
   clientId,
@@ -662,6 +819,8 @@ function ActivePppoeView({
   const deassociate = useDeassociatePppoe(contractId, clientId);
   const enforceForContract = useEnforcePppoeForContract(contractId, clientId);
   const callerIdQuery = usePppoeCallerId(pppoe.id);
+  const pinIp = usePinPppoeIp(contractId, clientId);
+  const unpinIp = useUnpinPppoeIp(contractId, clientId);
 
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -818,7 +977,22 @@ function ActivePppoeView({
           </div>
           <div>
             <dt className={styles.dt}>IP remota</dt>
-            <dd className={styles.dd}>{pppoe.remoteAddress ?? '—'}</dd>
+            <dd className={styles.dd}>
+              {pppoe.ipMode === 'fixed' ? (
+                <>
+                  {pppoe.remoteAddress ?? '—'}
+                  {' '}
+                  <span className={styles.badgeFixed}>fija</span>
+                </>
+              ) : (
+                <>
+                  {'Automática (pool)'}
+                  {pppoe.remoteAddress && (
+                    <span className={styles.ipHint}>{` (actual: ${pppoe.remoteAddress})`}</span>
+                  )}
+                </>
+              )}
+            </dd>
           </div>
           <div>
             <dt className={styles.dt}>Caller-ID (MAC)</dt>
@@ -1016,6 +1190,17 @@ function ActivePppoeView({
               currentProfile={pppoe.profile ?? null}
               onApply={(profile, reason) => update.mutateAsync({ id: pppoe.id, body: { profile, reason } })}
               isPending={update.isPending}
+            />
+          </div>
+
+          {/* Asignación de IP */}
+          <div className={styles.actionGroupItem}>
+            <IpAssignmentControl
+              pppoe={pppoe}
+              onPin={(ip) => pinIp.mutateAsync({ id: pppoe.id, ip })}
+              onUnpin={() => unpinIp.mutateAsync({ id: pppoe.id })}
+              isPinPending={pinIp.isPending}
+              isUnpinPending={unpinIp.isPending}
             />
           </div>
         </section>

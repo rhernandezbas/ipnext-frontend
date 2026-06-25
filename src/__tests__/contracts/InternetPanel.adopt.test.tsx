@@ -143,6 +143,9 @@ function setup(opts: SetupOpts = {}) {
     data: undefined, isLoading: false, isError: false, isSuccess: false,
   } as ReturnType<typeof usePppoeModule.usePppoeCallerId>);
 
+  vi.mocked(usePppoeModule.usePinPppoeIp).mockReturnValue(neutralMutation());
+  vi.mocked(usePppoeModule.useUnpinPppoeIp).mockReturnValue(neutralMutation());
+
   vi.mocked(useNasModule.useNasServers).mockReturnValue({
     data: [{ id: 'nas-1', name: 'Router Central' }],
   } as ReturnType<typeof useNasModule.useNasServers>);

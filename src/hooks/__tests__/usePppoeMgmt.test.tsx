@@ -41,6 +41,7 @@ const PPPOE_DTO: PppoeServiceDto = {
   nasId: 'nas-1',
   contractId: 'contract-1',
   createdAt: '2026-06-17T00:00:00.000Z',
+  ipMode: 'pool',
 };
 
 beforeEach(() => vi.clearAllMocks());

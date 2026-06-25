@@ -68,6 +68,8 @@ export interface PppoeServiceDto {
   nasId: string;
   contractId: string | null;
   createdAt: string;
+  /** Modo de asignación de IP: 'pool' = el NAS asigna desde su pool; 'fixed' = IP fija pinneada. */
+  ipMode: 'pool' | 'fixed';
 }
 
 // ── Etiquetas UI ──────────────────────────────────────────────────────────────

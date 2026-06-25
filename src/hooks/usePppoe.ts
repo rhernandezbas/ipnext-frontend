@@ -229,3 +229,36 @@ export function usePppoeCallerId(pppoeId: string | null) {
     staleTime: 30_000,
   });
 }
+
+/**
+ * Fija una IP estática en el PPPoE (ipMode='fixed').
+ * En éxito invalida la lista del contrato y los contratos del cliente para
+ * reflejar el nuevo ipMode + remoteAddress sin recargar la página.
+ * Errores: 422 IP inválida, 409 IP ya tomada, 502 router/orquestador caído.
+ */
+export function usePinPppoeIp(contractId: string, clientId: string | number) {
+  const qc = useQueryClient();
+  return useMutation<PppoeServiceDto, unknown, { id: string; ip: string }>({
+    mutationFn: ({ id, ip }) => pppoeApi.pinIp(id, ip),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contract-pppoe', contractId] });
+      qc.invalidateQueries({ queryKey: ['client-contracts', String(clientId)] });
+    },
+  });
+}
+
+/**
+ * Libera la IP fija del PPPoE (ipMode='pool').
+ * En éxito invalida la lista del contrato y los contratos del cliente.
+ * Errores: 409 si el NAS no tiene pool configurado, 502 router/orquestador caído.
+ */
+export function useUnpinPppoeIp(contractId: string, clientId: string | number) {
+  const qc = useQueryClient();
+  return useMutation<PppoeServiceDto, unknown, { id: string }>({
+    mutationFn: ({ id }) => pppoeApi.unpinIp(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contract-pppoe', contractId] });
+      qc.invalidateQueries({ queryKey: ['client-contracts', String(clientId)] });
+    },
+  });
+}
