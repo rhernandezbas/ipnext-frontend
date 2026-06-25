@@ -3,6 +3,7 @@ import pageStyles from '../SchedulingCalendarPage.module.css';
 import type { CalendarEvent, CalendarResource } from '@/types/calendar';
 import { EventPill } from './EventPill';
 import { avatarColor } from './resourceAvatar';
+import { toArIsoDate, arHour, wallDayIso } from '@/utils/formatDate';
 
 interface CalendarDayViewProps {
   date: Date;
@@ -20,10 +21,6 @@ function buildHours(fullDay: boolean): number[] {
   return fullDay
     ? Array.from({ length: 24 }, (_, i) => i)
     : Array.from({ length: 13 }, (_, i) => i + 8); // 08–20
-}
-
-function toLocalIsoDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /**
@@ -62,7 +59,8 @@ export function CalendarDayView({
 }: CalendarDayViewProps) {
   const hours = buildHours(fullDay);
   const nHours = hours.length;
-  const dateStr = toLocalIsoDate(date);
+  // `date` is the selected day as a host-local-anchored marker → wall-day key.
+  const dateStr = wallDayIso(date);
 
   // label column + N hour columns
   const gridTemplateColumns = `240px repeat(${nHours}, minmax(60px, 1fr))`;
@@ -70,7 +68,7 @@ export function CalendarDayView({
   // Group events by resourceId for this day
   const evByResource: Record<string, CalendarEvent[]> = {};
   for (const ev of events) {
-    if (toLocalIsoDate(ev.start) !== dateStr) continue;
+    if (toArIsoDate(ev.start) !== dateStr) continue;
     if (!evByResource[ev.resourceId]) evByResource[ev.resourceId] = [];
     evByResource[ev.resourceId].push(ev);
   }
@@ -129,8 +127,8 @@ export function CalendarDayView({
             >
               <ResourceLabelCell resource={resource} />
               {hours.map(h => {
-                // Find events starting in this hour
-                const hourEvents = resourceEvents.filter(ev => ev.start.getHours() === h);
+                // Find events starting in this hour (Argentina wall-clock hour)
+                const hourEvents = resourceEvents.filter(ev => arHour(ev.start) === h);
                 return (
                   <div
                     key={h}

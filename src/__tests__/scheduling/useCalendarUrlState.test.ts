@@ -5,7 +5,7 @@
  */
 import { renderHook, act } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import { useCalendarUrlState } from '@/pages/scheduling/SchedulingCalendarPage/hooks/useCalendarUrlState';
 
@@ -47,14 +47,19 @@ describe('useCalendarUrlState', () => {
     expect(result.current.date.getFullYear()).toBe(2026);
   });
 
-  it('defaults date to today when param absent', () => {
-    const { result } = renderHook(() => useCalendarUrlState(), {
-      wrapper: wrapper(),
-    });
-    const today = new Date();
-    expect(result.current.date.getDate()).toBe(today.getDate());
-    expect(result.current.date.getMonth()).toBe(today.getMonth());
-    expect(result.current.date.getFullYear()).toBe(today.getFullYear());
+  it('defaults date to today (AR day) when param absent', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-15T12:00:00Z')); // 09:00 ART; dia AR == UTC == 15
+    try {
+      const { result } = renderHook(() => useCalendarUrlState(), {
+        wrapper: wrapper(),
+      });
+      expect(result.current.date.getFullYear()).toBe(2026);
+      expect(result.current.date.getMonth()).toBe(5); // junio
+      expect(result.current.date.getDate()).toBe(15);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('setView updates the URL view param', () => {
@@ -111,89 +116,115 @@ describe('useCalendarUrlState', () => {
     expect(result.current.date.getMonth()).toBe(5); // June = index 5
   });
 
-  it('goToday resets date to today', () => {
-    const { result } = renderHook(() => useCalendarUrlState(), {
-      wrapper: wrapper('?view=week&date=2026-01-01'),
-    });
-    act(() => {
-      result.current.goToday();
-    });
-    const today = new Date();
-    expect(result.current.date.getDate()).toBe(today.getDate());
-    expect(result.current.date.getMonth()).toBe(today.getMonth());
+  it('goToday resets date to today (AR day)', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-15T12:00:00Z')); // 09:00 ART; dia AR == UTC == 15
+    try {
+      const { result } = renderHook(() => useCalendarUrlState(), {
+        wrapper: wrapper('?view=week&date=2026-01-01'),
+      });
+      act(() => {
+        result.current.goToday();
+      });
+      expect(result.current.date.getMonth()).toBe(5); // junio
+      expect(result.current.date.getDate()).toBe(15);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
-  it('computes from/to for week view', () => {
-    // 2026-05-20 is a Wednesday; week starts on Mon 2026-05-18, ends Sun 2026-05-24
-    // from/to are expressed as local-day boundaries in UTC (timezone-aware)
+  it('default "today" resolves to the AR day, not the host-UTC day, at 23:30 ART (TZ-BUG-3)', () => {
+    // 2026-06-25T02:30:00Z = 23:30 ART del 24-jun. En un host UTC, setHours(0,0,0,0)
+    // daria el 25 (UTC) y correria el dia/rango. Debe resolver al dia AR (24-jun).
+    // Bajo TZ=AR ya pasaba; bajo TZ=UTC fallaba (el bug). Determinista tras el fix.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-25T02:30:00Z'));
+    try {
+      const { result } = renderHook(() => useCalendarUrlState(), {
+        wrapper: wrapper('?view=day'),
+      });
+      expect(result.current.from).toBe('2026-06-24T03:00:00.000Z'); // 00:00 ART 24-jun
+      expect(result.current.to).toBe('2026-06-25T02:59:59.999Z');   // 23:59 ART 24-jun
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // Fase 2a — the API range is now AR-fixed and DETERMINISTIC across host TZ.
+  // AR is a fixed UTC-3: 00:00 ART = 03:00 UTC same date; 23:59:59.999 ART =
+  // 02:59:59.999 UTC the NEXT date. These exact-instant assertions pass identically
+  // under TZ=UTC and TZ=America/Argentina/Buenos_Aires (previously they only held
+  // under TZ=AR — the bug).
+
+  it('computes from/to for week view (AR-fixed, deterministic)', () => {
+    // 2026-05-20 is a Wednesday; week = Mon 2026-05-18 … Sun 2026-05-24.
     const { result } = renderHook(() => useCalendarUrlState(), {
       wrapper: wrapper('?view=week&date=2026-05-20'),
     });
-    // from must be the UTC equivalent of local Mon 2026-05-18 00:00:00
-    expect(result.current.from).toBe(new Date(2026, 4, 18, 0, 0, 0, 0).toISOString());
-    // to must be the UTC equivalent of local Sun 2026-05-24 23:59:59.999
-    expect(result.current.to).toBe(new Date(2026, 4, 24, 23, 59, 59, 999).toISOString());
+    expect(result.current.from).toBe('2026-05-18T03:00:00.000Z'); // 00:00 ART Mon
+    expect(result.current.to).toBe('2026-05-25T02:59:59.999Z');   // 23:59 ART Sun
   });
 
-  it('computes from/to for day view', () => {
-    // from/to are expressed as local-day boundaries in UTC (timezone-aware)
+  it('computes from/to for day view (AR-fixed, deterministic)', () => {
     const { result } = renderHook(() => useCalendarUrlState(), {
       wrapper: wrapper('?view=day&date=2026-05-20'),
     });
-    expect(result.current.from).toBe(new Date(2026, 4, 20, 0, 0, 0, 0).toISOString());
-    expect(result.current.to).toBe(new Date(2026, 4, 20, 23, 59, 59, 999).toISOString());
+    expect(result.current.from).toBe('2026-05-20T03:00:00.000Z'); // 00:00 ART
+    expect(result.current.to).toBe('2026-05-21T02:59:59.999Z');   // 23:59 ART
   });
 
-  it('computes from/to for month view', () => {
-    // from/to are expressed as local-day boundaries in UTC (timezone-aware)
+  it('computes from/to for month view (AR-fixed, deterministic)', () => {
     const { result } = renderHook(() => useCalendarUrlState(), {
       wrapper: wrapper('?view=month&date=2026-05-01'),
     });
-    expect(result.current.from).toBe(new Date(2026, 4, 1, 0, 0, 0, 0).toISOString());
-    expect(result.current.to).toBe(new Date(2026, 4, 31, 23, 59, 59, 999).toISOString());
+    expect(result.current.from).toBe('2026-05-01T03:00:00.000Z'); // 00:00 ART May 1
+    expect(result.current.to).toBe('2026-06-01T02:59:59.999Z');   // 23:59 ART May 31
   });
 
   // ---------------------------------------------------------------------------
-  // Timezone-aware range bounds (TZ-BUG-2)
-  // The range must cover the FULL LOCAL day, not just the UTC calendar day.
-  // For UTC-3 (Argentina): local midnight = UTC+3h, local 23:59:59 = next UTC day at 02:59:59.
+  // Timezone-aware range bounds (TZ-BUG-2 / Fase 2a)
+  // The range must cover the FULL ARGENTINA day, not the UTC calendar day, AND it
+  // must be deterministic regardless of the host TZ. For AR (fixed UTC-3): AR
+  // midnight = 03:00 UTC same date; AR 23:59:59.999 = 02:59:59.999 UTC next date.
+  // The expected boundaries below are FIXED UTC instants (no host-local Date math),
+  // so these hold under TZ=UTC and TZ=AR alike. A 22:30 ART task (= 01:30 UTC next
+  // day) must fall inside the day range.
   // ---------------------------------------------------------------------------
 
-  it('day view from/to covers the full local day (ARG UTC-3)', () => {
-    // Machine timezone: America/Buenos_Aires (UTC-3, confirmed at test-write time)
-    // Local 2026-06-01 00:00:00 = UTC 2026-06-01T03:00:00.000Z
-    // Local 2026-06-01 23:59:59 = UTC 2026-06-02T02:59:59.000Z
-    const localMidnightUTC = new Date(2026, 5, 1, 0, 0, 0, 0).toISOString();  // local midnight as UTC
-    const localEndOfDayUTC = new Date(2026, 5, 1, 23, 59, 59, 999).toISOString(); // local EOD as UTC
+  it('day view from/to covers the full AR day and includes a 22:30 ART task', () => {
+    const arMidnightUTC = '2026-06-01T03:00:00.000Z';      // 00:00 ART Jun 1
+    const arEndOfDayUTC = '2026-06-02T02:59:59.999Z';      // 23:59 ART Jun 1
+    const eveningTaskUTC = '2026-06-02T01:30:00.000Z';     // 22:30 ART Jun 1
     const { result } = renderHook(() => useCalendarUrlState(), {
       wrapper: wrapper('?view=day&date=2026-06-01'),
     });
-    // from must be at or before local midnight expressed in UTC
-    expect(result.current.from <= localMidnightUTC).toBe(true);
-    // to must be at or after local end-of-day expressed in UTC
-    expect(result.current.to >= localEndOfDayUTC).toBe(true);
+    expect(result.current.from <= arMidnightUTC).toBe(true);
+    expect(result.current.to >= arEndOfDayUTC).toBe(true);
+    // The late-evening task must be inside [from, to].
+    expect(result.current.from <= eveningTaskUTC).toBe(true);
+    expect(result.current.to >= eveningTaskUTC).toBe(true);
   });
 
-  it('week view from/to covers the full local week (ARG UTC-3)', () => {
-    // 2026-05-20 is Wednesday; local week: Mon 2026-05-18 to Sun 2026-05-24
-    const weekStartLocalUTC = new Date(2026, 4, 18, 0, 0, 0, 0).toISOString();
-    const weekEndLocalUTC   = new Date(2026, 4, 24, 23, 59, 59, 999).toISOString();
+  it('week view from/to covers the full AR week (deterministic)', () => {
+    // 2026-05-20 is Wednesday; AR week: Mon 2026-05-18 … Sun 2026-05-24.
+    const weekStartUTC = '2026-05-18T03:00:00.000Z'; // 00:00 ART Mon
+    const weekEndUTC   = '2026-05-25T02:59:59.999Z'; // 23:59 ART Sun
     const { result } = renderHook(() => useCalendarUrlState(), {
       wrapper: wrapper('?view=week&date=2026-05-20'),
     });
-    expect(result.current.from <= weekStartLocalUTC).toBe(true);
-    expect(result.current.to >= weekEndLocalUTC).toBe(true);
+    expect(result.current.from <= weekStartUTC).toBe(true);
+    expect(result.current.to >= weekEndUTC).toBe(true);
   });
 
-  it('month view from/to covers the full local month (ARG UTC-3)', () => {
-    // May 2026: first day = May 1, last day = May 31
-    const monthStartLocalUTC = new Date(2026, 4, 1, 0, 0, 0, 0).toISOString();
-    const monthEndLocalUTC   = new Date(2026, 4, 31, 23, 59, 59, 999).toISOString();
+  it('month view from/to covers the full AR month (deterministic)', () => {
+    // May 2026: AR May 1 … AR May 31.
+    const monthStartUTC = '2026-05-01T03:00:00.000Z'; // 00:00 ART May 1
+    const monthEndUTC   = '2026-06-01T02:59:59.999Z'; // 23:59 ART May 31
     const { result } = renderHook(() => useCalendarUrlState(), {
       wrapper: wrapper('?view=month&date=2026-05-01'),
     });
-    expect(result.current.from <= monthStartLocalUTC).toBe(true);
-    expect(result.current.to >= monthEndLocalUTC).toBe(true);
+    expect(result.current.from <= monthStartUTC).toBe(true);
+    expect(result.current.to >= monthEndUTC).toBe(true);
   });
 
   it('reads projectId filter from URL', () => {

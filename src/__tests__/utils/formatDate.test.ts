@@ -4,6 +4,12 @@ import {
   formatRelative,
   formatDateTimeShort,
   formatDateShort,
+  formatTimeShort,
+  toArIsoDate,
+  arHour,
+  arDayStartUtc,
+  arDayEndUtc,
+  formatDateLong,
 } from '@/utils/formatDate';
 
 // All wall-clock assertions use UTC ISO inputs (trailing "Z") with the expected
@@ -130,6 +136,130 @@ describe('formatDateShort', () => {
 
   it('returns the em dash for an invalid date', () => {
     expect(formatDateShort('not-a-date')).toBe('—');
+  });
+});
+
+// ── formatTimeShort (Fase 2a: "HH:MM" 24h, in AR time) ─────────────────────────
+
+describe('formatTimeShort', () => {
+  it('formats a UTC instant as HH:MM in Argentina time', () => {
+    // 16:45Z → 13:45 AR.
+    expect(formatTimeShort('2025-09-08T16:45:00Z')).toBe('13:45');
+  });
+
+  it('zero-pads hours and minutes', () => {
+    // 12:07Z → 09:07 AR.
+    expect(formatTimeShort('2025-01-05T12:07:00Z')).toBe('09:07');
+  });
+
+  it('renders the late-evening AR hour for a next-UTC-day instant', () => {
+    // 01:30Z (Jun 2) → 22:30 AR (Jun 1). The calendar-bucketing scenario.
+    expect(formatTimeShort('2026-06-02T01:30:00Z')).toBe('22:30');
+  });
+
+  it('accepts a Date instance', () => {
+    expect(formatTimeShort(new Date('2025-09-08T16:45:00Z'))).toBe('13:45');
+  });
+
+  it('returns the em dash for null / undefined / empty / invalid', () => {
+    expect(formatTimeShort(null)).toBe('—');
+    expect(formatTimeShort(undefined)).toBe('—');
+    expect(formatTimeShort('')).toBe('—');
+    expect(formatTimeShort('not-a-date')).toBe('—');
+  });
+});
+
+// ── toArIsoDate (Fase 2a: "YYYY-MM-DD" of the AR calendar day) ─────────────────
+
+describe('toArIsoDate', () => {
+  it('returns the AR calendar day of a mid-day UTC instant', () => {
+    // 16:45Z → 13:45 AR, still Sep 8.
+    expect(toArIsoDate('2025-09-08T16:45:00Z')).toBe('2025-09-08');
+  });
+
+  it('buckets a 22:30 AR task (= next UTC day) into the AR day, not the UTC day', () => {
+    // 01:30Z Jun 2 = 22:30 AR Jun 1 → bucket = Jun 1 (the bug condition).
+    expect(toArIsoDate('2026-06-02T01:30:00Z')).toBe('2026-06-01');
+  });
+
+  it('buckets an early-morning UTC instant that is still the prior AR day', () => {
+    // 02:00Z Sep 8 = 23:00 AR Sep 7 → bucket = Sep 7.
+    expect(toArIsoDate('2025-09-08T02:00:00Z')).toBe('2025-09-07');
+  });
+
+  it('accepts a Date instance', () => {
+    expect(toArIsoDate(new Date('2026-06-02T01:30:00Z'))).toBe('2026-06-01');
+  });
+
+  it('returns an empty string for null / undefined / empty / invalid', () => {
+    expect(toArIsoDate(null)).toBe('');
+    expect(toArIsoDate(undefined)).toBe('');
+    expect(toArIsoDate('')).toBe('');
+    expect(toArIsoDate('not-a-date')).toBe('');
+  });
+});
+
+// ── arHour (Fase 2a: hour-of-day 0-23 in AR time) ─────────────────────────────
+
+describe('arHour', () => {
+  it('returns the AR wall-clock hour of a UTC instant', () => {
+    // 16:45Z → 13:xx AR.
+    expect(arHour('2025-09-08T16:45:00Z')).toBe(13);
+  });
+
+  it('returns 22 for a 22:30 AR task stored as next-UTC-day 01:30', () => {
+    expect(arHour('2026-06-02T01:30:00Z')).toBe(22);
+  });
+
+  it('returns 0 for AR midnight (03:00 UTC)', () => {
+    expect(arHour('2026-06-01T03:00:00Z')).toBe(0);
+  });
+
+  it('returns NaN for invalid input', () => {
+    expect(Number.isNaN(arHour('not-a-date'))).toBe(true);
+    expect(Number.isNaN(arHour(null))).toBe(true);
+  });
+});
+
+// ── arDayStartUtc / arDayEndUtc (Fase 2a: AR day → UTC instant boundaries) ─────
+
+describe('arDayStartUtc / arDayEndUtc', () => {
+  it('maps AR day start (00:00 ART) to 03:00 UTC of the same date', () => {
+    expect(arDayStartUtc('2026-06-01').toISOString()).toBe('2026-06-01T03:00:00.000Z');
+  });
+
+  it('maps AR day end (23:59:59.999 ART) to 02:59 UTC of the NEXT date', () => {
+    expect(arDayEndUtc('2026-06-01').toISOString()).toBe('2026-06-02T02:59:59.999Z');
+  });
+
+  it('a 22:30 AR task (01:30 UTC Jun 2) falls inside [start, end] of AR Jun 1', () => {
+    const task = new Date('2026-06-02T01:30:00Z').getTime();
+    expect(task).toBeGreaterThanOrEqual(arDayStartUtc('2026-06-01').getTime());
+    expect(task).toBeLessThanOrEqual(arDayEndUtc('2026-06-01').getTime());
+  });
+});
+
+// ── formatDateLong (Fase 2a: long es-AR header date, in AR time) ───────────────
+
+describe('formatDateLong', () => {
+  it('formats a mid-day UTC instant as a long es-AR date in AR time', () => {
+    const result = formatDateLong('2026-06-01T15:00:00Z'); // 12:00 ART Jun 1 (Monday)
+    expect(result).toMatch(/lunes/i);
+    expect(result).toMatch(/1/);
+    expect(result).toMatch(/junio/i);
+    expect(result).toMatch(/2026/);
+  });
+
+  it('uses the AR calendar day for an instant that is the prior AR day', () => {
+    // 02:00Z Jun 1 = 23:00 AR May 31 → must read "mayo" / "31", NOT June 1.
+    const result = formatDateLong('2026-06-01T02:00:00Z');
+    expect(result).toMatch(/mayo/i);
+    expect(result).toMatch(/31/);
+  });
+
+  it('returns the em dash for null / invalid', () => {
+    expect(formatDateLong(null)).toBe('—');
+    expect(formatDateLong('not-a-date')).toBe('—');
   });
 });
 

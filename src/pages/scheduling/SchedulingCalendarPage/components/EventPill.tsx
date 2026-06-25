@@ -1,5 +1,6 @@
 import styles from '../SchedulingCalendarPage.module.css';
 import type { CalendarEvent } from '@/types/calendar';
+import { formatTimeShort } from '@/utils/formatDate';
 
 interface EventPillProps {
   event: CalendarEvent;
@@ -13,14 +14,10 @@ const CATEGORY_CLASS: Record<CalendarEvent['stageCategory'], string> = {
   hecho: styles.catHecho,
 };
 
-function formatTime(d: Date): string {
-  return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
-}
-
 export function EventPill({ event, onClick, variant = 'day' }: EventPillProps) {
   const catClass = CATEGORY_CLASS[event.stageCategory] ?? styles.catNuevo;
-  const ariaLabel = `Tarea: ${event.title}, ${formatTime(event.start)}`;
-  const tooltip = `${event.title}${event.customerName ? ' — ' + event.customerName : ''}\n${formatTime(event.start)} – ${formatTime(event.end)}`;
+  const ariaLabel = `Tarea: ${event.title}, ${formatTimeShort(event.start)}`;
+  const tooltip = `${event.title}${event.customerName ? ' — ' + event.customerName : ''}\n${formatTimeShort(event.start)} – ${formatTimeShort(event.end)}`;
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' || e.key === ' ') {

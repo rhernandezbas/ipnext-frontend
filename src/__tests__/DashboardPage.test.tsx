@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import DashboardPage from '@/pages/DashboardPage/DashboardPage';
 import * as useDashboardModule from '@/hooks/useDashboard';
 import type { DashboardStats, DashboardShortcut, RecentActivity } from '@/types/dashboard';
@@ -117,6 +117,38 @@ describe('DashboardPage', () => {
     renderPage();
     expect(screen.getByText('Nuevo cliente')).toBeInTheDocument();
     expect(screen.getByText('Nuevo ticket')).toBeInTheDocument();
+  });
+
+  // ── Fase 2a: "today" header + greeting in Argentina time ─────────────────────
+  // The header used toLocaleDateString without timeZone and getHours() (host-local),
+  // so a UTC environment near midnight showed the wrong day / greeting. Now both go
+  // through the AR-fixed helpers (formatDateLong / arHour), deterministic across TZ.
+  describe('today header + greeting (Argentina time, REQ-TZ-DISPLAY)', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('renders the AR calendar day in the header even when UTC is already the next day', () => {
+      // 2026-06-25T02:07:00Z = 23:07 ART on 2026-06-24 (Wednesday).
+      // The header MUST read the AR day (24, miércoles), NOT the UTC day (25).
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-06-25T02:07:00.000Z'));
+
+      renderPage();
+      const greeting = screen.getByText(/Admin —/);
+      const text = greeting.textContent ?? '';
+      expect(text).toMatch(/miércoles/i);
+      expect(text).toMatch(/24 de junio de 2026/i);
+      expect(text).not.toMatch(/25 de junio/i);
+    });
+
+    it('uses the AR hour for the greeting (23:07 ART → "Buenas noches", not UTC 02:07)', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-06-25T02:07:00.000Z')); // 23:07 ART
+      renderPage();
+      const greeting = screen.getByText(/Admin —/);
+      expect(greeting.textContent ?? '').toMatch(/Buenas noches/);
+    });
   });
 
   it('loading state shows skeleton/spinner', () => {

@@ -4,6 +4,7 @@ import { useTaskComments, useAddTaskComment, useDeleteTaskComment } from '@/hook
 import { useAuth } from '@/hooks/useAuth';
 import type { AddTaskCommentInput, TaskCommentAttachment } from '@/types/taskComments';
 import type { AuthUser } from '@/types/auth';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import styles from './TaskCommentsTimeline.module.css';
 
 interface AttachmentDraft {
@@ -42,20 +43,6 @@ function deriveFilenameFromUrl(url: string): string {
   const noQuery = url.split('?')[0] ?? url;
   const last = noQuery.split('/').filter(Boolean).pop();
   return last ?? 'archivo';
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('es-AR', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
 }
 
 function initialsOf(name: string): string {
@@ -351,7 +338,7 @@ function CommentItem({ comment, onDelete, deletePending, isNew, onOpenLightbox }
         <header className={styles.commentHeader}>
           <span className={styles.authorName}>{comment.authorName}</span>
           <time className={styles.commentDate} dateTime={comment.createdAt}>
-            {formatDate(comment.createdAt)}
+            {formatDateTimeShort(comment.createdAt)}
           </time>
           <button
             type="button"

@@ -2,6 +2,7 @@ import styles from './CalendarMonthView.module.css';
 import pageStyles from '../SchedulingCalendarPage.module.css';
 import type { CalendarEvent } from '@/types/calendar';
 import { EventPill } from './EventPill';
+import { toArIsoDate } from '@/utils/formatDate';
 
 interface CalendarMonthViewProps {
   year: number;
@@ -20,10 +21,6 @@ const MONTH_NAMES = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ];
 
-function toLocalIsoDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
 export function CalendarMonthView({
   year,
   month,
@@ -33,13 +30,12 @@ export function CalendarMonthView({
   onMoreClick,
   isLoading,
 }: CalendarMonthViewProps) {
-  const today = new Date();
-  const todayStr = toLocalIsoDate(today);
+  const todayStr = toArIsoDate(new Date());
 
-  // Group events by date string
+  // Group events by date string (Argentina calendar day)
   const eventsByDate: Record<string, CalendarEvent[]> = {};
   for (const ev of events) {
-    const key = toLocalIsoDate(ev.start);
+    const key = toArIsoDate(ev.start);
     if (!eventsByDate[key]) eventsByDate[key] = [];
     eventsByDate[key].push(ev);
   }

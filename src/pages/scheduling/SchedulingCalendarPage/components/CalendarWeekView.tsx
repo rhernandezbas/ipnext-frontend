@@ -3,6 +3,7 @@ import pageStyles from '../SchedulingCalendarPage.module.css';
 import type { CalendarEvent, CalendarResource } from '@/types/calendar';
 import { EventPill } from './EventPill';
 import { avatarColor } from './resourceAvatar';
+import { toArIsoDate, wallDayIso } from '@/utils/formatDate';
 
 interface CalendarWeekViewProps {
   weekStart: Date;     // Monday of the week
@@ -21,10 +22,6 @@ function addDays(d: Date, n: number): Date {
   const result = new Date(d);
   result.setDate(result.getDate() + n);
   return result;
-}
-
-function toLocalIsoDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /**
@@ -62,12 +59,12 @@ export function CalendarWeekView({
 }: CalendarWeekViewProps) {
   // Build 7 days
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const todayStr = toLocalIsoDate(new Date());
+  const todayStr = toArIsoDate(new Date());
 
-  // Group events by (resourceId, dateStr)
+  // Group events by (resourceId, dateStr) using the Argentina calendar day
   const evMap: Record<string, Record<string, CalendarEvent[]>> = {};
   for (const ev of events) {
-    const dateStr = toLocalIsoDate(ev.start);
+    const dateStr = toArIsoDate(ev.start);
     if (!evMap[ev.resourceId]) evMap[ev.resourceId] = {};
     if (!evMap[ev.resourceId][dateStr]) evMap[ev.resourceId][dateStr] = [];
     evMap[ev.resourceId][dateStr].push(ev);
@@ -83,11 +80,14 @@ export function CalendarWeekView({
     <>
       <div className={styles.cornerCell} />
       {days.map((d, i) => {
-        const dStr = toLocalIsoDate(d);
+        // `d` is a host-local-anchored wall-day marker → wall-day key.
+        const dStr = wallDayIso(d);
         const isToday = dStr === todayStr;
+        // dStr = "YYYY-MM-DD" → show DD/MM derived from the same wall day.
+        const [, mm, dd] = dStr.split('-');
         return (
           <div key={i} className={`${styles.dayHeaderCell} ${isToday ? styles.dayHeaderToday : ''}`}>
-            {DAY_NAMES_SHORT[i]} {d.getDate()}/{d.getMonth() + 1}
+            {DAY_NAMES_SHORT[i]} {Number(dd)}/{Number(mm)}
           </div>
         );
       })}
@@ -128,7 +128,7 @@ export function CalendarWeekView({
           >
             <ResourceLabelCell resource={resource} />
             {days.map((d, di) => {
-              const dateStr = toLocalIsoDate(d);
+              const dateStr = wallDayIso(d);
               const dayEvents = evMap[resource.id]?.[dateStr] ?? [];
               return (
                 <div

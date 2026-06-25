@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useDashboardStats, useDashboardShortcuts, useRecentActivity } from '@/hooks/useDashboard';
 import type { RecentActivity } from '@/types/dashboard';
+import { formatDateLong, arHour } from '@/utils/formatDate';
 import styles from './DashboardPage.module.css';
 
 function getActivityIcon(type: RecentActivity['type']): string {
@@ -31,7 +32,7 @@ function getProgressColor(value: number): string {
 }
 
 function getGreeting(): string {
-  const hour = new Date().getHours();
+  const hour = arHour(new Date());
   if (hour < 12) return 'Buen día';
   if (hour < 18) return 'Buenas tardes';
   return 'Buenas noches';
@@ -42,12 +43,7 @@ export default function DashboardPage() {
   const { data: shortcuts = [] } = useDashboardShortcuts();
   const { data: activity = [] } = useRecentActivity();
 
-  const today = new Date().toLocaleDateString('es-AR', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  const today = formatDateLong(new Date());
 
   return (
     <div className={styles.page}>

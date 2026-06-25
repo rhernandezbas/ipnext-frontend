@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { CalendarView, CalendarUrlState } from '@/types/calendar';
 import type { TaskListFilter } from '@/types/scheduling';
+import { arDayStartUtc, arDayEndUtc, toArIsoDate } from '@/utils/formatDate';
 
 // Returns Monday of the week containing the given date (ISO Mon-first week)
 function getWeekStart(d: Date): Date {
@@ -13,8 +14,20 @@ function getWeekStart(d: Date): Date {
   return date;
 }
 
+/**
+ * The intended calendar day ("YYYY-MM-DD") of `date`. `date` is always anchored
+ * to host-local midnight of the day the operator picked (URL param parsed as
+ * `${param}T00:00:00`, or "today" with setHours(0,0,0,0)), so its host-local
+ * Y/M/D parts ARE that picked day. We read those parts (NOT toISOString, which
+ * would shift to the previous/next UTC day in a non-UTC host) to get a stable
+ * day key, then build the AR-correct API range from it.
+ */
+function intendedDayIso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function toIsoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return intendedDayIso(d);
 }
 
 function addDays(d: Date, n: number): Date {
@@ -29,38 +42,45 @@ function addMonths(d: Date, n: number): Date {
   return result;
 }
 
-function localDayStart(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+/**
+ * Host-local marker Date for TODAY's Argentina calendar day. Mirrors the URL-param
+ * path (`${day}T00:00:00`) so its host-local Y/M/D parts equal the AR day, stable in
+ * any host TZ. (A UTC host at 23:30 ART would otherwise have setHours(0,0,0,0) land on
+ * the next day, shifting the bucket and the API range; TZ-BUG-3.)
+ */
+function todayArMarker(): Date {
+  return new Date(`${toArIsoDate(new Date())}T00:00:00`);
 }
 
-function localDayEnd(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+/**
+ * API range covering a span of AR calendar days, inclusive of both ends.
+ * `from` = 00:00 ART of the first day (= 03:00 UTC same date),
+ * `to`   = 23:59:59.999 ART of the last day (= 02:59 UTC next date).
+ * This guarantees the range captures every task whose AR wall-clock day falls in
+ * the span — including late-evening tasks that land on the next UTC day.
+ */
+function arRange(firstDay: Date, lastDay: Date): { from: string; to: string } {
+  return {
+    from: arDayStartUtc(intendedDayIso(firstDay)).toISOString(),
+    to: arDayEndUtc(intendedDayIso(lastDay)).toISOString(),
+  };
 }
 
 function computeRange(view: CalendarView, date: Date): { from: string; to: string } {
   if (view === 'day') {
-    return {
-      from: localDayStart(date).toISOString(),
-      to: localDayEnd(date).toISOString(),
-    };
+    return arRange(date, date);
   }
   if (view === 'week') {
     const weekStart = getWeekStart(date);
     const weekEnd = addDays(weekStart, 6);
-    return {
-      from: localDayStart(weekStart).toISOString(),
-      to: localDayEnd(weekEnd).toISOString(),
-    };
+    return arRange(weekStart, weekEnd);
   }
   // month
   const year = date.getFullYear();
   const month = date.getMonth();
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
-  return {
-    from: localDayStart(firstDay).toISOString(),
-    to: localDayEnd(lastDay).toISOString(),
-  };
+  return arRange(firstDay, lastDay);
 }
 
 const MONTH_NAMES = [
@@ -100,9 +120,7 @@ export function useCalendarUrlState(): CalendarUrlState {
       const parsed = new Date(`${dateParam}T00:00:00`);
       if (!isNaN(parsed.getTime())) return parsed;
     }
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return today;
+    return todayArMarker();
   }, [dateParam]);
 
   const fullDay = searchParams.get('fullDay') === '1';
@@ -180,9 +198,7 @@ export function useCalendarUrlState(): CalendarUrlState {
   }, [view, date, setDate]);
 
   const goToday = useCallback(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    setDate(today);
+    setDate(todayArMarker());
   }, [setDate]);
 
   return {

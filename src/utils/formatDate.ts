@@ -140,6 +140,117 @@ export function formatDateShort(value: string | null | undefined): string {
 }
 
 /**
+ * Format an instant as "HH:MM" (24h) in Argentina time, independent of the host
+ * timezone. Returns "—" for null, undefined, empty, or unparseable input.
+ *
+ * Accepts a Date or an ISO/date string. Use for time-of-day display (calendar
+ * pills, tooltips) where only the wall-clock hour:minute matters.
+ *
+ * Example: formatTimeShort('2026-06-02T01:30:00Z') → "22:30"  (= 22:30 ART)
+ */
+export function formatTimeShort(value: string | Date | null | undefined): string {
+  if (value == null || value === '') return EMPTY;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return EMPTY;
+  const p = arParts(d);
+  return `${pad2(p.hour)}:${pad2(p.minute)}`;
+}
+
+/**
+ * Derive the canonical calendar day "YYYY-MM-DD" of an instant in Argentina
+ * time, independent of the host timezone. This is the AR-fixed replacement for
+ * the per-component `toLocalIsoDate` helpers that bucketed by browser-local date
+ * (which placed late-evening AR tasks into the next UTC day in a UTC environment).
+ *
+ * Accepts a Date or an ISO/date string. Returns "" for null/invalid input.
+ *
+ * Example: toArIsoDate('2026-06-02T01:30:00Z') → "2026-06-01"  (22:30 ART, Jun 1)
+ */
+export function toArIsoDate(value: string | Date | null | undefined): string {
+  if (value == null || value === '') return '';
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = arParts(d);
+  return `${p.year}-${pad2(p.month)}-${pad2(p.day)}`;
+}
+
+/**
+ * The "YYYY-MM-DD" wall-day of a Date read from its HOST-LOCAL calendar parts.
+ *
+ * Use this ONLY for Date values that already encode an intended calendar day as a
+ * host-local-anchored midnight (the calendar "selected day" / week-day cells,
+ * produced by `new Date(y,m,d)` or `new Date(\`${param}T00:00:00\`)`). Such a
+ * Date is a wall-day MARKER, not a real instant — converting it through AR would
+ * shift it to the previous day on a non-AR host. The EVENT instants it is matched
+ * against use `toArIsoDate` (real AR day of a true instant); a host-local wall-day
+ * marker stays stable across hosts because both producer and reader use local
+ * parts.
+ */
+export function wallDayIso(d: Date): string {
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/**
+ * Hour-of-day (0-23) of an instant in Argentina time, independent of the host
+ * timezone. AR-fixed replacement for Date.getHours() when bucketing calendar
+ * events into hour rows.
+ *
+ * Accepts a Date or an ISO/date string. Returns NaN for null/invalid input.
+ */
+export function arHour(value: string | Date | null | undefined): number {
+  if (value == null || value === '') return NaN;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return NaN;
+  return arParts(d).hour;
+}
+
+/**
+ * Build the UTC instant for the START of a given AR calendar day "YYYY-MM-DD"
+ * (00:00:00.000 ART). Since AR is a fixed UTC-3, 00:00 ART = 03:00 UTC the same
+ * date. Use to compute API range bounds that must cover the correct AR day.
+ *
+ * Example: arDayStartUtc('2026-06-01') → 2026-06-01T03:00:00.000Z
+ */
+export function arDayStartUtc(isoDay: string): Date {
+  return new Date(`${isoDay}T00:00:00.000-03:00`);
+}
+
+/**
+ * Build the UTC instant for the END of a given AR calendar day "YYYY-MM-DD"
+ * (23:59:59.999 ART). AR is a fixed UTC-3, so 23:59 ART = 02:59 UTC the next
+ * date. Use to compute the inclusive upper bound of an API range covering the AR
+ * day.
+ *
+ * Example: arDayEndUtc('2026-06-01') → 2026-06-02T02:59:59.999Z
+ */
+export function arDayEndUtc(isoDay: string): Date {
+  return new Date(`${isoDay}T23:59:59.999-03:00`);
+}
+
+/**
+ * Format an instant as a long es-AR header date ("lunes, 1 de junio de 2026"),
+ * in Argentina time, independent of the host timezone. Falls back to "—" on
+ * null/invalid input. Used for the dashboard "today" heading.
+ */
+export function formatDateLong(value: string | Date | null | undefined): string {
+  if (value == null || value === '') return EMPTY;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return EMPTY;
+  try {
+    return new Intl.DateTimeFormat('es-AR', {
+      timeZone: AR_TZ,
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(d);
+  } catch {
+    return EMPTY;
+  }
+}
+
+/**
  * Format an ISO date string as an absolute es-AR date+time, in Argentina time.
  * Falls back to the raw string on parse error.
  *
