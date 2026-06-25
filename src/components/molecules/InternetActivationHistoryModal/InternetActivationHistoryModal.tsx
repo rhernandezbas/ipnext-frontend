@@ -2,26 +2,40 @@
  * InternetActivationHistoryModal — espejo de ActivationHistoryModal (TV) para
  * el historial de servicios de Internet.
  *
- * Modo per-cliente: muestra los eventos (alta/baja/reactivación) de un cliente
- * en un modal portal (backdrop, Esc, focus, role=dialog). Columnas:
- *   Fecha · Tipo · Operador · Motivo (el motivo abre ReasonViewModal).
- * Consume useInternetActivationHistory({ clientId }).
+ * Dos modos (igual que el de TV):
+ *   - Per-cliente (clientId provisto): muestra SOLO los eventos de ese cliente.
+ *     Columnas: Fecha · Tipo · Operador · Motivo. Sin barra de filtros.
+ *   - Global (sin clientId): muestra TODAS las altas del sistema con su operador,
+ *     con barra de filtros (desde/hasta/operador). Columnas:
+ *     Fecha · Tipo · Cliente · Operador · Motivo.
+ *
+ * Ambos modos consumen el MISMO hook useInternetActivationHistory: el filtro ya
+ * soporta clientId? opcional. En global se cablean from/to/actorId; en per-cliente
+ * solo clientId. El motivo abre ReasonViewModal en los dos modos.
  */
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { useInternetActivationHistory } from '@/hooks/useInternetServices';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { ReasonViewModal } from '@/components/molecules/ReasonViewModal/ReasonViewModal';
-import { formatDateTimeShort } from '@/utils/formatDate';
-import type { InternetServiceEvent } from '@/types/internetService';
+import { formatDateTimeShort, arDayStartUtc, arDayEndUtc } from '@/utils/formatDate';
+import type {
+  InternetServiceEvent,
+  InternetActivationHistoryFilter,
+} from '@/types/internetService';
 import styles from './InternetActivationHistoryModal.module.css';
 
 export interface InternetActivationHistoryModalProps {
   open: boolean;
   onClose: () => void;
-  /** Cliente cuyos eventos de Internet se muestran. */
-  clientId: string;
-  /** Etiqueta opcional del cliente para el subtítulo. */
+  /**
+   * Cuando se provee, el modal muestra SOLO los eventos de ese cliente
+   * (modo per-cliente). Cuando se omite, muestra el historial global de todas
+   * las altas del sistema con barra de filtros (modo global).
+   */
+  clientId?: string;
+  /** Etiqueta opcional del cliente para el subtítulo (solo per-cliente). */
   customerName?: string | null;
 }
 
@@ -29,14 +43,68 @@ type Row = InternetServiceEvent & { id: string };
 
 const DIALOG_TITLE_ID = 'internet-activation-history-modal-title';
 
-function EventTypeBadge({ type }: { type: InternetServiceEvent['eventType'] }) {
-  if (type === 'alta') return <span className={styles.badgeAlta}>Alta</span>;
-  if (type === 'baja') return <span className={styles.badgeBaja}>Baja</span>;
-  return <span className={styles.badgeReactivacion}>Reactivación</span>;
+// ── Badge de tipo de evento ─────────────────────────────────────────────────
+//
+// El BE graba eventType en INGLÉS desde los use cases. Mapeamos cada valor REAL
+// a etiqueta español + un badge con color sensato (REUSO de los 3 badges que ya
+// existen — no inventamos color nuevo):
+//   activated/restored → verde (alta/restaurado)   → badgeAlta
+//   deactivated/blocked → rojo (baja/bloqueado)     → badgeBaja
+//   reactivated/modified/reduced → ámbar (cambio)   → badgeReactivacion
+// Un valor DESCONOCIDO muestra el string crudo capitalizado (default robusto),
+// NO "Reactivación".
+
+type BadgeStyle = 'badgeAlta' | 'badgeBaja' | 'badgeReactivacion';
+
+const EVENT_TYPE_LABELS: Record<InternetServiceEvent['eventType'], { label: string; style: BadgeStyle }> = {
+  activated: { label: 'Alta', style: 'badgeAlta' },
+  restored: { label: 'Restaurado', style: 'badgeAlta' },
+  deactivated: { label: 'Baja', style: 'badgeBaja' },
+  blocked: { label: 'Bloqueado', style: 'badgeBaja' },
+  reactivated: { label: 'Reactivación', style: 'badgeReactivacion' },
+  modified: { label: 'Modificado', style: 'badgeReactivacion' },
+  reduced: { label: 'Reducido', style: 'badgeReactivacion' },
+};
+
+function capitalize(s: string): string {
+  return s.length === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function buildColumns(onViewReason: (reason: string) => void) {
-  return [
+function EventTypeBadge({ type }: { type: InternetServiceEvent['eventType'] }) {
+  const known = EVENT_TYPE_LABELS[type];
+  if (known) {
+    return <span className={styles[known.style]}>{known.label}</span>;
+  }
+  // Default robusto: string crudo capitalizado con badge neutro (ámbar), NO "Reactivación".
+  return <span className={styles.badgeReactivacion}>{capitalize(String(type))}</span>;
+}
+
+// ── Columna de cliente (solo modo global, cruza clientes) ────────────────────
+
+function customerColumn() {
+  return {
+    key: 'customer',
+    label: 'Cliente',
+    render: (r: Row) => {
+      const name = r.customerName ?? '—';
+      return r.clientId ? (
+        <Link className={styles.nameLink} to={`/admin/customers/view/${r.clientId}`}>
+          {name}
+        </Link>
+      ) : (
+        <span>{name}</span>
+      );
+    },
+  };
+}
+
+// ── Columnas comunes ─────────────────────────────────────────────────────────
+
+function buildColumns(
+  onViewReason: (reason: string) => void,
+  opts: { showCustomer?: boolean } = {},
+) {
+  const base = [
     {
       key: 'createdAt',
       label: 'Fecha/hora',
@@ -47,6 +115,8 @@ function buildColumns(onViewReason: (reason: string) => void) {
       label: 'Tipo',
       render: (r: Row) => <EventTypeBadge type={r.eventType} />,
     },
+    // En modo global insertamos la columna Cliente entre Tipo y Operador.
+    ...(opts.showCustomer ? [customerColumn()] : []),
     {
       key: 'actorName',
       label: 'Operador',
@@ -70,7 +140,123 @@ function buildColumns(onViewReason: (reason: string) => void) {
         ),
     },
   ];
+  return base;
 }
+
+// ── Cuerpo per-cliente ───────────────────────────────────────────────────────
+
+function PerClientBody({ clientId, open }: { clientId: string; open: boolean }) {
+  const { data, isLoading, isError } = useInternetActivationHistory({ clientId }, open);
+  const [activeReason, setActiveReason] = useState<string | null>(null);
+  const rows: Row[] = (data ?? []).map((e) => ({ ...e, id: e.id }));
+  const columns = buildColumns(setActiveReason);
+  return (
+    <>
+      {isError && (
+        <div className={styles.bannerError}>Error al cargar el historial de Internet.</div>
+      )}
+      <div className={styles.body}>
+        <DataTable
+          columns={columns}
+          data={rows}
+          loading={isLoading}
+          emptyMessage="Sin eventos para este cliente."
+        />
+      </div>
+      {activeReason !== null && (
+        <ReasonViewModal open reason={activeReason} onClose={() => setActiveReason(null)} />
+      )}
+    </>
+  );
+}
+
+// ── Cuerpo global (con filtros) ──────────────────────────────────────────────
+
+function GlobalBody({ open }: { open: boolean }) {
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [actorId, setActorId] = useState('');
+  const [activeReason, setActiveReason] = useState<string | null>(null);
+
+  // W1 — el <input type="date"> da "YYYY-MM-DD". Si lo mandáramos crudo, el BE
+  // haría new Date('2026-06-01') = medianoche UTC = 21:00 AR del día ANTERIOR,
+  // corriendo los bordes del rango 3h. AR es UTC-3 fijo: convertimos al instante
+  // AR correcto (inicio/fin de día AR) en ISO con Z antes de mandarlo.
+  const filter: InternetActivationHistoryFilter = {};
+  if (from) filter.from = arDayStartUtc(from).toISOString();
+  if (to) filter.to = arDayEndUtc(to).toISOString();
+  if (actorId.trim()) filter.actorId = actorId.trim();
+
+  const { data, isLoading, isError } = useInternetActivationHistory(filter, open);
+
+  const rows: Row[] = (data ?? []).map((e) => ({ ...e, id: e.id }));
+  const columns = buildColumns(setActiveReason, { showCustomer: true });
+
+  return (
+    <>
+      <div className={styles.filters}>
+        <div className={styles.filterGroup}>
+          <label htmlFor="iahm-from" className={styles.filterLabel}>
+            Desde
+          </label>
+          <input
+            id="iahm-from"
+            type="date"
+            className={styles.input}
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            aria-label="Desde"
+          />
+        </div>
+        <div className={styles.filterGroup}>
+          <label htmlFor="iahm-to" className={styles.filterLabel}>
+            Hasta
+          </label>
+          <input
+            id="iahm-to"
+            type="date"
+            className={styles.input}
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            aria-label="Hasta"
+          />
+        </div>
+        <div className={styles.filterGroup}>
+          <label htmlFor="iahm-actor" className={styles.filterLabel}>
+            Operador (ID)
+          </label>
+          <input
+            id="iahm-actor"
+            type="text"
+            className={styles.input}
+            placeholder="ID de operador…"
+            value={actorId}
+            onChange={(e) => setActorId(e.target.value)}
+            aria-label="Operador (ID)"
+          />
+        </div>
+      </div>
+
+      {isError && (
+        <div className={styles.bannerError}>Error al cargar el historial de Internet.</div>
+      )}
+
+      <div className={styles.body}>
+        <DataTable
+          columns={columns}
+          data={rows}
+          loading={isLoading}
+          emptyMessage="Sin eventos para el filtro."
+        />
+      </div>
+      {activeReason !== null && (
+        <ReasonViewModal open reason={activeReason} onClose={() => setActiveReason(null)} />
+      )}
+    </>
+  );
+}
+
+// ── Shell del modal ──────────────────────────────────────────────────────────
 
 export function InternetActivationHistoryModal({
   open,
@@ -79,9 +265,6 @@ export function InternetActivationHistoryModal({
   customerName,
 }: InternetActivationHistoryModalProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
-  const [activeReason, setActiveReason] = useState<string | null>(null);
-
-  const { data, isLoading, isError } = useInternetActivationHistory({ clientId }, open);
 
   useEffect(() => {
     if (!open) return;
@@ -102,9 +285,6 @@ export function InternetActivationHistoryModal({
 
   if (!open) return null;
 
-  const rows: Row[] = (data ?? []).map((e) => ({ ...e, id: e.id }));
-  const columns = buildColumns(setActiveReason);
-
   return createPortal(
     <div
       className={styles.backdrop}
@@ -118,7 +298,7 @@ export function InternetActivationHistoryModal({
             <h2 id={DIALOG_TITLE_ID} className={styles.title}>
               Historial de Internet
             </h2>
-            {customerName && <p className={styles.subtitle}>{customerName}</p>}
+            {clientId && customerName && <p className={styles.subtitle}>{customerName}</p>}
           </div>
           <button
             ref={closeRef}
@@ -131,25 +311,12 @@ export function InternetActivationHistoryModal({
           </button>
         </div>
 
-        {isError && (
-          <div className={styles.bannerError}>
-            Error al cargar el historial de Internet.
-          </div>
+        {clientId ? (
+          <PerClientBody clientId={clientId} open={open} />
+        ) : (
+          <GlobalBody open={open} />
         )}
-
-        <div className={styles.body}>
-          <DataTable
-            columns={columns}
-            data={rows}
-            loading={isLoading}
-            emptyMessage="Sin eventos para este cliente."
-          />
-        </div>
       </div>
-
-      {activeReason !== null && (
-        <ReasonViewModal open reason={activeReason} onClose={() => setActiveReason(null)} />
-      )}
     </div>,
     document.body,
   );

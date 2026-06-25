@@ -25,6 +25,30 @@
   color: var(--color-text-primary);
 }
 
+/* "Ver historial" GLOBAL en el header — mismo estilo que TV (btnHistorial) */
+.btnHistorial {
+  margin-left: auto;
+  height: 34px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btnHistorial:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+}
+
+.btnHistorial:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 /* Filters */
 
 .filters {

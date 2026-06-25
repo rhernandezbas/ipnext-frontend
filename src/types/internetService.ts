@@ -62,11 +62,24 @@ export interface PppoeServiceListFilter {
  */
 export interface InternetServiceEvent {
   id: string;
-  clientId: string;
+  /** Client.id (bare). Null para PPPoE huérfano sin cliente asociado (W3). */
+  clientId: string | null;
   customerName?: string | null;
   contractId?: string | null;
-  /** Tipo de evento → badge visual (alta/baja/reactivación). */
-  eventType: 'alta' | 'baja' | 'reactivacion';
+  /**
+   * Tipo de evento → badge visual. Valores REALES del wire (el BE los graba en
+   * INGLÉS desde los use cases):
+   *   activated · deactivated · reactivated · modified · reduced · blocked · restored
+   * El badge los mapea a etiqueta español; un valor desconocido cae al default.
+   */
+  eventType:
+    | 'activated'
+    | 'deactivated'
+    | 'reactivated'
+    | 'modified'
+    | 'reduced'
+    | 'blocked'
+    | 'restored';
   actorName: string;
   /** Motivo libre del operador. Null para eventos legacy. */
   reason?: string | null;

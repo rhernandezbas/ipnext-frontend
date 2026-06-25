@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -9,10 +9,11 @@ vi.mock('@/hooks/useInternetServices', () => ({
 }));
 
 // Stub the modal so we can assert it opens without rendering internals.
+// data-client refleja el clientId; en modo global (sin clientId) queda "global".
 vi.mock('@/components/molecules/InternetActivationHistoryModal/InternetActivationHistoryModal', () => ({
-  InternetActivationHistoryModal: ({ open, onClose, clientId }: { open: boolean; onClose: () => void; clientId: string }) =>
+  InternetActivationHistoryModal: ({ open, onClose, clientId }: { open: boolean; onClose: () => void; clientId?: string }) =>
     open ? (
-      <div data-testid="internet-history-modal" data-client={clientId}>
+      <div data-testid="internet-history-modal" data-client={clientId ?? 'global'}>
         <button onClick={onClose}>modal-close</button>
       </div>
     ) : null,
@@ -228,10 +229,18 @@ describe('InternetServicesPage', () => {
   });
 
   // ── "Ver historial" por fila abre el modal con el clientId de la fila ──
+  // Las acciones por fila viven dentro de celdas (<td>); el botón global vive en
+  // el header. Scopeamos a las celdas para no agarrar el del header.
+  function rowHistoryButtons() {
+    return screen
+      .getAllByRole('button', { name: /ver historial/i })
+      .filter((b) => b.closest('td') !== null);
+  }
+
   it('renders a "Ver historial" action per row', () => {
     mockList();
     renderPage();
-    expect(screen.getAllByRole('button', { name: /ver historial/i }).length).toBeGreaterThan(0);
+    expect(rowHistoryButtons().length).toBeGreaterThan(0);
   });
 
   it('clicking "Ver historial" opens the modal with the row clientId', async () => {
@@ -239,7 +248,7 @@ describe('InternetServicesPage', () => {
     mockList();
     renderPage();
     expect(screen.queryByTestId('internet-history-modal')).not.toBeInTheDocument();
-    await user.click(screen.getAllByRole('button', { name: /ver historial/i })[0]);
+    await user.click(rowHistoryButtons()[0]);
     const modal = screen.getByTestId('internet-history-modal');
     expect(modal).toBeInTheDocument();
     expect(modal).toHaveAttribute('data-client', 'client-1');
@@ -249,9 +258,33 @@ describe('InternetServicesPage', () => {
     const user = userEvent.setup();
     mockList();
     renderPage();
-    await user.click(screen.getAllByRole('button', { name: /ver historial/i })[0]);
+    await user.click(rowHistoryButtons()[0]);
     expect(screen.getByTestId('internet-history-modal')).toBeInTheDocument();
     await user.click(screen.getByText('modal-close'));
     expect(screen.queryByTestId('internet-history-modal')).not.toBeInTheDocument();
+  });
+
+  // ── "Ver historial" GLOBAL en el header → abre el modal SIN clientId ──
+  it('renders a "Ver historial" button in the header', () => {
+    mockList();
+    renderPage();
+    const header = screen.getByRole('heading', { name: /servicios de internet/i }).closest('div')!;
+    // El botón del header convive con los "Ver historial" por fila; el del header
+    // vive junto al título.
+    const headerBtn = within(header).getByRole('button', { name: /ver historial/i });
+    expect(headerBtn).toBeInTheDocument();
+  });
+
+  it('clicking the header "Ver historial" opens the modal in GLOBAL mode (no clientId)', async () => {
+    const user = userEvent.setup();
+    mockList();
+    renderPage();
+    expect(screen.queryByTestId('internet-history-modal')).not.toBeInTheDocument();
+    const header = screen.getByRole('heading', { name: /servicios de internet/i }).closest('div')!;
+    await user.click(within(header).getByRole('button', { name: /ver historial/i }));
+    const modal = screen.getByTestId('internet-history-modal');
+    expect(modal).toBeInTheDocument();
+    // Modo global → sin clientId (el stub lo refleja como "global").
+    expect(modal).toHaveAttribute('data-client', 'global');
   });
 });

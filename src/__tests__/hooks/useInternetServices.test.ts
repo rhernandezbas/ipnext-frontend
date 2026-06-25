@@ -46,7 +46,8 @@ const events: InternetServiceEvent[] = [
     clientId: 'client-1',
     customerName: 'Juan Pérez',
     contractId: 'c1',
-    eventType: 'alta',
+    // El BE graba eventType en INGLÉS (activated/deactivated/...), NO 'alta'/'baja'.
+    eventType: 'activated',
     actorName: 'Operador Uno',
     reason: 'Alta nueva',
     createdAt: '2026-06-01T10:00:00Z',

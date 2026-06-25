@@ -65,6 +65,9 @@ export default function InternetServicesPage() {
   const [historyClient, setHistoryClient] = useState<{ clientId: string; customerName: string | null } | null>(
     null,
   );
+  // Modal de historial GLOBAL (header) — abre el modal SIN clientId: muestra todas
+  // las altas del sistema con su operador + filtros (espejo del patrón de TV).
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Debounce del buscador (~300ms): no re-disparar el query en cada tecla.
   useEffect(() => {
@@ -155,6 +158,15 @@ export default function InternetServicesPage() {
       <div className={styles.header}>
         <span className={styles.breadcrumb}>Clientes /</span>
         <h1 className={styles.title}>Servicios de Internet</h1>
+        {/* Historial GLOBAL: abre el modal sin clientId → todas las altas del
+            sistema con su operador + filtros. Mismo estilo que el de TV. */}
+        <button
+          type="button"
+          className={styles.btnHistorial}
+          onClick={() => setHistoryOpen(true)}
+        >
+          Ver historial
+        </button>
       </div>
 
       <div className={styles.filters}>
@@ -207,6 +219,12 @@ export default function InternetServicesPage() {
           onClose={() => setHistoryClient(null)}
         />
       )}
+
+      {/* Historial GLOBAL — sin clientId. */}
+      <InternetActivationHistoryModal
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+      />
     </div>
   );
 }

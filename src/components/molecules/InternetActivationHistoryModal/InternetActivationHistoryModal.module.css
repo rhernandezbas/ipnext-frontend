@@ -79,10 +79,71 @@
   outline-offset: 2px;
 }
 
+/* Filter bar (global mode only) — espejo de ActivationHistoryModal (TV) */
+
+.filters {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.filterLabel {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.input {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  min-width: 160px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+
 .body {
   flex: 1;
   overflow-y: auto;
   padding: var(--space-4);
+}
+
+/* Customer name link (global mode column) */
+.nameLink {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.nameLink:hover {
+  text-decoration: underline;
+}
+
+.nameLink:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 /* Event type badges */
