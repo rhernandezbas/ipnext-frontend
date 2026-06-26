@@ -21,6 +21,7 @@ const PAGINATED: PaginatedRadiusAuthEvents = {
       reply: 'Access-Reject',
       authdate: '2026-06-22T10:00:00Z',
       class: null,
+      reason: 'user_not_found',
     },
   ],
   total: 1,

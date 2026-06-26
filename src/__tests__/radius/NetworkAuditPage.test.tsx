@@ -80,6 +80,7 @@ const AUTH_DATA: PaginatedRadiusAuthEvents = {
       reply: 'Access-Reject',
       authdate: '2026-06-22T07:00:00Z',
       class: null,
+      reason: 'session_stuck',
     },
   ],
   total: 1,

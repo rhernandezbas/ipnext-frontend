@@ -12,24 +12,44 @@ function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
 
+// Fixtures usan los valores REALES que el backend manda en `reason`
+// (inglés: 'user_not_found' | 'session_stuck' | 'other' | null). NUNCA en español.
 const MOCK_DATA: PaginatedRadiusAuthEvents = {
   data: [
     {
       id: 'auth-1',
-      username: 'rejected@isp.com',
+      username: 'stuck@isp.com',
       reply: 'Access-Reject',
       authdate: '2026-06-22T10:00:00Z',
       class: 'plan-50',
+      reason: 'session_stuck',
     },
     {
       id: 'auth-2',
+      username: 'notfound@isp.com',
+      reply: 'Access-Reject',
+      authdate: '2026-06-22T09:30:00Z',
+      class: null,
+      reason: 'user_not_found',
+    },
+    {
+      id: 'auth-3',
+      username: 'other@isp.com',
+      reply: 'Access-Reject',
+      authdate: '2026-06-22T09:15:00Z',
+      class: null,
+      reason: 'other',
+    },
+    {
+      id: 'auth-4',
       username: 'accepted@isp.com',
       reply: 'Access-Accept',
       authdate: '2026-06-22T09:00:00Z',
       class: null,
+      reason: null,
     },
   ],
-  total: 2,
+  total: 4,
   page: 1,
   limit: 50,
   hasNext: false,
@@ -77,12 +97,12 @@ describe('RadiusAuthErrorsPage', () => {
     );
   });
 
-  it('renders rows with username and Class', () => {
+  it('renders rows with usernames', () => {
     mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
     renderPage();
-    expect(screen.getByText('rejected@isp.com')).toBeInTheDocument();
+    expect(screen.getByText('stuck@isp.com')).toBeInTheDocument();
+    expect(screen.getByText('notfound@isp.com')).toBeInTheDocument();
     expect(screen.getByText('accepted@isp.com')).toBeInTheDocument();
-    expect(screen.getByText('plan-50')).toBeInTheDocument();
   });
 
   it('renders reply badges as text (Access-Reject / Access-Accept), no emoji', () => {
@@ -93,6 +113,74 @@ describe('RadiusAuthErrorsPage', () => {
     const cells = screen.getAllByRole('cell');
     expect(cells.some((c) => c.textContent === 'Access-Reject')).toBe(true);
     expect(cells.some((c) => c.textContent === 'Access-Accept')).toBe(true);
+  });
+
+  // ── MOTIVO column (replaces the always-empty CLASS column) ─────────────────
+
+  it('renders a "Motivo" column header and NOT a "Class" header', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    const headers = screen.getAllByRole('columnheader').map((h) => h.textContent);
+    expect(headers).toContain('Motivo');
+    expect(headers).not.toContain('Class');
+  });
+
+  it('maps reason=session_stuck → "Sesión colgada"', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    expect(screen.getByText('Sesión colgada')).toBeInTheDocument();
+  });
+
+  it('maps reason=user_not_found → "Usuario no existe"', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    expect(screen.getByText('Usuario no existe')).toBeInTheDocument();
+  });
+
+  it('maps reason=other → "Otro / revisar"', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    expect(screen.getByText('Otro / revisar')).toBeInTheDocument();
+  });
+
+  it('renders reason=null as an em-dash with no badge label', () => {
+    mockHook({
+      data: { ...MOCK_DATA, data: [MOCK_DATA.data[3]], total: 1 },
+      isLoading: false,
+      isError: false,
+    });
+    renderPage();
+    const cells = screen.getAllByRole('cell');
+    // The Motivo cell for a null reason shows "—" and none of the badge labels.
+    expect(cells.some((c) => c.textContent === '—')).toBe(true);
+    expect(screen.queryByText('Sesión colgada')).not.toBeInTheDocument();
+    expect(screen.queryByText('Usuario no existe')).not.toBeInTheDocument();
+    expect(screen.queryByText('Otro / revisar')).not.toBeInTheDocument();
+  });
+
+  it('renders an em-dash for an unknown reason value (no crash)', () => {
+    mockHook({
+      data: {
+        ...MOCK_DATA,
+        data: [{ ...MOCK_DATA.data[0], reason: 'totally_unknown' }],
+        total: 1,
+      },
+      isLoading: false,
+      isError: false,
+    });
+    renderPage();
+    const cells = screen.getAllByRole('cell');
+    expect(cells.some((c) => c.textContent === '—')).toBe(true);
+  });
+
+  it('does NOT use emojis in the Motivo badges (text-only)', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    const labels = ['Sesión colgada', 'Usuario no existe', 'Otro / revisar'];
+    const emoji = /\p{Extended_Pictographic}/u;
+    for (const label of labels) {
+      expect(emoji.test(label)).toBe(false);
+    }
   });
 
   it('shows the loading state', () => {

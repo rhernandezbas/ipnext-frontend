@@ -63,6 +63,10 @@ export interface RadiusAuthEvent {
   reply: RadiusAuthReply;
   authdate: string;        // ISO 8601
   class: string | null;
+  // Motivo del rechazo, computado por el orchestrator y persistido por el BE:
+  //   'user_not_found' | 'session_stuck' | 'other' | null (Access-Accept / históricos viejos).
+  // Tipado como string para tolerar valores nuevos del BE sin romper el FE.
+  reason: string | null;
 }
 
 export interface PaginatedRadiusAuthEvents {

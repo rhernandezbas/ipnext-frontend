@@ -193,6 +193,46 @@
   color: #166534;
 }
 
+/* ── Motivo badges (reason del rechazo, texto + color, sin emoji) ─────────── */
+
+/*
+ * Reusan las familias de badge YA existentes del design system. Contrastes
+ * verificados (WCAG AA, >= 4.5:1, light mode):
+ *   stuck    naranja  #9a3412 sobre #ffedd5 ≈ 6.38:1  (familia "blocked")
+ *   notFound rojo     #991b1b sobre #fee2e2 ≈ 6.80:1  (familia "late")
+ *   other    gris     #495057 sobre #f3f4f6 ≈ 7.43:1  (bg "inactive" + fg gray-600;
+ *            el fg del token inactive da 4.39:1 < 4.5, por eso se usa gray-600)
+ */
+.badgeStuck,
+.badgeNotFound,
+.badgeOther {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.badgeStuck {
+  background: var(--badge-blocked-bg);
+  color: var(--badge-blocked-fg);
+}
+
+.badgeNotFound {
+  background: var(--badge-late-bg);
+  color: var(--badge-late-fg);
+}
+
+.badgeOther {
+  background: var(--badge-inactive-bg);
+  color: var(--color-gray-600);
+}
+
+/* reason = null / desconocido → guion gris tenue, sin pastilla */
+.motivoEmpty {
+  color: var(--color-text-secondary);
+}
+
 /* ── Pagination ──────────────────────────────────────────────────────────── */
 
 .paginationWrapper {

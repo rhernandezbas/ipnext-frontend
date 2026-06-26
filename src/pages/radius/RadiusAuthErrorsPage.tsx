@@ -10,6 +10,28 @@ import styles from './RadiusAuthErrorsPage.module.css';
 const LIMIT = 50;
 
 /**
+ * Mapeo del `reason` del BE (inglés) → etiqueta en español + clase de badge.
+ * Los valores son los que el orchestrator persiste; NO inventar valores en español.
+ *   session_stuck  → naranja (el más importante: cliente bloqueado por sesión anterior)
+ *   user_not_found → rojo
+ *   other          → gris
+ *   null / desconocido → "—" sin badge (gris tenue)
+ */
+const MOTIVO_MAP: Record<string, { label: string; className: string }> = {
+  session_stuck:  { label: 'Sesión colgada',  className: styles.badgeStuck },
+  user_not_found: { label: 'Usuario no existe', className: styles.badgeNotFound },
+  other:          { label: 'Otro / revisar',   className: styles.badgeOther },
+};
+
+function MotivoBadge({ reason }: { reason: string | null }) {
+  const entry = reason ? MOTIVO_MAP[reason] : undefined;
+  if (!entry) {
+    return <span className={styles.motivoEmpty}>—</span>;
+  }
+  return <span className={entry.className}>{entry.label}</span>;
+}
+
+/**
  * Tab "Errores de auth" — intentos de autenticación RADIUS (Access-Reject /
  * Access-Accept). El filtro Resultado arranca en Access-Reject por defecto porque
  * el feature ES "errores"; el usuario puede elegir "Todos" o Access-Accept.
@@ -99,7 +121,7 @@ export default function RadiusAuthErrorsPage() {
               <th>Usuario</th>
               <th>Resultado</th>
               <th>Fecha</th>
-              <th>Class</th>
+              <th>Motivo</th>
             </tr>
           </thead>
           <tbody>
@@ -136,7 +158,7 @@ export default function RadiusAuthErrorsPage() {
                   )}
                 </td>
                 <td>{formatDateTimeShort(evt.authdate)}</td>
-                <td className={styles.mono}>{evt.class ?? '—'}</td>
+                <td><MotivoBadge reason={evt.reason} /></td>
               </tr>
             ))}
           </tbody>
