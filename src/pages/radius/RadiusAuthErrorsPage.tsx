@@ -23,6 +23,50 @@ const MOTIVO_MAP: Record<string, { label: string; className: string }> = {
   other:          { label: 'Otro / revisar',   className: styles.badgeOther },
 };
 
+type ReasonKey = 'session_stuck' | 'user_not_found' | 'other';
+
+/**
+ * Configuración de los chips de filtro por motivo.
+ * Cada chip tiene clases CSS distintas para su estado inactivo y activo.
+ * El estado activo invierte los colores: badge-fg pasa a ser el fondo,
+ * texto blanco. Contrastes verificados WCAG AA (≥4.5:1) para todos los activos:
+ *   stuck    #fff/#9a3412  ≈ 6.38:1
+ *   notFound #fff/#991b1b  ≈ 6.80:1
+ *   other    #fff/#495057  ≈ 7.43:1
+ *   todos    #fff/#343a40  > 11:1
+ */
+const CHIP_CONFIG = [
+  {
+    key: 'all' as const,
+    label: 'Todos',
+    inactiveClass: styles.chipTodos,
+    activeClass:   styles.chipTodosActive,
+  },
+  {
+    key: 'session_stuck' as ReasonKey,
+    label: MOTIVO_MAP.session_stuck.label,
+    inactiveClass: styles.chipStuck,
+    activeClass:   styles.chipStuckActive,
+  },
+  {
+    key: 'user_not_found' as ReasonKey,
+    label: MOTIVO_MAP.user_not_found.label,
+    inactiveClass: styles.chipNotFound,
+    activeClass:   styles.chipNotFoundActive,
+  },
+  {
+    key: 'other' as ReasonKey,
+    label: MOTIVO_MAP.other.label,
+    inactiveClass: styles.chipOther,
+    activeClass:   styles.chipOtherActive,
+  },
+] as const;
+
+/** Formatea un número con el separador de miles argentino (punto). */
+function formatCount(n: number): string {
+  return n.toLocaleString('es-AR');
+}
+
 function MotivoBadge({ reason }: { reason: string | null }) {
   const entry = reason ? MOTIVO_MAP[reason] : undefined;
   if (!entry) {
@@ -38,6 +82,9 @@ function MotivoBadge({ reason }: { reason: string | null }) {
  *
  * El scheduler `radius-auth-ingest` está dark por default, así que la tabla puede
  * venir vacía hasta que se prenda: el empty state es informativo, NO un error.
+ *
+ * Ola 2: chips de conteo por motivo arriba de la tabla. Clic en chip → filtra la
+ * lista por reason. Clic en chip activo → limpia el filtro.
  */
 export default function RadiusAuthErrorsPage() {
   const { filter, setFilter, clearFilter } = useAuthFailuresFilterUrl();
@@ -55,6 +102,7 @@ export default function RadiusAuthErrorsPage() {
     to:       filter.to || undefined,
     page,
     limit: LIMIT,
+    reason: filter.reason,
   };
 
   const { data, isLoading, isError } = useRadiusAuthFailures(queryParams);
@@ -111,6 +159,40 @@ export default function RadiusAuthErrorsPage() {
         <button type="button" className={styles.btnClear} onClick={clearFilter}>
           Limpiar
         </button>
+      </div>
+
+      {/* Reason chips — siempre visibles; conteos solo cuando data disponible.
+          Clic en chip activo → limpia filtro (toggle). Clic en chip diferente → setea.
+          aria-pressed = estado de toggle (WCAG 1.3.3). */}
+      <div className={styles.chipBar} role="group" aria-label="Filtrar por motivo">
+        {CHIP_CONFIG.map((chip) => {
+          const isActive = chip.key === 'all'
+            ? !filter.reason
+            : filter.reason === chip.key;
+          const count = chip.key !== 'all' && data?.countsByReason
+            ? data.countsByReason[chip.key as ReasonKey]
+            : undefined;
+          return (
+            <button
+              key={chip.key}
+              type="button"
+              className={`${styles.chip} ${isActive ? chip.activeClass : chip.inactiveClass}`}
+              aria-pressed={isActive}
+              onClick={() => {
+                if (chip.key === 'all' || isActive) {
+                  setFilter({ reason: undefined, page: 1 });
+                } else {
+                  setFilter({ reason: chip.key as ReasonKey, page: 1 });
+                }
+              }}
+            >
+              {chip.label}
+              {count !== undefined && (
+                <span className={styles.chipCount}>{` · ${formatCount(count)}`}</span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Table */}

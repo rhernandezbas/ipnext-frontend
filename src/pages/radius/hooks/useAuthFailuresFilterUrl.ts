@@ -24,6 +24,9 @@ const k = (key: string) => `${NS}${key}`;
  *   'all'         → explicit "Todos" chosen by the user; the page sends NO reply
  *                   param to the BE so both Accept and Reject come back.
  *   'Access-*'    → that exact reply.
+ *
+ * `reason` semantics: one of the 3 reason values the BE stores, or undefined (sin filtro).
+ * Cuando reason está seteado, los chips de conteo resaltan ese chip como activo.
  */
 export interface AuthFailuresFilter {
   username?: string;
@@ -31,6 +34,7 @@ export interface AuthFailuresFilter {
   from?: string;
   to?: string;
   page?: number;
+  reason?: 'session_stuck' | 'user_not_found' | 'other';
 }
 
 export interface AuthFailuresFilterUrlResult {
@@ -48,6 +52,7 @@ export function useAuthFailuresFilterUrl(): AuthFailuresFilterUrlResult {
     from:     searchParams.get(k('from')) ?? undefined,
     to:       searchParams.get(k('to')) ?? undefined,
     page:     searchParams.get(k('page')) ? Number(searchParams.get(k('page'))) : undefined,
+    reason:   (searchParams.get(k('reason')) ?? undefined) as AuthFailuresFilter['reason'],
   };
 
   const setFilter = useCallback(
@@ -64,6 +69,7 @@ export function useAuthFailuresFilterUrl(): AuthFailuresFilterUrlResult {
             from:     'from'     in patch ? patch.from     : (prev.get(k('from')) ?? undefined),
             to:       'to'       in patch ? patch.to       : (prev.get(k('to')) ?? undefined),
             page:     'page'     in patch ? patch.page     : (prev.get(k('page')) ? Number(prev.get(k('page'))) : undefined),
+            reason:   'reason'   in patch ? patch.reason   : (prev.get(k('reason')) ?? undefined) as AuthFailuresFilter['reason'],
           };
 
           const setOrDelete = (key: string, value?: string) => {
@@ -76,6 +82,7 @@ export function useAuthFailuresFilterUrl(): AuthFailuresFilterUrlResult {
           setOrDelete('from',     merged.from);
           setOrDelete('to',       merged.to);
           setOrDelete('page', merged.page && merged.page > 1 ? String(merged.page) : undefined);
+          setOrDelete('reason', merged.reason);
 
           return next;
         },

@@ -69,10 +69,18 @@ export interface RadiusAuthEvent {
   reason: string | null;
 }
 
+export interface CountsByReason {
+  session_stuck: number;
+  user_not_found: number;
+  other: number;
+}
+
 export interface PaginatedRadiusAuthEvents {
   data: RadiusAuthEvent[];
   total: number;
   page: number;
   limit: number;
   hasNext: boolean;
+  /** Desglose COMPLETO por motivo — NO cambia al filtrar por reason (siempre el total). */
+  countsByReason: CountsByReason;
 }

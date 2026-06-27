@@ -28,6 +28,7 @@ const PAGINATED: PaginatedRadiusAuthEvents = {
   page: 1,
   limit: 50,
   hasNext: false,
+  countsByReason: { session_stuck: 0, user_not_found: 1, other: 0 },
 };
 
 function wrapper({ children }: { children: ReactNode }) {

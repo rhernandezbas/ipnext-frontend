@@ -77,6 +77,58 @@ describe('useAuthFailuresFilterUrl', () => {
   });
 });
 
+// ── Ola 2: reason filter round-trip ──────────────────────────────────────────
+
+describe('useAuthFailuresFilterUrl — reason (Ola 2)', () => {
+  it('hace round-trip de reason: setFilter → URL → read', () => {
+    const { result } = renderHook(() => useAuthFailuresFilterUrl(), { wrapper: wrapper({}) });
+    act(() => {
+      result.current.setFilter({ reason: 'session_stuck' });
+    });
+    expect(result.current.filter.reason).toBe('session_stuck');
+  });
+
+  it('setFilter({ reason: undefined }) limpia el reason', () => {
+    const { result } = renderHook(() => useAuthFailuresFilterUrl(), { wrapper: wrapper({}) });
+    act(() => {
+      result.current.setFilter({ reason: 'user_not_found' });
+    });
+    act(() => {
+      result.current.setFilter({ reason: undefined });
+    });
+    expect(result.current.filter.reason).toBeUndefined();
+  });
+
+  it('clearFilter también limpia reason', () => {
+    const { result } = renderHook(() => useAuthFailuresFilterUrl(), { wrapper: wrapper({}) });
+    act(() => {
+      result.current.setFilter({ reason: 'other' });
+    });
+    act(() => {
+      result.current.clearFilter();
+    });
+    expect(result.current.filter.reason).toBeUndefined();
+  });
+
+  it('lee auth_reason desde la URL inicial (round-trip de bookmark)', () => {
+    const { result } = renderHook(() => useAuthFailuresFilterUrl(), {
+      wrapper: wrapper({ initialUrl: '/?auth_reason=other' }),
+    });
+    expect(result.current.filter.reason).toBe('other');
+  });
+
+  it('los 3 valores válidos de reason hacen round-trip', () => {
+    const reasons = ['session_stuck', 'user_not_found', 'other'] as const;
+    for (const reason of reasons) {
+      const { result } = renderHook(() => useAuthFailuresFilterUrl(), { wrapper: wrapper({}) });
+      act(() => {
+        result.current.setFilter({ reason });
+      });
+      expect(result.current.filter.reason).toBe(reason);
+    }
+  });
+});
+
 describe('NetworkAudit — aislamiento del tab "Errores de auth" frente a los otros 2', () => {
   it('un username en Errores de auth NO se filtra a Logs ni a NE8000 (sin leak)', () => {
     const { result } = renderHook(useAllHooks, { wrapper: wrapper({}) });

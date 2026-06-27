@@ -40,6 +40,8 @@ export interface RadiusAuthFailuresParams {
   to?: string;
   page?: number;
   limit?: number;
+  /** Filtra la lista por motivo (la columna `reason`). `countsByReason` siempre viene completo. */
+  reason?: 'session_stuck' | 'user_not_found' | 'other';
 }
 
 // ── API functions ──────────────────────────────────────────────────────────────

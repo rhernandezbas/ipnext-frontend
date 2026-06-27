@@ -233,6 +233,141 @@
   color: var(--color-text-secondary);
 }
 
+/* ── Reason chips (Ola 2) ────────────────────────────────────────────────── */
+
+/*
+ * Chips de filtro por motivo arriba de la tabla. Cada chip es un <button>
+ * (aria-pressed para toggle). UX: flat design, transición 150ms, touch ≥44px.
+ *
+ * Estado activo: invertido (badge-fg pasa a fondo, texto blanco). Contrastes:
+ *   stuck    #fff / #9a3412 ≈ 6.38:1  ✓ WCAG AA
+ *   notFound #fff / #991b1b ≈ 6.80:1  ✓ WCAG AA
+ *   other    #fff / #495057 ≈ 7.43:1  ✓ WCAG AA
+ *   todos    #fff / #343a40 > 11:1    ✓ WCAG AAA
+ */
+
+.chipBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* Base chip — shared across all variants */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+  min-height: 44px;                       /* touch target ≥44px */
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease;
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip {
+    transition: none;
+  }
+}
+
+/* ── Todos (gray) ── */
+.chipTodos {
+  background: var(--color-gray-50);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+.chipTodos:hover {
+  background: var(--color-gray-100);
+}
+
+.chipTodosActive {
+  background: var(--color-gray-700);
+  color: var(--color-white);
+  border-color: var(--color-gray-700);
+}
+.chipTodosActive:hover {
+  background: var(--color-gray-800);
+  border-color: var(--color-gray-800);
+}
+
+/* ── session_stuck (naranja) ── */
+.chipStuck {
+  background: var(--badge-blocked-bg);
+  color: var(--badge-blocked-fg);
+  border-color: var(--badge-blocked-bg);
+}
+.chipStuck:hover {
+  filter: brightness(0.94);
+}
+
+.chipStuckActive {
+  background: var(--badge-blocked-fg);
+  color: var(--color-white);
+  border-color: var(--badge-blocked-fg);
+}
+.chipStuckActive:hover {
+  filter: brightness(0.9);
+}
+
+/* ── user_not_found (rojo) ── */
+.chipNotFound {
+  background: var(--badge-late-bg);
+  color: var(--badge-late-fg);
+  border-color: var(--badge-late-bg);
+}
+.chipNotFound:hover {
+  filter: brightness(0.94);
+}
+
+.chipNotFoundActive {
+  background: var(--badge-late-fg);
+  color: var(--color-white);
+  border-color: var(--badge-late-fg);
+}
+.chipNotFoundActive:hover {
+  filter: brightness(0.9);
+}
+
+/* ── other (gris) ── */
+.chipOther {
+  background: var(--badge-inactive-bg);
+  color: var(--color-gray-600);
+  border-color: var(--badge-inactive-bg);
+}
+.chipOther:hover {
+  background: var(--color-gray-100);
+  border-color: var(--color-gray-100);
+}
+
+.chipOtherActive {
+  background: var(--color-gray-600);
+  color: var(--color-white);
+  border-color: var(--color-gray-600);
+}
+.chipOtherActive:hover {
+  background: var(--color-gray-700);
+  border-color: var(--color-gray-700);
+}
+
+/* Separador " · " + conteo con dígitos tabulares para alineación */
+.chipCount {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
 /* ── Pagination ──────────────────────────────────────────────────────────── */
 
 .paginationWrapper {

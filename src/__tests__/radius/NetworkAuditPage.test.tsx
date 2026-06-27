@@ -87,6 +87,7 @@ const AUTH_DATA: PaginatedRadiusAuthEvents = {
   page: 1,
   limit: 50,
   hasNext: false,
+  countsByReason: { session_stuck: 1, user_not_found: 0, other: 0 },
 };
 
 function renderPage() {

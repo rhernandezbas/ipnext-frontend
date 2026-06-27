@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -53,6 +54,11 @@ const MOCK_DATA: PaginatedRadiusAuthEvents = {
   page: 1,
   limit: 50,
   hasNext: false,
+  countsByReason: {
+    session_stuck:  5831,
+    user_not_found: 1234,
+    other:          789,
+  },
 };
 
 function mockHook(value: Partial<ReturnType<typeof useRadiusAuthFailuresModule.useRadiusAuthFailures>>) {
@@ -61,10 +67,10 @@ function mockHook(value: Partial<ReturnType<typeof useRadiusAuthFailuresModule.u
   );
 }
 
-function renderPage() {
+function renderPage(initialUrl = '/') {
   return render(
     <QueryClientProvider client={makeQC()}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialUrl]}>
         <RadiusAuthErrorsPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -125,37 +131,43 @@ describe('RadiusAuthErrorsPage', () => {
     expect(headers).not.toContain('Class');
   });
 
-  it('maps reason=session_stuck → "Sesión colgada"', () => {
+  it('maps reason=session_stuck → "Sesión colgada" badge in the table', () => {
     mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
-    renderPage();
-    expect(screen.getByText('Sesión colgada')).toBeInTheDocument();
+    const { container } = renderPage();
+    // Label appears in both chip and table badge; scope to tbody to verify table badge
+    const tbody = container.querySelector('tbody')!;
+    expect(within(tbody).getByText('Sesión colgada')).toBeInTheDocument();
   });
 
-  it('maps reason=user_not_found → "Usuario no existe"', () => {
+  it('maps reason=user_not_found → "Usuario no existe" badge in the table', () => {
     mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
-    renderPage();
-    expect(screen.getByText('Usuario no existe')).toBeInTheDocument();
+    const { container } = renderPage();
+    const tbody = container.querySelector('tbody')!;
+    expect(within(tbody).getByText('Usuario no existe')).toBeInTheDocument();
   });
 
-  it('maps reason=other → "Otro / revisar"', () => {
+  it('maps reason=other → "Otro / revisar" badge in the table', () => {
     mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
-    renderPage();
-    expect(screen.getByText('Otro / revisar')).toBeInTheDocument();
+    const { container } = renderPage();
+    const tbody = container.querySelector('tbody')!;
+    expect(within(tbody).getByText('Otro / revisar')).toBeInTheDocument();
   });
 
-  it('renders reason=null as an em-dash with no badge label', () => {
+  it('renders reason=null as an em-dash with no badge label in the table', () => {
     mockHook({
       data: { ...MOCK_DATA, data: [MOCK_DATA.data[3]], total: 1 },
       isLoading: false,
       isError: false,
     });
-    renderPage();
+    const { container } = renderPage();
     const cells = screen.getAllByRole('cell');
-    // The Motivo cell for a null reason shows "—" and none of the badge labels.
+    // The Motivo cell for a null reason shows "—"
     expect(cells.some((c) => c.textContent === '—')).toBe(true);
-    expect(screen.queryByText('Sesión colgada')).not.toBeInTheDocument();
-    expect(screen.queryByText('Usuario no existe')).not.toBeInTheDocument();
-    expect(screen.queryByText('Otro / revisar')).not.toBeInTheDocument();
+    // No badge labels inside table cells (chips still show them, but not in tbody)
+    const tbody = container.querySelector('tbody')!;
+    expect(within(tbody).queryByText('Sesión colgada')).toBeNull();
+    expect(within(tbody).queryByText('Usuario no existe')).toBeNull();
+    expect(within(tbody).queryByText('Otro / revisar')).toBeNull();
   });
 
   it('renders an em-dash for an unknown reason value (no crash)', () => {
@@ -226,5 +238,118 @@ describe('RadiusAuthErrorsPage', () => {
     expect(screen.getByLabelText('Desde')).toBeInTheDocument();
     expect(screen.getByLabelText('Hasta')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /limpiar/i })).toBeInTheDocument();
+  });
+});
+
+// ── Ola 2: chips de conteo + filtro por reason ────────────────────────────────
+
+describe('ReasonChips — Ola 2', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders the 4 chip buttons: Todos + 3 reason labels', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    expect(screen.getByRole('button', { name: /todos/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /sesión colgada/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /usuario no existe/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /otro.*revisar/i })).toBeInTheDocument();
+  });
+
+  it('renders chips with countsByReason counts formatted with AR thousands separator', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    // 5831 → "5.831", 1234 → "1.234", 789 → "789"
+    expect(screen.getByRole('button', { name: /sesión colgada/i }).textContent).toContain('5.831');
+    expect(screen.getByRole('button', { name: /usuario no existe/i }).textContent).toContain('1.234');
+    expect(screen.getByRole('button', { name: /otro.*revisar/i }).textContent).toContain('789');
+  });
+
+  it('"Todos" chip is aria-pressed=true when no reason filter is active', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage(); // no reason in URL
+    expect(screen.getByRole('button', { name: /todos/i })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('reason chip is NOT active by default (aria-pressed=false)', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    expect(screen.getByRole('button', { name: /sesión colgada/i })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: /usuario no existe/i })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: /otro.*revisar/i })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('clicking a reason chip passes that reason to the hook', async () => {
+    const user = userEvent.setup();
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    await user.click(screen.getByRole('button', { name: /sesión colgada/i }));
+    expect(useRadiusAuthFailuresModule.useRadiusAuthFailures).toHaveBeenLastCalledWith(
+      expect.objectContaining({ reason: 'session_stuck' }),
+    );
+  });
+
+  it('clicking a reason chip marks it as active (aria-pressed=true)', async () => {
+    const user = userEvent.setup();
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    const chip = screen.getByRole('button', { name: /usuario no existe/i });
+    await user.click(chip);
+    expect(chip).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('clicking the active chip toggles it off (clears reason filter)', async () => {
+    const user = userEvent.setup();
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    // Start with reason already in URL
+    renderPage('/?auth_reason=session_stuck');
+    const chip = screen.getByRole('button', { name: /sesión colgada/i });
+    // Should start as active
+    expect(chip).toHaveAttribute('aria-pressed', 'true');
+    // Click to deactivate
+    await user.click(chip);
+    expect(chip).toHaveAttribute('aria-pressed', 'false');
+    expect(useRadiusAuthFailuresModule.useRadiusAuthFailures).toHaveBeenLastCalledWith(
+      expect.objectContaining({ reason: undefined }),
+    );
+  });
+
+  it('reason from URL round-trips into queryParams for the hook', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage('/?auth_reason=user_not_found');
+    expect(useRadiusAuthFailuresModule.useRadiusAuthFailures).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'user_not_found' }),
+    );
+    expect(screen.getByRole('button', { name: /usuario no existe/i })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('"Todos" chip click clears the reason filter', async () => {
+    const user = userEvent.setup();
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage('/?auth_reason=other');
+    await user.click(screen.getByRole('button', { name: /todos/i }));
+    expect(useRadiusAuthFailuresModule.useRadiusAuthFailures).toHaveBeenLastCalledWith(
+      expect.objectContaining({ reason: undefined }),
+    );
+  });
+
+  it('chips render in loading state without counts (no data yet)', () => {
+    mockHook({ data: undefined, isLoading: true, isError: false });
+    renderPage();
+    // Chips are always rendered; no counts without data
+    expect(screen.getByRole('button', { name: 'Todos' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sesión colgada' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Usuario no existe' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Otro / revisar' })).toBeInTheDocument();
+  });
+
+  it('chip labels have no emojis (text-only per ui-ux-pro-max)', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    const emoji = /\p{Extended_Pictographic}/u;
+    ['Todos', 'Sesión colgada', 'Usuario no existe', 'Otro / revisar'].forEach((label) => {
+      expect(emoji.test(label)).toBe(false);
+    });
   });
 });
