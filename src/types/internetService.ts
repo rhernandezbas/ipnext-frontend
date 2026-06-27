@@ -1,3 +1,5 @@
+import type { ServiceEventType } from './serviceEvents';
+
 /**
  * Tipos de la página "Historial de servicios de Internet" (espejo de TV).
  * Contrato BE↔FE explícito, espejando los DTOs vivos en prod:
@@ -67,19 +69,11 @@ export interface InternetServiceEvent {
   customerName?: string | null;
   contractId?: string | null;
   /**
-   * Tipo de evento → badge visual. Valores REALES del wire (el BE los graba en
-   * INGLÉS desde los use cases):
-   *   activated · deactivated · reactivated · modified · reduced · blocked · restored
+   * Tipo de evento → badge visual. Fuente canónica: ServiceEventType.
+   * Espeja contract-services.dto.ts:88 del BE.
    * El badge los mapea a etiqueta español; un valor desconocido cae al default.
    */
-  eventType:
-    | 'activated'
-    | 'deactivated'
-    | 'reactivated'
-    | 'modified'
-    | 'reduced'
-    | 'blocked'
-    | 'restored';
+  eventType: ServiceEventType;
   actorName: string;
   /** Motivo libre del operador. Null para eventos legacy. */
   reason?: string | null;

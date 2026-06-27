@@ -1,3 +1,5 @@
+import type { ServiceEventType } from './serviceEvents';
+
 export type CustomerStatus = 'active' | 'inactive' | 'blocked' | 'new' | 'baja';
 
 /** A service line attached to a contract (#43). */
@@ -16,10 +18,14 @@ export interface ContractService {
 /** A single state-change event in a service's lifecycle (service-history-ledger). */
 export interface ServiceEvent {
   id: string;
-  /** 'activated' | 'deactivated' | 'reactivated' — maps to Alta / Baja / Reactivación.
+  /**
+   * Tipo de evento de ciclo de vida del servicio. Fuente canónica: ServiceEventType.
+   * Espeja contract-services.dto.ts:88 del BE.
+   *  'activated' | 'deactivated' | 'reactivated' — Alta / Baja / Reactivación.
    *  'reduced' | 'blocked' | 'restored' — corte individual PPPoE (pppoe-corte-individual).
-   *  'modified' — cambio de plan PPPoE (pppoe-plan-change-history). */
-  eventType: 'activated' | 'deactivated' | 'reactivated' | 'reduced' | 'blocked' | 'restored' | 'modified';
+   *  'modified' — cambio de plan PPPoE (pppoe-plan-change-history).
+   */
+  eventType: ServiceEventType;
   /** ISO timestamp of when the event occurred. */
   occurredAt: string;
   /** Display name of the operator who triggered the event. */
