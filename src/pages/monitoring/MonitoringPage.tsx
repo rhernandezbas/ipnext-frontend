@@ -3,6 +3,7 @@ import { useMonitoringStats, useMonitoringDevices, useMonitoringAlerts, useAckno
 import type { MonitoringDevice } from '@/types/monitoring';
 import { Spinner } from '@/components/atoms/Spinner/Spinner';
 import { Can } from '@/components/auth/Can';
+import { formatTimeShort } from '@/utils/formatDate';
 import styles from './MonitoringPage.module.css';
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -121,7 +122,7 @@ export default function MonitoringPage() {
   const { mutate: acknowledge } = useAcknowledgeAlert();
 
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
-  const [lastUpdated] = useState(() => new Date().toLocaleTimeString('es-AR'));
+  const [lastUpdated] = useState(() => formatTimeShort(new Date()));
 
   const isLoading = statsLoading || devicesLoading || alertsLoading;
 

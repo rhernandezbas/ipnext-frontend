@@ -883,6 +883,42 @@ describe('SchedulingTaskDetailPage', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  // ── #tz-fix — timezone-safe window validation ────────────────────────────────
+  // Regression: the old code used getHours()/getMinutes() (host-local). In a
+  // UTC host, a task at 19:30–20:00 ART (= 22:30–23:00 UTC) has UTC hours 22/23
+  // → fails the 08:00–20:00 check (22 ≥ 20) and is incorrectly BLOCKED.
+  // Fix: use arHour()/arMinute() so the window is evaluated in Argentina time.
+  it('#tz-fix: 19:30–20:00 ART (22:30–23:00 UTC) PASSES window — arHour not getHours', async () => {
+    await enableIclassAssign();
+    // 19:30 ART = 22:30 UTC; 20:00 ART = 23:00 UTC.
+    // Old code (getHours on UTC host): startH=22 → 22≥20 → BLOCK (wrong).
+    // Fixed code (arHour): startH=19 → OK; endH=20 endM=0 → OK (exact 20:00 allowed).
+    const startDate = '2026-06-27T22:30:00Z'; // 19:30 ART
+    const endDate   = '2026-06-27T23:00:00Z'; // 20:00 ART
+    setupMocks({ taskData: { assigneeId: 'admin-1', startDate, endDate } });
+    const moveAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useMoveTaskToStage).mockReturnValue({ ...noopMutation, mutateAsync: moveAsync } as ReturnType<typeof useMoveTaskToStage>);
+
+    const { TaskTabs } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs');
+    let capturedOnStageMove: ((stageId: string) => void) | undefined;
+    const { TaskHeader } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskHeader');
+    vi.mocked(TaskHeader).mockImplementation(({ onStageMove }: { onStageMove: (stageId: string) => void }) => {
+      capturedOnStageMove = onStageMove;
+      return <div data-testid="task-header-capture" />;
+    });
+    vi.mocked(TaskTabs).mockImplementation(() => <div data-testid="task-tabs-capture" />);
+
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('task-header-capture')).toBeInTheDocument());
+    await waitFor(() => { capturedOnStageMove?.('stage-iclass'); });
+
+    // Must PASS validation → moveAsync called, no blocking modal.
+    await waitFor(() => {
+      expect(moveAsync).toHaveBeenCalledWith({ id: 'task-1', stageId: 'stage-iclass' });
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   // TaskTabs is mocked in this file, so DatosForm never renders here.
   // The project select is thoroughly covered in DatosForm.test.tsx.
   it.todo('renders project select in task detail (covered by DatosForm.test.tsx component tests)');

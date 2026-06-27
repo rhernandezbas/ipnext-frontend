@@ -206,6 +206,20 @@ export function arHour(value: string | Date | null | undefined): number {
 }
 
 /**
+ * Minute-of-hour (0-59) of an instant in Argentina time, independent of the
+ * host timezone. AR-fixed complement to arHour — use together when you need
+ * both hour and minute for window validation (e.g. 08:00–20:00 ART check).
+ *
+ * Accepts a Date or an ISO/date string. Returns NaN for null/invalid input.
+ */
+export function arMinute(value: string | Date | null | undefined): number {
+  if (value == null || value === '') return NaN;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return NaN;
+  return arParts(d).minute;
+}
+
+/**
  * Build the UTC instant for the START of a given AR calendar day "YYYY-MM-DD"
  * (00:00:00.000 ART). Since AR is a fixed UTC-3, 00:00 ART = 03:00 UTC the same
  * date. Use to compute API range bounds that must cover the correct AR day.

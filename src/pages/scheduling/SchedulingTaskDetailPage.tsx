@@ -31,6 +31,7 @@ import { CustomerSidebar } from './SchedulingTaskDetailPage/components/CustomerS
 import type { DatosFormValues } from './SchedulingTaskDetailPage/components/DatosForm';
 import { useTaskPriorities } from '@/hooks/useTaskPriorities';
 import type { WorkflowStage } from '@/types/workflow';
+import { arHour, arMinute } from '@/utils/formatDate';
 import styles from './SchedulingTaskDetailPage.module.css';
 
 function mapError(err: unknown): string {
@@ -202,9 +203,9 @@ export default function SchedulingTaskDetailPage() {
       if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) {
         problems.push('un horario (inicio y fin)');
       } else {
-        const startH = start.getHours();
-        const endH = end.getHours();
-        const endM = end.getMinutes();
+        const startH = arHour(start);
+        const endH = arHour(end);
+        const endM = arMinute(end);
         // Valid window: 08:00 ≤ start, end ≤ 20:00 (20:00:00 exact is allowed,
         // 20:01 is not), and start < end.
         const startOk = startH >= 8;

@@ -5,7 +5,7 @@ import { useTicketAreas } from '@/hooks/useTicketAreas';
 import { useClientContracts } from '@/hooks/useCustomers';
 import { buildContractLabel } from '@/lib/buildContractLabel';
 import { Button } from '@/components/atoms/Button';
-import { formatRelative } from '@/utils/formatDate';
+import { formatRelative, formatDateTimeShort } from '@/utils/formatDate';
 import styles from './TicketSidebar.module.css';
 
 interface RbacUserLite {
@@ -177,14 +177,14 @@ export function TicketSidebar({
         <div className={styles.group}>
           <div className={styles.sideRow}>
             <span className={styles.sideLabel}>Creado</span>
-            <span className={styles.sideValue} title={new Date(ticket.createdAt).toLocaleString('es-AR')}>
+            <span className={styles.sideValue} title={formatDateTimeShort(ticket.createdAt)}>
               {formatRelative(ticket.createdAt)}
             </span>
           </div>
 
           <div className={styles.sideRow}>
             <span className={styles.sideLabel}>Actualizado</span>
-            <span className={styles.sideValue} title={new Date(ticket.updatedAt).toLocaleString('es-AR')}>
+            <span className={styles.sideValue} title={formatDateTimeShort(ticket.updatedAt)}>
               {formatRelative(ticket.updatedAt)}
             </span>
           </div>
