@@ -461,12 +461,13 @@ describe('CreateTaskModal — Red/FO switch in network mode (#66)', () => {
     expect(screen.queryByPlaceholderText(/nombre del nodo fo/i)).not.toBeInTheDocument();
   });
 
-  it('switches to FO: hides NodeSelector, shows free-text node name input', () => {
+  it('switches to FO: hides NodeSelector, shows FO node dropdown', () => {
     setupNetwork();
     fireEvent.click(screen.getByRole('button', { name: /^FO$/i }));
     expect(screen.getByRole('button', { name: /^FO$/i })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByRole('listbox', { name: /nodos de red/i })).not.toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/nombre del nodo fo/i)).toBeInTheDocument();
+    // FO mode now shows a dropdown select (not free-text input)
+    expect(screen.getByRole('combobox', { name: /nombre del nodo/i })).toBeInTheDocument();
   });
 
   it('shows "Nodo Fibra" badge when switched to FO', () => {
@@ -487,7 +488,8 @@ describe('CreateTaskModal — Red/FO switch in network mode (#66)', () => {
     fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea FO' } });
     fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'Desc' } });
     fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'np-1' } });
-    fireEvent.change(screen.getByPlaceholderText(/nombre del nodo fo/i), { target: { value: 'Nodo-FO-01' } });
+    // FO node is now a dropdown — pick a valid option
+    fireEvent.change(screen.getByRole('combobox', { name: /nombre del nodo/i }), { target: { value: 'Mercedes' } });
     fireEvent.change(screen.getByPlaceholderText('Dirección del trabajo'), { target: { value: 'Calle 1' } });
     // Leave localidad empty — should be disabled
     const submit = screen.getByRole('button', { name: /crear tarea/i });
@@ -500,7 +502,8 @@ describe('CreateTaskModal — Red/FO switch in network mode (#66)', () => {
     fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea FO' } });
     fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'Desc' } });
     fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'np-1' } });
-    fireEvent.change(screen.getByPlaceholderText(/nombre del nodo fo/i), { target: { value: 'Nodo-FO-01' } });
+    // FO node is now a dropdown — pick a valid option
+    fireEvent.change(screen.getByRole('combobox', { name: /nombre del nodo/i }), { target: { value: 'Mercedes' } });
     fireEvent.change(screen.getByPlaceholderText('Dirección del trabajo'), { target: { value: 'Calle 1' } });
     fireEvent.change(screen.getByRole('combobox', { name: /localidad/i }), { target: { value: 'Springfield' } });
     const submit = screen.getByRole('button', { name: /crear tarea/i });
@@ -513,7 +516,8 @@ describe('CreateTaskModal — Red/FO switch in network mode (#66)', () => {
     fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea FO' } });
     fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'Desc' } });
     fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'np-1' } });
-    fireEvent.change(screen.getByPlaceholderText(/nombre del nodo fo/i), { target: { value: 'Nodo-FO-01' } });
+    // FO node is now a dropdown — pick a valid option
+    fireEvent.change(screen.getByRole('combobox', { name: /nombre del nodo/i }), { target: { value: 'Mercedes' } });
     fireEvent.change(screen.getByPlaceholderText('Dirección del trabajo'), { target: { value: 'Calle 1' } });
     fireEvent.change(screen.getByRole('combobox', { name: /localidad/i }), { target: { value: 'Rosario' } });
     const submit = screen.getByRole('button', { name: /crear tarea/i });
@@ -525,7 +529,7 @@ describe('CreateTaskModal — Red/FO switch in network mode (#66)', () => {
         kind: 'network',
         networkType: 'fibra',
         networkSiteId: null,
-        networkSiteName: 'Nodo-FO-01',
+        networkSiteName: 'Mercedes',
         iclassCityCode: 'Rosario',
       }),
     );

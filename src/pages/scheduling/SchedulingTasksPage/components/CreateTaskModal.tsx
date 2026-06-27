@@ -19,6 +19,9 @@ import styles from './CreateTaskModal.module.css';
 
 const DEFAULT_PRIORITY = 'Normal';
 
+// TODO: temporal — confirmar nombres reales / mover a catálogo
+const FO_NODES_TEMP = ['Mercedes', 'Estudiantes', 'Chivilcoy'] as const;
+
 // Maps legacy template category codes (TaskTemplate still uses the old enum) to
 // the seeded catalog names, so applying a template selects a real catalog option.
 const LEGACY_CATEGORY_LABEL: Record<string, string> = {
@@ -526,17 +529,21 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
               </div>
             )}
 
-            {/* ── FO: free-text node name (required) ────────────────────── */}
+            {/* ── FO: dropdown node name (required) ─────────────────────── */}
             {networkType === 'fibra' && (
               <label className={styles.label}>
                 <span>Nombre del nodo <span className={styles.required} aria-hidden="true">*</span></span>
-                <input
-                  className={styles.input}
+                <select
+                  className={styles.select}
                   value={networkSiteName}
                   onChange={e => setNetworkSiteName(e.target.value)}
-                  placeholder="Nombre del nodo FO"
                   aria-label="Nombre del nodo"
-                />
+                >
+                  <option value="">Seleccioná el nodo</option>
+                  {FO_NODES_TEMP.map(node => (
+                    <option key={node} value={node}>{node}</option>
+                  ))}
+                </select>
               </label>
             )}
 
