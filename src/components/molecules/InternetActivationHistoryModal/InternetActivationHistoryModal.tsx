@@ -17,9 +17,12 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useInternetActivationHistory } from '@/hooks/useInternetServices';
+import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { ReasonViewModal } from '@/components/molecules/ReasonViewModal/ReasonViewModal';
 import { formatDateTimeShort, arDayStartUtc, arDayEndUtc } from '@/utils/formatDate';
+import { exportToCsv } from '@/utils/exportToCsv';
+import type { CsvColumn } from '@/utils/exportToCsv';
 import type {
   InternetServiceEvent,
   InternetActivationHistoryFilter,
@@ -172,11 +175,55 @@ function PerClientBody({ clientId, open }: { clientId: string; open: boolean }) 
 
 // ── Cuerpo global (con filtros) ──────────────────────────────────────────────
 
+// Columnas del CSV: Fecha · Tipo · Cliente · Operador · Motivo.
+// Motivo en el CSV es el texto real (no el botón "ver").
+const CSV_COLUMNS: CsvColumn<Row>[] = [
+  {
+    label: 'Fecha',
+    value: (r) => formatDateTimeShort(r.createdAt),
+  },
+  {
+    label: 'Tipo',
+    value: (r) => EVENT_TYPE_LABELS[r.eventType]?.label ?? capitalize(String(r.eventType)),
+  },
+  {
+    label: 'Cliente',
+    value: (r) => r.customerName ?? '—',
+  },
+  {
+    label: 'Operador',
+    value: (r) => r.actorName ?? '—',
+  },
+  {
+    label: 'Motivo',
+    value: (r) => r.reason ?? '—',
+  },
+];
+
 function GlobalBody({ open }: { open: boolean }) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [actorId, setActorId] = useState('');
   const [activeReason, setActiveReason] = useState<string | null>(null);
+
+  // Operadores del sistema para el <select> de filtro.
+  //
+  // OJO: NO usamos useAssignableOperators acá — ese hook filtra ESTRICTO al rol
+  // `ventas` (es el pool de asignación de Recaptación). Pero las altas/bajas de
+  // Internet las ejecutan VARIOS roles (admin, NOC, red — quien tenga
+  // pppoe.manage), NO ventas. Filtrar por ventas dejaría el select sin los
+  // operadores que efectivamente aparecen en el historial → filtro inútil.
+  // Por eso vamos directo a useRbacUsers y solo filtramos por status active.
+  //
+  // Caveat honesto: GET /admin/rbac/users requiere el permiso admin/rbac, así que
+  // un usuario pppoe.read-only verá la query fallar → data undefined → el select
+  // degrada a solo "Todos" (sin crash). Si hace falta el filtro de operador para
+  // usuarios sin admin/rbac, un endpoint pppoe-scoped de operadores es follow-up.
+  const { data: rbacUsers, isLoading: operatorsLoading } = useRbacUsers();
+  const operators = (rbacUsers ?? [])
+    .filter((u) => u.status === 'active')
+    .map((u) => ({ id: u.id, name: u.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   // W1 — el <input type="date"> da "YYYY-MM-DD". Si lo mandáramos crudo, el BE
   // haría new Date('2026-06-01') = medianoche UTC = 21:00 AR del día ANTERIOR,
@@ -185,7 +232,7 @@ function GlobalBody({ open }: { open: boolean }) {
   const filter: InternetActivationHistoryFilter = {};
   if (from) filter.from = arDayStartUtc(from).toISOString();
   if (to) filter.to = arDayEndUtc(to).toISOString();
-  if (actorId.trim()) filter.actorId = actorId.trim();
+  if (actorId) filter.actorId = actorId;
 
   const { data, isLoading, isError } = useInternetActivationHistory(filter, open);
 
@@ -223,18 +270,37 @@ function GlobalBody({ open }: { open: boolean }) {
         </div>
         <div className={styles.filterGroup}>
           <label htmlFor="iahm-actor" className={styles.filterLabel}>
-            Operador (ID)
+            Operador
           </label>
-          <input
+          <select
             id="iahm-actor"
-            type="text"
             className={styles.input}
-            placeholder="ID de operador…"
             value={actorId}
             onChange={(e) => setActorId(e.target.value)}
-            aria-label="Operador (ID)"
-          />
+            disabled={operatorsLoading}
+          >
+            <option value="">Todos</option>
+            {operators.map((op) => (
+              <option key={op.id} value={op.id}>
+                {op.name}
+              </option>
+            ))}
+          </select>
         </div>
+        {/*
+          Siempre habilitado: no lo deshabilitamos durante el loading ni con 0
+          filas. exportToCsv hace early-return si rows está vacío (no baja un
+          archivo vacío), así evitamos un botón que parpadea disabled mientras
+          carga la tabla.
+        */}
+        <button
+          type="button"
+          className={styles.exportBtn}
+          onClick={() => exportToCsv(rows, CSV_COLUMNS, 'historial-internet.csv')}
+          aria-label="Exportar CSV"
+        >
+          Exportar CSV
+        </button>
       </div>
 
       {isError && (
