@@ -52,6 +52,7 @@ vi.mock('@dnd-kit/utilities', () => ({
 
 import { ChecklistSection } from '@/pages/scheduling/SchedulingTaskDetailPage/components/ChecklistSection';
 import * as schedulingHooks from '@/hooks/useScheduling';
+import { mockMutation } from '@/__tests__/_utils/reactQueryMocks';
 
 function makeItem(overrides: Partial<TaskChecklistItem> = {}): TaskChecklistItem {
   return {
@@ -90,10 +91,10 @@ describe('ChecklistSection', () => {
 
   it('clicking a checkbox calls useToggleChecklistItem mutateAsync with correct itemId', () => {
     const mockMutate = vi.fn().mockResolvedValue({});
-    vi.mocked(schedulingHooks.useToggleChecklistItem).mockReturnValue({
+    vi.mocked(schedulingHooks.useToggleChecklistItem).mockReturnValue(mockMutation({
       mutateAsync: mockMutate,
       isPending: false,
-    } as ReturnType<typeof schedulingHooks.useToggleChecklistItem>);
+    }));
 
     const items = [makeItem({ id: 'item-x' })];
     render(<ChecklistSection taskId={TASK_ID} checklist={items} />);

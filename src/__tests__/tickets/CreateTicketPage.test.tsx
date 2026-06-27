@@ -8,6 +8,7 @@ import * as useTicketsModule from '@/hooks/useTickets';
 import * as clientsApi from '@/api/customers.api';
 import * as useTicketAreasModule from '@/hooks/useTicketAreas';
 import * as useCustomersModule from '@/hooks/useCustomers';
+import { mockMutation } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useTickets');
 vi.mock('@/api/customers.api');
@@ -51,15 +52,16 @@ function mockContracts(over: Partial<ReturnType<typeof useCustomersModule.useCli
 describe('CreateTicketPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useTicketsModule.useCreateTicket).mockReturnValue({
+    vi.mocked(useTicketsModule.useCreateTicket).mockReturnValue(mockMutation({
       mutateAsync: mockMutateAsync,
       isPending: false,
-    } as ReturnType<typeof useTicketsModule.useCreateTicket>);
+    }));
 
     vi.mocked(clientsApi.getClients).mockResolvedValue({
       data: [{ id: 'client-1', name: 'Juan Pérez' } as never],
       total: 1,
       page: 1,
+      pageSize: 20,
       totalPages: 1,
     });
 
@@ -218,10 +220,10 @@ describe('CreateTicketPage', () => {
   });
 
   it('shows spinner on Crear Ticket button when pending', () => {
-    vi.mocked(useTicketsModule.useCreateTicket).mockReturnValue({
+    vi.mocked(useTicketsModule.useCreateTicket).mockReturnValue(mockMutation({
       mutateAsync: mockMutateAsync,
       isPending: true,
-    } as ReturnType<typeof useTicketsModule.useCreateTicket>);
+    }));
 
     renderCreate();
     expect(screen.queryByText('Crear Ticket')).not.toBeInTheDocument();

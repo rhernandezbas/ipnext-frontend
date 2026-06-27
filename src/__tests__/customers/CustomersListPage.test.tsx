@@ -6,6 +6,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import CustomersListPage from '@/pages/customers/CustomersListPage';
 import * as useClientsModule from '@/hooks/useCustomers';
 import type { CustomerSummary } from '@/types/customer';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useCustomers');
 
@@ -14,8 +15,8 @@ function makeQueryClient() {
 }
 
 const mockCustomers: CustomerSummary[] = [
-  { id: 1, name: 'Alice García', email: 'alice@example.com', phone: '11-1111-1111', status: 'active', balance: 0, category: 'residential', tariffPlan: 'Plan 50MB', login: 'alice', ipRanges: '192.168.1.0/24', accessDevices: 1, createdAt: '2024-01-01' },
-  { id: 2, name: 'Bob Martínez', email: 'bob@example.com', phone: '22-2222-2222', status: 'inactive', balance: 0, category: 'residential', tariffPlan: null, login: null, ipRanges: null, accessDevices: 0, createdAt: '2024-02-01' },
+  { id: 1, name: 'Alice García', email: 'alice@example.com', phone: '11-1111-1111', status: 'active', category: 'residential', tariffPlan: 'Plan 50MB', login: 'alice', ipRanges: '192.168.1.0/24', accessDevices: 1, createdAt: '2024-01-01' },
+  { id: 2, name: 'Bob Martínez', email: 'bob@example.com', phone: '22-2222-2222', status: 'inactive', category: 'residential', tariffPlan: null, login: null, ipRanges: null, accessDevices: 0, createdAt: '2024-02-01' },
 ];
 
 function renderPage() {
@@ -115,10 +116,10 @@ describe('CustomersListPage', () => {
   });
 
   it('shows empty message when no clients', () => {
-    vi.mocked(useClientsModule.useClientList).mockReturnValue({
-      data: { data: [], total: 0, page: 1, totalPages: 1 },
+    vi.mocked(useClientsModule.useClientList).mockReturnValue(mockQuery({
+      data: { data: [], total: 0, page: 1, pageSize: 20, totalPages: 1 },
       isLoading: false,
-    } as ReturnType<typeof useClientsModule.useClientList>);
+    }));
     renderPage();
     expect(screen.getByText('No se encontraron clientes.')).toBeInTheDocument();
   });

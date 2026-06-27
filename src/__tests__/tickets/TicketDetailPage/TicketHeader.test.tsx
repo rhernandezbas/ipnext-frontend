@@ -27,10 +27,17 @@ const mockTicket: Ticket = {
   customerName: 'Empresa SA',
   assigneeId: null,
   assigneeName: null,
+  reporterId: null,
+  reporterName: null,
   reporter: null,
   createdAt: '2024-01-01T00:00:00Z',
   updatedAt: '2024-01-02T00:00:00Z',
   resolvedAt: null,
+  contractId: null,
+  areaId: null,
+  areaName: null,
+  areaColor: null,
+  archivedAt: null,
   tags: [],
 };
 
@@ -48,6 +55,7 @@ function renderHeader(overrides: {
     <MemoryRouter>
       <TicketHeader
         ticket={ticket}
+        statusValue={ticket.status}
         onSubjectSave={overrides.onSubjectSave ?? vi.fn().mockResolvedValue(undefined)}
         onStatusChange={overrides.onStatusChange ?? vi.fn().mockResolvedValue(undefined)}
         onClose={overrides.onClose ?? vi.fn()}
@@ -70,7 +78,7 @@ describe('TicketHeader', () => {
       can: vi.fn().mockReturnValue(true),
       permissions: ['tickets.close', 'tickets.delete', 'scheduling.write', 'tickets.write'],
       isLoading: false,
-    } as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+    } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
   });
 
   it('renders breadcrumb with the ticket sequence number', () => {
@@ -106,7 +114,7 @@ describe('TicketHeader', () => {
       can: vi.fn().mockImplementation((perms: string[]) => !perms.includes('tickets.close')),
       permissions: [],
       isLoading: false,
-    } as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+    } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
     renderHeader();
     fireEvent.click(screen.getByRole('button', { name: /acciones/i }));
     expect(screen.queryByRole('menuitem', { name: /cerrar ticket/i })).not.toBeInTheDocument();
@@ -136,7 +144,7 @@ describe('TicketHeader', () => {
       can: vi.fn().mockImplementation((perms: string[]) => !perms.includes('scheduling.write')),
       permissions: [],
       isLoading: false,
-    } as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+    } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
     renderHeader();
     fireEvent.click(screen.getByRole('button', { name: /acciones/i }));
     expect(screen.queryByRole('menuitem', { name: /crear tarea/i })).not.toBeInTheDocument();
@@ -154,7 +162,7 @@ describe('TicketHeader', () => {
       can: vi.fn().mockImplementation((perms: string[]) => !perms.includes('tickets.delete')),
       permissions: [],
       isLoading: false,
-    } as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+    } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
     renderHeader();
     fireEvent.click(screen.getByRole('button', { name: /acciones/i }));
     expect(screen.queryByRole('menuitem', { name: /eliminar/i })).not.toBeInTheDocument();
@@ -200,7 +208,7 @@ describe('TicketHeader', () => {
       can: vi.fn().mockImplementation((perms: string[]) => !perms.includes('tickets.reopen')),
       permissions: [],
       isLoading: false,
-    } as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+    } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
     renderHeader({ ticket: { status: 'cerrado' } });
     // The non-closed option ("abierto") must be disabled — no reopen permission.
     expect(screen.getByRole('option', { name: 'abierto' })).toBeDisabled();
@@ -213,7 +221,7 @@ describe('TicketHeader', () => {
       can: vi.fn().mockReturnValue(true),
       permissions: ['tickets.reopen', 'tickets.write'],
       isLoading: false,
-    } as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+    } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
     renderHeader({ ticket: { status: 'cerrado' } });
     expect(screen.getByRole('option', { name: 'abierto' })).not.toBeDisabled();
   });

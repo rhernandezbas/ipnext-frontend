@@ -6,6 +6,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { PagosPage } from '@/pages/PagosPage/PagosPage';
 import * as useBillingModule from '@/hooks/useBilling';
 import type { Payment } from '@/types/billing';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useBilling');
 
@@ -68,10 +69,10 @@ describe('PagosPage', () => {
   });
 
   it('shows empty message when no payments', () => {
-    vi.mocked(useBillingModule.usePayments).mockReturnValue({
-      data: { data: [], total: 0 },
+    vi.mocked(useBillingModule.usePayments).mockReturnValue(mockQuery({
+      data: { data: [], total: 0, page: 1, pageSize: 20, totalPages: 1 },
       isLoading: false,
-    } as ReturnType<typeof useBillingModule.usePayments>);
+    }));
     renderPagos();
     expect(screen.getByText('No hay pagos.')).toBeInTheDocument();
   });

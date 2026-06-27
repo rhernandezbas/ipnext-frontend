@@ -68,7 +68,8 @@ function mkArchivedTask(id: string, seq: number): ScheduledTask {
     kind: 'customer', networkSiteId: null, networkSiteName: null,
     iclassCityCode: null, networkType: null,
     archivedAt: '2026-06-10T12:00:00Z',
-  } as ScheduledTask;
+    iclassStatus: null,
+  } as unknown as ScheduledTask;
 }
 
 describe('SchedulingArchivedTasksPage — empty state', () => {

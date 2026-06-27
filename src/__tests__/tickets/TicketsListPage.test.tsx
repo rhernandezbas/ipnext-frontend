@@ -21,21 +21,29 @@ function makeQC() {
 
 const mockTickets: Ticket[] = [
   {
-    id: 1,
+    id: '1',
+    sequenceNumber: 1,
     subject: 'Problema de conexión',
     customerName: 'Alice García',
-    customerId: 1,
+    customerId: '1',
     priority: 'high',
     status: 'open',
     type: null,
     assigneeName: 'Juan',
     assigneeId: null,
+    reporterId: null,
+    reporterName: null,
     reporter: null,
     description: 'Sin internet',
     tags: [],
     createdAt: '2024-01-01',
     updatedAt: '2024-01-02',
     resolvedAt: null,
+    contractId: null,
+    areaId: null,
+    areaName: null,
+    areaColor: null,
+    archivedAt: null,
   },
 ];
 
@@ -84,7 +92,7 @@ describe('TicketsListPage (Prominense re-skin)', () => {
       can: vi.fn().mockReturnValue(true),
       permissions: ['*'],
       isLoading: false,
-    } as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+    } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
   });
 
   // ── Prominense chrome ──────────────────────────────────────────────────────
@@ -116,7 +124,7 @@ describe('TicketsListPage (Prominense re-skin)', () => {
       can: vi.fn().mockReturnValue(false),
       permissions: [],
       isLoading: false,
-    } as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+    } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
     renderList();
     expect(screen.queryByRole('button', { name: /crear ticket/i })).not.toBeInTheDocument();
   });

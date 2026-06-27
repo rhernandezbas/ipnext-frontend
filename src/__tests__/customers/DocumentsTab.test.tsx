@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { DocumentsTab } from '@/pages/customers/tabs/DocumentsTab';
 import * as useClientsModule from '@/hooks/useCustomers';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useCustomers');
 
@@ -37,10 +38,10 @@ describe('DocumentsTab', () => {
   });
 
   it('renders Subir documento button', () => {
-    vi.mocked(useClientsModule.useClientDocuments).mockReturnValue({
+    vi.mocked(useClientsModule.useClientDocuments).mockReturnValue(mockQuery({
       data: [],
       isLoading: false,
-    } as ReturnType<typeof useClientsModule.useClientDocuments>);
+    }));
 
     renderTab();
     expect(screen.getByRole('button', { name: 'Subir documento' })).toBeInTheDocument();
@@ -68,20 +69,20 @@ describe('DocumentsTab', () => {
   });
 
   it('shows Sin documentos when data is empty', () => {
-    vi.mocked(useClientsModule.useClientDocuments).mockReturnValue({
+    vi.mocked(useClientsModule.useClientDocuments).mockReturnValue(mockQuery({
       data: [],
       isLoading: false,
-    } as ReturnType<typeof useClientsModule.useClientDocuments>);
+    }));
 
     renderTab();
     expect(screen.getByText('Sin documentos')).toBeInTheDocument();
   });
 
   it('upload button is present and hidden file input exists', async () => {
-    vi.mocked(useClientsModule.useClientDocuments).mockReturnValue({
+    vi.mocked(useClientsModule.useClientDocuments).mockReturnValue(mockQuery({
       data: [],
       isLoading: false,
-    } as ReturnType<typeof useClientsModule.useClientDocuments>);
+    }));
 
     renderTab();
 
@@ -94,10 +95,10 @@ describe('DocumentsTab', () => {
   });
 
   it('clicking Subir documento triggers file input click', async () => {
-    vi.mocked(useClientsModule.useClientDocuments).mockReturnValue({
+    vi.mocked(useClientsModule.useClientDocuments).mockReturnValue(mockQuery({
       data: [],
       isLoading: false,
-    } as ReturnType<typeof useClientsModule.useClientDocuments>);
+    }));
 
     const user = userEvent.setup();
     renderTab();

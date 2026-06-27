@@ -42,6 +42,7 @@ const mockMT = (over: Partial<MaterialType> = {}): MaterialType => ({
   unit: 'm',
   active: true,
   sortOrder: 1,
+  minStock: 0,
   createdAt: '2026-06-01T00:00:00.000Z',
   updatedAt: '2026-06-01T00:00:00.000Z',
   ...over,

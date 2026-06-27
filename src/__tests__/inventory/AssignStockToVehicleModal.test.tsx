@@ -24,34 +24,35 @@ vi.mock('@/hooks/useVehicles', () => ({
 import { useDepotStock } from '@/hooks/useDepotStock';
 import { useIssueStockToVehicle } from '@/hooks/useVehicles';
 import { AssignStockToVehicleModal } from '@/components/inventory/AssignStockToVehicleModal';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 function mockDepotEmpty() {
-  vi.mocked(useDepotStock).mockReturnValue({
+  vi.mocked(useDepotStock).mockReturnValue(mockQuery({
     data: { assets: [], materials: [], depotLocationId: null },
     isLoading: false,
     isError: false,
-  } as ReturnType<typeof useDepotStock>);
+  }));
 }
 
 function mockDepotWithAsset() {
-  vi.mocked(useDepotStock).mockReturnValue({
+  vi.mocked(useDepotStock).mockReturnValue(mockQuery({
     data: {
       assets: [{
         id: 'a-1',
         serialNumber: 'SN-001',
+        deviceTypeId: 'dt-1',
         deviceTypeName: 'ONU',
         deviceTypeLabel: 'Óptico',
         mac: null,
         status: 'available',
-        currentLocationId: 'depot-1',
-        materialCatalogId: null,
+        sourceTaskId: null,
       }],
       materials: [],
       depotLocationId: 'depot-1',
     },
     isLoading: false,
     isError: false,
-  } as ReturnType<typeof useDepotStock>);
+  }));
 }
 
 function mockIssueMutation(mutate = vi.fn().mockResolvedValue(undefined)) {

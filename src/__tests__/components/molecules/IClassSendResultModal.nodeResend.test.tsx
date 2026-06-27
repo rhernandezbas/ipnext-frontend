@@ -12,8 +12,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import React from 'react';
-
 // ── Mock useMyPermissions (useCan) ───────────────────────────────────────────
 vi.mock('@/hooks/useMyPermissions', () => ({
   useMyPermissions: vi.fn(() => ({
@@ -37,6 +35,7 @@ import { useCan } from '@/hooks/useMyPermissions';
 import { useIClassNodes, useResendToIClass } from '@/hooks/useScheduling';
 import { IClassSendResultModal } from '@/components/molecules/IClassSendResultModal/IClassSendResultModal';
 
+import { mockMutation, mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const NODE_NOT_FOUND_ERROR = { code: 'ICLASS_NODE_NOT_FOUND' };
@@ -45,9 +44,6 @@ const SAMPLE_NODES = [
   { code: 'CBA01',  description: 'Córdoba Centro' },
 ];
 
-function defaultResendMock() {
-  return { mutateAsync: vi.fn(), isPending: false };
-}
 
 function makeClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -81,8 +77,8 @@ function renderModal(props: Partial<Parameters<typeof IClassSendResultModal>[0]>
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(useCan).mockReturnValue(true);
-  vi.mocked(useIClassNodes).mockReturnValue({ data: SAMPLE_NODES, isLoading: false, isError: false });
-  vi.mocked(useResendToIClass).mockReturnValue(defaultResendMock());
+  vi.mocked(useIClassNodes).mockReturnValue(mockQuery({ data: SAMPLE_NODES, isLoading: false, isError: false }));
+  vi.mocked(useResendToIClass).mockReturnValue(mockMutation({ mutateAsync: vi.fn(), isPending: false }));
 });
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -125,7 +121,7 @@ describe('IClassSendResultModal — ICLASS_NODE_NOT_FOUND node-resend section', 
 
   describe('loading state', () => {
     it('renders the skeleton and no trigger when nodes are loading', () => {
-      vi.mocked(useIClassNodes).mockReturnValue({ data: undefined, isLoading: true, isError: false });
+      vi.mocked(useIClassNodes).mockReturnValue(mockQuery({ data: undefined, isLoading: true, isError: false }));
       renderModal();
       expect(screen.getByLabelText(/cargando nodos/i)).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /seleccionar nodo/i })).not.toBeInTheDocument();
@@ -134,7 +130,7 @@ describe('IClassSendResultModal — ICLASS_NODE_NOT_FOUND node-resend section', 
 
   describe('empty state', () => {
     it('shows empty-state message when nodes list is empty', () => {
-      vi.mocked(useIClassNodes).mockReturnValue({ data: [], isLoading: false, isError: false });
+      vi.mocked(useIClassNodes).mockReturnValue(mockQuery({ data: [], isLoading: false, isError: false }));
       renderModal();
       expect(screen.getByText(/no hay nodos disponibles/i)).toBeInTheDocument();
     });
@@ -142,7 +138,7 @@ describe('IClassSendResultModal — ICLASS_NODE_NOT_FOUND node-resend section', 
 
   describe('error state', () => {
     it('shows error message when useIClassNodes returns isError', () => {
-      vi.mocked(useIClassNodes).mockReturnValue({ data: undefined, isLoading: false, isError: true });
+      vi.mocked(useIClassNodes).mockReturnValue(mockQuery({ data: undefined, isLoading: false, isError: true }));
       renderModal();
       expect(screen.getByText(/no se pudieron cargar los nodos/i)).toBeInTheDocument();
     });
@@ -178,7 +174,7 @@ describe('IClassSendResultModal — ICLASS_NODE_NOT_FOUND node-resend section', 
     });
 
     it('shows loading text while resend is pending', () => {
-      vi.mocked(useResendToIClass).mockReturnValue({ mutateAsync: vi.fn(), isPending: true });
+      vi.mocked(useResendToIClass).mockReturnValue(mockMutation({ mutateAsync: vi.fn(), isPending: true }));
       renderModal();
       // isPending disables the trigger too, so resend button is disabled + reads "Reenviando..."
       expect(screen.getByRole('button', { name: /reenviando/i })).toBeInTheDocument();
@@ -188,7 +184,7 @@ describe('IClassSendResultModal — ICLASS_NODE_NOT_FOUND node-resend section', 
   describe('successful resend', () => {
     it('calls mutation with the selected nodeCode', async () => {
       const mutateAsync = vi.fn().mockResolvedValue({ iclassOrderCode: 'OS-999' });
-      vi.mocked(useResendToIClass).mockReturnValue({ mutateAsync, isPending: false });
+      vi.mocked(useResendToIClass).mockReturnValue(mockMutation({ mutateAsync, isPending: false }));
       const onClose = vi.fn();
       const onResendSuccess = vi.fn();
 
@@ -208,7 +204,7 @@ describe('IClassSendResultModal — ICLASS_NODE_NOT_FOUND node-resend section', 
 
     it('calls onResendSuccess with the iclassOrderCode on success', async () => {
       const mutateAsync = vi.fn().mockResolvedValue({ iclassOrderCode: 'OS-999' });
-      vi.mocked(useResendToIClass).mockReturnValue({ mutateAsync, isPending: false });
+      vi.mocked(useResendToIClass).mockReturnValue(mockMutation({ mutateAsync, isPending: false }));
       const onResendSuccess = vi.fn();
       const onClose = vi.fn();
 
@@ -230,7 +226,7 @@ describe('IClassSendResultModal — ICLASS_NODE_NOT_FOUND node-resend section', 
       const mutateAsync = vi.fn().mockRejectedValue({
         response: { data: { message: 'Código de nodo inválido.', code: 'VALIDATION_ERROR' } },
       });
-      vi.mocked(useResendToIClass).mockReturnValue({ mutateAsync, isPending: false });
+      vi.mocked(useResendToIClass).mockReturnValue(mockMutation({ mutateAsync, isPending: false }));
       const onClose = vi.fn();
 
       renderModal({ onClose });
@@ -247,7 +243,7 @@ describe('IClassSendResultModal — ICLASS_NODE_NOT_FOUND node-resend section', 
 
     it('shows a generic fallback message when the error has no message', async () => {
       const mutateAsync = vi.fn().mockRejectedValue(new Error('network'));
-      vi.mocked(useResendToIClass).mockReturnValue({ mutateAsync, isPending: false });
+      vi.mocked(useResendToIClass).mockReturnValue(mockMutation({ mutateAsync, isPending: false }));
 
       renderModal();
 

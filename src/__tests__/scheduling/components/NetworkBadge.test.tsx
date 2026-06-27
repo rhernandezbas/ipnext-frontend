@@ -101,7 +101,7 @@ const workflows: Workflow[] = [{
   createdAt: '',
   updatedAt: '',
   stages: [
-    { id: 's1', workflowId: 'wf1', name: 'Nuevo', category: 'nuevo', order: 0 },
+    { id: 's1', workflowId: 'wf1', name: 'Nuevo', category: 'nuevo', code: 'nuevo', order: 0 },
   ],
 }];
 

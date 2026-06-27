@@ -96,7 +96,7 @@ describe('ClosureProgressTable — rows with task link', () => {
 // REQ-LIST-3 SC2: Row without task link renders dash placeholder
 describe('ClosureProgressTable — null task', () => {
   it('renders a dash placeholder when task is null (no broken link)', () => {
-    mockPendingList([itemNoTask]);
+    mockPendingList([itemNoTask as unknown as typeof item1]);
     renderTable();
     // Should NOT render a link element for the task column
     expect(screen.queryByRole('link')).not.toBeInTheDocument();

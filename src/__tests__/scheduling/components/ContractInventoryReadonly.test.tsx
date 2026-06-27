@@ -14,6 +14,7 @@ vi.mock('@/hooks/useTaskMaterials', () => ({
 import { useServiceInstalledItems } from '@/hooks/useServiceInventory';
 import { useTaskMaterials } from '@/hooks/useTaskMaterials';
 import { ContractInventoryReadonly } from '@/pages/scheduling/SchedulingTaskDetailPage/components/ContractInventoryReadonly';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 const mockItem = (over: Partial<ServiceInstalledItem> = {}): ServiceInstalledItem => ({
   id: 'item-1',
@@ -86,8 +87,8 @@ describe('ContractInventoryReadonly', () => {
 
   it('does NOT render when contractId is null — empty state, no crash', () => {
     // useServiceInstalledItems is gated by !!contractId in the hook, but the component should not render it
-    vi.mocked(useServiceInstalledItems).mockReturnValue({ data: [], isLoading: false } as ReturnType<typeof useServiceInstalledItems>);
-    vi.mocked(useTaskMaterials).mockReturnValue({ data: [], isLoading: false } as ReturnType<typeof useTaskMaterials>);
+    vi.mocked(useServiceInstalledItems).mockReturnValue(mockQuery({ data: [], isLoading: false }));
+    vi.mocked(useTaskMaterials).mockReturnValue(mockQuery({ data: [], isLoading: false }));
     render(<ContractInventoryReadonly contractId={null} taskId={null} />);
     expect(screen.getByText(/sin contrato/i)).toBeInTheDocument();
   });

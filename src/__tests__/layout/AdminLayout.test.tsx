@@ -7,6 +7,7 @@ import * as useAuthModule from '@/hooks/useAuth';
 import * as useSearchModule from '@/hooks/useSearch';
 import * as useNotificationsModule from '@/hooks/useNotifications';
 import type { AuthUser } from '@/types/auth';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useAuth');
 vi.mock('@/hooks/useSearch');
@@ -56,10 +57,10 @@ describe('AdminLayout — Breadcrumbs', () => {
       closeResults: vi.fn(),
     });
 
-    vi.mocked(useNotificationsModule.useNotifications).mockReturnValue({
+    vi.mocked(useNotificationsModule.useNotifications).mockReturnValue(mockQuery({
       data: [],
       isLoading: false,
-    } as ReturnType<typeof useNotificationsModule.useNotifications>);
+    }));
 
     vi.mocked(useNotificationsModule.useMarkNotificationRead).mockReturnValue({
       mutate: vi.fn(),

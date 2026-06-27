@@ -4,7 +4,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ContractCard } from '@/pages/customers/tabs/contracts/ContractCard';
 import * as useCustomersModule from '@/hooks/useCustomers';
-import * as useGigaredModule from '@/hooks/useGigared';
+
 import type { Contract } from '@/types/customer';
 
 vi.mock('@/hooks/useCustomers');

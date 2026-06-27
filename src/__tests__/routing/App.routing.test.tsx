@@ -16,9 +16,9 @@
  */
 import React, { Suspense } from 'react';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { vi, describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { vi, describe, it, expect } from 'vitest';
 
 // ── Auth mock (must be before any component that uses useAuth) ────────────────
 vi.mock('@/hooks/useAuth', () => ({
@@ -31,19 +31,19 @@ vi.mock('@/hooks/useAuth', () => ({
 }));
 
 // ── Layout mocks: render Outlet so we can test page routing ──────────────────
-vi.mock('@/components/ProtectedRoute', () => ({
-  ProtectedRoute: () => {
-    const { Outlet } = require('react-router-dom');
-    return React.createElement(Outlet);
-  },
-}));
+vi.mock('@/components/ProtectedRoute', async () => {
+  const { Outlet } = await import('react-router-dom');
+  return {
+    ProtectedRoute: () => React.createElement(Outlet),
+  };
+});
 
-vi.mock('@/components/templates/AdminLayout/AdminLayout', () => ({
-  AdminLayout: () => {
-    const { Outlet } = require('react-router-dom');
-    return React.createElement(Outlet);
-  },
-}));
+vi.mock('@/components/templates/AdminLayout/AdminLayout', async () => {
+  const { Outlet } = await import('react-router-dom');
+  return {
+    AdminLayout: () => React.createElement(Outlet),
+  };
+});
 
 // ── Page mocks — each returns a unique text marker ────────────────────────────
 // Root / public

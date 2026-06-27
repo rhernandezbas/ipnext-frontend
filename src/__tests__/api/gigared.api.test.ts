@@ -41,6 +41,7 @@ const mockAccount: GigaredAccount = {
   registrationDate: '2026-01-01T00:00:00Z',
   services: [{ id: 's1', name: 'Gigared Play Full' }],
   internalId: 'cust-1',
+  clientId: null,
   ott: null,
 };
 

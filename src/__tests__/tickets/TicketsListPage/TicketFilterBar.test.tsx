@@ -14,20 +14,21 @@ import * as useRbacUsersModule from '@/hooks/useRbacUsers';
 import * as useTicketAreasModule from '@/hooks/useTicketAreas';
 import type { TicketStatus as TicketStatusType } from '@/types/ticketStatus';
 import type { TicketArea } from '@/types/ticketArea';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 const mockStatuses: TicketStatusType[] = [
   { id: '1', name: 'Abierto', color: '#22c55e', weight: 1 },
   { id: '2', name: 'Cerrado', color: '#6b7280', weight: 2 },
 ];
 
-const mockUsers = [
-  { id: 'u1', name: 'Ana García', roles: [] },
-  { id: 'u2', name: 'Luis Pérez', roles: [] },
+const mockUsers: import('@/types/rbacUser').RbacUserWithRolesDto[] = [
+  { id: 'u1', name: 'Ana García', roles: [], email: 'test@test.com', login: 'user1', status: 'active', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', lastLoginAt: null },
+  { id: 'u2', name: 'Luis Pérez', roles: [], email: 'test2@test.com', login: 'user2', status: 'active', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', lastLoginAt: null },
 ];
 
 const mockAreas: TicketArea[] = [
-  { id: 'a1', name: 'Soporte' },
-  { id: 'a2', name: 'Facturacion' },
+  { id: 'a1', name: 'Soporte', color: '#3b82f6' },
+  { id: 'a2', name: 'Facturacion', color: '#3b82f6' },
 ];
 
 function renderBar(filter: TicketFilter = {}, onFilterChange = vi.fn(), variant?: 'horizontal' | 'vertical') {
@@ -50,10 +51,10 @@ describe('TicketFilterBar', () => {
       data: mockStatuses,
       isLoading: false,
     } as ReturnType<typeof useTicketStatusesModule.useTicketStatuses>);
-    vi.mocked(useRbacUsersModule.useRbacUsers).mockReturnValue({
+    vi.mocked(useRbacUsersModule.useRbacUsers).mockReturnValue(mockQuery({
       data: mockUsers,
       isLoading: false,
-    } as ReturnType<typeof useRbacUsersModule.useRbacUsers>);
+    }));
     vi.mocked(useTicketAreasModule.useTicketAreas).mockReturnValue({
       data: mockAreas,
       isLoading: false,

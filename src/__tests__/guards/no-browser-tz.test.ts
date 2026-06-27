@@ -174,7 +174,7 @@ describe('no-browser-tz guard — prohibit host-local date formatting outside th
     const content = readFileSync(absPath, 'utf8');
     const lines = content.split('\n');
 
-    lines.forEach((line, idx) => {
+    lines.forEach((line: string, idx: number) => {
       const trimmed = line.trim();
       // Skip blank lines and pure comment lines (// … or * … in JSDoc blocks)
       if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('*')) return;

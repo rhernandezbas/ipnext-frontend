@@ -17,7 +17,6 @@
  * RG-2  "Desasociar" y "Dar de baja PPPoE" siguen presentes
  * RG-3  Los tres grupos semánticos (Modificar / Control de servicio / Ciclo de vida) están en el DOM
  */
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -31,6 +30,7 @@ import * as useContractServicesModule from '@/hooks/useContractServices';
 import * as usePlansModule from '@/hooks/usePlans';
 import type { PppoeServiceDto } from '@/types/pppoe';
 import type { PlanDto } from '@/types/plans';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 vi.mock('@/hooks/usePppoe');
@@ -181,12 +181,12 @@ function setup(opts: SetupOpts = {}) {
     isSuccess: true,
   } as ReturnType<typeof usePppoeModule.useContractPppoe>);
 
-  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue({
+  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePppoeModule.useUnassignedPppoe>);
+  }));
 
   vi.mocked(usePppoeModule.usePppoeCredentials).mockReturnValue({
     data: undefined,

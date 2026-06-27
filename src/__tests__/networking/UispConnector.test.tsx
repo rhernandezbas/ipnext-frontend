@@ -41,7 +41,7 @@ import { useUispSites } from '@/hooks/useUispSites';
 import { useUispSiteDetail } from '@/hooks/useUispSiteDetail';
 import { useMyPermissions, useCan } from '@/hooks/useMyPermissions';
 import type { NetworkSite } from '@/types/networkSite';
-import type { UispSiteRow, UispSiteDetail, UispDeviceRow } from '@/types/uisp';
+import type { UispSiteRow, UispSiteDetail } from '@/types/uisp';
 
 // ── Test factories ────────────────────────────────────────────────────────────
 
@@ -61,6 +61,8 @@ function makeNetworkSite(overrides: Partial<NetworkSite> = {}): NetworkSite {
     description: '',
     iclassNodeCode: null,
     uispSiteId: null,
+    siteNumber: 1,
+    fixedCode: 'NODO-1',
     ...overrides,
   };
 }

@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import CustomersOnlinePage from '@/pages/customers/CustomersOnlinePage';
 import * as useClientsModule from '@/hooks/useCustomers';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useCustomers');
 
@@ -68,10 +69,10 @@ describe('CustomersOnlinePage', () => {
   });
 
   it('shows loading state when isLoading is true', () => {
-    vi.mocked(useClientsModule.useOnlineSessions).mockReturnValue({
+    vi.mocked(useClientsModule.useOnlineSessions).mockReturnValue(mockQuery({
       data: [],
       isLoading: true,
-    } as ReturnType<typeof useClientsModule.useOnlineSessions>);
+    }));
     renderPage();
     expect(screen.getByText('Cargando sesiones...')).toBeInTheDocument();
   });

@@ -5,16 +5,16 @@ import type { ScheduledTask } from '@/types/scheduling';
 import type { WorkflowStage } from '@/types/workflow';
 
 const stages: WorkflowStage[] = [
-  { id: 's1', workflowId: 'wf1', name: 'Nuevo', category: 'nuevo', order: 0 },
-  { id: 's2', workflowId: 'wf1', name: 'Confirmado', category: 'nuevo', order: 1, color: '#22c55e' },
+  { id: 's1', workflowId: 'wf1', name: 'Nuevo', code: 'nuevo', category: 'nuevo', order: 0 },
+  { id: 's2', workflowId: 'wf1', name: 'Confirmado', code: 'nuevo-2', category: 'nuevo', order: 1, color: '#22c55e' },
 ];
 
 const task = { id: 't1', stageId: 's1', stageCategory: 'nuevo' } as unknown as ScheduledTask;
 
 describe('StageSelect', () => {
-  let onMove: ReturnType<typeof vi.fn>;
+  let onMove: (stageId: string) => Promise<unknown>;
   beforeEach(() => {
-    onMove = vi.fn().mockResolvedValue(undefined);
+    onMove = vi.fn().mockResolvedValue(undefined) as unknown as (stageId: string) => Promise<unknown>;
   });
 
   it('shows the current stage name on the trigger', () => {

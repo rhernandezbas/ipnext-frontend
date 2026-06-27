@@ -23,13 +23,14 @@ vi.mock('@/hooks/useWorkflows', () => ({
 
 import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from '@/hooks/useProjects';
 import { useWorkflows } from '@/hooks/useWorkflows';
+import { mockMutation } from '@/__tests__/_utils/reactQueryMocks';
 
 const mockProjects = [
   { id: 'p1', title: 'Instalaciones', description: null, workflowId: 'wf-1', createdAt: '2026-01-01', updatedAt: '2026-01-01', taskCounts: { nuevo: 2, enProgreso: 1, hecho: 3, total: 6 } },
   { id: 'p2', title: 'Mantenimiento', description: 'Tareas de mantenimiento', workflowId: null, createdAt: '2026-01-02', updatedAt: '2026-01-02', taskCounts: { nuevo: 0, enProgreso: 0, hecho: 0, total: 0 } },
 ];
 
-const idleMutation = { mutateAsync: vi.fn(), isPending: false } as unknown as ReturnType<typeof useCreateProject>;
+const noop = { mutateAsync: vi.fn(), isPending: false };
 
 function renderPage() {
   return render(<MemoryRouter><SchedulingProjectsPage /></MemoryRouter>);
@@ -40,9 +41,9 @@ describe('SchedulingProjectsPage', () => {
     vi.clearAllMocks();
     vi.mocked(useProjects).mockReturnValue({ data: mockProjects, isLoading: false, refetch: vi.fn() } as unknown as ReturnType<typeof useProjects>);
     vi.mocked(useWorkflows).mockReturnValue({ data: [{ id: 'wf-1', name: 'Default', description: null, stages: [], createdAt: '', updatedAt: '' }] } as unknown as ReturnType<typeof useWorkflows>);
-    vi.mocked(useCreateProject).mockReturnValue(idleMutation);
-    vi.mocked(useUpdateProject).mockReturnValue(idleMutation);
-    vi.mocked(useDeleteProject).mockReturnValue(idleMutation);
+    vi.mocked(useCreateProject).mockReturnValue(mockMutation(noop));
+    vi.mocked(useUpdateProject).mockReturnValue(mockMutation(noop));
+    vi.mocked(useDeleteProject).mockReturnValue(mockMutation(noop));
   });
 
   it('renders heading "Proyectos"', () => {

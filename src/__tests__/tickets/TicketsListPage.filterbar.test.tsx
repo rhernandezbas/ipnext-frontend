@@ -31,21 +31,29 @@ function makeQC() {
 
 const mockTickets: Ticket[] = [
   {
-    id: 1,
+    id: '1',
+    sequenceNumber: 1,
     subject: 'Test ticket',
     customerName: 'Alice',
-    customerId: 1,
+    customerId: '1',
     priority: 'high',
     status: 'open',
     type: null,
     assigneeName: 'Juan',
     assigneeId: null,
+    reporterId: null,
+    reporterName: null,
     reporter: null,
     description: '',
     tags: [],
     createdAt: '2024-01-01',
     updatedAt: '2024-01-02',
     resolvedAt: null,
+    contractId: null,
+    areaId: null,
+    areaName: null,
+    areaColor: null,
+    archivedAt: null,
   },
 ];
 
@@ -98,7 +106,7 @@ describe('TicketsListPage — always-visible filter bar (#87)', () => {
       can: vi.fn().mockReturnValue(true),
       permissions: ['*'],
       isLoading: false,
-    } as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+    } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
   });
 
   it('does NOT render a "Filtros" toggle button (disclosure is gone)', () => {

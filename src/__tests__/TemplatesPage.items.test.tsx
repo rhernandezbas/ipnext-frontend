@@ -45,6 +45,7 @@ vi.mock('@dnd-kit/utilities', () => ({
 
 import SchedulingTemplatesPage from '@/pages/scheduling/SchedulingTemplatesPage';
 import * as templateHooks from '@/hooks/useTaskTemplates';
+import { mockMutation, mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 const mockTemplateWithItems: TaskTemplate = {
   id: 'tpl-1',
@@ -60,11 +61,11 @@ const mockTemplateWithItems: TaskTemplate = {
 describe('SchedulingTemplatesPage — item editor in modal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(templateHooks.useTaskTemplates).mockReturnValue({
+    vi.mocked(templateHooks.useTaskTemplates).mockReturnValue(mockQuery({
       data: [mockTemplateWithItems],
       isLoading: false,
       refetch: vi.fn(),
-    } as ReturnType<typeof templateHooks.useTaskTemplates>);
+    }));
   });
 
   it('opens edit modal with existing items', () => {
@@ -82,16 +83,16 @@ describe('SchedulingTemplatesPage — item editor in modal', () => {
 
   it('save calls useReplaceTemplateItems with all current texts', async () => {
     const mockReplaceItems = vi.fn().mockResolvedValue([]);
-    vi.mocked(templateHooks.useReplaceTemplateItems).mockReturnValue({
+    vi.mocked(templateHooks.useReplaceTemplateItems).mockReturnValue(mockMutation({
       mutateAsync: mockReplaceItems,
       isPending: false,
-    } as ReturnType<typeof templateHooks.useReplaceTemplateItems>);
+    }));
 
     const mockUpdateTemplate = vi.fn().mockResolvedValue({});
-    vi.mocked(templateHooks.useUpdateTaskTemplate).mockReturnValue({
+    vi.mocked(templateHooks.useUpdateTaskTemplate).mockReturnValue(mockMutation({
       mutateAsync: mockUpdateTemplate,
       isPending: false,
-    } as ReturnType<typeof templateHooks.useUpdateTaskTemplate>);
+    }));
 
     render(<SchedulingTemplatesPage />);
 
@@ -112,15 +113,15 @@ describe('SchedulingTemplatesPage — item editor in modal', () => {
 
   it('delete item then save calls useReplaceTemplateItems with 1 text', async () => {
     const mockReplaceItems = vi.fn().mockResolvedValue([]);
-    vi.mocked(templateHooks.useReplaceTemplateItems).mockReturnValue({
+    vi.mocked(templateHooks.useReplaceTemplateItems).mockReturnValue(mockMutation({
       mutateAsync: mockReplaceItems,
       isPending: false,
-    } as ReturnType<typeof templateHooks.useReplaceTemplateItems>);
+    }));
 
-    vi.mocked(templateHooks.useUpdateTaskTemplate).mockReturnValue({
+    vi.mocked(templateHooks.useUpdateTaskTemplate).mockReturnValue(mockMutation({
       mutateAsync: vi.fn().mockResolvedValue({}),
       isPending: false,
-    } as ReturnType<typeof templateHooks.useUpdateTaskTemplate>);
+    }));
 
     render(<SchedulingTemplatesPage />);
 

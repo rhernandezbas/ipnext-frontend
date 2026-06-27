@@ -4,7 +4,7 @@ import { ComingSoonPanel } from '@/pages/scheduling/SchedulingTaskDetailPage/com
 
 describe('ComingSoonPanel', () => {
   beforeEach(() => {
-    vi.spyOn(global, 'fetch');
+    vi.spyOn(globalThis, 'fetch');
   });
 
   afterEach(() => {
@@ -28,6 +28,6 @@ describe('ComingSoonPanel', () => {
 
   it('fires zero network requests on mount', () => {
     render(<ComingSoonPanel title="Adjuntos" description="Podrás adjuntar archivos a esta tarea." />);
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 });

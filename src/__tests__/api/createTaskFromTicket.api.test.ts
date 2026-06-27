@@ -25,7 +25,7 @@ describe('createTaskFromTicket api (#9)', () => {
     const created = { id: 'task-9', ticketId: 42, sequenceNumber: 100 };
     vi.mocked(axiosClient.post).mockResolvedValue({ data: created });
 
-    const result = await createTaskFromTicket(42, body);
+    const result = await createTaskFromTicket('42', body);
 
     // The whole point of #9: use the ticket-scoped endpoint, NOT the generic
     // POST /scheduling (which drops ticketId by design — AD-7).

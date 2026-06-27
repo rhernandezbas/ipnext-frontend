@@ -81,6 +81,7 @@ import { useWorkflow } from '@/hooks/useWorkflows';
 import * as api from '@/api/scheduling.api';
 import SchedulingTasksPage from '@/pages/scheduling/SchedulingTasksPage';
 import { useTasksFilterUrl } from '@/pages/scheduling/SchedulingTasksPage/hooks/useTasksFilterUrl';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 // ── Mock SchedulingTaskDetailPage for route order test ───────────────────────
 const MockDetailPage = () => React.createElement('div', null, 'Task Detail Page');
@@ -121,6 +122,15 @@ const baseTask: ScheduledTask = {
   travelTimeFrom: null,
   checklist: [],
   reviewedByInventory: false,
+  generalStatus: 'open',
+  iclassOrderCode: null,
+  kind: 'customer',
+  networkSiteId: null,
+  networkSiteName: null,
+  iclassCityCode: null,
+  networkType: null,
+  archivedAt: null,
+  iclassStatus: null,
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
 };
@@ -210,10 +220,10 @@ describe('SchedulingTasksPage', () => {
   // ── FIX-1: the network-projects hint must NEVER appear on the customer page.
   //   Its predicate is !isNetworkProject; the hint is gated on kind==='network'.
   it('never shows the network-projects hint, even with zero projects', () => {
-    vi.mocked(useProjects).mockReturnValue({
+    vi.mocked(useProjects).mockReturnValue(mockQuery({
       data: [],
       isLoading: false,
-    } as ReturnType<typeof useProjects>);
+    }));
     render(
       <Wrapper>
         <SchedulingTasksPage />

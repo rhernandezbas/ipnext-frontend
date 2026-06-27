@@ -54,6 +54,7 @@ function mkTicket(id: string, seq: number, status = 'Cerrado'): Ticket {
     assigneeId: null, assigneeName: null,
     reporterId: null, reporterName: null, reporter: null,
     areaId: null, areaName: null, areaColor: null,
+    contractId: null,
     createdAt: '2026-01-01', updatedAt: '2026-01-01',
     resolvedAt: null, archivedAt: null, tags: [],
   };

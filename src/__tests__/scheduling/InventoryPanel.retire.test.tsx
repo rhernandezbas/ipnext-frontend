@@ -9,7 +9,7 @@
  *  SCEN-FE-5: POST success invalidates inventory query + sidebar; retired item disappears
  *  SCEN-FE-6: POST 422 shows toast with mapped Spanish error message
  */
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';

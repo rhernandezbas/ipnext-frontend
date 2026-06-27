@@ -41,6 +41,7 @@ import { useUispSites } from '@/hooks/useUispSites';
 import { useNetworkSites, usePatchNetworkSite } from '@/hooks/useNetworkSites';
 import { useIClassNodes, useSyncIClassNodes } from '@/hooks/useIClassNodes';
 import NetworkingSettingsPage from '@/pages/networking/NetworkingSettingsPage';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 function setupHooks(permissions: string[] = ['uisp.read']) {
   vi.mocked(useMyPermissions).mockReturnValue({
@@ -82,16 +83,16 @@ function setupHooks(permissions: string[] = ['uisp.read']) {
     isError: false,
   } as unknown as ReturnType<typeof useSetFeatureFlag>);
 
-  vi.mocked(useUispSites).mockReturnValue({
+  vi.mocked(useUispSites).mockReturnValue(mockQuery({
     data: { sites: [] },
     isLoading: false,
     isError: false,
-  } as ReturnType<typeof useUispSites>);
+  }));
 
-  vi.mocked(useNetworkSites).mockReturnValue({
+  vi.mocked(useNetworkSites).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
-  } as ReturnType<typeof useNetworkSites>);
+  }));
 
   vi.mocked(usePatchNetworkSite).mockReturnValue({
     mutate: vi.fn(),
@@ -101,10 +102,10 @@ function setupHooks(permissions: string[] = ['uisp.read']) {
     reset: vi.fn(),
   } as never);
 
-  vi.mocked(useIClassNodes).mockReturnValue({
+  vi.mocked(useIClassNodes).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
-  } as ReturnType<typeof useIClassNodes>);
+  }));
 
   vi.mocked(useSyncIClassNodes).mockReturnValue({
     mutate: vi.fn(),

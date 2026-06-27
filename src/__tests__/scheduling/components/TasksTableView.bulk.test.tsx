@@ -50,8 +50,8 @@ import type { WorkflowStage } from '@/types/workflow';
 import type { AuthUser } from '@/types/auth';
 
 const stages: WorkflowStage[] = [
-  { id: 's1', workflowId: 'wf1', name: 'Nuevo', category: 'nuevo', order: 0 },
-  { id: 's-iclass', workflowId: 'wf1', name: 'Enviar a IClass', category: 'enProgreso', order: 1 },
+  { id: 's1', workflowId: 'wf1', name: 'Nuevo', category: 'nuevo', code: 'nuevo', order: 0 },
+  { id: 's-iclass', workflowId: 'wf1', name: 'Enviar a IClass', category: 'enProgreso', code: 'en-progreso', order: 1 },
 ];
 
 function mkTask(id: string, seq: number, generalStatus: 'open' | 'closed' | 'dismissed' = 'open'): ScheduledTask {
@@ -64,8 +64,8 @@ function mkTask(id: string, seq: number, generalStatus: 'open' | 'closed' | 'dis
     reporterId: null, assigneeId: null, assigneeName: null, travelTimeTo: null, travelTimeFrom: null,
     completedAt: null, notes: null, address: null, coordinates: null, estimatedHours: 1,
     category: 'repair' as const, kind: 'customer' as const, networkSiteId: null, networkSiteName: null,
-    iclassCityCode: null, networkType: null,
-  } as ScheduledTask;
+    iclassCityCode: null, networkType: null, iclassStatus: null,
+  } as unknown as ScheduledTask;
 }
 const tasks = [mkTask('t1', 1), mkTask('t2', 2), mkTask('t3', 3)];
 

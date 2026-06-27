@@ -19,6 +19,7 @@ vi.mock('@/components/auth/Can', () => ({
 
 import { TicketAreasBody } from '@/pages/tickets/settings/TicketAreasBody';
 import type { TicketArea } from '@/types/ticketArea';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 const mockAreas: TicketArea[] = [
   { id: 'a1', name: 'Soporte', color: '#6366f1' },
@@ -57,19 +58,19 @@ describe('TicketAreasBody', () => {
   });
 
   it('renders empty state when no areas exist', () => {
-    vi.mocked(useTicketAreasModule.useTicketAreas).mockReturnValue({
+    vi.mocked(useTicketAreasModule.useTicketAreas).mockReturnValue(mockQuery({
       data: [],
       isLoading: false,
-    } as ReturnType<typeof useTicketAreasModule.useTicketAreas>);
+    }));
     renderBody();
     expect(screen.getByText(/no hay areas/i)).toBeInTheDocument();
   });
 
   it('renders loading state', () => {
-    vi.mocked(useTicketAreasModule.useTicketAreas).mockReturnValue({
+    vi.mocked(useTicketAreasModule.useTicketAreas).mockReturnValue(mockQuery({
       data: [],
       isLoading: true,
-    } as ReturnType<typeof useTicketAreasModule.useTicketAreas>);
+    }));
     renderBody();
     expect(screen.getByText(/cargando/i)).toBeInTheDocument();
   });
@@ -136,7 +137,7 @@ describe('TicketAreasBody', () => {
     fireEvent.change(screen.getByDisplayValue('Soporte'), { target: { value: 'Soporte TI' } });
     fireEvent.click(screen.getByRole('button', { name: /^guardar/i }));
     await waitFor(() => {
-      expect((updateMock as { mutateAsync: ReturnType<typeof vi.fn> }).mutateAsync).toHaveBeenCalledWith({
+      expect(vi.mocked(updateMock.mutateAsync)).toHaveBeenCalledWith({
         id: 'a1',
         data: { name: 'Soporte TI', color: '#6366f1' },
       });
@@ -150,7 +151,7 @@ describe('TicketAreasBody', () => {
     const deleteBtns = screen.getAllByRole('button', { name: /eliminar/i });
     fireEvent.click(deleteBtns[0]);
     await waitFor(() => {
-      expect((deleteMock as { mutateAsync: ReturnType<typeof vi.fn> }).mutateAsync).toHaveBeenCalledWith('a1');
+      expect(vi.mocked(deleteMock.mutateAsync)).toHaveBeenCalledWith('a1');
     });
   });
 

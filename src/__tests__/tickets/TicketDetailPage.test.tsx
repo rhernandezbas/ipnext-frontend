@@ -11,6 +11,7 @@ import * as useRbacUsersModule from '@/hooks/useRbacUsers';
 import * as useAuthModule from '@/hooks/useAuth';
 import * as useTicketCommentsModule from '@/hooks/useTicketComments';
 import type { Ticket } from '@/types/ticket';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useTickets');
 vi.mock('@/hooks/useTicketStatuses');
@@ -67,6 +68,8 @@ const mockTicket: Ticket = {
   // #49 — area fields (null = no area assigned yet)
   areaId: null,
   areaName: null,
+  areaColor: null,
+  archivedAt: null,
   tasks: [],
   createdAt: '2024-01-15T10:00:00Z',
   updatedAt: '2024-01-15T10:00:00Z',
@@ -119,7 +122,7 @@ describe('TicketDetailPage (Prominense layout)', () => {
       can: vi.fn().mockReturnValue(true),
       permissions: ['*'],
       isLoading: false,
-    } as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+    } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
     vi.mocked(useMyPermissionsModule.useCan).mockReturnValue(true);
 
     // TicketCommentsTimeline (Conversación tab) deps.
@@ -129,7 +132,7 @@ describe('TicketDetailPage (Prominense layout)', () => {
       login: vi.fn(),
       logout: vi.fn(),
     } as unknown as ReturnType<typeof useAuthModule.useAuth>);
-    vi.mocked(useTicketCommentsModule.useTicketComments).mockReturnValue({ data: [], isLoading: false } as ReturnType<typeof useTicketCommentsModule.useTicketComments>);
+    vi.mocked(useTicketCommentsModule.useTicketComments).mockReturnValue(mockQuery({ data: [], isLoading: false }));
     vi.mocked(useTicketCommentsModule.useAddTicketComment).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as unknown as ReturnType<typeof useTicketCommentsModule.useAddTicketComment>);
   });
 

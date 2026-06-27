@@ -9,7 +9,6 @@
  *  SV-2  status:'disabled' → badge "Desactivado" shown
  *  SV-3  status:'active' (old wrong value) → NOT treated as active → "Asociar" section IS shown
  */
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -21,6 +20,7 @@ import * as useMyPermissionsModule from '@/hooks/useMyPermissions';
 import * as useContractServicesModule from '@/hooks/useContractServices';
 import * as usePlansModule from '@/hooks/usePlans';
 import type { PppoeServiceDto } from '@/types/pppoe';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/usePppoe');
 vi.mock('@/hooks/useNas');
@@ -45,12 +45,12 @@ function neutralMutation() {
 }
 
 function baseSetup(pppoeData: PppoeServiceDto[]) {
-  vi.mocked(usePlansModule.usePlans).mockReturnValue({
+  vi.mocked(usePlansModule.usePlans).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePlansModule.usePlans>);
+  }));
 
   vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue({
     data: pppoeData,
@@ -59,12 +59,12 @@ function baseSetup(pppoeData: PppoeServiceDto[]) {
     isSuccess: true,
   } as ReturnType<typeof usePppoeModule.useContractPppoe>);
 
-  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue({
+  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePppoeModule.useUnassignedPppoe>);
+  }));
 
   vi.mocked(usePppoeModule.useAssociatePppoe).mockReturnValue({
     mutateAsync: vi.fn().mockResolvedValue({}),

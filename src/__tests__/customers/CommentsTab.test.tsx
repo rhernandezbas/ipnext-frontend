@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { CommentsTab } from '@/pages/customers/tabs/CommentsTab';
 import * as useClientsModule from '@/hooks/useCustomers';
+import { mockMutation, mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useCustomers');
 
@@ -24,14 +25,14 @@ describe('CommentsTab', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useClientsModule.useClientComments).mockReturnValue({
+    vi.mocked(useClientsModule.useClientComments).mockReturnValue(mockQuery({
       data: [],
       isLoading: false,
-    } as ReturnType<typeof useClientsModule.useClientComments>);
-    vi.mocked(useClientsModule.useCreateComment).mockReturnValue({
+    }));
+    vi.mocked(useClientsModule.useCreateComment).mockReturnValue(mockMutation({
       mutate: mockMutate,
       isPending: false,
-    } as ReturnType<typeof useClientsModule.useCreateComment>);
+    }));
   });
 
   it('shows textarea and Agregar comentario button', () => {

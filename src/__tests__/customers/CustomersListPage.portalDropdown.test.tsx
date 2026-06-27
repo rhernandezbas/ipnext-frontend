@@ -19,8 +19,8 @@ import type { CustomerSummary } from '@/types/customer';
 vi.mock('@/hooks/useCustomers');
 
 const mockCustomers: CustomerSummary[] = [
-  { id: 1, name: 'Alice García', email: 'alice@example.com', phone: '11-1111-1111', status: 'active', balance: 0, category: 'residential', tariffPlan: 'Plan 50MB', login: 'alice', ipRanges: '192.168.1.0/24', accessDevices: 1, createdAt: '2024-01-01' },
-  { id: 2, name: 'Bob Martínez', email: 'bob@example.com', phone: '22-2222-2222', status: 'inactive', balance: 0, category: 'residential', tariffPlan: null, login: null, ipRanges: null, accessDevices: 0, createdAt: '2024-02-01' },
+  { id: 1, name: 'Alice García', email: 'alice@example.com', phone: '11-1111-1111', status: 'active', category: 'residential', tariffPlan: 'Plan 50MB', login: 'alice', ipRanges: '192.168.1.0/24', accessDevices: 1, createdAt: '2024-01-01' },
+  { id: 2, name: 'Bob Martínez', email: 'bob@example.com', phone: '22-2222-2222', status: 'inactive', category: 'residential', tariffPlan: null, login: null, ipRanges: null, accessDevices: 0, createdAt: '2024-02-01' },
 ];
 
 function renderPage() {

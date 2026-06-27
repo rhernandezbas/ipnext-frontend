@@ -10,7 +10,6 @@
  *  CE-4   Sin pppoe.cut → los botones de enforce NO se renderizan
  *  CE-5   Error del enforce → muestra banner role="alert"
  */
-import React from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -23,6 +22,7 @@ import * as useMyPermissionsModule from '@/hooks/useMyPermissions';
 import * as useContractServicesModule from '@/hooks/useContractServices';
 import * as usePlansModule from '@/hooks/usePlans';
 import type { PppoeServiceDto } from '@/types/pppoe';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 vi.mock('@/hooks/usePppoe');
@@ -118,12 +118,12 @@ function setup(opts: SetupOpts = {}) {
     enforcePending = false,
   } = opts;
 
-  vi.mocked(usePlansModule.usePlans).mockReturnValue({
+  vi.mocked(usePlansModule.usePlans).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePlansModule.usePlans>);
+  }));
 
   const pppoe = { ...BASE_PPPOE, enforcedState };
 
@@ -134,12 +134,12 @@ function setup(opts: SetupOpts = {}) {
     isSuccess: true,
   } as ReturnType<typeof usePppoeModule.useContractPppoe>);
 
-  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue({
+  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePppoeModule.useUnassignedPppoe>);
+  }));
 
   vi.mocked(usePppoeModule.usePppoeCredentials).mockReturnValue({
     data: undefined,

@@ -8,7 +8,6 @@
  *  CID-4  Error → renderiza "—" y el panel NO crashea (el resto sigue visible)
  *  CID-5  La baja lifecycleHint menciona "borra" y "libera la IP"
  */
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -20,6 +19,7 @@ import * as useMyPermissionsModule from '@/hooks/useMyPermissions';
 import * as useContractServicesModule from '@/hooks/useContractServices';
 import * as usePlansModule from '@/hooks/usePlans';
 import type { PppoeServiceDto } from '@/types/pppoe';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 vi.mock('@/hooks/usePppoe');
@@ -67,12 +67,12 @@ interface SetupOpts {
 function setup(opts: SetupOpts = {}) {
   const { callerId = {} } = opts;
 
-  vi.mocked(usePlansModule.usePlans).mockReturnValue({
+  vi.mocked(usePlansModule.usePlans).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePlansModule.usePlans>);
+  }));
 
   vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue({
     data: [ACTIVE_PPPOE],
@@ -81,12 +81,12 @@ function setup(opts: SetupOpts = {}) {
     isSuccess: true,
   } as ReturnType<typeof usePppoeModule.useContractPppoe>);
 
-  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue({
+  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePppoeModule.useUnassignedPppoe>);
+  }));
 
   vi.mocked(usePppoeModule.usePppoeCredentials).mockReturnValue({
     data: undefined,

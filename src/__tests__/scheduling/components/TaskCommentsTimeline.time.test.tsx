@@ -13,6 +13,7 @@ import { TaskCommentsTimeline } from '@/pages/scheduling/SchedulingTaskDetailPag
 import * as useTaskCommentsModule from '@/hooks/useTaskComments';
 import * as useAuthModule from '@/hooks/useAuth';
 import type { TaskComment } from '@/types/taskComments';
+import { mockMutation, mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useTaskComments');
 vi.mock('@/hooks/useAuth');
@@ -30,22 +31,18 @@ const COMMENT: TaskComment = {
 beforeEach(() => {
   vi.clearAllMocks();
 
-  vi.mocked(useTaskCommentsModule.useTaskComments).mockReturnValue({
+  vi.mocked(useTaskCommentsModule.useTaskComments).mockReturnValue(mockQuery({
     data: [COMMENT],
     isLoading: false,
-  } as ReturnType<typeof useTaskCommentsModule.useTaskComments>);
+  }));
 
-  const noopMutation = {
-    mutateAsync: vi.fn().mockResolvedValue(undefined),
-    isPending: false,
-  } as unknown as ReturnType<typeof useTaskCommentsModule.useAddTaskComment>;
-
-  vi.mocked(useTaskCommentsModule.useAddTaskComment).mockReturnValue(noopMutation);
-  vi.mocked(useTaskCommentsModule.useDeleteTaskComment).mockReturnValue(noopMutation);
+  const noop = { mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false };
+  vi.mocked(useTaskCommentsModule.useAddTaskComment).mockReturnValue(mockMutation(noop));
+  vi.mocked(useTaskCommentsModule.useDeleteTaskComment).mockReturnValue(mockMutation(noop));
 
   vi.mocked(useAuthModule.useAuth).mockReturnValue({
     user: { id: 'u1', displayName: 'Admin', username: 'admin', email: 'a@b.c' },
-  } as ReturnType<typeof useAuthModule.useAuth>);
+  } as unknown as ReturnType<typeof useAuthModule.useAuth>);
 });
 
 describe('TaskCommentsTimeline — comment date in Argentina time (REQ-TZ-DISPLAY)', () => {

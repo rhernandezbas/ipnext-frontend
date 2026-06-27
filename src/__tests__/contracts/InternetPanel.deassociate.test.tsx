@@ -9,7 +9,6 @@
  *  DA-4  Sin pppoe.manage → el botón "Desasociar" NO se renderiza
  *  DA-5  "Desasociar" y "Dar de baja PPPoE" son acciones distintas y coexisten
  */
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -22,6 +21,7 @@ import * as useMyPermissionsModule from '@/hooks/useMyPermissions';
 import * as useContractServicesModule from '@/hooks/useContractServices';
 import * as usePlansModule from '@/hooks/usePlans';
 import type { PppoeServiceDto } from '@/types/pppoe';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 vi.mock('@/hooks/usePppoe');
@@ -108,12 +108,12 @@ function setup(opts: SetupOpts = {}) {
     deassociatePending = false,
   } = opts;
 
-  vi.mocked(usePlansModule.usePlans).mockReturnValue({
+  vi.mocked(usePlansModule.usePlans).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePlansModule.usePlans>);
+  }));
 
   vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue({
     data: [ACTIVE_PPPOE],
@@ -122,12 +122,12 @@ function setup(opts: SetupOpts = {}) {
     isSuccess: true,
   } as ReturnType<typeof usePppoeModule.useContractPppoe>);
 
-  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue({
+  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePppoeModule.useUnassignedPppoe>);
+  }));
 
   vi.mocked(usePppoeModule.usePppoeCredentials).mockReturnValue({
     data: undefined,

@@ -26,9 +26,10 @@ vi.mock('@/hooks/useCustomers');
 import * as useRbacUsersModule from '@/hooks/useRbacUsers';
 import * as useTicketAreasModule from '@/hooks/useTicketAreas';
 import * as useCustomersModule from '@/hooks/useCustomers';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
-const mockUsers = [
-  { id: 'u1', name: 'Ana García', roles: [] },
+const mockUsers: import('@/types/rbacUser').RbacUserWithRolesDto[] = [
+  { id: 'u1', name: 'Ana García', roles: [], email: 'test@test.com', login: 'user1', status: 'active', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', lastLoginAt: null },
 ];
 
 // Minimal Contract shape buildContractLabel needs.
@@ -71,10 +72,10 @@ function renderModal(props: {
 describe('CreateTicketModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useRbacUsersModule.useRbacUsers).mockReturnValue({
+    vi.mocked(useRbacUsersModule.useRbacUsers).mockReturnValue(mockQuery({
       data: mockUsers,
       isLoading: false,
-    } as ReturnType<typeof useRbacUsersModule.useRbacUsers>);
+    }));
     vi.mocked(useTicketAreasModule.useTicketAreas).mockReturnValue({
       data: [{ id: 'area-1', name: 'Soporte' }, { id: 'area-2', name: 'Facturacion' }],
       isLoading: false,

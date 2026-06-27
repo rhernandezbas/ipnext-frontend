@@ -64,7 +64,7 @@ describe('useGigaredActivationHistory', () => {
   it('calls getActivationHistory with empty filters by default', async () => {
     vi.mocked(gigaredApi.getActivationHistory).mockResolvedValue(events);
     const { wrapper } = makeWrapper();
-    const { result } = renderHook(() => useGigaredActivationHistory({}), { wrapper });
+    renderHook(() => useGigaredActivationHistory({}), { wrapper });
 
     // Wait for the query to settle
     await new Promise((r) => setTimeout(r, 50));

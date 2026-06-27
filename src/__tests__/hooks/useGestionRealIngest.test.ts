@@ -102,7 +102,7 @@ describe('useGestionRealStatus', () => {
     const query = qc
       .getQueryCache()
       .find({ queryKey: ['gestionRealIngest', 'status'] });
-    expect(query?.options.refetchInterval).toBe(30000);
+    expect((query?.options as any).refetchInterval).toBe(30000);
   });
 });
 

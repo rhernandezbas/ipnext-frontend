@@ -48,6 +48,7 @@ import { useIClassTeams, useSyncIClassTeams } from '@/hooks/useIClassTeams';
 // ── Imports under test ───────────────────────────────────────────────────────
 import { CloseIClassOSModal } from '@/components/molecules/CloseIClassOSModal/CloseIClassOSModal';
 import { IClassTeamsCatalogBody } from '@/pages/scheduling/settings/IClassTeamsCatalogBody';
+import { mockMutation, mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -66,22 +67,16 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 function flagOn(key?: string) {
-  vi.mocked(useFeatureFlag).mockImplementation((k) => ({
-    data: { key: k, enabled: key === undefined || k === key },
-    isLoading: false,
-    isError: false,
-    refetch: vi.fn(),
-  } as ReturnType<typeof useFeatureFlag>));
+  vi.mocked(useFeatureFlag).mockImplementation((k) =>
+    mockQuery({
+      data: { key: k, enabled: key === undefined || k === key },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    }),
+  );
 }
 
-function flagOff() {
-  vi.mocked(useFeatureFlag).mockReturnValue({
-    data: { key: 'any', enabled: false },
-    isLoading: false,
-    isError: false,
-    refetch: vi.fn(),
-  } as ReturnType<typeof useFeatureFlag>);
-}
 
 const mockResultCodes = [
   { id: 'rc1', soTypeId: null, code: 'ATENDIDO', type: 'Sucesso', mappedStageId: null, mappedStageName: null, lastSyncedAt: '' },
@@ -100,16 +95,16 @@ describe('CloseIClassOSModal', () => {
     vi.clearAllMocks();
     vi.mocked(useCan).mockImplementation(() => true);
     flagOn();
-    vi.mocked(useIClassResultCodes).mockReturnValue({
+    vi.mocked(useIClassResultCodes).mockReturnValue(mockQuery({
       data: mockResultCodes,
       isLoading: false,
-    } as ReturnType<typeof useIClassResultCodes>);
-    vi.mocked(useCloseIClassOS).mockReturnValue(noopMutation as ReturnType<typeof useCloseIClassOS>);
+    }));
+    vi.mocked(useCloseIClassOS).mockReturnValue(mockMutation({ ...noopMutation }));
   });
 
   it('sends {resultCode, commentary, closeDate} when submitted', async () => {
     const mutateAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useCloseIClassOS).mockReturnValue({ ...noopMutation, mutateAsync } as ReturnType<typeof useCloseIClassOS>);
+    vi.mocked(useCloseIClassOS).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync }));
 
     render(
       <CloseIClassOSModal taskId="task-1" open onClose={vi.fn()} />,
@@ -200,11 +195,11 @@ describe('IClassTeamsCatalogBody', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useCan).mockImplementation(() => true);
-    vi.mocked(useIClassTeams).mockReturnValue({
+    vi.mocked(useIClassTeams).mockReturnValue(mockQuery({
       data: mockTeams,
       isLoading: false,
-    } as ReturnType<typeof useIClassTeams>);
-    vi.mocked(useSyncIClassTeams).mockReturnValue(noopMutation as ReturnType<typeof useSyncIClassTeams>);
+    }));
+    vi.mocked(useSyncIClassTeams).mockReturnValue(mockMutation({ ...noopMutation }));
   });
 
   it('renders team catalog with login/name/active columns', () => {
@@ -217,7 +212,7 @@ describe('IClassTeamsCatalogBody', () => {
 
   it('shows Sincronizar button gated by iclass.manage and calls mutateAsync on click', async () => {
     const mutateAsync = vi.fn().mockResolvedValue({ synced: 2, created: 0, updated: 2 });
-    vi.mocked(useSyncIClassTeams).mockReturnValue({ ...noopMutation, mutateAsync } as ReturnType<typeof useSyncIClassTeams>);
+    vi.mocked(useSyncIClassTeams).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync }));
 
     render(<IClassTeamsCatalogBody />, { wrapper });
 
@@ -227,7 +222,7 @@ describe('IClassTeamsCatalogBody', () => {
 
   it('shows success summary banner after sync', async () => {
     const mutateAsync = vi.fn().mockResolvedValue({ synced: 3, created: 1, updated: 2 });
-    vi.mocked(useSyncIClassTeams).mockReturnValue({ ...noopMutation, mutateAsync } as ReturnType<typeof useSyncIClassTeams>);
+    vi.mocked(useSyncIClassTeams).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync }));
 
     render(<IClassTeamsCatalogBody />, { wrapper });
     fireEvent.click(screen.getByRole('button', { name: /sincronizar/i }));
@@ -238,7 +233,7 @@ describe('IClassTeamsCatalogBody', () => {
   });
 
   it('disables sync button while pending', () => {
-    vi.mocked(useSyncIClassTeams).mockReturnValue({ ...noopMutation, isPending: true } as ReturnType<typeof useSyncIClassTeams>);
+    vi.mocked(useSyncIClassTeams).mockReturnValue(mockMutation({ ...noopMutation, isPending: true }));
 
     render(<IClassTeamsCatalogBody />, { wrapper });
     expect(screen.getByRole('button', { name: /sincronizando/i })).toBeDisabled();

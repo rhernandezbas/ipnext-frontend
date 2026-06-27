@@ -9,7 +9,6 @@
  * EP-6  El botón Editar tiene un ícono pencil (SVG con aria-hidden) visible.
  * EP-7  El form de Editar cierra al hacer click en Cancelar (regresión).
  */
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -24,6 +23,7 @@ import * as usePlansModule from '@/hooks/usePlans';
 import type { PppoeServiceDto } from '@/types/pppoe';
 import type { PlanDto } from '@/types/plans';
 
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 vi.mock('@/hooks/usePppoe');
 vi.mock('@/hooks/useNas');
@@ -77,33 +77,33 @@ function neutralMutation() {
 
 interface SetupOpts {
   pppoe?: Partial<PppoeServiceDto>;
-  nextFreeIp?: Partial<ReturnType<typeof useNasModule.useNextFreeIp>>;
+  nextFreeIp?: { data?: { ip: string } | undefined; isSuccess?: boolean; isFetching?: boolean; isError?: boolean; error?: Error | null; };
 }
 
 function setup(opts: SetupOpts = {}) {
   const { pppoe: pppoePatch = {}, nextFreeIp = {} } = opts;
   const pppoe = { ...BASE_PPPOE, ...pppoePatch };
 
-  vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue({
+  vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue(mockQuery({
     data: [pppoe],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePppoeModule.useContractPppoe>);
+  }));
 
-  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue({
+  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePppoeModule.useUnassignedPppoe>);
+  }));
 
-  vi.mocked(usePppoeModule.usePppoeCredentials).mockReturnValue({
+  vi.mocked(usePppoeModule.usePppoeCredentials).mockReturnValue(mockQuery({
     data: undefined,
     isLoading: false,
     isError: false,
     isSuccess: false,
-  } as ReturnType<typeof usePppoeModule.usePppoeCredentials>);
+  }));
 
   vi.mocked(usePppoeModule.useCreatePppoe).mockReturnValue(neutralMutation());
   vi.mocked(usePppoeModule.useAssociatePppoe).mockReturnValue(neutralMutation());
@@ -111,40 +111,36 @@ function setup(opts: SetupOpts = {}) {
   vi.mocked(usePppoeModule.useDeactivatePppoe).mockReturnValue(neutralMutation());
   vi.mocked(usePppoeModule.useDeassociatePppoe).mockReturnValue(neutralMutation());
   vi.mocked(usePppoeModule.useEnforcePppoeForContract).mockReturnValue(neutralMutation());
-  vi.mocked(usePppoeModule.usePppoeCallerId).mockReturnValue({
+  vi.mocked(usePppoeModule.usePppoeCallerId).mockReturnValue(mockQuery({
     data: undefined, isLoading: false, isError: false, isSuccess: false,
-  } as ReturnType<typeof usePppoeModule.usePppoeCallerId>);
+  }));
   vi.mocked(usePppoeModule.useUpdatePppoe).mockReturnValue({
     mutateAsync: vi.fn().mockResolvedValue({}),
     isPending: false,
   } as unknown as ReturnType<typeof usePppoeModule.useUpdatePppoe>);
 
-  vi.mocked(useNasModule.useNasServers).mockReturnValue({
-    data: [{ id: 'nas-1', name: 'Router Central' }],
-  } as ReturnType<typeof useNasModule.useNasServers>);
+  vi.mocked(useNasModule.useNasServers).mockReturnValue(mockQuery({
+    data: [{ id: 'nas-1', name: 'Router Central', type: 'mikrotik_api', ipAddress: '192.168.1.1', radiusSecret: 'secret', nasIpAddress: '192.168.1.1', apiPort: null, apiLogin: null, apiPassword: null, status: 'active', lastSeen: null, clientCount: 0, description: '' }],
+  }));
 
-  const defaultNextFreeIp: ReturnType<typeof useNasModule.useNextFreeIp> = {
+  vi.mocked(useNasModule.useNextFreeIp).mockReturnValue(mockQuery({
     data: undefined,
     isSuccess: false,
     isError: false,
     isFetching: false,
     error: null,
     refetch: vi.fn(),
-  } as unknown as ReturnType<typeof useNasModule.useNextFreeIp>;
-
-  vi.mocked(useNasModule.useNextFreeIp).mockReturnValue({
-    ...defaultNextFreeIp,
     ...nextFreeIp,
-  });
+  }));
 
   vi.mocked(useContractServicesModule.useUpdateContractService).mockReturnValue(neutralMutation());
 
-  vi.mocked(usePlansModule.usePlans).mockReturnValue({
+  vi.mocked(usePlansModule.usePlans).mockReturnValue(mockQuery({
     data: PLANS,
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePlansModule.usePlans>);
+  }));
 
   vi.mocked(useMyPermissionsModule.useMyPermissions).mockReturnValue({
     can: vi.fn(() => true),

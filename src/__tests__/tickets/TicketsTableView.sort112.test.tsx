@@ -39,6 +39,7 @@ function mkTicket(id: string, seq: number, subject: string): Ticket {
     priority: 'medium', customerId: 'c1', customerName: 'Cliente',
     assigneeId: null, assigneeName: null, reporterId: null, reporterName: null,
     reporter: null, areaId: null, areaName: null, areaColor: null,
+    contractId: null,
     createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
     resolvedAt: null, archivedAt: null, tags: [],
   };

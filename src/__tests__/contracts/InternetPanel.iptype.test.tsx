@@ -11,7 +11,6 @@
  * IT-7: Si el operador escribe manualmente, un re-fetch no pisa su valor
  * IT-8: Al cambiar de tipo, el flag auto-fill se resetea
  */
-import React from 'react';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -23,6 +22,8 @@ import * as useNasModule from '@/hooks/useNas';
 import * as useMyPermissionsModule from '@/hooks/useMyPermissions';
 import * as useContractServicesModule from '@/hooks/useContractServices';
 
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
+import type { NasServer } from '@/types/nas';
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 vi.mock('@/hooks/usePppoe');
 vi.mock('@/hooks/useNas');
@@ -41,9 +42,9 @@ function makeQC() {
   });
 }
 
-const NAS_SERVERS = [
-  { id: 'nas-1', name: 'Router Central' },
-  { id: 'nas-2', name: 'Router Norte' },
+const NAS_SERVERS: NasServer[] = [
+  { id: 'nas-1', name: 'Router Central', type: 'mikrotik_api', ipAddress: '192.168.1.1', radiusSecret: 'secret', nasIpAddress: '192.168.1.1', apiPort: null, apiLogin: null, apiPassword: null, status: 'active', lastSeen: null, clientCount: 0, description: '' },
+  { id: 'nas-2', name: 'Router Norte', type: 'mikrotik_api', ipAddress: '192.168.1.2', radiusSecret: 'secret', nasIpAddress: '192.168.1.2', apiPort: null, apiLogin: null, apiPassword: null, status: 'active', lastSeen: null, clientCount: 0, description: '' },
 ];
 
 const NO_PPPOE_CONTRACT_SERVICES = [
@@ -57,15 +58,15 @@ const NO_PPPOE_CONTRACT_SERVICES = [
 function setupBaseMocks({
   nextFreeIp,
 }: {
-  nextFreeIp?: Partial<ReturnType<typeof useNasModule.useNextFreeIp>>;
+  nextFreeIp?: { data?: { ip: string } | undefined; isSuccess?: boolean; isFetching?: boolean; isError?: boolean; error?: Error | null; };
 } = {}) {
   // No PPPoE activo
-  vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue({
+  vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePppoeModule.useContractPppoe>);
+  }));
 
   vi.mocked(usePppoeModule.useCreatePppoe).mockReturnValue({
     mutateAsync: vi.fn().mockResolvedValue({}),
@@ -74,46 +75,42 @@ function setupBaseMocks({
 
   // Adopción de inventario (#pppoe-adopt) — el branch "sin PPPoE activo" ahora
   // monta también AssociatePppoeSection, así que estos hooks deben tener stub.
-  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue({
+  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePppoeModule.useUnassignedPppoe>);
+  }));
   vi.mocked(usePppoeModule.useAssociatePppoe).mockReturnValue({
     mutateAsync: vi.fn(),
     isPending: false,
   } as unknown as ReturnType<typeof usePppoeModule.useAssociatePppoe>);
-  vi.mocked(usePppoeModule.usePppoeCredentials).mockReturnValue({
+  vi.mocked(usePppoeModule.usePppoeCredentials).mockReturnValue(mockQuery({
     data: undefined,
     isLoading: false,
     isError: false,
     isSuccess: false,
-  } as ReturnType<typeof usePppoeModule.usePppoeCredentials>);
+  }));
 
-  vi.mocked(useNasModule.useNasServers).mockReturnValue({
+  vi.mocked(useNasModule.useNasServers).mockReturnValue(mockQuery({
     data: NAS_SERVERS,
-  } as ReturnType<typeof useNasModule.useNasServers>);
+  }));
 
-  const defaultNextFreeIp: ReturnType<typeof useNasModule.useNextFreeIp> = {
+  vi.mocked(useNasModule.useNextFreeIp).mockReturnValue(mockQuery({
     data: undefined,
     isSuccess: false,
     isError: false,
     isFetching: false,
     error: null,
     refetch: vi.fn(),
-  } as unknown as ReturnType<typeof useNasModule.useNextFreeIp>;
-
-  vi.mocked(useNasModule.useNextFreeIp).mockReturnValue({
-    ...defaultNextFreeIp,
     ...nextFreeIp,
-  });
+  }));
 
   vi.mocked(useMyPermissionsModule.useMyPermissions).mockReturnValue({
     can: vi.fn(() => true),
     isLoading: false,
     isError: false,
-  } as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+  } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
 
   vi.mocked(useContractServicesModule.useUpdateContractService).mockReturnValue({
     mutateAsync: vi.fn(),

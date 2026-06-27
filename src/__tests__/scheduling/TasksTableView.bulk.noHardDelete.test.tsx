@@ -65,8 +65,9 @@ function mkTask(id: string, seq: number, generalStatus: 'closed' | 'open' = 'clo
     kind: 'customer', networkSiteId: null, networkSiteName: null,
     iclassCityCode: null, networkType: null,
     archivedAt: null,
+    iclassStatus: null,
     startDate: null,
-  } as ScheduledTask;
+  } as unknown as ScheduledTask;
 }
 
 const closedTasks = [mkTask('t1', 1, 'closed'), mkTask('t2', 2, 'closed')];

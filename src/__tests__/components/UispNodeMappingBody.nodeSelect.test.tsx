@@ -38,6 +38,7 @@ import { useIClassNodes, useSyncIClassNodes } from '@/hooks/useIClassNodes';
 import { UispNodeMappingBody } from '@/components/networking/UispNodeMappingBody';
 import type { NetworkSite } from '@/types/networkSite';
 import type { IClassNode } from '@/types/iclassNode';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 // ── Factories ────────────────────────────────────────────────────────────────
 
@@ -107,10 +108,10 @@ function setupMocks(
     isLoading: false,
   } as ReturnType<typeof useNetworkSites>);
 
-  vi.mocked(useUispSites).mockReturnValue({
+  vi.mocked(useUispSites).mockReturnValue(mockQuery({
     data: { sites: [] },
     isLoading: false,
-  } as ReturnType<typeof useUispSites>);
+  }));
 
   vi.mocked(useIClassNodes).mockReturnValue({
     data: nodes,

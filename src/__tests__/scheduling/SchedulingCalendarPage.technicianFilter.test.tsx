@@ -12,7 +12,7 @@
  *   Proof: sidebar row N must correspond exactly to allResources[N] in the grid,
  *   with no extra nodes between them.
  */
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect } from 'vitest';
@@ -74,7 +74,7 @@ const ADMIN_ROLE   = { id: 'role-admin',   code: 'administrador', label: 'Admini
 const VENTAS_ROLE  = { id: 'role-ventas',  code: 'ventas', label: 'Ventas', isSystem: true };
 
 const TECH_ANA     = makeRbacUser({ id: 'rbac-ana',    name: 'Ana García',    roles: [TECNICO_ROLE] });
-const TECH_RODRIGO = makeRbacUser({ id: 'rbac-rodrigo', name: 'Rodrigo López', roles: [TECNICO_ROLE] });
+
 const ADMIN_USER   = makeRbacUser({ id: 'rbac-admin',  name: 'Carlos Admin',  roles: [ADMIN_ROLE] });
 const VENTAS_USER  = makeRbacUser({ id: 'rbac-ventas', name: 'María Ventas',  roles: [VENTAS_ROLE] });
 const MULTI_USER   = makeRbacUser({ id: 'rbac-multi',  name: 'Luis MultiRol', roles: [ADMIN_ROLE, TECNICO_ROLE] });
@@ -101,7 +101,7 @@ function makeTask(overrides: Partial<ScheduledTask> = {}): ScheduledTask {
     customerId: null,
     customerName: null,
     customerCity: null,
-    serviceId: null,
+    contractId: null,
     partnerId: null,
     reporterId: null,
     assigneeId: null,
@@ -110,6 +110,16 @@ function makeTask(overrides: Partial<ScheduledTask> = {}): ScheduledTask {
     travelTimeTo: null,
     travelTimeFrom: null,
     checklist: [],
+    generalStatus: 'open',
+    reviewedByInventory: false,
+    iclassOrderCode: null,
+    kind: 'customer',
+    networkSiteId: null,
+    networkSiteName: null,
+    iclassCityCode: null,
+    networkType: null,
+    archivedAt: null,
+    iclassStatus: null,
     createdAt: '2026-05-01T00:00:00Z',
     updatedAt: '2026-05-01T00:00:00Z',
     ...overrides,

@@ -17,6 +17,9 @@ const mockSites: NetworkSite[] = [
     parentSiteId: null,
     description: 'Nodo principal',
     iclassNodeCode: 'NODO-C-01',
+    siteNumber: 1,
+    fixedCode: 'NODO-1',
+    uispSiteId: null,
   },
   {
     id: 'ns-2',
@@ -32,6 +35,9 @@ const mockSites: NetworkSite[] = [
     parentSiteId: 'ns-1',
     description: 'POP norte',
     iclassNodeCode: null,
+    siteNumber: 2,
+    fixedCode: 'POP-1',
+    uispSiteId: null,
   },
 ];
 

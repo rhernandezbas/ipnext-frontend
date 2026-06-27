@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ActivityTab } from '@/pages/customers/tabs/ActivityTab';
 import * as useClientsModule from '@/hooks/useCustomers';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useCustomers');
 
@@ -24,10 +25,10 @@ describe('ActivityTab', () => {
   });
 
   it('shows empty message when hook returns empty array', () => {
-    vi.mocked(useClientsModule.useClientComments).mockReturnValue({
+    vi.mocked(useClientsModule.useClientComments).mockReturnValue(mockQuery({
       data: [],
       isLoading: false,
-    } as ReturnType<typeof useClientsModule.useClientComments>);
+    }));
 
     renderTab();
     expect(screen.getByText('Sin actividad registrada.')).toBeInTheDocument();

@@ -3,7 +3,7 @@
  * Each bulk action is Can-gated per the wire contract; the Eliminar confirm
  * aclara el soft-close. Empty states differ: sin tickets vs. sin resultados.
  */
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
@@ -54,6 +54,7 @@ function mkTicket(id: string, seq: number): Ticket {
     assigneeId: null, assigneeName: null,
     reporterId: null, reporterName: null, reporter: null,
     areaId: null, areaName: null, areaColor: null,
+    contractId: null,
     createdAt: '2026-01-01', updatedAt: '2026-01-01',
     resolvedAt: null, archivedAt: null, tags: [],
   };

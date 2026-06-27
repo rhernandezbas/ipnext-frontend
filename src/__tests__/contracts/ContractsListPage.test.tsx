@@ -7,7 +7,6 @@
  * CP-5: pagination + page-reset-on-filter
  * CP-6: permission guard allow/block
  */
-import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -28,6 +27,7 @@ vi.mock('@/hooks/useMyPermissions');
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 import type { ContractSummary } from '@/types/contract';
 import type { ServiceTechnology } from '@/types/serviceTechnology';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 const mockContracts: ContractSummary[] = [
   {
@@ -81,7 +81,7 @@ beforeEach(() => {
     can: vi.fn(() => true),
     isLoading: false,
     isError: false,
-  } as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+  } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
 
   vi.mocked(useContractsModule.useContracts).mockReturnValue({
     data: { data: mockContracts, total: 2, page: 1, pageSize: 25, totalPages: 1 },
@@ -89,10 +89,10 @@ beforeEach(() => {
     isError: false,
   } as ReturnType<typeof useContractsModule.useContracts>);
 
-  vi.mocked(useContractsModule.useContractStats).mockReturnValue({
+  vi.mocked(useContractsModule.useContractStats).mockReturnValue(mockQuery({
     data: { total: 2, byStatus: { Vigente: 1, Baja: 1 } },
     isLoading: false,
-  } as ReturnType<typeof useContractsModule.useContractStats>);
+  }));
 
   vi.mocked(useServiceTechModule.useServiceTechnologies).mockReturnValue({
     data: mockTechnologies,
@@ -121,7 +121,7 @@ describe('CP-0: stats bar', () => {
     await user.click(screen.getByRole('button', { name: /Vigente/i }));
     await waitFor(() => {
       const calls = vi.mocked(useContractsModule.useContracts).mock.calls;
-      const lastCall = calls[calls.length - 1][0];
+      const lastCall = calls[calls.length - 1]![0]!;
       expect(lastCall.status).toBe('Vigente');
     });
   });
@@ -153,11 +153,11 @@ describe('CP-1: render', () => {
   });
 
   it('shows empty message when no contracts', () => {
-    vi.mocked(useContractsModule.useContracts).mockReturnValue({
+    vi.mocked(useContractsModule.useContracts).mockReturnValue(mockQuery({
       data: { data: [], total: 0, page: 1, pageSize: 25, totalPages: 1 },
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof useContractsModule.useContracts>);
+    }));
     renderPage();
     expect(screen.getByText(/no se encontraron contratos/i)).toBeInTheDocument();
   });
@@ -252,7 +252,7 @@ describe('CP-2: search debounce 300ms', () => {
 
     // Immediately after change (before 300ms), search should NOT be passed yet
     const callsBefore = vi.mocked(useContractsModule.useContracts).mock.calls;
-    const lastBefore = callsBefore[callsBefore.length - 1][0];
+    const lastBefore = callsBefore[callsBefore.length - 1]![0]!;
     expect(lastBefore.search).toBeFalsy();
 
     // Advance timers past debounce
@@ -260,7 +260,7 @@ describe('CP-2: search debounce 300ms', () => {
 
     await waitFor(() => {
       const calls = vi.mocked(useContractsModule.useContracts).mock.calls;
-      const lastCall = calls[calls.length - 1][0];
+      const lastCall = calls[calls.length - 1]![0]!;
       expect(lastCall.search).toBe('alice');
     });
   });
@@ -280,7 +280,7 @@ describe('CP-3: status filter', () => {
 
     await waitFor(() => {
       const calls = vi.mocked(useContractsModule.useContracts).mock.calls;
-      const lastCall = calls[calls.length - 1][0];
+      const lastCall = calls[calls.length - 1]![0]!;
       expect(lastCall.status).toBe('Vigente');
     });
   });
@@ -312,11 +312,11 @@ describe('CP-4: technology filter', () => {
   });
 
   it('only shows "Todas" option when catalog is empty', () => {
-    vi.mocked(useServiceTechModule.useServiceTechnologies).mockReturnValue({
+    vi.mocked(useServiceTechModule.useServiceTechnologies).mockReturnValue(mockQuery({
       data: [],
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof useServiceTechModule.useServiceTechnologies>);
+    }));
     renderPage();
     const select = screen.getByRole('combobox', { name: /tecnolog/i });
     const options = Array.from(select.querySelectorAll('option')).map((o) => o.textContent);
@@ -330,7 +330,7 @@ describe('CP-4: technology filter', () => {
 
     await waitFor(() => {
       const calls = vi.mocked(useContractsModule.useContracts).mock.calls;
-      const lastCall = calls[calls.length - 1][0];
+      const lastCall = calls[calls.length - 1]![0]!;
       expect(lastCall.technology).toBe('Fibra');
     });
   });
@@ -357,7 +357,7 @@ describe('CP-5: pagination', () => {
 
     await waitFor(() => {
       const calls = vi.mocked(useContractsModule.useContracts).mock.calls;
-      const lastCall = calls[calls.length - 1][0];
+      const lastCall = calls[calls.length - 1]![0]!;
       expect(lastCall.page).toBe(1);
     });
   });
@@ -372,7 +372,7 @@ describe('CP-6: permission guard', () => {
       can: vi.fn(() => hasPermission),
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+    } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
 
     return render(
       <QueryClientProvider client={makeQC()}>

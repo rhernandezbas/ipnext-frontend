@@ -9,7 +9,6 @@
  *  CO-5  Toggle por teclado (Enter / Space) sobre el header expande/colapsa.
  *  CO-6  Cada sección es independiente: expandir una no expande la otra.
  */
-import React from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -21,6 +20,7 @@ import * as useNasModule from '@/hooks/useNas';
 import * as useMyPermissionsModule from '@/hooks/useMyPermissions';
 import * as useContractServicesModule from '@/hooks/useContractServices';
 import type { PppoeServiceDto } from '@/types/pppoe';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 vi.mock('@/hooks/usePppoe');
@@ -53,9 +53,9 @@ function neutralMutation() {
 }
 
 function setup() {
-  vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue({
+  vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue(mockQuery({
     data: [], isLoading: false, isError: false, isSuccess: true,
-  } as ReturnType<typeof usePppoeModule.useContractPppoe>);
+  }));
 
   vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue({
     data: ORPHANS, isLoading: false, isError: false, isSuccess: true,

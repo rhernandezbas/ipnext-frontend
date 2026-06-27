@@ -8,17 +8,18 @@ vi.mock('@/hooks/useCustomers', () => ({
 }));
 
 import { useClientList } from '@/hooks/useCustomers';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 const mockCustomers = [
-  { id: 1, name: 'Juan Pérez', login: 'jperez', email: 'juan@example.com', phone: '1234567890', status: 'active' as const, balance: 0, category: 'residencial', tariffPlan: null, ipRanges: null, accessDevices: 0, createdAt: '2026-01-01' },
+  { id: 1, name: 'Juan Pérez', login: 'jperez', email: 'juan@example.com', phone: '1234567890', status: 'active' as const, category: 'residencial', tariffPlan: null, ipRanges: null, accessDevices: 0, createdAt: '2026-01-01' },
 ];
 
 describe('CustomerSearchPage', () => {
   beforeEach(() => {
-    vi.mocked(useClientList).mockReturnValue({
-      data: { data: mockCustomers, total: 1 },
+    vi.mocked(useClientList).mockReturnValue(mockQuery({
+      data: { data: mockCustomers, total: 1, page: 1, pageSize: 20, totalPages: 1 },
       isLoading: false,
-    } as ReturnType<typeof useClientList>);
+    }));
   });
 
   it('renders heading "Búsqueda de clientes"', () => {

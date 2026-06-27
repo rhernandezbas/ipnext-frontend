@@ -3,7 +3,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type { ScheduledTask } from '@/types/scheduling';
-import type { Admin } from '@/types/admin';
+import type { Workflow } from '@/types/workflow';
+
 
 // Mock all API and hook dependencies
 const noopMutationFactory = () => ({ mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue({}), isPending: false, isError: false, error: null, reset: vi.fn() });
@@ -204,6 +205,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/useMyPermissions';
 import { TaskHeader } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskHeader';
 
+import { mockMutation, mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 const mockTask: ScheduledTask = {
   id: 'task-1',
   sequenceNumber: 1001,
@@ -240,6 +242,10 @@ const mockTask: ScheduledTask = {
   networkSiteId: null,
   networkSiteName: null,
   generalStatus: 'open',
+  iclassCityCode: null,
+  networkType: null,
+  archivedAt: null,
+  iclassStatus: null,
   createdAt: '2026-05-01T00:00:00Z',
   updatedAt: '2026-05-01T00:00:00Z',
 };
@@ -250,7 +256,7 @@ const mockAdmins: any[] = [
   { id: 'admin-2', name: 'Pedro López', email: 'pedro@test.com', login: 'pedro', status: 'active', createdAt: '', updatedAt: '', lastLoginAt: null, roles: [{ id: 'r-t', code: 'tecnico', label: 'Técnico' }] },
 ];
 
-const mockWorkflows = [
+const mockWorkflows: Workflow[] = [
   {
     id: 'wf-1',
     name: 'Default',
@@ -291,40 +297,40 @@ function createWrapper() {
 
 function setupMocks(overrides?: { taskData?: Partial<ScheduledTask> | null; isLoading?: boolean }) {
   const task = overrides?.taskData === null ? null : { ...mockTask, ...overrides?.taskData };
-  vi.mocked(useTask).mockReturnValue({
+  vi.mocked(useTask).mockReturnValue(mockQuery({
     data: task ?? undefined,
     isLoading: overrides?.isLoading ?? false,
     isError: false,
     error: null,
-  } as ReturnType<typeof useTask>);
+  }));
 
-  vi.mocked(useUpdateTask).mockReturnValue(noopMutation as ReturnType<typeof useUpdateTask>);
-  vi.mocked(useMoveTaskToStage).mockReturnValue(noopMutation as ReturnType<typeof useMoveTaskToStage>);
-  vi.mocked(useDeleteTask).mockReturnValue(noopMutation as ReturnType<typeof useDeleteTask>);
-  vi.mocked(useCloseTask).mockReturnValue(noopMutation as ReturnType<typeof useCloseTask>);
-  vi.mocked(useSetTaskGeneralStatus).mockReturnValue(noopMutation as ReturnType<typeof useSetTaskGeneralStatus>);
-  vi.mocked(useSetTaskInventoryReview).mockReturnValue(noopMutation as ReturnType<typeof useSetTaskInventoryReview>);
-  vi.mocked(useAuth).mockReturnValue({ user: { id: 1, username: 'admin', email: 'a@b.com', displayName: 'Admin', role: 'admin', permissions: [] } });
+  vi.mocked(useUpdateTask).mockReturnValue(mockMutation({ ...noopMutation }));
+  vi.mocked(useMoveTaskToStage).mockReturnValue(mockMutation({ ...noopMutation }));
+  vi.mocked(useDeleteTask).mockReturnValue(mockMutation({ ...noopMutation }));
+  vi.mocked(useCloseTask).mockReturnValue(mockMutation({ ...noopMutation }));
+  vi.mocked(useSetTaskGeneralStatus).mockReturnValue(mockMutation({ ...noopMutation }));
+  vi.mocked(useSetTaskInventoryReview).mockReturnValue(mockMutation({ ...noopMutation }));
+  vi.mocked(useAuth).mockReturnValue({ user: { id: 1, username: 'admin', email: 'a@b.com', displayName: 'Admin', role: 'admin', permissions: [] } } as unknown as ReturnType<typeof useAuth>);
 
-  vi.mocked(useWorkflows).mockReturnValue({
+  vi.mocked(useWorkflows).mockReturnValue(mockQuery({
     data: mockWorkflows,
     isLoading: false,
-  } as ReturnType<typeof useWorkflows>);
+  }));
 
-  vi.mocked(useRbacUsers).mockReturnValue({
+  vi.mocked(useRbacUsers).mockReturnValue(mockQuery({
     data: mockAdmins,
     isLoading: false,
-  } as ReturnType<typeof useRbacUsers>);
+  }));
 
-  vi.mocked(usePartners).mockReturnValue({
+  vi.mocked(usePartners).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
-  } as ReturnType<typeof usePartners>);
+  }));
 
-  vi.mocked(useProjects).mockReturnValue({
+  vi.mocked(useProjects).mockReturnValue(mockQuery({
     data: [{ id: 'proj-1', title: 'Proyecto A', description: null, workflowId: null, createdAt: '', updatedAt: '' }],
     isLoading: false,
-  } as ReturnType<typeof useProjects>);
+  }));
 }
 
 // Import page after mocks are set up
@@ -371,14 +377,14 @@ describe('SchedulingTaskDetailPage', () => {
     // enableIclassAssign() don't leak state into subsequent tests.
     const { useFeatureFlag } = await import('@/hooks/useFeatureFlags');
     const { useIClassTechnicianTeams } = await import('@/hooks/useIClassTechnicianTeams');
-    vi.mocked(useFeatureFlag).mockReturnValue({
+    vi.mocked(useFeatureFlag).mockReturnValue(mockQuery({
       data: { key: 'iclass-assign-action', enabled: false },
       isLoading: false,
-    } as ReturnType<typeof useFeatureFlag>);
-    vi.mocked(useIClassTechnicianTeams).mockReturnValue({
+    }));
+    vi.mocked(useIClassTechnicianTeams).mockReturnValue(mockQuery({
       data: [],
       isLoading: false,
-    } as ReturnType<typeof useIClassTechnicianTeams>);
+    }));
   });
 
   it('renders TaskHeader and layout structure', async () => {
@@ -433,12 +439,12 @@ describe('SchedulingTaskDetailPage', () => {
 
   it('renders 404 state when task not found', async () => {
     setupMocks({ taskData: null });
-    vi.mocked(useTask).mockReturnValue({
+    vi.mocked(useTask).mockReturnValue(mockQuery({
       data: undefined,
       isLoading: false,
       isError: true,
       error: new Error('TASK_NOT_FOUND'),
-    } as ReturnType<typeof useTask>);
+    }));
 
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
     await waitFor(() => {
@@ -449,12 +455,12 @@ describe('SchedulingTaskDetailPage', () => {
 
   it('renders loading spinner while fetching', () => {
     setupMocks({ isLoading: true });
-    vi.mocked(useTask).mockReturnValue({
+    vi.mocked(useTask).mockReturnValue(mockQuery({
       data: undefined,
       isLoading: true,
       isError: false,
       error: null,
-    } as ReturnType<typeof useTask>);
+    }));
 
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
     expect(screen.getByRole('status')).toBeInTheDocument();
@@ -512,7 +518,7 @@ describe('SchedulingTaskDetailPage', () => {
   it('calls useSetTaskGeneralStatus with "closed" when "Cerrar tarea" is clicked (#41)', async () => {
     setupMocks();
     const setStatusMutateAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useSetTaskGeneralStatus).mockReturnValue({ ...noopMutation, mutateAsync: setStatusMutateAsync } as ReturnType<typeof useSetTaskGeneralStatus>);
+    vi.mocked(useSetTaskGeneralStatus).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync: setStatusMutateAsync }));
     const { fireEvent: fe } = await import('@testing-library/react');
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
     await waitFor(() => {
@@ -528,7 +534,7 @@ describe('SchedulingTaskDetailPage', () => {
   it('dismiss routes through a confirm before calling useSetTaskGeneralStatus (#41)', async () => {
     setupMocks();
     const setStatusMutateAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useSetTaskGeneralStatus).mockReturnValue({ ...noopMutation, mutateAsync: setStatusMutateAsync } as ReturnType<typeof useSetTaskGeneralStatus>);
+    vi.mocked(useSetTaskGeneralStatus).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync: setStatusMutateAsync }));
     // Confirm auto-resolves true via the global setup mock.
     const { fireEvent: fe } = await import('@testing-library/react');
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
@@ -572,7 +578,7 @@ describe('SchedulingTaskDetailPage', () => {
     // No network call happens until the user clicks the single bottom "Guardar".
     setupMocks();
     const mutateAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useUpdateTask).mockReturnValue({ ...noopMutation, mutateAsync } as ReturnType<typeof useUpdateTask>);
+    vi.mocked(useUpdateTask).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync }));
     const { fireEvent: fe } = await import('@testing-library/react');
 
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
@@ -585,7 +591,7 @@ describe('SchedulingTaskDetailPage', () => {
   it('unified save: after editing description, a single datos submit sends BOTH description and datos in ONE updateTask call', async () => {
     setupMocks();
     const mutateAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useUpdateTask).mockReturnValue({ ...noopMutation, mutateAsync } as ReturnType<typeof useUpdateTask>);
+    vi.mocked(useUpdateTask).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync }));
     const { fireEvent: fe } = await import('@testing-library/react');
 
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
@@ -611,7 +617,7 @@ describe('SchedulingTaskDetailPage', () => {
     // for a field the user never edited).
     setupMocks();
     const mutateAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useUpdateTask).mockReturnValue({ ...noopMutation, mutateAsync } as ReturnType<typeof useUpdateTask>);
+    vi.mocked(useUpdateTask).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync }));
     const { fireEvent: fe } = await import('@testing-library/react');
 
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
@@ -629,7 +635,7 @@ describe('SchedulingTaskDetailPage', () => {
   it('delete modal appears and dispatches delete on confirm', async () => {
     setupMocks();
     const deleteAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useDeleteTask).mockReturnValue({ ...noopMutation, mutateAsync: deleteAsync } as ReturnType<typeof useDeleteTask>);
+    vi.mocked(useDeleteTask).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync: deleteAsync }));
     const { fireEvent: fe } = await import('@testing-library/react');
 
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
@@ -646,7 +652,7 @@ describe('SchedulingTaskDetailPage', () => {
   it('inventory toggle calls useSetTaskInventoryReview', async () => {
     setupMocks();
     const inventoryMutateAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useSetTaskInventoryReview).mockReturnValue({ ...noopMutation, mutateAsync: inventoryMutateAsync } as ReturnType<typeof useSetTaskInventoryReview>);
+    vi.mocked(useSetTaskInventoryReview).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync: inventoryMutateAsync }));
     const { fireEvent: fe } = await import('@testing-library/react');
 
     render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
@@ -667,24 +673,24 @@ describe('SchedulingTaskDetailPage', () => {
   async function enableIclassAssign() {
     const { useFeatureFlag } = await import('@/hooks/useFeatureFlags');
     const { useIClassTechnicianTeams } = await import('@/hooks/useIClassTechnicianTeams');
-    vi.mocked(useFeatureFlag).mockReturnValue({
+    vi.mocked(useFeatureFlag).mockReturnValue(mockQuery({
       data: { key: 'iclass-assign-action', enabled: true },
       isLoading: false,
       isError: false,
       isSuccess: true,
-    } as ReturnType<typeof useFeatureFlag>);
-    vi.mocked(useIClassTechnicianTeams).mockReturnValue({
+    }));
+    vi.mocked(useIClassTechnicianTeams).mockReturnValue(mockQuery({
       data: [{ userId: 'admin-1', userName: 'Ana', userLogin: 'ana', iclassTeamLogin: 'equipo-a', teamName: 'Alpha', teamActive: true }],
       isLoading: false,
       isError: false,
       isSuccess: true,
-    } as ReturnType<typeof useIClassTechnicianTeams>);
+    }));
   }
 
   it('#130 flag ON + no assignee → modal shows, moveToStage NOT called', async () => {
     await enableIclassAssign();
     const moveAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useMoveTaskToStage).mockReturnValue({ ...noopMutation, mutateAsync: moveAsync } as ReturnType<typeof useMoveTaskToStage>);
+    vi.mocked(useMoveTaskToStage).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync: moveAsync }));
 
     setupMocks({ taskData: { assigneeId: null, assigneeName: null } });
 
@@ -721,7 +727,7 @@ describe('SchedulingTaskDetailPage', () => {
   it('#130 flag ON + no startDate/endDate → modal shows, not moved', async () => {
     await enableIclassAssign();
     const moveAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useMoveTaskToStage).mockReturnValue({ ...noopMutation, mutateAsync: moveAsync } as ReturnType<typeof useMoveTaskToStage>);
+    vi.mocked(useMoveTaskToStage).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync: moveAsync }));
 
     setupMocks({ taskData: { assigneeId: 'admin-1', startDate: null, endDate: null } });
 
@@ -747,7 +753,7 @@ describe('SchedulingTaskDetailPage', () => {
   it('#130 flag ON + time outside 08:00-20:00 (07:00 start) → modal shows, not moved', async () => {
     await enableIclassAssign();
     const moveAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useMoveTaskToStage).mockReturnValue({ ...noopMutation, mutateAsync: moveAsync } as ReturnType<typeof useMoveTaskToStage>);
+    vi.mocked(useMoveTaskToStage).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync: moveAsync }));
 
     // 07:00 AM local — below minimum
     const tzOffset = new Date().getTimezoneOffset() * 60000;
@@ -777,7 +783,7 @@ describe('SchedulingTaskDetailPage', () => {
   it('#130 flag ON + end past 20:00 (21:00) → modal shows, not moved', async () => {
     await enableIclassAssign();
     const moveAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useMoveTaskToStage).mockReturnValue({ ...noopMutation, mutateAsync: moveAsync } as ReturnType<typeof useMoveTaskToStage>);
+    vi.mocked(useMoveTaskToStage).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync: moveAsync }));
 
     const start = new Date(2026, 5, 20, 10, 0, 0).toISOString();
     const end = new Date(2026, 5, 20, 21, 0, 0).toISOString();
@@ -807,7 +813,7 @@ describe('SchedulingTaskDetailPage', () => {
     setupMocks({ taskData: { assigneeId: 'admin-1', startDate: start, endDate: end } });
     // Must be AFTER setupMocks — setupMocks overwrites useMoveTaskToStage with noopMutation.
     const moveAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useMoveTaskToStage).mockReturnValue({ ...noopMutation, mutateAsync: moveAsync } as ReturnType<typeof useMoveTaskToStage>);
+    vi.mocked(useMoveTaskToStage).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync: moveAsync }));
 
     const { TaskTabs } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs');
     let capturedOnStageMove: ((stageId: string) => void) | undefined;
@@ -834,7 +840,7 @@ describe('SchedulingTaskDetailPage', () => {
     setupMocks({ taskData: { assigneeId: null, startDate: null, endDate: null } });
     // Must be AFTER setupMocks — setupMocks overwrites useMoveTaskToStage with noopMutation.
     const moveAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useMoveTaskToStage).mockReturnValue({ ...noopMutation, mutateAsync: moveAsync } as ReturnType<typeof useMoveTaskToStage>);
+    vi.mocked(useMoveTaskToStage).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync: moveAsync }));
 
     const { TaskTabs } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs');
     let capturedOnStageMove: ((stageId: string) => void) | undefined;
@@ -861,7 +867,7 @@ describe('SchedulingTaskDetailPage', () => {
     setupMocks({ taskData: { assigneeId: null, startDate: null, endDate: null } });
     // Must be AFTER setupMocks — setupMocks overwrites useMoveTaskToStage with noopMutation.
     const moveAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useMoveTaskToStage).mockReturnValue({ ...noopMutation, mutateAsync: moveAsync } as ReturnType<typeof useMoveTaskToStage>);
+    vi.mocked(useMoveTaskToStage).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync: moveAsync }));
 
     const { TaskTabs } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs');
     let capturedOnStageMove: ((stageId: string) => void) | undefined;
@@ -897,7 +903,7 @@ describe('SchedulingTaskDetailPage', () => {
     const endDate   = '2026-06-27T23:00:00Z'; // 20:00 ART
     setupMocks({ taskData: { assigneeId: 'admin-1', startDate, endDate } });
     const moveAsync = vi.fn().mockResolvedValue({});
-    vi.mocked(useMoveTaskToStage).mockReturnValue({ ...noopMutation, mutateAsync: moveAsync } as ReturnType<typeof useMoveTaskToStage>);
+    vi.mocked(useMoveTaskToStage).mockReturnValue(mockMutation({ ...noopMutation, mutateAsync: moveAsync }));
 
     const { TaskTabs } = await import('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs');
     let capturedOnStageMove: ((stageId: string) => void) | undefined;
@@ -941,17 +947,17 @@ describe('SchedulingTaskDetailPage', () => {
   it('passes iclassAssignActive + technicianHasTeam down to the Datos form (#122)', async () => {
     const { useFeatureFlag } = await import('@/hooks/useFeatureFlags');
     const { useIClassTechnicianTeams } = await import('@/hooks/useIClassTechnicianTeams');
-    vi.mocked(useFeatureFlag).mockReturnValue({
+    vi.mocked(useFeatureFlag).mockReturnValue(mockQuery({
       data: { key: 'iclass-assign-action', enabled: true },
       isLoading: false,
-    } as ReturnType<typeof useFeatureFlag>);
-    vi.mocked(useIClassTechnicianTeams).mockReturnValue({
+    }));
+    vi.mocked(useIClassTechnicianTeams).mockReturnValue(mockQuery({
       data: [
         { userId: 'admin-1', userName: 'Ana', userLogin: 'ana', iclassTeamLogin: 'equipo-a', teamName: 'Alpha', teamActive: true },
         { userId: 'admin-2', userName: 'Pedro', userLogin: 'pedro', iclassTeamLogin: null, teamName: null, teamActive: false },
       ],
       isLoading: false,
-    } as ReturnType<typeof useIClassTechnicianTeams>);
+    }));
 
     setupMocks();
     let captured: { iclassAssignActive?: boolean; technicianHasTeam?: (id: string) => boolean } = {};
@@ -978,19 +984,19 @@ describe('SchedulingTaskDetailPage', () => {
   it('flag ON pero mapeo de cuadrillas LOADING: NO bloquea (fail-open) (#122 FIX-1)', async () => {
     const { useFeatureFlag } = await import('@/hooks/useFeatureFlags');
     const { useIClassTechnicianTeams } = await import('@/hooks/useIClassTechnicianTeams');
-    vi.mocked(useFeatureFlag).mockReturnValue({
+    vi.mocked(useFeatureFlag).mockReturnValue(mockQuery({
       data: { key: 'iclass-assign-action', enabled: true },
       isLoading: false,
       isError: false,
       isSuccess: true,
-    } as ReturnType<typeof useFeatureFlag>);
+    }));
     // Mapeo todavía cargando: data undefined, isSuccess false.
-    vi.mocked(useIClassTechnicianTeams).mockReturnValue({
+    vi.mocked(useIClassTechnicianTeams).mockReturnValue(mockQuery({
       data: undefined,
       isLoading: true,
       isError: false,
       isSuccess: false,
-    } as ReturnType<typeof useIClassTechnicianTeams>);
+    }));
 
     setupMocks();
     let captured: { iclassAssignActive?: boolean; technicianHasTeam?: (id: string) => boolean } = {};
@@ -1010,19 +1016,19 @@ describe('SchedulingTaskDetailPage', () => {
   it('flag ON pero mapeo de cuadrillas ERROR: NO bloquea (fail-open) (#122 FIX-1)', async () => {
     const { useFeatureFlag } = await import('@/hooks/useFeatureFlags');
     const { useIClassTechnicianTeams } = await import('@/hooks/useIClassTechnicianTeams');
-    vi.mocked(useFeatureFlag).mockReturnValue({
+    vi.mocked(useFeatureFlag).mockReturnValue(mockQuery({
       data: { key: 'iclass-assign-action', enabled: true },
       isLoading: false,
       isError: false,
       isSuccess: true,
-    } as ReturnType<typeof useFeatureFlag>);
+    }));
     // Mapeo erroró: data undefined, isError true, isSuccess false.
-    vi.mocked(useIClassTechnicianTeams).mockReturnValue({
+    vi.mocked(useIClassTechnicianTeams).mockReturnValue(mockQuery({
       data: undefined,
       isLoading: false,
       isError: true,
       isSuccess: false,
-    } as ReturnType<typeof useIClassTechnicianTeams>);
+    }));
 
     setupMocks();
     let captured: { iclassAssignActive?: boolean; technicianHasTeam?: (id: string) => boolean } = {};
@@ -1046,20 +1052,20 @@ describe('SchedulingTaskDetailPage', () => {
     const { useFeatureFlag } = await import('@/hooks/useFeatureFlags');
     const { useIClassTechnicianTeams } = await import('@/hooks/useIClassTechnicianTeams');
     // Flag todavía cargando: data undefined, isSuccess false.
-    vi.mocked(useFeatureFlag).mockReturnValue({
+    vi.mocked(useFeatureFlag).mockReturnValue(mockQuery({
       data: undefined,
       isLoading: true,
       isError: false,
       isSuccess: false,
-    } as ReturnType<typeof useFeatureFlag>);
-    vi.mocked(useIClassTechnicianTeams).mockReturnValue({
+    }));
+    vi.mocked(useIClassTechnicianTeams).mockReturnValue(mockQuery({
       data: [
         { userId: 'admin-1', userName: 'Ana', userLogin: 'ana', iclassTeamLogin: 'equipo-a', teamName: 'Alpha', teamActive: true },
       ],
       isLoading: false,
       isError: false,
       isSuccess: true,
-    } as ReturnType<typeof useIClassTechnicianTeams>);
+    }));
 
     setupMocks();
     let captured: { iclassAssignActive?: boolean; technicianHasTeam?: (id: string) => boolean } = {};

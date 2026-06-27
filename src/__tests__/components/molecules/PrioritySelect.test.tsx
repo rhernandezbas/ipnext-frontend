@@ -10,9 +10,9 @@ const priorities: TaskPriority[] = [
 ];
 
 describe('PrioritySelect', () => {
-  let onChange: ReturnType<typeof vi.fn>;
+  let onChange: (priorityName: string) => void | Promise<unknown>;
   beforeEach(() => {
-    onChange = vi.fn().mockResolvedValue(undefined);
+    onChange = vi.fn().mockResolvedValue(undefined) as unknown as (priorityName: string) => void | Promise<unknown>;
   });
 
   it('shows the current priority name on the trigger', () => {

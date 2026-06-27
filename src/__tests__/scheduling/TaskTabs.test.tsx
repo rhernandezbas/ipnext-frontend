@@ -267,7 +267,7 @@ describe('TaskTabs', () => {
 
   it('Relacionado renders a linked-ticket card when ticketId is present', async () => {
     const user = userEvent.setup();
-    render(<TaskTabs {...makeProps({ ticketId: 42, ticketSubject: 'Sin internet' })} />);
+    render(<TaskTabs {...makeProps({ ticketId: '42', ticketSubject: 'Sin internet' })} />);
     const tabs = screen.getAllByRole('tab');
     await user.click(tabs[3]); // Relacionado
     const link = screen.getByRole('link', { name: /#42/ });

@@ -59,7 +59,7 @@ describe('useAssignTicket — real BE route', () => {
 });
 
 describe('createTicket — real BE body (description + assigneeId)', () => {
-  it('modal payload (CreateTicketData) posts description, assigneeId and contractId', async () => {
+  it('modal payload (CreateTicketData) posts description, assigneeId, contractId and areaId', async () => {
     await createTicket({
       subject: 'Sin señal',
       description: 'El cliente no tiene servicio.',
@@ -67,8 +67,10 @@ describe('createTicket — real BE body (description + assigneeId)', () => {
       customerId: 'cust-1',
       contractId: 'contract-9',
       assigneeId: 'luis-uuid',
+      areaId: 'area-1',
     });
 
+    // CreateTicketData path posts the object verbatim; areaId is required by the BE (#49).
     expect(axiosClient.post).toHaveBeenCalledWith('/tickets', {
       subject: 'Sin señal',
       description: 'El cliente no tiene servicio.',
@@ -76,17 +78,19 @@ describe('createTicket — real BE body (description + assigneeId)', () => {
       customerId: 'cust-1',
       contractId: 'contract-9',
       assigneeId: 'luis-uuid',
+      areaId: 'area-1',
     });
   });
 
   it('legacy page payload (CreateTicketInput) maps to the same wire shape, incl. contractId', async () => {
     await createTicket({
       subject: 'Sin señal',
-      clientId: 'cust-1',
+      customerId: 'cust-1',
       contractId: 'contract-9',
-      priority: 'alta',
+      priority: 'high',
       description: 'Detalle del problema.',
-      assignedTo: 'luis-uuid',
+      assigneeId: 'luis-uuid',
+      areaId: 'area-1',
     });
 
     expect(axiosClient.post).toHaveBeenCalledWith('/tickets', expect.objectContaining({
@@ -105,6 +109,8 @@ describe('createTicket — real BE body (description + assigneeId)', () => {
       description: 'Detalle.',
       priority: 'medium',
       customerId: null,
+      contractId: null,
+      areaId: '',
     });
 
     const body = vi.mocked(axiosClient.post).mock.calls[0][1] as Record<string, unknown>;

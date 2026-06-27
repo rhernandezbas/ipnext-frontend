@@ -22,6 +22,7 @@ import * as useTicketStatusesModule from '@/hooks/useTicketStatuses';
 import * as ConfirmContextModule from '@/context/ConfirmContext';
 import { TicketStatusesBody } from '@/pages/tickets/settings/TicketStatusesBody';
 import type { TicketStatus } from '@/types/ticketStatus';
+import { mockMutation, mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 const mockStatuses: TicketStatus[] = [
   { id: '1', name: 'open', color: '#22c55e', weight: 1 },
@@ -30,10 +31,10 @@ const mockStatuses: TicketStatus[] = [
 ];
 
 function makeNoop() {
-  return {
+  return mockMutation({
     mutateAsync: vi.fn().mockResolvedValue(undefined),
     isPending: false,
-  } as ReturnType<typeof useTicketStatusesModule.useCreateTicketStatus>;
+  });
 }
 
 function renderBody() {
@@ -52,7 +53,7 @@ describe('TicketStatusesBody', () => {
       data: mockStatuses,
       isLoading: false,
     } as ReturnType<typeof useTicketStatusesModule.useTicketStatuses>);
-    vi.mocked(useTicketStatusesModule.useCreateTicketStatus).mockReturnValue(makeNoop());
+    vi.mocked(useTicketStatusesModule.useCreateTicketStatus).mockReturnValue(mockMutation({ mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false }));
     vi.mocked(useTicketStatusesModule.useUpdateTicketStatus).mockReturnValue(
       makeNoop() as unknown as ReturnType<typeof useTicketStatusesModule.useUpdateTicketStatus>
     );
@@ -69,10 +70,10 @@ describe('TicketStatusesBody', () => {
   });
 
   it('renders empty state when no statuses exist', () => {
-    vi.mocked(useTicketStatusesModule.useTicketStatuses).mockReturnValue({
+    vi.mocked(useTicketStatusesModule.useTicketStatuses).mockReturnValue(mockQuery({
       data: [],
       isLoading: false,
-    } as ReturnType<typeof useTicketStatusesModule.useTicketStatuses>);
+    }));
     renderBody();
     expect(screen.getByText(/no hay estados/i)).toBeInTheDocument();
   });
@@ -126,10 +127,10 @@ describe('TicketStatusesBody', () => {
 
   it('calls useCreateTicketStatus.mutateAsync when creating', async () => {
     const mockMutateAsync = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(useTicketStatusesModule.useCreateTicketStatus).mockReturnValue({
+    vi.mocked(useTicketStatusesModule.useCreateTicketStatus).mockReturnValue(mockMutation({
       mutateAsync: mockMutateAsync,
       isPending: false,
-    } as ReturnType<typeof useTicketStatusesModule.useCreateTicketStatus>);
+    }));
 
     renderBody();
     fireEvent.click(screen.getByRole('button', { name: '+ Nuevo estado' }));
@@ -191,12 +192,12 @@ describe('TicketStatusesBody', () => {
   });
 
   it('shows 409 conflict error in modal when name already exists', async () => {
-    vi.mocked(useTicketStatusesModule.useCreateTicketStatus).mockReturnValue({
+    vi.mocked(useTicketStatusesModule.useCreateTicketStatus).mockReturnValue(mockMutation({
       mutateAsync: vi.fn().mockRejectedValue({
         response: { status: 409, data: { code: 'TICKET_STATUS_NAME_CONFLICT' } },
       }),
       isPending: false,
-    } as ReturnType<typeof useTicketStatusesModule.useCreateTicketStatus>);
+    }));
 
     renderBody();
     fireEvent.click(screen.getByRole('button', { name: '+ Nuevo estado' }));

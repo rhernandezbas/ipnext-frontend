@@ -5,6 +5,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { TransaccionesPage } from '@/pages/TransaccionesPage/TransaccionesPage';
 import * as useBillingModule from '@/hooks/useBilling';
 import type { Transaction } from '@/types/billing';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useBilling');
 
@@ -75,10 +76,10 @@ describe('TransaccionesPage', () => {
   });
 
   it('shows empty message when no transactions', () => {
-    vi.mocked(useBillingModule.useTransactions).mockReturnValue({
-      data: { data: [], total: 0 },
+    vi.mocked(useBillingModule.useTransactions).mockReturnValue(mockQuery({
+      data: { data: [], total: 0, page: 1, pageSize: 20, totalPages: 1 },
       isLoading: false,
-    } as ReturnType<typeof useBillingModule.useTransactions>);
+    }));
     renderTransacciones();
     expect(screen.getByText('No hay transacciones.')).toBeInTheDocument();
   });

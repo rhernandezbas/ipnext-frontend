@@ -5,7 +5,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 // modal renders without a QueryClientProvider.
 const useClientListMock = vi.fn(() => ({ data: { data: [] as unknown[], total: 0, page: 1, pageSize: 20, totalPages: 0 }, isFetching: false }));
 const useClientDetailMock = vi.fn(() => ({ data: undefined as unknown }));
-const useClientContractsMock = vi.fn(() => ({ data: [] as unknown[] }));
+const useClientContractsMock = vi.fn(() => ({ data: [] as unknown[], isLoading: false }));
 vi.mock('@/hooks/useCustomers', () => ({
   useClientList: () => useClientListMock(),
   useClientDetail: () => useClientDetailMock(),
@@ -47,9 +47,9 @@ const workflows: Workflow[] = [
     createdAt: '',
     updatedAt: '',
     stages: [
-      { id: 'stage-done', workflowId: 'wf-1', name: 'Hecho', category: 'hecho', order: 2 },
-      { id: 'stage-new', workflowId: 'wf-1', name: 'Nuevo', category: 'nuevo', order: 0 },
-      { id: 'stage-prog', workflowId: 'wf-1', name: 'En progreso', category: 'enProgreso', order: 1 },
+      { id: 'stage-done', workflowId: 'wf-1', name: 'Hecho', category: 'hecho', code: 'hecho', order: 2 },
+      { id: 'stage-new', workflowId: 'wf-1', name: 'Nuevo', category: 'nuevo', code: 'nuevo', order: 0 },
+      { id: 'stage-prog', workflowId: 'wf-1', name: 'En progreso', category: 'enProgreso', code: 'en-progreso', order: 1 },
     ],
   },
 ];
@@ -67,7 +67,7 @@ describe('CreateTaskModal', () => {
     onCreate.mockResolvedValue(undefined);
     useClientListMock.mockReturnValue({ data: { data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }, isFetching: false });
     useClientDetailMock.mockReturnValue({ data: undefined });
-    useClientContractsMock.mockReturnValue({ data: [] });
+    useClientContractsMock.mockReturnValue({ data: [], isLoading: false });
   });
 
   function setup() {
@@ -288,6 +288,7 @@ describe('CreateTaskModal', () => {
       data: [
         { id: '55', plan: 'Plan 100Mbps', type: 'internet', status: 'active', price: 3000, startDate: '2024-01-01', endDate: null, description: '', address: 'Av. Servicio 999' },
       ],
+      isLoading: false,
     });
 
     setup();
@@ -314,6 +315,7 @@ describe('CreateTaskModal', () => {
       data: [
         { id: '66', plan: 'Plan 50Mbps', type: 'internet', status: 'active', price: 2000, startDate: '2024-01-01', endDate: null, description: '', address: null },
       ],
+      isLoading: false,
     });
 
     setup();
@@ -707,7 +709,7 @@ describe('CreateTaskModal', () => {
           onClose={onClose}
           onCreate={onCreate}
           loading={false}
-          initialValues={{ title: 'Desde ticket', customerId: 'c-tk', customerName: 'TK CUSTOMER', ticketId: 42 }}
+          initialValues={{ title: 'Desde ticket', customerId: 'c-tk', customerName: 'TK CUSTOMER', ticketId: '42' }}
         />,
       );
       const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
@@ -716,7 +718,7 @@ describe('CreateTaskModal', () => {
       fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'descripción de la tarea' } });
       fireEvent.click(screen.getByRole('button', { name: /crear tarea/i }));
       await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
-      expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ ticketId: 42 }));
+      expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ ticketId: '42' }));
     });
 
     it('omits ticketId from the payload when not provided (BE-graceful)', async () => {

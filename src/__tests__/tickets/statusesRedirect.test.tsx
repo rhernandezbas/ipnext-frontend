@@ -7,7 +7,7 @@
  */
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, Navigate } from 'react-router-dom';
-import { vi, describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // Minimal stand-in for the two routes we care about
 function StatusesRoute() {

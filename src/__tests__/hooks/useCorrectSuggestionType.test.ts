@@ -25,7 +25,7 @@ import * as apiModule from '@/api/serviceInventory.api';
 import { useCorrectSuggestionType } from '@/hooks/useServiceInventory';
 import type { ServiceInstalledItem } from '@/types/serviceInventory';
 
-const mockApi = apiModule as {
+const mockApi = apiModule as unknown as {
   correctSuggestionType: ReturnType<typeof vi.fn>;
 };
 

@@ -56,6 +56,10 @@ const mockTask: ScheduledTask = {
   networkSiteId: null,
   networkSiteName: null,
   generalStatus: 'open',
+  iclassCityCode: null,
+  networkType: null,
+  archivedAt: null,
+  iclassStatus: null,
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
 };
@@ -69,7 +73,7 @@ function createHarness() {
 }
 
 function invalidatedKey(spy: ReturnType<typeof vi.spyOn>, head: unknown): boolean {
-  return spy.mock.calls.some(call => {
+  return spy.mock.calls.some((call: unknown[]) => {
     const arg = call[0] as { queryKey?: readonly unknown[] } | undefined;
     const k = arg?.queryKey;
     return Array.isArray(k) && k[0] === head;
@@ -77,7 +81,7 @@ function invalidatedKey(spy: ReturnType<typeof vi.spyOn>, head: unknown): boolea
 }
 
 function projectsInvalidated(spy: ReturnType<typeof vi.spyOn>): boolean {
-  return spy.mock.calls.some(call => {
+  return spy.mock.calls.some((call: unknown[]) => {
     const arg = call[0] as { queryKey?: readonly unknown[] } | undefined;
     const k = arg?.queryKey;
     return Array.isArray(k) && k.length === PROJECTS_KEY.length && k[0] === PROJECTS_KEY[0];

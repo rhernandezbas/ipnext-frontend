@@ -50,7 +50,7 @@ vi.mock('@/hooks/useGigared', () => ({
 }));
 vi.mock('@/api/gigared.api', () => ({ gigaredApi: { getSummary: vi.fn() } }));
 
-const permHandle = vi.hoisted(() => ({ can: (_: string | string[]) => true }));
+const permHandle = vi.hoisted(() => ({ can: (_: string | string[]): boolean => true }));
 vi.mock('@/hooks/useMyPermissions', () => ({
   useMyPermissions: () => ({ can: permHandle.can, isLoading: false, isError: false }),
 }));

@@ -71,7 +71,8 @@ function mkTask(id: string, seq: number): ScheduledTask {
     iclassCityCode: null, networkType: null,
     archivedAt: '2026-06-10T12:00:00Z',
     startDate: null,
-  } as ScheduledTask;
+    iclassStatus: null,
+  } as unknown as ScheduledTask;
 }
 
 /** Renders SchedulingArchivedTasksPage directly at the /archive route path. */

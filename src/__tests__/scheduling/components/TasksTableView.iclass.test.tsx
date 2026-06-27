@@ -32,8 +32,8 @@ import type { AuthUser } from '@/types/auth';
 const workflows: Workflow[] = [{
   id: 'wf1', name: 'Default', description: null, createdAt: '', updatedAt: '',
   stages: [
-    { id: 's1', workflowId: 'wf1', name: 'Nuevo', category: 'nuevo', order: 0 },
-    { id: 's-iclass', workflowId: 'wf1', name: 'Enviar a IClass', category: 'enProgreso', order: 1 },
+    { id: 's1', workflowId: 'wf1', name: 'Nuevo', category: 'nuevo', code: 'nuevo', order: 0 },
+    { id: 's-iclass', workflowId: 'wf1', name: 'Enviar a IClass', category: 'enProgreso', code: 'en-progreso', order: 1 },
   ],
 }];
 const projects: Project[] = [{ id: 'p1', title: 'Fibra', description: null, workflowId: 'wf1', createdAt: '', updatedAt: '' }];

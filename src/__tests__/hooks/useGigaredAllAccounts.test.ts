@@ -23,6 +23,7 @@ function account(cic: string, over: Partial<GigaredAccount> = {}): GigaredAccoun
     registrationDate: null,
     services: [],
     internalId: null,
+    clientId: null,
     ott: null,
     ...over,
   };

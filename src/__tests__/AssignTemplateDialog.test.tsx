@@ -13,6 +13,7 @@ vi.mock('@/hooks/useScheduling', () => ({
 import { AssignTemplateDialog } from '@/pages/scheduling/SchedulingTaskDetailPage/components/AssignTemplateDialog';
 import * as templateHooks from '@/hooks/useTaskTemplates';
 import * as schedulingHooks from '@/hooks/useScheduling';
+import { mockMutation } from '@/__tests__/_utils/reactQueryMocks';
 
 const mockTemplates: TaskTemplate[] = [
   { id: 'tpl-1', name: 'Instalación fibra', description: null, category: 'installation' },
@@ -54,10 +55,10 @@ describe('AssignTemplateDialog', () => {
 
   it('confirm fires useAssignTemplateToTask with selected template', async () => {
     const mockMutate = vi.fn().mockResolvedValue([]);
-    vi.mocked(schedulingHooks.useAssignTemplateToTask).mockReturnValue({
+    vi.mocked(schedulingHooks.useAssignTemplateToTask).mockReturnValue(mockMutation({
       mutateAsync: mockMutate,
       isPending: false,
-    } as ReturnType<typeof schedulingHooks.useAssignTemplateToTask>);
+    }));
 
     render(
       <AssignTemplateDialog taskId="task-1" hasExistingItems={false} onClose={onClose} />
@@ -75,10 +76,10 @@ describe('AssignTemplateDialog', () => {
 
   it('cancel does NOT fire mutation', () => {
     const mockMutate = vi.fn();
-    vi.mocked(schedulingHooks.useAssignTemplateToTask).mockReturnValue({
+    vi.mocked(schedulingHooks.useAssignTemplateToTask).mockReturnValue(mockMutation({
       mutateAsync: mockMutate,
       isPending: false,
-    } as ReturnType<typeof schedulingHooks.useAssignTemplateToTask>);
+    }));
 
     render(
       <AssignTemplateDialog taskId="task-1" hasExistingItems={false} onClose={onClose} />

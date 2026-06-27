@@ -2,7 +2,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { PppoeServiceListResult, InternetServiceEvent } from '@/types/internetService';
+import type { PppoeServiceListResult, InternetServiceEvent, PppoeServiceListFilter } from '@/types/internetService';
 
 vi.mock('@/api/pppoe.api', () => ({
   pppoeApi: {
@@ -84,11 +84,11 @@ describe('useAllPppoe', () => {
     const { wrapper } = makeWrapper();
     const { rerender } = renderHook(({ f }) => useAllPppoe(f), {
       wrapper,
-      initialProps: { f: { status: '' as const } },
+      initialProps: { f: { status: '' } as PppoeServiceListFilter },
     });
     await waitFor(() => expect(pppoeApi.list).toHaveBeenCalledWith({ status: '' }));
 
-    rerender({ f: { status: 'baja' as const } });
+    rerender({ f: { status: 'baja' } });
     await waitFor(() => expect(pppoeApi.list).toHaveBeenCalledWith({ status: 'baja' }));
   });
 

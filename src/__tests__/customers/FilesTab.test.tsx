@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { FilesTab } from '@/pages/customers/tabs/FilesTab';
 import * as useClientsModule from '@/hooks/useCustomers';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useCustomers');
 
@@ -36,10 +37,10 @@ describe('FilesTab', () => {
   });
 
   it('renders "Subir archivo" button', () => {
-    vi.mocked(useClientsModule.useClientFiles).mockReturnValue({
+    vi.mocked(useClientsModule.useClientFiles).mockReturnValue(mockQuery({
       data: [],
       isLoading: false,
-    } as ReturnType<typeof useClientsModule.useClientFiles>);
+    }));
 
     renderTab();
     expect(screen.getByRole('button', { name: 'Subir archivo' })).toBeInTheDocument();
@@ -67,10 +68,10 @@ describe('FilesTab', () => {
   });
 
   it('"Sin archivos" shown when data is empty', () => {
-    vi.mocked(useClientsModule.useClientFiles).mockReturnValue({
+    vi.mocked(useClientsModule.useClientFiles).mockReturnValue(mockQuery({
       data: [],
       isLoading: false,
-    } as ReturnType<typeof useClientsModule.useClientFiles>);
+    }));
 
     renderTab();
     expect(screen.getByText('Sin archivos')).toBeInTheDocument();

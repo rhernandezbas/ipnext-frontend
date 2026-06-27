@@ -4,7 +4,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 const permHandles = vi.hoisted(() => ({
   result: {
-    can: (_: string | string[]) => true,
+    can: (_: string | string[]): boolean => true,
     isLoading: false,
     isError: false,
     user: null,

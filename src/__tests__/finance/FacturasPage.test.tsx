@@ -6,6 +6,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { FacturasPage } from '@/pages/FacturasPage/FacturasPage';
 import * as useBillingModule from '@/hooks/useBilling';
 import type { Invoice } from '@/types/billing';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useBilling');
 
@@ -117,10 +118,10 @@ describe('FacturasPage', () => {
   });
 
   it('shows empty message when no invoices', () => {
-    vi.mocked(useBillingModule.useInvoices).mockReturnValue({
-      data: { data: [], total: 0 },
+    vi.mocked(useBillingModule.useInvoices).mockReturnValue(mockQuery({
+      data: { data: [], total: 0, page: 1, pageSize: 20, totalPages: 1 },
       isLoading: false,
-    } as ReturnType<typeof useBillingModule.useInvoices>);
+    }));
     renderFacturas();
     expect(screen.getByText('No hay facturas.')).toBeInTheDocument();
   });

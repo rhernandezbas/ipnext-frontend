@@ -10,7 +10,6 @@
  * CP-7  Fallback a <input> de texto requerido si usePlans().isError
  * CP-8  El label del campo tiene un asterisco '*' que lo marca como requerido
  */
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -22,6 +21,7 @@ import * as useNasModule from '@/hooks/useNas';
 import * as useMyPermissionsModule from '@/hooks/useMyPermissions';
 import * as usePlansModule from '@/hooks/usePlans';
 import type { PlanDto } from '@/types/plans';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 vi.mock('@/hooks/usePppoe');
@@ -108,19 +108,19 @@ function setup(opts: SetupOpts = {}) {
   } = opts;
 
   // Sin PPPoE activo → se muestra el form de crear
-  vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue({
+  vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePppoeModule.useContractPppoe>);
+  }));
 
-  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue({
+  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePppoeModule.useUnassignedPppoe>);
+  }));
 
   vi.mocked(usePppoeModule.usePppoeCredentials).mockReturnValue({
     data: undefined,

@@ -47,6 +47,7 @@ const mockTicket: Ticket = {
   assigneeId: null,
   reporterId: null, reporterName: null, reporter: null,
   areaId: null, areaName: null, areaColor: null,
+  contractId: null,
   description: '',
   tags: [],
   createdAt: '2024-01-01',
@@ -99,7 +100,7 @@ describe('TicketsListPage — archivedView (#85)', () => {
       can: vi.fn().mockReturnValue(true),
       permissions: ['*'],
       isLoading: false,
-    } as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+    } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
   });
 
   it('archivedView passes archived: true to useTicketList', () => {
@@ -153,7 +154,7 @@ describe('TicketsListPage — default open status (#85)', () => {
       can: vi.fn().mockReturnValue(true),
       permissions: ['*'],
       isLoading: false,
-    } as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+    } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
   });
 
   it('main list without explicit status defaults to the first non-closed catalog status', () => {

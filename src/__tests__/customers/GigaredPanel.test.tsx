@@ -324,6 +324,7 @@ function pickAccount(over: Partial<GigaredAccount> = {}): GigaredAccount {
     registrationDate: null,
     services: [{ id: 'p1', name: 'Gigared Play Full' }],
     internalId: null,
+    clientId: null,
     ott: null,
     ...over,
   };
@@ -686,7 +687,6 @@ describe('GigaredPanel', () => {
     it('the "será habilitado" hint disappears after the timeout', async () => {
       vi.useFakeTimers();
       try {
-        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
         ottMutate.mockResolvedValue({ ok: true });
         vi.mocked(useSetOtt).mockReturnValue({
           mutateAsync: ottMutate,

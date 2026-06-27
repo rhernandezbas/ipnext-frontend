@@ -13,7 +13,6 @@
  *  RV-2  Reveal: click en el ojo → enabled=true → muestra el password resuelto
  *  RV-3  Reveal gating: sin pppoe.manage la fila de Contraseña no se renderiza
  */
-import React from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -26,6 +25,7 @@ import * as useMyPermissionsModule from '@/hooks/useMyPermissions';
 import * as useContractServicesModule from '@/hooks/useContractServices';
 import * as usePlansModule from '@/hooks/usePlans';
 import type { PppoeServiceDto } from '@/types/pppoe';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 vi.mock('@/hooks/usePppoe');
@@ -96,12 +96,12 @@ function setup(opts: SetupOpts = {}) {
     canManage = true,
   } = opts;
 
-  vi.mocked(usePlansModule.usePlans).mockReturnValue({
+  vi.mocked(usePlansModule.usePlans).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePlansModule.usePlans>);
+  }));
 
   vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue({
     data: [],

@@ -17,6 +17,7 @@ import * as useClientsModule from '@/hooks/useCustomers';
 import * as useSchedulingModule from '@/hooks/useScheduling';
 import * as useTicketsModule from '@/hooks/useTickets';
 import type { Customer } from '@/types/customer';
+import { mockMutation, mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useCustomers');
 vi.mock('@/hooks/useScheduling');
@@ -32,7 +33,6 @@ const mockCustomer: Customer = {
   phone: '11-1111-1111',
   address: 'Av. Corrientes 1234, CABA',
   status: 'active',
-  balance: -1500,
   category: 'residential',
   tariffPlan: 'Plan 50MB',
   createdAt: '2024-01-01',
@@ -42,15 +42,15 @@ const mockCustomer: Customer = {
 };
 
 function mockAllHooks() {
-  vi.mocked(useSchedulingModule.useTasksByCustomer).mockReturnValue({
+  vi.mocked(useSchedulingModule.useTasksByCustomer).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
-  } as ReturnType<typeof useSchedulingModule.useTasksByCustomer>);
+  }));
 
-  vi.mocked(useTicketsModule.useTicketsByCustomer).mockReturnValue({
-    data: { data: [], total: 0 },
+  vi.mocked(useTicketsModule.useTicketsByCustomer).mockReturnValue(mockQuery({
+    data: { data: [], total: 0, page: 1, pageSize: 20, totalPages: 1 },
     isLoading: false,
-  } as ReturnType<typeof useTicketsModule.useTicketsByCustomer>);
+  }));
 
   vi.mocked(useClientsModule.useClientDetail).mockReturnValue({
     data: mockCustomer,
@@ -62,45 +62,45 @@ function mockAllHooks() {
     isPending: false,
   } as unknown as ReturnType<typeof useClientsModule.useToggleClientStatus>);
 
-  vi.mocked(useClientsModule.useClientContracts).mockReturnValue({
+  vi.mocked(useClientsModule.useClientContracts).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
-  } as ReturnType<typeof useClientsModule.useClientContracts>);
+  }));
 
-  vi.mocked(useClientsModule.useClientInvoices).mockReturnValue({
+  vi.mocked(useClientsModule.useClientInvoices).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
-  } as ReturnType<typeof useClientsModule.useClientInvoices>);
+  }));
 
   vi.mocked(useClientsModule.useClientLogs).mockReturnValue({
     data: undefined,
     isLoading: false,
   } as ReturnType<typeof useClientsModule.useClientLogs>);
 
-  vi.mocked(useClientsModule.useClientComments).mockReturnValue({
+  vi.mocked(useClientsModule.useClientComments).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
-  } as ReturnType<typeof useClientsModule.useClientComments>);
+  }));
 
-  vi.mocked(useClientsModule.useCreateComment).mockReturnValue({
+  vi.mocked(useClientsModule.useCreateComment).mockReturnValue(mockMutation({
     mutate: vi.fn(),
     isPending: false,
-  } as ReturnType<typeof useClientsModule.useCreateComment>);
+  }));
 
-  vi.mocked(useClientsModule.useClientDocuments).mockReturnValue({
+  vi.mocked(useClientsModule.useClientDocuments).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
-  } as ReturnType<typeof useClientsModule.useClientDocuments>);
+  }));
 
   vi.mocked(useClientsModule.useUploadDocument).mockReturnValue({
     mutate: vi.fn(),
     isPending: false,
   } as unknown as ReturnType<typeof useClientsModule.useUploadDocument>);
 
-  vi.mocked(useClientsModule.useClientFiles).mockReturnValue({
+  vi.mocked(useClientsModule.useClientFiles).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
-  } as ReturnType<typeof useClientsModule.useClientFiles>);
+  }));
 
   vi.mocked(useClientsModule.useUploadFile).mockReturnValue({
     mutate: vi.fn(),

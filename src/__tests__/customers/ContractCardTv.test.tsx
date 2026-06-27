@@ -279,7 +279,6 @@ describe('ContractCard — TV from contract (#47b)', () => {
     it('without tv.read the TV chip is static (not a button, never opens the panel)', async () => {
       setup({ gigaredConfig: config({ configured: true, enabled: true }) });
       denyTvRead();
-      const user = userEvent.setup();
       renderCard({ services: [svc({ id: 'cs-tv', serviceCatalogId: 'sc-tv', name: 'TV', label: 'TV' })] });
       // No clickable TV control.
       expect(screen.queryByRole('button', { name: /^TV$/ })).not.toBeInTheDocument();
@@ -316,6 +315,7 @@ describe('ContractCard — TV from contract (#47b)', () => {
       registrationDate: '2026-01-01T00:00:00Z',
       services: [{ id: 's1', name: 'Gigared Play Full' }],
       internalId: 'c-1',
+      clientId: null,
       ott: { id: 'o1', stationaryLicenses: 1, mobileLicenses: 1, registeredDevices: 0, status: 'disabled' },
       ...over,
     });

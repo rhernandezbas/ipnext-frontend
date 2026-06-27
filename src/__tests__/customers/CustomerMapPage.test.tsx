@@ -3,10 +3,11 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
 import CustomerMapPage from '@/pages/customers/CustomerMapPage';
+import type { Zone } from '@/api/zones.api';
 
 // CustomerMapPage now uses useZones (TanStack Query) so it needs a QueryClientProvider.
 // We mock useZones to return an empty list so the test doesn't hit the network.
-const mockUseZones = vi.fn(() => ({ data: [], isLoading: false, isError: false }));
+const mockUseZones = vi.fn(() => ({ data: [] as Zone[], isLoading: false, isError: false }));
 
 vi.mock('@/hooks/useZones', () => ({
   useZones: () => mockUseZones(),
@@ -78,7 +79,7 @@ describe('CustomerMapPage', () => {
 
   // C1 — read-only path: two zones render without crashing (needs Polygon in mock)
   it('renders both zone polygons in read-only mode (non-empty zones)', () => {
-    mockUseZones.mockReturnValue({ data: TWO_ZONES, isLoading: false, isError: false });
+    mockUseZones.mockReturnValue({ data: TWO_ZONES as Zone[], isLoading: false, isError: false });
     render(<CustomerMapPage />, { wrapper: makeWrapper() });
     const polygons = screen.getAllByTestId('polygon');
     expect(polygons).toHaveLength(2);
@@ -86,7 +87,7 @@ describe('CustomerMapPage', () => {
 
   // W4 — isError: shows error message when zones fetch fails
   it('shows an error message when zones fail to load', () => {
-    mockUseZones.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+    mockUseZones.mockReturnValue({ data: undefined as unknown as Zone[], isLoading: false, isError: true } as unknown as { data: Zone[]; isLoading: boolean; isError: boolean });
     render(<CustomerMapPage />, { wrapper: makeWrapper() });
     expect(screen.getByRole('alert', { hidden: false })).toHaveTextContent(
       'No se pudieron cargar las zonas.',

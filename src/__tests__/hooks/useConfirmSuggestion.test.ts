@@ -24,7 +24,7 @@ import * as apiModule from '@/api/serviceInventory.api';
 import { useConfirmSuggestion } from '@/hooks/useServiceInventory';
 import type { ConfirmSuggestionResult, ServiceInstalledItem } from '@/types/serviceInventory';
 
-const mockApi = apiModule as {
+const mockApi = apiModule as unknown as {
   confirmInventorySuggestion: ReturnType<typeof vi.fn>;
 };
 

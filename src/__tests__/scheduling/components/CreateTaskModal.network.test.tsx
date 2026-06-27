@@ -17,7 +17,7 @@ import type { NetworkSite } from '@/types/networkSite';
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
 const useClientListMock = vi.fn(() => ({
-  data: { data: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
+  data: { data: [] as unknown[], total: 0, page: 1, pageSize: 20, totalPages: 0 },
   isFetching: false,
 }));
 const useClientDetailMock = vi.fn(() => ({ data: undefined as unknown }));
@@ -61,6 +61,8 @@ const mockNetworkSites: NetworkSite[] = [
     parentSiteId: null,
     description: 'Test node',
     iclassNodeCode: 'ALPHA-01',
+    siteNumber: 1,
+    fixedCode: 'NODO-1',
     uispSiteId: null,
   },
 ];
@@ -94,8 +96,8 @@ const workflows: Workflow[] = [
     createdAt: '',
     updatedAt: '',
     stages: [
-      { id: 'stage-new', workflowId: 'wf-1', name: 'Nuevo', category: 'nuevo', order: 0 },
-      { id: 'stage-done', workflowId: 'wf-1', name: 'Hecho', category: 'hecho', order: 2 },
+      { id: 'stage-new', workflowId: 'wf-1', name: 'Nuevo', category: 'nuevo', code: 'nuevo', order: 0 },
+      { id: 'stage-done', workflowId: 'wf-1', name: 'Hecho', category: 'hecho', code: 'hecho', order: 2 },
     ],
   },
 ];

@@ -6,9 +6,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TaskHeader } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskHeader';
 import type { ScheduledTask } from '@/types/scheduling';
 import type { WorkflowStage } from '@/types/workflow';
-import type React from 'react';
 import { useCan, useMyPermissions } from '@/hooks/useMyPermissions';
 import { useFeatureFlag } from '@/hooks/useFeatureFlags';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 // TaskHeader now uses useFeatureFlag (for iclass-close-action gate) and useCan —
 // mock them so the component doesn't need a real QueryClient or network.
@@ -62,6 +62,9 @@ const mockTask: ScheduledTask = {
   kind: 'customer',
   networkSiteId: null,
   networkSiteName: null,
+  iclassCityCode: null,
+  networkType: null,
+  archivedAt: null,
   generalStatus: 'open',
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
@@ -69,9 +72,9 @@ const mockTask: ScheduledTask = {
 };
 
 const mockStages: WorkflowStage[] = [
-  { id: 'stage-1', workflowId: 'wf-1', name: 'Nuevo', category: 'nuevo', order: 1 },
-  { id: 'stage-2', workflowId: 'wf-1', name: 'En progreso', category: 'enProgreso', order: 2 },
-  { id: 'stage-3', workflowId: 'wf-1', name: 'Hecho', category: 'hecho', order: 3 },
+  { id: 'stage-1', workflowId: 'wf-1', name: 'Nuevo', code: 'nuevo', category: 'nuevo', order: 1 },
+  { id: 'stage-2', workflowId: 'wf-1', name: 'En progreso', code: 'en-progreso', category: 'enProgreso', order: 2 },
+  { id: 'stage-3', workflowId: 'wf-1', name: 'Hecho', code: 'hecho', category: 'hecho', order: 3 },
 ];
 
 function renderHeader(props: Partial<Parameters<typeof TaskHeader>[0]> = {}) {
@@ -265,12 +268,12 @@ describe('TaskHeader', () => {
       },
     });
     // Flag ON so only permission blocks it
-    vi.mocked(useFeatureFlag).mockReturnValue({
+    vi.mocked(useFeatureFlag).mockReturnValue(mockQuery({
       data: { key: 'iclass-close-action', enabled: true },
       isLoading: false,
       isError: false,
       refetch: vi.fn(),
-    } as ReturnType<typeof useFeatureFlag>);
+    }));
 
     renderHeader({ task: { ...mockTask, iclassOrderCode: 'OS-001' } });
 
@@ -282,12 +285,12 @@ describe('TaskHeader', () => {
     // useCan: grant all (global default already does this, but be explicit)
     vi.mocked(useCan).mockImplementation(() => true);
     // Flag ON
-    vi.mocked(useFeatureFlag).mockReturnValue({
+    vi.mocked(useFeatureFlag).mockReturnValue(mockQuery({
       data: { key: 'iclass-close-action', enabled: true },
       isLoading: false,
       isError: false,
       refetch: vi.fn(),
-    } as ReturnType<typeof useFeatureFlag>);
+    }));
 
     renderHeader({ task: { ...mockTask, iclassOrderCode: 'OS-001' } });
 

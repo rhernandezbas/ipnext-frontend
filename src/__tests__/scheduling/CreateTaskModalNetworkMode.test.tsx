@@ -50,8 +50,8 @@ const workflows: Workflow[] = [
   {
     id: 'wf-1', name: 'Default', description: null, createdAt: '', updatedAt: '',
     stages: [
-      { id: 'stage-new', workflowId: 'wf-1', name: 'Nuevo', category: 'nuevo', order: 0 },
-      { id: 'stage-prog', workflowId: 'wf-1', name: 'En progreso', category: 'enProgreso', order: 1 },
+      { id: 'stage-new', workflowId: 'wf-1', name: 'Nuevo', category: 'nuevo', code: 'nuevo', order: 0 },
+      { id: 'stage-prog', workflowId: 'wf-1', name: 'En progreso', category: 'enProgreso', code: 'en-progreso', order: 1 },
     ],
   },
 ];
@@ -63,7 +63,7 @@ const networkProjects: Project[] = [
 const makeSite = (over: Partial<NetworkSite> = {}): NetworkSite => ({
   id: 'site-1', name: 'POP Centro', address: 'Av. Siempreviva 742', city: 'Springfield',
   coordinates: null, type: 'pop', status: 'active', deviceCount: 0, clientCount: 0,
-  uplink: '', parentSiteId: null, description: '', iclassNodeCode: null, uispSiteId: null,
+  uplink: '', parentSiteId: null, description: '', iclassNodeCode: null, siteNumber: 1, fixedCode: 'NODO-1', uispSiteId: null,
   ...over,
 });
 
@@ -234,7 +234,6 @@ describe('CreateTaskModal address required in network mode (REQ-53)', () => {
   it('shows the required asterisk on Dirección label in network mode', () => {
     setupFilled();
     // aria-hidden span with "*" next to "Dirección" text
-    const asterisk = document.querySelector('[aria-hidden="true"]');
     // Find all aria-hidden="true" elements and check one contains "*"
     const allHidden = document.querySelectorAll('[aria-hidden="true"]');
     const hasAsterisk = Array.from(allHidden).some(el => el.textContent === '*');

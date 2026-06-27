@@ -10,13 +10,12 @@ const mockCustomer: Customer = {
   phone: '11-1111-1111',
   address: 'Av. Corrientes 1234, CABA',
   status: 'active',
-  balance: -1500,
   category: 'residential',
   tariffPlan: 'Plan 50MB',
   createdAt: '2024-01-01',
   updatedAt: '2024-06-01',
-  services: [],
   logs: [],
+  contracts: [],
 };
 
 describe('InfoTab', () => {

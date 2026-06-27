@@ -13,7 +13,7 @@
  * 9. On success → calls onClose
  * 10. Escape / backdrop / Cancelar close without submitting
  */
-import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type { ServiceInstalledItem, RetireInstalledItemInput } from '@/types/serviceInventory';

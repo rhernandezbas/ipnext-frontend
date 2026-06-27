@@ -39,8 +39,8 @@ import type { AuthUser } from '@/types/auth';
 const workflows: Workflow[] = [{
   id: 'wf1', name: 'Default', description: null, createdAt: '', updatedAt: '',
   stages: [
-    { id: 's2', workflowId: 'wf1', name: 'Confirmado', category: 'nuevo', order: 1 },
-    { id: 's1', workflowId: 'wf1', name: 'Nuevo', category: 'nuevo', order: 0 },
+    { id: 's2', workflowId: 'wf1', name: 'Confirmado', category: 'nuevo', code: 'confirmado', order: 1 },
+    { id: 's1', workflowId: 'wf1', name: 'Nuevo', category: 'nuevo', code: 'nuevo', order: 0 },
   ],
 }];
 const projects: Project[] = [{ id: 'p1', title: 'Fibra', description: null, workflowId: 'wf1', createdAt: '', updatedAt: '' }];
@@ -236,7 +236,7 @@ describe('TasksTableView — bulk close gating + error handling (#41)', () => {
 describe('listTasks — outgoing status param (#41, REQ-FILTER-7)', () => {
   it('serializes status=open into the request params', async () => {
     schedulingGet.mockResolvedValue({ data: [] });
-    await listTasks({ kind: 'project', status: 'open' });
+    await listTasks({ kind: 'customer', status: 'open' });
     expect(schedulingGet).toHaveBeenCalledWith('/scheduling', {
       params: expect.objectContaining({ status: 'open' }),
     });

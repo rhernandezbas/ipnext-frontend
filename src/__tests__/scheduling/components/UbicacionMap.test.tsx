@@ -1,5 +1,4 @@
-import { render, screen, act, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, act } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { UbicacionMap } from '@/pages/scheduling/SchedulingTaskDetailPage/components/UbicacionMap';
 

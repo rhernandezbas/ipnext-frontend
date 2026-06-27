@@ -39,7 +39,7 @@ function mkTicket(over: Partial<Ticket>): Ticket {
     assigneeId: null, assigneeName: null, reporterId: null, reporterName: null,
     reporter: null, areaId: null, areaName: null, areaColor: null,
     createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
-    resolvedAt: null, tags: [],
+    resolvedAt: null, archivedAt: null, contractId: null, tags: [],
     ...over,
   };
 }

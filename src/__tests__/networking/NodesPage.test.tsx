@@ -4,7 +4,7 @@
  * TDD: this test file was written BEFORE production code in the pages.
  * The tests reference components that did not exist at write time.
  */
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
@@ -125,7 +125,7 @@ const idleMutation = {
 function mockPerms(canFn: (p: string | string[]) => boolean = () => true) {
   vi.mocked(useMyPermissions).mockReturnValue({
     user: null, roles: [], permissions: [], isLoading: false, isError: false,
-    can: (p, _mode?) => canFn(p),
+    can: (p: string | string[], _mode?: string) => canFn(p),
   } as never);
   vi.mocked(useCan).mockImplementation((p: string) => canFn(p));
 }

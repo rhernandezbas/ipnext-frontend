@@ -11,6 +11,7 @@ import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ContractStatsCards } from '@/pages/contracts/ContractStatsCards';
 import * as useContractsModule from '@/hooks/useContracts';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useContracts');
 
@@ -26,10 +27,10 @@ const mockStats = {
 describe('ContractStatsCards', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useContractsModule.useContractStats).mockReturnValue({
+    vi.mocked(useContractsModule.useContractStats).mockReturnValue(mockQuery({
       data: mockStats,
       isLoading: false,
-    } as ReturnType<typeof useContractsModule.useContractStats>);
+    }));
   });
 
   // CS-1

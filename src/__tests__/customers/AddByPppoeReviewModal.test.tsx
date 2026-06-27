@@ -15,7 +15,7 @@
  * 11. Escape closes the modal (calls onClose)
  * 12. Backdrop click calls onClose
  */
-import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type {

@@ -7,7 +7,6 @@
  * CP-7.5: delete unused
  * CP-7.6: delete in-use 409 error
  */
-import React from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -25,6 +24,7 @@ vi.mock('@/context/ConfirmContext', () => ({
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 import type { ServiceTechnology } from '@/types/serviceTechnology';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 const mockTechs: ServiceTechnology[] = [
   { id: 't1', name: 'Fibra', description: 'Fibra óptica' },
@@ -110,11 +110,11 @@ describe('CP-7.1: render rows', () => {
   });
 
   it('shows empty message when no technologies', () => {
-    vi.mocked(useTechModule.useServiceTechnologies).mockReturnValue({
+    vi.mocked(useTechModule.useServiceTechnologies).mockReturnValue(mockQuery({
       data: [],
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof useTechModule.useServiceTechnologies>);
+    }));
     renderPage();
     expect(screen.getByText(/no hay tecnolog/i)).toBeInTheDocument();
   });

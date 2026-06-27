@@ -10,6 +10,7 @@ import * as useNotificationsModule from '@/hooks/useNotifications';
 import type { AuthUser } from '@/types/auth';
 import type { SearchResult } from '@/types/search';
 import type { Notification } from '@/types/notification';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useAuth');
 vi.mock('@/hooks/useSearch');
@@ -89,10 +90,10 @@ describe('Navbar', () => {
       closeResults: mockCloseResults,
     });
 
-    vi.mocked(useNotificationsModule.useNotifications).mockReturnValue({
+    vi.mocked(useNotificationsModule.useNotifications).mockReturnValue(mockQuery({
       data: [],
       isLoading: false,
-    } as ReturnType<typeof useNotificationsModule.useNotifications>);
+    }));
 
     vi.mocked(useNotificationsModule.useMarkNotificationRead).mockReturnValue({
       mutate: mockMarkRead,

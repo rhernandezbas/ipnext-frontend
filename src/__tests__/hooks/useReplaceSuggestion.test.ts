@@ -24,7 +24,7 @@ import * as apiModule from '@/api/serviceInventory.api';
 import { useReplaceSuggestion } from '@/hooks/useServiceInventory';
 import type { ServiceInstalledItem } from '@/types/serviceInventory';
 
-const mockApi = apiModule as {
+const mockApi = apiModule as unknown as {
   replaceInventorySuggestion: ReturnType<typeof vi.fn>;
 };
 

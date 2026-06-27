@@ -24,6 +24,7 @@ import { useUispSites } from '@/hooks/useUispSites';
 import { useIClassNodes, useSyncIClassNodes } from '@/hooks/useIClassNodes';
 import { UispNodeMappingBody } from '@/components/networking/UispNodeMappingBody';
 import type { NetworkSite } from '@/types/networkSite';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 function makeSite(over: Partial<NetworkSite> = {}): NetworkSite {
   const siteNumber = 1;
@@ -63,15 +64,15 @@ function setupMocks(sites: NetworkSite[]) {
     isLoading: false,
   } as ReturnType<typeof useNetworkSites>);
 
-  vi.mocked(useUispSites).mockReturnValue({
+  vi.mocked(useUispSites).mockReturnValue(mockQuery({
     data: { sites: [] },
     isLoading: false,
-  } as ReturnType<typeof useUispSites>);
+  }));
 
-  vi.mocked(useIClassNodes).mockReturnValue({
+  vi.mocked(useIClassNodes).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
-  } as ReturnType<typeof useIClassNodes>);
+  }));
 
   vi.mocked(useSyncIClassNodes).mockReturnValue({
     ...idleUpdate,

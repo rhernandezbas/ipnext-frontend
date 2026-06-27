@@ -6,7 +6,7 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect } from 'vitest';
 import React from 'react';
 import type { ScheduledTask } from '@/types/scheduling';
 
@@ -80,6 +80,16 @@ function makeTask(overrides: Partial<ScheduledTask> = {}): ScheduledTask {
     checklist: [],
     createdAt: '2026-05-01T00:00:00Z',
     updatedAt: '2026-05-01T00:00:00Z',
+    generalStatus: 'open',
+    reviewedByInventory: false,
+    iclassOrderCode: null,
+    kind: 'customer',
+    networkSiteId: null,
+    networkSiteName: null,
+    iclassCityCode: null,
+    networkType: null,
+    archivedAt: null,
+    iclassStatus: null,
     ...overrides,
   };
 }

@@ -44,6 +44,7 @@ const account: GigaredAccount = {
   registrationDate: '2026-01-01T00:00:00Z',
   services: [],
   internalId: 'cust-1',
+  clientId: null,
   ott: null,
 };
 

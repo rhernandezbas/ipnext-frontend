@@ -19,15 +19,6 @@ const idleMutation = {
   reset: vi.fn(),
 };
 
-function mockFlag(key: string, enabled: boolean) {
-  vi.mocked(useFeatureFlag).mockImplementation((k: string) => ({
-    data: k === key ? { key: k, enabled } : { key: k, enabled: false },
-    isLoading: false,
-    isError: false,
-    isSuccess: true,
-    refetch: vi.fn(),
-  } as never));
-}
 
 function mockBothFlags(closeEnabled: boolean, assignEnabled: boolean) {
   vi.mocked(useFeatureFlag).mockImplementation((k: string) => {

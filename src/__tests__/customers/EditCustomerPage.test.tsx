@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import EditCustomerPage from '@/pages/customers/EditCustomerPage';
 import * as useClientsModule from '@/hooks/useCustomers';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 vi.mock('@/hooks/useCustomers');
 
@@ -23,11 +24,11 @@ const mockCustomer = {
   phone: '111-1111',
   address: 'Calle 1',
   status: 'active' as const,
-  balance: 0,
   category: 'residential',
   tariffPlan: null,
   createdAt: '2024-01-01',
   updatedAt: '2024-01-01',
+  contracts: [],
   services: [],
   logs: [],
 };
@@ -49,10 +50,10 @@ describe('EditCustomerPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    vi.mocked(useClientsModule.useClientDetail).mockReturnValue({
+    vi.mocked(useClientsModule.useClientDetail).mockReturnValue(mockQuery({
       data: mockCustomer,
       isLoading: false,
-    } as ReturnType<typeof useClientsModule.useClientDetail>);
+    }));
 
     vi.mocked(useClientsModule.useUpdateCustomer).mockReturnValue({
       mutateAsync: mockMutateAsync,

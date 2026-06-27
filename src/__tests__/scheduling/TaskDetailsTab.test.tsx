@@ -74,8 +74,7 @@ const baseProps: TaskDetailsTabProps = {
   },
   descriptionEditor: {
     initialHtml: '<p>Test description</p>',
-    onSave: vi.fn().mockResolvedValue(undefined),
-    isSaving: false,
+    onChange: vi.fn(),
   },
   checklistSection: {
     taskId: 'task-123',
@@ -114,7 +113,7 @@ describe('TaskDetailsTab', () => {
     const { container } = render(
       <TaskDetailsTab
         {...baseProps}
-        descriptionEditor={{ initialHtml: null, onSave: vi.fn(), isSaving: false }}
+        descriptionEditor={{ initialHtml: null, onChange: vi.fn() }}
       />
     );
     const root = container.firstElementChild as HTMLElement;
