@@ -224,6 +224,7 @@ const EMPRESA_ITEMS: NavParentItem[] = [
     label: 'Informes',
     to: '/admin/reports',
     matchPaths: ['/admin/reports'],
+    requiredPermission: 'reports.read',
   },
 ];
 
