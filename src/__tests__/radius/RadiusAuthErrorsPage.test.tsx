@@ -146,11 +146,20 @@ describe('RadiusAuthErrorsPage', () => {
     expect(within(tbody).getByText('Usuario no existe')).toBeInTheDocument();
   });
 
-  it('maps reason=other → "Otro / revisar" badge in the table', () => {
+  it('maps reason=other → "Credenciales" badge in the table', () => {
     mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
     const { container } = renderPage();
     const tbody = container.querySelector('tbody')!;
-    expect(within(tbody).getByText('Otro / revisar')).toBeInTheDocument();
+    expect(within(tbody).getByText('Credenciales')).toBeInTheDocument();
+  });
+
+  it('the "Credenciales" badge has an explanatory tooltip (title attr)', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    const { container } = renderPage();
+    const tbody = container.querySelector('tbody')!;
+    const badge = within(tbody).getByText('Credenciales');
+    expect(badge).toHaveAttribute('title');
+    expect(badge.getAttribute('title')).toMatch(/clave|credencial|autenticaci/i);
   });
 
   it('renders reason=null as an em-dash with no badge label in the table', () => {
@@ -167,7 +176,7 @@ describe('RadiusAuthErrorsPage', () => {
     const tbody = container.querySelector('tbody')!;
     expect(within(tbody).queryByText('Sesión colgada')).toBeNull();
     expect(within(tbody).queryByText('Usuario no existe')).toBeNull();
-    expect(within(tbody).queryByText('Otro / revisar')).toBeNull();
+    expect(within(tbody).queryByText('Credenciales')).toBeNull();
   });
 
   it('renders an em-dash for an unknown reason value (no crash)', () => {
@@ -188,7 +197,7 @@ describe('RadiusAuthErrorsPage', () => {
   it('does NOT use emojis in the Motivo badges (text-only)', () => {
     mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
     renderPage();
-    const labels = ['Sesión colgada', 'Usuario no existe', 'Otro / revisar'];
+    const labels = ['Sesión colgada', 'Usuario no existe', 'Credenciales'];
     const emoji = /\p{Extended_Pictographic}/u;
     for (const label of labels) {
       expect(emoji.test(label)).toBe(false);
@@ -254,7 +263,7 @@ describe('ReasonChips — Ola 2', () => {
     expect(screen.getByRole('button', { name: /todos/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sesión colgada/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /usuario no existe/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /otro.*revisar/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /credenciales/i })).toBeInTheDocument();
   });
 
   it('renders chips with countsByReason counts formatted with AR thousands separator', () => {
@@ -263,7 +272,7 @@ describe('ReasonChips — Ola 2', () => {
     // 5831 → "5.831", 1234 → "1.234", 789 → "789"
     expect(screen.getByRole('button', { name: /sesión colgada/i }).textContent).toContain('5.831');
     expect(screen.getByRole('button', { name: /usuario no existe/i }).textContent).toContain('1.234');
-    expect(screen.getByRole('button', { name: /otro.*revisar/i }).textContent).toContain('789');
+    expect(screen.getByRole('button', { name: /credenciales/i }).textContent).toContain('789');
   });
 
   it('"Todos" chip is aria-pressed=true when no reason filter is active', () => {
@@ -277,7 +286,7 @@ describe('ReasonChips — Ola 2', () => {
     renderPage();
     expect(screen.getByRole('button', { name: /sesión colgada/i })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByRole('button', { name: /usuario no existe/i })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: /otro.*revisar/i })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: /credenciales/i })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('clicking a reason chip passes that reason to the hook', async () => {
@@ -341,14 +350,14 @@ describe('ReasonChips — Ola 2', () => {
     expect(screen.getByRole('button', { name: 'Todos' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sesión colgada' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Usuario no existe' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Otro / revisar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Credenciales' })).toBeInTheDocument();
   });
 
   it('chip labels have no emojis (text-only per ui-ux-pro-max)', () => {
     mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
     renderPage();
     const emoji = /\p{Extended_Pictographic}/u;
-    ['Todos', 'Sesión colgada', 'Usuario no existe', 'Otro / revisar'].forEach((label) => {
+    ['Todos', 'Sesión colgada', 'Usuario no existe', 'Credenciales'].forEach((label) => {
       expect(emoji.test(label)).toBe(false);
     });
   });

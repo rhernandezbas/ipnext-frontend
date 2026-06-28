@@ -14,13 +14,22 @@ const LIMIT = 50;
  * Los valores son los que el orchestrator persiste; NO inventar valores en español.
  *   session_stuck  → naranja (el más importante: cliente bloqueado por sesión anterior)
  *   user_not_found → rojo
- *   other          → gris
+ *   other          → gris — "Credenciales": el usuario está provisto (existe en radcheck) y
+ *                   sin sesión colgada, pero igual lo rechazan → por la lógica CHAP, la
+ *                   credencial que mandó el CPE no valida (clave PPPoE mal cargada). Medido
+ *                   en r1: 98% de los rechazos caen acá, 99.3% CHAP (no determinable per-evento
+ *                   por comparación de password). NO se afirma "wrong password"; el bucket sigue
+ *                   siendo el catch-all `other` del orchestrator — solo cambia la etiqueta humana.
  *   null / desconocido → "—" sin badge (gris tenue)
  */
-const MOTIVO_MAP: Record<string, { label: string; className: string }> = {
+const MOTIVO_MAP: Record<string, { label: string; className: string; title?: string }> = {
   session_stuck:  { label: 'Sesión colgada',  className: styles.badgeStuck },
   user_not_found: { label: 'Usuario no existe', className: styles.badgeNotFound },
-  other:          { label: 'Otro / revisar',   className: styles.badgeOther },
+  other:          {
+    label: 'Credenciales',
+    className: styles.badgeOther,
+    title: 'El usuario existe pero la autenticación falló — típicamente la clave PPPoE está mal cargada en el router del cliente.',
+  },
 };
 
 type ReasonKey = 'session_stuck' | 'user_not_found' | 'other';
@@ -72,7 +81,7 @@ function MotivoBadge({ reason }: { reason: string | null }) {
   if (!entry) {
     return <span className={styles.motivoEmpty}>—</span>;
   }
-  return <span className={entry.className}>{entry.label}</span>;
+  return <span className={entry.className} title={entry.title}>{entry.label}</span>;
 }
 
 /**
