@@ -78,6 +78,7 @@ const ACTIVE_PPPOE: PppoeServiceDto = {
   nasId: 'nas-1',
   contractId: 'contract-1',
   createdAt: '2026-06-01T00:00:00Z',
+  ipMode: 'fixed',
 };
 
 const CONTRACT_SERVICES = [{ id: 'svc-1', name: 'INTERNET', status: 'active' }];

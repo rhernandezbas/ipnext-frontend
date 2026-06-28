@@ -11,11 +11,10 @@
  * IP-8  Unpin 502 → "Router no disponible, reintentá."
  * IP-9  Sin permiso pppoe.manage → el control no se renderiza
  */
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, type Mock } from 'vitest';
 
 import { InternetPanel } from '@/pages/customers/tabs/contracts/InternetPanel';
 import * as usePppoeModule from '@/hooks/usePppoe';
@@ -24,6 +23,8 @@ import * as useMyPermissionsModule from '@/hooks/useMyPermissions';
 import * as useContractServicesModule from '@/hooks/useContractServices';
 import * as usePlansModule from '@/hooks/usePlans';
 import type { PppoeServiceDto } from '@/types/pppoe';
+
+import { mockQuery, mockMutation } from '@/__tests__/_utils/reactQueryMocks';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 vi.mock('@/hooks/usePppoe');
@@ -66,8 +67,8 @@ function neutralMutation() {
 interface SetupOpts {
   pppoe?: Partial<PppoeServiceDto>;
   canManage?: boolean;
-  pinMutateAsync?: ReturnType<typeof vi.fn>;
-  unpinMutateAsync?: ReturnType<typeof vi.fn>;
+  pinMutateAsync?: Mock;
+  unpinMutateAsync?: Mock;
 }
 
 function setup(opts: SetupOpts = {}) {
@@ -80,33 +81,33 @@ function setup(opts: SetupOpts = {}) {
 
   const pppoe = { ...BASE_PPPOE, ...pppoePatch };
 
-  vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue({
+  vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue(mockQuery({
     data: [pppoe],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePppoeModule.useContractPppoe>);
+  }));
 
-  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue({
+  vi.mocked(usePppoeModule.useUnassignedPppoe).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePppoeModule.useUnassignedPppoe>);
+  }));
 
-  vi.mocked(usePppoeModule.usePppoeCredentials).mockReturnValue({
+  vi.mocked(usePppoeModule.usePppoeCredentials).mockReturnValue(mockQuery({
     data: undefined,
     isLoading: false,
     isError: false,
     isSuccess: false,
-  } as ReturnType<typeof usePppoeModule.usePppoeCredentials>);
+  }));
 
-  vi.mocked(usePppoeModule.usePppoeCallerId).mockReturnValue({
+  vi.mocked(usePppoeModule.usePppoeCallerId).mockReturnValue(mockQuery({
     data: undefined,
     isLoading: false,
     isError: false,
     isSuccess: false,
-  } as ReturnType<typeof usePppoeModule.usePppoeCallerId>);
+  }));
 
   vi.mocked(usePppoeModule.useCreatePppoe).mockReturnValue(neutralMutation());
   vi.mocked(usePppoeModule.useUpdatePppoe).mockReturnValue(neutralMutation());
@@ -116,37 +117,37 @@ function setup(opts: SetupOpts = {}) {
   vi.mocked(usePppoeModule.useAssociatePppoe).mockReturnValue(neutralMutation());
   vi.mocked(usePppoeModule.useEnforcePppoeForContract).mockReturnValue(neutralMutation());
 
-  vi.mocked(usePppoeModule.usePinPppoeIp).mockReturnValue({
+  vi.mocked(usePppoeModule.usePinPppoeIp).mockReturnValue(mockMutation({
     mutateAsync: pinMutateAsync,
     isPending: false,
-  } as unknown as ReturnType<typeof usePppoeModule.usePinPppoeIp>);
+  }));
 
-  vi.mocked(usePppoeModule.useUnpinPppoeIp).mockReturnValue({
+  vi.mocked(usePppoeModule.useUnpinPppoeIp).mockReturnValue(mockMutation({
     mutateAsync: unpinMutateAsync,
     isPending: false,
-  } as unknown as ReturnType<typeof usePppoeModule.useUnpinPppoeIp>);
+  }));
 
-  vi.mocked(useNasModule.useNasServers).mockReturnValue({
-    data: [{ id: 'nas-1', name: 'Router Central' }],
-  } as ReturnType<typeof useNasModule.useNasServers>);
+  vi.mocked(useNasModule.useNasServers).mockReturnValue(mockQuery({
+    data: [{ id: 'nas-1', name: 'Router Central', type: 'mikrotik_api', ipAddress: '192.168.1.1', radiusSecret: 'secret', nasIpAddress: '192.168.1.1', apiPort: null, apiLogin: null, apiPassword: null, status: 'active', lastSeen: null, clientCount: 0, description: '' }],
+  }));
 
-  vi.mocked(useNasModule.useNextFreeIp).mockReturnValue({
+  vi.mocked(useNasModule.useNextFreeIp).mockReturnValue(mockQuery({
     data: undefined,
     isSuccess: false,
     isError: false,
     isFetching: false,
     error: null,
     refetch: vi.fn(),
-  } as unknown as ReturnType<typeof useNasModule.useNextFreeIp>);
+  }));
 
   vi.mocked(useContractServicesModule.useUpdateContractService).mockReturnValue(neutralMutation());
 
-  vi.mocked(usePlansModule.usePlans).mockReturnValue({
+  vi.mocked(usePlansModule.usePlans).mockReturnValue(mockQuery({
     data: [],
     isLoading: false,
     isError: false,
     isSuccess: true,
-  } as ReturnType<typeof usePlansModule.usePlans>);
+  }));
 
   vi.mocked(useMyPermissionsModule.useMyPermissions).mockReturnValue({
     can: vi.fn((perm: string | string[]) => {

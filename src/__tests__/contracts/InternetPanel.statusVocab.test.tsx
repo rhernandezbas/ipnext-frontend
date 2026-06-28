@@ -145,6 +145,7 @@ const ENABLED_PPPOE: PppoeServiceDto = {
   nasId: 'nas-1',
   contractId: 'contract-1',
   createdAt: '2026-06-01T00:00:00Z',
+  ipMode: 'fixed',
 };
 
 const DISABLED_PPPOE: PppoeServiceDto = {
