@@ -4,24 +4,24 @@ import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type { InternetServiceEvent } from '@/types/internetService';
 
+// El select de operadores se puebla del endpoint pppoe-scoped
+// usePppoeActivationOperators (gate pppoe.read) — NO de useRbacUsers (que pedía
+// admin/rbac y dejaba el select vacío para usuarios pppoe.read-only). El endpoint
+// ya devuelve SOLO los operadores que generaron eventos, así que el componente NO
+// filtra por rol ni status: mapea {actorId, actorName} → {id, name} tal cual.
 vi.mock('@/hooks/useInternetServices', () => ({
   useInternetActivationHistory: vi.fn(),
-}));
-
-// El select de operadores va DIRECTO a useRbacUsers (NO useAssignableOperators):
-// las altas de Internet las hacen varios roles (admin/NOC/red), no solo ventas,
-// así que filtrar por rol ventas dejaría el select inútil. Por eso mockeamos el
-// hook de RBAC crudo y devolvemos usuarios de VARIOS roles en los tests.
-vi.mock('@/hooks/useRbacUsers', () => ({
-  useRbacUsers: vi.fn(),
+  usePppoeActivationOperators: vi.fn(),
 }));
 
 vi.mock('@/utils/exportToCsv', () => ({
   exportToCsv: vi.fn(),
 }));
 
-import { useInternetActivationHistory } from '@/hooks/useInternetServices';
-import { useRbacUsers } from '@/hooks/useRbacUsers';
+import {
+  useInternetActivationHistory,
+  usePppoeActivationOperators,
+} from '@/hooks/useInternetServices';
 import { exportToCsv } from '@/utils/exportToCsv';
 import { InternetActivationHistoryModal } from '@/components/molecules/InternetActivationHistoryModal/InternetActivationHistoryModal';
 
@@ -60,35 +60,19 @@ function mockHistory(over: { data?: InternetServiceEvent[]; isLoading?: boolean;
 }
 
 /**
- * Mockea useRbacUsers (la fuente REAL del select de operadores). Los specs
- * aceptan `role` (code) y `status` para poder probar que el select muestra
- * operadores de CUALQUIER rol activo — no solo ventas — y que oculta los
- * disabled. El componente filtra por status === 'active' y mapea {id, name}.
+ * Mockea usePppoeActivationOperators (la fuente del select de operadores). El
+ * endpoint pppoe-scoped ya devuelve los operadores DISTINCT que generaron eventos
+ * (cualquier rol, sin status): el componente los mapea {actorId, actorName} →
+ * {id, name} tal cual, sin filtrar.
  */
-type OperatorSpec = {
-  id: string;
-  name: string;
-  role?: string;
-  status?: 'active' | 'disabled';
-};
+type OperatorSpec = { actorId: string; actorName: string };
 
 function mockOperators(specs: OperatorSpec[] = [], isLoading = false) {
-  const data = specs.map((s) => ({
-    id: s.id,
-    name: s.name,
-    email: `${s.id}@ipnext.test`,
-    login: s.id,
-    status: s.status ?? 'active',
-    createdAt: '2026-01-01T00:00:00Z',
-    updatedAt: '2026-01-01T00:00:00Z',
-    lastLoginAt: null,
-    roles: [{ id: `role-${s.role ?? 'noc'}`, code: s.role ?? 'noc', name: s.role ?? 'noc' }],
-  }));
-  vi.mocked(useRbacUsers).mockReturnValue({
-    data: isLoading ? undefined : data,
+  vi.mocked(usePppoeActivationOperators).mockReturnValue({
+    data: isLoading ? undefined : specs,
     isLoading,
     isError: false,
-  } as ReturnType<typeof useRbacUsers>);
+  } as ReturnType<typeof usePppoeActivationOperators>);
 }
 
 function renderModal(props: { open?: boolean; clientId?: string } = {}) {
@@ -289,7 +273,7 @@ describe('InternetActivationHistoryModal', () => {
     it('round-trip: elegir un operador en el select lo cablea como actorId al hook', async () => {
       const user = userEvent.setup();
       mockHistory();
-      mockOperators([{ id: 'op-7', name: 'Operador Siete' }]);
+      mockOperators([{ actorId: 'op-7', actorName: 'Operador Siete' }]);
       renderGlobalModal();
       await user.selectOptions(screen.getByLabelText(/operador/i), 'op-7');
       expect(useInternetActivationHistory).toHaveBeenLastCalledWith({ actorId: 'op-7' }, true);
@@ -334,8 +318,8 @@ describe('InternetActivationHistoryModal', () => {
       it('muestra la opción "Todos" por default y una opción por operador', () => {
         mockHistory();
         mockOperators([
-          { id: 'op-1', name: 'Ana García' },
-          { id: 'op-2', name: 'Juan López' },
+          { actorId: 'op-1', actorName: 'Ana García' },
+          { actorId: 'op-2', actorName: 'Juan López' },
         ]);
         renderGlobalModal();
         expect(screen.getByRole('option', { name: /todos/i })).toBeInTheDocument();
@@ -344,15 +328,16 @@ describe('InternetActivationHistoryModal', () => {
       });
 
       // ── REGRESIÓN (bug del review) ──────────────────────────────────────────
-      // El select NO debe filtrar por rol ventas. Las altas de Internet las hacen
-      // admin/NOC/red, así que un operador NO-ventas DEBE aparecer en el select.
-      // Este test pinea que el bug (usar useAssignableOperators) no vuelve.
-      it('incluye operadores de CUALQUIER rol activo (admin/NOC), NO solo ventas', () => {
+      // El select se puebla del endpoint pppoe-scoped, NO de useAssignableOperators
+      // (que filtra al rol ventas). Las altas de Internet las hacen admin/NOC/red,
+      // así que un operador NO-ventas DEBE aparecer. El endpoint ya devuelve la
+      // lista relevante tal cual y el componente la muestra entera (sin filtrar).
+      it('incluye operadores de CUALQUIER rol (admin/NOC), NO solo ventas', () => {
         mockHistory();
         mockOperators([
-          { id: 'op-admin', name: 'Admin Root', role: 'administrador' },
-          { id: 'op-noc', name: 'Tecnico NOC', role: 'noc' },
-          { id: 'op-ventas', name: 'Vendedor Uno', role: 'ventas' },
+          { actorId: 'op-admin', actorName: 'Admin Root' },
+          { actorId: 'op-noc', actorName: 'Tecnico NOC' },
+          { actorId: 'op-ventas', actorName: 'Vendedor Uno' },
         ]);
         renderGlobalModal();
         // Los TRES deben aparecer — incluido el admin y el NOC (no-ventas).
@@ -361,20 +346,22 @@ describe('InternetActivationHistoryModal', () => {
         expect(screen.getByRole('option', { name: 'Vendedor Uno' })).toBeInTheDocument();
       });
 
-      it('excluye usuarios disabled (solo status active)', () => {
+      // El endpoint ya devuelve solo los relevantes: el componente NO filtra,
+      // solo mapea {actorId, actorName} → {value, label} del <option>.
+      it('puebla el select tal cual el endpoint (actorId como value, actorName como label)', () => {
         mockHistory();
-        mockOperators([
-          { id: 'op-on', name: 'Activo Uno', status: 'active' },
-          { id: 'op-off', name: 'Baja Dada', status: 'disabled' },
-        ]);
+        mockOperators([{ actorId: 'op-42', actorName: 'Operador Cuarenta y Dos' }]);
         renderGlobalModal();
-        expect(screen.getByRole('option', { name: 'Activo Uno' })).toBeInTheDocument();
-        expect(screen.queryByRole('option', { name: 'Baja Dada' })).not.toBeInTheDocument();
+        const option = screen.getByRole('option', {
+          name: 'Operador Cuarenta y Dos',
+        }) as HTMLOptionElement;
+        expect(option).toBeInTheDocument();
+        expect(option.value).toBe('op-42');
       });
 
-      it('degrada a solo "Todos" sin romper cuando la lista viene vacía (sin permiso admin/rbac)', () => {
+      it('degrada a solo "Todos" sin romper cuando la lista viene vacía (query falló)', () => {
         mockHistory();
-        mockOperators([]); // data vacía → query falló o sin permiso
+        mockOperators([]); // data vacía → query falló (el contrato dice nunca vacío)
         renderGlobalModal();
         const select = screen.getByLabelText(/operador/i);
         expect(select.tagName).toBe('SELECT');
@@ -393,7 +380,7 @@ describe('InternetActivationHistoryModal', () => {
       it('seleccionando "Todos" (value vacío) limpia el filtro actorId', async () => {
         const user = userEvent.setup();
         mockHistory();
-        mockOperators([{ id: 'op-1', name: 'Ana García' }]);
+        mockOperators([{ actorId: 'op-1', actorName: 'Ana García' }]);
         renderGlobalModal();
         // Seleccionar un operador...
         await user.selectOptions(screen.getByLabelText(/operador/i), 'op-1');

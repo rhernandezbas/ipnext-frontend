@@ -5,6 +5,7 @@ import type {
   PppoeServiceListFilter,
   InternetServiceEvent,
   InternetActivationHistoryFilter,
+  PppoeActivationOperator,
 } from '@/types/internetService';
 
 /**
@@ -49,6 +50,23 @@ export function useInternetActivationHistory(
     queryKey: internetActivationHistoryKey(filter),
     queryFn: () => pppoeApi.activationHistory(filter),
     staleTime: 30_000,
+    enabled,
+  });
+}
+
+/**
+ * Operadores DISTINCT que generaron eventos de Internet, para poblar el <select>
+ * de filtro del historial. Va al endpoint pppoe-scoped (gate pppoe.read), así un
+ * usuario pppoe.read-only SÍ ve los operadores — a diferencia del viejo
+ * useRbacUsers (que pedía admin/rbac y dejaba el select vacío).
+ * `enabled` ata el fetch al estado del modal. staleTime largo (60s): la lista
+ * de operadores cambia poco dentro de una sesión de auditoría.
+ */
+export function usePppoeActivationOperators(enabled = true) {
+  return useQuery<PppoeActivationOperator[]>({
+    queryKey: [...ROOT, 'activation-operators'],
+    queryFn: () => pppoeApi.activationOperators(),
+    staleTime: 60_000,
     enabled,
   });
 }

@@ -12,6 +12,7 @@ import type {
   PppoeServiceListFilter,
   InternetServiceEvent,
   InternetActivationHistoryFilter,
+  PppoeActivationOperator,
 } from '@/types/internetService';
 
 const BASE = '/pppoe';
@@ -70,6 +71,15 @@ export const pppoeApi = {
     if (filter.from) params.from = filter.from;
     if (filter.to) params.to = filter.to;
     const r = await axiosClient.get<InternetServiceEvent[]>(`${BASE}/activation-history`, { params });
+    return r.data;
+  },
+
+  /**
+   * Operadores DISTINCT que generaron eventos de Internet (para el <select> del historial).
+   * Gated `pppoe.read` (NO requiere admin/rbac, a diferencia de useRbacUsers).
+   */
+  async activationOperators(): Promise<PppoeActivationOperator[]> {
+    const r = await axiosClient.get<PppoeActivationOperator[]>(`${BASE}/activation-history/operators`);
     return r.data;
   },
 

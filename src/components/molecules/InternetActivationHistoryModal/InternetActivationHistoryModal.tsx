@@ -16,8 +16,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { useInternetActivationHistory } from '@/hooks/useInternetServices';
-import { useRbacUsers } from '@/hooks/useRbacUsers';
+import {
+  useInternetActivationHistory,
+  usePppoeActivationOperators,
+} from '@/hooks/useInternetServices';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { ReasonViewModal } from '@/components/molecules/ReasonViewModal/ReasonViewModal';
 import { formatDateTimeShort, arDayStartUtc, arDayEndUtc } from '@/utils/formatDate';
@@ -206,24 +208,11 @@ function GlobalBody({ open }: { open: boolean }) {
   const [actorId, setActorId] = useState('');
   const [activeReason, setActiveReason] = useState<string | null>(null);
 
-  // Operadores del sistema para el <select> de filtro.
-  //
-  // OJO: NO usamos useAssignableOperators acá — ese hook filtra ESTRICTO al rol
-  // `ventas` (es el pool de asignación de Recaptación). Pero las altas/bajas de
-  // Internet las ejecutan VARIOS roles (admin, NOC, red — quien tenga
-  // pppoe.manage), NO ventas. Filtrar por ventas dejaría el select sin los
-  // operadores que efectivamente aparecen en el historial → filtro inútil.
-  // Por eso vamos directo a useRbacUsers y solo filtramos por status active.
-  //
-  // Caveat honesto: GET /admin/rbac/users requiere el permiso admin/rbac, así que
-  // un usuario pppoe.read-only verá la query fallar → data undefined → el select
-  // degrada a solo "Todos" (sin crash). Si hace falta el filtro de operador para
-  // usuarios sin admin/rbac, un endpoint pppoe-scoped de operadores es follow-up.
-  const { data: rbacUsers, isLoading: operatorsLoading } = useRbacUsers();
-  const operators = (rbacUsers ?? [])
-    .filter((u) => u.status === 'active')
-    .map((u) => ({ id: u.id, name: u.name }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  // Operadores que realmente generaron eventos de Internet (endpoint pppoe-scoped,
+  // gate pppoe.read). Reemplaza el viejo useRbacUsers (que pedía admin/rbac y dejaba
+  // el select vacío para usuarios pppoe.read-only). `open` ata el fetch al modal.
+  const { data: ops, isLoading: operatorsLoading } = usePppoeActivationOperators(open);
+  const operators = (ops ?? []).map((o) => ({ id: o.actorId, name: o.actorName }));
 
   // W1 — el <input type="date"> da "YYYY-MM-DD". Si lo mandáramos crudo, el BE
   // haría new Date('2026-06-01') = medianoche UTC = 21:00 AR del día ANTERIOR,

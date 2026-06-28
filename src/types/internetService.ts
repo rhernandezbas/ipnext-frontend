@@ -81,6 +81,17 @@ export interface InternetServiceEvent {
   createdAt: string;
 }
 
+/**
+ * Operador DISTINCT que generó eventos de Internet, para poblar el <select> del
+ * historial. Lo sirve GET /api/pppoe/activation-history/operators (gate pppoe.read):
+ * a diferencia de useRbacUsers (que pedía admin/rbac), un usuario pppoe.read-only
+ * SÍ puede leerlo. `actorId` es el value del <option>; `actorName` el label.
+ */
+export interface PppoeActivationOperator {
+  actorId: string;
+  actorName: string;
+}
+
 /** Query params del endpoint de historial. Todos opcionales. */
 export interface InternetActivationHistoryFilter {
   actorId?: string;
