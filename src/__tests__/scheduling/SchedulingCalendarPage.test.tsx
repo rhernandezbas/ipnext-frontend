@@ -215,17 +215,24 @@ describe('SchedulingCalendarPage — navigation (REQ-NAV)', () => {
     expect(location.getAttribute('data-search')).toContain('date=2026-05-20');
   });
 
-  it('clicking "Hoy" sets ?date to today', () => {
-    renderWithRouter('/admin/scheduling/calendars?view=week&date=2026-01-01');
-    fireEvent.click(screen.getByRole('button', { name: 'Hoy' }));
-    const location = screen.getByTestId('location');
-    // Mirror goToday() exactly: local midnight, then serialized via toISOString.
-    // Computing the expectation any other way (e.g. a bare new Date().toISOString())
-    // drifts by a day once UTC has rolled past local midnight, flaking at night.
-    const t = new Date();
-    t.setHours(0, 0, 0, 0);
-    const today = t.toISOString().slice(0, 10);
-    expect(location.getAttribute('data-search')).toContain(`date=${today}`);
+  it('clicking "Hoy" sets ?date to the AR day (frozen at 23:30 ART, the divergence window)', () => {
+    // Reloj congelado en 2026-06-25T02:30:00Z = 23:30 ART del 24-jun: la franja donde
+    // el dia host-UTC (25) y el dia-pared AR (24) divergen. goToday() usa el dia AR
+    // (todayArMarker -> toArIsoDate). El test viejo computaba el esperado con
+    // toISOString() (UTC) -> daba 25 y flakeaba cada noche 21-24h ART. Ahora, reloj
+    // congelado + dia AR hardcodeado: determinista bajo cualquier TZ y guard real de
+    // regresion (si la app volviera a UTC daria 2026-06-25 y este test fallaria),
+    // no un espejo de la fn de produccion. Patron espejo de useCalendarUrlState.test.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-25T02:30:00Z'));
+    try {
+      renderWithRouter('/admin/scheduling/calendars?view=week&date=2026-01-01');
+      fireEvent.click(screen.getByRole('button', { name: 'Hoy' }));
+      const location = screen.getByTestId('location');
+      expect(location.getAttribute('data-search')).toContain('date=2026-06-24');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders period label for month view', () => {
