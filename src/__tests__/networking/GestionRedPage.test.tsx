@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -825,5 +825,202 @@ describe('GestionRedPage — tab "Sesiones activas"', () => {
     expect(alert).toHaveTextContent(/no se pudo cargar/i);
     await user.click(screen.getByRole('button', { name: /reintentar/i }));
     expect(refetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── Contadores honestos: null = "no disponible", NUNCA 0 ─────────────────────
+// El BE pasó assignedCount / usedIps / freeIps a `number | null`. null = el
+// RADIUS/router no respondió tras reintentos. El FE NO debe pintar eso como 0
+// (un pool no-disponible no es un pool vacío) → se muestra "—" (em dash) muted.
+describe('GestionRedPage — contadores honestos (null = no disponible)', () => {
+  function setupHooks({ networks, pools }: { networks: IpNetwork[]; pools: IpPool[] }) {
+    vi.mocked(useNasModule.useNasServers).mockReturnValue({
+      data: mockNasServers, isLoading: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNasModule.useNasServers>);
+    vi.mocked(useNasModule.useCreateNasServer).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNasModule.useCreateNasServer>);
+    vi.mocked(useNasModule.useUpdateNasServer).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNasModule.useUpdateNasServer>);
+    vi.mocked(useNasModule.useDeleteNasServer).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNasModule.useDeleteNasServer>);
+
+    vi.mocked(useNetworkModule.useIpNetworks).mockReturnValue({
+      data: networks, isLoading: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpNetworks>);
+    vi.mocked(useNetworkModule.useCreateIpNetwork).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useCreateIpNetwork>);
+    vi.mocked(useNetworkModule.useDeleteIpNetwork).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useDeleteIpNetwork>);
+    vi.mocked(useNetworkModule.useIpPools).mockReturnValue({
+      data: pools, isLoading: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpPools>);
+    vi.mocked(useNetworkModule.useCreateIpPool).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useCreateIpPool>);
+    vi.mocked(useNetworkModule.useDeleteIpPool).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useDeleteIpPool>);
+    vi.mocked(useNetworkModule.useIpAssignments).mockReturnValue({
+      data: mockPaginatedEmpty, isLoading: false, isFetching: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpAssignments>);
+    vi.mocked(useNetworkModule.useIpv6Networks).mockReturnValue({
+      data: mockIpv6Networks, isLoading: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useNetworkModule.useIpv6Networks>);
+    vi.mocked(useNetworkModule.useCreateIpv6Network).mockReturnValue({
+      mutate: vi.fn(), isPending: false,
+    } as unknown as ReturnType<typeof useNetworkModule.useCreateIpv6Network>);
+
+    mockRadiusSessions([]);
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('red con usedIps=null muestra "—", NO "null" ni un número', async () => {
+    const user = userEvent.setup();
+    setupHooks({
+      networks: [{ ...mockNetworks[0], usedIps: null, freeIps: null, totalIps: 254 }],
+      pools: mockPools,
+    });
+    renderPage();
+    await user.click(screen.getByRole('button', { name: /redes ip/i }));
+
+    const row = screen.getByText('192.168.1.0/24').closest('tr')!;
+    expect(row).toHaveTextContent('— / 254');
+    expect(row).not.toHaveTextContent('null');
+    expect(row).not.toHaveTextContent('0 / 254');
+    // a11y: el "—" de no-disponible se anuncia como "Sin dato" (no "raya")
+    expect(within(row).getByLabelText('Sin dato')).toBeInTheDocument();
+  });
+
+  it('red con usedIps numérico sigue mostrando el número (camino feliz)', async () => {
+    const user = userEvent.setup();
+    setupHooks({ networks: mockNetworks, pools: mockPools });
+    renderPage();
+    await user.click(screen.getByRole('button', { name: /redes ip/i }));
+
+    const row = screen.getByText('192.168.1.0/24').closest('tr')!;
+    expect(row).toHaveTextContent('50 / 254');
+  });
+
+  it('pool con assignedCount=null: celda "—", barra "—" (NO 0%) y sin marca roja', async () => {
+    const user = userEvent.setup();
+    setupHooks({
+      networks: mockNetworks,
+      pools: [{ ...mockPools[0], assignedCount: null, totalCount: 191 }],
+    });
+    const { container } = renderPage();
+    await user.click(screen.getByRole('button', { name: /pools ip/i }));
+
+    const row = screen.getByText('residencial-dinamico').closest('tr')!;
+    // Celda Asignadas/Total: "— / 191"
+    expect(row).toHaveTextContent('— / 191');
+    // La barra NO debe pintar 0% (un pool sin dato no es un pool vacío)
+    expect(row).not.toHaveTextContent('0%');
+    expect(row).not.toHaveTextContent('null');
+    // Sin marca roja en ningún lado de la tabla de pools
+    expect(container.querySelector('.redStrong')).toBeNull();
+    // a11y: los dos "—" de la fila (celda contador + barra) se anuncian "Sin dato"
+    expect(within(row).getAllByLabelText('Sin dato')).toHaveLength(2);
+  });
+
+  it('pool con assignedCount=undefined: la barra NO produce NaN, muestra "—"', async () => {
+    const user = userEvent.setup();
+    setupHooks({
+      networks: mockNetworks,
+      // El BE no debería mandar undefined, pero si un campo falta el FE NO debe
+      // caer en NaN%. `== null` (loose) cubre null Y undefined.
+      pools: [{ ...mockPools[0], assignedCount: undefined as unknown as null, totalCount: 191 }],
+    });
+    renderPage();
+    await user.click(screen.getByRole('button', { name: /pools ip/i }));
+
+    const row = screen.getByText('residencial-dinamico').closest('tr')!;
+    expect(row).not.toHaveTextContent('NaN');
+    expect(within(row).getAllByLabelText('Sin dato').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('pool con assignedCount numérico mantiene número y barra de % (camino feliz)', async () => {
+    const user = userEvent.setup();
+    setupHooks({
+      networks: mockNetworks,
+      pools: [{ ...mockPools[0], assignedCount: 50, totalCount: 191 }],
+    });
+    renderPage();
+    await user.click(screen.getByRole('button', { name: /pools ip/i }));
+
+    const row = screen.getByText('residencial-dinamico').closest('tr')!;
+    expect(row).toHaveTextContent('50 / 191');
+    expect(row).toHaveTextContent('26%'); // round(50/191*100)
+  });
+
+  it('KPIs: con ≥1 pool sin dato agrega SOLO sobre los pools con dato e indica datos parciales (sin NaN)', () => {
+    setupHooks({
+      networks: mockNetworks,
+      pools: [
+        { ...mockPools[0], id: 'p-ok', name: 'pool-ok', assignedCount: 50, totalCount: 100 },
+        { ...mockPools[0], id: 'p-nd', name: 'pool-sin-dato', assignedCount: null, totalCount: 200 },
+      ],
+    });
+    const { container } = renderPage();
+
+    // Nunca NaN
+    expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
+
+    const subs = [...container.querySelectorAll('.kpiSub')] as HTMLElement[];
+    const occSub = subs.find(el => el.textContent?.includes('ocupación de pools'))!;
+    const freeSub = subs.find(el => el.textContent?.includes('IPs libres'))!;
+
+    // % de ocupación HONESTO: 50/100 = 50% (NO 17% que saldría sumando el null como 0)
+    expect(occSub).toHaveTextContent('50%');
+    expect(occSub).not.toHaveTextContent('17%');
+    // IPs libres HONESTO: 100-50 = 50 (NO 250, que saldría incluyendo el pool sin dato)
+    expect(freeSub).not.toHaveTextContent('250');
+    // Indicador discreto de datos parciales en ambos KPIs afectados
+    expect(occSub).toHaveTextContent('sin dato');
+    expect(freeSub).toHaveTextContent('sin dato');
+  });
+
+  it('KPIs: con TODOS los pools sin dato muestra "—" (NO "0%"/"0") + datos parciales, sin NaN', () => {
+    // Outage total del RADIUS: poolsWithData queda vacío. El agregado NO puede
+    // mentir con "0% / 0 IPs libres" — tiene que espejar el "—" de las filas.
+    setupHooks({
+      networks: mockNetworks,
+      pools: [{ ...mockPools[0], assignedCount: null, totalCount: 200 }],
+    });
+    const { container } = renderPage();
+
+    expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
+    const subs = [...container.querySelectorAll('.kpiSub')] as HTMLElement[];
+    const occSub = subs.find(el => el.textContent?.includes('ocupación de pools'))!;
+    const freeSub = subs.find(el => el.textContent?.includes('IPs libres'))!;
+
+    // El 0 engañoso NO debe aparecer en ninguno de los dos KPIs
+    expect(occSub).not.toHaveTextContent('0%');
+    expect(freeSub).not.toHaveTextContent('0 IPs libres');
+    // En su lugar, "—" anunciado como "Sin dato" (a11y) en ambos
+    expect(within(occSub).getByLabelText('Sin dato')).toBeInTheDocument();
+    expect(within(freeSub).getByLabelText('Sin dato')).toBeInTheDocument();
+    // Y sigue indicando cuántos pools faltan
+    expect(occSub).toHaveTextContent('sin dato');
+    expect(freeSub).toHaveTextContent('sin dato');
+  });
+
+  it('KPIs: sin pools sin dato NO muestra el indicador "sin dato" (camino feliz)', () => {
+    setupHooks({
+      networks: mockNetworks,
+      pools: [{ ...mockPools[0], assignedCount: 50, totalCount: 100 }],
+    });
+    const { container } = renderPage();
+    const subs = [...container.querySelectorAll('.kpiSub')] as HTMLElement[];
+    const occSub = subs.find(el => el.textContent?.includes('ocupación de pools'))!;
+    expect(occSub).toHaveTextContent('50%');
+    expect(occSub).not.toHaveTextContent('sin dato');
   });
 });

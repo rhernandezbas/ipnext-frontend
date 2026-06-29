@@ -8,8 +8,10 @@ export interface IpNetwork {
   partnerId: string | null;
   type: 'static' | 'dhcp' | 'pppoe';
   totalIps: number;
-  usedIps: number;
-  freeIps: number;
+  // null = no disponible: el RADIUS/router no respondió tras reintentos.
+  // NO es 0 — una red sin dato no es una red vacía.
+  usedIps: number | null;
+  freeIps: number | null;
 }
 
 export interface IpPool {
@@ -19,7 +21,9 @@ export interface IpPool {
   rangeStart: string;
   rangeEnd: string;
   type: 'static' | 'dynamic';
-  assignedCount: number;
+  // null = no disponible: el RADIUS/router no respondió tras reintentos.
+  // NO es 0 — un pool sin dato no es un pool vacío.
+  assignedCount: number | null;
   totalCount: number;
   nasId: string | null;
 }

@@ -138,8 +138,30 @@ function CutoverPill({ type }: { type: NasType }) {
     : <span className={styles.pillLegacy}>legacy</span>;
 }
 
-/** Usage bar with semaphore color: blue &lt;90%, amber ≥90%, red ≥100%. */
-function UsageBar({ used, total }: { used: number; total: number }) {
+/** "Sin dato" (em dash) para valores que el BE no pudo resolver (null/undefined).
+ *  role="img" + aria-label ⇒ el lector de pantalla anuncia "Sin dato", no "raya".
+ *  Mantiene `title` como tooltip visual. Mismo patrón que IconWarning. */
+function NoData() {
+  return (
+    <span
+      className={styles.muted}
+      role="img"
+      aria-label="Sin dato"
+      title="Sin dato: el RADIUS/router no respondió."
+    >
+      —
+    </span>
+  );
+}
+
+/** Usage bar with semaphore color: blue &lt;90%, amber ≥90%, red ≥100%.
+ *  `used == null` (null O undefined) ⇒ no disponible (el RADIUS/router no
+ *  respondió): rendereamos "—" en vez de una barra al 0% — una barra vacía
+ *  MENTIRÍA, y `undefined/total` daría NaN%. */
+function UsageBar({ used, total }: { used: number | null; total: number }) {
+  if (used == null) {
+    return <NoData />;
+  }
   const pct = total > 0 ? Math.round((used / total) * 100) : 0;
   const over = used > total;
   const barClass = over || pct >= 100 ? styles.barFull : pct >= 90 ? styles.barHot : '';
@@ -153,6 +175,20 @@ function UsageBar({ used, total }: { used: number; total: number }) {
         {over ? `+${used - total}` : `${pct}%`}
       </span>
     </div>
+  );
+}
+
+/** Nota discreta para KPIs agregados que excluyen pools sin dato. Em dash muted,
+ *  con `title` explicativo (a11y). No se renderiza si no falta ningún dato. */
+function PartialDataNote({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      className={styles.muted}
+      title={`${count} pool${count === 1 ? '' : 's'} sin dato (el RADIUS/router no respondió); el agregado los excluye.`}
+    >
+      {' · '}{count} sin dato
+    </span>
   );
 }
 
@@ -593,10 +629,20 @@ export default function GestionRedPage() {
   const inactiveNas = nasServers.filter(n => n.status === 'inactive').length;
   const errorNas = nasServers.filter(n => n.status === 'error').length;
 
-  // Pool / IP aggregates (real data → KPIs)
+  // Pool / IP aggregates (real data → KPIs).
+  // HONESTO: solo agregamos pools CON dato (assignedCount !== null). Un pool sin
+  // dato (el RADIUS/router no respondió) NO se cuenta como 0 — eso inflaría las
+  // "IPs libres" y bajaría falsamente el "% ocupación". Numerador Y denominador
+  // del % se calculan sobre los pools con dato; los sin dato se reportan aparte.
   const totalPools = pools.length;
-  const poolAssigned = pools.reduce((s, p) => s + p.assignedCount, 0);
-  const poolTotal = pools.reduce((s, p) => s + p.totalCount, 0);
+  const poolsWithData = pools.filter(p => p.assignedCount != null);
+  const poolsMissingData = totalPools - poolsWithData.length;
+  // hasPoolData=false ⇒ NINGÚN pool tiene dato (outage total / sin pools). Ahí el
+  // agregado NO puede mostrar "0% / 0 IPs libres" (mentiría igual que la fila):
+  // se rinde "—". Con ≥1 pool con dato, el % y las IPs libres son honestos sobre esos.
+  const hasPoolData = poolsWithData.length > 0;
+  const poolAssigned = poolsWithData.reduce((s, p) => s + (p.assignedCount ?? 0), 0);
+  const poolTotal = poolsWithData.reduce((s, p) => s + p.totalCount, 0);
   const poolFree = Math.max(poolTotal - poolAssigned, 0);
   const occupationPct = poolTotal > 0 ? Math.round((poolAssigned / poolTotal) * 100) : 0;
 
@@ -763,7 +809,10 @@ export default function GestionRedPage() {
         <div className={`${styles.kpi} ${styles.kpiGreen}`}>
           <div className={styles.kpiLabel}>Activos</div>
           <div className={styles.kpiValue}>{activeNas}</div>
-          <div className={styles.kpiSub}>{occupationPct}% ocupación de pools</div>
+          <div className={styles.kpiSub}>
+            {hasPoolData ? <>{occupationPct}% ocupación de pools</> : <><NoData /> ocupación de pools</>}
+            <PartialDataNote count={poolsMissingData} />
+          </div>
         </div>
         <div className={styles.kpi}>
           <div className={styles.kpiLabel}>Inactivos</div>
@@ -773,7 +822,10 @@ export default function GestionRedPage() {
         <div className={`${styles.kpi} ${styles.kpiRed}`}>
           <div className={styles.kpiLabel}>Error</div>
           <div className={styles.kpiValue}>{errorNas}</div>
-          <div className={styles.kpiSub}>{poolFree.toLocaleString('es-AR')} IPs libres</div>
+          <div className={styles.kpiSub}>
+            {hasPoolData ? <>{poolFree.toLocaleString('es-AR')} IPs libres</> : <><NoData /> IPs libres</>}
+            <PartialDataNote count={poolsMissingData} />
+          </div>
         </div>
       </div>
 
@@ -884,7 +936,7 @@ export default function GestionRedPage() {
                       <td className={`${styles.mono} ${styles.muted}`}>{net.dns1}</td>
                       <td className={`${styles.mono} ${styles.muted}`}>{net.dns2}</td>
                       <td><span className={`${styles.badge} ${styles.badgeBlue}`}>{net.type}</span></td>
-                      <td className="num">{net.usedIps} / {net.totalIps}</td>
+                      <td className="num">{net.usedIps ?? <NoData />} / {net.totalIps}</td>
                       <td className={styles.actionsCell}><ActionsMenu row={net} actions={networkActions} /></td>
                     </tr>
                   ))}
@@ -943,8 +995,8 @@ export default function GestionRedPage() {
                               {p.type === 'dynamic' ? 'Dinámico' : 'Estático'}
                             </span>
                           </td>
-                          <td className={`num ${p.assignedCount > p.totalCount ? styles.redStrong : ''}`}>
-                            {p.assignedCount} / {p.totalCount}
+                          <td className={`num ${p.assignedCount != null && p.assignedCount > p.totalCount ? styles.redStrong : ''}`}>
+                            {p.assignedCount ?? <NoData />} / {p.totalCount}
                           </td>
                           <td className="num"><UsageBar used={p.assignedCount} total={p.totalCount} /></td>
                           <td className={styles.actionsCell}><ActionsMenu row={p} actions={poolActions} /></td>
