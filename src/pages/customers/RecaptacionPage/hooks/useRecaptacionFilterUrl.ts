@@ -12,6 +12,7 @@ export interface RecaptacionFilter {
   source?: RecaptureLeadSource;
   assigneeId?: string;
   unassigned?: boolean;
+  technology?: string;
 }
 
 export interface RecaptacionFilterUrlResult {
@@ -28,6 +29,7 @@ export function useRecaptacionFilterUrl(): RecaptacionFilterUrlResult {
     source:     (searchParams.get('source') ?? undefined) as RecaptureLeadSource | undefined,
     assigneeId: searchParams.get('assigneeId') ?? undefined,
     unassigned: searchParams.get('unassigned') === 'true' ? true : undefined,
+    technology: searchParams.get('technology') ?? undefined,
   };
 
   const setFilter = useCallback(
@@ -41,12 +43,14 @@ export function useRecaptacionFilterUrl(): RecaptacionFilterUrlResult {
             source:     'source'     in patch ? patch.source     : (prev.get('source')     ?? undefined) as RecaptureLeadSource | undefined,
             assigneeId: 'assigneeId' in patch ? patch.assigneeId : (prev.get('assigneeId') ?? undefined),
             unassigned: 'unassigned' in patch ? patch.unassigned : (prev.get('unassigned') === 'true' ? true : undefined),
+            technology: 'technology' in patch ? patch.technology : (prev.get('technology') ?? undefined),
           };
 
           if (merged.status)     next.set('status',     merged.status);
           if (merged.source)     next.set('source',     merged.source);
           if (merged.assigneeId) next.set('assigneeId', merged.assigneeId);
           if (merged.unassigned) next.set('unassigned', 'true');
+          if (merged.technology) next.set('technology', merged.technology);
 
           return next;
         },

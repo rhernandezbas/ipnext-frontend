@@ -17,6 +17,54 @@
   cursor: pointer;
 }
 
+/* ── Technology badges (color by family, fiber-first) ── */
+
+.techList {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* Same pill shape as .statusPill, but soft-bg/dark-fg pairs (WCAG AA) instead
+   of solid + white. Each family class sets its own token pair. */
+.techBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+/* Fibra → azul (#dbeafe / #1e40af, 7.16:1) */
+.techFiber {
+  background: var(--badge-active-bg);
+  color: var(--badge-active-fg);
+}
+
+/* Wireless → naranja (#ffedd5 / #9a3412, 6.37:1) */
+.techWireless {
+  background: var(--badge-blocked-bg);
+  color: var(--badge-blocked-fg);
+}
+
+/* Cable → púrpura (#e9d5ff / #6b21a8, 6.40:1) */
+.techCable {
+  background: var(--badge-baja-bg);
+  color: var(--badge-baja-fg);
+}
+
+/* Otros → neutro (#f3f4f6 / gris-700 oscuro para asegurar AA) */
+.techOther {
+  background: var(--badge-inactive-bg);
+  color: var(--color-gray-700);
+}
+
+.techMuted {
+  color: var(--color-text-secondary);
+}
+
 .empty {
   padding: var(--space-12) var(--space-6);
   text-align: center;

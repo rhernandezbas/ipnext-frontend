@@ -3,8 +3,14 @@ import { Button } from '@/components/atoms/Button';
 import {
   RECAPTURE_STATUS_LABELS,
   RECAPTURE_STATUS_COLOR,
+  orderTechnologies,
+  technologyFamily,
 } from '@/types/recaptacion';
-import type { RecaptureLeadDto, RecaptureLeadStatus } from '@/types/recaptacion';
+import type {
+  RecaptureLeadDto,
+  RecaptureLeadStatus,
+  RecaptureTechnologyFamily,
+} from '@/types/recaptacion';
 import type { AssigneeOption } from './BulkAssignToolbar';
 import { formatDateShort } from '@/utils/formatDate';
 import styles from './RecaptacionTableView.module.css';
@@ -73,6 +79,44 @@ function StatusPill({ status }: { status: RecaptureLeadStatus }) {
   );
 }
 
+// ── Technology badges ──────────────────────────────────────────────────────────
+
+const TECHNOLOGY_FAMILY_CLASS: Record<RecaptureTechnologyFamily, string> = {
+  fiber:    styles.techFiber,
+  wireless: styles.techWireless,
+  cable:    styles.techCable,
+  other:    styles.techOther,
+};
+
+/**
+ * Colored chips for a lead's technologies. Color is driven by family
+ * (fiber=blue, wireless=orange, cable=purple, other=neutral) and badges render
+ * FIBER FIRST. An empty list renders a muted dash. Reuses the pill shape.
+ */
+function TechnologyBadges({ technologies }: { technologies: string[] }) {
+  const ordered = orderTechnologies(technologies ?? []);
+  if (ordered.length === 0) {
+    return <span className={styles.techMuted}>—</span>;
+  }
+  return (
+    <span className={styles.techList}>
+      {ordered.map((tech) => {
+        const family = technologyFamily(tech);
+        return (
+          <span
+            key={tech}
+            className={`${styles.techBadge} ${TECHNOLOGY_FAMILY_CLASS[family]}`}
+            data-family={family}
+            aria-label={`Tecnología: ${tech}`}
+          >
+            {tech}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 // ── Column definitions ───────────────────────────────────────────────────────
 
 function formatDate(iso: string | null): string {
@@ -103,6 +147,11 @@ const COLUMNS: Array<{
     label: 'Estado',
     key: 'status',
     render: (r) => <StatusPill status={r.status} />,
+  },
+  {
+    label: 'Tecnología',
+    key: 'technologies',
+    render: (r) => <TechnologyBadges technologies={r.technologies} />,
   },
   {
     label: 'Asignado',

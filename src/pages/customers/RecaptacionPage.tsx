@@ -6,7 +6,7 @@ import { Button } from '@/components/atoms/Button';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { useAssignableOperators } from '@/hooks/useAssignableOperators';
 import { useRecaptacionLeads, useIngestChurned, useAssignBulk, useAssignLead } from '@/hooks/useRecaptacion';
-import { RECAPTURE_STATUS_LABELS } from '@/types/recaptacion';
+import { RECAPTURE_STATUS_LABELS, RECAPTURE_TECHNOLOGY_CATALOG } from '@/types/recaptacion';
 import type { RecaptureLeadDto, RecaptureLeadStatus, RecaptureLeadSource } from '@/types/recaptacion';
 import { RecaptacionTableView } from './RecaptacionPage/components/RecaptacionTableView';
 import { LeadDetailDrawer } from './RecaptacionPage/components/LeadDetailDrawer';
@@ -30,6 +30,12 @@ const LIMIT = 25;
 const STATUS_OPTIONS = [
   { value: '', label: 'Todos los estados' },
   ...Object.entries(RECAPTURE_STATUS_LABELS).map(([v, l]) => ({ value: v, label: l })),
+];
+
+/** Filter options for the technology select — catalog values + "Todas". */
+const TECHNOLOGY_OPTIONS = [
+  { value: '', label: 'Todas las tecnologías' },
+  ...RECAPTURE_TECHNOLOGY_CATALOG.map((t) => ({ value: t, label: t })),
 ];
 
 export default function RecaptacionPage() {
@@ -68,6 +74,7 @@ export default function RecaptacionPage() {
     source:     activeSource,
     assigneeId: filter.assigneeId,
     unassigned: filter.unassigned,
+    technology: filter.technology,
     page,
     limit: LIMIT,
   };
@@ -79,7 +86,7 @@ export default function RecaptacionPage() {
   const totalPages = data ? Math.ceil(data.total / LIMIT) : 1;
 
   const hasActiveFilters =
-    !!filter.status || !!filter.assigneeId || !!filter.unassigned;
+    !!filter.status || !!filter.assigneeId || !!filter.unassigned || !!filter.technology;
 
   function showToast(msg: string, variant: 'success' | 'error' = 'success') {
     setToast({ msg, variant });
@@ -129,6 +136,8 @@ export default function RecaptacionPage() {
       setFilter({ status: (value as RecaptureLeadStatus) || undefined });
     } else if (key === 'unassigned') {
       setFilter({ unassigned: value === 'true' ? true : undefined });
+    } else if (key === 'technology') {
+      setFilter({ technology: value || undefined });
     }
   }
 
@@ -142,6 +151,11 @@ export default function RecaptacionPage() {
       key: 'status',
       label: 'Estado',
       options: STATUS_OPTIONS,
+    },
+    {
+      key: 'technology',
+      label: 'Tecnología',
+      options: TECHNOLOGY_OPTIONS,
     },
     ...(canAssign
       ? [{

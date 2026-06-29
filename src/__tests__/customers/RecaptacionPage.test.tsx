@@ -63,6 +63,7 @@ const lead = (id: string): RecaptureLeadDto => ({
   status: 'nuevo',
   assigneeId: null,
   assigneeName: null,
+  technologies: [],
   claimedAt: null,
   createdAt: '2026-06-13T00:00:00Z',
   updatedAt: '2026-06-13T00:00:00Z',
@@ -496,6 +497,44 @@ describe('RecaptacionPage — multi-select hint', () => {
     mockHooks({ leads: [lead('a')] });
     renderPage();
     expect(screen.queryByText(/asignarlos en lote/i)).not.toBeInTheDocument();
+  });
+});
+
+// ── technology filter ──────────────────────────────────────────────────────
+
+describe('RecaptacionPage — technology filter', () => {
+  it('TF1 — renders the Tecnología filter (admin)', () => {
+    mockHooks();
+    renderPage();
+    expect(screen.getByRole('combobox', { name: /tecnolog/i })).toBeInTheDocument();
+  });
+
+  it('TF2 — agent also sees the Tecnología filter', () => {
+    mockPerms(['recapture.read', 'recapture.manage']);
+    mockHooks();
+    renderPage();
+    expect(screen.getByRole('combobox', { name: /tecnolog/i })).toBeInTheDocument();
+  });
+
+  it('TF3 — selecting a technology passes it to the leads query (set → URL → query)', async () => {
+    const user = userEvent.setup();
+    const { getCapturedQuery } = mockHooks();
+    renderPage();
+    await user.selectOptions(screen.getByRole('combobox', { name: /tecnolog/i }), 'Fiber');
+    await waitFor(() => expect(getCapturedQuery().technology).toBe('Fiber'));
+  });
+
+  it('TF4 — reads the technology filter from the URL on mount (URL → query)', () => {
+    const { getCapturedQuery } = mockHooks();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/?technology=DOCSIS']}>
+          <RecaptacionPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(getCapturedQuery().technology).toBe('DOCSIS');
   });
 });
 

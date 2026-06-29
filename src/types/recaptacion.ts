@@ -62,6 +62,61 @@ export const RECAPTURE_STATUS_COLOR: Record<RecaptureLeadStatus, string> = {
   descartado: '#dc2626',
 };
 
+// ── Technology catalog + visual families ─────────────────────────────────────
+
+/**
+ * Closed catalog of technology values the BE emits on each lead. Used both as
+ * the filter options and to map each value to a color family. The BE MAY add
+ * values over time, so consumers must tolerate unknown strings (→ 'other').
+ */
+export const RECAPTURE_TECHNOLOGY_CATALOG = [
+  'Fiber',
+  'FTTH',
+  'Wireless',
+  'DOCSIS',
+  'HFC',
+  'Radio',
+] as const;
+
+/** Visual family that drives badge color. */
+export type RecaptureTechnologyFamily = 'fiber' | 'wireless' | 'cable' | 'other';
+
+/** Catalog value → family. Anything not here resolves to 'other' (neutral). */
+export const RECAPTURE_TECHNOLOGY_FAMILY: Record<string, RecaptureTechnologyFamily> = {
+  Fiber:    'fiber',
+  FTTH:     'fiber',
+  Wireless: 'wireless',
+  Radio:    'wireless',
+  DOCSIS:   'cable',
+  HFC:      'cable',
+};
+
+/** Resolve a technology value to its color family (defensive for unknowns). */
+export function technologyFamily(tech: string): RecaptureTechnologyFamily {
+  return RECAPTURE_TECHNOLOGY_FAMILY[tech] ?? 'other';
+}
+
+/**
+ * Display rank per family. Lower renders first: FIBER first, then WIRELESS,
+ * then CABLE, then anything else.
+ */
+const TECHNOLOGY_FAMILY_RANK: Record<RecaptureTechnologyFamily, number> = {
+  fiber:    0,
+  wireless: 1,
+  cable:    2,
+  other:    3,
+};
+
+/**
+ * Order technologies fiber-first. `Array.prototype.sort` is stable, so values
+ * within the same family keep their original order. Pure — returns a new array.
+ */
+export function orderTechnologies(technologies: string[]): string[] {
+  return [...technologies].sort(
+    (a, b) => TECHNOLOGY_FAMILY_RANK[technologyFamily(a)] - TECHNOLOGY_FAMILY_RANK[technologyFamily(b)],
+  );
+}
+
 // ── DTOs (field names must match the BE contract exactly) ────────────────────
 
 export interface RecaptureLeadDto {
@@ -75,6 +130,8 @@ export interface RecaptureLeadDto {
   assigneeId: string | null;
   /** Resolved name of the assignee — null when unassigned or not yet loaded. */
   assigneeName: string | null;
+  /** Distinct technology values from the catalog. May be empty. */
+  technologies: string[];
   claimedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -104,6 +161,8 @@ export interface RecaptureLeadsQuery {
   source?: RecaptureLeadSource;
   assigneeId?: string;
   unassigned?: boolean;
+  /** Filter by a single technology value from the catalog. */
+  technology?: string;
   page?: number;
   limit?: number;
 }

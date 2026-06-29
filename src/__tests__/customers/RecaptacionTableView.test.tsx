@@ -19,6 +19,7 @@ const BASE_LEAD: RecaptureLeadDto = {
   status: 'nuevo',
   assigneeId: null,
   assigneeName: null,
+  technologies: [],
   claimedAt: null,
   createdAt: '2026-06-13T00:00:00Z',
   updatedAt: '2026-06-13T00:00:00Z',
@@ -232,6 +233,61 @@ describe('RecaptacionTableView — inline assign (canAssign)', () => {
     );
     expect(screen.getByRole('combobox', { name: /asignar lead lead a/i })).toBeDisabled();
     expect(screen.getByRole('combobox', { name: /asignar lead lead b/i })).not.toBeDisabled();
+  });
+});
+
+// ── technology column (color badges by family, fiber-first) ──────────────────
+
+describe('RecaptacionTableView — technology column', () => {
+  it('TC1 — renders a "Tecnología" column header', () => {
+    render(<RecaptacionTableView leads={[{ ...BASE_LEAD, technologies: ['Fiber'] }]} />);
+    expect(screen.getByRole('columnheader', { name: 'Tecnología' })).toBeInTheDocument();
+  });
+
+  it('TC2 — a single technology renders one badge with its catalog label + family', () => {
+    const { container } = render(
+      <RecaptacionTableView leads={[{ ...BASE_LEAD, technologies: ['Fiber'] }]} />,
+    );
+    const badges = Array.from(container.querySelectorAll('[data-family]'));
+    expect(badges).toHaveLength(1);
+    expect(badges[0].textContent).toBe('Fiber');
+    expect(badges[0].getAttribute('data-family')).toBe('fiber');
+  });
+
+  it('TC3 — multiple technologies render fiber-first, then wireless, then cable', () => {
+    const { container } = render(
+      <RecaptacionTableView leads={[{ ...BASE_LEAD, technologies: ['HFC', 'Wireless', 'FTTH'] }]} />,
+    );
+    const badges = Array.from(container.querySelectorAll('[data-family]'));
+    expect(badges.map((b) => b.textContent)).toEqual(['FTTH', 'Wireless', 'HFC']);
+    expect(badges.map((b) => b.getAttribute('data-family'))).toEqual(['fiber', 'wireless', 'cable']);
+  });
+
+  it('TC4 — empty technologies renders the muted dash, no badges', () => {
+    const { container } = render(
+      <RecaptacionTableView leads={[{ ...BASE_LEAD, technologies: [] }]} />,
+    );
+    expect(container.querySelectorAll('[data-family]')).toHaveLength(0);
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+  });
+
+  it('TC5 — maps each catalog value to the right family color', () => {
+    const { container } = render(
+      <RecaptacionTableView leads={[{ ...BASE_LEAD, technologies: ['Radio', 'DOCSIS'] }]} />,
+    );
+    const byText = (t: string) =>
+      Array.from(container.querySelectorAll('[data-family]')).find((b) => b.textContent === t)!;
+    expect(byText('Radio').getAttribute('data-family')).toBe('wireless');
+    expect(byText('DOCSIS').getAttribute('data-family')).toBe('cable');
+  });
+
+  it('TC6 — an unknown technology value falls back to the neutral family', () => {
+    const { container } = render(
+      <RecaptacionTableView leads={[{ ...BASE_LEAD, technologies: ['Starlink'] }]} />,
+    );
+    const badge = container.querySelector('[data-family]')!;
+    expect(badge.textContent).toBe('Starlink');
+    expect(badge.getAttribute('data-family')).toBe('other');
   });
 });
 

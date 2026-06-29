@@ -18,6 +18,7 @@ export async function listRecaptureLeads(
   if (params.source)      clean['source']      = params.source;
   if (params.assigneeId)  clean['assigneeId']  = params.assigneeId;
   if (params.unassigned)  clean['unassigned']  = 'true';
+  if (params.technology)  clean['technology']  = params.technology;
   if (params.page)        clean['page']        = params.page;
   if (params.limit)       clean['limit']       = params.limit;
 
