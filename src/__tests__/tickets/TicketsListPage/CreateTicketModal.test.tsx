@@ -29,7 +29,7 @@ import * as useCustomersModule from '@/hooks/useCustomers';
 import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 const mockUsers: import('@/types/rbacUser').RbacUserWithRolesDto[] = [
-  { id: 'u1', name: 'Ana García', roles: [], email: 'test@test.com', login: 'user1', status: 'active', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', lastLoginAt: null },
+  { id: 'u1', name: 'Ana García', roles: [], email: 'test@test.com', login: 'user1', status: 'active', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', lastLoginAt: null, lockedUntil: null },
 ];
 
 // Minimal Contract shape buildContractLabel needs.

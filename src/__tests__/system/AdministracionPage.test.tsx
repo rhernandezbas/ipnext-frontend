@@ -17,6 +17,7 @@ vi.mock('@/hooks/useRbacUsers', () => ({
   useUpdateRbacUser: vi.fn(),
   useDeleteRbacUser: vi.fn(),
   useSetUserRoles: vi.fn(),
+  useUnlockRbacUser: vi.fn(),
 }));
 vi.mock('@/hooks/useRbacRoles', () => ({
   useRbacRoles: vi.fn(),
@@ -45,6 +46,7 @@ import {
   useUpdateRbacUser,
   useDeleteRbacUser,
   useSetUserRoles,
+  useUnlockRbacUser,
 } from '@/hooks/useRbacUsers';
 import { useRbacRoles, useCreateRbacRole, useDeleteRbacRole } from '@/hooks/useRbacRoles';
 
@@ -277,6 +279,7 @@ describe('AdminPage', () => {
     vi.mocked(useUpdateRbacUser).mockReturnValue(idleRbacMutation as unknown as ReturnType<typeof useUpdateRbacUser>);
     vi.mocked(useDeleteRbacUser).mockReturnValue(idleRbacMutation as unknown as ReturnType<typeof useDeleteRbacUser>);
     vi.mocked(useSetUserRoles).mockReturnValue(idleRbacMutation as unknown as ReturnType<typeof useSetUserRoles>);
+    vi.mocked(useUnlockRbacUser).mockReturnValue(idleRbacMutation as unknown as ReturnType<typeof useUnlockRbacUser>);
   });
 
   it('renders "Usuarios" tab button (previously "Administradores")', () => {

@@ -77,24 +77,24 @@ const ADMIN_ROLE: RbacRoleDto = { id: 'role-admin', code: 'administrador', label
 // Operators come from RbacUser (GET /admin/rbac/users) — NOT the Admin table.
 // Only users with the 'ventas' role belong in the assignee pool.
 const RBAC_USERS: RbacUserWithRolesDto[] = [
-  { id: 'op-1', name: 'Operador Uno', email: 'op1@test.com', login: 'op1', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [VENTAS_ROLE] },
-  { id: 'op-2', name: 'Operador Dos', email: 'op2@test.com', login: 'op2', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [VENTAS_ROLE] },
+  { id: 'op-1', name: 'Operador Uno', email: 'op1@test.com', login: 'op1', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, lockedUntil: null, roles: [VENTAS_ROLE] },
+  { id: 'op-2', name: 'Operador Dos', email: 'op2@test.com', login: 'op2', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, lockedUntil: null, roles: [VENTAS_ROLE] },
 ];
 
 // A disabled RbacUser (with ventas role) — must NEVER show up in the operator
 // pool (inline or bulk) because they are not active.
 const DISABLED_USER: RbacUserWithRolesDto = {
-  id: 'op-off', name: 'Operador Baja', email: 'off@test.com', login: 'off', status: 'disabled', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [VENTAS_ROLE],
+  id: 'op-off', name: 'Operador Baja', email: 'off@test.com', login: 'off', status: 'disabled', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, lockedUntil: null, roles: [VENTAS_ROLE],
 };
 
 // An active RbacUser WITHOUT the ventas role — must be excluded from the pool.
 const NO_VENTAS_USER: RbacUserWithRolesDto = {
-  id: 'op-noventas', name: 'Sin Ventas', email: 'nv@test.com', login: 'nv', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [],
+  id: 'op-noventas', name: 'Sin Ventas', email: 'nv@test.com', login: 'nv', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, lockedUntil: null, roles: [],
 };
 
 // An active admin WITHOUT the ventas role — must be excluded from the pool.
 const ADMIN_NO_VENTAS_USER: RbacUserWithRolesDto = {
-  id: 'op-admin', name: 'Admin Solo', email: 'adm@test.com', login: 'adm', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, roles: [ADMIN_ROLE],
+  id: 'op-admin', name: 'Admin Solo', email: 'adm@test.com', login: 'adm', status: 'active', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, lockedUntil: null, roles: [ADMIN_ROLE],
 };
 
 const EMPTY_RESULT = { data: [], total: 0, page: 1, limit: 25 };

@@ -71,6 +71,28 @@
   background: #fee2e2;
 }
 
+/* Amber unlock button — conveys "temporary action" without danger tone */
+.btnUnlock {
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-surface);
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.btnUnlock:hover {
+  background: #fef3c7;
+}
+
+.btnUnlock:focus-visible {
+  outline: 2px solid #d97706;
+  outline-offset: 2px;
+}
+
 /* ── Error/toast ── */
 .errorToast {
   display: flex;
@@ -271,6 +293,26 @@
   font-weight: var(--font-weight-semibold);
   background: var(--color-gray-100);
   color: var(--color-gray-600);
+}
+
+/* Amber-orange for locked state — temporary restriction, not permanent deactivation */
+.statusLocked {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  background: #fef3c7;
+  color: #92400e;
+  white-space: nowrap;
+}
+
+/* Stacks status badges vertically in the Estado cell when both are present */
+.statusCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-start;
 }
 
 /* ── Skeleton (AD-FE-5) ── */

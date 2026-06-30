@@ -65,6 +65,7 @@ function makeRbacUser(overrides: Partial<RbacUserWithRolesDto> & Pick<RbacUserWi
     createdAt: '',
     updatedAt: '',
     lastLoginAt: null,
+    lockedUntil: null,
     ...overrides,
   };
 }

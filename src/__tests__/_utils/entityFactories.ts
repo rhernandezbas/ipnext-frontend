@@ -223,6 +223,7 @@ export function makeRbacUser(overrides: Partial<RbacUserWithRolesDto> = {}): Rba
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     lastLoginAt: null,
+    lockedUntil: null,
     roles: [],
     ...overrides,
   };

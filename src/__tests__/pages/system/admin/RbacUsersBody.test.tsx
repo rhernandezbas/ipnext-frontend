@@ -10,6 +10,7 @@ vi.mock('@/hooks/useRbacUsers', () => ({
   useUpdateRbacUser: vi.fn(),
   useDeleteRbacUser: vi.fn(),
   useSetUserRoles: vi.fn(),
+  useUnlockRbacUser: vi.fn(),
 }));
 
 vi.mock('@/hooks/useRbacRoles', () => ({
@@ -22,6 +23,7 @@ import {
   useUpdateRbacUser,
   useDeleteRbacUser,
   useSetUserRoles,
+  useUnlockRbacUser,
 } from '@/hooks/useRbacUsers';
 import { useRbacRoles } from '@/hooks/useRbacRoles';
 import { useConfirm } from '@/context/ConfirmContext';
@@ -41,6 +43,7 @@ const USERS = [
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
     lastLoginAt: '2026-05-01T10:00:00Z',
+    lockedUntil: null,
     roles: [ROLES[0]],
   },
   {
@@ -52,9 +55,28 @@ const USERS = [
     createdAt: '2026-01-02T00:00:00Z',
     updatedAt: '2026-01-02T00:00:00Z',
     lastLoginAt: null,
+    lockedUntil: null,
     roles: [ROLES[1]],
   },
 ];
+
+// A user locked until far in the future (always locked in tests)
+const FUTURE_LOCK = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // +1h
+// A user whose lock has already expired
+const PAST_LOCK = new Date(Date.now() - 60 * 1000).toISOString(); // -1m
+
+const LOCKED_USER = {
+  id: 'u3',
+  name: 'Carol Locked',
+  email: 'carol@example.com',
+  login: 'carol',
+  status: 'active' as const,
+  createdAt: '2026-01-03T00:00:00Z',
+  updatedAt: '2026-01-03T00:00:00Z',
+  lastLoginAt: null,
+  lockedUntil: FUTURE_LOCK,
+  roles: [],
+};
 
 const idleMutation = { mutateAsync: vi.fn(), isPending: false };
 const confirmFn = vi.fn().mockResolvedValue(true);
@@ -86,6 +108,7 @@ describe('RbacUsersBody', () => {
     vi.mocked(useUpdateRbacUser).mockReturnValue(idleMutation as unknown as ReturnType<typeof useUpdateRbacUser>);
     vi.mocked(useDeleteRbacUser).mockReturnValue(idleMutation as unknown as ReturnType<typeof useDeleteRbacUser>);
     vi.mocked(useSetUserRoles).mockReturnValue(idleMutation as unknown as ReturnType<typeof useSetUserRoles>);
+    vi.mocked(useUnlockRbacUser).mockReturnValue(idleMutation as unknown as ReturnType<typeof useUnlockRbacUser>);
   });
 
   it('renders heading "Usuarios" and create button', () => {
@@ -216,6 +239,94 @@ describe('RbacUsersBody', () => {
       expect(
         screen.getByText(/quedaría el sistema sin super administradores/i),
       ).toBeInTheDocument();
+    });
+  });
+
+  // ── Unlock feature ────────────────────────────────────────────────────────────
+
+  it('shows "Bloqueado" badge when lockedUntil is in the future', () => {
+    vi.mocked(useRbacUsers).mockReturnValue({
+      data: [LOCKED_USER],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useRbacUsers>);
+    renderBody();
+    expect(screen.getByText(/bloqueado hasta/i)).toBeInTheDocument();
+  });
+
+  it('does NOT show "Bloqueado" badge when lockedUntil is null', () => {
+    renderBody(); // USERS fixture has lockedUntil: null
+    expect(screen.queryByText(/bloqueado hasta/i)).not.toBeInTheDocument();
+  });
+
+  it('does NOT show "Bloqueado" badge when lockedUntil is in the past (expired lock)', () => {
+    const expiredUser = { ...LOCKED_USER, lockedUntil: PAST_LOCK };
+    vi.mocked(useRbacUsers).mockReturnValue({
+      data: [expiredUser],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useRbacUsers>);
+    renderBody();
+    expect(screen.queryByText(/bloqueado hasta/i)).not.toBeInTheDocument();
+  });
+
+  it('shows "Desbloquear" button only for locked users', () => {
+    vi.mocked(useRbacUsers).mockReturnValue({
+      data: [...USERS, LOCKED_USER],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useRbacUsers>);
+    renderBody();
+    // USERS (alice + bob) have lockedUntil: null → no unlock button for them
+    // LOCKED_USER (carol) is locked → one unlock button
+    const unlockButtons = screen.getAllByRole('button', { name: /desbloquear/i });
+    expect(unlockButtons).toHaveLength(1);
+  });
+
+  it('does NOT show "Desbloquear" button when user is not locked', () => {
+    renderBody(); // USERS has lockedUntil: null
+    expect(screen.queryByRole('button', { name: /desbloquear/i })).not.toBeInTheDocument();
+  });
+
+  it('calls unlock mutation after confirm dialog and refreshes list', async () => {
+    const unlockMutation = { mutateAsync: vi.fn().mockResolvedValue({ user: LOCKED_USER }), isPending: false };
+    vi.mocked(useUnlockRbacUser).mockReturnValue(unlockMutation as unknown as ReturnType<typeof useUnlockRbacUser>);
+
+    vi.mocked(useRbacUsers).mockReturnValue({
+      data: [LOCKED_USER],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useRbacUsers>);
+    renderBody();
+
+    fireEvent.click(screen.getByRole('button', { name: /desbloquear/i }));
+
+    await waitFor(() => {
+      expect(unlockMutation.mutateAsync).toHaveBeenCalledWith('u3');
+    });
+  });
+
+  it('shows error toast when unlock mutation fails', async () => {
+    const unlockError = new Error('Unlock failed');
+    const unlockMutation = { mutateAsync: vi.fn().mockRejectedValue(unlockError), isPending: false };
+    vi.mocked(useUnlockRbacUser).mockReturnValue(unlockMutation as unknown as ReturnType<typeof useUnlockRbacUser>);
+
+    vi.mocked(useRbacUsers).mockReturnValue({
+      data: [LOCKED_USER],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useRbacUsers>);
+    renderBody();
+
+    fireEvent.click(screen.getByRole('button', { name: /desbloquear/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/no se pudo desbloquear/i)).toBeInTheDocument();
     });
   });
 });

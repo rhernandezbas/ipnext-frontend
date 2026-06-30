@@ -22,8 +22,8 @@ const mockStatuses: TicketStatusType[] = [
 ];
 
 const mockUsers: import('@/types/rbacUser').RbacUserWithRolesDto[] = [
-  { id: 'u1', name: 'Ana García', roles: [], email: 'test@test.com', login: 'user1', status: 'active', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', lastLoginAt: null },
-  { id: 'u2', name: 'Luis Pérez', roles: [], email: 'test2@test.com', login: 'user2', status: 'active', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', lastLoginAt: null },
+  { id: 'u1', name: 'Ana García', roles: [], email: 'test@test.com', login: 'user1', status: 'active', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', lastLoginAt: null, lockedUntil: null },
+  { id: 'u2', name: 'Luis Pérez', roles: [], email: 'test2@test.com', login: 'user2', status: 'active', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', lastLoginAt: null, lockedUntil: null },
 ];
 
 const mockAreas: TicketArea[] = [

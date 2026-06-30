@@ -9,6 +9,8 @@ export interface RbacUserDto {
   createdAt: string;
   updatedAt: string;
   lastLoginAt: string | null;
+  /** ISO datetime until which the user is locked out. null = not locked. */
+  lockedUntil: string | null;
 }
 
 export interface RbacUserWithRolesDto extends RbacUserDto {

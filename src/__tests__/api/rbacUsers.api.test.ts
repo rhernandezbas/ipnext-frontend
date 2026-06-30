@@ -26,6 +26,7 @@ const mockUser: RbacUserWithRolesDto = {
   createdAt: '2024-01-01T00:00:00Z',
   updatedAt: '2024-01-01T00:00:00Z',
   lastLoginAt: null,
+  lockedUntil: null,
   roles: [mockRole],
 };
 
@@ -127,5 +128,16 @@ describe('rbacUsersApi.removeRole', () => {
     await rbacUsersApi.removeRole('u1', 'r1');
 
     expect(axiosClient.delete).toHaveBeenCalledWith('/admin/rbac/users/u1/roles/r1');
+  });
+});
+
+describe('rbacUsersApi.unlock', () => {
+  it('POSTs /admin/rbac/users/:id/unlock (no body) and returns { user }', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: { user: mockUser } });
+
+    const result = await rbacUsersApi.unlock('u1');
+
+    expect(axiosClient.post).toHaveBeenCalledWith('/admin/rbac/users/u1/unlock', undefined);
+    expect(result).toEqual({ user: mockUser });
   });
 });

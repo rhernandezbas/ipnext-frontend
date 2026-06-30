@@ -95,3 +95,11 @@ export function useRemoveRoleFromUser() {
     onSuccess: () => qc.invalidateQueries({ queryKey: LIST_KEY }),
   });
 }
+
+export function useUnlockRbacUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => rbacUsersApi.unlock(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: LIST_KEY }),
+  });
+}

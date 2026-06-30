@@ -15,6 +15,7 @@ vi.mock('@/api/rbacUsers.api', () => ({
     setRoles: vi.fn(),
     assignRole: vi.fn(),
     removeRole: vi.fn(),
+    unlock: vi.fn(),
   },
 }));
 
@@ -29,6 +30,7 @@ import {
   useSetUserRoles,
   useAssignRoleToUser,
   useRemoveRoleFromUser,
+  useUnlockRbacUser,
 } from '@/hooks/useRbacUsers';
 import type { RbacUserWithRolesDto } from '@/types/rbacUser';
 import type { RbacRoleDto } from '@/types/rbacRole';
@@ -43,6 +45,7 @@ const mockUser: RbacUserWithRolesDto = {
   createdAt: '2024-01-01T00:00:00Z',
   updatedAt: '2024-01-01T00:00:00Z',
   lastLoginAt: null,
+  lockedUntil: null,
   roles: [mockRole],
 };
 
@@ -192,6 +195,21 @@ describe('useRemoveRoleFromUser', () => {
     await result.current.mutateAsync({ userId: 'u1', roleId: 'r1' });
 
     expect(rbacUsersApi.removeRole).toHaveBeenCalledWith('u1', 'r1');
+    expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ['rbac', 'users'] }));
+  });
+});
+
+describe('useUnlockRbacUser', () => {
+  it('calls rbacUsersApi.unlock with id and invalidates rbacUsers list query', async () => {
+    vi.mocked(rbacUsersApi.unlock).mockResolvedValue({ user: mockUser });
+    const { wrapper, qc } = createWrapper();
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+
+    const { result } = renderHook(() => useUnlockRbacUser(), { wrapper });
+
+    await result.current.mutateAsync('u1');
+
+    expect(rbacUsersApi.unlock).toHaveBeenCalledWith('u1');
     expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ['rbac', 'users'] }));
   });
 });

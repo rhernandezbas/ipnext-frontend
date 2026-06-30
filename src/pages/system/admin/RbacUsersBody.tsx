@@ -1,11 +1,20 @@
 import { useState } from 'react';
 import { useConfirm } from '@/context/ConfirmContext';
-import { useRbacUsers, useCreateRbacUser, useUpdateRbacUser, useDeleteRbacUser, useSetUserRoles } from '@/hooks/useRbacUsers';
+import { useRbacUsers, useCreateRbacUser, useUpdateRbacUser, useDeleteRbacUser, useSetUserRoles, useUnlockRbacUser } from '@/hooks/useRbacUsers';
 import { useRbacRoles } from '@/hooks/useRbacRoles';
 import { roleDisplay } from '@/constants/rbacRoleLabels';
 import { RbacUserModal } from './RbacUserModal';
+import { formatTimeShort } from '@/utils/formatDate';
 import type { RbacUserWithRolesDto, CreateRbacUserPayload, UpdateRbacUserPayload } from '@/types/rbacUser';
 import styles from './RbacUsersBody.module.css';
+
+// ── Lock helpers ─────────────────────────────────────────────────────────────
+
+/** True only when lockedUntil is set AND still in the future. */
+function isLocked(lockedUntil: string | null | undefined): boolean {
+  if (!lockedUntil) return false;
+  return new Date(lockedUntil) > new Date();
+}
 
 // ── Error code → message ─────────────────────────────────────────────────────
 
@@ -18,6 +27,10 @@ function mapDeleteError(code: string | undefined): string {
     default:
       return 'No se pudo eliminar el usuario. Intentá de nuevo.';
   }
+}
+
+function mapUnlockError(): string {
+  return 'No se pudo desbloquear el usuario. Intentá de nuevo.';
 }
 
 // ── Skeleton rows (AD-FE-5) ──────────────────────────────────────────────────
@@ -44,6 +57,17 @@ function StatusBadge({ status }: { status: 'active' | 'disabled' }) {
   return (
     <span className={status === 'active' ? styles.statusActive : styles.statusInactive}>
       {status === 'active' ? 'Activo' : 'Inactivo'}
+    </span>
+  );
+}
+
+// ── Locked badge ──────────────────────────────────────────────────────────────
+
+function LockedBadge({ lockedUntil }: { lockedUntil: string }) {
+  const time = formatTimeShort(lockedUntil);
+  return (
+    <span className={styles.statusLocked} aria-label={`Bloqueado hasta las ${time}`}>
+      Bloqueado hasta {time}
     </span>
   );
 }
@@ -118,10 +142,12 @@ export function RbacUsersBody() {
   const updateMutation = useUpdateRbacUser();
   const deleteMutation = useDeleteRbacUser();
   const setRolesMutation = useSetUserRoles();
+  const unlockMutation = useUnlockRbacUser();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<RbacUserWithRolesDto | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
   const confirm = useConfirm();
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
@@ -161,6 +187,21 @@ export function RbacUsersBody() {
     }
   }
 
+  async function handleUnlock(user: RbacUserWithRolesDto) {
+    const confirmed = await confirm({
+      message: `¿Desbloquear a ${user.login}? Podrá volver a iniciar sesión.`,
+      confirmLabel: 'Desbloquear',
+    });
+    if (!confirmed) return;
+
+    setUnlockError(null);
+    try {
+      await unlockMutation.mutateAsync(user.id);
+    } catch {
+      setUnlockError(mapUnlockError());
+    }
+  }
+
   return (
     <div className={styles.body}>
       {/* Header (AD-FE-1: table is primary surface) */}
@@ -183,6 +224,21 @@ export function RbacUsersBody() {
             type="button"
             className={styles.toastClose}
             onClick={() => setDeleteError(null)}
+            aria-label="Cerrar"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Unlock error toast */}
+      {unlockError && (
+        <div className={styles.errorToast} role="alert">
+          {unlockError}
+          <button
+            type="button"
+            className={styles.toastClose}
+            onClick={() => setUnlockError(null)}
             aria-label="Cerrar"
           >
             ✕
@@ -236,7 +292,12 @@ export function RbacUsersBody() {
                       <RoleChips user={user} />
                     </td>
                     <td>
-                      <StatusBadge status={user.status} />
+                      <div className={styles.statusCell}>
+                        <StatusBadge status={user.status} />
+                        {isLocked(user.lockedUntil) && (
+                          <LockedBadge lockedUntil={user.lockedUntil!} />
+                        )}
+                      </div>
                     </td>
                     <td className={styles.cellMuted}>{relativeTime(user.lastLoginAt)}</td>
                     <td className={styles.cellActions}>
@@ -247,6 +308,15 @@ export function RbacUsersBody() {
                       >
                         Editar
                       </button>
+                      {isLocked(user.lockedUntil) && (
+                        <button
+                          type="button"
+                          className={styles.btnUnlock}
+                          onClick={() => handleUnlock(user)}
+                        >
+                          Desbloquear
+                        </button>
+                      )}
                       <button
                         type="button"
                         className={styles.btnDelete}

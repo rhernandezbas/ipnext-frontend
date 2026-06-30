@@ -2,6 +2,10 @@ import axiosClient from './axios-client';
 import type { RbacUserWithRolesDto, RbacUserDto, CreateRbacUserPayload, UpdateRbacUserPayload, ChangeRbacUserPasswordPayload } from '@/types/rbacUser';
 import type { RbacRoleDto } from '@/types/rbacRole';
 
+export interface UnlockRbacUserResponse {
+  user: RbacUserDto;
+}
+
 const BASE = '/admin/rbac/users';
 
 export const rbacUsersApi = {
@@ -31,4 +35,7 @@ export const rbacUsersApi = {
 
   removeRole: (id: string, roleId: string): Promise<void> =>
     axiosClient.delete(`${BASE}/${id}/roles/${roleId}`).then(() => undefined),
+
+  unlock: (id: string): Promise<UnlockRbacUserResponse> =>
+    axiosClient.post<UnlockRbacUserResponse>(`${BASE}/${id}/unlock`, undefined).then(r => r.data),
 };
