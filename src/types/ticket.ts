@@ -62,7 +62,6 @@ export interface Ticket {
 export interface TicketStats {
   open: number;
   pending: number;
-  resolved: number;
   closed: number;
   total: number;
   avgResolutionTimeHours: number;

@@ -64,7 +64,6 @@ export function getMockTicketStats(): TicketStats {
   return {
     open: 12,
     pending: 5,
-    resolved: 28,
     closed: 14,
     total: 59,
     avgResolutionTimeHours: 6.5,

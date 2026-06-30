@@ -144,6 +144,11 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   const [endDate, setEndDate] = useState('');
   const [estimatedHours, setEstimatedHours] = useState(1);
   const [address, setAddress] = useState('');
+  // Coordinates carried from the selected contract (GR lat/lng) so the created
+  // task is born geolocated — same data the task-detail edit flow already sends.
+  // Customer-mode only: stays null for network tasks (no contract).
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const confirm = useConfirm();
@@ -223,6 +228,9 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
       // Contract deselected — restore customer address if available
       if (customerDetail?.address) setAddress(customerDetail.address);
       else setAddress('');
+      // No contract → no coordinates to carry.
+      setLat(null);
+      setLng(null);
       return;
     }
     const svc = customerContracts.find(s => String(s.id) === contractId);
@@ -234,6 +242,9 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
         // Contract has no address → fallback to customer address
         if (customerDetail?.address) setAddress(customerDetail.address);
       }
+      // Carry the contract's GR coordinates (null when GR has none).
+      setLat(svc.lat ?? null);
+      setLng(svc.lng ?? null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contractId]);
@@ -357,6 +368,10 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
         startDate: toIso(startDate),
         endDate: toIso(endDate),
         address: address.trim() || null,
+        // Nested shape REQUIRED by the BE (CreateTaskSchema.coordinates). Flat
+        // lat/lng get stripped by Zod (silent no-op); partial nulls would 400
+        // (lat/lng are z.number()). Both present → { lat, lng }; otherwise → null.
+        coordinates: lat != null && lng != null ? { lat, lng } : null,
         notes: notes.trim() || null,
       };
 

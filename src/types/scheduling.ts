@@ -51,6 +51,14 @@ export interface CreateTaskPayload {
   contractId?: string | null;
   assigneeId?: string | null;
   address?: string | null;
+  /** Installation coordinates — carried from the contract's GR lat/lng so the
+   *  task is born geolocated. Mirrors the task-detail edit flow, which sends the
+   *  SAME nested shape. The BE CreateTaskSchema (`coordinates: CoordinatesSchema
+   *  .optional()`) accepts a nested `{ lat, lng }` object or `null` — NEVER flat
+   *  lat/lng (Zod strips unknown keys → silent no-op) and never partial nulls
+   *  (lat/lng are `z.number()`, so `{lat:null,lng:null}` → 400). `null` for
+   *  contracts without coordinates or non-contract (network) tasks. */
+  coordinates?: { lat: number; lng: number } | null;
   notes?: string | null;
   /** Originating ticket id when the task is created from a ticket (tickets-actions-be). */
   ticketId?: string | null;

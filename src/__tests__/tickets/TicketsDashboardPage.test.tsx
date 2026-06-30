@@ -72,7 +72,7 @@ describe('TicketsDashboardPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useTicketsModule.useTicketStats).mockReturnValue({
-      data: { open: 5, pending: 3, resolved: 12, closed: 8, total: 28, avgResolutionTimeHours: 4.5, closedToday: 7, avgResolutionTime: '4h 30m', unassigned: 2 },
+      data: { open: 5, pending: 3, closed: 8, total: 28, avgResolutionTimeHours: 4.5, closedToday: 7, avgResolutionTime: '4h 30m', unassigned: 2 },
       isLoading: false,
     } as ReturnType<typeof useTicketsModule.useTicketStats>);
     vi.mocked(useTicketsModule.useTicketList).mockReturnValue({

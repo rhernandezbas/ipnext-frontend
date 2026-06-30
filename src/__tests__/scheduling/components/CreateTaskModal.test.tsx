@@ -729,4 +729,50 @@ describe('CreateTaskModal', () => {
       expect('ticketId' in payload).toBe(false);
     });
   });
+
+  // The created payload is POSTed verbatim by createTask (scheduling.api.ts):
+  // onCreate → createTask.mutateAsync(data) → axios.post(BASE, data). So the
+  // object passed to onCreate IS the POST body. The BE CreateTaskSchema expects
+  // `coordinates` as a NESTED { lat, lng } object (or null) — flat lat/lng would
+  // be stripped by Zod (silent no-op), and { lat: null, lng: null } would 400.
+  describe('contract coordinates (nested)', () => {
+    it('POSTs the contract coordinates as a nested { lat, lng } object when the contract has coordinates', async () => {
+      const customer = { id: 'c-geo', name: 'GEO CUSTOMER', email: 'geo@test.com' };
+      useClientListMock.mockReturnValue({ data: { data: [customer], total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false });
+      useClientDetailMock.mockReturnValue({ data: { id: 'c-geo', name: 'GEO CUSTOMER', address: 'Calle Geo 1' } });
+      useClientContractsMock.mockReturnValue({
+        data: [{ id: '70', plan: 'Plan 300Mbps', type: 'internet', status: 'active', price: 5000, startDate: '2024-01-01', endDate: null, description: '', address: 'Av Geo 70', lat: -34.6512, lng: -59.4307 }],
+        isLoading: false,
+      });
+      render(
+        <CreateTaskModal projects={projects} workflows={workflows} onClose={onClose} onCreate={onCreate} loading={false} />,
+      );
+      fireEvent.change(screen.getByPlaceholderText('Título de la tarea'), { target: { value: 'Tarea con coords' } });
+      fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Geo' } });
+      fireEvent.click(await screen.findByText('GEO CUSTOMER'));
+      const contractSelect = await screen.findByRole('combobox', { name: /contrato/i });
+      fireEvent.change(contractSelect, { target: { value: '70' } });
+      fireEvent.change(screen.getByRole('combobox', { name: /proyecto/i }), { target: { value: 'proj-1' } });
+      fireEvent.change(screen.getByPlaceholderText('Detalles de la tarea…'), { target: { value: 'desc' } });
+      fireEvent.click(screen.getByRole('button', { name: /crear tarea/i }));
+
+      await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+      const payload = onCreate.mock.calls[0][0] as Record<string, unknown>;
+      // Nested object — NOT flat lat/lng (which the BE would silently strip).
+      expect(payload.coordinates).toEqual({ lat: -34.6512, lng: -59.4307 });
+      expect('lat' in payload).toBe(false);
+      expect('lng' in payload).toBe(false);
+    });
+
+    it('POSTs coordinates: null (never partial nulls) when the selected contract has no coordinates', async () => {
+      // setupWithFullForm uses contract id '1' which has no lat/lng.
+      await setupWithFullForm('Sin coords');
+      fireEvent.click(screen.getByRole('button', { name: /crear tarea/i }));
+
+      await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+      const payload = onCreate.mock.calls[0][0] as Record<string, unknown>;
+      // null (the whole object), never { lat: null, lng: null } — that would 400.
+      expect(payload.coordinates).toBeNull();
+    });
+  });
 });
