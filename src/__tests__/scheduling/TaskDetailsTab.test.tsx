@@ -43,6 +43,14 @@ vi.mock('@/hooks/useScheduling', () => ({
   useClearChecklist: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
 }));
 
+// Mock TaskPhotosGallery — uses useQuery (needs a QueryClient); stub it so this
+// isolated TaskDetailsTab test renders without a provider.
+vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskPhotosGallery', () => ({
+  TaskPhotosGallery: ({ taskId }: { taskId: string }) => (
+    <div data-testid="task-photos-gallery" data-task-id={taskId}>Photos Stub</div>
+  ),
+}));
+
 import { TaskDetailsTab } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskDetailsTab';
 import type { TaskDetailsTabProps } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskDetailsTab';
 

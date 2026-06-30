@@ -11,13 +11,31 @@ type SchedulingAssignee = { id: string; name: string };
 import type { TaskTemplate } from '@/types/taskTemplate';
 import type { CreateTaskPayload } from '@/types/scheduling';
 import { useTaskPriorities } from '@/hooks/useTaskPriorities';
+import { useCan } from '@/hooks/useMyPermissions';
 import { useConfirm } from '@/context/ConfirmContext';
 import { CustomerPicker } from './CustomerPicker';
 import { NodeSelector } from '@/components/NodeSelector';
 import { applyTaskVariables } from '../../lib/taskVariables';
+import { mapUploadError } from '@/utils/mapUploadError';
 import styles from './CreateTaskModal.module.css';
 
 const DEFAULT_PRIORITY = 'Normal';
+
+/** Photo uploader limits — mirror the BE contract (15 files, jpg/png/webp). */
+const PHOTO_MAX = 15;
+const PHOTO_ACCEPT = 'image/jpeg,image/png,image/webp';
+const PHOTO_MIME = /^image\/(jpeg|png|webp)$/;
+
+/** Narrow the unknown result of `onCreate` to the created task's id. `onCreate`
+ *  resolves with the ScheduledTask (see useCreateTask → createTask → r.data), so
+ *  at runtime `.id` is present; this stays type-safe for the generic prop. */
+function extractTaskId(result: unknown): string | null {
+  if (result && typeof result === 'object' && 'id' in result) {
+    const id = (result as { id?: unknown }).id;
+    return typeof id === 'string' ? id : null;
+  }
+  return null;
+}
 
 // TODO: temporal — confirmar nombres reales / mover a catálogo
 const FO_NODES_TEMP = ['Mercedes', 'Estudiantes', 'Chivilcoy'] as const;
@@ -57,12 +75,145 @@ interface Props {
   templates?: TaskTemplate[];
   onClose: () => void;
   onCreate: (data: CreateTaskPayload) => Promise<unknown>;
+  /** Wired by the page from useUploadTaskAttachments. When present AND the user
+   *  holds scheduling.write, the modal shows a photo uploader and, after the
+   *  task is created, uploads the selected photos to the new task's id. Optional
+   *  so callers that don't support photos keep working unchanged. */
+  onUploadPhotos?: (taskId: string, files: File[]) => Promise<unknown>;
   loading: boolean;
   initialValues?: CreateTaskInitialValues;
   /** When set, the modal opens in this mode AND the mode toggle is hidden (mode
    *  locked). Used by the Tareas Nodos page to force network mode. Absent ⇒
    *  current behaviour (toggle visible, starts in 'customer'). */
   defaultMode?: 'customer' | 'network';
+}
+
+// ── Photo uploader (local preview before the task exists) ────────────────────
+
+/** Inline × icon (SVG, never a glyph — design-system rule, mirrors the gallery). */
+function IconX() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+/** One local file preview. Owns its object URL so it is revoked on unmount —
+ *  no leaked blob URLs when the chip is removed or the modal closes. */
+function LocalPhotoThumb({ file, onRemove, disabled }: { file: File; onRemove: () => void; disabled?: boolean }) {
+  const [url, setUrl] = useState<string>('');
+  useEffect(() => {
+    const objectUrl = URL.createObjectURL(file);
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
+
+  return (
+    <li className={styles.photoChip}>
+      {url && <img className={styles.photoThumb} src={url} alt={file.name} />}
+      <button
+        type="button"
+        className={styles.photoRemove}
+        onClick={onRemove}
+        disabled={disabled}
+        aria-label={`Quitar ${file.name}`}
+      >
+        <IconX />
+      </button>
+    </li>
+  );
+}
+
+interface PhotoUploadFieldProps {
+  files: File[];
+  onChange: (next: File[]) => void;
+  disabled?: boolean;
+}
+
+/** Drag-and-drop + click photo picker with local previews. Pure UI: it collects
+ *  File objects; the actual upload happens after the task is created. */
+function PhotoUploadField({ files, onChange, disabled }: PhotoUploadFieldProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [hint, setHint] = useState<string | null>(null);
+
+  function addFiles(incoming: File[]) {
+    const valid = incoming.filter(f => PHOTO_MIME.test(f.type));
+    if (valid.length === 0) {
+      if (incoming.length > 0) setHint('Solo se aceptan imágenes jpg, png o webp.');
+      return;
+    }
+    const room = PHOTO_MAX - files.length;
+    if (room <= 0) {
+      setHint(`Máximo ${PHOTO_MAX} fotos.`);
+      return;
+    }
+    const accepted = valid.slice(0, room);
+    setHint(valid.length > room ? `Se agregaron ${room} (máximo ${PHOTO_MAX}).` : null);
+    onChange([...files, ...accepted]);
+  }
+
+  return (
+    <div className={styles.label}>
+      <span>Fotos <span className={styles.photoOptional}>(opcional)</span></span>
+      <div
+        className={`${styles.dropzone} ${dragging ? styles.dropzoneActive : ''}`}
+        onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          if (disabled) return;
+          addFiles(Array.from(e.dataTransfer.files ?? []));
+        }}
+      >
+        <button
+          type="button"
+          className={styles.dropzoneBtn}
+          onClick={() => inputRef.current?.click()}
+          disabled={disabled || files.length >= PHOTO_MAX}
+          aria-label="Agregar fotos"
+        >
+          Agregar fotos
+        </button>
+        <span className={styles.dropzoneText}>o arrastrá las imágenes acá</span>
+        <input
+          ref={inputRef}
+          data-testid="create-photos-input"
+          type="file"
+          multiple
+          accept={PHOTO_ACCEPT}
+          className={styles.srOnly}
+          onChange={(e) => {
+            addFiles(Array.from(e.target.files ?? []));
+            e.target.value = '';
+          }}
+        />
+      </div>
+
+      {files.length > 0 && (
+        <ul className={styles.photoRow} aria-label="Fotos seleccionadas">
+          {files.map((file, idx) => (
+            <LocalPhotoThumb
+              // Stable identity key (name + size + lastModified) — using `idx`
+              // remounts every surviving thumb when a non-last photo is removed,
+              // revoking+recreating their object URLs (flash). Identity avoids it.
+              key={`${file.name}-${file.size}-${file.lastModified}`}
+              file={file}
+              disabled={disabled}
+              onRemove={() => onChange(files.filter((_, i) => i !== idx))}
+            />
+          ))}
+        </ul>
+      )}
+
+      <span className={styles.hint}>
+        {hint ?? `jpg, png o webp · hasta ${PHOTO_MAX} fotos · 10 MB c/u`}
+      </span>
+    </div>
+  );
 }
 
 /** First stage (lowest order) of the project's workflow, or undefined if the
@@ -109,7 +260,7 @@ function resolveSiteAddress(site: { address?: string; coordinates?: { lat: numbe
  * valid stageId, so we resolve one here instead of relying on a server-side
  * default that doesn't exist.
  */
-export function CreateTaskModal({ projects, workflows, technicians = [], templates = [], onClose, onCreate, loading, initialValues, defaultMode }: Props) {
+export function CreateTaskModal({ projects, workflows, technicians = [], templates = [], onClose, onCreate, onUploadPhotos, loading, initialValues, defaultMode }: Props) {
   /** When a defaultMode is provided the mode is LOCKED and a mode badge is shown.
    *  Node tasks are created ONLY from the Tareas Nodos page (#40b fix-a). */
   const modeLocked = defaultMode != null;
@@ -151,6 +302,24 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   const [lng, setLng] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // ── Photos (#task-photos) ───────────────────────────────────────────────────
+  // Only shown when the page wired onUploadPhotos AND the user holds write.
+  const canUploadPhotos = useCan('scheduling.write');
+  const photosEnabled = !!onUploadPhotos && canUploadPhotos;
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  // Set when the task WAS created but the photo upload failed. The task already
+  // exists, so we never re-create on retry — we just surface a clear notice and
+  // switch the footer to a single "Cerrar".
+  const [postCreateWarning, setPostCreateWarning] = useState<string | null>(null);
+  const createdTaskIdRef = useRef<string | null>(null);
+  // Double-submit guard. The whole create→upload flow is async: `loading`
+  // (createTask.isPending) drops the moment the task is created, re-enabling the
+  // button DURING the photo upload await → a 2nd click duplicated the upload
+  // (and a fast double-click before the first re-render could create 2 tasks).
+  // submittingRef is the SYNCHRONOUS re-entrancy lock; `submitting` drives the
+  // visual disabled state across the ENTIRE flow (create + upload).
+  const submittingRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
   const confirm = useConfirm();
 
   // When a customer is picked, pull its detail and auto-fill the address with the
@@ -306,6 +475,7 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
     !!firstStageId &&
     description.trim().length > 0 &&
     !loading &&
+    !submitting &&
     (taskMode === 'customer'
       ? !!customerId && !!contractId
       : taskMode === 'network' && networkType === 'fibra'
@@ -324,6 +494,11 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
   }
 
   async function handleSave() {
+    // Synchronous re-entrancy lock — blocks a 2nd entry before any await/render.
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
     if (!description.trim()) {
       setError('La descripción es obligatoria.');
       return;
@@ -413,7 +588,34 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
       if (initialValues?.ticketId != null) {
         payload.ticketId = initialValues.ticketId;
       }
-      await onCreate(payload);
+
+      // Create the task ONCE. If a previous attempt already created it (upload
+      // then failed), reuse that id instead of creating a duplicate on retry.
+      let taskId = createdTaskIdRef.current;
+      if (!taskId) {
+        const created = await onCreate(payload);
+        taskId = extractTaskId(created);
+        createdTaskIdRef.current = taskId;
+      }
+
+      // Photos: upload AFTER the task exists, using the returned id. A failure
+      // here must NOT lose the task — surface a notice and stop (the operator
+      // can re-upload from the task detail).
+      if (photosEnabled && photoFiles.length > 0) {
+        if (!taskId) {
+          setPostCreateWarning('La tarea se creó, pero no se pudieron adjuntar las fotos. Podés subirlas desde el detalle de la tarea.');
+          return;
+        }
+        try {
+          await onUploadPhotos!(taskId, photoFiles);
+        } catch (err) {
+          // Same specific mapping the gallery uses (e.g. the 503
+          // STORAGE_NOT_CONFIGURED) instead of a single generic notice.
+          setPostCreateWarning(`La tarea se creó. ${mapUploadError(err, PHOTO_MAX)} Podés re-subir las fotos desde el detalle de la tarea.`);
+          return;
+        }
+      }
+
       onClose();
     } catch (err) {
       // Surface the backend validation message when present (e.g. a 400
@@ -421,6 +623,12 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
       // is what keeps a failed create from bubbling up as an uncaught rejection.
       const resp = (err as { response?: { data?: { error?: string; message?: string } } })?.response?.data;
       setError(resp?.error ?? resp?.message ?? 'No se pudo crear la tarea. Revisá los datos e intentá de nuevo.');
+    }
+    } finally {
+      // Always release the lock — covers validation early-returns, create errors,
+      // the post-create warning return, and the happy path.
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   }
 
@@ -732,11 +940,32 @@ export function CreateTaskModal({ projects, workflows, technicians = [], templat
           />
         </label>
 
+        {photosEnabled && (
+          <PhotoUploadField
+            files={photoFiles}
+            onChange={setPhotoFiles}
+            disabled={loading || submitting || postCreateWarning !== null}
+          />
+        )}
+
+        {postCreateWarning && (
+          <p className={styles.warning} role="status" aria-live="polite">
+            {postCreateWarning}
+          </p>
+        )}
+
         <div className={styles.actions}>
-          <button className={styles.btnSecondary} onClick={onClose} disabled={loading}>Cancelar</button>
-          <button className={styles.btnPrimary} onClick={handleSave} disabled={!canSave}>
-            {loading ? 'Creando...' : 'Crear tarea'}
-          </button>
+          {postCreateWarning ? (
+            // The task already exists — only offer to close (no re-create).
+            <button className={styles.btnPrimary} onClick={onClose}>Cerrar</button>
+          ) : (
+            <>
+              <button className={styles.btnSecondary} onClick={onClose} disabled={loading}>Cancelar</button>
+              <button className={styles.btnPrimary} onClick={handleSave} disabled={!canSave}>
+                {loading || submitting ? 'Creando...' : 'Crear tarea'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

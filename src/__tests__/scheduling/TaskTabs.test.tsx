@@ -78,6 +78,17 @@ vi.mock(
   }),
 );
 
+// Mock TaskPhotosGallery — uses useQuery (needs a QueryClient); stub it so the
+// real Detalles tab renders without a provider in this isolated TaskTabs test.
+vi.mock(
+  '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskPhotosGallery',
+  () => ({
+    TaskPhotosGallery: ({ taskId }: { taskId: string }) => (
+      <div data-testid="task-photos-gallery" data-task-id={taskId}>Photos Stub</div>
+    ),
+  }),
+);
+
 // Mock TaskInventorySuggestions, usa useQuery (necesitaria un QueryClient); stub
 vi.mock(
   '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskInventorySuggestions',

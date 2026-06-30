@@ -84,6 +84,7 @@ vi.mock('@/hooks/useTaskTemplates', () => ({ useTaskTemplates: () => ({ data: []
 vi.mock('@/hooks/useTaskPriorities', () => ({ useTaskPriorities: () => ({ data: [] }) }));
 vi.mock('@/hooks/useMyPermissions', () => ({
   useMyPermissions: () => ({ can: () => true, isLoading: false }),
+  useCan: () => true,
 }));
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ user: { id: 1, username: 'admin', email: 'a@b.com', displayName: 'Admin', role: 'admin', permissions: [] } }),

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useFilteredTasks, useCreateTask } from '@/hooks/useScheduling';
+import { useUploadTaskAttachments } from '@/hooks/useTaskAttachments';
 import { useProjects } from '@/hooks/useProjects';
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
@@ -97,6 +98,7 @@ export function TasksPageBase({ title, kind, modalDefaultMode, projectPredicate,
   const { data: templates = [] } = useTaskTemplates();
   const { data: priorities = [] } = useTaskPriorities();
   const createTask = useCreateTask();
+  const uploadPhotos = useUploadTaskAttachments();
   const [showCreate, setShowCreate] = useState(false);
 
   // Projects offered in the CREATE modal — filtered by the page predicate so the
@@ -210,6 +212,7 @@ export function TasksPageBase({ title, kind, modalDefaultMode, projectPredicate,
           defaultMode={modalDefaultMode}
           onClose={() => setShowCreate(false)}
           onCreate={data => createTask.mutateAsync(data)}
+          onUploadPhotos={(taskId, files) => uploadPhotos.mutateAsync({ taskId, files })}
           loading={createTask.isPending}
         />
       )}

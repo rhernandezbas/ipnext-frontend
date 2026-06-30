@@ -2,6 +2,7 @@ import { DatosForm } from './DatosForm';
 import { UbicacionMap } from './UbicacionMap';
 import { DescriptionEditor } from './DescriptionEditor';
 import { ChecklistSection } from './ChecklistSection';
+import { TaskPhotosGallery } from './TaskPhotosGallery';
 import type { DatosFormValues } from './DatosForm';
 import type { Partner } from '@/types/partner';
 
@@ -95,6 +96,12 @@ export function TaskDetailsTab({
         checklist={checklistSection.checklist}
         onError={checklistSection.onError}
       />
+
+      <hr className={styles.divider} />
+
+      {/* 5. FOTOS — gallery + uploader + lightbox (gated scheduling.write for
+          upload/delete; viewing only needs the page's scheduling.read route). */}
+      <TaskPhotosGallery taskId={checklistSection.taskId} />
     </div>
   );
 }

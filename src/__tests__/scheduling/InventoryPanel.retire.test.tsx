@@ -43,6 +43,11 @@ vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/components/DescriptionEdito
 vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/components/ChecklistSection', () => ({
   ChecklistSection: () => <div data-testid="checklist-section" />,
 }));
+// TaskPhotosGallery uses useQuery — stub it so the real Detalles tab renders
+// without a QueryClient in this isolated TaskTabs/InventoryPanel test.
+vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskPhotosGallery', () => ({
+  TaskPhotosGallery: () => <div data-testid="task-photos-gallery" />,
+}));
 vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskInventorySuggestions', () => ({
   TaskInventorySuggestions: () => <div data-testid="task-inventory-suggestions" />,
 }));
