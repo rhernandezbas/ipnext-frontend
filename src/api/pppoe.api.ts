@@ -26,6 +26,34 @@ export interface CreatePppoeBody {
   remoteAddress?: string;
 }
 
+/**
+ * Body para crear un PPPoE global (standalone, sin contrato obligatorio).
+ * A diferencia de CreatePppoeBody (que va a /contracts/:id/pppoe),
+ * este va directo a POST /api/pppoe. El campo es `plan` (no `profile`)
+ * según el contrato BE establecido en la Fase 5.
+ */
+export interface CreateStandalonePppoeBody {
+  username: string;
+  password: string;
+  nasId: string;
+  plan: string;
+  framedIp?: string;
+  ipMode?: 'fixed' | 'pool';
+  /** Asociar a un contrato al crear. Opcional en V1. */
+  contractId?: string;
+}
+
+/**
+ * Resultado de POST /api/pppoe/:id/rename.
+ * status='partial' = el secret nuevo se creó pero el viejo no pudo eliminarse.
+ */
+export interface RenamePppoeResult {
+  id: string;
+  username: string;
+  status: 'ok' | 'partial';
+  message?: string;
+}
+
 export interface UpdatePppoeBody {
   profile?: string;
   password?: string;
@@ -53,6 +81,7 @@ export const pppoeApi = {
     if (filter.nasId) params.nasId = filter.nasId;
     if (filter.page !== undefined) params.page = filter.page;
     if (filter.limit !== undefined) params.limit = filter.limit;
+    if (filter.includeUnassigned !== undefined) params.includeUnassigned = filter.includeUnassigned ? 'true' : 'false';
     const r = await axiosClient.get<PppoeServiceListResult>(BASE, { params });
     return r.data;
   },
@@ -171,6 +200,31 @@ export const pppoeApi = {
    */
   async deassociate(contractId: string, pppoeId: string, reason?: string): Promise<void> {
     await axiosClient.delete(`${CONTRACTS_BASE}/${contractId}/pppoe/${pppoeId}`, { data: { reason } });
+  },
+
+  // ── Gestión global de PPPoE (sin necesidad de contractId) ───────────────────
+
+  /**
+   * Crea un PPPoE standalone (POST /api/pppoe). A diferencia de `create` que requiere
+   * un contractId, este endpoint acepta un PPPoE huérfano sin contrato asociado (V1).
+   * El campo del plan se llama `plan` (no `profile`) según el BE del Fase 5.
+   * Gated `pppoe.manage`.
+   */
+  async createStandalone(body: CreateStandalonePppoeBody): Promise<PppoeServiceDto> {
+    const r = await axiosClient.post<PppoeServiceDto>(BASE, body);
+    return r.data;
+  },
+
+  /**
+   * Renombra un PPPoE (POST /api/pppoe/:id/rename). Esto RECREA el secret en el
+   * RADIUS con el nuevo username y elimina el viejo. El cliente se desconecta y
+   * necesita reconfigurar su CPE con el nuevo usuario.
+   * status='partial' = el secret nuevo se creó pero el viejo no pudo eliminarse.
+   * Gated `pppoe.manage`.
+   */
+  async rename(id: string, newUsername: string): Promise<RenamePppoeResult> {
+    const r = await axiosClient.post<RenamePppoeResult>(`${BASE}/${id}/rename`, { newUsername });
+    return r.data;
   },
 
   /**

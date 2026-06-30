@@ -39,6 +39,19 @@ export interface PppoeServiceListItem {
   createdBy: string | null;
   /** ISO timestamp. */
   createdAt: string;
+  // ── Campos ampliados para la tab de gestión global (Phase 5) ──────────────
+  /** Estado de enforcement del secret RADIUS: active | reduced | blocked. */
+  enforcedState?: string;
+  /** IP asignada actualmente (null = pool, sin sesión activa, o no aplica). */
+  remoteAddress?: string | null;
+  /** Modo de asignación de IP: 'fixed' = IP pinneada, 'pool' = asignada desde pool. */
+  ipMode?: 'fixed' | 'pool';
+  /** Nombre legible del NAS donde vive el secret (el id está en nasId). */
+  nasName?: string | null;
+  /** Tipo del NAS (mikrotik_api, radius_orchestrator, etc.). */
+  nasType?: string | null;
+  /** Contrato al que está vinculado. Null = servicio huérfano sin contrato. */
+  contractId?: string | null;
 }
 
 /** Respuesta paginada de GET /api/pppoe. */
@@ -56,6 +69,8 @@ export interface PppoeServiceListFilter {
   nasId?: string;
   page?: number;
   limit?: number;
+  /** Incluir servicios sin contrato (huérfanos). Por defecto el BE los omite. */
+  includeUnassigned?: boolean;
 }
 
 /**

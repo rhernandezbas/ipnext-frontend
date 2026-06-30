@@ -1024,3 +1024,27 @@ describe('GestionRedPage — contadores honestos (null = no disponible)', () => 
     expect(occSub).not.toHaveTextContent('sin dato');
   });
 });
+
+// ── F6: badge "0" del tab PPPoE no se renderiza ──────────────────────────────
+describe('GestionRedPage — F6: badge 0 del tab PPPoE oculto', () => {
+  it('el tab PPPoE no muestra badge "0" (tabCounts.pppoe está hardcodeado a 0)', () => {
+    // useMyPermissions globalmente mockeado con can: () => true → PPPoE tab visible
+    renderPage();
+    const pppoeTab = screen.getByRole('button', { name: /pppoe/i });
+    // Antes del fix: la span tabCount con "0" se renderizan.
+    // Después del fix: la span no se renderiza cuando el count es 0.
+    const zeroSpan = within(pppoeTab).queryByText('0');
+    expect(zeroSpan).toBeNull();
+  });
+
+  it('tabs con count > 0 siguen mostrando el badge (no rompas los demás)', () => {
+    renderPage();
+    // NAS Central tab tiene 2 dispositivos → debe seguir mostrando el badge "2"
+    const nasTab = screen.getByRole('button', { name: /dispositivos nas/i });
+    // El badge "2" puede aparecer tanto en el tab como en el KPI — nos alcanza con uno
+    const allTwos = screen.getAllByText('2');
+    expect(allTwos.length).toBeGreaterThan(0);
+    // y que el tab NAS tenga el badge
+    expect(within(nasTab).getByText('2')).toBeInTheDocument();
+  });
+});

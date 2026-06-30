@@ -1,4 +1,5 @@
 import { useState, useMemo, Fragment, useEffect } from 'react';
+import { PppoeManagementTab } from './PppoeManagementTab';
 import { Link } from 'react-router-dom';
 import { KebabMenu } from '@/components/atoms/KebabMenu/KebabMenu';
 import { useNasServers, useCreateNasServer, useUpdateNasServer, useDeleteNasServer } from '@/hooks/useNas';
@@ -15,7 +16,7 @@ import { formatDateTimeShort } from '@/utils/formatDate';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import styles from './GestionRedPage.module.css';
 
-type Tab = 'nas' | 'redes' | 'pools' | 'asignaciones' | 'ipv6' | 'sesiones';
+type Tab = 'nas' | 'redes' | 'pools' | 'asignaciones' | 'ipv6' | 'sesiones' | 'pppoe';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'nas', label: 'Dispositivos NAS' },
@@ -24,6 +25,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'asignaciones', label: 'Asignaciones' },
   { key: 'ipv6', label: 'IPv6' },
   { key: 'sesiones', label: 'Sesiones activas' },
+  { key: 'pppoe', label: 'PPPoE' },
 ];
 
 const NAS_TYPE_LABELS: Record<NasType, string> = {
@@ -74,6 +76,13 @@ const IconCube = ({ className }: IcoProps) => (
 const IconActivity = ({ className }: IcoProps) => (
   <svg className={`${styles.ico} ${className ?? ''}`} viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
 );
+// Plug / PPPoE — tab de gestión global de servicios PPPoE.
+const IconPppoe = ({ className }: IcoProps) => (
+  <svg className={`${styles.ico} ${className ?? ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M7 3v4M17 3v4M7 7h10a2 2 0 0 1 2 2v2a6 6 0 0 1-12 0V9a2 2 0 0 1 2-2z" />
+    <path d="M12 15v6M9 21h6" />
+  </svg>
+);
 // Triángulo de advertencia — indicador "sin contrato" (NO emoji, SVG inline).
 const IconWarning = ({ className }: IcoProps) => (
   <svg
@@ -96,6 +105,7 @@ const TAB_ICONS: Record<Tab, ({ className }: IcoProps) => JSX.Element> = {
   asignaciones: IconCheck,
   ipv6: IconCube,
   sesiones: IconActivity,
+  pppoe: IconPppoe,
 };
 
 // ---------------------------------------------------------------------------
@@ -735,6 +745,8 @@ export default function GestionRedPage() {
     asignaciones: assignmentsTotal,
     ipv6: ipv6Networks.length,
     sesiones: sessions.length,
+    // PPPoE count shown in tab toolbar; 0 here avoids extra BE call on page load.
+    pppoe: 0,
   };
 
   function changeTab(key: Tab) {
@@ -833,6 +845,9 @@ export default function GestionRedPage() {
       <div className={styles.card}>
         <div className={styles.tabbar}>
           {TABS.map(tab => {
+            // El tab PPPoE se ve solo con pppoe.read (las acciones de escritura
+            // se gatean aparte con pppoe.manage dentro de PppoeManagementTab).
+            if (tab.key === 'pppoe' && !can('pppoe.read')) return null;
             const Icon = TAB_ICONS[tab.key];
             const active = activeTab === tab.key;
             return (
@@ -845,7 +860,10 @@ export default function GestionRedPage() {
               >
                 <Icon />
                 {tab.label}
-                <span className={styles.tabCount}>{tabCounts[tab.key]}</span>
+                {/* F6: no renderizar badge cuando el conteo es 0 o indefinido */}
+                {tabCounts[tab.key] > 0 && (
+                  <span className={styles.tabCount}>{tabCounts[tab.key]}</span>
+                )}
               </button>
             );
           })}
@@ -1144,6 +1162,9 @@ export default function GestionRedPage() {
             </>
           );
         })()}
+
+        {/* PPPoE — gestión global de servicios (tab Phase 6/7) */}
+        {activeTab === 'pppoe' && <PppoeManagementTab />}
 
         {/* Sesiones activas (RADIUS en vivo, agrupadas por NAS) */}
         {activeTab === 'sesiones' && (

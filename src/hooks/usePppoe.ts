@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { pppoeApi } from '@/api/pppoe.api';
-import type { CreatePppoeBody, UpdatePppoeBody, PppoeCredentials } from '@/api/pppoe.api';
+import type { CreatePppoeBody, UpdatePppoeBody, PppoeCredentials, CreateStandalonePppoeBody, RenamePppoeResult } from '@/api/pppoe.api';
 import type {
   EnforcementAction,
   EnforcementTarget,
@@ -259,6 +259,94 @@ export function useUnpinPppoeIp(contractId: string, clientId: string | number) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['contract-pppoe', contractId] });
       qc.invalidateQueries({ queryKey: ['client-contracts', String(clientId)] });
+    },
+  });
+}
+
+// ── Hooks globales de gestión PPPoE (Phase 5) ────────────────────────────────
+// Invalidan el prefijo ['pppoe', 'list'] que cubre TODAS las variantes de filtro
+// de useAllPppoe (keyFactory de useInternetServices).
+
+/** Clave-prefijo para invalidar TODAS las queries de lista de PPPoE. */
+const GLOBAL_LIST_KEY = ['pppoe', 'list'] as const;
+
+/**
+ * Crea un PPPoE standalone (sin contrato obligatorio).
+ * Invalida la lista global al tener éxito.
+ * F7: también invalida unassigned para que el picker de adopción en InternetPanel quede fresco.
+ */
+export function useCreatePppoeStandalone() {
+  const qc = useQueryClient();
+  return useMutation<PppoeServiceDto, unknown, CreateStandalonePppoeBody>({
+    mutationFn: (body) => pppoeApi.createStandalone(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: GLOBAL_LIST_KEY });
+      qc.invalidateQueries({ queryKey: unassignedKey() });
+    },
+  });
+}
+
+/**
+ * Renombra un PPPoE (recrea el secret RADIUS). Invalida la lista global.
+ * Si response.status === 'partial', el caller debe mostrar el mensaje de advertencia.
+ */
+export function useRenamePppoe() {
+  const qc = useQueryClient();
+  return useMutation<RenamePppoeResult, unknown, { id: string; newUsername: string }>({
+    mutationFn: ({ id, newUsername }) => pppoeApi.rename(id, newUsername),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: GLOBAL_LIST_KEY });
+      // F7: un PPPoE renombrado puede ser huérfano — el picker de adopción debe quedar fresco
+      qc.invalidateQueries({ queryKey: unassignedKey() });
+    },
+  });
+}
+
+/**
+ * Edita profile/password/remoteAddress/status de un PPPoE.
+ * Variante global: invalida la lista global (no solo el contrato).
+ */
+export function useUpdatePppoeGlobal() {
+  const qc = useQueryClient();
+  return useMutation<PppoeServiceDto, unknown, { id: string; body: UpdatePppoeBody }>({
+    mutationFn: ({ id, body }) => pppoeApi.update(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: GLOBAL_LIST_KEY });
+      // F7: un PPPoE editado puede ser huérfano — el picker de adopción debe quedar fresco
+      qc.invalidateQueries({ queryKey: unassignedKey() });
+    },
+  });
+}
+
+/**
+ * Mueve un PPPoE a otro router (NAS).
+ * Variante global: invalida la lista global.
+ */
+export function useMovePppoeGlobal() {
+  const qc = useQueryClient();
+  return useMutation<PppoeServiceDto, unknown, { id: string; nasId: string }>({
+    mutationFn: ({ id, nasId }) => pppoeApi.move(id, nasId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: GLOBAL_LIST_KEY });
+      // F7: un PPPoE movido puede ser huérfano — el picker de adopción debe quedar fresco
+      qc.invalidateQueries({ queryKey: unassignedKey() });
+    },
+  });
+}
+
+/**
+ * Da de baja un PPPoE (DELETE en el router).
+ * Variante global: invalida la lista global.
+ * F7: también invalida unassigned — un PPPoE dado de baja pasa a ser huérfano
+ * y el picker de adopción de InternetPanel debe verlo fresco.
+ */
+export function useDeactivatePppoeGlobal() {
+  const qc = useQueryClient();
+  return useMutation<void, unknown, { id: string; reason?: string }>({
+    mutationFn: ({ id, reason }) => pppoeApi.deactivate(id, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: GLOBAL_LIST_KEY });
+      qc.invalidateQueries({ queryKey: unassignedKey() });
     },
   });
 }
