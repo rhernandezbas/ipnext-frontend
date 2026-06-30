@@ -368,6 +368,195 @@
   opacity: 0.85;
 }
 
+/* ── Controls row: rango relativo (presets) + auto-refresh ───────────────────── */
+
+/*
+ * Fila entre la barra de filtros y los chips de motivo. A la izquierda los chips
+ * de rango relativo; a la derecha el toggle de auto-refresh + indicador.
+ * Flat design, consistente con los chips de motivo (mismo lenguaje visual).
+ */
+.controlsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.rangeGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.rangeLabel {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: var(--space-1);
+}
+
+/*
+ * Chip de preset relativo. Mismo patrón que los chips de motivo (.chip): touch
+ * ≥44px, radio full, transición 150ms, focus visible. Estado activo = primary
+ * invertido (#fff sobre --color-primary #0d6efd ≈ 4.5:1 — pasa WCAG AA justo;
+ * el borde refuerza la lectura del estado).
+ */
+.rangeChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+  min-height: 44px;                       /* touch target ≥44px */
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-gray-50);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease;
+}
+
+.rangeChip:hover {
+  background: var(--color-gray-100);
+}
+
+.rangeChip:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.rangeChipActive {
+  background: var(--color-primary);
+  color: var(--color-white);
+  border-color: var(--color-primary);
+}
+
+.rangeChipActive:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+/* ── Auto-refresh toggle + indicador ─────────────────────────────────────────── */
+
+.autoRefreshArea {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Indicador sutil de estado. "Actualizando…" sólo aparece durante el fetch. */
+.refreshStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.refreshSpinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: var(--radius-full);
+  animation: spin 0.7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .refreshSpinner {
+    animation-duration: 1.5s;
+  }
+}
+
+/*
+ * Toggle "Auto-actualizar" — checkbox nativo (accesible) visualmente oculto, con
+ * un track/thumb estilados. El <label> entero es el área clickeable (≥44px).
+ */
+.autoToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Checkbox nativo oculto pero presente para a11y / teclado / tests. */
+.autoToggleInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.autoToggleTrack {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+  background: var(--color-gray-300);
+  border-radius: var(--radius-full);
+  transition: background-color 150ms ease;
+}
+
+.autoToggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--color-white);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sm);
+  transition: transform 150ms ease;
+}
+
+/* ON: track primary + thumb desplazado. */
+.autoToggleInput:checked ~ .autoToggleTrack {
+  background: var(--color-primary);
+}
+
+.autoToggleInput:checked ~ .autoToggleTrack .autoToggleThumb {
+  transform: translateX(16px);
+}
+
+/* Focus visible por teclado sobre el track. */
+.autoToggleInput:focus-visible ~ .autoToggleTrack {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.autoToggleText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .autoToggleTrack,
+  .autoToggleThumb {
+    transition: none;
+  }
+}
+
 /* ── Pagination ──────────────────────────────────────────────────────────── */
 
 .paginationWrapper {

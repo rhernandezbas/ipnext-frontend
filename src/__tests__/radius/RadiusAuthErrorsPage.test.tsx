@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -7,7 +7,14 @@ import RadiusAuthErrorsPage from '@/pages/radius/RadiusAuthErrorsPage';
 import * as useRadiusAuthFailuresModule from '@/hooks/useRadiusAuthFailures';
 import type { PaginatedRadiusAuthEvents } from '@/types/networkAudit';
 
-vi.mock('@/hooks/useRadiusAuthFailures');
+// Mock PARCIAL: sólo el hook de datos. Preservamos los helpers puros del módulo
+// (isRelativeRange / RELATIVE_RANGE_MS) porque el filter-hook valida `auth_range`
+// con isRelativeRange — un auto-mock del módulo completo lo volvería vi.fn()→undefined
+// y descartaría hasta los presets VÁLIDOS leídos de la URL.
+vi.mock('@/hooks/useRadiusAuthFailures', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/hooks/useRadiusAuthFailures')>();
+  return { ...actual, useRadiusAuthFailures: vi.fn() };
+});
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -360,5 +367,202 @@ describe('ReasonChips — Ola 2', () => {
     ['Todos', 'Sesión colgada', 'Usuario no existe', 'Credenciales'].forEach((label) => {
       expect(emoji.test(label)).toBe(false);
     });
+  });
+});
+
+// ── Rango relativo (presets, ventana deslizante) ──────────────────────────────
+
+describe('RangeChips — rango relativo', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renderiza los 4 chips de preset: 5 min / 1 h / 24 h / 7 d', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    expect(screen.getByRole('button', { name: '5 min' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '1 h' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '24 h' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '7 d' })).toBeInTheDocument();
+  });
+
+  it('los chips de preset no están activos por defecto (aria-pressed=false)', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    expect(screen.getByRole('button', { name: '5 min' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: '7 d' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('click en un preset pasa relativeRange al hook (y resetea page)', async () => {
+    const user = userEvent.setup();
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    await user.click(screen.getByRole('button', { name: '5 min' }));
+    expect(useRadiusAuthFailuresModule.useRadiusAuthFailures).toHaveBeenLastCalledWith(
+      expect.objectContaining({ relativeRange: '5m', page: 1 }),
+    );
+  });
+
+  it('el preset desde la URL hace round-trip y marca el chip activo', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage('/?auth_range=24h');
+    expect(useRadiusAuthFailuresModule.useRadiusAuthFailures).toHaveBeenCalledWith(
+      expect.objectContaining({ relativeRange: '24h' }),
+    );
+    expect(screen.getByRole('button', { name: '24 h' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('click en el preset activo lo apaga (vuelve a relativeRange undefined)', async () => {
+    const user = userEvent.setup();
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage('/?auth_range=1h');
+    const chip = screen.getByRole('button', { name: '1 h' });
+    expect(chip).toHaveAttribute('aria-pressed', 'true');
+    await user.click(chip);
+    expect(chip).toHaveAttribute('aria-pressed', 'false');
+    expect(useRadiusAuthFailuresModule.useRadiusAuthFailures).toHaveBeenLastCalledWith(
+      expect.objectContaining({ relativeRange: undefined }),
+    );
+  });
+
+  // BAJO 2: apagar el preset NO debe "resucitar" un from/to stale que quedó en la URL.
+  it('apagar el preset activo también limpia el rango absoluto stale (from/to)', async () => {
+    const user = userEvent.setup();
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage('/?auth_range=5m&auth_from=2026-06-01&auth_to=2026-06-15');
+    const chip = screen.getByRole('button', { name: '5 min' });
+    expect(chip).toHaveAttribute('aria-pressed', 'true');
+    await user.click(chip); // apagar el preset
+    // El rango absoluto stale NO reaparece ni en la query ni en los inputs.
+    expect(useRadiusAuthFailuresModule.useRadiusAuthFailures).toHaveBeenLastCalledWith(
+      expect.objectContaining({ relativeRange: undefined, from: undefined, to: undefined }),
+    );
+    expect((screen.getByLabelText('Desde') as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText('Hasta') as HTMLInputElement).value).toBe('');
+  });
+
+  // ── Mutua exclusión preset ↔ rango absoluto ────────────────────────────────
+
+  it('seleccionar un preset LIMPIA el rango absoluto (modos excluyentes)', async () => {
+    const user = userEvent.setup();
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage('/?auth_from=2026-06-01&auth_reply=Access-Reject');
+    // El input Desde arranca con la fecha absoluta.
+    const desde = screen.getByLabelText('Desde') as HTMLInputElement;
+    expect(desde.value).toBe('2026-06-01');
+    await user.click(screen.getByRole('button', { name: '5 min' }));
+    // El preset queda activo y el rango absoluto se limpió.
+    expect(useRadiusAuthFailuresModule.useRadiusAuthFailures).toHaveBeenLastCalledWith(
+      expect.objectContaining({ relativeRange: '5m' }),
+    );
+    expect((screen.getByLabelText('Desde') as HTMLInputElement).value).toBe('');
+  });
+
+  it('en modo relativo NO se manda `from` absoluto al hook', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    // Aunque la URL tuviera un from viejo, el preset gana y from va undefined.
+    renderPage('/?auth_range=5m&auth_from=2026-06-01');
+    const call = vi.mocked(useRadiusAuthFailuresModule.useRadiusAuthFailures).mock.calls.at(-1)![0];
+    expect(call.relativeRange).toBe('5m');
+    expect(call.from).toBeUndefined();
+  });
+
+  it('editar el rango absoluto LIMPIA el preset (viceversa)', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage('/?auth_range=24h');
+    expect(screen.getByRole('button', { name: '24 h' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.change(screen.getByLabelText('Desde'), { target: { value: '2026-06-15' } });
+    expect(screen.getByRole('button', { name: '24 h' })).toHaveAttribute('aria-pressed', 'false');
+    expect(useRadiusAuthFailuresModule.useRadiusAuthFailures).toHaveBeenLastCalledWith(
+      expect.objectContaining({ relativeRange: undefined, from: '2026-06-15' }),
+    );
+  });
+
+  it('las etiquetas de los chips de rango no tienen emojis', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    const emoji = /\p{Extended_Pictographic}/u;
+    ['5 min', '1 h', '24 h', '7 d'].forEach((label) => {
+      expect(emoji.test(label)).toBe(false);
+    });
+  });
+});
+
+// ── Auto-refresh (toggle) ─────────────────────────────────────────────────────
+
+describe('Auto-refresh toggle', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renderiza el toggle "Auto-actualizar"', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    expect(screen.getByRole('checkbox', { name: /auto-actualizar/i })).toBeInTheDocument();
+  });
+
+  it('default OFF cuando NO hay preset relativo (autoRefresh=false al hook)', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    expect((screen.getByRole('checkbox', { name: /auto-actualizar/i }) as HTMLInputElement).checked).toBe(false);
+    expect(useRadiusAuthFailuresModule.useRadiusAuthFailures).toHaveBeenLastCalledWith(
+      expect.objectContaining({ autoRefresh: false }),
+    );
+  });
+
+  it('default ON cuando hay un preset relativo activo (autoRefresh=true al hook)', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage('/?auth_range=5m');
+    expect((screen.getByRole('checkbox', { name: /auto-actualizar/i }) as HTMLInputElement).checked).toBe(true);
+    expect(useRadiusAuthFailuresModule.useRadiusAuthFailures).toHaveBeenLastCalledWith(
+      expect.objectContaining({ autoRefresh: true }),
+    );
+  });
+
+  it('apagar el toggle con preset activo manda autoRefresh=false', async () => {
+    const user = userEvent.setup();
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage('/?auth_range=5m');
+    const toggle = screen.getByRole('checkbox', { name: /auto-actualizar/i }) as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+    await user.click(toggle);
+    expect((screen.getByRole('checkbox', { name: /auto-actualizar/i }) as HTMLInputElement).checked).toBe(false);
+    expect(useRadiusAuthFailuresModule.useRadiusAuthFailures).toHaveBeenLastCalledWith(
+      expect.objectContaining({ autoRefresh: false }),
+    );
+  });
+
+  it('prender el toggle sin preset manda autoRefresh=true', async () => {
+    const user = userEvent.setup();
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+    await user.click(screen.getByRole('checkbox', { name: /auto-actualizar/i }));
+    expect(useRadiusAuthFailuresModule.useRadiusAuthFailures).toHaveBeenLastCalledWith(
+      expect.objectContaining({ autoRefresh: true }),
+    );
+  });
+
+  it('muestra un indicador "actualizando" mientras isFetching y el auto-refresh está ON', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false, isFetching: true, dataUpdatedAt: Date.now() });
+    renderPage('/?auth_range=5m');
+    expect(screen.getByText(/actualizando/i)).toBeInTheDocument();
+  });
+
+  // BAJO 3: rama isFetching=false + dataUpdatedAt → "Actualizado HH:MM" en hora AR.
+  // Epoch fijo 2026-06-30T15:30:00Z = 12:30 ART (UTC-3). Blinda el fix de timezone:
+  // si se leyera la hora del host (UTC) mostraría 15:30, no 12:30.
+  it('muestra "Actualizado HH:MM" en hora Argentina cuando terminó de refrescar', () => {
+    const updatedAt = Date.parse('2026-06-30T15:30:00Z'); // 12:30 ART
+    mockHook({
+      data: MOCK_DATA,
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      dataUpdatedAt: updatedAt,
+    });
+    renderPage('/?auth_range=5m');
+    expect(screen.getByText('Actualizado 12:30')).toBeInTheDocument();
+    // No debe colar la hora UTC del host.
+    expect(screen.queryByText('Actualizado 15:30')).not.toBeInTheDocument();
   });
 });

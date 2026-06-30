@@ -57,6 +57,13 @@ export interface PaginatedNe8000Audit {
 
 export type RadiusAuthReply = 'Access-Accept' | 'Access-Reject';
 
+/**
+ * Presets de rango RELATIVO (ventana deslizante). El valor identifica el TIPO de
+ * ventana ("últimos 5min / 1h / 24h / 7d"), NO un `from` absoluto congelado: el
+ * `from` real se calcula al momento del fetch (ver useRadiusAuthFailures).
+ */
+export type RelativeRange = '5m' | '1h' | '24h' | '7d';
+
 export interface RadiusAuthEvent {
   id: string;
   username: string;

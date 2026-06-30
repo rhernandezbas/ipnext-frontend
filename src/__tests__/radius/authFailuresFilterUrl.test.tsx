@@ -129,6 +129,135 @@ describe('useAuthFailuresFilterUrl — reason (Ola 2)', () => {
   });
 });
 
+// ── Rango relativo (presets, ventana deslizante) + auto-refresh ───────────────
+
+describe('useAuthFailuresFilterUrl — relativeRange (presets)', () => {
+  it('hace round-trip de relativeRange: setFilter → URL → read', () => {
+    const { result } = renderHook(() => useAuthFailuresFilterUrl(), { wrapper: wrapper({}) });
+    act(() => {
+      result.current.setFilter({ relativeRange: '5m' });
+    });
+    expect(result.current.filter.relativeRange).toBe('5m');
+  });
+
+  it('los 4 presets hacen round-trip', () => {
+    const presets = ['5m', '1h', '24h', '7d'] as const;
+    for (const preset of presets) {
+      const { result } = renderHook(() => useAuthFailuresFilterUrl(), { wrapper: wrapper({}) });
+      act(() => {
+        result.current.setFilter({ relativeRange: preset });
+      });
+      expect(result.current.filter.relativeRange).toBe(preset);
+    }
+  });
+
+  it('lee auth_range desde la URL inicial (bookmark)', () => {
+    const { result } = renderHook(() => useAuthFailuresFilterUrl(), {
+      wrapper: wrapper({ initialUrl: '/?auth_range=1h' }),
+    });
+    expect(result.current.filter.relativeRange).toBe('1h');
+  });
+
+  it('setFilter({ relativeRange: undefined }) limpia el preset', () => {
+    const { result } = renderHook(() => useAuthFailuresFilterUrl(), { wrapper: wrapper({}) });
+    act(() => {
+      result.current.setFilter({ relativeRange: '24h' });
+    });
+    act(() => {
+      result.current.setFilter({ relativeRange: undefined });
+    });
+    expect(result.current.filter.relativeRange).toBeUndefined();
+  });
+
+  it('clearFilter también limpia relativeRange y autoRefresh', () => {
+    const { result } = renderHook(() => useAuthFailuresFilterUrl(), { wrapper: wrapper({}) });
+    act(() => {
+      result.current.setFilter({ relativeRange: '7d', autoRefresh: true });
+    });
+    act(() => {
+      result.current.clearFilter();
+    });
+    expect(result.current.filter.relativeRange).toBeUndefined();
+    expect(result.current.filter.autoRefresh).toBeUndefined();
+  });
+});
+
+// ── MEDIO 1: validación de auth_range (basura en la URL no debe romper) ────────
+// Un `?auth_range=5min` casteado sin validar → RELATIVE_RANGE_MS['5min'] undefined
+// → new Date(NaN).toISOString() lanza RangeError + loop de error-polling. El
+// filter-hook debe DESCARTAR cualquier valor fuera del set válido (5m|1h|24h|7d).
+describe('useAuthFailuresFilterUrl — relativeRange validación (basura de la URL)', () => {
+  it('ignora un auth_range basura (5min) → relativeRange undefined (no aplica modo relativo)', () => {
+    const { result } = renderHook(() => useAuthFailuresFilterUrl(), {
+      wrapper: wrapper({ initialUrl: '/?auth_range=5min' }),
+    });
+    expect(result.current.filter.relativeRange).toBeUndefined();
+  });
+
+  it('un auth_range válido (5m) SÍ se aplica', () => {
+    const { result } = renderHook(() => useAuthFailuresFilterUrl(), {
+      wrapper: wrapper({ initialUrl: '/?auth_range=5m' }),
+    });
+    expect(result.current.filter.relativeRange).toBe('5m');
+  });
+
+  it.each(['foo', '5', '60m', '1d', 'toString', '5 m'])(
+    'descarta valores inválidos de auth_range (%s)',
+    (bad) => {
+      const { result } = renderHook(() => useAuthFailuresFilterUrl(), {
+        wrapper: wrapper({ initialUrl: `/?auth_range=${encodeURIComponent(bad)}` }),
+      });
+      expect(result.current.filter.relativeRange).toBeUndefined();
+    },
+  );
+
+  it('al re-escribir filtros, un auth_range basura preexistente NO sobrevive en la URL', () => {
+    const { result } = renderHook(() => useAuthFailuresFilterUrl(), {
+      wrapper: wrapper({ initialUrl: '/?auth_range=5min' }),
+    });
+    act(() => {
+      result.current.setFilter({ username: 'ana' });
+    });
+    // El preset basura no debe re-emerger tras un setFilter de otro campo.
+    expect(result.current.filter.relativeRange).toBeUndefined();
+  });
+});
+
+describe('useAuthFailuresFilterUrl — autoRefresh (toggle, tri-state)', () => {
+  it('autoRefresh arranca undefined (sin setear = default decide la page)', () => {
+    const { result } = renderHook(() => useAuthFailuresFilterUrl(), { wrapper: wrapper({}) });
+    expect(result.current.filter.autoRefresh).toBeUndefined();
+  });
+
+  it('hace round-trip de autoRefresh=true', () => {
+    const { result } = renderHook(() => useAuthFailuresFilterUrl(), { wrapper: wrapper({}) });
+    act(() => {
+      result.current.setFilter({ autoRefresh: true });
+    });
+    expect(result.current.filter.autoRefresh).toBe(true);
+  });
+
+  it('hace round-trip de autoRefresh=false (apagado explícito)', () => {
+    const { result } = renderHook(() => useAuthFailuresFilterUrl(), { wrapper: wrapper({}) });
+    act(() => {
+      result.current.setFilter({ autoRefresh: false });
+    });
+    expect(result.current.filter.autoRefresh).toBe(false);
+  });
+
+  it('lee auth_auto desde la URL inicial: 1→true, 0→false', () => {
+    const on = renderHook(() => useAuthFailuresFilterUrl(), {
+      wrapper: wrapper({ initialUrl: '/?auth_auto=1' }),
+    });
+    expect(on.result.current.filter.autoRefresh).toBe(true);
+
+    const off = renderHook(() => useAuthFailuresFilterUrl(), {
+      wrapper: wrapper({ initialUrl: '/?auth_auto=0' }),
+    });
+    expect(off.result.current.filter.autoRefresh).toBe(false);
+  });
+});
+
 describe('NetworkAudit — aislamiento del tab "Errores de auth" frente a los otros 2', () => {
   it('un username en Errores de auth NO se filtra a Logs ni a NE8000 (sin leak)', () => {
     const { result } = renderHook(useAllHooks, { wrapper: wrapper({}) });

@@ -1,13 +1,26 @@
 import { useRadiusAuthFailures } from '@/hooks/useRadiusAuthFailures';
 import { useAuthFailuresFilterUrl } from './hooks/useAuthFailuresFilterUrl';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
-import { formatDateTimeShort } from '@/utils/formatDate';
-import type { RadiusAuthReply } from '@/types/networkAudit';
+import { formatDateTimeShort, formatTimeShort } from '@/utils/formatDate';
+import type { RadiusAuthReply, RelativeRange } from '@/types/networkAudit';
 import styles from './RadiusAuthErrorsPage.module.css';
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
 const LIMIT = 50;
+
+/**
+ * Chips de rango RELATIVO (ventana deslizante). Guardamos el PRESET (no un `from`
+ * congelado); el hook calcula el `from` al momento del fetch, así el auto-refresh
+ * desliza la ventana sin invalidar el cache. Mutuamente excluyentes con el rango
+ * absoluto Desde/Hasta: elegir un preset limpia las fechas y viceversa.
+ */
+const RANGE_CHIPS: { key: RelativeRange; label: string }[] = [
+  { key: '5m',  label: '5 min' },
+  { key: '1h',  label: '1 h' },
+  { key: '24h', label: '24 h' },
+  { key: '7d',  label: '7 d' },
+];
 
 /**
  * Mapeo del `reason` del BE (inglés) → etiqueta en español + clase de badge.
@@ -104,17 +117,27 @@ export default function RadiusAuthErrorsPage() {
   const replyParam: RadiusAuthReply | undefined =
     effectiveReply === 'all' ? undefined : effectiveReply;
 
+  // Modo RELATIVO (preset) vs ABSOLUTO (Desde/Hasta): excluyentes.
+  const inRelativeMode = filter.relativeRange != null;
+  // Auto-refresh: el toggle explícito gana; por defecto ON cuando hay preset relativo.
+  const autoRefresh = filter.autoRefresh ?? inRelativeMode;
+
   const queryParams = {
     username: filter.username || undefined,
     reply:    replyParam,
-    from:     filter.from || undefined,
-    to:       filter.to || undefined,
+    // En modo relativo NO mandamos from/to absolutos: el hook calcula el `from`
+    // deslizante a partir de `relativeRange`.
+    from:     inRelativeMode ? undefined : (filter.from || undefined),
+    to:       inRelativeMode ? undefined : (filter.to || undefined),
     page,
     limit: LIMIT,
     reason: filter.reason,
+    relativeRange: filter.relativeRange,
+    autoRefresh,
   };
 
-  const { data, isLoading, isError } = useRadiusAuthFailures(queryParams);
+  const { data, isLoading, isError, isFetching, dataUpdatedAt } =
+    useRadiusAuthFailures(queryParams);
 
   // usar el limit que devuelve el BE (lo capa a MAX_LIMIT) en vez del LIMIT local
   const totalPages = data ? Math.ceil(data.total / (data.limit || LIMIT)) : 1;
@@ -149,25 +172,87 @@ export default function RadiusAuthErrorsPage() {
           <option value="Access-Accept">Access-Accept</option>
           <option value="all">Todos</option>
         </select>
+        {/* Rango ABSOLUTO. Editar una fecha sale del modo relativo (limpia el preset). */}
         <input
           type="date"
           className={styles.input}
-          value={filter.from ?? ''}
-          onChange={(e) => setFilter({ from: e.target.value || undefined, page: 1 })}
+          value={inRelativeMode ? '' : (filter.from ?? '')}
+          onChange={(e) =>
+            setFilter({ from: e.target.value || undefined, relativeRange: undefined, page: 1 })
+          }
           aria-label="Desde"
           title="Desde"
         />
         <input
           type="date"
           className={styles.input}
-          value={filter.to ?? ''}
-          onChange={(e) => setFilter({ to: e.target.value || undefined, page: 1 })}
+          value={inRelativeMode ? '' : (filter.to ?? '')}
+          onChange={(e) =>
+            setFilter({ to: e.target.value || undefined, relativeRange: undefined, page: 1 })
+          }
           aria-label="Hasta"
           title="Hasta"
         />
         <button type="button" className={styles.btnClear} onClick={clearFilter}>
           Limpiar
         </button>
+      </div>
+
+      {/* Rango relativo (presets) + auto-refresh.
+          Los chips de preset son toggles (aria-pressed): clic en el activo lo apaga.
+          Seleccionar un preset limpia el rango absoluto Desde/Hasta. */}
+      <div className={styles.controlsRow}>
+        <div className={styles.rangeGroup} role="group" aria-label="Rango relativo">
+          <span className={styles.rangeLabel}>Rango</span>
+          {RANGE_CHIPS.map((chip) => {
+            const isActive = filter.relativeRange === chip.key;
+            return (
+              <button
+                key={chip.key}
+                type="button"
+                className={`${styles.rangeChip} ${isActive ? styles.rangeChipActive : ''}`}
+                aria-pressed={isActive}
+                onClick={() =>
+                  isActive
+                    // Apagar el preset limpia TAMBIÉN from/to: si no, un rango
+                    // absoluto stale en la URL "resucita" al salir del modo relativo.
+                    ? setFilter({ relativeRange: undefined, from: undefined, to: undefined, page: 1 })
+                    : setFilter({ relativeRange: chip.key, from: undefined, to: undefined, page: 1 })
+                }
+              >
+                {chip.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className={styles.autoRefreshArea}>
+          {autoRefresh && (
+            <span className={styles.refreshStatus} role="status" aria-live="polite">
+              {isFetching ? (
+                <>
+                  <span className={styles.refreshSpinner} aria-hidden="true" />
+                  Actualizando…
+                </>
+              ) : dataUpdatedAt ? (
+                `Actualizado ${formatTimeShort(new Date(dataUpdatedAt))}`
+              ) : null}
+            </span>
+          )}
+          <label className={styles.autoToggle}>
+            <input
+              type="checkbox"
+              className={styles.autoToggleInput}
+              checked={autoRefresh}
+              onChange={(e) => setFilter({ autoRefresh: e.target.checked })}
+              aria-label="Auto-actualizar"
+            />
+            <span className={styles.autoToggleTrack} aria-hidden="true">
+              <span className={styles.autoToggleThumb} />
+            </span>
+            <span className={styles.autoToggleText}>Auto-actualizar</span>
+          </label>
+        </div>
       </div>
 
       {/* Reason chips — siempre visibles; conteos solo cuando data disponible.

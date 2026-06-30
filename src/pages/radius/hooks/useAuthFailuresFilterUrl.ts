@@ -13,9 +13,28 @@
  */
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import type { RelativeRange } from '@/types/networkAudit';
+import { isRelativeRange } from '@/hooks/useRadiusAuthFailures';
 
 const NS = 'auth_';
 const k = (key: string) => `${NS}${key}`;
+
+/**
+ * Lee y VALIDA el preset relativo de la URL contra el set válido (`5m|1h|24h|7d`).
+ * Basura (`?auth_range=5min`) → undefined: se ignora como si no hubiera preset,
+ * evitando que un valor inválido llegue a la queryFn y dispare RangeError + loop
+ * de error-polling (auth_range presente fuerza el auto-refresh ON).
+ */
+function parseRange(v: string | null): RelativeRange | undefined {
+  return isRelativeRange(v) ? v : undefined;
+}
+
+/** auth_auto es tri-estado: '1'→true (forzado ON), '0'→false (forzado OFF), ausente→undefined (default). */
+function parseAuto(v: string | null): boolean | undefined {
+  if (v === '1') return true;
+  if (v === '0') return false;
+  return undefined;
+}
 
 /**
  * `reply` semantics:
@@ -35,6 +54,16 @@ export interface AuthFailuresFilter {
   to?: string;
   page?: number;
   reason?: 'session_stuck' | 'user_not_found' | 'other';
+  /**
+   * Preset de rango RELATIVO (ventana deslizante). Mutuamente excluyente con
+   * `from`/`to` (modo absoluto): la page limpia uno al setear el otro.
+   */
+  relativeRange?: RelativeRange;
+  /**
+   * Toggle de auto-refresh. Tri-estado: true/false explícito o undefined (default —
+   * la page decide ON cuando hay un preset relativo activo).
+   */
+  autoRefresh?: boolean;
 }
 
 export interface AuthFailuresFilterUrlResult {
@@ -53,6 +82,8 @@ export function useAuthFailuresFilterUrl(): AuthFailuresFilterUrlResult {
     to:       searchParams.get(k('to')) ?? undefined,
     page:     searchParams.get(k('page')) ? Number(searchParams.get(k('page'))) : undefined,
     reason:   (searchParams.get(k('reason')) ?? undefined) as AuthFailuresFilter['reason'],
+    relativeRange: parseRange(searchParams.get(k('range'))),
+    autoRefresh:   parseAuto(searchParams.get(k('auto'))),
   };
 
   const setFilter = useCallback(
@@ -70,6 +101,8 @@ export function useAuthFailuresFilterUrl(): AuthFailuresFilterUrlResult {
             to:       'to'       in patch ? patch.to       : (prev.get(k('to')) ?? undefined),
             page:     'page'     in patch ? patch.page     : (prev.get(k('page')) ? Number(prev.get(k('page'))) : undefined),
             reason:   'reason'   in patch ? patch.reason   : (prev.get(k('reason')) ?? undefined) as AuthFailuresFilter['reason'],
+            relativeRange: 'relativeRange' in patch ? patch.relativeRange : parseRange(prev.get(k('range'))),
+            autoRefresh:   'autoRefresh'   in patch ? patch.autoRefresh   : parseAuto(prev.get(k('auto'))),
           };
 
           const setOrDelete = (key: string, value?: string) => {
@@ -83,6 +116,10 @@ export function useAuthFailuresFilterUrl(): AuthFailuresFilterUrlResult {
           setOrDelete('to',       merged.to);
           setOrDelete('page', merged.page && merged.page > 1 ? String(merged.page) : undefined);
           setOrDelete('reason', merged.reason);
+          setOrDelete('range', merged.relativeRange);
+          // auto es tri-estado: '1'/'0' explícito, o se borra cuando es undefined.
+          if (merged.autoRefresh === undefined) next.delete(k('auto'));
+          else next.set(k('auto'), merged.autoRefresh ? '1' : '0');
 
           return next;
         },
