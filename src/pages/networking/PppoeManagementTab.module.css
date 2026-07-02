@@ -693,6 +693,35 @@
   outline-offset: 2px;
 }
 
+/* ── ola 2 (pedido del usuario 2026-07-02): chip de progreso en segundo plano ── */
+.bulkChip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 16px;
+  background: var(--gr-slate-soft);
+  border-bottom: 1px solid var(--gr-border);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gr-text);
+}
+
+/* ── ola 2: banner de resumen post-corrida en segundo plano ─────────────────── */
+.bulkBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #eef4ff;
+  border-bottom: 1px solid #bfdbfe;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gr-text);
+  flex-wrap: wrap;
+}
+
 /* ── bulk modal — resumen ────────────────────────────────────────────────────── */
 .bulkSuccess {
   background: var(--gr-green-soft);

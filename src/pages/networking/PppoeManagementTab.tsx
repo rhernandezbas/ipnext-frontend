@@ -29,8 +29,8 @@ import {
   GLOBAL_LIST_KEY,
 } from '@/hooks/usePppoe';
 import type { BulkChangePlanResult } from '@/api/pppoe.api';
-import { runPppoeBulkBatches } from '@/utils/pppoeBulkBatches';
-import type { PppoeBulkBatchProgress, PppoeBulkBatchCut } from '@/utils/pppoeBulkBatches';
+import { runPppoeBulkBatches, BULK_BATCH_SIZE } from '@/utils/pppoeBulkBatches';
+import type { PppoeBulkBatchProgress, PppoeBulkBatchCut, PppoeBulkBatchCancelled } from '@/utils/pppoeBulkBatches';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import { Can } from '@/components/auth/Can';
@@ -45,10 +45,15 @@ import styles from './PppoeManagementTab.module.css';
 // ── Constants ─────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 25;
 
-// W1 → v2 (pppoe-bulk-select-filter): YA NO es un tope duro de selección — es
-// el tamaño de LOTE por request, alineado con el guard BE MAX_BULK_IDS=200
-// (BulkChangePppoePlan, sin tocar). N<=200 → un solo request. N>200 → se
-// particiona en lotes de este tamaño y se envían secuencialmente.
+// W1 → v2 (pppoe-bulk-select-filter): YA NO es un tope duro de selección.
+// Fix pppoe-bulk-batch-timeout: dejó de ser también el tamaño de lote (ver
+// BULK_BATCH_SIZE en pppoeBulkBatches.ts, ahora 25) — un lote de 200 con el
+// throttle serial del BE tarda 2-4min y el proxy corta la conexión antes de
+// que la respuesta vuelva. BULK_SELECTION_CAP sigue existiendo SOLO para
+// gatear el checkbox de confirmación explícita ("Entiendo que voy a cambiar
+// el plan de N servicios") por encima de este umbral, y sigue alineado al
+// guard del BE MAX_BULK_IDS=200 (BulkChangePppoePlan, sin tocar) — un request
+// individual nunca puede superar 200 ids, independientemente del tamaño de lote.
 const BULK_SELECTION_CAP = 200;
 
 const STATUS_OPTIONS: InternetServiceStatus[] = ['active', 'reduced', 'blocked', 'baja', 'inactive'];
@@ -610,10 +615,37 @@ interface BulkChangePlanModalProps {
   onConfirm: (profile: string, reason?: string) => Promise<void>;
   isPending: boolean;
   result: BulkChangePlanResult | null;
-  /** Progreso del lote en vuelo — solo hay valor durante un envío en lotes (>200). */
+  /** Progreso del lote en vuelo — solo hay valor durante un envío en lotes (>BULK_BATCH_SIZE). */
   progress: PppoeBulkBatchProgress | null;
-  /** Corte por rechazo de lote entero — null = no hubo corte (o no aplica, N<=200). */
+  /** Corte por rechazo de lote entero — null = no hubo corte (o no aplica, N<=BULK_BATCH_SIZE). */
   cut: PppoeBulkBatchCut | null;
+  /**
+   * Fix pppoe-bulk-batch-timeout: ids del lote que rechazó por transporte
+   * (causa del `cut`). Estado DESCONOCIDO en el servidor — nunca "0 aplicados".
+   * Vacío cuando `cut` es null.
+   */
+  unconfirmed: string[];
+  /**
+   * Ola 2 (pedido del usuario 2026-07-02): la corrida se detuvo porque el
+   * operador clickeó "Cortar". Distinto de `cut` (rechazo de TRANSPORTE) —
+   * puede convivir con `cut` cuando el lote en vuelo rechazó justo mientras
+   * se pedía cortar (ver runPppoeBulkBatches). null = no se pidió cortar.
+   */
+  cancelled: PppoeBulkBatchCancelled | null;
+  /**
+   * true = esta corrida usa el orquestador de lotes (selección > BULK_BATCH_SIZE)
+   * y por lo tanto habilita "Cortar" + "Continuar en segundo plano". El camino
+   * directo (<=BULK_BATCH_SIZE, un solo request) queda INTACTO: "Cancelar"
+   * disabled durante el envío, sin botones nuevos (no hay nada que cortar ni
+   * segundo plano que valga la pena para un solo request corto).
+   */
+  isBatching: boolean;
+  /** true entre el click en "Cortar" y el fin de la corrida (label "Cortando…"). */
+  isCancelling: boolean;
+  /** Ola 2: handler del botón "Cortar" (real, siempre visible/habilitado mientras corre un batch). */
+  onCancelRun: () => void;
+  /** Ola 2: handler de "Continuar en segundo plano" — cierra el modal SIN abortar la corrida. */
+  onBackground: () => void;
 }
 
 function BulkChangePlanModal({
@@ -625,6 +657,12 @@ function BulkChangePlanModal({
   result,
   progress,
   cut,
+  unconfirmed,
+  cancelled,
+  isBatching,
+  isCancelling,
+  onCancelRun,
+  onBackground,
 }: BulkChangePlanModalProps) {
   const [profile, setProfile] = useState(planOptions[0]?.code ?? '');
   const [reason, setReason] = useState('');
@@ -657,8 +695,34 @@ function BulkChangePlanModal({
         {result !== null ? (
           <div>
             {cut && (
+              // Fix pppoe-bulk-batch-timeout: un rechazo de lote por transporte
+              // (timeout de proxy) NO significa que el BE no haya aplicado el
+              // lote — puede haber seguido procesando en background y
+              // terminado igual (confirmado en prod). El mensaje ya NO afirma
+              // "se aplicaron N" para el lote cortado: informa que no hubo
+              // respuesta, que pudo aplicarse igual, y usa "confirmados" (no
+              // "aplicados") para los conteos ya verificados hasta el corte.
               <div className={styles.partialAlert} role="alert">
-                Se cortó en el lote {cut.cutAtBatch}/{cut.totalBatches}. Se aplicaron {result.ok.length} servicio{result.ok.length !== 1 ? 's' : ''} antes del corte — el resto de los lotes NO se envió.
+                El lote {cut.cutAtBatch}/{cut.totalBatches} no obtuvo respuesta del servidor — sus cambios PUEDEN haberse aplicado igual.
+                {' '}Confirmados hasta el corte: {result.ok.length} ok, {result.failed.length} fallidos.
+                {' '}Los servicios sin confirmación{unconfirmed.length > 0 ? ` (${unconfirmed.length})` : ''} y los no enviados quedan seleccionados: verificá la lista y reintentá (re-aplicar el mismo plan es inofensivo).
+                {cancelled && (
+                  // Ola 2: cut+cancelled combinados — el cut es el mensaje
+                  // primario (más grave, estado desconocido); esto solo suma
+                  // la nota de que además hubo un corte manual del operador.
+                  ' Además, cortaste la corrida manualmente: no se envió ningún lote después de este punto.'
+                )}
+              </div>
+            )}
+            {!cut && cancelled && (
+              // Ola 2: cancelación PURA del operador (sin rechazo de
+              // transporte) — el lote `cancelled.atBatch` nunca se mandó, así
+              // que no hay nada "unconfirmed": todo lo enviado antes resolvió
+              // de verdad (ok/failed reales).
+              <div className={styles.partialAlert} role="alert">
+                Corrida cortada en el lote {cancelled.atBatch} de {cancelled.totalBatches}.
+                {' '}Confirmados: {result.ok.length} ok, {result.failed.length} fallidos.
+                {' '}Los servicios no enviados quedan seleccionados.
               </div>
             )}
             {result.ok.length > 0 && (
@@ -737,20 +801,46 @@ function BulkChangePlanModal({
               <div className={styles.partialAlert} role="alert">{error}</div>
             )}
             <div className={styles.modalActions}>
-              {/* W2: durante el envío (N<=200 en vuelo O corriendo en lotes) los
-                  lotes siguen mutando el RADIUS en background — no hay cancelación
-                  real (fuera de scope). Cerrar el modal acá perdería el resumen
-                  final, así que se deshabilita la única vía de cierre disponible. */}
-              <button
-                type="button"
-                className={styles.btnSecondary}
-                onClick={onClose}
-                disabled={isPending}
-                title={isPending ? 'No se puede cerrar durante el envío de lotes' : undefined}
-                aria-label={isPending ? 'Cancelar — no se puede cerrar durante el envío de lotes' : undefined}
-              >
-                Cancelar
-              </button>
+              {/* Ola 2 (pedido del usuario 2026-07-02): la corrida ya NO
+                  bloquea al operador. Camino directo (<=BULK_BATCH_SIZE,
+                  isBatching=false) queda INTACTO: "Cancelar" disabled durante
+                  el envío (un solo request corto, nada que cortar en el medio
+                  ni segundo plano que valga la pena). Camino en lotes
+                  (isBatching=true) reemplaza "Cancelar" por "Continuar en
+                  segundo plano" (habilitado — cierra el modal SIN abortar la
+                  corrida) + "Cortar" (real, siempre visible/habilitado hasta
+                  que se clickea). */}
+              {isPending && isBatching ? (
+                <>
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    onClick={onBackground}
+                  >
+                    Continuar en segundo plano
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    onClick={onCancelRun}
+                    disabled={isCancelling}
+                    title={isCancelling ? undefined : 'Corta la corrida antes del próximo lote — el lote en vuelo ya no se puede interrumpir.'}
+                  >
+                    {isCancelling ? 'Cortando… (termina el lote en vuelo)' : 'Cortar'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  onClick={onClose}
+                  disabled={isPending}
+                  title={isPending ? 'No se puede cerrar durante el envío' : undefined}
+                  aria-label={isPending ? 'Cancelar — no se puede cerrar durante el envío' : undefined}
+                >
+                  Cancelar
+                </button>
+              )}
               <button
                 type="submit"
                 className={styles.btnPrimary}
@@ -791,19 +881,41 @@ export function PppoeManagementTab() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // ── v2 (pppoe-bulk-select-filter): >200 ya NO bloquea — se informa que se
-  // enviará en lotes de BULK_SELECTION_CAP (el tope sigue siendo el tamaño de
-  // lote por request, alineado con el guard BE MAX_BULK_IDS=200).
-  const requiresBatching = selected.size > BULK_SELECTION_CAP;
-  const totalBatches = requiresBatching ? Math.ceil(selected.size / BULK_SELECTION_CAP) : 0;
+  // enviará en lotes. Fix pppoe-bulk-batch-timeout: el aviso (y la partición
+  // real) pasan a atarse a BULK_BATCH_SIZE (25), NO a BULK_SELECTION_CAP
+  // (200) — un lote de 200 tarda demasiado y el proxy lo corta.
+  const requiresBatching = selected.size > BULK_BATCH_SIZE;
+  const totalBatches = requiresBatching ? Math.ceil(selected.size / BULK_BATCH_SIZE) : 0;
 
   // ── 5.7: resultado del bulk (null = aún no ejecutado; agregado cross-lote si hubo batching)
   const [bulkResult, setBulkResult] = useState<BulkChangePlanResult | null>(null);
-  // ── progreso del lote en vuelo (solo aplica cuando se batchea, N>200)
+  // ── progreso del lote en vuelo (solo aplica cuando se batchea, N>BULK_BATCH_SIZE)
   const [batchProgress, setBatchProgress] = useState<PppoeBulkBatchProgress | null>(null);
   // ── corte por rechazo de lote entero (red/500/401) — null = no hubo corte
   const [batchCut, setBatchCut] = useState<PppoeBulkBatchCut | null>(null);
+  // ── fix pppoe-bulk-batch-timeout: ids del lote que rechazó por transporte
+  // (causa del corte) — estado DESCONOCIDO en el servidor, nunca "0 aplicados".
+  const [batchUnconfirmed, setBatchUnconfirmed] = useState<string[]>([]);
   // ── estado "corriendo" que abarca TODOS los lotes (no solo el último bulkMutation.isPending)
+  // Fix re-review F1(b): mientras `isBulkRunning` es true, la selección queda
+  // CONGELADA — checkboxes de fila, checkbox de header, "Limpiar" y
+  // "Seleccionar los N del filtro" quedan disabled (ver JSX abajo). Antes, si
+  // el operador tocaba la selección durante una corrida en segundo plano
+  // (modal cerrado), `selected` cambiaba a mitad de camino: el chip de
+  // progreso (gateado por `requiresBatching`, reactivo a `selected.size`)
+  // podía desaparecer con la corrida todavía viva, y el conteo final del
+  // banner post-corrida (que resta contra `selected.size`) quedaba corrupto.
   const [isBulkRunning, setIsBulkRunning] = useState(false);
+  // ── ola 2 (pedido del usuario 2026-07-02): cancelación real + segundo plano.
+  // `cancelRequestedRef` es el flag que `runPppoeBulkBatches` chequea (vía
+  // `shouldCancel`) ANTES de mandar cada lote — un ref porque el chequeo debe
+  // ver el valor MÁS RECIENTE sin esperar un re-render. `isCancelling` es el
+  // espejo en estado (para pintar "Cortando…" en la UI).
+  const cancelRequestedRef = useRef(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  // ── ola 2: corte por cancelación del operador (distinto de `batchCut`,
+  // que es rechazo de TRANSPORTE) — null = no se pidió cortar.
+  const [batchCancelled, setBatchCancelled] = useState<PppoeBulkBatchCancelled | null>(null);
 
   // ── 3.3: "Seleccionar los N del filtro" — congela el set con los ids del filtro vigente
   const [selectFilterError, setSelectFilterError] = useState<string | null>(null);
@@ -866,22 +978,27 @@ export function PppoeManagementTab() {
   // selección congelada vía "Seleccionar los N del filtro" también se limpia acá).
   // F1: cada cambio de filtro también avanza filterGenerationRef, en el MISMO tick
   // que limpia `selected` — ver handleSelectAllFiltered.
+  // Fix re-review F1(b): la limpieza es CONDICIONAL — durante una corrida
+  // (`isBulkRunning`) la selección es el set de reintento y NO se toca (los
+  // filtros siguen habilitados a propósito para que el operador navegue);
+  // el bump del ref sigue incondicional (inofensivo: "Seleccionar los N del
+  // filtro" está disabled durante la corrida, no hay fetch stale posible).
   function handleSearch(v: string) {
     setSearchRaw(v);
     setPage(1);
-    setSelected(new Set());
+    if (!isBulkRunning) setSelected(new Set());
     filterGenerationRef.current += 1;
   }
   function handleNas(v: string) {
     setNasId(v);
     setPage(1);
-    setSelected(new Set());
+    if (!isBulkRunning) setSelected(new Set());
     filterGenerationRef.current += 1;
   }
   function handleStatus(v: string) {
     setStatus(v as InternetServiceStatus | '');
     setPage(1);
-    setSelected(new Set());
+    if (!isBulkRunning) setSelected(new Set());
     filterGenerationRef.current += 1;
   }
 
@@ -965,11 +1082,18 @@ export function PppoeManagementTab() {
   }
 
   // ── 5.6: handler del bulk ──
-  // N<=200: flujo INTACTO (un solo request; un rechazo propaga el error hacia
-  // el modal, igual que el change padre — bulkErrorMessage lo muestra inline).
-  // N>200: envío secuencial en lotes de BULK_SELECTION_CAP vía runPppoeBulkBatches
-  // (design.md Decisión 5) — un rechazo de LOTE ENTERO corta y agrega el parcial;
-  // los `failed` ítem-por-ítem (best-effort) nunca cortan.
+  // Fix pppoe-bulk-batch-timeout: el umbral directo-vs-lotes pasa de
+  // BULK_SELECTION_CAP (200) a BULK_BATCH_SIZE (25) — un lote de 200 con el
+  // throttle serial del BE tarda 2-4min y el proxy corta la conexión antes de
+  // que vuelva la respuesta. N<=BULK_BATCH_SIZE: flujo INTACTO (un solo
+  // request; un rechazo propaga el error hacia el modal, igual que el change
+  // padre — bulkErrorMessage lo muestra inline). N>BULK_BATCH_SIZE (incluido
+  // el rango 26-200, que antes iba directo): envío secuencial en lotes de
+  // BULK_BATCH_SIZE vía runPppoeBulkBatches — un rechazo de LOTE ENTERO por
+  // transporte corta y agrega el parcial CONFIRMADO, exponiendo el lote
+  // rechazado como `unconfirmed` (estado desconocido, NUNCA "0 aplicados" —
+  // el BE puede haber seguido procesando en background); los `failed`
+  // ítem-por-ítem (best-effort) nunca cortan.
   // W4: el camino de lotes usa `batchMutation` (SIN invalidación por request —
   // ver useBulkChangePppoePlanBatch) para no disparar hasta N refetches a mitad
   // de la corrida; se invalida GLOBAL_LIST_KEY UNA sola vez al terminar, ya sea
@@ -978,9 +1102,16 @@ export function PppoeManagementTab() {
     const ids = Array.from(selected);
     setBatchProgress(null);
     setBatchCut(null);
+    setBatchUnconfirmed([]);
+    setBatchCancelled(null);
+    setIsCancelling(false);
+    cancelRequestedRef.current = false;
     setIsBulkRunning(true);
     try {
-      if (ids.length <= BULK_SELECTION_CAP) {
+      if (ids.length <= BULK_BATCH_SIZE) {
+        // Camino directo (ola 2 — "Intactos"): un solo request corto, sin
+        // orquestador de lotes — no hay nada que cortar a mitad de camino ni
+        // segundo plano que valga la pena. Comportamiento SIN CAMBIOS.
         const result = await bulkMutation.mutateAsync({ ids, profile, reason });
         setBulkResult(result);
         applyOkToSelection(result.ok);
@@ -989,16 +1120,25 @@ export function PppoeManagementTab() {
       const result = await runPppoeBulkBatches(
         ids,
         batchIds => batchMutation.mutateAsync({ ids: batchIds, profile, reason }),
-        { batchSize: BULK_SELECTION_CAP, onProgress: setBatchProgress },
+        {
+          batchSize: BULK_BATCH_SIZE,
+          onProgress: setBatchProgress,
+          // Ola 2: chequeado por el orquestador ANTES de mandar cada lote.
+          shouldCancel: () => cancelRequestedRef.current,
+        },
       );
       setBulkResult({ ok: result.ok, failed: result.failed });
       setBatchCut(result.cut);
+      setBatchUnconfirmed(result.unconfirmed);
+      setBatchCancelled(result.cancelled);
       applyOkToSelection(result.ok);
-      // Invalidación única de la corrida completa (completa O cortada) — el
-      // camino N<=200 arriba ya invalida solo por su propio onSuccess.
+      // Invalidación única de la corrida completa (completa, cortada O
+      // cancelada) — el camino N<=BULK_BATCH_SIZE arriba ya invalida solo por
+      // su propio onSuccess.
       queryClient.invalidateQueries({ queryKey: GLOBAL_LIST_KEY });
     } finally {
       setIsBulkRunning(false);
+      setIsCancelling(false);
     }
   }
 
@@ -1006,6 +1146,10 @@ export function PppoeManagementTab() {
     setBulkResult(null);
     setBatchProgress(null);
     setBatchCut(null);
+    setBatchUnconfirmed([]);
+    setBatchCancelled(null);
+    setIsCancelling(false);
+    cancelRequestedRef.current = false;
     setShowBulkModal(true);
   }
 
@@ -1014,6 +1158,31 @@ export function PppoeManagementTab() {
     setBulkResult(null);
     setBatchProgress(null);
     setBatchCut(null);
+    setBatchUnconfirmed([]);
+    setBatchCancelled(null);
+    setIsCancelling(false);
+    cancelRequestedRef.current = false;
+  }
+
+  // ── ola 2: "Cortar" real — setea el flag chequeado por `shouldCancel`
+  // ANTES del próximo lote. El lote YA en vuelo no se aborta (no hay AbortController
+  // sobre la mutation) — termina de resolver y sus ok/failed se agregan igual.
+  function handleCancelRun() {
+    cancelRequestedRef.current = true;
+    setIsCancelling(true);
+  }
+
+  // ── ola 2: "Continuar en segundo plano" — cierra SOLO el modal. Todo el
+  // estado de la corrida (batchProgress/batchCut/bulkResult/etc.) vive en este
+  // componente, no en el modal, así que la corrida sigue sin tocar nada más.
+  function handleBackgroundContinue() {
+    setShowBulkModal(false);
+  }
+
+  // ── ola 2: "Ver detalle" del banner post-corrida — reabre el modal; como
+  // `bulkResult` ya está poblado, el modal renderiza directo la vista de resultado.
+  function handleReopenBulkModal() {
+    setShowBulkModal(true);
   }
 
   // ── action handlers — F2: await + try/catch con feedback visible
@@ -1132,7 +1301,8 @@ export function PppoeManagementTab() {
             type="button"
             className={styles.btnSecondary}
             onClick={handleSelectAllFiltered}
-            disabled={listIdsMutation.isPending}
+            disabled={listIdsMutation.isPending || isBulkRunning}
+            title={isBulkRunning ? 'Hay un cambio de plan en curso' : undefined}
           >
             {listIdsMutation.isPending ? 'Buscando…' : `Seleccionar los ${total} del filtro`}
           </button>
@@ -1169,14 +1339,18 @@ export function PppoeManagementTab() {
         <div className={styles.selectionToolbar} role="toolbar" aria-label="Acciones sobre la selección">
           <span className={`${styles.selectionCount}${requiresBatching ? ` ${styles.selectionCountBatches}` : ''}`}>
             {selected.size} seleccionado{selected.size !== 1 ? 's' : ''}
-            {requiresBatching ? ` — se enviará en ${totalBatches} lotes de ${BULK_SELECTION_CAP}` : ''}
+            {requiresBatching ? ` — se enviará en ${totalBatches} lotes de ${BULK_BATCH_SIZE}` : ''}
           </span>
           <div className={styles.selectionActions}>
             {/* v2: >200 ya NO bloquea — el envío en lotes lo resuelve (design.md Decisión 6) */}
+            {/* Ola 2: mientras hay una corrida en curso (incluso en segundo
+                plano, con el modal cerrado) no se puede abrir OTRO bulk. */}
             <button
               type="button"
               className={styles.btnPrimary}
               onClick={handleOpenBulkModal}
+              disabled={isBulkRunning}
+              title={isBulkRunning ? 'Hay un cambio de plan en curso — esperá a que termine o cortalo.' : undefined}
             >
               Cambiar plan
             </button>
@@ -1184,8 +1358,67 @@ export function PppoeManagementTab() {
               type="button"
               className={styles.btnSecondary}
               onClick={handleClearSelection}
+              disabled={isBulkRunning}
+              title={isBulkRunning ? 'Hay un cambio de plan en curso' : undefined}
             >
               Limpiar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Ola 2: chip de progreso en segundo plano (modal cerrado, corrida en
+          lotes en curso). El camino directo (<=BULK_BATCH_SIZE) nunca reporta
+          `batchProgress` (no pasa por el orquestador), así que no dispara
+          este chip — no lo necesita (un solo request corto).
+          Fix re-review F1(a): la condición YA NO incluye `requiresBatching`
+          (reactivo a `selected.size`) — con la corrida en background, tocar
+          la selección (Limpiar / descheckear filas) podía volverlo `false` y
+          hacer desaparecer el chip (y el botón Cortar) con la corrida todavía
+          en curso. `batchProgress` por sí solo alcanza: solo lo puebla el
+          camino de lotes (ver handleBulkConfirm). Complementado por F1(b):
+          la selección queda congelada (disabled) mientras `isBulkRunning`,
+          así que `requiresBatching` tampoco cambia en la práctica — doble
+          cinturón de seguridad. ── */}
+      {isBulkRunning && !showBulkModal && batchProgress && (
+        <div className={styles.bulkChip} role="status">
+          {/* Fix re-review F3: el contenedor ya tiene role="status" (implica
+              una live region con aria-live="polite" por default) — un
+              aria-live="polite" explícito ACÁ duplicaba el anuncio para
+              lectores de pantalla. Una sola live region. */}
+          <span>
+            Cambiando plan: lote {batchProgress.batchIndex}/{batchProgress.totalBatches}
+          </span>
+          <button
+            type="button"
+            className={styles.btnSecondary}
+            onClick={handleCancelRun}
+            disabled={isCancelling}
+          >
+            {isCancelling ? 'Cortando…' : 'Cortar'}
+          </button>
+        </div>
+      )}
+
+      {/* ── Ola 2: banner de resumen cuando la corrida terminó (completa,
+          cortada o cancelada) con el modal cerrado — límite conocido: si el
+          operador navega FUERA de este tab durante la corrida, las mutaciones
+          ya disparadas completan igual, pero este resumen se pierde (el
+          estado vive en este componente, no sobrevive al desmontaje). ── */}
+      {!isBulkRunning && !showBulkModal && bulkResult !== null && (
+        <div className={styles.bulkBanner} role="status">
+          <span>
+            Cambio de plan {batchCut || batchCancelled ? 'cortado' : 'terminado'}: {bulkResult.ok.length} confirmado{bulkResult.ok.length !== 1 ? 's' : ''} ok, {bulkResult.failed.length} fallido{bulkResult.failed.length !== 1 ? 's' : ''}
+            {Math.max(0, selected.size - bulkResult.failed.length) > 0
+              ? `, ${Math.max(0, selected.size - bulkResult.failed.length)} sin confirmación/no enviados`
+              : ''}
+          </span>
+          <div className={styles.selectionActions}>
+            <button type="button" className={styles.btnSecondary} onClick={handleReopenBulkModal}>
+              Ver detalle
+            </button>
+            <button type="button" className={styles.btnSecondary} onClick={handleCloseBulkModal}>
+              Descartar
             </button>
           </div>
         </div>
@@ -1204,7 +1437,8 @@ export function PppoeManagementTab() {
                     checked={allPageSelected}
                     onChange={handleTogglePage}
                     aria-label="Seleccionar todos de esta página"
-                    title="Seleccionar todos de esta página"
+                    title={isBulkRunning ? 'Hay un cambio de plan en curso' : 'Seleccionar todos de esta página'}
+                    disabled={isBulkRunning}
                   />
                 </th>
               )}
@@ -1262,6 +1496,8 @@ export function PppoeManagementTab() {
                       checked={selected.has(item.id)}
                       onChange={() => handleToggleRow(item.id)}
                       aria-label={`Seleccionar ${item.username}`}
+                      title={isBulkRunning ? 'Hay un cambio de plan en curso' : undefined}
+                      disabled={isBulkRunning}
                     />
                   </td>
                 )}
@@ -1408,6 +1644,12 @@ export function PppoeManagementTab() {
           result={bulkResult}
           progress={batchProgress}
           cut={batchCut}
+          unconfirmed={batchUnconfirmed}
+          cancelled={batchCancelled}
+          isBatching={requiresBatching}
+          isCancelling={isCancelling}
+          onCancelRun={handleCancelRun}
+          onBackground={handleBackgroundContinue}
         />
       )}
     </div>
