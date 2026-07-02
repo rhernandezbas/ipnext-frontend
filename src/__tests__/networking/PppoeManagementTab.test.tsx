@@ -638,6 +638,27 @@ describe('PppoeManagementTab — F2: error feedback en mutaciones', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
+  it('re-review pre-provision: EditPppoeModal mapea el 409 PPPOE_PENDING_INSTALL a un mensaje accionable (no el crudo de axios)', async () => {
+    // El BE rechaza el PATCH de un pendiente con 409 tipado (guard); sin el mapeo,
+    // el operador veía "Request failed with status code 409".
+    const axiosLikeErr = Object.assign(new Error('Request failed with status code 409'), {
+      response: { status: 409, data: { code: 'PPPOE_PENDING_INSTALL', error: 'pending install' } },
+    });
+    vi.mocked(useUpdatePppoeGlobal).mockReturnValue({
+      ...makeMutationMock(vi.fn().mockRejectedValue(axiosLikeErr)),
+    } as never);
+    renderTab();
+    const kebabBtns = screen.getAllByRole('button', { name: 'Acciones' });
+    await userEvent.click(kebabBtns[0]);
+    await userEvent.click(screen.getByRole('menuitem', { name: /editar/i }));
+    const dialog = screen.getByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /guardar/i }));
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent(/pendiente de instalación/i);
+    expect(alert).toHaveTextContent(/asignale un router/i);
+    expect(alert).not.toHaveTextContent(/request failed/i);
+  });
+
   it('muestra feedback visible cuando handleDeactivate falla (kebab)', async () => {
     vi.mocked(useConfirm).mockReturnValue(vi.fn().mockResolvedValue(true));
     vi.mocked(useDeactivatePppoeGlobal).mockReturnValue({

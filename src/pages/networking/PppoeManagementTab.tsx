@@ -423,7 +423,18 @@ function EditPppoeModal({ item, planOptions, onClose, onSave, isPending }: EditM
     try {
       await onSave(body);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar los cambios.');
+      // Re-review FE: un pendiente de instalación rechaza el PATCH con 409
+      // PPPOE_PENDING_INSTALL (guard del BE) — mensaje accionable en vez del
+      // "Request failed with status code 409" crudo de axios.
+      const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code;
+      if (code === 'PPPOE_PENDING_INSTALL') {
+        setError(
+          'Este PPPoE está pendiente de instalación: no admite cambios hasta tener router. ' +
+            'Asignale un router (elegilo acá mismo y guardá, o usá Mover) para adoptarlo primero.',
+        );
+        return;
+      }
+      setError(bulkErrorMessage(err, err instanceof Error ? err.message : 'No se pudo guardar los cambios.'));
     }
   }
 
