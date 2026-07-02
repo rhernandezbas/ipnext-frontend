@@ -26,6 +26,8 @@ export interface IpPool {
   assignedCount: number | null;
   totalCount: number;
   nasId: string | null;
+  // null = sin clasificar; 'cgnat' = CGNAT; 'public' = IP pública.
+  ipKind: 'cgnat' | 'public' | null;
 }
 
 export interface IpAssignment {

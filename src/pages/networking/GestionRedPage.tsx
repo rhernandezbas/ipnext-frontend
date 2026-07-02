@@ -4,14 +4,14 @@ import { Link } from 'react-router-dom';
 import { KebabMenu } from '@/components/atoms/KebabMenu/KebabMenu';
 import { useNasServers, useCreateNasServer, useUpdateNasServer, useDeleteNasServer } from '@/hooks/useNas';
 import { useIpNetworks, useCreateIpNetwork, useDeleteIpNetwork, useIpPools, useCreateIpPool, useDeleteIpPool, useIpAssignments, useIpv6Networks, useCreateIpv6Network } from '@/hooks/useNetwork';
-import { useRadiusSessions } from '@/hooks/useRadiusSessions';
+import { useRadiusSessionsPaginated } from '@/hooks/useRadiusSessions';
 import { useConfirm } from '@/context/ConfirmContext';
 import { Can } from '@/components/auth/Can';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { cutoverStats, nextCutoverType, isRadius } from '@/utils/cutover';
 import type { NasServer, NasServerInput, NasType } from '@/types/nas';
 import type { IpNetwork, IpPool, IpAssignment, Ipv6Network } from '@/types/network';
-import type { RadiusSession } from '@/types/radiusSessions';
+import type { RadiusSessionsParams } from '@/types/radiusSessions';
 import { formatDateTimeShort } from '@/utils/formatDate';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import styles from './GestionRedPage.module.css';
@@ -390,7 +390,8 @@ function AddPoolModal({ onClose, onSubmit, networks }: AddPoolModalProps) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSubmit({ name, networkId, rangeStart, rangeEnd, type, assignedCount: 0, totalCount: 0, nasId: null });
+    // ipKind: null — el pool nuevo nace sin clasificar; el BE lo deriva del rango.
+    onSubmit({ name, networkId, rangeStart, rangeEnd, type, assignedCount: 0, totalCount: 0, nasId: null, ipKind: null });
   }
 
   return (
@@ -602,6 +603,23 @@ export default function GestionRedPage() {
   const [asignNasId, setAsignNasId] = useState('');
   const asignSearch = useDebounce(asignSearchRaw, 300);
 
+  // ── Sesiones — server-side filtros + paginación ────────────────────────────
+  const SESSIONS_PAGE_SIZE = 50;
+  const [sessPage, setSessPage] = useState(1);
+  const [sessSearchRaw, setSessSearchRaw] = useState('');
+  const [sessNasId, setSessNasId] = useState('');
+  const [sessStatus, setSessStatus] = useState<'active' | 'idle' | ''>('');
+  const sessSearch = useDebounce(sessSearchRaw, 300);
+
+  // ── Pools IP — filtros FE-only ─────────────────────────────────────────────
+  const [poolsSearchRaw, setPoolsSearchRaw] = useState('');
+  const [poolsNasFilter, setPoolsNasFilter] = useState('');
+  const [poolsTypeFilter, setPoolsTypeFilter] = useState<'dynamic' | 'static' | ''>('');
+  const [poolsIpKindFilter, setPoolsIpKindFilter] = useState<'cgnat' | 'public' | ''>('');
+  const poolsSearch = useDebounce(poolsSearchRaw, 300);
+  // Colapsables: set de nasId colapsados
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
   const { data: nasServers = [], isLoading: nasLoading, isError: nasError, refetch: refetchNas } = useNasServers();
   const { mutate: createNas } = useCreateNasServer();
   const { mutate: updateNas } = useUpdateNasServer();
@@ -621,7 +639,21 @@ export default function GestionRedPage() {
   const { data: ipv6Networks = [], isLoading: ipv6Loading, isError: ipv6Error, refetch: refetchIpv6 } = useIpv6Networks();
   const { mutate: createIpv6Network } = useCreateIpv6Network();
 
-  const { data: sessions = [], isLoading: sessionsLoading, isError: sessionsError, refetch: refetchSessions } = useRadiusSessions();
+  // Sesiones paginadas — siempre con page+limit → siempre recibe envelope.
+  const sessParams: RadiusSessionsParams = {
+    page: sessPage,
+    limit: SESSIONS_PAGE_SIZE,
+    search: sessSearch || undefined,
+    nasId: sessNasId || undefined,
+    status: sessStatus || undefined,
+  };
+  const {
+    data: sessionsEnvelope,
+    isLoading: sessionsLoading,
+    isFetching: sessionsFetching,
+    isError: sessionsError,
+    refetch: refetchSessions,
+  } = useRadiusSessionsPaginated(sessParams);
 
   const confirm = useConfirm();
   const { can } = useMyPermissions();
@@ -651,7 +683,11 @@ export default function GestionRedPage() {
   // agregado NO puede mostrar "0% / 0 IPs libres" (mentiría igual que la fila):
   // se rinde "—". Con ≥1 pool con dato, el % y las IPs libres son honestos sobre esos.
   const hasPoolData = poolsWithData.length > 0;
-  const poolAssigned = poolsWithData.reduce((s, p) => s + (p.assignedCount ?? 0), 0);
+  // `poolsWithData` ya filtró `assignedCount != null` arriba → `as number` (no
+  // `?? 0`, que es el anti-pattern prohibido: encubriría un null real como 0 si
+  // algún día el filtro de arriba cambiara). Mismo patrón que el resto de los
+  // agregados null-safe del tab Pools (más abajo, en el bloque de KPIs).
+  const poolAssigned = poolsWithData.reduce((s, p) => s + (p.assignedCount as number), 0);
   const poolTotal = poolsWithData.reduce((s, p) => s + p.totalCount, 0);
   const poolFree = Math.max(poolTotal - poolAssigned, 0);
   const occupationPct = poolTotal > 0 ? Math.round((poolAssigned / poolTotal) * 100) : 0;
@@ -671,11 +707,23 @@ export default function GestionRedPage() {
     [networks, q],
   );
 
-  const filteredPools = useMemo(
-    () => (!q ? pools : pools.filter(p =>
-      p.name.toLowerCase().includes(q) || p.rangeStart.toLowerCase().includes(q) || p.rangeEnd.toLowerCase().includes(q))),
-    [pools, q],
-  );
+  // Pools — filtros FE-only (nombre/rango debounced + NAS + tipo + ipKind)
+  const filteredPools = useMemo(() => {
+    const pq = poolsSearch.trim().toLowerCase();
+    return pools.filter(p => {
+      if (pq && !p.name.toLowerCase().includes(pq) && !p.rangeStart.toLowerCase().includes(pq) && !p.rangeEnd.toLowerCase().includes(pq)) return false;
+      if (poolsNasFilter && p.nasId !== poolsNasFilter) return false;
+      if (poolsTypeFilter && p.type !== poolsTypeFilter) return false;
+      if (poolsIpKindFilter) {
+        // Sólo mostrar pools con ipKind definido cuando se activa el filtro
+        if (p.ipKind !== poolsIpKindFilter) return false;
+      }
+      return true;
+    });
+  }, [pools, poolsSearch, poolsNasFilter, poolsTypeFilter, poolsIpKindFilter]);
+
+  // Verificar si algún pool tiene ipKind definido (si no, el filtro ipKind se oculta defensivamente)
+  const hasIpKindData = useMemo(() => pools.some(p => p.ipKind != null), [pools]);
 
   // Pools grouped by NAS/router (prototype: group header + pool rows)
   const nasNameById = useMemo(() => {
@@ -691,23 +739,56 @@ export default function GestionRedPage() {
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(p);
     });
-    return [...groups.entries()].map(([nasId, items]) => ({
-      nasId,
-      label: nasId === '__none__' ? 'Sin router asignado' : (nasNameById.get(nasId) ?? `NAS ${nasId}`),
-      items,
-    }));
+    return [...groups.entries()].map(([nasId, items]) => {
+      // Orden dentro del grupo: % uso descendente, null al final
+      const sorted = [...items].sort((a, b) => {
+        const pctA = a.assignedCount !== null && a.totalCount > 0 ? a.assignedCount / a.totalCount : null;
+        const pctB = b.assignedCount !== null && b.totalCount > 0 ? b.assignedCount / b.totalCount : null;
+        if (pctA === null && pctB === null) return 0;
+        if (pctA === null) return 1;  // null al final
+        if (pctB === null) return -1; // null al final
+        return pctB - pctA; // descendente
+      });
+      return {
+        nasId,
+        label: nasId === '__none__' ? 'Sin router asignado' : (nasNameById.get(nasId) ?? nasId),
+        items: sorted,
+      };
+    });
   }, [filteredPools, nasNameById]);
 
-  // Sesiones RADIUS activas agrupadas por nasName (mismo patrón que poolGroups).
-  const sessionGroups = useMemo(() => {
-    const groups = new Map<string, RadiusSession[]>();
-    sessions.forEach(s => {
-      const key = s.nasName || 'Sin NAS';
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(s);
+  // Sesiones — envelope data
+  const sessions = sessionsEnvelope?.data ?? [];
+  const sessionsStats = sessionsEnvelope?.stats;
+  const sessionsTotal = sessionsEnvelope?.total ?? 0;
+  const sessionsTotalPages = Math.max(1, Math.ceil(sessionsTotal / SESSIONS_PAGE_SIZE));
+
+  // NAS únicos presentes en los pools (para el select de filtro de pools)
+  const poolNasOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const opts: { value: string; label: string }[] = [];
+    pools.forEach(p => {
+      if (p.nasId && !seen.has(p.nasId)) {
+        seen.add(p.nasId);
+        opts.push({ value: p.nasId, label: nasNameById.get(p.nasId) ?? p.nasId });
+      }
     });
-    return [...groups.entries()].map(([nasName, items]) => ({ nasName, items }));
-  }, [sessions]);
+    return opts;
+  }, [pools, nasNameById]);
+
+  // F1 fix: opciones de NAS para el filtro de Sesiones — fuente ESTABLE: los NAS
+  // servers que la página YA carga (useNasServers), NUNCA sessionsEnvelope.data.
+  // La data paginada es ≤50 de ~3000 sesiones reales: poblar el dropdown desde
+  // ahí deja NAS afuera (los que no tienen ninguna sesión en la página actual) y,
+  // al filtrar por NAS, el dropdown colapsa a un solo NAS. Las sesiones referencian
+  // el NAS por `nasIpAddress` (nasId === nasIpAddress del NAS server), así que el
+  // value de cada opción es `nasIpAddress`. Servers sin `nasIpAddress` se omiten.
+  const sessNasOptions = useMemo(
+    () => nasServers
+      .filter(n => n.nasIpAddress)
+      .map(n => ({ value: n.nasIpAddress, label: `${n.name} (${n.nasIpAddress})` })),
+    [nasServers],
+  );
 
   // ---- actions (functionality preserved) ----------------------------------
   const nasActions = [
@@ -744,7 +825,8 @@ export default function GestionRedPage() {
     pools: pools.length,
     asignaciones: assignmentsTotal,
     ipv6: ipv6Networks.length,
-    sesiones: sessions.length,
+    // Badge = stats.total (total filtrado por search+nasId, ignorando status)
+    sesiones: sessionsStats?.total ?? 0,
     // PPPoE count shown in tab toolbar; 0 here avoids extra BE call on page load.
     pppoe: 0,
   };
@@ -757,6 +839,27 @@ export default function GestionRedPage() {
       setAsignSearchRaw('');
       setAsignNasId('');
     }
+    if (key !== 'sesiones') {
+      setSessPage(1);
+      setSessSearchRaw('');
+      setSessNasId('');
+      setSessStatus('');
+    }
+    if (key !== 'pools') {
+      setPoolsSearchRaw('');
+      setPoolsNasFilter('');
+      setPoolsTypeFilter('');
+      setPoolsIpKindFilter('');
+    }
+  }
+
+  function toggleGroup(nasId: string) {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(nasId)) next.delete(nasId);
+      else next.add(nasId);
+      return next;
+    });
   }
 
   const headerCta = (
@@ -964,69 +1067,183 @@ export default function GestionRedPage() {
           </>
         )}
 
-        {/* Pools IP (agrupado por router) */}
-        {activeTab === 'pools' && (
-          <>
-            <div className={styles.toolbar}>
-              <div className={styles.filter}>
-                <IconSearch />
-                <input
-                  placeholder="Filtrar pools por nombre o rango…"
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                  aria-label="Filtrar pools"
-                />
+        {/* Pools IP — redesign FE-only: filtros, colapsables, KPIs null-safe, orden por uso */}
+        {activeTab === 'pools' && (() => {
+          // KPIs null-safe (design D5): excluir pools con assignedCount === null del agregado.
+          // "IPs totales" SÍ incluye todos (totalCount nunca es null), pero "Asignadas" y
+          // "Libres" se calculan SOLO sobre pools con dato: las IPs de un pool sin dato son
+          // DESCONOCIDAS, no libres — kpiTotal - kpiAssigned las contaría como libres y mentiría.
+          const poolsWithData = filteredPools.filter(p => p.assignedCount !== null);
+          const poolsMissing = filteredPools.length - poolsWithData.length;
+          const hasData = poolsWithData.length > 0;
+          const kpiAssigned = hasData ? poolsWithData.reduce((s, p) => s + (p.assignedCount as number), 0) : null;
+          const kpiTotal = filteredPools.reduce((s, p) => s + p.totalCount, 0);
+          const kpiFree = hasData
+            ? Math.max(poolsWithData.reduce((s, p) => s + (p.totalCount - (p.assignedCount as number)), 0), 0)
+            : null;
+
+          return (
+            <>
+              {/* KPIs de cabecera de Pools */}
+              <div className={styles.poolKpis} role="region" aria-label="Totales de pools">
+                <div className={styles.poolKpi}>
+                  <span className={styles.poolKpiLabel}>IPs totales</span>
+                  <span className={styles.poolKpiValue}>{kpiTotal.toLocaleString('es-AR')}</span>
+                </div>
+                <div className={styles.poolKpi}>
+                  <span className={styles.poolKpiLabel}>Asignadas</span>
+                  <span className={styles.poolKpiValue}>
+                    {kpiAssigned !== null ? kpiAssigned.toLocaleString('es-AR') : <NoData />}
+                  </span>
+                </div>
+                <div className={styles.poolKpi}>
+                  <span className={styles.poolKpiLabel}>Libres</span>
+                  <span className={styles.poolKpiValue}>
+                    {kpiFree !== null ? kpiFree.toLocaleString('es-AR') : <NoData />}
+                  </span>
+                </div>
+                {poolsMissing > 0 && (
+                  <div className={styles.poolKpi}>
+                    <span className={styles.poolKpiLabel}>Sin dato</span>
+                    <span
+                      className={`${styles.poolKpiValue} ${styles.muted}`}
+                      title={`${poolsMissing} pool${poolsMissing === 1 ? '' : 's'} no responden al RADIUS. Excluidos del agregado.`}
+                    >
+                      {poolsMissing}
+                    </span>
+                  </div>
+                )}
               </div>
-              <span className={styles.toolbarRight}>agrupado por router</span>
-            </div>
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Pool / Rango</th><th>Tipo</th>
-                    <th className="num">Asignadas / Total</th><th className="num">Uso</th><th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {poolsError ? (
-                    <tr><td colSpan={5}><div className={styles.errorPanel} role="alert">No se pudo cargar. <button className={styles.btnRetry} onClick={() => refetchPools()}>Reintentar</button></div></td></tr>
-                  ) : poolsLoading ? (
-                    <tr><td colSpan={5}><div role="status" className={styles.skeleton} aria-label="Cargando…" /></td></tr>
-                  ) : filteredPools.length === 0 ? (
-                    <tr><td colSpan={5} className={styles.muted}>No se encontraron pools IP.</td></tr>
-                  ) : poolGroups.map(group => (
-                    <Fragment key={`grp-${group.nasId}`}>
-                      <tr className={styles.grp}>
-                        <td colSpan={5}>
-                          {group.label}
-                          <span className={styles.gcount}>{group.items.length} pool{group.items.length === 1 ? '' : 's'}</span>
-                        </td>
-                      </tr>
-                      {group.items.map(p => (
-                        <tr key={p.id} className={styles.bodyRow}>
-                          <td>
-                            <div className={`${styles.nm} ${styles.mono}`}>{p.name}</div>
-                            <div className={`${styles.mono} ${styles.sub}`}>{p.rangeStart} – {p.rangeEnd}</div>
-                          </td>
-                          <td>
-                            <span className={`${styles.badge} ${p.type === 'dynamic' ? styles.badgeBlue : styles.badgePurple}`}>
-                              {p.type === 'dynamic' ? 'Dinámico' : 'Estático'}
-                            </span>
-                          </td>
-                          <td className={`num ${p.assignedCount != null && p.assignedCount > p.totalCount ? styles.redStrong : ''}`}>
-                            {p.assignedCount ?? <NoData />} / {p.totalCount}
-                          </td>
-                          <td className="num"><UsageBar used={p.assignedCount} total={p.totalCount} /></td>
-                          <td className={styles.actionsCell}><ActionsMenu row={p} actions={poolActions} /></td>
-                        </tr>
-                      ))}
-                    </Fragment>
+              {/* Filtros */}
+              <div className={styles.toolbar}>
+                <div className={styles.filter}>
+                  <IconSearch />
+                  <input
+                    placeholder="Filtrar por nombre o rango…"
+                    value={poolsSearchRaw}
+                    onChange={e => setPoolsSearchRaw(e.target.value)}
+                    aria-label="Filtrar pools por nombre o rango"
+                  />
+                </div>
+                <select
+                  className={styles.routerSelect}
+                  aria-label="Filtrar por router"
+                  value={poolsNasFilter}
+                  onChange={e => setPoolsNasFilter(e.target.value)}
+                >
+                  <option value="">Todos los routers</option>
+                  {poolNasOptions.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
+                </select>
+                <select
+                  className={styles.routerSelect}
+                  aria-label="Filtrar por tipo"
+                  value={poolsTypeFilter}
+                  onChange={e => setPoolsTypeFilter(e.target.value as 'dynamic' | 'static' | '')}
+                >
+                  <option value="">Todos los tipos</option>
+                  <option value="dynamic">Dinámico</option>
+                  <option value="static">Estático</option>
+                </select>
+                {hasIpKindData && (
+                  <select
+                    className={styles.routerSelect}
+                    aria-label="Filtrar por tipo de IP"
+                    value={poolsIpKindFilter}
+                    onChange={e => setPoolsIpKindFilter(e.target.value as 'cgnat' | 'public' | '')}
+                  >
+                    <option value="">Todas las IPs</option>
+                    <option value="cgnat">CGNAT</option>
+                    <option value="public">Públicas</option>
+                  </select>
+                )}
+                <span className={styles.toolbarRight}>{filteredPools.length} pool{filteredPools.length === 1 ? '' : 's'} · agrupado por router</span>
+              </div>
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Pool / Rango</th><th>Tipo</th>
+                      {hasIpKindData && <th>IP Kind</th>}
+                      <th className="num">Asignadas / Total</th><th className="num">Uso</th><th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {poolsError ? (
+                      <tr><td colSpan={hasIpKindData ? 6 : 5}><div className={styles.errorPanel} role="alert">No se pudo cargar. <button className={styles.btnRetry} onClick={() => refetchPools()}>Reintentar</button></div></td></tr>
+                    ) : poolsLoading ? (
+                      <tr><td colSpan={hasIpKindData ? 6 : 5}><div role="status" className={styles.skeleton} aria-label="Cargando…" /></td></tr>
+                    ) : filteredPools.length === 0 ? (
+                      <tr><td colSpan={hasIpKindData ? 6 : 5} className={styles.muted}>Sin pools para los filtros seleccionados.</td></tr>
+                    ) : poolGroups.map(group => {
+                      const isCollapsed = collapsedGroups.has(group.nasId);
+                      // Subtotales del grupo (null-safe)
+                      const grpWithData = group.items.filter(p => p.assignedCount !== null);
+                      const grpMissing = group.items.length - grpWithData.length;
+                      const grpAssigned = grpWithData.reduce((s, p) => s + (p.assignedCount as number), 0);
+                      const grpTotal = group.items.reduce((s, p) => s + p.totalCount, 0);
+                      return (
+                        <Fragment key={`grp-${group.nasId}`}>
+                          <tr className={styles.grp}>
+                            <td colSpan={hasIpKindData ? 6 : 5}>
+                              <button
+                                type="button"
+                                className={styles.grpToggle}
+                                aria-expanded={!isCollapsed}
+                                aria-label={`${isCollapsed ? 'Expandir' : 'Colapsar'} grupo ${group.label}`}
+                                onClick={() => toggleGroup(group.nasId)}
+                              >
+                                <span className={styles.grpChevron}>{isCollapsed ? '▶' : '▼'}</span>
+                                {group.label}
+                                <span className={styles.gcount}>{group.items.length} pool{group.items.length === 1 ? '' : 's'}</span>
+                              </button>
+                              <span className={styles.grpSubtotal}>
+                                {grpWithData.length > 0
+                                  ? `${grpAssigned.toLocaleString('es-AR')} / ${grpTotal.toLocaleString('es-AR')} asignadas`
+                                  : <NoData />}
+                                {grpMissing > 0 && (
+                                  <span className={styles.muted} title={`${grpMissing} sin dato`}>{' · '}{grpMissing} sin dato</span>
+                                )}
+                              </span>
+                            </td>
+                          </tr>
+                          {!isCollapsed && group.items.map(p => (
+                            <tr key={p.id} className={styles.bodyRow}>
+                              <td>
+                                <div className={`${styles.nm} ${styles.mono}`}>{p.name}</div>
+                                <div className={`${styles.mono} ${styles.sub}`}>{p.rangeStart} – {p.rangeEnd}</div>
+                              </td>
+                              <td>
+                                <span className={`${styles.badge} ${p.type === 'dynamic' ? styles.badgeBlue : styles.badgePurple}`}>
+                                  {p.type === 'dynamic' ? 'Dinámico' : 'Estático'}
+                                </span>
+                              </td>
+                              {hasIpKindData && (
+                                <td>
+                                  {p.ipKind === 'cgnat' && <span className={`${styles.badge} ${styles.badgeOrange}`}>CGNAT</span>}
+                                  {p.ipKind === 'public' && <span className={`${styles.badge} ${styles.badgeGreen}`}>Pública</span>}
+                                  {/* == null (loose): cubre null Y undefined — el BE se construye
+                                      en paralelo y un pool viejo puede venir sin el campo. */}
+                                  {p.ipKind == null && <NoData />}
+                                </td>
+                              )}
+                              <td className={`num ${p.assignedCount != null && p.assignedCount > p.totalCount ? styles.redStrong : ''}`}>
+                                {p.assignedCount !== null ? p.assignedCount : <NoData />} / {p.totalCount}
+                              </td>
+                              <td className="num"><UsageBar used={p.assignedCount} total={p.totalCount} /></td>
+                              <td className={styles.actionsCell}><ActionsMenu row={p} actions={poolActions} /></td>
+                            </tr>
+                          ))}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          );
+        })()}
 
         {/* Asignaciones — server-side paginated */}
         {activeTab === 'asignaciones' && (
@@ -1166,18 +1383,71 @@ export default function GestionRedPage() {
         {/* PPPoE — gestión global de servicios (tab Phase 6/7) */}
         {activeTab === 'pppoe' && <PppoeManagementTab />}
 
-        {/* Sesiones activas (RADIUS en vivo, agrupadas por NAS) */}
+        {/* Sesiones activas — server-side filtros + paginación */}
         {activeTab === 'sesiones' && (
           <>
+            {/* KPIs de cabecera de Sesiones */}
+            {sessionsStats && (
+              <div className={styles.sessKpis} role="region" aria-label="Totales de sesiones">
+                <div className={styles.sessKpi}>
+                  <span className={styles.sessKpiLabel}>Total</span>
+                  <span className={styles.sessKpiValue}>{sessionsStats.total.toLocaleString('es-AR')}</span>
+                </div>
+                <div className={styles.sessKpi}>
+                  <span className={styles.sessKpiLabel}>Activas</span>
+                  <span className={styles.sessKpiValue}>{sessionsStats.active.toLocaleString('es-AR')}</span>
+                </div>
+                <div className={styles.sessKpi}>
+                  <span className={styles.sessKpiLabel}>Idle</span>
+                  <span className={styles.sessKpiValue}>{sessionsStats.idle.toLocaleString('es-AR')}</span>
+                </div>
+              </div>
+            )}
+            {/* Filtros */}
             <div className={styles.toolbar}>
-              <span className={styles.toolbarRight}>{sessions.length} sesiones · agrupadas por NAS</span>
+              <div className={styles.filter}>
+                <IconSearch />
+                <input
+                  placeholder="Buscar cliente, usuario, IP o MAC…"
+                  value={sessSearchRaw}
+                  onChange={e => { setSessSearchRaw(e.target.value); setSessPage(1); }}
+                  aria-label="Buscar sesiones"
+                />
+              </div>
+              <select
+                className={styles.routerSelect}
+                aria-label="Filtrar por NAS"
+                value={sessNasId}
+                onChange={e => { setSessNasId(e.target.value); setSessPage(1); }}
+              >
+                <option value="">Todos los NAS</option>
+                {/* F1: opciones desde useNasServers (fuente estable) — NO desde
+                    sessionsEnvelope.data (la página paginada, ≤50 de ~3000). */}
+                {sessNasOptions.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <select
+                className={styles.routerSelect}
+                aria-label="Filtrar por estado"
+                value={sessStatus}
+                onChange={e => { setSessStatus(e.target.value as 'active' | 'idle' | ''); setSessPage(1); }}
+              >
+                <option value="">Todos los estados</option>
+                <option value="active">Activo</option>
+                <option value="idle">Idle</option>
+              </select>
+              <span className={styles.toolbarRight}>
+                {sessionsTotal.toLocaleString('es-AR')} sesión{sessionsTotal === 1 ? '' : 'es'}
+                {sessionsFetching && !sessionsLoading && <span className={styles.muted}> · actualizando…</span>}
+              </span>
             </div>
             <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
                   <tr>
                     <th>Cliente</th><th>Usuario PPPoE</th><th>IP</th><th>MAC</th>
-                    <th className="num">Descarga</th><th className="num">Carga</th><th>Estado</th>
+                    <th className="num">↓ Mbps</th><th className="num">↑ Mbps</th><th>Estado</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1186,48 +1456,51 @@ export default function GestionRedPage() {
                   ) : sessionsLoading ? (
                     <tr><td colSpan={7}><div role="status" className={styles.skeleton} aria-label="Cargando…" /></td></tr>
                   ) : sessions.length === 0 ? (
-                    <tr><td colSpan={7} className={styles.muted}>No hay sesiones activas.</td></tr>
-                  ) : sessionGroups.map(group => (
-                    <Fragment key={`sgrp-${group.nasName}`}>
-                      <tr className={styles.grp}>
-                        <td colSpan={7}>
-                          {group.nasName}
-                          <span className={styles.gcount}>{group.items.length} sesión{group.items.length === 1 ? '' : 'es'}</span>
-                        </td>
-                      </tr>
-                      {group.items.map(s => (
-                        <tr key={s.id} className={styles.bodyRow}>
-                          <td className={styles.nm}>
-                            <span className={styles.clientCell}>
-                              {s.clientId ? (
-                                <Link className={styles.clientLink} to={`/admin/customers/view/${s.clientId}`}>
-                                  {s.customerName ?? s.clientName ?? '—'}
-                                </Link>
-                              ) : (
-                                <span>{s.customerName ?? s.clientName ?? '—'}</span>
-                              )}
-                              {s.contractId === null && (
-                                <IconWarning className={styles.warnIco} />
-                              )}
-                            </span>
-                          </td>
-                          <td className={styles.mono}>{s.username}</td>
-                          <td className={styles.mono}>{s.ipAddress}</td>
-                          <td className={styles.mono}>{s.macAddress}</td>
-                          <td className="num">{s.downloadMbps.toFixed(1)}</td>
-                          <td className="num">{s.uploadMbps.toFixed(1)}</td>
-                          <td>
-                            <span className={`${styles.status} ${s.status === 'active' ? styles.statusOnline : styles.statusOffline}`}>
-                              <span className={styles.dot} />{s.status === 'active' ? 'Activo' : 'Idle'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </Fragment>
+                    <tr><td colSpan={7} className={styles.muted}>Sin sesiones para los filtros seleccionados.</td></tr>
+                  ) : sessions.map(s => (
+                    <tr key={s.id} className={styles.bodyRow}>
+                      <td className={styles.nm}>
+                        <span className={styles.clientCell}>
+                          {s.clientId ? (
+                            <Link className={styles.clientLink} to={`/admin/customers/view/${s.clientId}`}>
+                              {s.customerName ?? s.clientName ?? '—'}
+                            </Link>
+                          ) : (
+                            <span>{s.customerName ?? s.clientName ?? '—'}</span>
+                          )}
+                          {s.contractId === null && (
+                            <IconWarning className={styles.warnIco} />
+                          )}
+                        </span>
+                      </td>
+                      <td className={styles.mono}>{s.username}</td>
+                      <td className={styles.mono}>{s.ipAddress ?? '—'}</td>
+                      <td className={styles.mono}>{s.macAddress ?? '—'}</td>
+                      <td className="num">{s.downloadMbps.toFixed(1)}</td>
+                      <td className="num">{s.uploadMbps.toFixed(1)}</td>
+                      <td>
+                        {/* W3: sin role="status" — con hasta 50 filas por página,
+                            role="status" implica aria-live="polite" por fila (50
+                            live regions simultáneas). El estado sigue siendo
+                            accesible: aria-label anuncia el nombre, el texto
+                            visible lo confirma. */}
+                        <span
+                          className={`${styles.status} ${s.status === 'active' ? styles.statusOnline : styles.statusOffline}`}
+                          aria-label={s.status === 'active' ? 'Activo' : 'Idle'}
+                        >
+                          <span className={styles.dot} />{s.status === 'active' ? 'Activo' : 'Idle'}
+                        </span>
+                      </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            <Pagination
+              currentPage={sessPage}
+              totalPages={sessionsTotalPages}
+              onPageChange={setSessPage}
+            />
           </>
         )}
       </div>

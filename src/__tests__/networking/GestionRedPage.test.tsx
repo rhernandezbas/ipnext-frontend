@@ -79,6 +79,7 @@ const mockPools: IpPool[] = [
     assignedCount: 50,
     totalCount: 191,
     nasId: '1',
+    ipKind: null,
   },
 ];
 
@@ -134,13 +135,30 @@ const mockIpv6Networks: Ipv6Network[] = [
 ];
 
 // ── RADIUS sessions (tab "Sesiones activas") ─────────────────────────────────
+// El componente ahora usa useRadiusSessionsPaginated (envelope).
+// El hook legacy useRadiusSessions sigue exportado pero ya no lo usa el componente.
+import type { PaginatedRadiusSessions } from '@/types/radiusSessions';
+
 function mockRadiusSessions(sessions: RadiusSession[]) {
-  vi.mocked(useRadiusSessionsModule.useRadiusSessions).mockReturnValue({
+  const envelope: PaginatedRadiusSessions = {
     data: sessions,
+    total: sessions.length,
+    page: 1,
+    limit: 50,
+    hasNext: false,
+    stats: {
+      total: sessions.length,
+      active: sessions.filter(s => s.status === 'active').length,
+      idle: sessions.filter(s => s.status === 'idle').length,
+    },
+  };
+  vi.mocked(useRadiusSessionsModule.useRadiusSessionsPaginated).mockReturnValue({
+    data: envelope,
     isLoading: false,
+    isFetching: false,
     isError: false,
     refetch: vi.fn(),
-  } as unknown as ReturnType<typeof useRadiusSessionsModule.useRadiusSessions>);
+  } as unknown as ReturnType<typeof useRadiusSessionsModule.useRadiusSessionsPaginated>);
 }
 
 function renderPage() {
@@ -754,13 +772,15 @@ describe('GestionRedPage — tab "Sesiones activas"', () => {
     expect(screen.getByRole('button', { name: /sesiones activas/i })).toBeInTheDocument();
   });
 
-  it('groups sessions by nasName (one group header per NAS)', async () => {
+  it('renders sessions in a flat list (no NAS group headers in paginated mode)', async () => {
     mockRadiusSessions([baseSession, sameNasSession, otherNasSession]);
     await openSesiones();
 
-    // Two distinct NAS → two group headers.
-    expect(screen.getByText('NE8000 Sur')).toBeInTheDocument();
-    expect(screen.getByText('MikroTik RDA1')).toBeInTheDocument();
+    // Sesiones de diferentes NAS ahora en tabla plana paginada.
+    // Los username de las sesiones aparecen en la tabla.
+    expect(screen.getByText('juan.perez@isp')).toBeInTheDocument();
+    expect(screen.getByText('orphan@isp')).toBeInTheDocument();
+    expect(screen.getByText('maria.gomez@isp')).toBeInTheDocument();
   });
 
   it('round-trips session data (customerName, username, IP, MAC, mbps)', async () => {
@@ -803,22 +823,22 @@ describe('GestionRedPage — tab "Sesiones activas"', () => {
   it('shows empty state when there are no sessions', async () => {
     mockRadiusSessions([]);
     await openSesiones();
-    expect(screen.getByText('No hay sesiones activas.')).toBeInTheDocument();
+    expect(screen.getByText('Sin sesiones para los filtros seleccionados.')).toBeInTheDocument();
   });
 
   it('shows loading skeleton (role="status") while isLoading', async () => {
-    vi.mocked(useRadiusSessionsModule.useRadiusSessions).mockReturnValue({
-      data: undefined, isLoading: true, isError: false, refetch: vi.fn(),
-    } as unknown as ReturnType<typeof useRadiusSessionsModule.useRadiusSessions>);
+    vi.mocked(useRadiusSessionsModule.useRadiusSessionsPaginated).mockReturnValue({
+      data: undefined, isLoading: true, isFetching: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useRadiusSessionsModule.useRadiusSessionsPaginated>);
     await openSesiones();
     expect(screen.getByRole('status')).toBeInTheDocument();
   });
 
   it('shows error panel with "Reintentar" that calls refetch', async () => {
     const refetch = vi.fn();
-    vi.mocked(useRadiusSessionsModule.useRadiusSessions).mockReturnValue({
-      data: undefined, isLoading: false, isError: true, refetch,
-    } as unknown as ReturnType<typeof useRadiusSessionsModule.useRadiusSessions>);
+    vi.mocked(useRadiusSessionsModule.useRadiusSessionsPaginated).mockReturnValue({
+      data: undefined, isLoading: false, isFetching: false, isError: true, refetch,
+    } as unknown as ReturnType<typeof useRadiusSessionsModule.useRadiusSessionsPaginated>);
     const user = await openSesiones();
 
     const alert = screen.getByRole('alert');
