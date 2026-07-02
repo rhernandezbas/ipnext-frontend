@@ -136,4 +136,23 @@ describe('usePppoe — F7: invalidación de unassigned', () => {
       );
     });
   });
+
+  it('useMovePppoeGlobal invalida pppoe-nas-move-events también cuando el move FALLA (onSettled: el intento fallido persiste fila en el BE — failed_no_free_ip/failed_orchestrator — y debe verse en el tab al toque)', async () => {
+    const { pppoeApi } = await import('@/api/pppoe.api');
+    vi.mocked(pppoeApi.move).mockRejectedValueOnce(new Error('NO_FREE_IP'));
+
+    const { result } = renderHook(() => useMovePppoeGlobal(), {
+      wrapper: makeWrapper(qc),
+    });
+
+    await expect(
+      result.current.mutateAsync({ id: 'pppoe-1', nasId: 'nas-2' }),
+    ).rejects.toThrow();
+
+    await waitFor(() => {
+      expect(qc.invalidateQueries).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ['pppoe-nas-move-events'] }),
+      );
+    });
+  });
 });
