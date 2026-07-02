@@ -26,7 +26,8 @@ export type EnforcementTarget =
 export interface EnforcementPreviewSample {
   id: string;
   username: string;
-  nasId: string;
+  /** Null = pendiente de instalación (pre-provisión sin router, pppoe-preprovision). */
+  nasId: string | null;
   contractId: string | null;
   enforcedState: EnforcedState;
 }

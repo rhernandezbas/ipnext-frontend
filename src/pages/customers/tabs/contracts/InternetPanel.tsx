@@ -21,6 +21,7 @@ import { usePlans } from '@/hooks/usePlans';
 import { isEligiblePlan } from '@/utils/plans';
 
 import { useNasServers, useNextFreeIp } from '@/hooks/useNas';
+import { mapPppoeMoveError } from '@/utils/mapPppoeMoveError';
 import type { IpType } from '@/api/nas.api';
 import type { ContractService } from '@/types/customer';
 import type { PppoeServiceDto } from '@/types/pppoe';
@@ -552,6 +553,8 @@ function CreatePppoeForm({
           </div>
         )}
         <div className={styles.formActions} style={{ marginTop: 'var(--space-4)' }}>
+          {/* W5: el hint del tipo de IP también describe el submit deshabilitado —
+              un SR parado en el botón sabe por qué no puede enviar. */}
           <button
             type="submit"
             className={styles.btnPrimary}
@@ -564,6 +567,7 @@ function CreatePppoeForm({
               // S5.1: sin tipo de IP elegido no hay submit (decisión consciente).
               !ipType
             }
+            aria-describedby={!ipType ? 'pppoe-iptype-hint' : undefined}
           >
             {create.isPending ? 'Creando…' : 'Crear PPPoE'}
           </button>
@@ -938,7 +942,14 @@ function ActivePppoeView({
       // Con nasId null (pendiente), elegir un router acá = adopción manual (move).
       const nasChanged = editForm.nasId !== (pppoe.nasId ?? '');
       if (nasChanged && editForm.nasId) {
-        await move.mutateAsync({ id: pppoe.id, nasId: editForm.nasId });
+        try {
+          await move.mutateAsync({ id: pppoe.id, nasId: editForm.nasId });
+        } catch (err) {
+          // W3: los errores tipados del move (pool lleno 422, NO_POOL 404,
+          // guard de IP pública 409, etc.) llegan mapeados — no el genérico.
+          setEditError(mapPppoeMoveError(err));
+          return;
+        }
       }
       const updateBody: { password?: string; remoteAddress?: string } = {};
       if (editForm.password) updateBody.password = editForm.password;
@@ -1052,7 +1063,12 @@ function ActivePppoeView({
           <div>
             <dt className={styles.dt}>IP remota</dt>
             <dd className={styles.dd}>
-              {pppoe.ipMode === 'fixed' ? (
+              {/* W2: el pendiente persiste ipMode 'fixed' (design D3) pero la IP
+                  recién existe cuando la adopción asigna el NAS — "—" limpio,
+                  sin el artefacto "— fija". */}
+              {isPendingInstall ? (
+                '—'
+              ) : pppoe.ipMode === 'fixed' ? (
                 <>
                   {pppoe.remoteAddress ?? '—'}
                   {' '}

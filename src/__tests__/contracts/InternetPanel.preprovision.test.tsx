@@ -12,7 +12,7 @@
  * S5.4: flujo CON router sin regresión — wire test campo por campo del payload,
  *       ahora con ipTypePreference.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -74,6 +74,7 @@ function setupMocks({
   contractPppoe = [] as PppoeServiceDto[],
   createMutateAsync = vi.fn().mockResolvedValue({}),
   enforceMutateAsync = vi.fn().mockResolvedValue({}),
+  moveMutateAsync = vi.fn().mockResolvedValue({}),
 } = {}) {
   vi.mocked(usePppoeModule.useContractPppoe).mockReturnValue(mockQuery({
     data: contractPppoe,
@@ -113,7 +114,7 @@ function setupMocks({
     isSuccess: true,
   }));
   vi.mocked(usePppoeModule.useUpdatePppoe).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
-  vi.mocked(usePppoeModule.useMovePppoe).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
+  vi.mocked(usePppoeModule.useMovePppoe).mockReturnValue({ mutateAsync: moveMutateAsync, isPending: false } as never);
   vi.mocked(usePppoeModule.useDeactivatePppoe).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
   vi.mocked(usePppoeModule.useDeassociatePppoe).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
   vi.mocked(usePppoeModule.usePinPppoeIp).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
@@ -142,7 +143,7 @@ function setupMocks({
     isError: false,
   } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
 
-  return { createMutateAsync, enforceMutateAsync };
+  return { createMutateAsync, enforceMutateAsync, moveMutateAsync };
 }
 
 function renderPanel() {
@@ -220,6 +221,22 @@ describe('S5.1: tipo de IP obligatorio sin preselección', () => {
 
     expect(screen.getByRole('button', { name: /Crear PPPoE/i })).not.toBeDisabled();
     expect(screen.queryByText('Elegí el tipo de IP')).toBeNull();
+  });
+
+  // W5: un SR parado en el botón de submit deshabilitado tiene que saber por qué.
+  it('W5: el hint accesible también describe el botón de submit; elegir el tipo lo quita', async () => {
+    const user = userEvent.setup();
+    setupMocks();
+    renderPanel();
+    await expandCreateForm(user);
+
+    const submit = screen.getByRole('button', { name: /Crear PPPoE/i });
+    const hint = screen.getByText('Elegí el tipo de IP');
+    expect(hint.id).toBeTruthy();
+    expect(submit).toHaveAttribute('aria-describedby', hint.id);
+
+    await user.click(screen.getByRole('button', { name: 'Privada' }));
+    expect(submit).not.toHaveAttribute('aria-describedby');
   });
 });
 
@@ -354,5 +371,77 @@ describe('S5.3: badge "Pendiente de instalación" en el panel del cliente', () =
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(/pendiente de instalación/i);
     });
+  });
+
+  // W2: el BE persiste ipMode 'fixed' para la pre-provisión (design D3), pero
+  // mientras nasId es null NO hay IP — el detalle muestra "—" limpio, sin el
+  // artefacto "— fija".
+  it('W2: el detalle IP remota de un pendiente muestra "—" limpio, sin el badge "fija"', () => {
+    setupMocks({ contractPppoe: [pendingPppoe] });
+    renderPanel();
+
+    const dt = screen.getByText('IP remota');
+    const dd = dt.parentElement?.querySelector('dd') as HTMLElement;
+    expect(dd).not.toBeNull();
+    expect(dd.textContent?.trim()).toBe('—');
+    expect(within(dd).queryByText('fija')).toBeNull();
+  });
+});
+
+// ── W3: adopción manual del pendiente desde Editar ───────────────────────────
+describe('W3: adopción manual (pendiente → elegir router en Editar)', () => {
+  const pendingPppoe = makePppoeServiceDto({
+    nasId: null,
+    remoteAddress: null,
+    status: 'enabled',
+  });
+
+  async function editAndPickRouter(user: ReturnType<typeof userEvent.setup>, nasId: string) {
+    await user.click(screen.getByRole('button', { name: /editar/i }));
+    await user.selectOptions(document.getElementById('pppoe-edit-nas') as HTMLSelectElement, nasId);
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }));
+  }
+
+  it('elegir un router y guardar llama a move.mutateAsync con { id, nasId }', async () => {
+    const user = userEvent.setup();
+    const { moveMutateAsync } = setupMocks({ contractPppoe: [pendingPppoe] });
+    renderPanel();
+
+    await editAndPickRouter(user, 'nas-2');
+
+    await waitFor(() => expect(moveMutateAsync).toHaveBeenCalledTimes(1));
+    expect(moveMutateAsync).toHaveBeenCalledWith({ id: 'pppoe-1', nasId: 'nas-2' });
+  });
+
+  it('422 NO_FREE_IP del move → mensaje mapeado (pool lleno), NO el genérico', async () => {
+    const user = userEvent.setup();
+    const err = Object.assign(new Error('unprocessable'), {
+      response: { status: 422, data: { code: 'NO_FREE_IP', error: 'no free ip' } },
+    });
+    setupMocks({ contractPppoe: [pendingPppoe], moveMutateAsync: vi.fn().mockRejectedValue(err) });
+    renderPanel();
+
+    await editAndPickRouter(user, 'nas-2');
+
+    await waitFor(() => {
+      expect(screen.getByText('El pool del NAS destino no tiene IPs libres.')).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/no se pudo guardar los cambios/i)).toBeNull();
+  });
+
+  it('404 NO_POOL_FOR_NAS_TYPE del move → mensaje mapeado (sin pool CGNAT)', async () => {
+    const user = userEvent.setup();
+    const err = Object.assign(new Error('not found'), {
+      response: { status: 404, data: { code: 'NO_POOL_FOR_NAS_TYPE', error: 'no pool' } },
+    });
+    setupMocks({ contractPppoe: [pendingPppoe], moveMutateAsync: vi.fn().mockRejectedValue(err) });
+    renderPanel();
+
+    await editAndPickRouter(user, 'nas-2');
+
+    await waitFor(() => {
+      expect(screen.getByText('El NAS destino no tiene pool CGNAT configurado.')).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/no se pudo guardar los cambios/i)).toBeNull();
   });
 });

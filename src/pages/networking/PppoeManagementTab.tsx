@@ -234,7 +234,20 @@ function CreatePppoeModal({ nasOptions, planOptions, onClose, onCreate, isPendin
               <select
                 id="create-nas"
                 value={nasId}
-                onChange={e => setNasId(e.target.value)}
+                onChange={e => {
+                  const value = e.target.value;
+                  // W1: cruzar el límite router↔"Sin router" (en cualquier
+                  // dirección) invalida el modo/IP elegidos — una IP fija
+                  // tipeada para el pool de un router viejo NO debe viajar
+                  // en el submit hacia otro router (espejo del InternetPanel).
+                  const crossesSentinel =
+                    (value === NO_ROUTER_VALUE) !== (nasId === NO_ROUTER_VALUE);
+                  if (crossesSentinel) {
+                    setIpMode('pool');
+                    setFramedIp('');
+                  }
+                  setNasId(value);
+                }}
                 required
                 aria-label="NAS"
                 aria-describedby={isNoRouter ? 'create-no-router-hint' : undefined}
@@ -356,7 +369,14 @@ function CreatePppoeModal({ nasOptions, planOptions, onClose, onCreate, isPendin
           )}
           <div className={styles.modalActions}>
             <button type="button" className={styles.btnSecondary} onClick={onClose}>Cancelar</button>
-            <button type="submit" className={styles.btnPrimary} disabled={isPending || !ipType}>
+            {/* W5: el hint del tipo de IP también describe el submit deshabilitado —
+                un SR parado en el botón sabe por qué no puede enviar. */}
+            <button
+              type="submit"
+              className={styles.btnPrimary}
+              disabled={isPending || !ipType}
+              aria-describedby={!ipType ? 'create-iptype-hint' : undefined}
+            >
               {isPending ? 'Creando…' : 'Crear'}
             </button>
           </div>
@@ -604,6 +624,10 @@ function MoveNasModal({ item, nasOptions, onClose, onMove, isPending }: MoveNasM
   const availableNas = nasOptions.filter(n => n.id !== item.nasId);
   const movedNasName = moved ? (nasOptions.find(n => n.id === moved.nasId)?.name ?? moved.nasId) : null;
 
+  // S3: pendiente de instalación (pre-provisión sin router) — no hay sesión que
+  // desconectar ni IP que reemplazar: el copy del move es el de una ASIGNACIÓN.
+  const isPendingInstall = item.nasId == null;
+
   return (
     <div className={styles.overlay}>
       <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="move-modal-title">
@@ -613,9 +637,20 @@ function MoveNasModal({ item, nasOptions, onClose, onMove, isPending }: MoveNasM
           // ── Resultado (S9.2): IP nueva visible, cierre explícito ──
           <>
             <div className={styles.successAlert} role="status">
-              <strong>PPPoE movido a {movedNasName}.</strong>{' '}
-              IP nueva asignada: <code className={styles.mono}>{moved.remoteAddress ?? '—'}</code>.
-              La sesión fue desconectada; el cliente reconecta con la IP nueva.
+              {isPendingInstall ? (
+                // S3: adopción manual del pendiente — no había sesión.
+                <>
+                  <strong>PPPoE asignado a {movedNasName}.</strong>{' '}
+                  IP fija asignada: <code className={styles.mono}>{moved.remoteAddress ?? '—'}</code>.
+                  El cliente queda listo para conectarse con este router.
+                </>
+              ) : (
+                <>
+                  <strong>PPPoE movido a {movedNasName}.</strong>{' '}
+                  IP nueva asignada: <code className={styles.mono}>{moved.remoteAddress ?? '—'}</code>.
+                  La sesión fue desconectada; el cliente reconecta con la IP nueva.
+                </>
+              )}
             </div>
             <div className={styles.modalActions}>
               <button type="button" className={styles.btnPrimary} onClick={onClose}>Cerrar</button>
@@ -623,10 +658,19 @@ function MoveNasModal({ item, nasOptions, onClose, onMove, isPending }: MoveNasM
           </>
         ) : (
           <form onSubmit={handleSubmit}>
-            {/* S9.1: aviso honesto ANTES de confirmar */}
+            {/* S9.1: aviso honesto ANTES de confirmar. S3: para el pendiente no
+                hay sesión que desconectar — variante de asignación. */}
             <div className={styles.renameWarning}>
-              <strong>Atención:</strong> Se asignará una IP nueva del pool del NAS destino
-              y se desconectará la sesión del cliente para que reconecte con la IP nueva.
+              {isPendingInstall ? (
+                <>
+                  <strong>Atención:</strong> Se asignará al router elegido con IP fija de su pool.
+                </>
+              ) : (
+                <>
+                  <strong>Atención:</strong> Se asignará una IP nueva del pool del NAS destino
+                  y se desconectará la sesión del cliente para que reconecte con la IP nueva.
+                </>
+              )}
             </div>
             <div className={styles.formGroup}>
               <label htmlFor="move-nas">NAS destino</label>
@@ -966,6 +1010,12 @@ export function PppoeManagementTab() {
       },
       { replace: true },
     );
+    // C1: mismo invariante anti-TOCTOU que handleSearch/handleNas/handleStatus —
+    // el chip cambia el subconjunto VISIBLE, así que la selección previa queda
+    // apuntando a filas potencialmente ocultas: se limpia y se avanza la
+    // generación para descartar cualquier fetch de ids que esté en vuelo.
+    setSelected(new Set());
+    filterGenerationRef.current += 1;
   }
 
   // ── F2: error state para kebab actions (deactivate/suspend/reactivate)
@@ -1294,8 +1344,12 @@ export function PppoeManagementTab() {
 
   // ── action handlers — F2: await + try/catch con feedback visible
   async function handleDeactivate(item: PppoeServiceListItem) {
+    // S3: el pendiente nunca se instaló en un router — "se eliminará del
+    // router" sería mentira; se elimina la pre-provisión.
     const ok = await confirm({
-      message: `¿Dar de baja "${item.username}"? Se eliminará del router.`,
+      message: item.nasId == null
+        ? `¿Dar de baja "${item.username}"? Se eliminará la pre-provisión (todavía no está instalado).`
+        : `¿Dar de baja "${item.username}"? Se eliminará del router.`,
       tone: 'danger',
       confirmLabel: 'Dar de baja',
     });
@@ -1409,12 +1463,19 @@ export function PppoeManagementTab() {
         </button>
 
         <span className={styles.toolbarRight}>
-          {total > 0 ? `${total} servicio${total === 1 ? '' : 's'}` : ''}
+          {/* C1: con el chip ON el total del server MIENTE (incluye no-pendientes):
+              el contador refleja lo que realmente se ve. */}
+          {pendingOnly
+            ? `${visibleItems.length} pendiente${visibleItems.length === 1 ? '' : 's'} en esta página`
+            : total > 0 ? `${total} servicio${total === 1 ? '' : 's'}` : ''}
           {isFetching && !isLoading ? ' · actualizando…' : ''}
         </span>
 
-        {/* ── 3.3: "Seleccionar los N del filtro" — solo con filtro activo + canManage ── */}
-        {canManage && hasActiveFilter && (
+        {/* ── 3.3: "Seleccionar los N del filtro" — solo con filtro activo + canManage.
+            C1: con el chip ON se OCULTA — los pendientes son un subconjunto
+            client-side y el endpoint de ids del filtro ignora pendingOnly:
+            congelaría cientos de no-pendientes invisibles. ── */}
+        {canManage && hasActiveFilter && !pendingOnly && (
           <button
             type="button"
             className={styles.btnSecondary}
@@ -1596,15 +1657,22 @@ export function PppoeManagementTab() {
                 <td colSpan={canManage ? 10 : 7}>
                   <div className={styles.empty}>
                     <IconPppoe className={styles.emptyIcon} />
+                    {/* W4: NAS filtrado + chip = vacío GARANTIZADO (los
+                        pendientes no tienen NAS) — copy específico, no el
+                        engañoso "cambiá de página". */}
                     <h3 className={styles.emptyTitle}>
-                      {pendingOnly && items.length > 0
-                        ? 'No hay PPPoE pendientes de instalación en esta página.'
-                        : 'No se encontraron servicios PPPoE.'}
+                      {pendingOnly && nasId
+                        ? 'Los pendientes no tienen router asignado.'
+                        : pendingOnly && items.length > 0
+                          ? 'No hay PPPoE pendientes de instalación en esta página.'
+                          : 'No se encontraron servicios PPPoE.'}
                     </h3>
                     <p>
-                      {pendingOnly && items.length > 0
-                        ? 'Cambiá de página o desactivá el filtro "Pendientes".'
-                        : 'Probá ajustando los filtros o creá un servicio nuevo.'}
+                      {pendingOnly && nasId
+                        ? 'Quitá el filtro de router para verlos.'
+                        : pendingOnly && items.length > 0
+                          ? 'Cambiá de página o desactivá el filtro "Pendientes".'
+                          : 'Probá ajustando los filtros o creá un servicio nuevo.'}
                     </p>
                   </div>
                 </td>
@@ -1659,10 +1727,12 @@ export function PppoeManagementTab() {
                 {/* Estado */}
                 <td><PppoeStatusBadge status={item.status} /></td>
 
-                {/* IP */}
+                {/* IP — W2: el pendiente (nasId null) persiste ipMode 'fixed'
+                    (design D3) pero la IP recién existe cuando la adopción
+                    asigna el NAS: "—" limpio, sin el artefacto "— fija". */}
                 <td className={styles.mono}>
                   {item.remoteAddress ?? '—'}
-                  {item.ipMode === 'fixed' && (
+                  {item.ipMode === 'fixed' && item.nasId != null && (
                     <span className={styles.badgeFixed}>fija</span>
                   )}
                 </td>

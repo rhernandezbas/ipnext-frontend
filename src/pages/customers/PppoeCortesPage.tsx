@@ -225,7 +225,11 @@ export default function PppoeCortesPage() {
                           const pct = preview.total ? Math.round((count / preview.total) * 100) : 0;
                           return (
                             <li key={nasId} className={styles.byRouterRow}>
-                              <span className={styles.byRouterNas}>Router {nasId}</span>
+                              {/* S2: los pendientes (nasId null) agrupan bajo la key
+                                  JSON "null" — se muestra "—", nunca "Router null". */}
+                              <span className={styles.byRouterNas}>
+                                Router {nasId && nasId !== 'null' ? nasId : '—'}
+                              </span>
                               <span className={styles.byRouterBarTrack}>
                                 <span className={styles.byRouterBarFill} style={{ width: `${pct}%` }} />
                               </span>
