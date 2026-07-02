@@ -29,7 +29,9 @@ import { Can } from '@/components/auth/Can';
 import { KebabMenu } from '@/components/atoms/KebabMenu/KebabMenu';
 import type { PppoeServiceListItem, InternetServiceStatus } from '@/types/internetService';
 import { INTERNET_STATUS_LABELS as STATUS_LABELS } from '@/types/internetService';
+import type { PppoeServiceDto } from '@/types/pppoe';
 import type { UpdatePppoeBody } from '@/api/pppoe.api';
+import { isPppoeMovePublicIpError, mapPppoeMoveError } from '@/utils/mapPppoeMoveError';
 import styles from './PppoeManagementTab.module.css';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -447,58 +449,121 @@ function RenameModal({ item, onClose, onRename, isPending }: RenameModalProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Modal: Mover a otro NAS
+// Modal: Mover a otro NAS (radius-aware, pppoe-move-nas W1 — REQ-FE-1)
 // ─────────────────────────────────────────────────────────────────────────────
 interface MoveNasModalProps {
   item: PppoeServiceListItem;
   nasOptions: { id: string; name: string }[];
   onClose: () => void;
-  onMove: (nasId: string) => Promise<void>;
+  /** Devuelve el DTO actualizado (con la IP nueva) para mostrarla (S9.2). */
+  onMove: (nasId: string, force?: boolean) => Promise<PppoeServiceDto>;
   isPending: boolean;
 }
 
 function MoveNasModal({ item, nasOptions, onClose, onMove, isPending }: MoveNasModalProps) {
   const [nasId, setNasId] = useState('');
-  // F2: error inline
+  // F2: error inline (mapeado por código del wire contract)
   const [error, setError] = useState<string | null>(null);
+  // S9.3: el BE respondió 409 PPPOE_MOVE_PUBLIC_IP → pedir confirmación explícita
+  const [publicIpWarning, setPublicIpWarning] = useState(false);
+  // S9.2: DTO post-move para mostrar la IP nueva (el modal NO se cierra solo)
+  const [moved, setMoved] = useState<PppoeServiceDto | null>(null);
+
+  async function doMove(force: boolean) {
+    setError(null);
+    try {
+      const dto = await onMove(nasId, force || undefined);
+      setPublicIpWarning(false);
+      setMoved(dto);
+    } catch (err) {
+      if (!force && isPppoeMovePublicIpError(err)) {
+        // Paso 1 del flujo force: NUNCA reintentar solo — decide el operador.
+        setPublicIpWarning(true);
+      } else {
+        setError(mapPppoeMoveError(err));
+      }
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!nasId) return;
+    await doMove(false);
+  }
+
+  function handleNasChange(value: string) {
+    setNasId(value);
+    // Cambiar el destino invalida el warning de IP pública (vuelve al paso 1).
+    setPublicIpWarning(false);
     setError(null);
-    try {
-      await onMove(nasId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo mover el PPPoE al nuevo NAS.');
-    }
   }
 
   const availableNas = nasOptions.filter(n => n.id !== item.nasId);
+  const movedNasName = moved ? (nasOptions.find(n => n.id === moved.nasId)?.name ?? moved.nasId) : null;
 
   return (
     <div className={styles.overlay}>
       <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="move-modal-title">
         <h2 className={styles.modalTitle} id="move-modal-title">Mover NAS — {item.username}</h2>
-        <form onSubmit={handleSubmit}>
-          <div className={styles.formGroup}>
-            <label htmlFor="move-nas">NAS destino</label>
-            <select id="move-nas" value={nasId} onChange={e => setNasId(e.target.value)} required aria-label="NAS destino">
-              <option value="">Seleccionar NAS…</option>
-              {availableNas.map(n => (
-                <option key={n.id} value={n.id}>{n.name}</option>
-              ))}
-            </select>
-          </div>
-          {error && (
-            <div className={styles.partialAlert} role="alert">{error}</div>
-          )}
-          <div className={styles.modalActions}>
-            <button type="button" className={styles.btnSecondary} onClick={onClose}>Cancelar</button>
-            <button type="submit" className={styles.btnPrimary} disabled={isPending || !nasId}>
-              {isPending ? 'Moviendo…' : 'Mover'}
-            </button>
-          </div>
-        </form>
+
+        {moved ? (
+          // ── Resultado (S9.2): IP nueva visible, cierre explícito ──
+          <>
+            <div className={styles.successAlert} role="status">
+              <strong>PPPoE movido a {movedNasName}.</strong>{' '}
+              IP nueva asignada: <code className={styles.mono}>{moved.remoteAddress ?? '—'}</code>.
+              La sesión fue desconectada; el cliente reconecta con la IP nueva.
+            </div>
+            <div className={styles.modalActions}>
+              <button type="button" className={styles.btnPrimary} onClick={onClose}>Cerrar</button>
+            </div>
+          </>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            {/* S9.1: aviso honesto ANTES de confirmar */}
+            <div className={styles.renameWarning}>
+              <strong>Atención:</strong> Se asignará una IP nueva del pool del NAS destino
+              y se desconectará la sesión del cliente para que reconecte con la IP nueva.
+            </div>
+            <div className={styles.formGroup}>
+              <label htmlFor="move-nas">NAS destino</label>
+              <select id="move-nas" value={nasId} onChange={e => handleNasChange(e.target.value)} required aria-label="NAS destino">
+                <option value="">Seleccionar NAS…</option>
+                {availableNas.map(n => (
+                  <option key={n.id} value={n.id}>{n.name}</option>
+                ))}
+              </select>
+            </div>
+            {publicIpWarning && (
+              /* S9.3 paso 2: warning fuerte + confirmación explícita */
+              <div className={styles.publicIpWarning} role="alert">
+                <strong>Este servicio tiene IP PÚBLICA fija (negocio).</strong>{' '}
+                Moverlo la reemplaza por una IP CGNAT del destino — su IP pública se libera.
+                ¿Continuar?
+              </div>
+            )}
+            {error && (
+              <div className={styles.partialAlert} role="alert">{error}</div>
+            )}
+            <div className={styles.modalActions}>
+              <button type="button" className={styles.btnSecondary} onClick={onClose}>Cancelar</button>
+              {publicIpWarning ? (
+                <button
+                  type="button"
+                  className={styles.btnDanger}
+                  disabled={isPending}
+                  onClick={() => doMove(true)}
+                >
+                  {isPending ? 'Moviendo…' : 'Sí, mover igual'}
+                </button>
+              ) : (
+                <button type="submit" className={styles.btnPrimary} disabled={isPending || !nasId}>
+                  {isPending ? 'Moviendo…' : 'Mover'}
+                </button>
+              )}
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );
@@ -849,10 +914,11 @@ export function PppoeManagementTab() {
           item={movingItem}
           nasOptions={nasOptions}
           onClose={() => setMovingItem(null)}
-          onMove={async targetNasId => {
-            await moveMutation.mutateAsync({ id: movingItem.id, nasId: targetNasId });
-            setMovingItem(null);
-          }}
+          // NO auto-cierra: el modal muestra la IP nueva del DTO (S9.2) y el
+          // operador cierra. La fila se refresca por la invalidación del hook.
+          onMove={(targetNasId, force) =>
+            moveMutation.mutateAsync({ id: movingItem.id, nasId: targetNasId, force })
+          }
           isPending={moveMutation.isPending}
         />
       )}

@@ -319,13 +319,16 @@ export function useUpdatePppoeGlobal() {
 }
 
 /**
- * Mueve un PPPoE a otro router (NAS).
- * Variante global: invalida la lista global.
+ * Mueve un PPPoE a otro NAS (radius-aware: el BE reasigna IP nueva + kick).
+ * Variante global: invalida la lista global — así la fila refleja el NAS y la
+ * IP nuevos SIN reload (REQ-FE-1 S9.2).
+ * `force: true` = confirmación explícita del operador ante el 409
+ * PPPOE_MOVE_PUBLIC_IP (flujo en 2 pasos del modal, S9.3).
  */
 export function useMovePppoeGlobal() {
   const qc = useQueryClient();
-  return useMutation<PppoeServiceDto, unknown, { id: string; nasId: string }>({
-    mutationFn: ({ id, nasId }) => pppoeApi.move(id, nasId),
+  return useMutation<PppoeServiceDto, unknown, { id: string; nasId: string; force?: boolean }>({
+    mutationFn: ({ id, nasId, force }) => pppoeApi.move(id, nasId, force),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: GLOBAL_LIST_KEY });
       // F7: un PPPoE movido puede ser huérfano — el picker de adopción debe quedar fresco

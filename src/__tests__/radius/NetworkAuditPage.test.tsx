@@ -7,15 +7,18 @@ import NetworkAuditPage from '@/pages/radius/NetworkAuditPage';
 import * as useRadiusEventsModule from '@/hooks/useRadiusEvents';
 import * as useNe8000AuditModule from '@/hooks/useNe8000Audit';
 import * as useRadiusAuthFailuresModule from '@/hooks/useRadiusAuthFailures';
+import * as usePppoeNasMoveEventsModule from '@/hooks/usePppoeNasMoveEvents';
 import type {
   PaginatedRadiusEvents,
   PaginatedNe8000Audit,
   PaginatedRadiusAuthEvents,
 } from '@/types/networkAudit';
+import type { PaginatedPppoeNasMoveEvents } from '@/types/pppoeNasMove';
 
 vi.mock('@/hooks/useRadiusEvents');
 vi.mock('@/hooks/useNe8000Audit');
 vi.mock('@/hooks/useRadiusAuthFailures');
+vi.mock('@/hooks/usePppoeNasMoveEvents');
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -90,6 +93,27 @@ const AUTH_DATA: PaginatedRadiusAuthEvents = {
   countsByReason: { session_stuck: 1, user_not_found: 0, other: 0 },
 };
 
+const NAS_MOVES_DATA: PaginatedPppoeNasMoveEvents = {
+  items: [
+    {
+      id: 'mv-1',
+      username: 'moves.user@isp.com',
+      fromNas: { id: 'nas-1', name: 'NAS Central' },
+      toNas: { id: 'nas-2', name: 'NAS Norte' },
+      fromIp: '100.64.60.25',
+      toIp: '100.64.43.7',
+      trigger: 'manual',
+      outcome: 'moved',
+      reason: null,
+      actorName: 'operador1',
+      createdAt: '2026-07-01T15:30:00Z',
+    },
+  ],
+  total: 1,
+  page: 1,
+  limit: 50,
+};
+
 function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
@@ -118,13 +142,19 @@ describe('NetworkAuditPage', () => {
       isLoading: false,
       isError: false,
     } as unknown as ReturnType<typeof useRadiusAuthFailuresModule.useRadiusAuthFailures>);
+    vi.mocked(usePppoeNasMoveEventsModule.usePppoeNasMoveEvents).mockReturnValue({
+      data: NAS_MOVES_DATA,
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof usePppoeNasMoveEventsModule.usePppoeNasMoveEvents>);
   });
 
-  it('renders three internal tabs (Logs RADIUS + Auditoría NE8000 + Errores de auth)', () => {
+  it('renders four internal tabs (Logs RADIUS + Auditoría NE8000 + Errores de auth + Movimientos NAS)', () => {
     renderPage();
     expect(screen.getByRole('button', { name: /logs radius/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /auditoría ne8000/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /errores de auth/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /movimientos nas/i })).toBeInTheDocument();
   });
 
   it('switches to the Errores de auth tab and shows its content', async () => {
@@ -137,6 +167,18 @@ describe('NetworkAuditPage', () => {
     // The other tabs' rows are not mounted while this tab is active.
     expect(screen.queryByText('logs.user@isp.com')).not.toBeInTheDocument();
     expect(screen.queryByText('ne8000.user@isp.com')).not.toBeInTheDocument();
+  });
+
+  it('switches to the Movimientos NAS tab and shows its content', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /movimientos nas/i }));
+
+    expect(screen.getByText('moves.user@isp.com')).toBeInTheDocument();
+    // The other tabs' rows are not mounted while this tab is active.
+    expect(screen.queryByText('logs.user@isp.com')).not.toBeInTheDocument();
+    expect(screen.queryByText('auth.user@isp.com')).not.toBeInTheDocument();
   });
 
   it('shows Logs RADIUS content by default', () => {

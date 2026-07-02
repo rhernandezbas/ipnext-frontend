@@ -1,0 +1,241 @@
+/* Tab "Movimientos NAS" — registro de moves de NAS PPPoE (pppoe-move-nas W1).
+   Mismo lenguaje visual que los tabs vecinos de la page de auditoría
+   (RadiusAuthErrorsPage): tokens var(--color-*), flat design, badges por
+   familia con contraste WCAG AA, transiciones 150ms, focus visible. */
+
+.page {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.countBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary);
+  color: var(--color-white);
+  border-radius: var(--radius-full);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  min-width: 28px;
+}
+
+/* ── Filter bar ──────────────────────────────────────────────────────────── */
+
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.input,
+.select {
+  padding: var(--space-2) var(--space-3);
+  min-height: 44px;                       /* touch target ≥44px */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  transition: border-color 150ms ease;
+}
+
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.input:focus-visible,
+.select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.btnClear {
+  padding: var(--space-2) var(--space-4);
+  min-height: 44px;                       /* touch target ≥44px */
+  background: var(--color-gray-50);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.btnClear:hover {
+  background: var(--color-gray-100);
+}
+
+.btnClear:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+
+.tableWrapper {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  box-shadow: var(--shadow-sm);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table thead tr {
+  background: var(--color-gray-50);
+}
+
+.table th {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.table tbody tr {
+  border-bottom: 1px solid var(--color-gray-100);
+  transition: background-color 150ms ease;
+}
+
+.table tbody tr:hover {
+  background: var(--color-surface-hover);
+}
+
+.table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.table td {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+/* ── Monospace cells (username / IPs) ────────────────────────────────────── */
+
+.mono {
+  font-family: monospace;
+  font-size: var(--font-size-xs);
+}
+
+/* Motivo: texto secundario, con elipsis para reasons largos del BE. */
+.reasonCell {
+  color: var(--color-text-secondary);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── States ──────────────────────────────────────────────────────────────── */
+
+.stateCell {
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: var(--radius-full);
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: var(--space-2);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 1.5s;
+  }
+
+  .table tbody tr,
+  .input,
+  .select,
+  .btnClear {
+    transition: none;
+  }
+}
+
+/* ── Outcome badges (texto + color, sin emoji) ───────────────────────────── */
+
+/*
+ * Familias del design system reutilizadas, contraste WCAG AA (≥4.5:1, light):
+ *   moved   verde   #166534 sobre #dcfce7 ≈ 7.0:1  (familia "success" —
+ *           mismos valores que badgeAccept de Errores de auth; el design
+ *           system no tiene token de badge verde)
+ *   failed  rojo    #991b1b sobre #fee2e2 ≈ 6.80:1  (familia "late")
+ *   skipped naranja #9a3412 sobre #ffedd5 ≈ 6.38:1  (familia "blocked" —
+ *           la familia warning del sistema)
+ */
+.badge {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.badgeMoved {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.badgeFailed {
+  background: var(--badge-late-bg);
+  color: var(--badge-late-fg);
+}
+
+.badgeSkipped {
+  background: var(--badge-blocked-bg);
+  color: var(--badge-blocked-fg);
+}
+
+/* ── Pagination ──────────────────────────────────────────────────────────── */
+
+.paginationWrapper {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-4);
+}

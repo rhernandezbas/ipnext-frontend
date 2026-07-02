@@ -14,6 +14,11 @@ import type {
   InternetActivationHistoryFilter,
   PppoeActivationOperator,
 } from '@/types/internetService';
+import type {
+  PaginatedPppoeNasMoveEvents,
+  PppoeNasMoveOutcome,
+  PppoeNasMoveTrigger,
+} from '@/types/pppoeNasMove';
 
 const BASE = '/pppoe';
 const CONTRACTS_BASE = '/contracts';
@@ -66,6 +71,15 @@ export interface UpdatePppoeBody {
 export interface PppoeCredentials {
   username: string;
   password: string;
+}
+
+/** Filtros del listado de movimientos de NAS (GET /pppoe/nas-move-events). */
+export interface PppoeNasMoveEventsParams {
+  page?: number;
+  limit?: number;
+  outcome?: PppoeNasMoveOutcome;
+  trigger?: PppoeNasMoveTrigger;
+  username?: string;
 }
 
 export const pppoeApi = {
@@ -162,9 +176,20 @@ export const pppoeApi = {
     return r.data;
   },
 
-  /** Mueve un PPPoE a otro router (NAS). */
-  async move(id: string, nasId: string): Promise<PppoeServiceDto> {
-    const r = await axiosClient.post<PppoeServiceDto>(`${BASE}/${id}/move`, { nasId });
+  /**
+   * Mueve un PPPoE a otro NAS. En NAS radius el BE reasigna una IP NUEVA del
+   * pool CGNAT del destino y desconecta la sesión (pppoe-move-nas W1); el DTO
+   * de respuesta trae `nasId` y `remoteAddress` nuevos.
+   * `force: true` = confirmación explícita para mover un servicio con IP
+   * PÚBLICA fija (el 409 PPPOE_MOVE_PUBLIC_IP del BE es la señal; el FE no
+   * clasifica la IP). La clave se OMITE del body cuando no es true.
+   * Errores: 422 NO_FREE_IP, 404 NO_POOL_FOR_NAS_TYPE, 409 PPPOE_MOVE_PUBLIC_IP /
+   * PPPOE_TERMINATED / PPPOE_MOVE_MIXED_NAS_TYPES / ORCHESTRATOR_REJECTED, 502.
+   */
+  async move(id: string, nasId: string, force?: boolean): Promise<PppoeServiceDto> {
+    const body: { nasId: string; force?: boolean } = { nasId };
+    if (force) body.force = true;
+    const r = await axiosClient.post<PppoeServiceDto>(`${BASE}/${id}/move`, body);
     return r.data;
   },
 
@@ -262,6 +287,22 @@ export const pppoeApi = {
    */
   async unpinIp(id: string): Promise<PppoeServiceDto> {
     const r = await axiosClient.post<PppoeServiceDto>(`${BASE}/${id}/unpin-ip`, {});
+    return r.data;
+  },
+
+  /**
+   * Registro de movimientos de NAS (tab "Movimientos NAS" de la auditoría).
+   * Wire contract D6: { items, total, page, limit }. Gated `pppoe.read`.
+   * Los filtros vacíos se omiten del query string.
+   */
+  async listNasMoveEvents(params: PppoeNasMoveEventsParams = {}): Promise<PaginatedPppoeNasMoveEvents> {
+    const query: Record<string, string | number> = {};
+    if (params.page !== undefined) query.page = params.page;
+    if (params.limit !== undefined) query.limit = params.limit;
+    if (params.outcome) query.outcome = params.outcome;
+    if (params.trigger) query.trigger = params.trigger;
+    if (params.username && params.username.trim()) query.username = params.username.trim();
+    const r = await axiosClient.get<PaginatedPppoeNasMoveEvents>(`${BASE}/nas-move-events`, { params: query });
     return r.data;
   },
 };

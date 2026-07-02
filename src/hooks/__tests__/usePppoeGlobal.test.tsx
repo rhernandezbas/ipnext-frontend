@@ -254,7 +254,7 @@ describe('useUpdatePppoeGlobal', () => {
 
 // ── useMovePppoeGlobal ────────────────────────────────────────────────────────
 describe('useMovePppoeGlobal', () => {
-  it('llama a pppoeApi.move con id y nasId', async () => {
+  it('llama a pppoeApi.move con id y nasId (sin force en el primer intento)', async () => {
     vi.mocked(pppoeApi.move).mockResolvedValue(MOCK_DTO);
 
     const { result } = renderHook(() => useMovePppoeGlobal(), { wrapper });
@@ -263,7 +263,21 @@ describe('useMovePppoeGlobal', () => {
       await result.current.mutateAsync({ id: 'pppoe-1', nasId: 'nas-2' });
     });
 
-    expect(pppoeApi.move).toHaveBeenCalledWith('pppoe-1', 'nas-2');
+    // pppoe-move-nas W1: move acepta force opcional; sin force viaja undefined
+    // (el api client OMITE la clave del body — cubierto en pppoeNasMove.api.test).
+    expect(pppoeApi.move).toHaveBeenCalledWith('pppoe-1', 'nas-2', undefined);
+  });
+
+  it('pasa force: true a pppoeApi.move en el reintento forzado (S9.3)', async () => {
+    vi.mocked(pppoeApi.move).mockResolvedValue(MOCK_DTO);
+
+    const { result } = renderHook(() => useMovePppoeGlobal(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ id: 'pppoe-1', nasId: 'nas-2', force: true });
+    });
+
+    expect(pppoeApi.move).toHaveBeenCalledWith('pppoe-1', 'nas-2', true);
   });
 
   it('invalida ["pppoe","list"] en éxito', async () => {
