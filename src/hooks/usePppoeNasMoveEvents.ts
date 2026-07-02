@@ -5,7 +5,8 @@ import type { PppoeNasMoveEventsParams } from '@/api/pppoe.api';
 /**
  * Registro de movimientos de NAS PPPoE (tab "Movimientos NAS" de la page de
  * auditoría, pppoe-move-nas W1). Lista paginada server-side con filtros
- * outcome/trigger/username. Endpoint gated `pppoe.read` en el BE.
+ * outcome/trigger/username. Endpoint gated `network.read` en el BE (alineado
+ * al gate de ruta de la page de auditoría y sus tabs vecinos).
  */
 export function usePppoeNasMoveEvents(params: PppoeNasMoveEventsParams) {
   return useQuery({

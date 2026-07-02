@@ -264,6 +264,26 @@ describe('PppoeNasMovesPage — filtros en la URL', () => {
     expect(lastHookParams()).toMatchObject({ page: 1 });
   });
 
+  it('mv_page no numérico en la URL cae a página 1 (nunca NaN)', () => {
+    renderPage('/admin/networking/audit?mv_page=abc');
+    expect(lastHookParams()).toMatchObject({ page: 1 });
+  });
+
+  it('mv_page=0 cae a página 1', () => {
+    renderPage('/admin/networking/audit?mv_page=0');
+    expect(lastHookParams()).toMatchObject({ page: 1 });
+  });
+
+  it('mv_page negativo cae a página 1', () => {
+    renderPage('/admin/networking/audit?mv_page=-3');
+    expect(lastHookParams()).toMatchObject({ page: 1 });
+  });
+
+  it('mv_page=2 llega como página 2', () => {
+    renderPage('/admin/networking/audit?mv_page=2');
+    expect(lastHookParams()).toMatchObject({ page: 2 });
+  });
+
   it('el botón Limpiar borra SOLO los mv_* de la URL', async () => {
     renderPage('/admin/networking/audit?mv_outcome=moved&auth_username=otro');
     await userEvent.click(screen.getByRole('button', { name: /limpiar/i }));

@@ -8,7 +8,7 @@
  * Errores tipados del wire contract (NO_FREE_IP, NO_POOL_FOR_NAS_TYPE,
  * ORCHESTRATOR_REJECTED, 502) → mensaje claro, nunca spinner infinito.
  */
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -227,10 +227,14 @@ describe('MoveNasModal — S9.3 flujo force IP pública', () => {
     const dialog = await openMoveModal();
     await selectDestinoYMover(dialog);
 
+    // Copy HONESTO: el guard del BE es fail-closed — salta para toda IP no
+    // clasificada positivamente como CGNAT (pública O de un pool sin cargar).
     await waitFor(() => {
-      expect(within(dialog).getByRole('alert')).toHaveTextContent(/ip pública fija/i);
+      expect(within(dialog).getByRole('alert')).toHaveTextContent(
+        /ip pública fija o no clasificada como cgnat/i,
+      );
     });
-    expect(within(dialog).getByRole('alert')).toHaveTextContent(/su ip pública se libera/i);
+    expect(within(dialog).getByRole('alert')).toHaveTextContent(/si era pública, se libera/i);
     // Confirmación explícita disponible, pero NO ejecutada automáticamente.
     expect(within(dialog).getByRole('button', { name: /mover igual/i })).toBeInTheDocument();
     expect(mutateAsync).toHaveBeenCalledTimes(1);
@@ -259,11 +263,31 @@ describe('MoveNasModal — S9.3 flujo force IP pública', () => {
     );
     const dialog = await openMoveModal();
     await selectDestinoYMover(dialog);
-    await waitFor(() => expect(within(dialog).getByText(/su ip pública se libera/i)).toBeInTheDocument());
+    await waitFor(() => expect(within(dialog).getByText(/si era pública, se libera/i)).toBeInTheDocument());
 
     await userEvent.selectOptions(within(dialog).getByLabelText(/nas destino/i), '');
-    expect(within(dialog).queryByText(/su ip pública se libera/i)).toBeNull();
+    expect(within(dialog).queryByText(/si era pública, se libera/i)).toBeNull();
     expect(mutateAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('con el warning force visible, el submit del form (Enter) NO dispara POSTs nuevos', async () => {
+    const mutateAsync = setup(
+      vi.fn().mockRejectedValue(httpError(409, { code: 'PPPOE_MOVE_PUBLIC_IP', error: 'IP pública fija' })),
+    );
+    const dialog = await openMoveModal();
+    await selectDestinoYMover(dialog);
+    await waitFor(() =>
+      expect(within(dialog).getByRole('button', { name: /mover igual/i })).toBeInTheDocument(),
+    );
+    expect(mutateAsync).toHaveBeenCalledTimes(1);
+
+    // Enter en el select dispara el submit del form. Con el warning visible el
+    // único camino válido es "Sí, mover igual" (force) o Cancelar: CERO POSTs.
+    fireEvent.submit(dialog.querySelector('form') as HTMLFormElement);
+
+    expect(mutateAsync).toHaveBeenCalledTimes(1);
+    // El warning sigue visible: no se descartó ni se reintentó nada.
+    expect(within(dialog).getByRole('button', { name: /mover igual/i })).toBeInTheDocument();
   });
 });
 
@@ -314,6 +338,30 @@ describe('MoveNasModal — errores tipados', () => {
     await waitFor(() => {
       expect(within(dialog).getByRole('alert')).toHaveTextContent(/el servicio está dado de baja/i);
     });
+  });
+
+  it('404 PPPOE_NOT_FOUND → mensaje propio en español (no el crudo del BE)', async () => {
+    setup(vi.fn().mockRejectedValue(httpError(404, { code: 'PPPOE_NOT_FOUND', error: 'PppoeService not found' })));
+    const dialog = await openMoveModal();
+    await selectDestinoYMover(dialog);
+
+    await waitFor(() => {
+      expect(within(dialog).getByRole('alert')).toHaveTextContent(
+        /el servicio pppoe ya no existe \(¿fue dado de baja\?\)/i,
+      );
+    });
+    expect(within(dialog).getByRole('alert')).not.toHaveTextContent(/not found/i);
+  });
+
+  it('404 NAS_NOT_FOUND → "El NAS destino ya no existe."', async () => {
+    setup(vi.fn().mockRejectedValue(httpError(404, { code: 'NAS_NOT_FOUND', error: 'Nas not found' })));
+    const dialog = await openMoveModal();
+    await selectDestinoYMover(dialog);
+
+    await waitFor(() => {
+      expect(within(dialog).getByRole('alert')).toHaveTextContent(/el nas destino ya no existe/i);
+    });
+    expect(within(dialog).getByRole('alert')).not.toHaveTextContent(/not found/i);
   });
 
   it('502 → "No se pudo contactar el RADIUS. Reintentá."', async () => {

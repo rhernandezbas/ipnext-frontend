@@ -120,4 +120,20 @@ describe('usePppoe — F7: invalidación de unassigned', () => {
       );
     });
   });
+
+  it('useMovePppoeGlobal invalida pppoe-nas-move-events en éxito (el move propio aparece en el tab Movimientos NAS)', async () => {
+    // Sin esta invalidación, el staleTime global (5min) deja el tab
+    // "Movimientos NAS" stale: tu propio move no aparece hasta 5' después.
+    const { result } = renderHook(() => useMovePppoeGlobal(), {
+      wrapper: makeWrapper(qc),
+    });
+
+    await result.current.mutateAsync({ id: 'pppoe-1', nasId: 'nas-2' });
+
+    await waitFor(() => {
+      expect(qc.invalidateQueries).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ['pppoe-nas-move-events'] }),
+      );
+    });
+  });
 });

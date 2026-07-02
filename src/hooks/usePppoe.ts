@@ -333,6 +333,10 @@ export function useMovePppoeGlobal() {
       qc.invalidateQueries({ queryKey: GLOBAL_LIST_KEY });
       // F7: un PPPoE movido puede ser huérfano — el picker de adopción debe quedar fresco
       qc.invalidateQueries({ queryKey: unassignedKey() });
+      // El tab "Movimientos NAS" (usePppoeNasMoveEvents, prefijo
+      // ['pppoe-nas-move-events']) tiene el staleTime global de 5min: sin esta
+      // invalidación el move propio no aparece en la auditoría hasta 5' después.
+      qc.invalidateQueries({ queryKey: ['pppoe-nas-move-events'] });
     },
   });
 }

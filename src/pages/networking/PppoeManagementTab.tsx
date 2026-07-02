@@ -487,6 +487,9 @@ function MoveNasModal({ item, nasOptions, onClose, onMove, isPending }: MoveNasM
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // Con el warning force visible, Enter en el select re-dispararía el POST
+    // sin force (redundante). El único camino es "Sí, mover igual" o Cancelar.
+    if (publicIpWarning) return;
     if (!nasId) return;
     await doMove(false);
   }
@@ -535,11 +538,14 @@ function MoveNasModal({ item, nasOptions, onClose, onMove, isPending }: MoveNasM
               </select>
             </div>
             {publicIpWarning && (
-              /* S9.3 paso 2: warning fuerte + confirmación explícita */
+              /* S9.3 paso 2: warning fuerte + confirmación explícita.
+                 Copy HONESTO: el guard del BE es FAIL-CLOSED — el 409
+                 PPPOE_MOVE_PUBLIC_IP salta para TODA IP no clasificada
+                 positivamente como CGNAT (pública O de un pool sin cargar). */
               <div className={styles.publicIpWarning} role="alert">
-                <strong>Este servicio tiene IP PÚBLICA fija (negocio).</strong>{' '}
-                Moverlo la reemplaza por una IP CGNAT del destino — su IP pública se libera.
-                ¿Continuar?
+                <strong>Este servicio tiene una IP pública fija o no clasificada como CGNAT.</strong>{' '}
+                Moverlo la reemplazará por una IP CGNAT del pool del NAS destino
+                (si era pública, se libera). ¿Continuar?
               </div>
             )}
             {error && (

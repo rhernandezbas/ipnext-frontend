@@ -37,6 +37,17 @@ function parseTrigger(v: string | null): PppoeNasMoveTrigger | undefined {
   return v === 'manual' || v === 'auto' ? v : undefined;
 }
 
+/**
+ * Lee y VALIDA la página de la URL (mismo espíritu que parseOutcome).
+ * Basura (`?mv_page=abc`), cero o negativos → undefined: la page cae a 1 en
+ * vez de propagar NaN/0 a la query y a <Pagination currentPage={NaN}>.
+ */
+function parsePage(v: string | null): number | undefined {
+  if (v == null) return undefined;
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0 ? n : undefined;
+}
+
 export interface NasMovesFilter {
   outcome?: PppoeNasMoveOutcome;
   trigger?: PppoeNasMoveTrigger;
@@ -57,7 +68,7 @@ export function useNasMovesFilterUrl(): NasMovesFilterUrlResult {
     outcome:  parseOutcome(searchParams.get(k('outcome'))),
     trigger:  parseTrigger(searchParams.get(k('trigger'))),
     username: searchParams.get(k('username')) ?? undefined,
-    page:     searchParams.get(k('page')) ? Number(searchParams.get(k('page'))) : undefined,
+    page:     parsePage(searchParams.get(k('page'))),
   };
 
   const setFilter = useCallback(
@@ -72,7 +83,7 @@ export function useNasMovesFilterUrl(): NasMovesFilterUrlResult {
             outcome:  'outcome'  in patch ? patch.outcome  : parseOutcome(prev.get(k('outcome'))),
             trigger:  'trigger'  in patch ? patch.trigger  : parseTrigger(prev.get(k('trigger'))),
             username: 'username' in patch ? patch.username : (prev.get(k('username')) ?? undefined),
-            page:     'page'     in patch ? patch.page     : (prev.get(k('page')) ? Number(prev.get(k('page'))) : undefined),
+            page:     'page'     in patch ? patch.page     : parsePage(prev.get(k('page'))),
           };
 
           const setOrDelete = (key: string, value?: string) => {

@@ -35,6 +35,11 @@ export function mapPppoeMoveError(err: unknown): string {
       return 'El pool del NAS destino no tiene IPs libres.';
     case 'NO_POOL_FOR_NAS_TYPE':
       return 'El NAS destino no tiene pool CGNAT configurado.';
+    // 404s: mensaje propio en español — el `error` crudo del BE viene en inglés.
+    case 'PPPOE_NOT_FOUND':
+      return 'El servicio PPPoE ya no existe (¿fue dado de baja?).';
+    case 'NAS_NOT_FOUND':
+      return 'El NAS destino ya no existe.';
     case 'PPPOE_TERMINATED':
     case 'PPPOE_MOVE_MIXED_NAS_TYPES':
     case 'ORCHESTRATOR_REJECTED':

@@ -292,7 +292,8 @@ export const pppoeApi = {
 
   /**
    * Registro de movimientos de NAS (tab "Movimientos NAS" de la auditoría).
-   * Wire contract D6: { items, total, page, limit }. Gated `pppoe.read`.
+   * Wire contract D6: { items, total, page, limit }. Gated `network.read`
+   * (alineado a los tabs vecinos de la page de auditoría).
    * Los filtros vacíos se omiten del query string.
    */
   async listNasMoveEvents(params: PppoeNasMoveEventsParams = {}): Promise<PaginatedPppoeNasMoveEvents> {

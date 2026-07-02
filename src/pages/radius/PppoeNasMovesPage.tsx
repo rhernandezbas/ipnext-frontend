@@ -55,7 +55,8 @@ function OutcomeBadge({ outcome }: { outcome: PppoeNasMoveOutcome }) {
  * vecinos) + paginado server-side. Permiso: la page /admin/networking/audit ya
  * está gateada por `network.read` a nivel ruta (RequirePermission) — mismo
  * patrón que Logs RADIUS / NE8000 / Errores de auth (sin gate interno); el BE
- * gatea el endpoint con `pppoe.read` (defensa en profundidad).
+ * gatea el endpoint con `network.read` (defensa en profundidad, mismo permiso
+ * que los 3 tabs vecinos).
  */
 export default function PppoeNasMovesPage() {
   const { filter, setFilter, clearFilter } = useNasMovesFilterUrl();
