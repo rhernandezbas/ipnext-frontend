@@ -9,7 +9,7 @@
  * suspender/reactivar, baja, revelar contraseña.
  */
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAllPppoe } from '@/hooks/useInternetServices';
 import { useNasServers } from '@/hooks/useNas';
@@ -37,7 +37,7 @@ import { Can } from '@/components/auth/Can';
 import { KebabMenu } from '@/components/atoms/KebabMenu/KebabMenu';
 import type { PppoeServiceListItem, InternetServiceStatus } from '@/types/internetService';
 import { INTERNET_STATUS_LABELS as STATUS_LABELS } from '@/types/internetService';
-import type { PppoeServiceDto } from '@/types/pppoe';
+import type { PppoeServiceDto, IpTypePreference } from '@/types/pppoe';
 import type { UpdatePppoeBody } from '@/api/pppoe.api';
 import { isPppoeMovePublicIpError, mapPppoeMoveError } from '@/utils/mapPppoeMoveError';
 import styles from './PppoeManagementTab.module.css';
@@ -57,6 +57,19 @@ const PAGE_SIZE = 25;
 const BULK_SELECTION_CAP = 200;
 
 const STATUS_OPTIONS: InternetServiceStatus[] = ['active', 'reduced', 'blocked', 'baja', 'inactive'];
+
+/**
+ * Sentinel del selector NAS del modal de crear para la pre-provisión SIN router
+ * (pppoe-preprovision): el submit va sin `nasId` y el watcher adopta el servicio
+ * cuando el cliente conecta. No colisiona con ids reales de NAS.
+ */
+const NO_ROUTER_VALUE = '__no_router__';
+
+/**
+ * Query param (namespace del tab PPPoE) del filtro rápido "Pendientes".
+ * Round-trip en URL: recargar/compartir el link restaura el filtro.
+ */
+const PENDING_FILTER_PARAM = 'pppoe_pending';
 
 // ── Inline icons ──────────────────────────────────────────────────────────────
 type IcoProps = { className?: string };
@@ -160,8 +173,10 @@ interface CreateModalProps {
   onCreate: (body: {
     username: string;
     password: string;
-    nasId: string;
     plan: string;
+    ipTypePreference: IpTypePreference;
+    /** Ausente = pre-provisión sin router (auto-instalación). */
+    nasId?: string;
     framedIp?: string;
     ipMode?: 'fixed' | 'pool';
   }) => Promise<void>;
@@ -169,26 +184,39 @@ interface CreateModalProps {
 }
 
 function CreatePppoeModal({ nasOptions, planOptions, onClose, onCreate, isPending }: CreateModalProps) {
+  // S5.4: sin regresión — el flujo con router sigue preseleccionando el primer NAS.
   const [nasId, setNasId] = useState(nasOptions[0]?.id ?? '');
   const [plan, setPlan] = useState(planOptions[0]?.code ?? '');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [ipMode, setIpMode] = useState<'pool' | 'fixed'>('pool');
   const [framedIp, setFramedIp] = useState('');
+  // S5.1: tipo de IP OBLIGATORIO sin preselección — decisión consciente del operador.
+  const [ipType, setIpType] = useState<IpTypePreference | null>(null);
   // F2: error inline para feedback cuando la mutación rechaza
   const [error, setError] = useState<string | null>(null);
 
+  /** Pre-provisión sin router: los campos de IP no aplican (los asigna la adopción). */
+  const isNoRouter = nasId === NO_ROUTER_VALUE;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!ipType) return;
     setError(null);
     try {
       await onCreate({
         username,
         password,
-        nasId,
         plan,
-        ipMode,
-        ...(ipMode === 'fixed' && framedIp ? { framedIp } : {}),
+        ipTypePreference: ipType,
+        // S5.2: sin router el body va SIN nasId/ipMode/framedIp (pre-provisión).
+        ...(isNoRouter
+          ? {}
+          : {
+              nasId,
+              ipMode,
+              ...(ipMode === 'fixed' && framedIp ? { framedIp } : {}),
+            }),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear el PPPoE.');
@@ -203,11 +231,25 @@ function CreatePppoeModal({ nasOptions, planOptions, onClose, onCreate, isPendin
           <div className={styles.formRow}>
             <div className={styles.formGroup}>
               <label htmlFor="create-nas">NAS</label>
-              <select id="create-nas" value={nasId} onChange={e => setNasId(e.target.value)} required aria-label="NAS">
+              <select
+                id="create-nas"
+                value={nasId}
+                onChange={e => setNasId(e.target.value)}
+                required
+                aria-label="NAS"
+                aria-describedby={isNoRouter ? 'create-no-router-hint' : undefined}
+              >
+                {/* S5.2: primera opción — pre-provisión / auto-instalación */}
+                <option value={NO_ROUTER_VALUE}>Sin router — auto-instalación</option>
                 {nasOptions.map(n => (
                   <option key={n.id} value={n.id}>{n.name}</option>
                 ))}
               </select>
+              {isNoRouter && (
+                <p id="create-no-router-hint" className={styles.noRouterHint}>
+                  El sistema asigna el NAS y la IP fija automáticamente cuando el cliente se conecta por primera vez.
+                </p>
+              )}
             </div>
             <div className={styles.formGroup}>
               <label htmlFor="create-plan">Plan</label>
@@ -245,28 +287,67 @@ function CreatePppoeModal({ nasOptions, planOptions, onClose, onCreate, isPendin
               />
             </div>
           </div>
-          <div className={styles.formRow}>
-            <div className={styles.formGroup}>
-              <label htmlFor="create-ipmode">Modo IP</label>
-              <select id="create-ipmode" value={ipMode} onChange={e => setIpMode(e.target.value as 'pool' | 'fixed')} aria-label="Modo IP">
-                <option value="pool">Pool (dinámica)</option>
-                <option value="fixed">Fija</option>
-              </select>
+          {/* S5.1: Tipo de IP — obligatorio, sin preselección */}
+          <div className={styles.formGroup}>
+            <span className={styles.ipTypeLabel}>
+              Tipo de IP <span aria-hidden="true">*</span>
+            </span>
+            <div
+              className={styles.ipTypeToggle}
+              role="group"
+              aria-label="Tipo de IP"
+              aria-describedby={!ipType ? 'create-iptype-hint' : undefined}
+            >
+              <button
+                type="button"
+                className={`${styles.ipTypeBtn} ${ipType === 'cgnat' ? styles.ipTypeBtnActive : ''}`}
+                onClick={() => setIpType('cgnat')}
+                disabled={isPending}
+                aria-pressed={ipType === 'cgnat'}
+              >
+                Privada
+              </button>
+              <button
+                type="button"
+                className={`${styles.ipTypeBtn} ${ipType === 'public' ? styles.ipTypeBtnActive : ''}`}
+                onClick={() => setIpType('public')}
+                disabled={isPending}
+                aria-pressed={ipType === 'public'}
+              >
+                Pública
+              </button>
             </div>
-            {ipMode === 'fixed' && (
-              <div className={styles.formGroup}>
-                <label htmlFor="create-ip">IP fija</label>
-                <input
-                  id="create-ip"
-                  type="text"
-                  value={framedIp}
-                  onChange={e => setFramedIp(e.target.value)}
-                  placeholder="ej. 10.0.0.100"
-                  aria-label="IP fija"
-                />
-              </div>
+            {!ipType && (
+              <p id="create-iptype-hint" className={styles.ipTypeHint}>
+                Elegí el tipo de IP
+              </p>
             )}
           </div>
+          {/* S5.2: sin router los campos de IP se ocultan (no aplican) */}
+          {!isNoRouter && (
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label htmlFor="create-ipmode">Modo IP</label>
+                <select id="create-ipmode" value={ipMode} onChange={e => setIpMode(e.target.value as 'pool' | 'fixed')} aria-label="Modo IP">
+                  <option value="pool">Pool (dinámica)</option>
+                  <option value="fixed">Fija</option>
+                </select>
+              </div>
+              {ipMode === 'fixed' && (
+                <div className={styles.formGroup}>
+                  <label htmlFor="create-ip">IP fija</label>
+                  <input
+                    id="create-ip"
+                    type="text"
+                    value={framedIp}
+                    onChange={e => setFramedIp(e.target.value)}
+                    placeholder="ej. 10.0.0.100"
+                    aria-label="IP fija"
+                  />
+                </div>
+              )}
+            </div>
+          )}
           <div className={styles.modalNote}>
             El contrato se puede asociar después desde la ficha del cliente.
           </div>
@@ -275,7 +356,7 @@ function CreatePppoeModal({ nasOptions, planOptions, onClose, onCreate, isPendin
           )}
           <div className={styles.modalActions}>
             <button type="button" className={styles.btnSecondary} onClick={onClose}>Cancelar</button>
-            <button type="submit" className={styles.btnPrimary} disabled={isPending}>
+            <button type="submit" className={styles.btnPrimary} disabled={isPending || !ipType}>
               {isPending ? 'Creando…' : 'Crear'}
             </button>
           </div>
@@ -867,6 +948,26 @@ export function PppoeManagementTab() {
   const [status, setStatus] = useState<InternetServiceStatus | ''>('');
   const [page, setPage] = useState(1);
 
+  // ── S5.3: filtro rápido "Pendientes" (nasId null = pre-provisión sin instalar).
+  // Vive en la URL (param namespaced del tab) para round-trip: recargar o
+  // compartir el link restaura el filtro. Los writes preservan los params ajenos.
+  // NOTA wire: el GET /pppoe no expone un param de pendientes — el filtro es
+  // client-side sobre la página cargada (los pendientes derivan de nas null).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pendingOnly = searchParams.get(PENDING_FILTER_PARAM) === '1';
+
+  function togglePendingFilter() {
+    setSearchParams(
+      prev => {
+        const next = new URLSearchParams(prev);
+        if (next.get(PENDING_FILTER_PARAM) === '1') next.delete(PENDING_FILTER_PARAM);
+        else next.set(PENDING_FILTER_PARAM, '1');
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
   // ── F2: error state para kebab actions (deactivate/suspend/reactivate)
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -963,6 +1064,10 @@ export function PppoeManagementTab() {
   const total = listData?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // S5.3: con el chip "Pendientes" activo solo se muestran las filas sin NAS
+  // (pendientes de instalación). El filtro es sobre la página cargada.
+  const visibleItems = pendingOnly ? items.filter(it => it.nasId == null) : items;
+
   // Filter plans: enabled + not Corte category
   const activePlans = plans.filter(p => p.status === 'enabled' && p.category !== 'Corte');
 
@@ -1003,7 +1108,9 @@ export function PppoeManagementTab() {
   }
 
   // ── 5.4: handlers de selección (gateados por canManage) ──
-  const currentPageIds = items.map(it => it.id);
+  // Sobre las filas VISIBLES: con el chip "Pendientes" activo, "seleccionar la
+  // página" selecciona solo lo que el operador está viendo.
+  const currentPageIds = visibleItems.map(it => it.id);
   const allPageSelected =
     currentPageIds.length > 0 && currentPageIds.every(id => selected.has(id));
 
@@ -1290,6 +1397,17 @@ export function PppoeManagementTab() {
           ))}
         </select>
 
+        {/* S5.3: filtro rápido de pendientes de instalación (round-trip en URL) */}
+        <button
+          type="button"
+          className={styles.chipPending}
+          onClick={togglePendingFilter}
+          aria-pressed={pendingOnly}
+          title="Mostrar solo los PPPoE pendientes de instalación (pre-provisión sin router)"
+        >
+          Pendientes
+        </button>
+
         <span className={styles.toolbarRight}>
           {total > 0 ? `${total} servicio${total === 1 ? '' : 's'}` : ''}
           {isFetching && !isLoading ? ' · actualizando…' : ''}
@@ -1473,17 +1591,25 @@ export function PppoeManagementTab() {
                   <div role="status" className={styles.skeleton} aria-label="Cargando…" />
                 </td>
               </tr>
-            ) : items.length === 0 ? (
+            ) : visibleItems.length === 0 ? (
               <tr>
                 <td colSpan={canManage ? 10 : 7}>
                   <div className={styles.empty}>
                     <IconPppoe className={styles.emptyIcon} />
-                    <h3 className={styles.emptyTitle}>No se encontraron servicios PPPoE.</h3>
-                    <p>Probá ajustando los filtros o creá un servicio nuevo.</p>
+                    <h3 className={styles.emptyTitle}>
+                      {pendingOnly && items.length > 0
+                        ? 'No hay PPPoE pendientes de instalación en esta página.'
+                        : 'No se encontraron servicios PPPoE.'}
+                    </h3>
+                    <p>
+                      {pendingOnly && items.length > 0
+                        ? 'Cambiá de página o desactivá el filtro "Pendientes".'
+                        : 'Probá ajustando los filtros o creá un servicio nuevo.'}
+                    </p>
                   </div>
                 </td>
               </tr>
-            ) : items.map(item => (
+            ) : visibleItems.map(item => (
               <tr
                 key={item.id}
                 className={`${styles.bodyRow}${selected.has(item.id) ? ` ${styles.rowSelected}` : ''}`}
@@ -1551,8 +1677,18 @@ export function PppoeManagementTab() {
                   }
                 </td>
 
-                {/* NAS */}
-                <td className={styles.muted}>{item.nasName ?? item.nasId}</td>
+                {/* NAS — null = pendiente de instalación (pre-provisión sin router) */}
+                <td className={styles.muted}>
+                  {item.nasId == null ? (
+                    <span className={styles.pendingNasCell}>
+                      {/* Mismo patrón a11y que NoData de GestionRedPage: el lector anuncia "Sin NAS asignado" */}
+                      <span role="img" aria-label="Sin NAS asignado">—</span>
+                      <span className={styles.badgePendingInstall}>Pendiente de instalación</span>
+                    </span>
+                  ) : (
+                    item.nasName ?? item.nasId
+                  )}
+                </td>
 
                 {/* Credenciales — F1: solo visible con pppoe.manage */}
                 {canManage && (

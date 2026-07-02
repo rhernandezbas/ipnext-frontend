@@ -6,6 +6,7 @@ import type {
   BulkEnforcementStarted,
   ServiceCutBatch,
   PppoeServiceDto,
+  IpTypePreference,
 } from '@/types/pppoe';
 import type {
   PppoeServiceListResult,
@@ -26,9 +27,15 @@ const CONTRACTS_BASE = '/contracts';
 export interface CreatePppoeBody {
   username: string;
   password: string;
-  nasId: string;
+  /**
+   * AUSENTE = pre-provisión sin router (el watcher lo adopta cuando el cliente
+   * conecta por primera vez). Wire contract pppoe-preprovision.
+   */
+  nasId?: string;
   profile?: string;
   remoteAddress?: string;
+  /** Tipo de IP elegido por el operador — REQUERIDO (422 VALIDATION_ERROR si falta). */
+  ipTypePreference: IpTypePreference;
 }
 
 /**
@@ -40,10 +47,16 @@ export interface CreatePppoeBody {
 export interface CreateStandalonePppoeBody {
   username: string;
   password: string;
-  nasId: string;
+  /**
+   * AUSENTE = pre-provisión sin router (auto-instalación por el watcher).
+   * Wire contract pppoe-preprovision.
+   */
+  nasId?: string;
   plan: string;
   framedIp?: string;
   ipMode?: 'fixed' | 'pool';
+  /** Tipo de IP elegido por el operador — REQUERIDO (422 VALIDATION_ERROR si falta). */
+  ipTypePreference: IpTypePreference;
   /** Asociar a un contrato al crear. Opcional en V1. */
   contractId?: string;
 }

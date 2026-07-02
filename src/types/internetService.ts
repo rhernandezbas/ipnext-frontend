@@ -35,7 +35,8 @@ export interface PppoeServiceListItem {
   status: string;
   /** Plan / profile RADIUS. */
   profile: string | null;
-  nasId: string;
+  /** Null = pendiente de instalación (pre-provisión sin NAS, feature pppoe-preprovision). */
+  nasId: string | null;
   createdBy: string | null;
   /** ISO timestamp. */
   createdAt: string;

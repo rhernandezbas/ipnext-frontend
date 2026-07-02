@@ -274,6 +274,8 @@ describe('CP-4: "Crear PPPoE" se habilita al completar usuario + password + rout
     await user.type(passwordInput, 'secret123');
     await user.selectOptions(routerSelect, 'nas-1');
     await user.selectOptions(planSelect, 'IP-Air-10-5');
+    // Tipo de IP obligatorio (pppoe-preprovision S5.1) — sin preselección
+    await user.click(screen.getByRole('button', { name: 'Privada' }));
 
     const btn = screen.getByRole('button', { name: /Crear PPPoE/i });
     expect(btn).not.toBeDisabled();
@@ -298,6 +300,8 @@ describe('CP-5: el submit envía profile=plan.code (no el nombre)', () => {
     await user.type(passwordInput, 'secret123');
     await user.selectOptions(routerSelect, 'nas-1');
     await user.selectOptions(planSelect, 'IP-Air-10-5');
+    // Tipo de IP obligatorio (pppoe-preprovision S5.1)
+    await user.click(screen.getByRole('button', { name: 'Privada' }));
 
     await user.click(screen.getByRole('button', { name: /Crear PPPoE/i }));
 
@@ -367,6 +371,8 @@ describe('CP-7: fallback a <input> de texto requerido si usePlans falla', () => 
     await user.type(passwordInput, 'secret123');
     await user.selectOptions(routerSelect, 'nas-1');
     await user.type(profileInput, 'PLAN-MANUAL');
+    // Tipo de IP obligatorio (pppoe-preprovision S5.1)
+    await user.click(screen.getByRole('button', { name: 'Privada' }));
 
     const btn = screen.getByRole('button', { name: /Crear PPPoE/i });
     expect(btn).not.toBeDisabled();

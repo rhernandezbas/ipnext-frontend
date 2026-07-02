@@ -219,6 +219,14 @@ function CollapsibleSection({
 
 // ── Crear PPPoE ──────────────────────────────────────────────────────────────
 
+/**
+ * Sentinel del selector de Router para la pre-provisión SIN router
+ * (pppoe-preprovision): el submit va sin `nasId` y el watcher adopta el
+ * servicio cuando el cliente conecta por primera vez. No colisiona con ids
+ * reales de NAS (cuids/uuids).
+ */
+const NO_ROUTER_VALUE = '__no_router__';
+
 /** Returns a human-readable error hint for next-free-ip failures. */
 function ipFetchHint(err: unknown): string {
   const status = errorStatus(err);
@@ -260,7 +268,10 @@ function CreatePppoeForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const ipQuery = useNextFreeIp(form.nasId || null, ipType);
+  /** Pre-provisión sin router: no hay IP remota que sugerir ni enviar. */
+  const isNoRouter = form.nasId === NO_ROUTER_VALUE;
+
+  const ipQuery = useNextFreeIp(isNoRouter ? null : (form.nasId || null), ipType);
 
   /**
    * Single effect that runs whenever the selection (nasId, ipType) OR the query
@@ -296,15 +307,23 @@ function CreatePppoeForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (create.isPending) return;
+    // S5.1: el tipo de IP es una decisión consciente del operador — sin tipo no hay submit.
+    if (!ipType) return;
     setError(null);
     setSuccess(false);
     try {
       await create.mutateAsync({
         username: form.username.trim(),
         password: form.password,
-        nasId: form.nasId,
         profile: form.profile.trim() || undefined,
-        remoteAddress: form.remoteAddress.trim() || undefined,
+        ipTypePreference: ipType,
+        // S5.2: sin router el body va SIN nasId ni remoteAddress (pre-provisión).
+        ...(isNoRouter
+          ? {}
+          : {
+              nasId: form.nasId,
+              remoteAddress: form.remoteAddress.trim() || undefined,
+            }),
       });
       setSuccess(true);
       setForm({ username: '', password: '', nasId: '', profile: '', remoteAddress: '' });
@@ -365,17 +384,35 @@ function CreatePppoeForm({
               id="pppoe-nas"
               className={styles.select}
               value={form.nasId}
-              onChange={(e) => setForm((f) => ({ ...f, nasId: e.target.value }))}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Sin router no hay IP remota: se limpia para que un valor viejo
+                // (tipeado o auto-asignado) no reaparezca al volver a un router.
+                setForm((f) => ({
+                  ...f,
+                  nasId: value,
+                  ...(value === NO_ROUTER_VALUE ? { remoteAddress: '' } : {}),
+                }));
+                if (value === NO_ROUTER_VALUE) setIpAutoFilled(false);
+              }}
               required
               disabled={create.isPending}
+              aria-describedby={isNoRouter ? 'pppoe-no-router-hint' : undefined}
             >
               <option value="">Elegí un router…</option>
+              {/* S5.2: primera opción del selector — pre-provisión / auto-instalación */}
+              <option value={NO_ROUTER_VALUE}>Sin router — auto-instalación</option>
               {nasServers.map((nas) => (
                 <option key={nas.id} value={nas.id}>
                   {nas.name}
                 </option>
               ))}
             </select>
+            {isNoRouter && (
+              <p id="pppoe-no-router-hint" className={styles.fieldHint}>
+                El sistema asigna el NAS y la IP fija automáticamente cuando el cliente se conecta por primera vez.
+              </p>
+            )}
           </div>
           <div className={styles.field}>
             <label className={styles.fieldLabel} htmlFor="pppoe-profile">
@@ -421,10 +458,19 @@ function CreatePppoeForm({
             )}
           </div>
 
-          {/* Tipo de IP — toggle Privada / Pública */}
+          {/* Tipo de IP — toggle Privada / Pública. S5.1: OBLIGATORIO, sin
+              preselección; el hint accesible gatea el submit hasta que el
+              operador decida conscientemente. */}
           <div className={styles.field}>
-            <span className={styles.fieldLabel}>Tipo de IP</span>
-            <div className={styles.ipTypeToggle} role="group" aria-label="Tipo de IP">
+            <span className={styles.fieldLabel}>
+              Tipo de IP <span aria-hidden="true">*</span>
+            </span>
+            <div
+              className={styles.ipTypeToggle}
+              role="group"
+              aria-label="Tipo de IP"
+              aria-describedby={!ipType ? 'pppoe-iptype-hint' : undefined}
+            >
               <button
                 type="button"
                 className={`${styles.ipTypeBtn} ${ipType === 'cgnat' ? styles.ipTypeBtnActive : ''}`}
@@ -444,9 +490,16 @@ function CreatePppoeForm({
                 Pública
               </button>
             </div>
+            {!ipType && (
+              <p id="pppoe-iptype-hint" className={styles.fieldHint}>
+                Elegí el tipo de IP
+              </p>
+            )}
           </div>
 
-          {/* IP remota — con feedback de auto-asignación */}
+          {/* IP remota — con feedback de auto-asignación. Oculta en pre-provisión
+              sin router (S5.2): no aplica, la IP la asigna la adopción automática. */}
+          {!isNoRouter && (
           <div className={styles.field}>
             <label className={styles.fieldLabel} htmlFor="pppoe-remote-address">
               IP remota
@@ -486,6 +539,7 @@ function CreatePppoeForm({
               </span>
             )}
           </div>
+          )}
         </div>
         {error && (
           <div className={`${styles.banner} ${styles.bannerError}`} style={{ marginTop: 'var(--space-4)' }}>
@@ -506,7 +560,9 @@ function CreatePppoeForm({
               !form.username.trim() ||
               !form.password ||
               !form.nasId ||
-              !form.profile
+              !form.profile ||
+              // S5.1: sin tipo de IP elegido no hay submit (decisión consciente).
+              !ipType
             }
           >
             {create.isPending ? 'Creando…' : 'Crear PPPoE'}
@@ -826,9 +882,13 @@ function ActivePppoeView({
   const [editForm, setEditForm] = useState({
     password: '',
     remoteAddress: pppoe.remoteAddress ?? '',
-    nasId: pppoe.nasId,
+    // nasId null = pendiente de instalación → el select arranca sin router.
+    nasId: pppoe.nasId ?? '',
   });
   const [editError, setEditError] = useState<string | null>(null);
+
+  /** Pendiente de instalación: pre-provisión sin NAS aún no adoptada por el watcher. */
+  const isPendingInstall = pppoe.nasId === null;
 
   // ── Auto-asignación de IP en el form de Editar ─────────────────────────────
   const [editIpType, setEditIpType] = useState<IpType | null>(null);
@@ -865,7 +925,8 @@ function ActivePppoeView({
   const [enforceModal, setEnforceModal] = useState<EnforcementAction | null>(null);
   const [enforceError, setEnforceError] = useState<string | null>(null);
 
-  function nasName(id: string): string {
+  function nasName(id: string | null): string {
+    if (!id) return '—';
     return nasServers.find((n) => n.id === id)?.name ?? id;
   }
 
@@ -874,8 +935,9 @@ function ActivePppoeView({
     if (update.isPending || move.isPending) return;
     setEditError(null);
     try {
-      const nasChanged = editForm.nasId !== pppoe.nasId;
-      if (nasChanged) {
+      // Con nasId null (pendiente), elegir un router acá = adopción manual (move).
+      const nasChanged = editForm.nasId !== (pppoe.nasId ?? '');
+      if (nasChanged && editForm.nasId) {
         await move.mutateAsync({ id: pppoe.id, nasId: editForm.nasId });
       }
       const updateBody: { password?: string; remoteAddress?: string } = {};
@@ -933,8 +995,16 @@ function ActivePppoeView({
     setEnforceError(null);
     try {
       await enforceForContract.mutateAsync({ id: pppoe.id, action, reason });
-    } catch {
-      setEnforceError('No se pudo aplicar el cambio. Revisá la conexión con el router e intentá de nuevo.');
+    } catch (err) {
+      const e = err as { response?: { status?: number; data?: { code?: string } } };
+      // Wire contract pppoe-preprovision: enforce sobre un pendiente → 409 tipado.
+      if (e?.response?.status === 409 && e.response.data?.code === 'PPPOE_PENDING_INSTALL') {
+        setEnforceError(
+          'Este servicio está pendiente de instalación: no se puede operar el corte hasta que el cliente se conecte y el sistema le asigne un router.',
+        );
+      } else {
+        setEnforceError('No se pudo aplicar el cambio. Revisá la conexión con el router e intentá de nuevo.');
+      }
     }
   }
 
@@ -952,6 +1022,10 @@ function ActivePppoeView({
               <span className={styles.badgeActive}>Activo</span>
             ) : (
               <span className={styles.badgeInactive}>Desactivado</span>
+            )}
+            {/* S5.3: pre-provisión sin NAS aún no adoptada — familia warning */}
+            {isPendingInstall && (
+              <span className={styles.badgePending}>Pendiente de instalación</span>
             )}
             {pppoe.enforcedState === 'reduced' && (
               <span className={styles.badgeReduced}>Reducido</span>
@@ -1036,7 +1110,7 @@ function ActivePppoeView({
                   setEditForm({
                     password: '',
                     remoteAddress: pppoe.remoteAddress ?? '',
-                    nasId: pppoe.nasId,
+                    nasId: pppoe.nasId ?? '',
                   });
                   setEditing(true);
                 }}
@@ -1149,6 +1223,10 @@ function ActivePppoeView({
                       onChange={(e) => setEditForm((f) => ({ ...f, nasId: e.target.value }))}
                       disabled={isPending}
                     >
+                      {/* Pendiente de instalación: sin NAS todavía — elegir uno acá = adopción manual */}
+                      {isPendingInstall && (
+                        <option value="">Sin router (pendiente de instalación)</option>
+                      )}
                       {nasServers.map((nas) => (
                         <option key={nas.id} value={nas.id}>
                           {nas.name}

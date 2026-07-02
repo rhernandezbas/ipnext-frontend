@@ -411,6 +411,8 @@ describe('PppoeManagementTab — modal Crear PPPoE', () => {
     await userEvent.type(within(dialog).getByLabelText(/usuario/i), 'nuevo01');
     // Fill password
     await userEvent.type(within(dialog).getByLabelText(/contraseña/i), 'pass123');
+    // Tipo de IP obligatorio (pppoe-preprovision S5.1) — sin preselección
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Privada' }));
 
     // Submit
     await userEvent.click(within(dialog).getByRole('button', { name: /^crear$/i }));
@@ -422,6 +424,7 @@ describe('PppoeManagementTab — modal Crear PPPoE', () => {
           password: 'pass123',
           nasId: 'nas-1',
           plan: 'IP-5M',
+          ipTypePreference: 'cgnat',
         }),
       );
     });
@@ -439,6 +442,8 @@ describe('PppoeManagementTab — modal Crear PPPoE', () => {
     await userEvent.selectOptions(within(dialog).getByLabelText(/plan/i), 'IP-5M');
     await userEvent.type(within(dialog).getByLabelText(/usuario/i), 'standalone01');
     await userEvent.type(within(dialog).getByLabelText(/contraseña/i), 'pass456');
+    // Tipo de IP obligatorio (pppoe-preprovision S5.1)
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Privada' }));
 
     await userEvent.click(within(dialog).getByRole('button', { name: /^crear$/i }));
 
@@ -610,6 +615,8 @@ describe('PppoeManagementTab — F2: error feedback en mutaciones', () => {
     const dialog = screen.getByRole('dialog');
     await userEvent.type(within(dialog).getByLabelText(/usuario/i), 'u1');
     await userEvent.type(within(dialog).getByLabelText(/contraseña/i), 'p1');
+    // Tipo de IP obligatorio (pppoe-preprovision S5.1) — sin él el submit está gateado
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Privada' }));
     await userEvent.click(within(dialog).getByRole('button', { name: /^crear$/i }));
     await waitFor(() => expect(within(dialog).getByRole('alert')).toBeInTheDocument());
     // modal debe permanecer abierto

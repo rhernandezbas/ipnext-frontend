@@ -56,6 +56,7 @@ describe('usePppoe — F7: invalidación de unassigned', () => {
       password: 'pass',
       nasId: 'nas-1',
       plan: 'IP-5M',
+      ipTypePreference: 'cgnat',
     });
 
     await waitFor(() => {

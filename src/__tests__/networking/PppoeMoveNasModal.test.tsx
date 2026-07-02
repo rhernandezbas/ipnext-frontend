@@ -108,6 +108,7 @@ const MOVED_DTO: PppoeServiceDto = {
   contractId: 'contract-1',
   createdAt: '2026-01-01T00:00:00Z',
   ipMode: 'fixed',
+  ipTypePreference: 'cgnat',
 };
 
 // ── helpers ───────────────────────────────────────────────────────────────────

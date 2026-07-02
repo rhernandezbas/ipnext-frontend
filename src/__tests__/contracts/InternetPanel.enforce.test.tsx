@@ -87,6 +87,7 @@ const BASE_PPPOE: PppoeServiceDto = {
   contractId: 'contract-1',
   createdAt: '2026-06-01T00:00:00Z',
   ipMode: 'fixed',
+  ipTypePreference: 'cgnat',
 };
 
 const CONTRACT_SERVICES = [{ id: 'svc-1', name: 'INTERNET', status: 'active' }];

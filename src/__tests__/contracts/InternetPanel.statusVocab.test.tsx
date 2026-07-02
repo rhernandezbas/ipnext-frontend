@@ -146,6 +146,7 @@ const ENABLED_PPPOE: PppoeServiceDto = {
   contractId: 'contract-1',
   createdAt: '2026-06-01T00:00:00Z',
   ipMode: 'fixed',
+  ipTypePreference: 'cgnat',
 };
 
 const DISABLED_PPPOE: PppoeServiceDto = {

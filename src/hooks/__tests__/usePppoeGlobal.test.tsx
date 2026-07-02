@@ -67,6 +67,7 @@ const MOCK_DTO: PppoeServiceDto = {
   contractId: null,
   createdAt: '2026-01-01T00:00:00.000Z',
   ipMode: 'pool',
+  ipTypePreference: 'cgnat',
 };
 
 // ── wrapper factory ───────────────────────────────────────────────────────────
@@ -140,6 +141,7 @@ describe('useCreatePppoeStandalone', () => {
         password: 'pass123',
         nasId: 'nas-1',
         plan: 'IP-5M',
+        ipTypePreference: 'cgnat',
       });
     });
 
@@ -148,6 +150,7 @@ describe('useCreatePppoeStandalone', () => {
       password: 'pass123',
       nasId: 'nas-1',
       plan: 'IP-5M',
+      ipTypePreference: 'cgnat',
     });
   });
 
@@ -163,7 +166,7 @@ describe('useCreatePppoeStandalone', () => {
 
     await act(async () => {
       await result.current.mutateAsync({
-        username: 'x', password: 'y', nasId: 'n', plan: 'p',
+        username: 'x', password: 'y', nasId: 'n', plan: 'p', ipTypePreference: 'cgnat',
       });
     });
 

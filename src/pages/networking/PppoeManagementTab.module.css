@@ -753,3 +753,129 @@
     animation: none !important;
   }
 }
+
+/* ── pre-provisión / auto-instalación (pppoe-preprovision) ───────────────────── */
+
+/* Chip de filtro rápido "Pendientes" — familia warning.
+   Contraste: #92400e sobre #fff ≈ 8.4:1; activo #fffbeb sobre #92400e ≈ 7.5:1 (AA). */
+.chipPending {
+  padding: 9px 15px;
+  min-height: 44px;
+  background: transparent;
+  color: #92400e;
+  border: 1px solid var(--gr-cta);
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+
+.chipPending:hover { background: var(--gr-cta-soft); }
+
+.chipPending[aria-pressed='true'] {
+  background: #92400e;
+  border-color: #92400e;
+  color: #fffbeb;
+}
+
+.chipPending:focus-visible {
+  outline: 2px solid var(--gr-primary-2);
+  outline-offset: 2px;
+}
+
+/* Celda NAS de una fila pendiente: em dash + badge */
+.pendingNasCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Badge "Pendiente de instalación" — familia warning.
+   Contraste: #92400e sobre #fffbeb ≈ 7.5:1 (WCAG AA). */
+.badgePendingInstall {
+  display: inline-flex;
+  align-items: center;
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid var(--gr-cta);
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* ── Toggle "Tipo de IP" del modal de crear (espejo del form del InternetPanel) ── */
+.ipTypeLabel {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--gr-muted);
+  margin-bottom: 6px;
+}
+
+.ipTypeToggle {
+  display: inline-flex;
+  border: 1px solid var(--gr-border-2);
+  border-radius: 8px;
+  overflow: hidden;
+  width: fit-content;
+}
+
+.ipTypeBtn {
+  min-height: 44px;
+  padding: 0 16px;
+  background: var(--gr-surface);
+  color: var(--gr-muted);
+  border: none;
+  border-right: 1px solid var(--gr-border-2);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+
+.ipTypeBtn:last-child { border-right: none; }
+
+.ipTypeBtn:hover:not(:disabled) {
+  background: var(--gr-slate-soft);
+  color: var(--gr-text);
+}
+
+.ipTypeBtn:focus-visible {
+  outline: 2px solid var(--gr-primary-2);
+  outline-offset: -2px;
+}
+
+.ipTypeBtnActive {
+  background: var(--gr-primary);
+  color: #fff;
+}
+
+.ipTypeBtnActive:hover:not(:disabled) {
+  background: #1b379b;
+  color: #fff;
+}
+
+.ipTypeBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Hint del tipo de IP pendiente de elegir (gatea el submit) */
+.ipTypeHint {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: #92400e;
+}
+
+/* Hint de la opción "Sin router — auto-instalación" */
+.noRouterHint {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--gr-muted);
+  line-height: 1.45;
+}

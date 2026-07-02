@@ -42,6 +42,7 @@ const PPPOE_DTO: PppoeServiceDto = {
   contractId: 'contract-1',
   createdAt: '2026-06-17T00:00:00.000Z',
   ipMode: 'pool',
+  ipTypePreference: 'cgnat',
 };
 
 beforeEach(() => vi.clearAllMocks());
@@ -78,6 +79,7 @@ describe('useCreatePppoe', () => {
         username: 'cliente01',
         password: 'secret',
         nasId: 'nas-1',
+        ipTypePreference: 'cgnat',
       });
       expect(out).toEqual(PPPOE_DTO);
     });
@@ -86,6 +88,7 @@ describe('useCreatePppoe', () => {
       username: 'cliente01',
       password: 'secret',
       nasId: 'nas-1',
+      ipTypePreference: 'cgnat',
     });
   });
 
@@ -109,6 +112,7 @@ describe('useCreatePppoe', () => {
         username: 'cliente01',
         password: 'secret',
         nasId: 'nas-1',
+        ipTypePreference: 'cgnat',
       });
     });
 

@@ -5,6 +5,14 @@ export type EnforcementAction = 'reduce' | 'block' | 'restore';
 export type EnforcedState = 'active' | 'reduced' | 'blocked';
 
 /**
+ * Tipo de IP elegido por el operador al crear el PPPoE (pppoe-preprovision):
+ *   'cgnat'  → Privada (pool CGNAT)
+ *   'public' → Pública (pool público)
+ * Persistido por el BE y usado por FindFreeIp / la adopción automática.
+ */
+export type IpTypePreference = 'cgnat' | 'public';
+
+/**
  * Objetivo de un corte masivo / preview:
  *   'debtors'           → deudores (Client.status='late')
  *   { clientStatus }    → cualquier estado (ej. 'baja')
@@ -65,11 +73,14 @@ export interface PppoeServiceDto {
   remoteAddress: string | null;
   status: string;
   enforcedState: EnforcedState;
-  nasId: string;
+  /** Null = pendiente de instalación (pre-provisión sin router; el watcher lo adopta al conectar). */
+  nasId: string | null;
   contractId: string | null;
   createdAt: string;
   /** Modo de asignación de IP: 'pool' = el NAS asigna desde su pool; 'fixed' = IP fija pinneada. */
   ipMode: 'pool' | 'fixed';
+  /** Tipo de IP elegido al crear — persistido (wire contract pppoe-preprovision). */
+  ipTypePreference: IpTypePreference;
 }
 
 // ── Etiquetas UI ──────────────────────────────────────────────────────────────

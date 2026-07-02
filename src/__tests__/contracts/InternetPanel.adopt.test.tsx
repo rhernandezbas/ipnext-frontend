@@ -58,18 +58,19 @@ const ACTIVE_PPPOE: PppoeServiceDto = {
   contractId: 'contract-1',
   createdAt: '2026-06-01T00:00:00Z',
   ipMode: 'fixed',
+  ipTypePreference: 'cgnat',
 };
 
 const ORPHANS: PppoeServiceDto[] = [
   {
     id: 'orphan-1', username: 'juan.perez', profile: '20M', remoteAddress: '10.0.0.1',
     status: 'active', enforcedState: 'active', nasId: 'nas-1', contractId: null,
-    createdAt: '2026-06-01T00:00:00Z', ipMode: 'pool',
+    createdAt: '2026-06-01T00:00:00Z', ipMode: 'pool', ipTypePreference: 'cgnat',
   },
   {
     id: 'orphan-2', username: 'maria.gomez', profile: null, remoteAddress: null,
     status: 'active', enforcedState: 'active', nasId: 'nas-1', contractId: null,
-    createdAt: '2026-06-01T00:00:00Z', ipMode: 'pool',
+    createdAt: '2026-06-01T00:00:00Z', ipMode: 'pool', ipTypePreference: 'cgnat',
   },
 ];
 

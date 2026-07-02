@@ -17,6 +17,8 @@ import type { NasServer } from '@/types/nas';
 import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
 import type { RbacUserWithRolesDto } from '@/types/rbacUser';
 import type { TicketArea } from '@/types/ticketArea';
+import type { PppoeServiceDto } from '@/types/pppoe';
+import type { PppoeServiceListItem } from '@/types/internetService';
 import { vi } from 'vitest';
 
 // ─── WorkflowStage ───────────────────────────────────────────────────────────
@@ -187,6 +189,57 @@ export function makeNasServer(overrides: Partial<NasServer> = {}): NasServer {
     lastSeen: null,
     clientCount: 0,
     description: '',
+    ...overrides,
+  };
+}
+
+// ─── PppoeServiceDto ─────────────────────────────────────────────────────────
+
+/**
+ * DTO de un PPPoE (gestión por contrato / global). `nasId: null` = pendiente
+ * de instalación (pre-provisión sin router, feature pppoe-preprovision).
+ */
+export function makePppoeServiceDto(overrides: Partial<PppoeServiceDto> = {}): PppoeServiceDto {
+  return {
+    id: 'pppoe-1',
+    username: 'cliente01',
+    profile: 'IP-5M',
+    remoteAddress: '100.64.0.10',
+    status: 'enabled',
+    enforcedState: 'active',
+    nasId: 'nas-1',
+    contractId: 'contract-1',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    ipMode: 'fixed',
+    ipTypePreference: 'cgnat',
+    ...overrides,
+  };
+}
+
+// ─── PppoeServiceListItem ────────────────────────────────────────────────────
+
+/**
+ * Ítem del listado global de PPPoE (tab Gestión de Red). `nasId: null` +
+ * `nasName: null` = fila pendiente de instalación.
+ */
+export function makePppoeListItem(overrides: Partial<PppoeServiceListItem> = {}): PppoeServiceListItem {
+  return {
+    id: 'pppoe-1',
+    username: 'cliente01',
+    clientId: 'client-1',
+    customerName: 'Juan Pérez',
+    status: 'active',
+    profile: 'IP-5M',
+    nasId: 'nas-1',
+    nasName: 'NAS Central',
+    nasType: 'radius_orchestrator',
+    contractId: 'contract-1',
+    remoteAddress: '100.64.0.10',
+    ipMode: 'pool',
+    enforcedState: 'active',
+    callerId: null,
+    createdBy: 'admin',
+    createdAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
   };
 }

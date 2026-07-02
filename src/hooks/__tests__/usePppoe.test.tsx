@@ -107,7 +107,7 @@ describe('useEnforcePppoe', () => {
     const dto: PppoeServiceDto = {
       id: 'a', username: 'd1', profile: 'IP-Air', remoteAddress: null,
       status: 'enabled', enforcedState: 'reduced', nasId: '1', contractId: 'c1',
-      createdAt: '2026-06-17T00:00:00.000Z', ipMode: 'pool',
+      createdAt: '2026-06-17T00:00:00.000Z', ipMode: 'pool', ipTypePreference: 'cgnat',
     };
     vi.mocked(pppoeApi.enforce).mockResolvedValue(dto);
     const { result } = renderHook(() => useEnforcePppoe(), { wrapper });
