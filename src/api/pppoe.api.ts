@@ -77,6 +77,16 @@ export interface BulkChangePlanResult {
   failed: { id: string; username: string; error: string }[];
 }
 
+/**
+ * Resultado de GET /api/pppoe/ids: solo ids que matchean el filtro (liviano,
+ * sin proyección de cliente/enriquecimiento). `ids.length === total` siempre
+ * (el endpoint no pagina).
+ */
+export interface PppoeIdsResult {
+  ids: string[];
+  total: number;
+}
+
 /** Credenciales reveladas bajo demanda (frontera de seguridad: NUNCA viajan en el DTO de lista/detalle). */
 export interface PppoeCredentials {
   username: string;
@@ -107,6 +117,25 @@ export const pppoeApi = {
     if (filter.limit !== undefined) params.limit = filter.limit;
     if (filter.includeUnassigned !== undefined) params.includeUnassigned = filter.includeUnassigned ? 'true' : 'false';
     const r = await axiosClient.get<PppoeServiceListResult>(BASE, { params });
+    return r.data;
+  },
+
+  /**
+   * Ids de TODOS los servicios PPPoE que matchean un filtro activo (SIN paginar),
+   * para congelar la selección del bulk masivo (pppoe-bulk-select-filter v2).
+   * GET /pppoe/ids — gated `pppoe.manage` (NO `pppoe.read`: solo alimenta el bulk).
+   * MISMOS filtros que `list()` (search/status/nasId/includeUnassigned), SIN
+   * page/limit (el endpoint no pagina). El BE exige AL MENOS un filtro de
+   * narrowing (search/status/nasId) — sin ninguno responde 400 FILTER_REQUIRED.
+   * Los filtros vacíos se omiten del query string (mismo patrón que `list`).
+   */
+  async listIds(filter: PppoeServiceListFilter = {}): Promise<PppoeIdsResult> {
+    const params: Record<string, string> = {};
+    if (filter.search && filter.search.trim()) params.search = filter.search.trim();
+    if (filter.status) params.status = filter.status;
+    if (filter.nasId) params.nasId = filter.nasId;
+    if (filter.includeUnassigned !== undefined) params.includeUnassigned = filter.includeUnassigned ? 'true' : 'false';
+    const r = await axiosClient.get<PppoeIdsResult>(`${BASE}/ids`, { params });
     return r.data;
   },
 

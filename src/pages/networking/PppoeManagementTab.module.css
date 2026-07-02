@@ -647,21 +647,50 @@
   align-items: center;
 }
 
-/* ── W1: tope de 200 seleccionados ──────────────────────────────────────────── */
-/* --gr-red (#dc2626 sobre blanco) ya se usa en .errorPanel/.partialAlert;
-   ratio ~4.83:1, cumple WCAG AA (>=4.5:1) para texto normal. */
-.selectionCountWarning {
-  color: var(--gr-red);
+/* ── v2 (pppoe-bulk-select-filter): aviso INFORMATIVO de envío en lotes ─────── */
+/* Ya NO es un bloqueo (W1 reemplazado, design.md Decisión 6) — color primario,
+   no rojo, para no leer como error. --gr-primary sobre #eef4ff (fondo de la
+   selectionToolbar) cumple WCAG AA para texto normal. */
+.selectionCountBatches {
+  color: var(--gr-primary);
 }
 
-.btnDisabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+/* ── progreso por lote (envío en lotes >200) ─────────────────────────────────── */
+.batchProgress {
+  background: var(--gr-slate-soft);
+  border-left: 3px solid var(--gr-primary-2);
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  color: var(--gr-text);
+  font-weight: 500;
 }
 
-.btnDisabled:hover {
-  background: var(--gr-primary);
-  box-shadow: none;
+/* ── checkbox de confirmación N>200 (label asociada, a11y) ──────────────────── */
+/* Especificidad ".formGroup .checkboxLabel" > ".formGroup label" (el selector
+   compuesto elemento+clase de arriba) para no heredar el font-size/color
+   apagado de los labels de formulario — este es un texto de ADVERTENCIA. */
+.formGroup .checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gr-text);
+  cursor: pointer;
+}
+
+.checkboxLabel input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--gr-primary);
+  flex-shrink: 0;
+}
+
+.checkboxLabel input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--gr-primary-2);
+  outline-offset: 2px;
 }
 
 /* ── bulk modal — resumen ────────────────────────────────────────────────────── */

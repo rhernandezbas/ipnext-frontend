@@ -53,6 +53,40 @@ describe('pppoeApi.list', () => {
   });
 });
 
+describe('pppoeApi.listIds', () => {
+  const idsResult = { ids: ['pppoe-1', 'pppoe-2'], total: 2 };
+
+  it('GETs /pppoe/ids and returns { ids, total }', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValueOnce({ data: idsResult });
+    const r = await pppoeApi.listIds({ nasId: 'nas-1' });
+    expect(axiosClient.get).toHaveBeenCalledWith('/pppoe/ids', { params: { nasId: 'nas-1' } });
+    expect(r).toEqual(idsResult);
+  });
+
+  it('forwards search/status/nasId/includeUnassigned as query params (NO page/limit)', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValueOnce({ data: idsResult });
+    await pppoeApi.listIds({
+      search: 'juan',
+      status: 'baja',
+      nasId: 'nas-1',
+      includeUnassigned: true,
+      page: 3,
+      limit: 25,
+    });
+    expect(axiosClient.get).toHaveBeenCalledWith('/pppoe/ids', {
+      params: { search: 'juan', status: 'baja', nasId: 'nas-1', includeUnassigned: 'true' },
+    });
+  });
+
+  it('omits empty filters and trims search (mismo patrón que pppoeApi.list)', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValueOnce({ data: idsResult });
+    await pppoeApi.listIds({ search: '  juan  ', status: '', nasId: '' });
+    expect(axiosClient.get).toHaveBeenCalledWith('/pppoe/ids', {
+      params: { search: 'juan' },
+    });
+  });
+});
+
 describe('pppoeApi.activationHistory', () => {
   it('GETs /pppoe/activation-history and returns the events', async () => {
     vi.mocked(axiosClient.get).mockResolvedValueOnce({ data: events });

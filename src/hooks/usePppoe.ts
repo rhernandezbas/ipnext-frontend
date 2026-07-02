@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { pppoeApi } from '@/api/pppoe.api';
-import type { CreatePppoeBody, UpdatePppoeBody, PppoeCredentials, CreateStandalonePppoeBody, RenamePppoeResult, BulkChangePlanResult } from '@/api/pppoe.api';
+import type { CreatePppoeBody, UpdatePppoeBody, PppoeCredentials, CreateStandalonePppoeBody, RenamePppoeResult, BulkChangePlanResult, PppoeIdsResult } from '@/api/pppoe.api';
 import type {
   EnforcementAction,
   EnforcementTarget,
@@ -9,6 +9,7 @@ import type {
   ServiceCutBatch,
   PppoeServiceDto,
 } from '@/types/pppoe';
+import type { PppoeServiceListFilter } from '@/types/internetService';
 
 /**
  * Hooks del módulo Cortes PPPoE (Fase C).
@@ -362,10 +363,26 @@ export function useDeactivatePppoeGlobal() {
 }
 
 /**
+ * Fetch on-demand (imperativo) de los ids que matchean el filtro vigente —
+ * alimenta el botón "Seleccionar los N del filtro" (pppoe-bulk-select-filter v2).
+ * GET /pppoe/ids — gated `pppoe.manage`. `useMutation` (NO `useQuery` cacheado):
+ * expone `isPending`/`isError` para el botón mientras trae cientos de ids.
+ * Es una LECTURA — no invalida nada en éxito.
+ */
+export function useListPppoeIds() {
+  return useMutation<PppoeIdsResult, unknown, PppoeServiceListFilter>({
+    mutationFn: (filter) => pppoeApi.listIds(filter),
+  });
+}
+
+/**
  * Cambia el plan de múltiples PPPoEs (bulk, best-effort).
  * POST /api/pppoe/bulk/change-plan — gated `pppoe.manage` en el BE.
  * En éxito invalida la lista global para que la tabla refleje los nuevos planes.
  * NO invalida unassigned: el bulk no cambia el contractId ni el estado del servicio.
+ *
+ * Camino N<=200 (un solo request) — para el envío en LOTES (N>200) usar
+ * `useBulkChangePppoePlanBatch` en su lugar (W4, pppoe-bulk-select-filter v2).
  */
 export function useBulkChangePppoePlan() {
   const qc = useQueryClient();
@@ -378,5 +395,25 @@ export function useBulkChangePppoePlan() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: GLOBAL_LIST_KEY });
     },
+  });
+}
+
+/**
+ * Variante de `useBulkChangePppoePlan` SIN invalidación por request — misma
+ * mutationFn, mismo endpoint. Uso exclusivo del camino de envío en LOTES
+ * (N>200, `runPppoeBulkBatches`): invalidar en el `onSuccess` de cada lote
+ * dispararía hasta N refetches de la lista global A MITAD de una corrida de
+ * cientos de servicios. El caller (PppoeManagementTab) invalida
+ * `GLOBAL_LIST_KEY` UNA sola vez al terminar la corrida completa (completa
+ * o cortada), después del último lote enviado.
+ * El camino N<=200 sigue usando `useBulkChangePppoePlan` — intacto.
+ */
+export function useBulkChangePppoePlanBatch() {
+  return useMutation<
+    BulkChangePlanResult,
+    unknown,
+    { ids: string[]; profile: string; reason?: string }
+  >({
+    mutationFn: ({ ids, profile, reason }) => pppoeApi.bulkChangePlan(ids, profile, reason),
   });
 }

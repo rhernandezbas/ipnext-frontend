@@ -38,6 +38,8 @@ vi.mock('@/hooks/usePppoe', () => ({
   useDeactivatePppoeGlobal: vi.fn(),
   usePppoeCredentials: vi.fn(),
   useBulkChangePppoePlan: vi.fn(),
+  useBulkChangePppoePlanBatch: vi.fn(),
+  useListPppoeIds: vi.fn(),
   GLOBAL_LIST_KEY: ['pppoe', 'list'],
 }));
 
@@ -52,6 +54,8 @@ import {
   useDeactivatePppoeGlobal,
   usePppoeCredentials,
   useBulkChangePppoePlan,
+  useBulkChangePppoePlanBatch,
+  useListPppoeIds,
 } from '@/hooks/usePppoe';
 
 // ── fixtures ──────────────────────────────────────────────────────────────────
@@ -135,6 +139,10 @@ function setup(moveMutateAsync = vi.fn().mockResolvedValue(MOVED_DTO)) {
   vi.mocked(useDeactivatePppoeGlobal).mockReturnValue(makeMutationMock() as never);
   vi.mocked(usePppoeCredentials).mockReturnValue(makeQueryMock(null) as never);
   vi.mocked(useBulkChangePppoePlan).mockReturnValue(makeMutationMock() as never);
+  vi.mocked(useBulkChangePppoePlanBatch).mockReturnValue(makeMutationMock() as never);
+  vi.mocked(useListPppoeIds).mockReturnValue(
+    makeMutationMock(vi.fn().mockResolvedValue({ ids: [], total: 0 })) as never,
+  );
   return moveMutateAsync;
 }
 

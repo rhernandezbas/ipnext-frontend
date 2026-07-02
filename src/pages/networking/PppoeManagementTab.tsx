@@ -8,8 +8,9 @@
  * Acciones por fila (gated pppoe.manage): editar, renombrar, mover NAS,
  * suspender/reactivar, baja, revelar contraseña.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAllPppoe } from '@/hooks/useInternetServices';
 import { useNasServers } from '@/hooks/useNas';
 import { usePlans } from '@/hooks/usePlans';
@@ -23,8 +24,13 @@ import {
   useDeactivatePppoeGlobal,
   usePppoeCredentials,
   useBulkChangePppoePlan,
+  useBulkChangePppoePlanBatch,
+  useListPppoeIds,
+  GLOBAL_LIST_KEY,
 } from '@/hooks/usePppoe';
 import type { BulkChangePlanResult } from '@/api/pppoe.api';
+import { runPppoeBulkBatches } from '@/utils/pppoeBulkBatches';
+import type { PppoeBulkBatchProgress, PppoeBulkBatchCut } from '@/utils/pppoeBulkBatches';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import { Can } from '@/components/auth/Can';
@@ -39,7 +45,10 @@ import styles from './PppoeManagementTab.module.css';
 // ── Constants ─────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 25;
 
-// W1: tope de selección para el bulk (alineado con el 422 BULK_TOO_LARGE del BE).
+// W1 → v2 (pppoe-bulk-select-filter): YA NO es un tope duro de selección — es
+// el tamaño de LOTE por request, alineado con el guard BE MAX_BULK_IDS=200
+// (BulkChangePppoePlan, sin tocar). N<=200 → un solo request. N>200 → se
+// particiona en lotes de este tamaño y se envían secuencialmente.
 const BULK_SELECTION_CAP = 200;
 
 const STATUS_OPTIONS: InternetServiceStatus[] = ['active', 'reduced', 'blocked', 'baja', 'inactive'];
@@ -601,6 +610,10 @@ interface BulkChangePlanModalProps {
   onConfirm: (profile: string, reason?: string) => Promise<void>;
   isPending: boolean;
   result: BulkChangePlanResult | null;
+  /** Progreso del lote en vuelo — solo hay valor durante un envío en lotes (>200). */
+  progress: PppoeBulkBatchProgress | null;
+  /** Corte por rechazo de lote entero — null = no hubo corte (o no aplica, N<=200). */
+  cut: PppoeBulkBatchCut | null;
 }
 
 function BulkChangePlanModal({
@@ -610,14 +623,21 @@ function BulkChangePlanModal({
   onConfirm,
   isPending,
   result,
+  progress,
+  cut,
 }: BulkChangePlanModalProps) {
   const [profile, setProfile] = useState(planOptions[0]?.code ?? '');
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Decisión 6 (design.md): N>200 exige un checkbox de confirmación explícito
+  // proporcional al blast radius — gatea el botón de confirmar. N<=200: flujo intacto.
+  const requiresConfirmCheckbox = selectedCount > BULK_SELECTION_CAP;
+  const [confirmChecked, setConfirmChecked] = useState(false);
+  const canConfirm = Boolean(profile) && (!requiresConfirmCheckbox || confirmChecked);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!profile) return;
+    if (!canConfirm) return;
     setError(null);
     try {
       await onConfirm(profile, reason || undefined);
@@ -633,9 +653,14 @@ function BulkChangePlanModal({
           Cambiar plan — {selectedCount} servicio{selectedCount !== 1 ? 's' : ''}
         </h2>
 
-        {/* Resumen post-bulk */}
+        {/* Resumen post-bulk (o parcial, si hubo corte por lote entero) */}
         {result !== null ? (
           <div>
+            {cut && (
+              <div className={styles.partialAlert} role="alert">
+                Se cortó en el lote {cut.cutAtBatch}/{cut.totalBatches}. Se aplicaron {result.ok.length} servicio{result.ok.length !== 1 ? 's' : ''} antes del corte — el resto de los lotes NO se envió.
+              </div>
+            )}
             {result.ok.length > 0 && (
               <div className={styles.bulkSuccess} role="status">
                 {result.ok.length} exitoso{result.ok.length !== 1 ? 's' : ''}
@@ -690,17 +715,46 @@ function BulkChangePlanModal({
                 aria-label="Motivo"
               />
             </div>
+            {requiresConfirmCheckbox && (
+              <div className={styles.formGroup}>
+                <label htmlFor="bulk-confirm-check" className={styles.checkboxLabel}>
+                  <input
+                    id="bulk-confirm-check"
+                    type="checkbox"
+                    checked={confirmChecked}
+                    onChange={e => setConfirmChecked(e.target.checked)}
+                  />
+                  Entiendo que voy a cambiar el plan de {selectedCount} servicios
+                </label>
+              </div>
+            )}
+            {isPending && progress && (
+              <div className={styles.batchProgress} role="status" aria-live="polite">
+                Lote {progress.batchIndex}/{progress.totalBatches} — {progress.totalIds} servicios
+              </div>
+            )}
             {error && (
               <div className={styles.partialAlert} role="alert">{error}</div>
             )}
             <div className={styles.modalActions}>
-              <button type="button" className={styles.btnSecondary} onClick={onClose}>
+              {/* W2: durante el envío (N<=200 en vuelo O corriendo en lotes) los
+                  lotes siguen mutando el RADIUS en background — no hay cancelación
+                  real (fuera de scope). Cerrar el modal acá perdería el resumen
+                  final, así que se deshabilita la única vía de cierre disponible. */}
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={onClose}
+                disabled={isPending}
+                title={isPending ? 'No se puede cerrar durante el envío de lotes' : undefined}
+                aria-label={isPending ? 'Cancelar — no se puede cerrar durante el envío de lotes' : undefined}
+              >
                 Cancelar
               </button>
               <button
                 type="submit"
                 className={styles.btnPrimary}
-                disabled={isPending || !profile}
+                disabled={isPending || !canConfirm}
               >
                 {isPending ? 'Cambiando…' : 'Confirmar cambio'}
               </button>
@@ -736,11 +790,31 @@ export function PppoeManagementTab() {
   // ── 5.4: selección múltiple (gateada por canManage)
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  // ── W1: tope de 200 — el BE rechaza con 422 BULK_TOO_LARGE por encima de esto
-  const overSelectionCap = selected.size > BULK_SELECTION_CAP;
+  // ── v2 (pppoe-bulk-select-filter): >200 ya NO bloquea — se informa que se
+  // enviará en lotes de BULK_SELECTION_CAP (el tope sigue siendo el tamaño de
+  // lote por request, alineado con el guard BE MAX_BULK_IDS=200).
+  const requiresBatching = selected.size > BULK_SELECTION_CAP;
+  const totalBatches = requiresBatching ? Math.ceil(selected.size / BULK_SELECTION_CAP) : 0;
 
-  // ── 5.7: resultado del bulk (null = aún no ejecutado)
+  // ── 5.7: resultado del bulk (null = aún no ejecutado; agregado cross-lote si hubo batching)
   const [bulkResult, setBulkResult] = useState<BulkChangePlanResult | null>(null);
+  // ── progreso del lote en vuelo (solo aplica cuando se batchea, N>200)
+  const [batchProgress, setBatchProgress] = useState<PppoeBulkBatchProgress | null>(null);
+  // ── corte por rechazo de lote entero (red/500/401) — null = no hubo corte
+  const [batchCut, setBatchCut] = useState<PppoeBulkBatchCut | null>(null);
+  // ── estado "corriendo" que abarca TODOS los lotes (no solo el último bulkMutation.isPending)
+  const [isBulkRunning, setIsBulkRunning] = useState(false);
+
+  // ── 3.3: "Seleccionar los N del filtro" — congela el set con los ids del filtro vigente
+  const [selectFilterError, setSelectFilterError] = useState<string | null>(null);
+
+  // ── F1: token de secuencia anti-TOCTOU. Se incrementa en el mismo tick que
+  // handleSearch/handleNas/handleStatus limpian la selección (ver más abajo).
+  // handleSelectAllFiltered captura el valor vigente ANTES del await del fetch;
+  // si cambió al resolver, el filtro que originó el request ya no es el vigente
+  // (el onChange correspondiente ya limpió `selected`) y el resultado se
+  // descarta en silencio — evita repoblar la selección con ids del filtro viejo.
+  const filterGenerationRef = useRef(0);
 
   // ── data
   const { data: listData, isLoading, isError, isFetching, refetch } = useAllPppoe({
@@ -766,6 +840,11 @@ export function PppoeManagementTab() {
   const moveMutation = useMovePppoeGlobal();
   const deactivateMutation = useDeactivatePppoeGlobal();
   const bulkMutation = useBulkChangePppoePlan();
+  // W4: variante SIN invalidación por lote — usada exclusivamente por el
+  // camino de envío en lotes (N>200); ver handleBulkConfirm más abajo.
+  const batchMutation = useBulkChangePppoePlanBatch();
+  const listIdsMutation = useListPppoeIds();
+  const queryClient = useQueryClient();
 
   // ── derived
   const items = listData?.data ?? [];
@@ -777,10 +856,34 @@ export function PppoeManagementTab() {
 
   const nasOptions = nasServers.map(n => ({ id: n.id, name: n.name }));
 
-  // Reset page on filter change (también limpia la selección)
-  function handleSearch(v: string) { setSearchRaw(v); setPage(1); setSelected(new Set()); }
-  function handleNas(v: string) { setNasId(v); setPage(1); setSelected(new Set()); }
-  function handleStatus(v: string) { setStatus(v as InternetServiceStatus | ''); setPage(1); setSelected(new Set()); }
+  // ── 3.3: filtro activo = al menos uno de {search, nasId, status}. `includeUnassigned`
+  // NO cuenta (es un toggle de scope, no un filtro de narrowing) — alineado con el BE.
+  // Nit R2(a): search.trim() — espacios-solos NO cuentan como filtro activo (el
+  // BE trimea y devolvería 400 FILTER_REQUIRED si search=' ' fuera el único filtro).
+  const hasActiveFilter = Boolean(search.trim() || nasId || status);
+
+  // Reset page on filter change (también limpia la selección — invariante anti-TOCTOU: la
+  // selección congelada vía "Seleccionar los N del filtro" también se limpia acá).
+  // F1: cada cambio de filtro también avanza filterGenerationRef, en el MISMO tick
+  // que limpia `selected` — ver handleSelectAllFiltered.
+  function handleSearch(v: string) {
+    setSearchRaw(v);
+    setPage(1);
+    setSelected(new Set());
+    filterGenerationRef.current += 1;
+  }
+  function handleNas(v: string) {
+    setNasId(v);
+    setPage(1);
+    setSelected(new Set());
+    filterGenerationRef.current += 1;
+  }
+  function handleStatus(v: string) {
+    setStatus(v as InternetServiceStatus | '');
+    setPage(1);
+    setSelected(new Set());
+    filterGenerationRef.current += 1;
+  }
 
   // ── 5.4: handlers de selección (gateados por canManage) ──
   const currentPageIds = items.map(it => it.id);
@@ -818,13 +921,42 @@ export function PppoeManagementTab() {
     setSelected(new Set());
   }
 
-  // ── 5.6: handler del bulk ──
-  async function handleBulkConfirm(profile: string, reason?: string) {
-    const ids = Array.from(selected);
-    const result = await bulkMutation.mutateAsync({ ids, profile, reason });
-    setBulkResult(result);
-    // 5.7: limpiar los OK de la selección
-    const okSet = new Set(result.ok);
+  // ── 3.3: "Seleccionar los N del filtro" — resuelve los ids del filtro vigente
+  // y los CONGELA en la selección (anti-TOCTOU: cambiar el filtro después limpia,
+  // ver handleSearch/handleNas/handleStatus). NO re-resuelve el filtro al ejecutar.
+  //
+  // F1: race anti-TOCTOU — si el filtro cambia MIENTRAS este fetch está en
+  // vuelo, el onChange correspondiente ya limpió `selected` y avanzó
+  // filterGenerationRef. Sin este guard, el `setSelected(new Set(ids))` de
+  // abajo resolvería DESPUÉS y repoblaría la selección con ids del filtro
+  // VIEJO, pisando la limpieza. Se captura la generación ANTES del await y
+  // solo se aplica el resultado si sigue siendo la vigente al resolver.
+  async function handleSelectAllFiltered() {
+    setSelectFilterError(null);
+    const requestGeneration = filterGenerationRef.current;
+    try {
+      const { ids } = await listIdsMutation.mutateAsync({
+        includeUnassigned: true,
+        search: search || undefined,
+        nasId: nasId || undefined,
+        status: status || undefined,
+      });
+      if (filterGenerationRef.current !== requestGeneration) {
+        // El filtro cambió mientras el fetch estaba en vuelo — descartar en
+        // silencio; la selección ya fue limpiada por el onChange que disparó
+        // el cambio de generación.
+        return;
+      }
+      setSelected(new Set(ids));
+    } catch (err) {
+      // Nit R2(b): bulkErrorMessage lee response.data.error/code del BE en vez
+      // del err.message genérico de axios ("Request failed with status code 400").
+      setSelectFilterError(bulkErrorMessage(err, 'No se pudo obtener los ids del filtro.'));
+    }
+  }
+
+  function applyOkToSelection(okIds: string[]) {
+    const okSet = new Set(okIds);
     setSelected(prev => {
       const next = new Set(prev);
       okSet.forEach(id => next.delete(id));
@@ -832,14 +964,56 @@ export function PppoeManagementTab() {
     });
   }
 
+  // ── 5.6: handler del bulk ──
+  // N<=200: flujo INTACTO (un solo request; un rechazo propaga el error hacia
+  // el modal, igual que el change padre — bulkErrorMessage lo muestra inline).
+  // N>200: envío secuencial en lotes de BULK_SELECTION_CAP vía runPppoeBulkBatches
+  // (design.md Decisión 5) — un rechazo de LOTE ENTERO corta y agrega el parcial;
+  // los `failed` ítem-por-ítem (best-effort) nunca cortan.
+  // W4: el camino de lotes usa `batchMutation` (SIN invalidación por request —
+  // ver useBulkChangePppoePlanBatch) para no disparar hasta N refetches a mitad
+  // de la corrida; se invalida GLOBAL_LIST_KEY UNA sola vez al terminar, ya sea
+  // que la corrida haya completado todos los lotes o se haya cortado.
+  async function handleBulkConfirm(profile: string, reason?: string) {
+    const ids = Array.from(selected);
+    setBatchProgress(null);
+    setBatchCut(null);
+    setIsBulkRunning(true);
+    try {
+      if (ids.length <= BULK_SELECTION_CAP) {
+        const result = await bulkMutation.mutateAsync({ ids, profile, reason });
+        setBulkResult(result);
+        applyOkToSelection(result.ok);
+        return;
+      }
+      const result = await runPppoeBulkBatches(
+        ids,
+        batchIds => batchMutation.mutateAsync({ ids: batchIds, profile, reason }),
+        { batchSize: BULK_SELECTION_CAP, onProgress: setBatchProgress },
+      );
+      setBulkResult({ ok: result.ok, failed: result.failed });
+      setBatchCut(result.cut);
+      applyOkToSelection(result.ok);
+      // Invalidación única de la corrida completa (completa O cortada) — el
+      // camino N<=200 arriba ya invalida solo por su propio onSuccess.
+      queryClient.invalidateQueries({ queryKey: GLOBAL_LIST_KEY });
+    } finally {
+      setIsBulkRunning(false);
+    }
+  }
+
   function handleOpenBulkModal() {
     setBulkResult(null);
+    setBatchProgress(null);
+    setBatchCut(null);
     setShowBulkModal(true);
   }
 
   function handleCloseBulkModal() {
     setShowBulkModal(false);
     setBulkResult(null);
+    setBatchProgress(null);
+    setBatchCut(null);
   }
 
   // ── action handlers — F2: await + try/catch con feedback visible
@@ -952,6 +1126,18 @@ export function PppoeManagementTab() {
           {isFetching && !isLoading ? ' · actualizando…' : ''}
         </span>
 
+        {/* ── 3.3: "Seleccionar los N del filtro" — solo con filtro activo + canManage ── */}
+        {canManage && hasActiveFilter && (
+          <button
+            type="button"
+            className={styles.btnSecondary}
+            onClick={handleSelectAllFiltered}
+            disabled={listIdsMutation.isPending}
+          >
+            {listIdsMutation.isPending ? 'Buscando…' : `Seleccionar los ${total} del filtro`}
+          </button>
+        )}
+
         <Can permission="pppoe.manage">
           <button
             className={styles.btnPrimary}
@@ -970,26 +1156,27 @@ export function PppoeManagementTab() {
         </div>
       )}
 
+      {/* ── 3.3: error inline del fetch de ids del filtro ── */}
+      {selectFilterError && (
+        <div className={styles.errorPanel} role="alert">
+          {selectFilterError}
+          <button className={styles.btnRetry} onClick={() => setSelectFilterError(null)}>×</button>
+        </div>
+      )}
+
       {/* ── 5.5: Toolbar contextual de selección (solo visible con selección + canManage) ── */}
       {canManage && selected.size > 0 && (
         <div className={styles.selectionToolbar} role="toolbar" aria-label="Acciones sobre la selección">
-          <span
-            className={`${styles.selectionCount}${overSelectionCap ? ` ${styles.selectionCountWarning}` : ''}`}
-          >
+          <span className={`${styles.selectionCount}${requiresBatching ? ` ${styles.selectionCountBatches}` : ''}`}>
             {selected.size} seleccionado{selected.size !== 1 ? 's' : ''}
-            {overSelectionCap ? ` — máximo ${BULK_SELECTION_CAP}` : ''}
+            {requiresBatching ? ` — se enviará en ${totalBatches} lotes de ${BULK_SELECTION_CAP}` : ''}
           </span>
           <div className={styles.selectionActions}>
+            {/* v2: >200 ya NO bloquea — el envío en lotes lo resuelve (design.md Decisión 6) */}
             <button
               type="button"
-              className={`${styles.btnPrimary}${overSelectionCap ? ` ${styles.btnDisabled}` : ''}`}
-              onClick={overSelectionCap ? undefined : handleOpenBulkModal}
-              aria-disabled={overSelectionCap || undefined}
-              title={
-                overSelectionCap
-                  ? `Hay ${selected.size} seleccionados. Reducí la selección a ${BULK_SELECTION_CAP} o menos para cambiar el plan.`
-                  : undefined
-              }
+              className={styles.btnPrimary}
+              onClick={handleOpenBulkModal}
             >
               Cambiar plan
             </button>
@@ -1217,8 +1404,10 @@ export function PppoeManagementTab() {
           planOptions={activePlans.map(p => ({ code: p.code, name: p.name }))}
           onClose={handleCloseBulkModal}
           onConfirm={handleBulkConfirm}
-          isPending={bulkMutation.isPending}
+          isPending={isBulkRunning}
           result={bulkResult}
+          progress={batchProgress}
+          cut={batchCut}
         />
       )}
     </div>
