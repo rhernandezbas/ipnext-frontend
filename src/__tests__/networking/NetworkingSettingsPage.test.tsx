@@ -229,4 +229,28 @@ describe('NetworkingSettingsPage', () => {
     expect(fallbacks.length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByRole('heading', { name: /ingesta de auditoría radius/i })).not.toBeInTheDocument();
   });
+
+  // ── PppoeAutoMoveCard section (pppoe-move-nas W2) ───────────────────────
+
+  it('renders PPPoE section heading', () => {
+    setupHooks(['uisp.read', 'admin.flags']);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /^pppoe$/i })).toBeInTheDocument();
+  });
+
+  it('renders PppoeAutoMoveCard when user has admin.flags', () => {
+    setupHooks(['uisp.read', 'admin.flags']);
+    renderPage();
+    expect(
+      screen.getByRole('heading', { name: /auto-move de pppoe \(vigilante de nas\)/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('does NOT render PppoeAutoMoveCard when user lacks admin.flags', () => {
+    setupHooks(['uisp.read']);
+    renderPage();
+    expect(
+      screen.queryByRole('heading', { name: /auto-move de pppoe/i }),
+    ).not.toBeInTheDocument();
+  });
 });

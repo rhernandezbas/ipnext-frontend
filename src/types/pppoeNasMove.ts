@@ -19,6 +19,9 @@ export const PPPOE_NAS_MOVE_OUTCOMES = [
   'failed_router',
   'skipped_public',
   'skipped_unknown_nas',
+  // W2 (D-W2.5) — el watcher auto-move NO actúa en casos dudosos, pero los registra:
+  'skipped_stale_session', // la sesión ganadora es vieja/colgada (> freshness) → no mover
+  'skipped_nas_conflict',  // sesiones vivas en 2 NAS a la vez → estado ambiguo, no mover
 ] as const;
 
 export type PppoeNasMoveOutcome = (typeof PPPOE_NAS_MOVE_OUTCOMES)[number];

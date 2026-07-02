@@ -59,6 +59,34 @@ const EVENTS: PppoeNasMoveEvent[] = [
     actorName: null,
     createdAt: '2026-07-01T16:05:00Z',
   },
+  // W2 — outcomes nuevos del watcher auto-move (D-W2.5): el vigilante NO actúa
+  // sobre casos dudosos, pero los deja VISIBLES en el tab.
+  {
+    id: 'mv-4',
+    username: 'cliente03',
+    fromNas: { id: 'nas-2', name: 'NAS Norte' },
+    toNas: { id: 'nas-1', name: 'NAS Central' },
+    fromIp: '100.64.30.12',
+    toIp: null,
+    trigger: 'auto',
+    outcome: 'skipped_stale_session',
+    reason: 'última actividad hace 96h',
+    actorName: null,
+    createdAt: '2026-07-01T16:10:00Z',
+  },
+  {
+    id: 'mv-5',
+    username: 'cliente04',
+    fromNas: { id: 'nas-1', name: 'NAS Central' },
+    toNas: { id: 'nas-2', name: 'NAS Norte' },
+    fromIp: '100.64.30.13',
+    toIp: null,
+    trigger: 'auto',
+    outcome: 'skipped_nas_conflict',
+    reason: 'sesiones vivas en 2 NAS',
+    actorName: null,
+    createdAt: '2026-07-01T16:15:00Z',
+  },
 ];
 
 function makePage(overrides: Partial<PaginatedPppoeNasMoveEvents> = {}): PaginatedPppoeNasMoveEvents {
@@ -182,13 +210,29 @@ describe('PppoeNasMovesPage — badges de outcome', () => {
     expect(badge).not.toBeNull();
     expect(badge!.textContent).toMatch(/ip pública/i);
   });
+
+  // W2 — los 2 outcomes nuevos del watcher: label honesto + familia warning.
+  // Scoped a la fila: el mismo label también existe como <option> del filtro.
+  it('skipped_stale_session → "Salteado: sesión vieja/colgada" (familia warning)', () => {
+    renderPage();
+    const row = screen.getByText('cliente03').closest('tr') as HTMLElement;
+    const badge = within(row).getByText('Salteado: sesión vieja/colgada');
+    expect(badge.className).toContain('badgeSkipped');
+  });
+
+  it('skipped_nas_conflict → "Salteado: sesiones en 2 NAS" (familia warning)', () => {
+    renderPage();
+    const row = screen.getByText('cliente04').closest('tr') as HTMLElement;
+    const badge = within(row).getByText('Salteado: sesiones en 2 NAS');
+    expect(badge.className).toContain('badgeSkipped');
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Filtros — round-trip URL (namespace mv_*)
 // ─────────────────────────────────────────────────────────────────────────────
 describe('PppoeNasMovesPage — filtros en la URL', () => {
-  it('el select de outcome tiene Todos + los 7 outcomes', () => {
+  it('el select de outcome tiene Todos + los 9 outcomes', () => {
     renderPage();
     const select = screen.getByLabelText(/filtrar por resultado/i);
     const options = Array.from(select.querySelectorAll('option')).map(o => o.getAttribute('value'));
@@ -201,6 +245,8 @@ describe('PppoeNasMovesPage — filtros en la URL', () => {
       'failed_router',
       'skipped_public',
       'skipped_unknown_nas',
+      'skipped_stale_session',
+      'skipped_nas_conflict',
     ]);
   });
 
@@ -240,6 +286,27 @@ describe('PppoeNasMovesPage — filtros en la URL', () => {
     expect(screen.getByLabelText(/filtrar por resultado/i)).toHaveValue('moved');
     expect(screen.getByLabelText(/filtrar por trigger/i)).toHaveValue('auto');
     expect(screen.getByLabelText(/filtrar por username/i)).toHaveValue('juan');
+  });
+
+  // W2 — round-trip URL de los 2 outcomes nuevos del watcher.
+  it('elegir skipped_stale_session filtra la query y escribe mv_outcome en la URL', async () => {
+    renderPage();
+    await userEvent.selectOptions(
+      screen.getByLabelText(/filtrar por resultado/i),
+      'skipped_stale_session',
+    );
+
+    expect(lastHookParams()).toMatchObject({ outcome: 'skipped_stale_session' });
+    expect(screen.getByTestId('location-search').textContent).toContain(
+      'mv_outcome=skipped_stale_session',
+    );
+  });
+
+  it('round-trip: mv_outcome=skipped_nas_conflict entrante llega a la query y al select', () => {
+    renderPage('/admin/networking/audit?mv_outcome=skipped_nas_conflict');
+
+    expect(lastHookParams()).toMatchObject({ outcome: 'skipped_nas_conflict' });
+    expect(screen.getByLabelText(/filtrar por resultado/i)).toHaveValue('skipped_nas_conflict');
   });
 
   it('un mv_outcome inválido en la URL se ignora (no llega a la query)', () => {

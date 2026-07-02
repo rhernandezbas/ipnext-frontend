@@ -28,6 +28,9 @@ const OUTCOME_META: Record<PppoeNasMoveOutcome, { label: string; className: stri
   failed_router:      { label: 'Fallo: router',            className: styles.badgeFailed },
   skipped_public:     { label: 'Salteado: IP pública',     className: styles.badgeSkipped },
   skipped_unknown_nas:{ label: 'Salteado: NAS desconocido', className: styles.badgeSkipped },
+  // W2 — casos dudosos donde el watcher auto-move decide NO tocar al cliente:
+  skipped_stale_session: { label: 'Salteado: sesión vieja/colgada', className: styles.badgeSkipped },
+  skipped_nas_conflict:  { label: 'Salteado: sesiones en 2 NAS',    className: styles.badgeSkipped },
 };
 
 const TRIGGER_LABELS: Record<PppoeNasMoveTrigger, string> = {
