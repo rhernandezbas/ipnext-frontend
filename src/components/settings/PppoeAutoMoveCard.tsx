@@ -19,9 +19,19 @@ const FLAG_KEY = 'pppoe-auto-move';
  * Flag gate: admin.flags (mismo permiso que las cards vecinas — toggle oculto
  * sin el permiso). Clona el patrón de RadiusAuthIngestCard (misma estructura,
  * mismo CSS module, mismos hooks).
+ *
+ * Error de fetch del flag → "Estado desconocido" + reintentar, NUNCA un
+ * "Inactivo" con confianza: este flag es el kill-switch del watcher y mentir
+ * el estado lo vuelve invisible. (El 404 de flag-sin-seedear no llega acá:
+ * useFeatureFlag lo mapea a { enabled: false } sin marcar isError.)
  */
 export function PppoeAutoMoveCard() {
-  const { data: flagData, isLoading: flagLoading, isError: flagError } = useFeatureFlag(FLAG_KEY);
+  const {
+    data: flagData,
+    isLoading: flagLoading,
+    isError: flagError,
+    refetch: refetchFlag,
+  } = useFeatureFlag(FLAG_KEY);
   const setFlag = useSetFeatureFlag();
   const confirm = useConfirm();
 
@@ -30,6 +40,37 @@ export function PppoeAutoMoveCard() {
       <section className={styles.statusCard}>
         <p className={styles.loadingText}>Cargando…</p>
       </section>
+    );
+  }
+
+  if (flagError) {
+    // Estado desconocido explícito: sin lectura confiable del flag no se
+    // muestra badge Activo/Inactivo ni el switch (no se togglea a ciegas un
+    // kill-switch que mueve clientes reales).
+    return (
+      <div className={styles.section}>
+        <section className={styles.statusCard}>
+          <header className={styles.statusHeader}>
+            <h2 className={styles.statusTitle}>Auto-move de PPPoE (vigilante de NAS)</h2>
+            <span className={`${styles.statusBadge} ${styles.statusBadgeUnknown}`}>
+              <span className={styles.statusBadgeDot} aria-hidden="true" />
+              Estado desconocido
+            </span>
+          </header>
+
+          <div className={`${styles.banner} ${styles.bannerInfo}`} role="alert">
+            <span>
+              <span className={styles.bannerTitle}>
+                No se pudo leer el estado del auto-move.
+              </span>{' '}
+              Reintentá.
+            </span>
+            <button type="button" className={styles.btnRetry} onClick={() => refetchFlag()}>
+              Reintentar
+            </button>
+          </div>
+        </section>
+      </div>
     );
   }
 
@@ -42,7 +83,7 @@ export function PppoeAutoMoveCard() {
         title: 'Activar auto-move de PPPoE',
         message:
           'Este toggle enciende una automatización que actúa sobre clientes reales: ' +
-          'cada 2 minutos el vigilante mueve de NAS (IP nueva del pool CGNAT + reconexión) ' +
+          'cada ~2 minutos el vigilante mueve de NAS (IP nueva del pool CGNAT + reconexión) ' +
           'a los clientes PPPoE que autentican por un NAS distinto al asignado. ' +
           '¿Activarlo ahora?',
         confirmLabel: 'Activar auto-move',
@@ -69,32 +110,32 @@ export function PppoeAutoMoveCard() {
         </header>
 
         <p className={styles.statusDescription}>
-          Cada 2 minutos detecta clientes PPPoE que autentican por un NAS distinto al asignado
+          Cada ~2 minutos detecta clientes PPPoE que autentican por un NAS distinto al asignado
           y los mueve automáticamente (IP nueva del pool CGNAT del destino + reconexión).
           Solo actúa sobre IPs CGNAT; públicas y casos dudosos se registran en{' '}
           <strong>Movimientos NAS</strong> sin tocar al cliente.
         </p>
 
         {/* ── Flag toggle (admin.flags gate) ─────────────────────────── */}
-        {!flagError && (
-          <Can permission="admin.flags">
-            <div className={styles.statusActionRow}>
-              <span className={styles.statusActionLabel}>
-                {enabled ? 'Desactivar auto-move' : 'Activar auto-move'}
-              </span>
-              <label className={styles.switch}>
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  disabled={setFlag.isPending}
-                  onChange={handleFlagToggle}
-                  aria-label="Auto-move de PPPoE automático"
-                />
-                <span className={styles.switchTrack} aria-hidden="true" />
-              </label>
-            </div>
-          </Can>
-        )}
+        {/* flagError no llega acá (early return arriba) — sin el error de
+            lectura el switch se muestra siempre que haya permiso. */}
+        <Can permission="admin.flags">
+          <div className={styles.statusActionRow}>
+            <span className={styles.statusActionLabel}>
+              {enabled ? 'Desactivar auto-move' : 'Activar auto-move'}
+            </span>
+            <label className={styles.switch}>
+              <input
+                type="checkbox"
+                checked={enabled}
+                disabled={setFlag.isPending}
+                onChange={handleFlagToggle}
+                aria-label={enabled ? 'Desactivar auto-move' : 'Activar auto-move'}
+              />
+              <span className={styles.switchTrack} aria-hidden="true" />
+            </label>
+          </div>
+        </Can>
       </section>
 
       {setFlag.isError && (

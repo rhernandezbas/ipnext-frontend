@@ -11,7 +11,11 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import type { PaginatedPppoeNasMoveEvents, PppoeNasMoveEvent } from '@/types/pppoeNasMove';
+import type {
+  PaginatedPppoeNasMoveEvents,
+  PppoeNasMoveEvent,
+  PppoeNasMoveOutcome,
+} from '@/types/pppoeNasMove';
 
 vi.mock('@/hooks/usePppoeNasMoveEvents');
 
@@ -225,6 +229,28 @@ describe('PppoeNasMovesPage — badges de outcome', () => {
     const row = screen.getByText('cliente04').closest('tr') as HTMLElement;
     const badge = within(row).getByText('Salteado: sesiones en 2 NAS');
     expect(badge.className).toContain('badgeSkipped');
+  });
+
+  // D-W2.5.5 — pin del fallback de outcome DESCONOCIDO: si el BE (deployado
+  // antes que el FE) manda un outcome que este FE aún no conoce, la fila se
+  // muestra con el valor crudo en texto plano SIN crashear la tabla. Para TS
+  // el branch parece inalcanzable (el Record de OUTCOME_META es exhaustivo),
+  // por eso el cast: este test lo protege de una limpieza accidental.
+  it('outcome desconocido del BE → texto plano, sin crash (pin D-W2.5.5)', () => {
+    const unknownEvt: PppoeNasMoveEvent = {
+      ...EVENTS[0],
+      id: 'mv-unknown',
+      username: 'clienteFuturo',
+      outcome: 'algo_nuevo' as PppoeNasMoveOutcome,
+    };
+    mockHook(makePage({ items: [unknownEvt], total: 1 }));
+    renderPage();
+
+    const row = screen.getByText('clienteFuturo').closest('tr') as HTMLElement;
+    const fallback = within(row).getByText('algo_nuevo');
+    expect(fallback).toBeInTheDocument();
+    // texto plano: NO es un badge de ninguna familia conocida
+    expect(fallback.className).not.toContain('badge');
   });
 });
 

@@ -52,6 +52,7 @@ function setupHooks({
 } = {}) {
   const mutateFn = vi.fn();
   const confirmFn = vi.fn().mockResolvedValue(confirmResult);
+  const refetchFn = vi.fn();
 
   vi.mocked(useMyPermissions).mockReturnValue({
     user: null,
@@ -68,10 +69,13 @@ function setupHooks({
   vi.mocked(useCan).mockImplementation((perm: string) => permissions.includes(perm));
 
   vi.mocked(useFeatureFlag).mockReturnValue({
-    data: flagLoading ? undefined : { key: 'pppoe-auto-move', enabled: flagEnabled },
+    // en error real de fetch la query NO tiene data (el 404 benigno no llega
+    // acá: el hook lo mapea a { enabled: false } y nunca setea isError)
+    data: flagLoading || flagError ? undefined : { key: 'pppoe-auto-move', enabled: flagEnabled },
     isLoading: flagLoading,
     isError: flagError,
-  } as ReturnType<typeof useFeatureFlag>);
+    refetch: refetchFn,
+  } as unknown as ReturnType<typeof useFeatureFlag>);
 
   vi.mocked(useSetFeatureFlag).mockReturnValue({
     mutate: mutateFn,
@@ -83,7 +87,7 @@ function setupHooks({
   // una fn controlable por test (clearAllMocks del beforeEach lo limpia).
   vi.mocked(useConfirm).mockReturnValue(confirmFn);
 
-  return { mutateFn, confirmFn };
+  return { mutateFn, confirmFn, refetchFn };
 }
 
 describe('PppoeAutoMoveCard', () => {
@@ -127,7 +131,9 @@ describe('PppoeAutoMoveCard', () => {
   it('renders honest description mentioning Movimientos NAS', () => {
     setupHooks();
     render(<PppoeAutoMoveCard />);
-    expect(screen.getByText(/cada 2 minutos detecta clientes pppoe/i)).toBeInTheDocument();
+    // "~2 minutos": el intervalo del watcher es configurable, el copy no
+    // promete un número exacto.
+    expect(screen.getByText(/cada ~2 minutos detecta clientes pppoe/i)).toBeInTheDocument();
     expect(screen.getByText(/movimientos nas/i)).toBeInTheDocument();
   });
 
@@ -148,6 +154,10 @@ describe('PppoeAutoMoveCard', () => {
         tone: 'danger',
         message: expect.stringMatching(/clientes/i),
       }),
+    );
+    // El confirm tampoco promete un intervalo exacto (es configurable).
+    expect(confirmFn).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/cada ~2 minutos/i) }),
     );
     expect(mutateFn).toHaveBeenCalledTimes(1);
   });
@@ -195,6 +205,22 @@ describe('PppoeAutoMoveCard', () => {
     expect(screen.getByRole('checkbox')).toBeDisabled();
   });
 
+  // ── Accessible name del switch (WCAG 2.5.3 label-in-name) ─────────────────
+  // El aria-label tiene que matchear el texto visible de la fila, coherente
+  // con el estado — no un nombre inventado que un usuario de voz no puede decir.
+
+  it('switch accessible name matches the visible label when OFF (WCAG 2.5.3)', () => {
+    setupHooks({ flagEnabled: false });
+    render(<PppoeAutoMoveCard />);
+    expect(screen.getByRole('checkbox', { name: 'Activar auto-move' })).toBeInTheDocument();
+  });
+
+  it('switch accessible name matches the visible label when ON (WCAG 2.5.3)', () => {
+    setupHooks({ flagEnabled: true });
+    render(<PppoeAutoMoveCard />);
+    expect(screen.getByRole('checkbox', { name: 'Desactivar auto-move' })).toBeInTheDocument();
+  });
+
   // ── Permission gate (mismo permiso que las cards vecinas) ─────────────────
 
   it('toggle is NOT rendered when user lacks admin.flags', () => {
@@ -220,6 +246,42 @@ describe('PppoeAutoMoveCard', () => {
 
   it('does NOT render toggle when there is a flag-fetch error', () => {
     setupHooks({ flagError: true });
+    render(<PppoeAutoMoveCard />);
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+
+  // ── Flag-fetch error → estado desconocido EXPLÍCITO ────────────────────────
+  // Este flag es el kill-switch de una automatización que mueve clientes
+  // reales. Ante un error real de fetch (no el 404 benigno, que el hook mapea
+  // a enabled:false sin isError) la card NO puede decir "Inactivo" con
+  // confianza: tiene que declarar el estado desconocido y ofrecer reintentar.
+
+  it('flag-fetch error shows "Estado desconocido", never a confident "Inactivo"', () => {
+    setupHooks({ flagError: true });
+    render(<PppoeAutoMoveCard />);
+    expect(screen.getByText(/estado desconocido/i)).toBeInTheDocument();
+    expect(screen.queryByText(/inactivo/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^activo$/i)).not.toBeInTheDocument();
+  });
+
+  it('flag-fetch error shows an alert banner explaining the unknown state', () => {
+    setupHooks({ flagError: true });
+    render(<PppoeAutoMoveCard />);
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText(/no se pudo leer el estado del auto-move/i)).toBeInTheDocument();
+  });
+
+  it('flag-fetch error offers a retry button that refetches the flag', () => {
+    const { refetchFn } = setupHooks({ flagError: true });
+    render(<PppoeAutoMoveCard />);
+
+    fireEvent.click(screen.getByRole('button', { name: /reintentar/i }));
+
+    expect(refetchFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('flag-fetch error does NOT render the switch even WITH admin.flags', () => {
+    setupHooks({ flagError: true, permissions: ['admin.flags'] });
     render(<PppoeAutoMoveCard />);
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   });

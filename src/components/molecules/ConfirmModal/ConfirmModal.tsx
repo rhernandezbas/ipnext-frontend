@@ -20,7 +20,9 @@ interface ConfirmModalProps {
 /**
  * Accessible modal dialog rendered to document.body via portal.
  * - Click on the backdrop or Esc closes (cancels)
- * - Focus traps to the confirm button on open
+ * - Initial focus: confirm button — EXCEPTO tone danger, donde va a Cancelar
+ *   (safe default: un doble-Space/Enter apurado no acepta una acción
+ *   destructiva sin leer). Con hideCancel cae a confirmar (única acción).
  * - Body scroll lock while open
  * - Danger tone makes the confirm button red (delete/destroy flows)
  */
@@ -37,12 +39,18 @@ export function ConfirmModal({
   onCancel,
 }: ConfirmModalProps) {
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    confirmRef.current?.focus();
+    // Foco inicial seguro: en danger va a Cancelar para que un Space/Enter
+    // reflejo NO confirme una acción destructiva sin leer. Sin cancelar
+    // (hideCancel) o en tonos no-danger, va a confirmar (contrato previo).
+    const initialFocus =
+      tone === 'danger' && !hideCancel ? cancelRef.current : confirmRef.current;
+    initialFocus?.focus();
 
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onCancel();
@@ -52,7 +60,7 @@ export function ConfirmModal({
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKey);
     };
-  }, [open, onCancel]);
+  }, [open, onCancel, tone, hideCancel]);
 
   if (!open) return null;
 
@@ -70,6 +78,7 @@ export function ConfirmModal({
         <div className={styles.actions}>
           {!hideCancel && (
             <button
+              ref={cancelRef}
               type="button"
               className={styles.cancel}
               onClick={onCancel}

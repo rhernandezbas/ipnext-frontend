@@ -59,6 +59,13 @@
   color: #6b7280;
 }
 
+/* Familia warning (misma paleta ámbar que .bannerInfo): estado del flag NO
+   legible — ni Activo ni Inactivo con confianza. */
+.statusBadgeUnknown {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .statusBadgeDot {
   width: 6px;
   height: 6px;
@@ -253,4 +260,25 @@
 
 .bannerTitle {
   font-weight: var(--font-weight-semibold);
+}
+
+/* Botón reintentar dentro de un banner warning (familia ámbar de .bannerInfo) */
+.btnRetry {
+  margin-left: auto;
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btnRetry:hover {
+  background: #fde68a;
 }

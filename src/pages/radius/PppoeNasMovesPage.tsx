@@ -41,7 +41,12 @@ const TRIGGER_LABELS: Record<PppoeNasMoveTrigger, string> = {
 function OutcomeBadge({ outcome }: { outcome: PppoeNasMoveOutcome }) {
   const meta = OUTCOME_META[outcome];
   if (!meta) {
-    // Outcome nuevo del BE que el FE aún no conoce: texto plano, sin romper.
+    // D-W2.5.5 DEPENDE de este fallback: un BE deployado antes que el FE puede
+    // mandar outcomes que este FE aún no conoce → fila con el valor crudo en
+    // texto plano, sin crashear la tabla. Para TS este branch parece
+    // inalcanzable (OUTCOME_META es un Record exhaustivo del union ACTUAL),
+    // pero en runtime el union del BE puede ser más nuevo. NO limpiar; está
+    // pinneado por test en PppoeNasMovesPage.test.tsx.
     return <span className={styles.mono}>{outcome}</span>;
   }
   return <span className={`${styles.badge} ${meta.className}`}>{meta.label}</span>;

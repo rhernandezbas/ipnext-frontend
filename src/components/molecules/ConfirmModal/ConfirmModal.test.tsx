@@ -50,4 +50,25 @@ describe('ConfirmModal', () => {
     render(<ConfirmModal {...baseProps} hideCancel={false} />);
     expect(screen.getByRole('button', { name: /cancelar/i })).toBeInTheDocument();
   });
+
+  // ── Foco inicial seguro en danger ──────────────────────────────────────────
+  // danger = acción destructiva/irreversible: si el foco inicial cae en
+  // CONFIRMAR, un doble-Space/Enter apurado acepta sin leer. En danger el foco
+  // inicial va a Cancelar (safe default); los demás tonos conservan el
+  // contrato previo (foco en confirmar), pinneado abajo.
+
+  it('focuses the CANCEL button on open when tone is danger', () => {
+    render(<ConfirmModal {...baseProps} tone="danger" />);
+    expect(screen.getByRole('button', { name: /cancelar/i })).toHaveFocus();
+  });
+
+  it('keeps initial focus on the confirm button for default tone (pin)', () => {
+    render(<ConfirmModal {...baseProps} confirmLabel="Aceptar" />);
+    expect(screen.getByRole('button', { name: /aceptar/i })).toHaveFocus();
+  });
+
+  it('falls back to confirm focus when danger has no cancel button (hideCancel)', () => {
+    render(<ConfirmModal {...baseProps} tone="danger" hideCancel confirmLabel="Entendido" />);
+    expect(screen.getByRole('button', { name: /entendido/i })).toHaveFocus();
+  });
 });
