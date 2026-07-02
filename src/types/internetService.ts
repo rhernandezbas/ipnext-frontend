@@ -78,6 +78,12 @@ export interface PppoeServiceListFilter {
   limit?: number;
   /** Incluir servicios sin contrato (huérfanos). Por defecto el BE los omite. */
   includeUnassigned?: boolean;
+  /**
+   * Solo pendientes de instalación (nasId IS NULL, pre-provisión sin router).
+   * pppoe-preprovision: server-side en GET /pppoe y GET /pppoe/ids; en el ids
+   * CUENTA como filtro de narrowing (D6.7 — no dispara 400 FILTER_REQUIRED).
+   */
+  pending?: boolean;
 }
 
 /**

@@ -51,6 +51,22 @@ describe('pppoeApi.list', () => {
       params: { search: 'juan', page: 1 },
     });
   });
+
+  // pppoe-preprovision: el chip "Pendientes" es server-side — pending=true viaja
+  // como query param (el BE filtra nasId IS NULL).
+  it('forwards pending=true as query param (chip "Pendientes" server-side)', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValueOnce({ data: listResult });
+    await pppoeApi.list({ pending: true, page: 1, limit: 25 });
+    expect(axiosClient.get).toHaveBeenCalledWith('/pppoe', {
+      params: { pending: 'true', page: 1, limit: 25 },
+    });
+  });
+
+  it('omits pending when false/absent (nunca manda ?pending=false)', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValueOnce({ data: listResult });
+    await pppoeApi.list({ pending: false, page: 1 });
+    expect(axiosClient.get).toHaveBeenCalledWith('/pppoe', { params: { page: 1 } });
+  });
 });
 
 describe('pppoeApi.listIds', () => {
@@ -83,6 +99,24 @@ describe('pppoeApi.listIds', () => {
     await pppoeApi.listIds({ search: '  juan  ', status: '', nasId: '' });
     expect(axiosClient.get).toHaveBeenCalledWith('/pppoe/ids', {
       params: { search: 'juan' },
+    });
+  });
+
+  // pppoe-preprovision D6.7: pending=true viaja al endpoint de ids y CUENTA como
+  // filtro de narrowing en el BE (no dispara 400 FILTER_REQUIRED yendo solo).
+  it('forwards pending=true (cuenta como filtro de narrowing en el BE)', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValueOnce({ data: idsResult });
+    await pppoeApi.listIds({ pending: true, includeUnassigned: true });
+    expect(axiosClient.get).toHaveBeenCalledWith('/pppoe/ids', {
+      params: { pending: 'true', includeUnassigned: 'true' },
+    });
+  });
+
+  it('omits pending when false/absent (mismo patrón que pppoeApi.list)', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValueOnce({ data: idsResult });
+    await pppoeApi.listIds({ pending: false, nasId: 'nas-1' });
+    expect(axiosClient.get).toHaveBeenCalledWith('/pppoe/ids', {
+      params: { nasId: 'nas-1' },
     });
   });
 });

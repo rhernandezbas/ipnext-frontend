@@ -3,6 +3,8 @@
  *
  * S5.3: fila con nasId null → columna NAS "—" + badge "Pendiente de instalación";
  *       filtro rápido "Pendientes" con round-trip en URL (param namespaced pppoe_pending).
+ *       v2: el chip es SERVER-SIDE — pending=true viaja en el filtro del listado y
+ *       del endpoint de ids (paginación y select-all correctos sobre TODOS los pendientes).
  * S5.1 (modal crear): tipo de IP sin preselección; submit bloqueado + hint hasta elegir.
  * S5.2 (modal crear): "Sin router — auto-instalación" primera opción del selector NAS;
  *       elegirla oculta los campos de IP y el payload va SIN nasId, CON ipTypePreference.
@@ -214,37 +216,55 @@ describe('S5.3: fila pendiente en el tab PPPoE', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // S5.3 — filtro rápido "Pendientes" con round-trip en URL
 // ─────────────────────────────────────────────────────────────────────────────
-describe('S5.3: filtro rápido "Pendientes" (round-trip URL)', () => {
-  it('click en el chip filtra la lista a los pendientes y escribe pppoe_pending=1 en la URL', async () => {
+// v2 (pending server-side): los asserts de filas ocultas/visibles del diseño
+// client-side original se reemplazan por asserts de WIRE — el chip ahora manda
+// pending=true en el filtro del hook y es el SERVER quien decide qué filas van.
+describe('S5.3: filtro rápido "Pendientes" (server-side, round-trip URL)', () => {
+  it('click en el chip manda pending=true al listado (page 1) y escribe pppoe_pending=1 en la URL', async () => {
     renderTab();
 
     const chip = screen.getByRole('button', { name: /pendientes/i });
     expect(chip).toHaveAttribute('aria-pressed', 'false');
+    expect(vi.mocked(useAllPppoe).mock.lastCall?.[0]?.pending).toBeUndefined();
 
     await userEvent.click(chip);
 
     expect(chip).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByTestId('location-search')).toHaveTextContent('pppoe_pending=1');
-    expect(screen.getByText('preprov01')).toBeInTheDocument();
-    expect(screen.queryByText('cliente01')).toBeNull();
+    expect(useAllPppoe).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pending: true, page: 1 }),
+    );
   });
 
-  it('round-trip: entrar con ?pppoe_pending=1 restaura el filtro activo', () => {
+  it('round-trip: entrar con ?pppoe_pending=1 restaura el chip y el request ya viaja con pending=true', () => {
     renderTab(['/?pppoe_pending=1']);
 
     expect(screen.getByRole('button', { name: /pendientes/i })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText('preprov01')).toBeInTheDocument();
-    expect(screen.queryByText('cliente01')).toBeNull();
+    expect(useAllPppoe).toHaveBeenLastCalledWith(expect.objectContaining({ pending: true }));
   });
 
-  it('apagar el chip saca el param de la URL y vuelve a mostrar todas las filas', async () => {
+  it('apagar el chip saca el param de la URL y el request vuelve a ir SIN pending', async () => {
     renderTab(['/?pppoe_pending=1']);
 
     await userEvent.click(screen.getByRole('button', { name: /pendientes/i }));
 
     expect(screen.getByTestId('location-search')).not.toHaveTextContent('pppoe_pending');
-    expect(screen.getByText('cliente01')).toBeInTheDocument();
-    expect(screen.getByText('preprov01')).toBeInTheDocument();
+    expect(vi.mocked(useAllPppoe).mock.lastCall?.[0]?.pending).toBeUndefined();
+  });
+
+  it('togglear el chip resetea a la página 1 (mismo flujo de cambio de filtro que NAS/estado)', async () => {
+    vi.mocked(useAllPppoe).mockReturnValue(
+      makeQueryMock({ data: [normalItem], total: 60, page: 1, limit: 25 } as PppoeServiceListResult) as never,
+    );
+    renderTab();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    expect(useAllPppoe).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
+
+    await userEvent.click(screen.getByRole('button', { name: /pendientes/i }));
+    expect(useAllPppoe).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pending: true, page: 1 }),
+    );
   });
 });
 
@@ -338,8 +358,9 @@ describe('S5.2 (modal crear): "Sin router — auto-instalación"', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // C1 — el chip "Pendientes" debe respetar el invariante anti-TOCTOU de la
 // selección: mismo patrón que handleSearch/handleNas/handleStatus (limpiar
-// `selected` + avanzar la generación) y ocultar el select-all server-side
-// (que ignora pendingOnly y congelaría cientos de no-pendientes invisibles).
+// `selected` + avanzar la generación). v2: como el chip ahora es server-side
+// (pending=true en listado + ids), el select-all YA NO se oculta con chip ON —
+// congela exactamente el universo de pendientes que el BE resuelve.
 // ─────────────────────────────────────────────────────────────────────────────
 describe('C1: chip "Pendientes" y el invariante anti-TOCTOU de la selección', () => {
   it('(a) seleccionar la página y togglear el chip deja la selección VACÍA', async () => {
@@ -354,17 +375,22 @@ describe('C1: chip "Pendientes" y el invariante anti-TOCTOU de la selección', (
     expect(screen.queryByText(/seleccionado/i)).toBeNull();
   });
 
-  it('(b) con el chip ON el botón "Seleccionar los N del filtro" se OCULTA; al apagarlo vuelve', async () => {
+  // ACTUALIZADO (chip server-side): antes el botón se OCULTABA con chip ON porque
+  // el endpoint de ids ignoraba pendingOnly (habría congelado no-pendientes
+  // invisibles). Ahora el BE honra pending=true (D6.7) → el botón queda visible.
+  it('(b) con el chip ON el botón "Seleccionar los N del filtro" SIGUE visible; apagarlo (con el NAS ya limpiado por el chip) lo saca por falta de filtro', async () => {
     renderTab();
 
     await userEvent.selectOptions(screen.getByRole('combobox', { name: /filtrar por nas/i }), 'nas-1');
     expect(screen.getByRole('button', { name: /seleccionar los \d+ del filtro/i })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /pendientes/i }));
-    expect(screen.queryByRole('button', { name: /seleccionar los \d+ del filtro/i })).toBeNull();
-
-    await userEvent.click(screen.getByRole('button', { name: /pendientes/i }));
     expect(screen.getByRole('button', { name: /seleccionar los \d+ del filtro/i })).toBeInTheDocument();
+
+    // Apagar el chip: activarlo LIMPIÓ el filtro de NAS (ver W4 v2), así que ya
+    // no queda ningún filtro de narrowing → el botón desaparece (guard del BE).
+    await userEvent.click(screen.getByRole('button', { name: /pendientes/i }));
+    expect(screen.queryByRole('button', { name: /seleccionar los \d+ del filtro/i })).toBeNull();
   });
 
   it('(c) togglear el chip avanza la generación: un fetch viejo en vuelo NO repuebla la selección al resolver', async () => {
@@ -399,14 +425,69 @@ describe('C1: chip "Pendientes" y el invariante anti-TOCTOU de la selección', (
     expect(screen.queryByText(/seleccionado/i)).toBeNull();
   });
 
-  it('(d) con el chip ON el contador de la toolbar refleja lo visible, no el total del server', async () => {
+  // ACTUALIZADO (chip server-side): antes el contador era per-página ("N pendientes
+  // en esta página") porque el total del server MENTÍA (incluía no-pendientes).
+  // Con pending=true el total del server ES el total de pendientes → se muestra.
+  it('(d) con el chip ON el contador muestra el TOTAL del server (ahora honesto)', async () => {
     renderTab();
     expect(screen.getByText('2 servicios')).toBeInTheDocument();
 
+    // El server resuelve el filtro: con pending=true devuelve SOLO pendientes.
+    vi.mocked(useAllPppoe).mockReturnValue(
+      makeQueryMock({ data: [pendingItem], total: 1, page: 1, limit: 25 } as PppoeServiceListResult) as never,
+    );
     await userEvent.click(screen.getByRole('button', { name: /pendientes/i }));
 
-    expect(screen.getByText('1 pendiente en esta página')).toBeInTheDocument();
+    expect(screen.getByText('1 pendiente')).toBeInTheDocument();
     expect(screen.queryByText('2 servicios')).toBeNull();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v2 — select-all y bulk con el chip "Pendientes" server-side: el fetch de ids
+// viaja con pending=true (el BE lo cuenta como filtro de narrowing, D6.7) y la
+// selección congela EXACTAMENTE el universo de pendientes. El bulk "Cambiar
+// plan" queda deshabilitado con chip ON: los pendientes fallan ese bulk per-item
+// (PPPOE_PENDING_INSTALL) — no se invita un bulk 100% fallido.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('v2: select-all y bulk con el chip "Pendientes" (pending server-side)', () => {
+  it('con el chip ON como ÚNICO filtro el botón aparece; el fetch de ids viaja con pending=true (wire campo por campo) y congela los ids del server', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({ ids: ['pppoe-pending', 'pppoe-pending-2'], total: 2 });
+    vi.mocked(useListPppoeIds).mockReturnValue(makeMutationMock(mutateAsync) as never);
+    renderTab();
+
+    // Sin ningún filtro el botón NO está (guard FILTER_REQUIRED del BE).
+    expect(screen.queryByRole('button', { name: /seleccionar los \d+ del filtro/i })).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: /pendientes/i }));
+
+    // D6.7: pending cuenta como narrowing → el botón aparece con el chip solo.
+    await userEvent.click(screen.getByRole('button', { name: /seleccionar los \d+ del filtro/i }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(mutateAsync).toHaveBeenCalledWith({
+      includeUnassigned: true,
+      search: undefined,
+      nasId: undefined,
+      status: undefined,
+      pending: true,
+    });
+    expect(await screen.findByText(/2 seleccionados/i)).toBeInTheDocument();
+  });
+
+  it('con el chip ON el bulk "Cambiar plan" queda deshabilitado con title honesto; chip OFF → habilitado', async () => {
+    renderTab();
+
+    // Chip OFF: seleccionar la página habilita el bulk como siempre.
+    await userEvent.click(screen.getByRole('checkbox', { name: /seleccionar todos de esta página/i }));
+    expect(screen.getByRole('button', { name: /cambiar plan/i })).not.toBeDisabled();
+
+    // Chip ON: la selección se limpió (C1a) — rearmarla y verificar el disable.
+    await userEvent.click(screen.getByRole('button', { name: /pendientes/i }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /seleccionar todos de esta página/i }));
+    const bulkBtn = screen.getByRole('button', { name: /cambiar plan/i });
+    expect(bulkBtn).toBeDisabled();
+    expect(bulkBtn).toHaveAttribute('title', 'Los pendientes de instalación no admiten cambio de plan');
   });
 });
 
@@ -437,19 +518,44 @@ describe('W2: fila pendiente sin el artefacto "— fija"', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// W4 — NAS filtrado + chip ON = vacío GARANTIZADO (los pendientes no tienen
-// NAS): el empty state lo dice, en vez del copy engañoso de "cambiá de página".
+// W4 v2 — chip "Pendientes" vs filtro de NAS. Activar el chip con NAS filtrado
+// LIMPIA el filtro de NAS (decisión UX: pendiente = sin NAS, mandar ambos params
+// sería un AND contradictorio con vacío GARANTIZADO — más honesto limpiar).
+// El combo inverso (elegir NAS con el chip YA activo) sí viaja al BE, que
+// devuelve vacío → empty state con el copy específico.
 // ─────────────────────────────────────────────────────────────────────────────
-describe('W4: NAS filtrado + chip "Pendientes" → empty state honesto', () => {
-  it('explica que los pendientes no tienen router y cómo salir del filtro', async () => {
-    // Con nasId filtrado el server solo devuelve filas CON ese NAS (cero pendientes).
-    vi.mocked(useAllPppoe).mockReturnValue(
-      makeQueryMock({ data: [normalItem], total: 1, page: 1, limit: 25 } as PppoeServiceListResult) as never,
-    );
+describe('W4 v2: chip "Pendientes" vs filtro de NAS', () => {
+  it('activar el chip con NAS filtrado LIMPIA el filtro de NAS (no viaja el AND contradictorio)', async () => {
     renderTab();
 
     await userEvent.selectOptions(screen.getByRole('combobox', { name: /filtrar por nas/i }), 'nas-1');
+    expect(useAllPppoe).toHaveBeenLastCalledWith(expect.objectContaining({ nasId: 'nas-1' }));
+
     await userEvent.click(screen.getByRole('button', { name: /pendientes/i }));
+
+    // El select vuelve a "Todos los NAS" y el request va con pending SIN nasId.
+    expect(
+      (screen.getByRole('combobox', { name: /filtrar por nas/i }) as HTMLSelectElement).value,
+    ).toBe('');
+    const lastFilter = vi.mocked(useAllPppoe).mock.lastCall?.[0];
+    expect(lastFilter?.pending).toBe(true);
+    expect(lastFilter?.nasId).toBeUndefined();
+  });
+
+  it('elegir un NAS con el chip YA activo → vacío del server con el copy específico', async () => {
+    // El BE resuelve pending=true AND nasId → vacío garantizado (los pendientes
+    // no tienen NAS por definición).
+    vi.mocked(useAllPppoe).mockReturnValue(
+      makeQueryMock({ data: [], total: 0, page: 1, limit: 25 } as PppoeServiceListResult) as never,
+    );
+    renderTab();
+
+    await userEvent.click(screen.getByRole('button', { name: /pendientes/i }));
+    // Chip ON sin NAS y cero resultados: copy de pendientes (ya no existe el
+    // "cambiá de página" del diseño client-side — la paginación es server-side).
+    expect(screen.getByText('No hay PPPoE pendientes de instalación.')).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /filtrar por nas/i }), 'nas-1');
 
     expect(screen.getByText(/los pendientes no tienen router asignado/i)).toBeInTheDocument();
     expect(screen.getByText(/quitá el filtro de router para verlos/i)).toBeInTheDocument();

@@ -995,12 +995,17 @@ export function PppoeManagementTab() {
   // ── S5.3: filtro rápido "Pendientes" (nasId null = pre-provisión sin instalar).
   // Vive en la URL (param namespaced del tab) para round-trip: recargar o
   // compartir el link restaura el filtro. Los writes preservan los params ajenos.
-  // NOTA wire: el GET /pppoe no expone un param de pendientes — el filtro es
-  // client-side sobre la página cargada (los pendientes derivan de nas null).
+  // v2 wire: GET /pppoe y GET /pppoe/ids exponen `pending=true` (filtra
+  // nasId IS NULL) — el chip es SERVER-SIDE: la paginación y el select-all
+  // operan sobre TODOS los pendientes, no sobre la página cargada.
   const [searchParams, setSearchParams] = useSearchParams();
   const pendingOnly = searchParams.get(PENDING_FILTER_PARAM) === '1';
 
+  // El chip pasa por el MISMO flujo de cambio de filtro que handleNas/handleStatus:
+  // reset de página + limpieza de selección + bump de generación. El invariante
+  // anti-TOCTOU (C1) se sostiene por el mismo patrón, no por código especial.
   function togglePendingFilter() {
+    const turningOn = !pendingOnly;
     setSearchParams(
       prev => {
         const next = new URLSearchParams(prev);
@@ -1010,10 +1015,11 @@ export function PppoeManagementTab() {
       },
       { replace: true },
     );
-    // C1: mismo invariante anti-TOCTOU que handleSearch/handleNas/handleStatus —
-    // el chip cambia el subconjunto VISIBLE, así que la selección previa queda
-    // apuntando a filas potencialmente ocultas: se limpia y se avanza la
-    // generación para descartar cualquier fetch de ids que esté en vuelo.
+    // W4 v2: pendiente = sin NAS por definición — mandar pending=true + nasId
+    // sería un AND contradictorio con vacío GARANTIZADO. Decisión UX: activar
+    // el chip LIMPIA el filtro de NAS (más honesto que mostrar un vacío fijo).
+    if (turningOn && nasId) setNasId('');
+    setPage(1);
     setSelected(new Set());
     filterGenerationRef.current += 1;
   }
@@ -1085,6 +1091,8 @@ export function PppoeManagementTab() {
     search: search || undefined,
     nasId: nasId || undefined,
     status: status || undefined,
+    // S5.3 v2: el chip "Pendientes" viaja server-side (query param + queryKey).
+    pending: pendingOnly || undefined,
     page,
     limit: PAGE_SIZE,
   });
@@ -1110,24 +1118,24 @@ export function PppoeManagementTab() {
   const queryClient = useQueryClient();
 
   // ── derived
+  // S5.3 v2: `items` YA viene filtrado del server cuando el chip está activo
+  // (pending=true) — no hay filtrado client-side de la página cargada.
   const items = listData?.data ?? [];
   const total = listData?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
-  // S5.3: con el chip "Pendientes" activo solo se muestran las filas sin NAS
-  // (pendientes de instalación). El filtro es sobre la página cargada.
-  const visibleItems = pendingOnly ? items.filter(it => it.nasId == null) : items;
 
   // Filter plans: enabled + not Corte category
   const activePlans = plans.filter(p => p.status === 'enabled' && p.category !== 'Corte');
 
   const nasOptions = nasServers.map(n => ({ id: n.id, name: n.name }));
 
-  // ── 3.3: filtro activo = al menos uno de {search, nasId, status}. `includeUnassigned`
-  // NO cuenta (es un toggle de scope, no un filtro de narrowing) — alineado con el BE.
+  // ── 3.3: filtro activo = al menos uno de {search, nasId, status, pending}.
+  // `includeUnassigned` NO cuenta (es un toggle de scope, no un filtro de
+  // narrowing) — alineado con el BE. `pending` SÍ cuenta (D6.7: el endpoint de
+  // ids lo acepta como narrowing).
   // Nit R2(a): search.trim() — espacios-solos NO cuentan como filtro activo (el
   // BE trimea y devolvería 400 FILTER_REQUIRED si search=' ' fuera el único filtro).
-  const hasActiveFilter = Boolean(search.trim() || nasId || status);
+  const hasActiveFilter = Boolean(search.trim() || nasId || status || pendingOnly);
 
   // Reset page on filter change (también limpia la selección — invariante anti-TOCTOU: la
   // selección congelada vía "Seleccionar los N del filtro" también se limpia acá).
@@ -1158,9 +1166,7 @@ export function PppoeManagementTab() {
   }
 
   // ── 5.4: handlers de selección (gateados por canManage) ──
-  // Sobre las filas VISIBLES: con el chip "Pendientes" activo, "seleccionar la
-  // página" selecciona solo lo que el operador está viendo.
-  const currentPageIds = visibleItems.map(it => it.id);
+  const currentPageIds = items.map(it => it.id);
   const allPageSelected =
     currentPageIds.length > 0 && currentPageIds.every(id => selected.has(id));
 
@@ -1214,6 +1220,8 @@ export function PppoeManagementTab() {
         search: search || undefined,
         nasId: nasId || undefined,
         status: status || undefined,
+        // v2: con el chip activo el BE resuelve SOLO ids de pendientes (D6.7).
+        pending: pendingOnly || undefined,
       });
       if (filterGenerationRef.current !== requestGeneration) {
         // El filtro cambió mientras el fetch estaba en vuelo — descartar en
@@ -1463,19 +1471,20 @@ export function PppoeManagementTab() {
         </button>
 
         <span className={styles.toolbarRight}>
-          {/* C1: con el chip ON el total del server MIENTE (incluye no-pendientes):
-              el contador refleja lo que realmente se ve. */}
-          {pendingOnly
-            ? `${visibleItems.length} pendiente${visibleItems.length === 1 ? '' : 's'} en esta página`
-            : total > 0 ? `${total} servicio${total === 1 ? '' : 's'}` : ''}
+          {/* v2: con el chip ON el total del server ES el total de pendientes
+              (pending=true server-side) — el contador vuelve a ser honesto. */}
+          {total > 0
+            ? pendingOnly
+              ? `${total} pendiente${total === 1 ? '' : 's'}`
+              : `${total} servicio${total === 1 ? '' : 's'}`
+            : ''}
           {isFetching && !isLoading ? ' · actualizando…' : ''}
         </span>
 
         {/* ── 3.3: "Seleccionar los N del filtro" — solo con filtro activo + canManage.
-            C1: con el chip ON se OCULTA — los pendientes son un subconjunto
-            client-side y el endpoint de ids del filtro ignora pendingOnly:
-            congelaría cientos de no-pendientes invisibles. ── */}
-        {canManage && hasActiveFilter && !pendingOnly && (
+            v2: el chip cuenta como filtro activo y ya NO oculta el botón — el
+            endpoint de ids honra pending=true (D6.7): congela SOLO pendientes. ── */}
+        {canManage && hasActiveFilter && (
           <button
             type="button"
             className={styles.btnSecondary}
@@ -1521,15 +1530,24 @@ export function PppoeManagementTab() {
             {requiresBatching ? ` — se enviará en ${totalBatches} lotes de ${BULK_BATCH_SIZE}` : ''}
           </span>
           <div className={styles.selectionActions}>
-            {/* v2: >200 ya NO bloquea — el envío en lotes lo resuelve (design.md Decisión 6) */}
-            {/* Ola 2: mientras hay una corrida en curso (incluso en segundo
-                plano, con el modal cerrado) no se puede abrir OTRO bulk. */}
+            {/* v2: >200 ya NO bloquea — el envío en lotes lo resuelve (design.md Decisión 6).
+                Ola 2: mientras hay una corrida en curso (incluso en segundo plano, con el
+                modal cerrado) no se puede abrir OTRO bulk.
+                pppoe-preprovision: con el chip "Pendientes" ON el cambio de plan masivo se
+                DESHABILITA — los pendientes fallan ese bulk per-item (PPPOE_PENDING_INSTALL):
+                no invitar un bulk 100% fallido. La selección sigue permitida. */}
             <button
               type="button"
               className={styles.btnPrimary}
               onClick={handleOpenBulkModal}
-              disabled={isBulkRunning}
-              title={isBulkRunning ? 'Hay un cambio de plan en curso — esperá a que termine o cortalo.' : undefined}
+              disabled={isBulkRunning || pendingOnly}
+              title={
+                isBulkRunning
+                  ? 'Hay un cambio de plan en curso — esperá a que termine o cortalo.'
+                  : pendingOnly
+                    ? 'Los pendientes de instalación no admiten cambio de plan'
+                    : undefined
+              }
             >
               Cambiar plan
             </button>
@@ -1652,32 +1670,35 @@ export function PppoeManagementTab() {
                   <div role="status" className={styles.skeleton} aria-label="Cargando…" />
                 </td>
               </tr>
-            ) : visibleItems.length === 0 ? (
+            ) : items.length === 0 ? (
               <tr>
                 <td colSpan={canManage ? 10 : 7}>
                   <div className={styles.empty}>
                     <IconPppoe className={styles.emptyIcon} />
-                    {/* W4: NAS filtrado + chip = vacío GARANTIZADO (los
-                        pendientes no tienen NAS) — copy específico, no el
-                        engañoso "cambiá de página". */}
+                    {/* W4 v2: NAS + chip = AND contradictorio que el BE resuelve
+                        vacío (los pendientes no tienen NAS) — copy específico.
+                        Solo alcanzable eligiendo un NAS con el chip YA activo
+                        (activar el chip con NAS filtrado LIMPIA el NAS).
+                        El "cambiá de página" del diseño client-side murió: con
+                        pending server-side, vacío = no hay pendientes, punto. */}
                     <h3 className={styles.emptyTitle}>
                       {pendingOnly && nasId
                         ? 'Los pendientes no tienen router asignado.'
-                        : pendingOnly && items.length > 0
-                          ? 'No hay PPPoE pendientes de instalación en esta página.'
+                        : pendingOnly
+                          ? 'No hay PPPoE pendientes de instalación.'
                           : 'No se encontraron servicios PPPoE.'}
                     </h3>
                     <p>
                       {pendingOnly && nasId
                         ? 'Quitá el filtro de router para verlos.'
-                        : pendingOnly && items.length > 0
-                          ? 'Cambiá de página o desactivá el filtro "Pendientes".'
+                        : pendingOnly
+                          ? 'Todo lo pre-provisionado ya fue instalado. Desactivá el filtro "Pendientes" para ver todos los servicios.'
                           : 'Probá ajustando los filtros o creá un servicio nuevo.'}
                     </p>
                   </div>
                 </td>
               </tr>
-            ) : visibleItems.map(item => (
+            ) : items.map(item => (
               <tr
                 key={item.id}
                 className={`${styles.bodyRow}${selected.has(item.id) ? ` ${styles.rowSelected}` : ''}`}

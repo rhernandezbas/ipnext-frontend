@@ -129,6 +129,9 @@ export const pppoeApi = {
     if (filter.page !== undefined) params.page = filter.page;
     if (filter.limit !== undefined) params.limit = filter.limit;
     if (filter.includeUnassigned !== undefined) params.includeUnassigned = filter.includeUnassigned ? 'true' : 'false';
+    // pppoe-preprovision: solo pendientes de instalación (nasId IS NULL).
+    // Se omite cuando es false/ausente (el BE solo reconoce pending=true).
+    if (filter.pending) params.pending = 'true';
     const r = await axiosClient.get<PppoeServiceListResult>(BASE, { params });
     return r.data;
   },
@@ -137,9 +140,10 @@ export const pppoeApi = {
    * Ids de TODOS los servicios PPPoE que matchean un filtro activo (SIN paginar),
    * para congelar la selección del bulk masivo (pppoe-bulk-select-filter v2).
    * GET /pppoe/ids — gated `pppoe.manage` (NO `pppoe.read`: solo alimenta el bulk).
-   * MISMOS filtros que `list()` (search/status/nasId/includeUnassigned), SIN
-   * page/limit (el endpoint no pagina). El BE exige AL MENOS un filtro de
-   * narrowing (search/status/nasId) — sin ninguno responde 400 FILTER_REQUIRED.
+   * MISMOS filtros que `list()` (search/status/nasId/includeUnassigned/pending),
+   * SIN page/limit (el endpoint no pagina). El BE exige AL MENOS un filtro de
+   * narrowing (search/status/nasId/pending — D6.7: pending cuenta) — sin ninguno
+   * responde 400 FILTER_REQUIRED.
    * Los filtros vacíos se omiten del query string (mismo patrón que `list`).
    */
   async listIds(filter: PppoeServiceListFilter = {}): Promise<PppoeIdsResult> {
@@ -148,6 +152,8 @@ export const pppoeApi = {
     if (filter.status) params.status = filter.status;
     if (filter.nasId) params.nasId = filter.nasId;
     if (filter.includeUnassigned !== undefined) params.includeUnassigned = filter.includeUnassigned ? 'true' : 'false';
+    // pppoe-preprovision D6.7: pending viaja al ids y cuenta como narrowing.
+    if (filter.pending) params.pending = 'true';
     const r = await axiosClient.get<PppoeIdsResult>(`${BASE}/ids`, { params });
     return r.data;
   },
