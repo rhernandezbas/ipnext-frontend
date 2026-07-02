@@ -22,7 +22,9 @@ import {
   useMovePppoeGlobal,
   useDeactivatePppoeGlobal,
   usePppoeCredentials,
+  useBulkChangePppoePlan,
 } from '@/hooks/usePppoe';
+import type { BulkChangePlanResult } from '@/api/pppoe.api';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import { Can } from '@/components/auth/Can';
@@ -36,6 +38,9 @@ import styles from './PppoeManagementTab.module.css';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 25;
+
+// W1: tope de selección para el bulk (alineado con el 422 BULK_TOO_LARGE del BE).
+const BULK_SELECTION_CAP = 200;
 
 const STATUS_OPTIONS: InternetServiceStatus[] = ['active', 'reduced', 'blocked', 'baja', 'inactive'];
 
@@ -576,6 +581,138 @@ function MoveNasModal({ item, nasOptions, onClose, onMove, isPending }: MoveNasM
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// W2: extrae el mensaje/code real del BE de un error axios (ej. 422
+// BULK_TOO_LARGE, PLAN_NOT_FOUND) en vez del genérico err.message de axios
+// ("Request failed with status code 422"). Cae al fallback si el error no
+// trae el shape de respuesta axios (ej. error de red).
+// ─────────────────────────────────────────────────────────────────────────────
+function bulkErrorMessage(err: unknown, fallback: string): string {
+  const data = (err as { response?: { data?: { error?: string; code?: string } } })?.response?.data;
+  return data?.error ?? data?.code ?? fallback;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Modal: Bulk cambio de plan
+// ─────────────────────────────────────────────────────────────────────────────
+interface BulkChangePlanModalProps {
+  selectedCount: number;
+  planOptions: { code: string; name: string }[];
+  onClose: () => void;
+  onConfirm: (profile: string, reason?: string) => Promise<void>;
+  isPending: boolean;
+  result: BulkChangePlanResult | null;
+}
+
+function BulkChangePlanModal({
+  selectedCount,
+  planOptions,
+  onClose,
+  onConfirm,
+  isPending,
+  result,
+}: BulkChangePlanModalProps) {
+  const [profile, setProfile] = useState(planOptions[0]?.code ?? '');
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!profile) return;
+    setError(null);
+    try {
+      await onConfirm(profile, reason || undefined);
+    } catch (err) {
+      setError(bulkErrorMessage(err, 'No se pudo cambiar el plan.'));
+    }
+  }
+
+  return (
+    <div className={styles.overlay}>
+      <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="bulk-modal-title">
+        <h2 className={styles.modalTitle} id="bulk-modal-title">
+          Cambiar plan — {selectedCount} servicio{selectedCount !== 1 ? 's' : ''}
+        </h2>
+
+        {/* Resumen post-bulk */}
+        {result !== null ? (
+          <div>
+            {result.ok.length > 0 && (
+              <div className={styles.bulkSuccess} role="status">
+                {result.ok.length} exitoso{result.ok.length !== 1 ? 's' : ''}
+              </div>
+            )}
+            {result.failed.length > 0 && (
+              <div className={styles.partialAlert} role="alert">
+                <strong>{result.failed.length} error{result.failed.length !== 1 ? 'es' : ''}:</strong>
+                <ul className={styles.bulkFailedList}>
+                  {result.failed.map(f => (
+                    <li key={f.id}>
+                      <span className={styles.bulkFailedUser}>{f.username || f.id}</span>
+                      {' — '}
+                      <span>{f.error}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className={styles.modalActions}>
+              <button type="button" className={styles.btnPrimary} onClick={onClose}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div className={styles.formGroup}>
+              <label htmlFor="bulk-plan">Plan</label>
+              <select
+                id="bulk-plan"
+                aria-label="Plan"
+                value={profile}
+                onChange={e => setProfile(e.target.value)}
+                required
+              >
+                {planOptions.map(p => (
+                  <option key={p.code} value={p.code}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className={styles.formGroup}>
+              <label htmlFor="bulk-reason">
+                Motivo <span className={styles.muted}>(opcional)</span>
+              </label>
+              <input
+                id="bulk-reason"
+                type="text"
+                value={reason}
+                onChange={e => setReason(e.target.value)}
+                placeholder="ej. promo verano, recategorización"
+                aria-label="Motivo"
+              />
+            </div>
+            {error && (
+              <div className={styles.partialAlert} role="alert">{error}</div>
+            )}
+            <div className={styles.modalActions}>
+              <button type="button" className={styles.btnSecondary} onClick={onClose}>
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className={styles.btnPrimary}
+                disabled={isPending || !profile}
+              >
+                {isPending ? 'Cambiando…' : 'Confirmar cambio'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
 export function PppoeManagementTab() {
@@ -594,6 +731,16 @@ export function PppoeManagementTab() {
   const [editingItem, setEditingItem] = useState<PppoeServiceListItem | null>(null);
   const [renamingItem, setRenamingItem] = useState<PppoeServiceListItem | null>(null);
   const [movingItem, setMovingItem] = useState<PppoeServiceListItem | null>(null);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+
+  // ── 5.4: selección múltiple (gateada por canManage)
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // ── W1: tope de 200 — el BE rechaza con 422 BULK_TOO_LARGE por encima de esto
+  const overSelectionCap = selected.size > BULK_SELECTION_CAP;
+
+  // ── 5.7: resultado del bulk (null = aún no ejecutado)
+  const [bulkResult, setBulkResult] = useState<BulkChangePlanResult | null>(null);
 
   // ── data
   const { data: listData, isLoading, isError, isFetching, refetch } = useAllPppoe({
@@ -618,6 +765,7 @@ export function PppoeManagementTab() {
   const updateMutation = useUpdatePppoeGlobal();
   const moveMutation = useMovePppoeGlobal();
   const deactivateMutation = useDeactivatePppoeGlobal();
+  const bulkMutation = useBulkChangePppoePlan();
 
   // ── derived
   const items = listData?.data ?? [];
@@ -629,10 +777,70 @@ export function PppoeManagementTab() {
 
   const nasOptions = nasServers.map(n => ({ id: n.id, name: n.name }));
 
-  // Reset page on filter change
-  function handleSearch(v: string) { setSearchRaw(v); setPage(1); }
-  function handleNas(v: string) { setNasId(v); setPage(1); }
-  function handleStatus(v: string) { setStatus(v as InternetServiceStatus | ''); setPage(1); }
+  // Reset page on filter change (también limpia la selección)
+  function handleSearch(v: string) { setSearchRaw(v); setPage(1); setSelected(new Set()); }
+  function handleNas(v: string) { setNasId(v); setPage(1); setSelected(new Set()); }
+  function handleStatus(v: string) { setStatus(v as InternetServiceStatus | ''); setPage(1); setSelected(new Set()); }
+
+  // ── 5.4: handlers de selección (gateados por canManage) ──
+  const currentPageIds = items.map(it => it.id);
+  const allPageSelected =
+    currentPageIds.length > 0 && currentPageIds.every(id => selected.has(id));
+
+  function handleToggleRow(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function handleTogglePage() {
+    if (allPageSelected) {
+      // Deseleccionar los de esta página
+      setSelected(prev => {
+        const next = new Set(prev);
+        currentPageIds.forEach(id => next.delete(id));
+        return next;
+      });
+    } else {
+      // Seleccionar todos los de esta página
+      setSelected(prev => {
+        const next = new Set(prev);
+        currentPageIds.forEach(id => next.add(id));
+        return next;
+      });
+    }
+  }
+
+  function handleClearSelection() {
+    setSelected(new Set());
+  }
+
+  // ── 5.6: handler del bulk ──
+  async function handleBulkConfirm(profile: string, reason?: string) {
+    const ids = Array.from(selected);
+    const result = await bulkMutation.mutateAsync({ ids, profile, reason });
+    setBulkResult(result);
+    // 5.7: limpiar los OK de la selección
+    const okSet = new Set(result.ok);
+    setSelected(prev => {
+      const next = new Set(prev);
+      okSet.forEach(id => next.delete(id));
+      return next;
+    });
+  }
+
+  function handleOpenBulkModal() {
+    setBulkResult(null);
+    setShowBulkModal(true);
+  }
+
+  function handleCloseBulkModal() {
+    setShowBulkModal(false);
+    setBulkResult(null);
+  }
 
   // ── action handlers — F2: await + try/catch con feedback visible
   async function handleDeactivate(item: PppoeServiceListItem) {
@@ -708,7 +916,7 @@ export function PppoeManagementTab() {
         <div className={styles.filter}>
           <IconSearch />
           <input
-            placeholder="Buscar usuario, cliente…"
+            placeholder="Buscar usuario, cliente, IP, MAC…"
             value={searchRaw}
             onChange={e => handleSearch(e.target.value)}
             aria-label="Buscar PPPoE"
@@ -762,16 +970,64 @@ export function PppoeManagementTab() {
         </div>
       )}
 
+      {/* ── 5.5: Toolbar contextual de selección (solo visible con selección + canManage) ── */}
+      {canManage && selected.size > 0 && (
+        <div className={styles.selectionToolbar} role="toolbar" aria-label="Acciones sobre la selección">
+          <span
+            className={`${styles.selectionCount}${overSelectionCap ? ` ${styles.selectionCountWarning}` : ''}`}
+          >
+            {selected.size} seleccionado{selected.size !== 1 ? 's' : ''}
+            {overSelectionCap ? ` — máximo ${BULK_SELECTION_CAP}` : ''}
+          </span>
+          <div className={styles.selectionActions}>
+            <button
+              type="button"
+              className={`${styles.btnPrimary}${overSelectionCap ? ` ${styles.btnDisabled}` : ''}`}
+              onClick={overSelectionCap ? undefined : handleOpenBulkModal}
+              aria-disabled={overSelectionCap || undefined}
+              title={
+                overSelectionCap
+                  ? `Hay ${selected.size} seleccionados. Reducí la selección a ${BULK_SELECTION_CAP} o menos para cambiar el plan.`
+                  : undefined
+              }
+            >
+              Cambiar plan
+            </button>
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              onClick={handleClearSelection}
+            >
+              Limpiar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Table ── */}
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <thead>
             <tr>
+              {/* 5.4: columna de selección — solo con pppoe.manage */}
+              {canManage && (
+                <th className={styles.checkboxCell}>
+                  <input
+                    type="checkbox"
+                    checked={allPageSelected}
+                    onChange={handleTogglePage}
+                    aria-label="Seleccionar todos de esta página"
+                    title="Seleccionar todos de esta página"
+                  />
+                </th>
+              )}
               <th>Usuario</th>
               <th>Cliente</th>
               <th>Plan</th>
               <th>Estado</th>
               <th>IP</th>
+              {/* 5.2b: columna MAC */}
+              <th>MAC</th>
               <th>NAS</th>
               {/* F1: columna Contraseña solo visible con pppoe.manage */}
               {canManage && <th>Contraseña</th>}
@@ -781,7 +1037,7 @@ export function PppoeManagementTab() {
           <tbody>
             {isError ? (
               <tr>
-                <td colSpan={canManage ? 8 : 6}>
+                <td colSpan={canManage ? 10 : 7}>
                   <div className={styles.errorPanel} role="alert">
                     No se pudo cargar los servicios PPPoE.
                     <button className={styles.btnRetry} onClick={() => refetch()}>
@@ -792,13 +1048,13 @@ export function PppoeManagementTab() {
               </tr>
             ) : isLoading ? (
               <tr>
-                <td colSpan={canManage ? 8 : 6}>
+                <td colSpan={canManage ? 10 : 7}>
                   <div role="status" className={styles.skeleton} aria-label="Cargando…" />
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={canManage ? 8 : 6}>
+                <td colSpan={canManage ? 10 : 7}>
                   <div className={styles.empty}>
                     <IconPppoe className={styles.emptyIcon} />
                     <h3 className={styles.emptyTitle}>No se encontraron servicios PPPoE.</h3>
@@ -807,7 +1063,22 @@ export function PppoeManagementTab() {
                 </td>
               </tr>
             ) : items.map(item => (
-              <tr key={item.id} className={styles.bodyRow}>
+              <tr
+                key={item.id}
+                className={`${styles.bodyRow}${selected.has(item.id) ? ` ${styles.rowSelected}` : ''}`}
+              >
+                {/* 5.4: checkbox de fila — solo con canManage */}
+                {canManage && (
+                  <td className={styles.checkboxCell}>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(item.id)}
+                      onChange={() => handleToggleRow(item.id)}
+                      aria-label={`Seleccionar ${item.username}`}
+                    />
+                  </td>
+                )}
+
                 {/* Username */}
                 <td className={`${styles.nm} ${styles.mono}`}>{item.username}</td>
 
@@ -845,6 +1116,16 @@ export function PppoeManagementTab() {
                   {item.ipMode === 'fixed' && (
                     <span className={styles.badgeFixed}>fija</span>
                   )}
+                </td>
+
+                {/* 5.2b: MAC (callerId) — mismo tratamiento tipográfico que IP */}
+                <td className={styles.mono}>
+                  {item.callerId != null
+                    ? item.callerId
+                    : (
+                      <span aria-label="Sin dato" className={styles.muted}>—</span>
+                    )
+                  }
                 </td>
 
                 {/* NAS */}
@@ -926,6 +1207,18 @@ export function PppoeManagementTab() {
             moveMutation.mutateAsync({ id: movingItem.id, nasId: targetNasId, force })
           }
           isPending={moveMutation.isPending}
+        />
+      )}
+
+      {/* ── 5.6: Modal bulk cambio de plan ── */}
+      {showBulkModal && (
+        <BulkChangePlanModal
+          selectedCount={selected.size}
+          planOptions={activePlans.map(p => ({ code: p.code, name: p.name }))}
+          onClose={handleCloseBulkModal}
+          onConfirm={handleBulkConfirm}
+          isPending={bulkMutation.isPending}
+          result={bulkResult}
         />
       )}
     </div>

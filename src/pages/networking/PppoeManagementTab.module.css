@@ -594,6 +594,100 @@
   }
 }
 
+/* ── bulk selection — checkbox cell ──────────────────────────────────────────── */
+.checkboxCell {
+  width: 44px;
+  text-align: center;
+  padding: 8px 10px;
+}
+
+.checkboxCell input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--gr-primary);
+  /* touch target mínimo 44px — la celda .checkboxCell (44px) provee el área */
+}
+
+.checkboxCell input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--gr-primary-2);
+  outline-offset: 2px;
+}
+
+/* ── fila seleccionada ───────────────────────────────────────────────────────── */
+.rowSelected {
+  background: #eef4ff;
+}
+
+.rowSelected:hover {
+  background: #e0ecff;
+}
+
+/* ── selection toolbar contextual ───────────────────────────────────────────── */
+.selectionToolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #eef4ff;
+  border-bottom: 1px solid #bfdbfe;
+  flex-wrap: wrap;
+}
+
+.selectionCount {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gr-primary);
+  white-space: nowrap;
+}
+
+.selectionActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ── W1: tope de 200 seleccionados ──────────────────────────────────────────── */
+/* --gr-red (#dc2626 sobre blanco) ya se usa en .errorPanel/.partialAlert;
+   ratio ~4.83:1, cumple WCAG AA (>=4.5:1) para texto normal. */
+.selectionCountWarning {
+  color: var(--gr-red);
+}
+
+.btnDisabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btnDisabled:hover {
+  background: var(--gr-primary);
+  box-shadow: none;
+}
+
+/* ── bulk modal — resumen ────────────────────────────────────────────────────── */
+.bulkSuccess {
+  background: var(--gr-green-soft);
+  border-left: 3px solid var(--gr-green);
+  padding: 10px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--gr-green);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.bulkFailedList {
+  margin: 6px 0 0 0;
+  padding-left: 16px;
+  list-style: disc;
+  font-size: 12.5px;
+}
+
+.bulkFailedUser {
+  font-family: 'Fira Code', monospace;
+  font-weight: 600;
+}
+
 /* ── reduced motion ──────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   * {

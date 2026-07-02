@@ -67,6 +67,16 @@ export interface UpdatePppoeBody {
   reason?: string | null;
 }
 
+/**
+ * Resultado de POST /api/pppoe/bulk/change-plan.
+ * ok = ids que cambiaron exitosamente.
+ * failed = items que fallaron con username + error para mostrar en el resumen.
+ */
+export interface BulkChangePlanResult {
+  ok: string[];
+  failed: { id: string; username: string; error: string }[];
+}
+
 /** Credenciales reveladas bajo demanda (frontera de seguridad: NUNCA viajan en el DTO de lista/detalle). */
 export interface PppoeCredentials {
   username: string;
@@ -304,6 +314,22 @@ export const pppoeApi = {
     if (params.trigger) query.trigger = params.trigger;
     if (params.username && params.username.trim()) query.username = params.username.trim();
     const r = await axiosClient.get<PaginatedPppoeNasMoveEvents>(`${BASE}/nas-move-events`, { params: query });
+    return r.data;
+  },
+
+  /**
+   * Cambia el plan de múltiples PPPoEs en un solo request (bulk).
+   * POST /api/pppoe/bulk/change-plan — gated `pppoe.manage`.
+   * - ids: hasta 200 ids (el BE valida el tope).
+   * - profile: código del plan (debe existir en el catálogo Plan).
+   * - reason: motivo opcional del cambio.
+   * Respuesta síncrona { ok, failed }: un ítem fallido no aborta el lote (best-effort).
+   * Errores HTTP: 400 (ids vacío), 422 (plan inexistente / ids > 200), 403 (sin permiso).
+   */
+  async bulkChangePlan(ids: string[], profile: string, reason?: string): Promise<BulkChangePlanResult> {
+    const body: { ids: string[]; profile: string; reason?: string } = { ids, profile };
+    if (reason !== undefined && reason !== null) body.reason = reason;
+    const r = await axiosClient.post<BulkChangePlanResult>(`${BASE}/bulk/change-plan`, body);
     return r.data;
   },
 };

@@ -52,6 +52,12 @@ export interface PppoeServiceListItem {
   nasType?: string | null;
   /** Contrato al que está vinculado. Null = servicio huérfano sin contrato. */
   contractId?: string | null;
+  /**
+   * MAC del CPE (caller-id del RADIUS). Se persiste aunque la sesión caiga.
+   * Null = nunca se vio sesión (servicio recién creado o sin sesión RADIUS aún).
+   * Expuesto en el DTO de lista a partir de la feature pppoe-search-bulk-plan.
+   */
+  callerId?: string | null;
 }
 
 /** Respuesta paginada de GET /api/pppoe. */

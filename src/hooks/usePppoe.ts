@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { pppoeApi } from '@/api/pppoe.api';
-import type { CreatePppoeBody, UpdatePppoeBody, PppoeCredentials, CreateStandalonePppoeBody, RenamePppoeResult } from '@/api/pppoe.api';
+import type { CreatePppoeBody, UpdatePppoeBody, PppoeCredentials, CreateStandalonePppoeBody, RenamePppoeResult, BulkChangePlanResult } from '@/api/pppoe.api';
 import type {
   EnforcementAction,
   EnforcementTarget,
@@ -268,7 +268,7 @@ export function useUnpinPppoeIp(contractId: string, clientId: string | number) {
 // de useAllPppoe (keyFactory de useInternetServices).
 
 /** Clave-prefijo para invalidar TODAS las queries de lista de PPPoE. */
-const GLOBAL_LIST_KEY = ['pppoe', 'list'] as const;
+export const GLOBAL_LIST_KEY = ['pppoe', 'list'] as const;
 
 /**
  * Crea un PPPoE standalone (sin contrato obligatorio).
@@ -357,6 +357,26 @@ export function useDeactivatePppoeGlobal() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: GLOBAL_LIST_KEY });
       qc.invalidateQueries({ queryKey: unassignedKey() });
+    },
+  });
+}
+
+/**
+ * Cambia el plan de múltiples PPPoEs (bulk, best-effort).
+ * POST /api/pppoe/bulk/change-plan — gated `pppoe.manage` en el BE.
+ * En éxito invalida la lista global para que la tabla refleje los nuevos planes.
+ * NO invalida unassigned: el bulk no cambia el contractId ni el estado del servicio.
+ */
+export function useBulkChangePppoePlan() {
+  const qc = useQueryClient();
+  return useMutation<
+    BulkChangePlanResult,
+    unknown,
+    { ids: string[]; profile: string; reason?: string }
+  >({
+    mutationFn: ({ ids, profile, reason }) => pppoeApi.bulkChangePlan(ids, profile, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: GLOBAL_LIST_KEY });
     },
   });
 }

@@ -41,6 +41,8 @@ vi.mock('@/hooks/usePppoe', () => ({
   useMovePppoeGlobal: vi.fn(),
   useDeactivatePppoeGlobal: vi.fn(),
   usePppoeCredentials: vi.fn(),
+  useBulkChangePppoePlan: vi.fn(),
+  GLOBAL_LIST_KEY: ['pppoe', 'list'],
 }));
 
 // ── import mocked modules ─────────────────────────────────────────────────────
@@ -56,6 +58,7 @@ import {
   useMovePppoeGlobal,
   useDeactivatePppoeGlobal,
   usePppoeCredentials,
+  useBulkChangePppoePlan,
 } from '@/hooks/usePppoe';
 
 // ── fixtures ──────────────────────────────────────────────────────────────────
@@ -184,6 +187,7 @@ function setup(canManage = true) {
   vi.mocked(useMovePppoeGlobal).mockReturnValue(makeMutationMock() as never);
   vi.mocked(useDeactivatePppoeGlobal).mockReturnValue(makeMutationMock() as never);
   vi.mocked(usePppoeCredentials).mockReturnValue(makeQueryMock(null) as never);
+  vi.mocked(useBulkChangePppoePlan).mockReturnValue(makeMutationMock() as never);
 }
 
 function renderTab() {
@@ -240,8 +244,10 @@ describe('PppoeManagementTab — tabla básica', () => {
 
   it('no muestra paginación cuando hay 2 resultados (total <= 25)', () => {
     renderTab();
-    // Pagination component returns null when totalPages <= 1
-    expect(screen.queryByLabelText(/página/i)).toBeNull();
+    // Pagination component returns null when totalPages <= 1.
+    // Se busca el <nav aria-label="Paginación"> específico (el queryByLabelText(/página/i)
+    // anterior colisionaba con el checkbox "Seleccionar todos de esta página" del bulk).
+    expect(screen.queryByRole('navigation', { name: /paginación/i })).toBeNull();
   });
 });
 
