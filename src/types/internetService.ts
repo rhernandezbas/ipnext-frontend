@@ -123,6 +123,22 @@ export interface InternetServiceEvent {
   oldPlan?: string | null;
   /** Código del plan nuevo (solo eventType === 'modified'); null en el resto. */
   newPlan?: string | null;
+  /**
+   * pppoe-change-audit — tipo de cambio auditado en un evento 'modified':
+   * 'ip' | 'password' | 'status' | null. null (o ausente) = cambio de plan / otro,
+   * que renderiza con oldPlan/newPlan. Opcional para no romper fixtures previos.
+   */
+  changeKind?: string | null;
+  /**
+   * Valor anterior del campo auditado (IP o estado). NUNCA la contraseña —
+   * el BE no la incluye. null cuando no aplica.
+   */
+  oldValue?: string | null;
+  /**
+   * Valor nuevo del campo auditado (IP o estado). NUNCA la contraseña —
+   * el BE no la incluye. null cuando no aplica.
+   */
+  newValue?: string | null;
 }
 
 /**

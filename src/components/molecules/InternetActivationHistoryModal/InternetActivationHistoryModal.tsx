@@ -86,15 +86,67 @@ function EventTypeBadge({ type }: { type: InternetServiceEvent['eventType'] }) {
   return <span className={styles.badgeReactivacion}>{capitalize(String(type))}</span>;
 }
 
-// ── Badge de dirección + texto oldPlan → newPlan (solo filas 'modified') ─────
+// ── Detalle inline de un evento 'modified' (plan / ip / password / status) ───
 //
-// internet-history-plan-direction: el BE computa direction/oldPlan/newPlan
-// SOLO para eventos 'modified'. Mostramos el TEXTO "viejo → nuevo" para cualquier
-// 'modified' con ambos planes (incluye cambios laterales / enforcement / legacy sin
-// dirección); el badge ↑/↓ aparece solo cuando hay una dirección comercial (up/down).
+// internet-history-plan-direction: el BE computa direction/oldPlan/newPlan para
+// cambios de PLAN. Mostramos el TEXTO "viejo → nuevo" para cualquier 'modified'
+// con ambos planes (incluye cambios laterales / enforcement / legacy sin dirección);
+// el badge ↑/↓ aparece solo cuando hay una dirección comercial (up/down).
+//
+// pppoe-change-audit: el BE ahora también emite 'modified' para cambios de IP,
+// contraseña y estado. changeKind discrimina cuál:
+//   'ip'       → "IP: {oldValue} → {newValue}"
+//   'password' → "Contraseña cambiada" (NUNCA el valor, por seguridad)
+//   'status'   → "Estado: {label(oldValue)} → {label(newValue)}"
+//   null/ausente → cambio de plan → render oldPlan → newPlan (path INTACTO).
+
+// Estado crudo del secret PPPoE → etiqueta español. Fallback al valor crudo para
+// no inventar copy ante un estado desconocido.
+const STATUS_CHANGE_LABELS: Record<string, string> = {
+  // Vocabulario REAL del secret PPPoE (input.status del PATCH = enabled|disabled; terminated = baja).
+  enabled: 'Activo',
+  disabled: 'Suspendido',
+  terminated: 'Dado de baja',
+};
+
+function statusChangeLabel(raw: string | null | undefined): string {
+  if (!raw) return '';
+  return STATUS_CHANGE_LABELS[raw] ?? raw;
+}
 
 function PlanChangeInfo({ event }: { event: InternetServiceEvent }) {
-  if (event.eventType !== 'modified' || !event.oldPlan || !event.newPlan) return null;
+  if (event.eventType !== 'modified') return null;
+
+  // pppoe-change-audit — ramas por changeKind (ip / password / status). Un valor
+  // null/ausente cae al render de cambio de plan de más abajo (path original).
+  if (event.changeKind === 'ip') {
+    return (
+      <div className={styles.planChangeInfo}>
+        <span className={styles.planChangeText}>
+          IP: {event.oldValue ?? '—'} → {event.newValue ?? '—'}
+        </span>
+      </div>
+    );
+  }
+  if (event.changeKind === 'password') {
+    return (
+      <div className={styles.planChangeInfo}>
+        <span className={styles.planChangeText}>Contraseña cambiada</span>
+      </div>
+    );
+  }
+  if (event.changeKind === 'status') {
+    return (
+      <div className={styles.planChangeInfo}>
+        <span className={styles.planChangeText}>
+          Estado: {statusChangeLabel(event.oldValue)} → {statusChangeLabel(event.newValue)}
+        </span>
+      </div>
+    );
+  }
+
+  // changeKind null/ausente → cambio de plan (render original, sin tocar).
+  if (!event.oldPlan || !event.newPlan) return null;
   const isUpgrade = event.direction === 'upgrade';
   const isDowngrade = event.direction === 'downgrade';
   return (

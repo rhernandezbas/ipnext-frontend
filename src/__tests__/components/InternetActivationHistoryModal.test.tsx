@@ -247,6 +247,92 @@ describe('InternetActivationHistoryModal', () => {
     });
   });
 
+  // ── pppoe-change-audit — detalle inline por changeKind en filas 'modified' ──
+  //
+  // El BE ahora emite eventos 'modified' para cambios de IP / password / estado
+  // (además del cambio de plan). El detalle se renderiza según changeKind:
+  //   'ip'       → "IP: {oldValue} → {newValue}"
+  //   'password' → "Contraseña cambiada" (NUNCA el valor)
+  //   'status'   → "Estado: {label(oldValue)} → {label(newValue)}" (enabled→Activo, disabled→Suspendido)
+  //   null/ausente → cambio de plan → render oldPlan → newPlan INTACTO
+  describe('changeKind — detalle inline por tipo de cambio en filas modified', () => {
+    function changeEvent(over: Partial<InternetServiceEvent>): InternetServiceEvent {
+      return {
+        id: 'ev-ck',
+        clientId: 'client-1',
+        customerName: 'Juan Pérez',
+        contractId: 'c1',
+        eventType: 'modified',
+        actorName: 'Operador X',
+        reason: null,
+        createdAt: '2026-06-01T10:00:00Z',
+        ...over,
+      };
+    }
+
+    it('changeKind "ip" renderiza "IP: {oldValue} → {newValue}"', () => {
+      mockHistory({
+        data: [changeEvent({ changeKind: 'ip', oldValue: '10.0.0.1', newValue: '10.0.0.2' })],
+      });
+      renderModal();
+      expect(screen.getByText('IP: 10.0.0.1 → 10.0.0.2')).toBeInTheDocument();
+    });
+
+    it('changeKind "ip" con IP previa null renderiza "—" en el lado vacío', () => {
+      mockHistory({
+        data: [changeEvent({ changeKind: 'ip', oldValue: null, newValue: '100.64.20.20' })],
+      });
+      renderModal();
+      expect(screen.getByText('IP: — → 100.64.20.20')).toBeInTheDocument();
+    });
+
+    it('changeKind "password" renderiza "Contraseña cambiada" y NUNCA el valor', () => {
+      mockHistory({
+        data: [changeEvent({ changeKind: 'password', oldValue: 'clave-vieja', newValue: 'clave-nueva' })],
+      });
+      renderModal();
+      expect(screen.getByText('Contraseña cambiada')).toBeInTheDocument();
+      expect(screen.queryByText(/clave-vieja/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/clave-nueva/)).not.toBeInTheDocument();
+    });
+
+    it('changeKind "status" mapea el estado a español (enabled→Activo, disabled→Suspendido)', () => {
+      mockHistory({
+        data: [changeEvent({ changeKind: 'status', oldValue: 'enabled', newValue: 'disabled' })],
+      });
+      renderModal();
+      expect(screen.getByText('Estado: Activo → Suspendido')).toBeInTheDocument();
+    });
+
+    it('changeKind "status" con un valor desconocido cae al string crudo', () => {
+      mockHistory({
+        data: [changeEvent({ changeKind: 'status', oldValue: 'weird', newValue: 'enabled' })],
+      });
+      renderModal();
+      expect(screen.getByText('Estado: weird → Activo')).toBeInTheDocument();
+    });
+
+    it('changeKind null (cambio de plan) mantiene el render oldPlan → newPlan + badge intacto', () => {
+      mockHistory({
+        data: [
+          changeEvent({ changeKind: null, direction: 'upgrade', oldPlan: 'IP-30M', newPlan: 'IP-50M' }),
+        ],
+      });
+      renderModal();
+      expect(screen.getByText('↑')).toBeInTheDocument();
+      expect(screen.getByText('IP-30M → IP-50M')).toBeInTheDocument();
+    });
+
+    it('back-compat: un evento modified SIN los campos nuevos usa el path de plan sin romper', () => {
+      mockHistory({
+        data: [changeEvent({ direction: 'downgrade', oldPlan: 'IP-50M', newPlan: 'IP-30M' })],
+      });
+      renderModal();
+      expect(screen.getByText('↓')).toBeInTheDocument();
+      expect(screen.getByText('IP-50M → IP-30M')).toBeInTheDocument();
+    });
+  });
+
   it('passes the clientId filter to the hook (round-trip)', () => {
     mockHistory();
     renderModal({ clientId: 'client-99' });
