@@ -1,5 +1,8 @@
 export type NasType = 'mikrotik_api' | 'radius_orchestrator' | 'cisco' | 'ubiquiti' | 'cambium' | 'other';
 
+/** Mask que el BE devuelve para radiusSecret/apiPassword en lecturas (nunca el valor real). */
+export const NAS_SECRET_MASK = '••••••••';
+
 export interface NasServer {
   id: string;
   name: string;

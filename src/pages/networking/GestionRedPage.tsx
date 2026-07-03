@@ -10,6 +10,7 @@ import { Can } from '@/components/auth/Can';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { cutoverStats, nextCutoverType, isRadius } from '@/utils/cutover';
 import type { NasServer, NasServerInput, NasType } from '@/types/nas';
+import { NAS_SECRET_MASK } from '@/types/nas';
 import type { IpNetwork, IpPool, IpAssignment, Ipv6Network } from '@/types/network';
 import type { RadiusSessionsParams } from '@/types/radiusSessions';
 import { formatDateTimeShort } from '@/utils/formatDate';
@@ -505,14 +506,24 @@ function EditNasModal({ nas, onClose, onSubmit }: EditNasModalProps) {
   const [type, setType] = useState<NasType>(nas.type);
   const [ipAddress, setIpAddress] = useState(nas.ipAddress);
   const [nasIpAddress, setNasIpAddress] = useState(nas.nasIpAddress);
-  const [radiusSecret, setRadiusSecret] = useState(nas.radiusSecret);
+  // Los campos secretos arrancan vacíos: el BE devuelve el mask '••••••••' en
+  // lecturas, no el valor real — pre-llenarlos y reenviarlos sin tocar pisaría
+  // el secret guardado con el mask.
+  const [radiusSecret, setRadiusSecret] = useState('');
   const [apiPort, setApiPort] = useState(nas.apiPort != null ? String(nas.apiPort) : '');
   const [apiLogin, setApiLogin] = useState(nas.apiLogin ?? '');
-  const [apiPassword, setApiPassword] = useState(nas.apiPassword ?? '');
+  const [apiPassword, setApiPassword] = useState('');
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSubmit({ name, type, ipAddress, nasIpAddress, radiusSecret, apiPort: apiPort ? Number(apiPort) : null, apiLogin: apiLogin || null, apiPassword: apiPassword || null });
+    const data: Partial<NasServerInput> = {
+      name, type, ipAddress, nasIpAddress,
+      apiPort: apiPort ? Number(apiPort) : null,
+      apiLogin: apiLogin || null,
+    };
+    if (radiusSecret && radiusSecret !== NAS_SECRET_MASK) data.radiusSecret = radiusSecret;
+    if (apiPassword && apiPassword !== NAS_SECRET_MASK) data.apiPassword = apiPassword;
+    onSubmit(data);
   }
 
   return (
@@ -549,7 +560,7 @@ function EditNasModal({ nas, onClose, onSubmit }: EditNasModalProps) {
           </div>
           <div className={styles.formGroup}>
             <label htmlFor="edit-nas-secret">Secret RADIUS</label>
-            <input id="edit-nas-secret" type="password" value={radiusSecret} onChange={e => setRadiusSecret(e.target.value)} />
+            <input id="edit-nas-secret" type="password" value={radiusSecret} onChange={e => setRadiusSecret(e.target.value)} placeholder="dejar en blanco para no cambiar" />
           </div>
           <div className={styles.formRow}>
             <div className={styles.formGroup}>
@@ -563,7 +574,7 @@ function EditNasModal({ nas, onClose, onSubmit }: EditNasModalProps) {
           </div>
           <div className={styles.formGroup}>
             <label htmlFor="edit-nas-api-password">Contraseña API</label>
-            <input id="edit-nas-api-password" type="password" value={apiPassword} onChange={e => setApiPassword(e.target.value)} />
+            <input id="edit-nas-api-password" type="password" value={apiPassword} onChange={e => setApiPassword(e.target.value)} placeholder="dejar en blanco para no cambiar" />
           </div>
           <div className={styles.modalActions}>
             <button type="button" className={styles.btnSecondary} onClick={onClose}>Cancelar</button>
