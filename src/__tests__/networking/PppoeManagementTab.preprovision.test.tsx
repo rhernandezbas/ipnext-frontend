@@ -648,7 +648,19 @@ describe('S3: copy del move/baja para pendientes', () => {
 });
 
 describe('S5.4 (modal crear): flujo con NAS sin regresión + wire exacto', () => {
-  it('wire test campo por campo: el payload con router incluye nasId + ipTypePreference', async () => {
+  // sqlippool-cleanup: el select "Modo IP" (pool/fixed) fue removido — era UI
+  // muerta del sqlippool. El alta con NAS es SIEMPRE fija: si el operador no
+  // tipea IP, el BE le asigna una del pool del router (FindFreeIp). El body ya
+  // NO lleva `ipMode` (el BE lo ignora/stripea y crea 'fixed').
+  it('el select "Modo IP" ya no existe (UI muerta del sqlippool), ni con router seleccionado', async () => {
+    renderTab();
+    const dialog = await openCreateModal();
+    // Con router real preseleccionado (S5.4) tampoco aparece el select ni sus opciones.
+    expect(within(dialog).queryByLabelText(/modo ip/i)).toBeNull();
+    expect(within(dialog).queryByText('Pool (dinámica)')).toBeNull();
+  });
+
+  it('wire con router + IP vacía: body {nasId} SIN ipMode ni framedIp (el BE asigna del pool)', async () => {
     const mutateAsync = vi.fn().mockResolvedValue({});
     vi.mocked(useCreatePppoeStandalone).mockReturnValue(makeMutationMock(mutateAsync) as never);
     renderTab();
@@ -668,9 +680,38 @@ describe('S5.4 (modal crear): flujo con NAS sin regresión + wire exacto', () =>
       password: 'pass123',
       nasId: 'nas-1',
       plan: 'IP-5M',
-      ipMode: 'pool',
       ipTypePreference: 'public',
     });
+    const body = mutateAsync.mock.calls[0][0] as Record<string, unknown>;
+    expect(body).not.toHaveProperty('ipMode');
+    expect(body).not.toHaveProperty('framedIp');
+  });
+
+  it('wire con router + IP fija tipeada: body {nasId, framedIp} SIN ipMode', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useCreatePppoeStandalone).mockReturnValue(makeMutationMock(mutateAsync) as never);
+    renderTab();
+    const dialog = await openCreateModal();
+
+    await userEvent.selectOptions(within(dialog).getByLabelText(/nas/i), 'nas-1');
+    await userEvent.selectOptions(within(dialog).getByLabelText(/plan/i), 'IP-5M');
+    await userEvent.type(within(dialog).getByLabelText(/usuario/i), 'nuevo02');
+    await userEvent.type(within(dialog).getByLabelText(/contraseña/i), 'pass456');
+    await userEvent.type(within(dialog).getByLabelText(/ip fija/i), '10.0.0.100');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Privada' }));
+
+    await userEvent.click(within(dialog).getByRole('button', { name: /^crear$/i }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(mutateAsync).toHaveBeenCalledWith({
+      username: 'nuevo02',
+      password: 'pass456',
+      nasId: 'nas-1',
+      plan: 'IP-5M',
+      ipTypePreference: 'cgnat',
+      framedIp: '10.0.0.100',
+    });
+    expect(mutateAsync.mock.calls[0][0]).not.toHaveProperty('ipMode');
   });
 });
 
@@ -678,8 +719,11 @@ describe('S5.4 (modal crear): flujo con NAS sin regresión + wire exacto', () =>
 // W1 — cruzar router↔"Sin router" limpia ipMode/framedIp: una IP fija tipeada
 // para el pool de NAS-1 no puede viajar en el submit hacia NAS-2.
 // ─────────────────────────────────────────────────────────────────────────────
-describe('W1 (modal crear): cruce router↔"Sin router" limpia modo IP e IP fija', () => {
-  it('NAS-1 + fija + IP → "Sin router" → NAS-2: el modo vuelve a pool y la IP vieja NO se envía', async () => {
+describe('W1 (modal crear): cruce router↔"Sin router" limpia la IP fija', () => {
+  // sqlippool-cleanup: sin el select "Modo IP", el input "IP fija (opcional)"
+  // está SIEMPRE visible con router. El invariante W1 se conserva para el
+  // framedIp: una IP tipeada para el pool de NAS-1 NO debe viajar hacia NAS-2.
+  it('NAS-1 + IP fija → "Sin router" → NAS-2: la IP vieja se limpia y NO se envía', async () => {
     const mutateAsync = vi.fn().mockResolvedValue({});
     vi.mocked(useCreatePppoeStandalone).mockReturnValue(makeMutationMock(mutateAsync) as never);
     vi.mocked(useNasServers).mockReturnValue(
@@ -691,18 +735,16 @@ describe('W1 (modal crear): cruce router↔"Sin router" limpia modo IP e IP fija
     renderTab();
     const dialog = await openCreateModal();
 
-    // NAS-1 (preseleccionado) + Modo IP fija + IP tipeada del pool de NAS-1.
-    await userEvent.selectOptions(within(dialog).getByLabelText(/modo ip/i), 'fixed');
-    await userEvent.type(within(dialog).getByLabelText(/^ip fija$/i), '100.64.13.9');
+    // NAS-1 (preseleccionado) + IP fija tipeada del pool de NAS-1.
+    await userEvent.type(within(dialog).getByLabelText(/ip fija/i), '100.64.13.9');
 
     // Cruce: entrar al sentinel y salir hacia un router DISTINTO.
     const nasSelect = within(dialog).getByLabelText(/nas/i) as HTMLSelectElement;
     await userEvent.selectOptions(nasSelect, nasSelect.options[0].value); // Sin router
     await userEvent.selectOptions(nasSelect, 'nas-2');
 
-    // El modo volvió a pool y el campo IP fija no reaparece con el valor viejo.
-    expect((within(dialog).getByLabelText(/modo ip/i) as HTMLSelectElement).value).toBe('pool');
-    expect(within(dialog).queryByLabelText(/^ip fija$/i)).toBeNull();
+    // Con NAS-2 el input reaparece VACÍO (el cruce reseteó el framedIp).
+    expect((within(dialog).getByLabelText(/ip fija/i) as HTMLInputElement).value).toBe('');
 
     await userEvent.type(within(dialog).getByLabelText(/usuario/i), 'nuevo03');
     await userEvent.type(within(dialog).getByLabelText(/contraseña/i), 'pass789');
@@ -712,7 +754,7 @@ describe('W1 (modal crear): cruce router↔"Sin router" limpia modo IP e IP fija
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
     const body = mutateAsync.mock.calls[0][0] as Record<string, unknown>;
     expect(body.nasId).toBe('nas-2');
-    expect(body.ipMode).toBe('pool');
+    expect(body).not.toHaveProperty('ipMode');
     expect(body).not.toHaveProperty('framedIp');
   });
 });

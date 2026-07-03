@@ -178,7 +178,6 @@ interface CreateModalProps {
     /** Ausente = pre-provisión sin router (auto-instalación). */
     nasId?: string;
     framedIp?: string;
-    ipMode?: 'fixed' | 'pool';
   }) => Promise<void>;
   isPending: boolean;
 }
@@ -189,7 +188,6 @@ function CreatePppoeModal({ nasOptions, planOptions, onClose, onCreate, isPendin
   const [plan, setPlan] = useState(planOptions[0]?.code ?? '');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [ipMode, setIpMode] = useState<'pool' | 'fixed'>('pool');
   const [framedIp, setFramedIp] = useState('');
   // S5.1: tipo de IP OBLIGATORIO sin preselección — decisión consciente del operador.
   const [ipType, setIpType] = useState<IpTypePreference | null>(null);
@@ -209,13 +207,15 @@ function CreatePppoeModal({ nasOptions, planOptions, onClose, onCreate, isPendin
         password,
         plan,
         ipTypePreference: ipType,
-        // S5.2: sin router el body va SIN nasId/ipMode/framedIp (pre-provisión).
+        // S5.2: sin router el body va SIN nasId/framedIp (pre-provisión).
+        // sqlippool-cleanup: el modo pool fue descartado — el alta con NAS es
+        // SIEMPRE fija, el body NO lleva `ipMode`. Sin IP tipeada, el BE asigna
+        // una del pool del router (FindFreeIp).
         ...(isNoRouter
           ? {}
           : {
               nasId,
-              ipMode,
-              ...(ipMode === 'fixed' && framedIp ? { framedIp } : {}),
+              ...(framedIp ? { framedIp } : {}),
             }),
       });
     } catch (err) {
@@ -237,13 +237,12 @@ function CreatePppoeModal({ nasOptions, planOptions, onClose, onCreate, isPendin
                 onChange={e => {
                   const value = e.target.value;
                   // W1: cruzar el límite router↔"Sin router" (en cualquier
-                  // dirección) invalida el modo/IP elegidos — una IP fija
-                  // tipeada para el pool de un router viejo NO debe viajar
-                  // en el submit hacia otro router (espejo del InternetPanel).
+                  // dirección) invalida la IP elegida — una IP fija tipeada
+                  // para el pool de un router viejo NO debe viajar en el submit
+                  // hacia otro router (espejo del InternetPanel).
                   const crossesSentinel =
                     (value === NO_ROUTER_VALUE) !== (nasId === NO_ROUTER_VALUE);
                   if (crossesSentinel) {
-                    setIpMode('pool');
                     setFramedIp('');
                   }
                   setNasId(value);
@@ -336,29 +335,27 @@ function CreatePppoeModal({ nasOptions, planOptions, onClose, onCreate, isPendin
               </p>
             )}
           </div>
-          {/* S5.2: sin router los campos de IP se ocultan (no aplican) */}
+          {/* S5.2: sin router los campos de IP se ocultan (no aplican).
+              sqlippool-cleanup: el select "Modo IP" (pool/fixed) fue removido —
+              era UI muerta del sqlippool. El alta con NAS es SIEMPRE fija; el
+              input queda opcional: vacío = el BE asigna una IP del pool del
+              router (FindFreeIp). */}
           {!isNoRouter && (
-            <div className={styles.formRow}>
-              <div className={styles.formGroup}>
-                <label htmlFor="create-ipmode">Modo IP</label>
-                <select id="create-ipmode" value={ipMode} onChange={e => setIpMode(e.target.value as 'pool' | 'fixed')} aria-label="Modo IP">
-                  <option value="pool">Pool (dinámica)</option>
-                  <option value="fixed">Fija</option>
-                </select>
-              </div>
-              {ipMode === 'fixed' && (
-                <div className={styles.formGroup}>
-                  <label htmlFor="create-ip">IP fija</label>
-                  <input
-                    id="create-ip"
-                    type="text"
-                    value={framedIp}
-                    onChange={e => setFramedIp(e.target.value)}
-                    placeholder="ej. 10.0.0.100"
-                    aria-label="IP fija"
-                  />
-                </div>
-              )}
+            <div className={styles.formGroup}>
+              <label htmlFor="create-ip">
+                IP fija <span className={styles.muted}>(opcional)</span>
+              </label>
+              <input
+                id="create-ip"
+                type="text"
+                value={framedIp}
+                onChange={e => setFramedIp(e.target.value)}
+                placeholder="ej. 10.0.0.100"
+                aria-describedby="create-ip-hint"
+              />
+              <p id="create-ip-hint" className={styles.noRouterHint}>
+                Vacía = el sistema asigna una IP del pool del router.
+              </p>
             </div>
           )}
           <div className={styles.modalNote}>

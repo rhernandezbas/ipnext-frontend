@@ -54,7 +54,6 @@ export interface CreateStandalonePppoeBody {
   nasId?: string;
   plan: string;
   framedIp?: string;
-  ipMode?: 'fixed' | 'pool';
   /** Tipo de IP elegido por el operador — REQUERIDO (422 VALIDATION_ERROR si falta). */
   ipTypePreference: IpTypePreference;
   /** Asociar a un contrato al crear. Opcional en V1. */
