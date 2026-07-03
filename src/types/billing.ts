@@ -1,5 +1,36 @@
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
 
+/**
+ * Status of a per-client invoice synced from Gestión Real (GR).
+ * The BE serializes these three Spanish values verbatim (gr-invoices-sync).
+ */
+export type ClientInvoiceStatus = 'pagada' | 'pendiente' | 'vencida';
+
+/**
+ * Per-client invoice returned by `GET /clients/:id/invoices` — the exact BE
+ * `InvoiceDto` contract for the GR sync (gr-invoices-sync). Consume verbatim.
+ *
+ * DISTINCT bounded context from the admin `Invoice` below: that one is the
+ * `/billing/invoices` list (line items, customerName, 5 draft/sent/... states)
+ * powering FacturasPage. This one is a read-only GR-synced summary with GR
+ * document links (pdf / coupon / MercadoPago). Keeping them as separate types
+ * is deliberate — collapsing them would break the admin billing subsystem.
+ */
+export interface ClientInvoice {
+  id: string;
+  number: string;
+  grType: string | null;
+  amount: number;
+  balance: number;
+  currency: string | null;
+  status: ClientInvoiceStatus;
+  issueDate: string; // ISO
+  dueDate: string; // ISO
+  pdfUrl: string | null;
+  couponPdfUrl: string | null;
+  paymentUrl: string | null;
+}
+
 export interface Invoice {
   id: number;
   number: string;

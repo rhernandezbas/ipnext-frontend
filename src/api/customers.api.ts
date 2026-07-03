@@ -1,6 +1,6 @@
 import axiosClient from './axios-client';
 import type { Customer, CustomerSummary, Contract, LogEntry, CreateCustomerData, UpdateCustomerData } from '@/types/customer';
-import type { Invoice } from '@/types/billing';
+import type { ClientInvoice } from '@/types/billing';
 import type { PaginatedResponse } from '@/types/api';
 
 export interface GetClientsParams {
@@ -75,8 +75,8 @@ export async function getClientContracts(id: string): Promise<Contract[]> {
   return response.data;
 }
 
-export async function getClientInvoices(id: string): Promise<Invoice[]> {
-  const response = await axiosClient.get<Invoice[]>(`/clients/${id}/invoices`);
+export async function getClientInvoices(id: string): Promise<ClientInvoice[]> {
+  const response = await axiosClient.get<ClientInvoice[]>(`/clients/${id}/invoices`);
   return response.data;
 }
 
