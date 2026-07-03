@@ -45,9 +45,7 @@ const CRM_ITEMS: NavParentItem[] = [
     requiredPermission: 'clients.read', // /admin/customers/* → clients.read
     children: [
       { to: '/admin/customers/add', label: 'Añadir' },
-      { to: '/admin/customers/search', label: 'Búsqueda' },
-      { to: '/admin/customers/list', label: 'Lista' },
-      { to: '/admin/customers/vouchers', label: 'Vouchers' },
+      { to: '/admin/customers/list', label: 'Clientes' },
       { to: '/admin/customers/map', label: 'Mapas' },
       { to: '/admin/contracts/list', label: 'Contratos', requiredPermission: 'contracts.read' },
       // TV (Gigared) lives in Clientes (#47b). Note: the Clientes group itself

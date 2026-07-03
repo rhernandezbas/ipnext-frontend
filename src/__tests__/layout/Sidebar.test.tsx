@@ -42,12 +42,13 @@ describe('Sidebar', () => {
     expect(screen.queryByRole('button', { name: /^soporte$/i })).not.toBeInTheDocument();
   });
 
-  it('Clientes has "Lista" sub-item linking to /admin/customers/list and has Vouchers', () => {
+  it('Clientes has a "Clientes" sub-item linking to /admin/customers/list; no Búsqueda/Vouchers', () => {
     renderSidebar('/admin/customers/list');
-    const listaLink = screen.getByRole('link', { name: /^lista$/i });
-    expect(listaLink).toBeInTheDocument();
-    expect(listaLink).toHaveAttribute('href', '/admin/customers/list');
-    expect(screen.getByRole('link', { name: /vouchers/i })).toBeInTheDocument();
+    const clientesLink = screen.getByRole('link', { name: /^clientes$/i });
+    expect(clientesLink).toBeInTheDocument();
+    expect(clientesLink).toHaveAttribute('href', '/admin/customers/list');
+    expect(screen.queryByRole('link', { name: /^vouchers$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^búsqueda$/i })).not.toBeInTheDocument();
   });
 
   it('Tickets has no "Nuevo" sub-item', () => {
@@ -111,7 +112,7 @@ describe('Sidebar', () => {
 
   it('Clientes list link points to correct route', () => {
     renderSidebar('/admin/customers/list');
-    expect(screen.getByRole('link', { name: 'Lista' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Clientes' })).toHaveAttribute(
       'href',
       '/admin/customers/list'
     );

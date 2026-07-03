@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -101,7 +101,9 @@ describe('AdminLayout — Breadcrumbs', () => {
     renderAdminLayout('/admin/customers/view/123');
     const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' });
     expect(breadcrumb).toHaveTextContent('Detalle');
-    expect(screen.getByRole('link', { name: 'Clientes' })).toHaveAttribute(
+    // The sidebar now also has a "Clientes" sub-link (renamed from "Lista") pointing
+    // to the same route, so scope the query to the breadcrumb to disambiguate.
+    expect(within(breadcrumb).getByRole('link', { name: 'Clientes' })).toHaveAttribute(
       'href',
       '/admin/customers/list'
     );

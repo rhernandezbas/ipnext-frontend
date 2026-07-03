@@ -70,17 +70,17 @@ describe('Sidebar — inline accordion (no portal)', () => {
   it('single-open items: opening Tickets collapses Clientes within CRM', async () => {
     renderSidebar('/admin/customers/list'); // CRM open, Clientes item auto-open
 
-    // Clientes open → "Vouchers" sub-link visible.
-    expect(screen.getByRole('link', { name: /vouchers/i })).toBeInTheDocument();
+    // Clientes open → "Añadir" sub-link visible.
+    expect(screen.getByRole('link', { name: /^añadir$/i })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /^tickets$/i }));
 
-    // Clientes collapsed → Vouchers gone; Tickets open → its sub-link visible.
-    expect(screen.queryByRole('link', { name: /vouchers/i })).toBeNull();
+    // Clientes collapsed → Añadir gone; Tickets open → its sub-link visible.
+    expect(screen.queryByRole('link', { name: /^añadir$/i })).toBeNull();
     expect(screen.getByRole('link', { name: /destinatarios/i })).toBeInTheDocument();
   });
 
-  // (d) auto-expand of the active route: /admin/customers/list -> CRM + Clientes open, Lista active
+  // (d) auto-expand of the active route: /admin/customers/list -> CRM + Clientes open, "Clientes" sub-link active
   it('auto-expands the section and item of the active route', () => {
     renderSidebar('/admin/customers/list');
 
@@ -89,10 +89,10 @@ describe('Sidebar — inline accordion (no portal)', () => {
     expect(clientes).toBeInTheDocument();
     expect(clientes).toHaveAttribute('aria-expanded', 'true');
 
-    // Clientes item auto-open → Lista sub-link present and active.
-    const lista = screen.getByRole('link', { name: /^lista$/i });
-    expect(lista).toHaveAttribute('href', '/admin/customers/list');
-    expect(lista.className).toMatch(/navChildActive/);
+    // Clientes item auto-open → "Clientes" sub-link present and active.
+    const clientesLink = screen.getByRole('link', { name: /^clientes$/i });
+    expect(clientesLink).toHaveAttribute('href', '/admin/customers/list');
+    expect(clientesLink.className).toMatch(/navChildActive/);
   });
 
   // (e) aria-expanded reflects state on section and item buttons

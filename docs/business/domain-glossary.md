@@ -12,7 +12,6 @@ referencia al tipo TypeScript que lo modela en `src/types/`.
 | **Servicio / Service** | Servicio contratado por un cliente (plan, precio, IP, fechas). Un cliente tiene N servicios. | `Service` |
 | **Contrato** | Vínculo comercial cliente↔servicio. En la UI del mirror se cuentan junto a los clientes (badge "réplica viva · N clientes · M contratos"). | — |
 | **Tarifa / Tariff / Plan** | Catálogo de precios: internet, voz, recurrente, único, paquetes, grupos Huawei. | `empresa.ts` y rutas `/admin/tariffs/*` |
-| **Voucher** | Crédito/cupón prepago asociado a un cliente. | `voucher.ts` |
 | **Sesión online / RADIUS** | Sesión de conexión activa de un cliente (IP, MAC, throughput). | `radiusSessions.ts`, `OnlineSession` |
 
 ## CRM / preventa

@@ -100,8 +100,6 @@ const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'));
 const CrmDashboardPage = lazy(() => import('@/pages/crm/CrmDashboardPage'));
 const CrmQuotesPage = lazy(() => import('@/pages/crm/CrmQuotesPage'));
 const CrmMapPage = lazy(() => import('@/pages/crm/CrmMapPage'));
-const CustomerSearchPage = lazy(() => import('@/pages/customers/CustomerSearchPage'));
-const CustomerVouchersPage = lazy(() => import('@/pages/customers/CustomerVouchersPage'));
 const CustomerMapPage = lazy(() => import('@/pages/customers/CustomerMapPage'));
 const TicketRequestersPage = lazy(() => import('@/pages/tickets/TicketRequestersPage'));
 const TicketsSettingsPage = lazy(() => import('@/pages/tickets/TicketsSettingsPage'));
@@ -184,8 +182,6 @@ export function App() {
               <Route path="customers">
                 <Route path="list" element={<RequirePermission permission="clients.read"><CustomersListPage /></RequirePermission>} />
                 <Route path="add" element={<RequirePermission permission="clients.read"><AddCustomerPage /></RequirePermission>} />
-                <Route path="search" element={<RequirePermission permission="clients.read"><CustomerSearchPage /></RequirePermission>} />
-                <Route path="vouchers" element={<RequirePermission permission="clients.read"><CustomerVouchersPage /></RequirePermission>} />
                 <Route path="map" element={<RequirePermission permission="clients.read"><CustomerMapPage /></RequirePermission>} />
                 <Route path="view/:id" element={<RequirePermission permission="clients.read"><CustomerDetailPage /></RequirePermission>} />
                 <Route path="view/:id/edit" element={<RequirePermission permission="clients.read"><EditCustomerPage /></RequirePermission>} />

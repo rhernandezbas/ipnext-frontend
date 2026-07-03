@@ -86,9 +86,7 @@ describe('Sidebar — sales-agent recapture access', () => {
 
     // None of the clients.read-inheriting children leak.
     expect(screen.queryByRole('link', { name: /^añadir$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /^lista$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /^búsqueda$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /^vouchers$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^clientes$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /^mapas$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /^configuración$/i })).not.toBeInTheDocument();
     // Children with their own (other) permission also hidden.
@@ -104,8 +102,7 @@ describe('Sidebar — sales-agent recapture access', () => {
     expect(getClientesBtn()).toBeTruthy();
     // Inherited (no own perm) children show because the user has clients.read.
     expect(screen.getByRole('link', { name: /^añadir$/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /^lista$/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /^vouchers$/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^clientes$/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /^configuración$/i })).toBeInTheDocument();
     // Extra-perm children remain gated (user lacks contracts.read / tv.read / recapture.read).
     expect(screen.queryByRole('link', { name: /^contratos$/i })).not.toBeInTheDocument();

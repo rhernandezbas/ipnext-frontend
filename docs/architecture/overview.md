@@ -84,7 +84,7 @@ en **capas horizontales** (presentación → datos → transporte) y, dentro de 
 
 > ⚠ **Deuda técnica — orden de rutas frágil.** Como el router es plano, el orden importa: las rutas
 > index (`/admin/scheduling/tasks`) DEBEN declararse antes que las paramétricas (`/tasks/:id`), y el
-> catch-all `/admin/customers/:id` debe ir al final o sombrea a `/customers/search`. Esto está
+> catch-all `/admin/customers/:id` debe ir al final o sombrea a `/customers/map`. Esto está
 > documentado con comentarios en `App.tsx` pero es una bomba de tiempo: un reorden inocente rompe
 > navegación. Migrar a rutas anidadas por feature lo eliminaría.
 

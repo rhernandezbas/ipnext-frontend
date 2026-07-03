@@ -72,12 +72,6 @@ vi.mock('@/pages/customers/CustomerDetailPage', () => ({
 vi.mock('@/pages/customers/EditCustomerPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:EditCliente]'),
 }));
-vi.mock('@/pages/customers/CustomerSearchPage', () => ({
-  default: () => React.createElement('div', null, '[PAGE:CustomerSearch]'),
-}));
-vi.mock('@/pages/customers/CustomerVouchersPage', () => ({
-  default: () => React.createElement('div', null, '[PAGE:CustomerVouchers]'),
-}));
 vi.mock('@/pages/customers/CustomerMapPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:CustomerMap]'),
 }));
@@ -369,8 +363,6 @@ const directCases: Array<{ url: string; marker: string }> = [
   // Customers
   { url: '/admin/customers/list', marker: '[PAGE:CustomersList]' },
   { url: '/admin/customers/add', marker: '[PAGE:AddCliente]' },
-  { url: '/admin/customers/search', marker: '[PAGE:CustomerSearch]' },
-  { url: '/admin/customers/vouchers', marker: '[PAGE:CustomerVouchers]' },
   { url: '/admin/customers/map', marker: '[PAGE:CustomerMap]' },
   { url: '/admin/customers/view/42', marker: '[PAGE:ClienteDetail]' },
   { url: '/admin/customers/view/42/edit', marker: '[PAGE:EditCliente]' },
@@ -501,9 +493,7 @@ const catchAllCases: Array<{ url: string; marker: string; shouldNotSee?: string 
   // The catch-all redirects unknown :id patterns to view/:id
   { url: '/admin/customers/some-id-999', marker: '[PAGE:ClienteDetail]' },
   // Specific paths MUST NOT be swallowed by :id catch-all
-  { url: '/admin/customers/search', marker: '[PAGE:CustomerSearch]', shouldNotSee: '[PAGE:ClienteDetail]' },
   { url: '/admin/customers/map', marker: '[PAGE:CustomerMap]', shouldNotSee: '[PAGE:ClienteDetail]' },
-  { url: '/admin/customers/vouchers', marker: '[PAGE:CustomerVouchers]', shouldNotSee: '[PAGE:ClienteDetail]' },
   { url: '/admin/customers/add', marker: '[PAGE:AddCliente]', shouldNotSee: '[PAGE:ClienteDetail]' },
 ];
 

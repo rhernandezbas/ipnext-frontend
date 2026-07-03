@@ -7,10 +7,10 @@ Inventario de las features de negocio y su propósito. Las rutas viven en
 ## Clientes
 
 Gestión de la cartera de suscriptores.
-- **Lista** (`/admin/customers/list`): tabla con filtros + **badge de réplica viva** de Gestión Real.
+- **Clientes** (`/admin/customers/list`): tabla con filtros + búsqueda + paginado + **badge de réplica viva** de Gestión Real.
 - **Detalle** (`/admin/customers/view/:id`): tabs de Servicios, Facturas, Logs, Comentarios,
   Documentos, Archivos.
-- **Alta/Edición** (`/add`, `/view/:id/edit`), **Búsqueda**, **Vouchers**, **Mapa**.
+- **Alta/Edición** (`/add`, `/view/:id/edit`), **Mapa**.
 - Estado: activo / inactivo / bloqueado / nuevo; saldo y plan tarifario.
 
 ## CRM (clientes potenciales)
