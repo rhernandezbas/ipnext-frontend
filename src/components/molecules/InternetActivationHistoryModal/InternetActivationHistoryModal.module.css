@@ -184,6 +184,51 @@
   white-space: nowrap;
 }
 
+/* Plan-change badge (↑/↓) + oldPlan → newPlan text — filas 'modified' */
+
+.planChangeInfo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: var(--space-1);
+}
+
+.directionUp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: var(--radius-sm);
+  background: #d1fae5;
+  color: #065f46;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+}
+
+.directionDown {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: var(--radius-sm);
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+}
+
+.planChangeText {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
 /* Error banner */
 .bannerError {
   display: flex;

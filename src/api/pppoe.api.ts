@@ -170,6 +170,10 @@ export const pppoeApi = {
     if (filter.clientId) params.clientId = filter.clientId;
     if (filter.from) params.from = filter.from;
     if (filter.to) params.to = filter.to;
+    // internet-history-plan-direction: filtro por tópico (eventType) y por
+    // dirección de cambio de plan (upgrade/downgrade), ambos independientes.
+    if (filter.eventType) params.eventType = filter.eventType;
+    if (filter.direction) params.direction = filter.direction;
     const r = await axiosClient.get<InternetServiceEvent[]>(`${BASE}/activation-history`, { params });
     return r.data;
   },

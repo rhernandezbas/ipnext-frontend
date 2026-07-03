@@ -87,6 +87,12 @@ export interface PppoeServiceListFilter {
 }
 
 /**
+ * Dirección de un cambio de plan (solo eventType === 'modified'). El resto de
+ * los eventos siempre tiene direction: null — internet-history-plan-direction.
+ */
+export type PlanChangeDirection = 'upgrade' | 'downgrade';
+
+/**
  * Un evento del historial de activaciones de Internet
  * (GET /api/pppoe/activation-history). Newest-first en el wire.
  */
@@ -107,6 +113,16 @@ export interface InternetServiceEvent {
   reason?: string | null;
   /** ISO timestamp (newest first). */
   createdAt: string;
+  /**
+   * Dirección del cambio de plan, COMPUTED por el BE. Null salvo que el evento
+   * sea un cambio de plan real (eventType === 'modified'). Opcional para no
+   * romper fixtures viejos que no lo incluyen (internet-history-plan-direction).
+   */
+  direction?: PlanChangeDirection | null;
+  /** Código del plan anterior (solo eventType === 'modified'); null en el resto. */
+  oldPlan?: string | null;
+  /** Código del plan nuevo (solo eventType === 'modified'); null en el resto. */
+  newPlan?: string | null;
 }
 
 /**
@@ -127,6 +143,14 @@ export interface InternetActivationHistoryFilter {
   clientId?: string;
   from?: string;
   to?: string;
+  /** Filtro por tópico (tipo de evento) — server-side. */
+  eventType?: ServiceEventType;
+  /**
+   * Filtro por dirección de cambio de plan — server-side. Independiente de
+   * eventType: los eventos que no son 'modified' tienen direction: null, así
+   * que quedan excluidos cuando este filtro está seteado.
+   */
+  direction?: PlanChangeDirection;
 }
 
 /** Etiquetas humanas para el filtro/columna de estado. */

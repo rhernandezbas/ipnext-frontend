@@ -142,4 +142,21 @@ describe('pppoeApi.activationHistory', () => {
       params: { actorId: 'a1', customerId: 'c1', clientId: 'cl1', from: '2026-01-01', to: '2026-06-01' },
     });
   });
+
+  // internet-history-plan-direction: nuevos filtros server-side (tópico + dirección).
+  it('forwards eventType/direction as query params', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValueOnce({ data: events });
+    await pppoeApi.activationHistory({ eventType: 'modified', direction: 'upgrade' });
+    expect(axiosClient.get).toHaveBeenCalledWith('/pppoe/activation-history', {
+      params: { eventType: 'modified', direction: 'upgrade' },
+    });
+  });
+
+  it('omits eventType/direction when absent (no manda ?eventType= vacío)', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValueOnce({ data: events });
+    await pppoeApi.activationHistory({ actorId: 'a1' });
+    expect(axiosClient.get).toHaveBeenCalledWith('/pppoe/activation-history', {
+      params: { actorId: 'a1' },
+    });
+  });
 });

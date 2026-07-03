@@ -28,7 +28,9 @@ import type { CsvColumn } from '@/utils/exportToCsv';
 import type {
   InternetServiceEvent,
   InternetActivationHistoryFilter,
+  PlanChangeDirection,
 } from '@/types/internetService';
+import { SERVICE_EVENT_TYPES } from '@/types/serviceEvents';
 import styles from './InternetActivationHistoryModal.module.css';
 
 export interface InternetActivationHistoryModalProps {
@@ -84,6 +86,34 @@ function EventTypeBadge({ type }: { type: InternetServiceEvent['eventType'] }) {
   return <span className={styles.badgeReactivacion}>{capitalize(String(type))}</span>;
 }
 
+// ── Badge de dirección + texto oldPlan → newPlan (solo filas 'modified') ─────
+//
+// internet-history-plan-direction: el BE computa direction/oldPlan/newPlan
+// SOLO para eventos 'modified'. Mostramos el TEXTO "viejo → nuevo" para cualquier
+// 'modified' con ambos planes (incluye cambios laterales / enforcement / legacy sin
+// dirección); el badge ↑/↓ aparece solo cuando hay una dirección comercial (up/down).
+
+function PlanChangeInfo({ event }: { event: InternetServiceEvent }) {
+  if (event.eventType !== 'modified' || !event.oldPlan || !event.newPlan) return null;
+  const isUpgrade = event.direction === 'upgrade';
+  const isDowngrade = event.direction === 'downgrade';
+  return (
+    <div className={styles.planChangeInfo}>
+      {(isUpgrade || isDowngrade) && (
+        <span
+          className={isUpgrade ? styles.directionUp : styles.directionDown}
+          aria-label={isUpgrade ? 'Upgrade' : 'Downgrade'}
+        >
+          {isUpgrade ? '↑' : '↓'}
+        </span>
+      )}
+      <span className={styles.planChangeText}>
+        {event.oldPlan} → {event.newPlan}
+      </span>
+    </div>
+  );
+}
+
 // ── Columna de cliente (solo modo global, cruza clientes) ────────────────────
 
 function customerColumn() {
@@ -118,7 +148,12 @@ function buildColumns(
     {
       key: 'eventType',
       label: 'Tipo',
-      render: (r: Row) => <EventTypeBadge type={r.eventType} />,
+      render: (r: Row) => (
+        <>
+          <EventTypeBadge type={r.eventType} />
+          <PlanChangeInfo event={r} />
+        </>
+      ),
     },
     // En modo global insertamos la columna Cliente entre Tipo y Operador.
     ...(opts.showCustomer ? [customerColumn()] : []),
@@ -206,6 +241,8 @@ function GlobalBody({ open }: { open: boolean }) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [actorId, setActorId] = useState('');
+  const [eventType, setEventType] = useState('');
+  const [direction, setDirection] = useState('');
   const [activeReason, setActiveReason] = useState<string | null>(null);
 
   // Operadores que realmente generaron eventos de Internet (endpoint pppoe-scoped,
@@ -222,6 +259,10 @@ function GlobalBody({ open }: { open: boolean }) {
   if (from) filter.from = arDayStartUtc(from).toISOString();
   if (to) filter.to = arDayEndUtc(to).toISOString();
   if (actorId) filter.actorId = actorId;
+  // internet-history-plan-direction: filtro por tópico (eventType) y por
+  // dirección de cambio de plan (upgrade/downgrade) — server-side, independientes.
+  if (eventType) filter.eventType = eventType as InternetServiceEvent['eventType'];
+  if (direction) filter.direction = direction as PlanChangeDirection;
 
   const { data, isLoading, isError } = useInternetActivationHistory(filter, open);
 
@@ -274,6 +315,41 @@ function GlobalBody({ open }: { open: boolean }) {
                 {op.name}
               </option>
             ))}
+          </select>
+        </div>
+        <div className={styles.filterGroup}>
+          <label htmlFor="iahm-event-type" className={styles.filterLabel}>
+            Tópico
+          </label>
+          <select
+            id="iahm-event-type"
+            className={styles.input}
+            value={eventType}
+            onChange={(e) => setEventType(e.target.value)}
+            aria-label="Tópico"
+          >
+            <option value="">Todos</option>
+            {SERVICE_EVENT_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {EVENT_TYPE_LABELS[t].label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className={styles.filterGroup}>
+          <label htmlFor="iahm-direction" className={styles.filterLabel}>
+            Dirección
+          </label>
+          <select
+            id="iahm-direction"
+            className={styles.input}
+            value={direction}
+            onChange={(e) => setDirection(e.target.value)}
+            aria-label="Dirección"
+          >
+            <option value="">Todos</option>
+            <option value="upgrade">↑ Upgrade</option>
+            <option value="downgrade">↓ Downgrade</option>
           </select>
         </div>
         {/*

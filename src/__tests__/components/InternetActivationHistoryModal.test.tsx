@@ -188,6 +188,65 @@ describe('InternetActivationHistoryModal', () => {
     });
   });
 
+  // ── Badge de dirección (↑/↓) + texto oldPlan → newPlan en filas 'modified' ──
+  describe('badge de dirección + oldPlan → newPlan en filas modified', () => {
+    function modifiedEvent(over: {
+      direction: 'upgrade' | 'downgrade' | null;
+      oldPlan: string | null;
+      newPlan: string | null;
+    }): InternetServiceEvent {
+      return {
+        id: 'ev-modified',
+        clientId: 'client-1',
+        customerName: 'Juan Pérez',
+        contractId: 'c1',
+        eventType: 'modified',
+        actorName: 'Operador X',
+        reason: null,
+        createdAt: '2026-06-01T10:00:00Z',
+        ...over,
+      };
+    }
+
+    it('direction "upgrade" renderiza el badge ↑ y el texto oldPlan → newPlan', () => {
+      mockHistory({
+        data: [modifiedEvent({ direction: 'upgrade', oldPlan: 'IP-30M', newPlan: 'IP-50M' })],
+      });
+      renderModal();
+      expect(screen.getByText('↑')).toBeInTheDocument();
+      expect(screen.getByText('IP-30M → IP-50M')).toBeInTheDocument();
+    });
+
+    it('direction "downgrade" renderiza el badge ↓ y el texto oldPlan → newPlan', () => {
+      mockHistory({
+        data: [modifiedEvent({ direction: 'downgrade', oldPlan: 'IP-50M', newPlan: 'IP-30M' })],
+      });
+      renderModal();
+      expect(screen.getByText('↓')).toBeInTheDocument();
+      expect(screen.getByText('IP-50M → IP-30M')).toBeInTheDocument();
+    });
+
+    it('direction null Y sin planes (legacy) NO renderiza badge ni texto', () => {
+      mockHistory({
+        data: [modifiedEvent({ direction: null, oldPlan: null, newPlan: null })],
+      });
+      renderModal();
+      expect(screen.queryByText('↑')).not.toBeInTheDocument();
+      expect(screen.queryByText('↓')).not.toBeInTheDocument();
+      expect(screen.queryByText(/→/)).not.toBeInTheDocument();
+    });
+
+    it('direction null CON oldPlan/newPlan (lateral/enforcement) muestra el texto SIN badge', () => {
+      mockHistory({
+        data: [modifiedEvent({ direction: null, oldPlan: 'IP-50M', newPlan: 'IP-REDUCCION' })],
+      });
+      renderModal();
+      expect(screen.getByText('IP-50M → IP-REDUCCION')).toBeInTheDocument();
+      expect(screen.queryByText('↑')).not.toBeInTheDocument();
+      expect(screen.queryByText('↓')).not.toBeInTheDocument();
+    });
+  });
+
   it('passes the clientId filter to the hook (round-trip)', () => {
     mockHistory();
     renderModal({ clientId: 'client-99' });
@@ -322,9 +381,10 @@ describe('InternetActivationHistoryModal', () => {
           { actorId: 'op-2', actorName: 'Juan López' },
         ]);
         renderGlobalModal();
-        expect(screen.getByRole('option', { name: /todos/i })).toBeInTheDocument();
-        expect(screen.getByRole('option', { name: 'Ana García' })).toBeInTheDocument();
-        expect(screen.getByRole('option', { name: 'Juan López' })).toBeInTheDocument();
+        const select = screen.getByLabelText(/operador/i);
+        expect(within(select).getByRole('option', { name: /todos/i })).toBeInTheDocument();
+        expect(within(select).getByRole('option', { name: 'Ana García' })).toBeInTheDocument();
+        expect(within(select).getByRole('option', { name: 'Juan López' })).toBeInTheDocument();
       });
 
       // ── REGRESIÓN (bug del review) ──────────────────────────────────────────
@@ -367,7 +427,7 @@ describe('InternetActivationHistoryModal', () => {
         expect(select.tagName).toBe('SELECT');
         // Solo la opción "Todos" — sin crash.
         expect(within(select).getAllByRole('option')).toHaveLength(1);
-        expect(screen.getByRole('option', { name: /todos/i })).toBeInTheDocument();
+        expect(within(select).getByRole('option', { name: /todos/i })).toBeInTheDocument();
       });
 
       it('el select se deshabilita mientras cargan los operadores', () => {
@@ -386,6 +446,84 @@ describe('InternetActivationHistoryModal', () => {
         await user.selectOptions(screen.getByLabelText(/operador/i), 'op-1');
         // ...volver a "Todos"
         await user.selectOptions(screen.getByLabelText(/operador/i), '');
+        expect(useInternetActivationHistory).toHaveBeenLastCalledWith({}, true);
+      });
+    });
+
+    // ── Tópico select (filtro server-side por eventType) ──────────────────────
+    describe('tópico select (filtro por eventType)', () => {
+      it('renderiza un <select> Tópico con "Todos" + una opción por eventType, en orden canónico', () => {
+        mockHistory();
+        renderGlobalModal();
+        const select = screen.getByLabelText(/tópico/i);
+        expect(select.tagName).toBe('SELECT');
+        const options = within(select).getAllByRole('option') as HTMLOptionElement[];
+        expect(options.map((o) => o.value)).toEqual([
+          '',
+          'activated',
+          'deactivated',
+          'reactivated',
+          'reduced',
+          'blocked',
+          'restored',
+          'modified',
+        ]);
+        expect(within(select).getByRole('option', { name: 'Todos' })).toBeInTheDocument();
+        expect(within(select).getByRole('option', { name: 'Alta' })).toBeInTheDocument();
+        expect(within(select).getByRole('option', { name: 'Modificado' })).toBeInTheDocument();
+      });
+
+      it('round-trip: elegir un tópico lo cablea como eventType al hook', async () => {
+        const user = userEvent.setup();
+        mockHistory();
+        renderGlobalModal();
+        await user.selectOptions(screen.getByLabelText(/tópico/i), 'modified');
+        expect(useInternetActivationHistory).toHaveBeenLastCalledWith({ eventType: 'modified' }, true);
+      });
+
+      it('seleccionar "Todos" (value vacío) limpia el filtro eventType', async () => {
+        const user = userEvent.setup();
+        mockHistory();
+        renderGlobalModal();
+        await user.selectOptions(screen.getByLabelText(/tópico/i), 'modified');
+        await user.selectOptions(screen.getByLabelText(/tópico/i), '');
+        expect(useInternetActivationHistory).toHaveBeenLastCalledWith({}, true);
+      });
+    });
+
+    // ── Dirección select (filtro server-side por upgrade/downgrade) ───────────
+    describe('dirección select (filtro por upgrade/downgrade)', () => {
+      it('renderiza un <select> Dirección con "Todos" + Upgrade + Downgrade', () => {
+        mockHistory();
+        renderGlobalModal();
+        const select = screen.getByLabelText(/dirección/i);
+        expect(select.tagName).toBe('SELECT');
+        const options = within(select).getAllByRole('option') as HTMLOptionElement[];
+        expect(options.map((o) => o.value)).toEqual(['', 'upgrade', 'downgrade']);
+      });
+
+      it('round-trip: elegir Upgrade lo cablea como direction al hook', async () => {
+        const user = userEvent.setup();
+        mockHistory();
+        renderGlobalModal();
+        await user.selectOptions(screen.getByLabelText(/dirección/i), 'upgrade');
+        expect(useInternetActivationHistory).toHaveBeenLastCalledWith({ direction: 'upgrade' }, true);
+      });
+
+      it('round-trip: elegir Downgrade lo cablea como direction al hook', async () => {
+        const user = userEvent.setup();
+        mockHistory();
+        renderGlobalModal();
+        await user.selectOptions(screen.getByLabelText(/dirección/i), 'downgrade');
+        expect(useInternetActivationHistory).toHaveBeenLastCalledWith({ direction: 'downgrade' }, true);
+      });
+
+      it('seleccionar "Todos" (value vacío) limpia el filtro direction', async () => {
+        const user = userEvent.setup();
+        mockHistory();
+        renderGlobalModal();
+        await user.selectOptions(screen.getByLabelText(/dirección/i), 'upgrade');
+        await user.selectOptions(screen.getByLabelText(/dirección/i), '');
         expect(useInternetActivationHistory).toHaveBeenLastCalledWith({}, true);
       });
     });
