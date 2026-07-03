@@ -317,8 +317,8 @@
   border-color: var(--color-accent);
 }
 
-/* Subtle hint when the ventas operator pool is empty — tells the admin WHY
-   there is nobody to assign (no active user carries the 'ventas' role). */
+/* Subtle hint when the operator pool is empty — tells the admin WHY there is
+   nobody to assign (no active user with a non-technical role qualifies). */
 .operatorHint {
   margin: 2px 0 0;
   font-size: var(--font-size-xs);

@@ -148,10 +148,11 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
   const updateLeadStatus = useUpdateLeadStatus();
   const assignLead       = useAssignLead();
   // Assignee candidates come from the SAME shared pool as the page's inline +
-  // bulk selects: ACTIVE RbacUsers WITH the 'ventas' role. The BE validates
-  // `operatorId` against RbacUser (NOT the Admin table), so their ids match
-  // `lead.assigneeId`. Gated by `canAssign` so a manage-only agent never fires
-  // GET /admin/rbac/users.
+  // bulk selects: ACTIVE RbacUsers WITH ≥1 role and NONE technical (`tecnico`).
+  // The BE validates `operatorId` against RbacUser (NOT the Admin table) and
+  // re-enforces the same rule (422 RECAPTURE_ASSIGNEE_NOT_ALLOWED), so their ids
+  // match `lead.assigneeId`. Gated by `canAssign` so a manage-only agent never
+  // fires GET /admin/rbac/users.
   const { operators } = useAssignableOperators(canAssign);
 
   const [showForm, setShowForm] = useState(false);
@@ -167,10 +168,10 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
   const view = detail ?? lead;
 
   // A controlled <select> only shows what's in its <option> list. If the lead's
-  // assignee is NOT in the (ventas-only) pool — e.g. an admin assigned before the
-  // filter existed — the select would render blank and silently misreport "Sin
+  // assignee is NOT in the pool — e.g. a technician assigned before the filter
+  // existed — the select would render blank and silently misreport "Sin
   // asignar". Inject a phantom option so the select ALWAYS reflects the real
-  // assignee. The ventas filter trims the CHOICES, it never erases an assignment.
+  // assignee. The pool filter trims the CHOICES, it never erases an assignment.
   const assigneeInPool =
     view.assigneeId != null && operators.some((op) => op.id === view.assigneeId);
   const showPhantom = view.assigneeId != null && !assigneeInPool;
@@ -290,7 +291,7 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
                 </select>
                 {operators.length === 0 && (
                   <p className={styles.operatorHint} role="note">
-                    No hay usuarios con rol ventas para asignar.
+                    No hay usuarios disponibles para asignar.
                   </p>
                 )}
               </div>

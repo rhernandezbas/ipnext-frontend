@@ -63,10 +63,10 @@ export default function RecaptacionPage() {
   const assignLead = useAssignLead();
   // Operator pool — single source of truth shared by ALL three assignee selects
   // (inline column, bulk toolbar, LeadDetailDrawer). Restricted to ACTIVE users
-  // WITH the 'ventas' role; gated by `canAssign` so a plain agent (who lacks the
-  // admin/rbac permission GET /admin/rbac/users requires) never fires it. A lead
-  // already assigned to someone outside this pool keeps showing their name via
-  // the InlineAssignSelect phantom option (intentional).
+  // WITH ≥1 role and NONE technical (`tecnico`); gated by `canAssign` so a plain
+  // agent (who lacks the admin/rbac permission GET /admin/rbac/users requires)
+  // never fires it. A lead already assigned to someone outside this pool keeps
+  // showing their name via the InlineAssignSelect phantom option (intentional).
   const { operators } = useAssignableOperators(canAssign);
 
   const query = {
