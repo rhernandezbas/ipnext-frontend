@@ -1,20 +1,16 @@
 /**
- * InternetPanel — IP Assignment control (pin / unpin)
+ * InternetPanel — regresión sqlippool descartado (S6.1)
  *
- * IP-1  ipMode='fixed' → renderiza "IP fija: {ip}" + botón "Liberar (volver al pool)"
- * IP-2  ipMode='pool'  → renderiza "IP automática del pool" + botón "Fijar IP"
- * IP-3  Click "Fijar IP" → revela input + botón "Fijar"; confirmar llama pinIp con la IP
- * IP-4  Pin con éxito → banner role="status" con "IP fijada"
- * IP-5  Pin 409 → "Esa IP ya está asignada a otro cliente."
- * IP-6  Unpin con éxito → banner role="status" con "IP liberada"
- * IP-7  Unpin 409 → "Este router no tiene pool — no se puede liberar."
- * IP-8  Unpin 502 → "Router no disponible, reintentá."
- * IP-9  Sin permiso pppoe.manage → el control no se renderiza
+ * El toggle "IP fija" / "Liberar (volver al pool)" + el input de pin de modo
+ * pool (IpAssignmentControl) se REMOVIERON: el sqlippool fue descartado y ningún
+ * NAS corre en modo pool, así que el control era código muerto (409 seguro).
+ *
+ * S6.1  El panel con un PPPoE fijo sigue mostrando la IP en el detalle, pero YA
+ *       NO hay control de "Asignación de IP" ni botón "Liberar"/"Fijar IP".
  */
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { vi, describe, it, expect, beforeEach, type Mock } from 'vitest';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 import { InternetPanel } from '@/pages/customers/tabs/contracts/InternetPanel';
 import * as usePppoeModule from '@/hooks/usePppoe';
@@ -24,7 +20,7 @@ import * as useContractServicesModule from '@/hooks/useContractServices';
 import * as usePlansModule from '@/hooks/usePlans';
 import type { PppoeServiceDto } from '@/types/pppoe';
 
-import { mockQuery, mockMutation } from '@/__tests__/_utils/reactQueryMocks';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 vi.mock('@/hooks/usePppoe');
@@ -68,17 +64,10 @@ function neutralMutation() {
 interface SetupOpts {
   pppoe?: Partial<PppoeServiceDto>;
   canManage?: boolean;
-  pinMutateAsync?: Mock;
-  unpinMutateAsync?: Mock;
 }
 
 function setup(opts: SetupOpts = {}) {
-  const {
-    pppoe: pppoePatch = {},
-    canManage = true,
-    pinMutateAsync = vi.fn().mockResolvedValue({}),
-    unpinMutateAsync = vi.fn().mockResolvedValue({}),
-  } = opts;
+  const { pppoe: pppoePatch = {}, canManage = true } = opts;
 
   const pppoe = { ...BASE_PPPOE, ...pppoePatch };
 
@@ -117,16 +106,6 @@ function setup(opts: SetupOpts = {}) {
   vi.mocked(usePppoeModule.useDeassociatePppoe).mockReturnValue(neutralMutation());
   vi.mocked(usePppoeModule.useAssociatePppoe).mockReturnValue(neutralMutation());
   vi.mocked(usePppoeModule.useEnforcePppoeForContract).mockReturnValue(neutralMutation());
-
-  vi.mocked(usePppoeModule.usePinPppoeIp).mockReturnValue(mockMutation({
-    mutateAsync: pinMutateAsync,
-    isPending: false,
-  }));
-
-  vi.mocked(usePppoeModule.useUnpinPppoeIp).mockReturnValue(mockMutation({
-    mutateAsync: unpinMutateAsync,
-    isPending: false,
-  }));
 
   vi.mocked(useNasModule.useNasServers).mockReturnValue(mockQuery({
     data: [{ id: 'nas-1', name: 'Router Central', type: 'mikrotik_api', ipAddress: '192.168.1.1', radiusSecret: 'secret', nasIpAddress: '192.168.1.1', apiPort: null, apiLogin: null, apiPassword: null, status: 'active', lastSeen: null, clientCount: 0, description: '' }],
@@ -168,8 +147,6 @@ function setup(opts: SetupOpts = {}) {
     roles: [],
     user: null,
   } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
-
-  return { pinMutateAsync, unpinMutateAsync };
 }
 
 function renderPanel() {
@@ -189,164 +166,30 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-// ── IP-1: ipMode=fixed muestra la IP fija + botón Liberar ────────────────────
-describe('IP-1: ipMode=fixed renderiza IP fija y botón Liberar', () => {
-  it('muestra "IP fija: 10.0.0.9" y el botón "Liberar (volver al pool)"', () => {
+// ── S6.1: la IP sigue visible pero el control de asignación se removió ────────
+describe('S6.1: PPPoE fijo muestra la IP en el detalle, sin control de asignación', () => {
+  it('la IP del servicio sigue visible en el detalle (con el badge "fija")', () => {
     setup({ pppoe: { ipMode: 'fixed', remoteAddress: '10.0.0.9' } });
     renderPanel();
 
-    expect(screen.getByText(/Asignación de IP/i)).toBeInTheDocument();
-    expect(screen.getByText(/IP fija: 10\.0\.0\.9/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Liberar \(volver al pool\)/i })).toBeInTheDocument();
-  });
-
-  it('muestra el badge "fija" en la sección de detalle IP remota', () => {
-    setup({ pppoe: { ipMode: 'fixed', remoteAddress: '10.0.0.9' } });
-    renderPanel();
-
-    // El badge "fija" debe estar junto al IP remota detail
+    expect(screen.getByText(/10\.0\.0\.9/)).toBeInTheDocument();
     expect(screen.getByText('fija')).toBeInTheDocument();
   });
-});
 
-// ── IP-2: ipMode=pool muestra "Automática" + botón Fijar IP ─────────────────
-describe('IP-2: ipMode=pool renderiza IP automática y botón Fijar IP', () => {
-  it('muestra "IP automática del pool" y el botón "Fijar IP"', () => {
-    setup({ pppoe: { ipMode: 'pool', remoteAddress: null } });
-    renderPanel();
-
-    expect(screen.getByText(/IP automática del pool/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Fijar IP$/i })).toBeInTheDocument();
-  });
-});
-
-// ── IP-3: Fijar IP → revela input y confirmar llama pinIp ───────────────────
-describe('IP-3: click "Fijar IP" revela input; confirmar llama pinIp', () => {
-  it('click Fijar IP muestra el input y el botón Fijar', async () => {
-    const user = userEvent.setup();
-    setup({ pppoe: { ipMode: 'pool', remoteAddress: null } });
-    renderPanel();
-
-    await user.click(screen.getByRole('button', { name: /^Fijar IP$/i }));
-
-    expect(screen.getByRole('textbox', { name: /IP a fijar/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Fijar$/i })).toBeInTheDocument();
-  });
-
-  it('tipear IP y confirmar llama pinIp con la IP ingresada', async () => {
-    const user = userEvent.setup();
-    const pinFn = vi.fn().mockResolvedValue({});
-    setup({ pppoe: { ipMode: 'pool', remoteAddress: null }, pinMutateAsync: pinFn });
-    renderPanel();
-
-    await user.click(screen.getByRole('button', { name: /^Fijar IP$/i }));
-    await user.type(screen.getByRole('textbox', { name: /IP a fijar/i }), '10.0.0.42');
-    await user.click(screen.getByRole('button', { name: /^Fijar$/i }));
-
-    await waitFor(() => {
-      expect(pinFn).toHaveBeenCalledWith({ id: 'pppoe-1', ip: '10.0.0.42' });
-    });
-  });
-});
-
-// ── IP-4: Pin éxito → banner "IP fijada" ────────────────────────────────────
-describe('IP-4: pin con éxito → banner role="status" con "IP fijada"', () => {
-  it('tras el éxito aparece el banner de confirmación', async () => {
-    const user = userEvent.setup();
-    const pinFn = vi.fn().mockResolvedValue({});
-    setup({ pppoe: { ipMode: 'pool', remoteAddress: null }, pinMutateAsync: pinFn });
-    renderPanel();
-
-    await user.click(screen.getByRole('button', { name: /^Fijar IP$/i }));
-    await user.type(screen.getByRole('textbox', { name: /IP a fijar/i }), '10.0.0.99');
-    await user.click(screen.getByRole('button', { name: /^Fijar$/i }));
-
-    await waitFor(() => {
-      const status = screen.getByRole('status');
-      expect(status).toBeInTheDocument();
-      expect(status).toHaveTextContent(/IP fijada/i);
-    });
-  });
-});
-
-// ── IP-5: Pin 409 → "ya está asignada" ──────────────────────────────────────
-describe('IP-5: pin 409 → mensaje "ya está asignada"', () => {
-  it('cuando la IP está tomada muestra el mensaje correcto', async () => {
-    const user = userEvent.setup();
-    const err409 = Object.assign(new Error('conflict'), { response: { status: 409 } });
-    const pinFn = vi.fn().mockRejectedValue(err409);
-    setup({ pppoe: { ipMode: 'pool', remoteAddress: null }, pinMutateAsync: pinFn });
-    renderPanel();
-
-    await user.click(screen.getByRole('button', { name: /^Fijar IP$/i }));
-    await user.type(screen.getByRole('textbox', { name: /IP a fijar/i }), '10.0.0.1');
-    await user.click(screen.getByRole('button', { name: /^Fijar$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(/ya está asignada a otro cliente/i);
-    });
-  });
-});
-
-// ── IP-6: Unpin éxito → banner "IP liberada" ─────────────────────────────────
-describe('IP-6: unpin con éxito → banner role="status" con "IP liberada"', () => {
-  it('tras liberar aparece el banner de confirmación', async () => {
-    const user = userEvent.setup();
-    const unpinFn = vi.fn().mockResolvedValue({});
-    setup({ pppoe: { ipMode: 'fixed', remoteAddress: '10.0.0.9' }, unpinMutateAsync: unpinFn });
-    renderPanel();
-
-    await user.click(screen.getByRole('button', { name: /Liberar \(volver al pool\)/i }));
-
-    await waitFor(() => {
-      const status = screen.getByRole('status');
-      expect(status).toBeInTheDocument();
-      expect(status).toHaveTextContent(/IP liberada/i);
-    });
-  });
-});
-
-// ── IP-7: Unpin 409 → "no tiene pool" ────────────────────────────────────────
-describe('IP-7: unpin 409 → "Este router no tiene pool"', () => {
-  it('cuando el router no tiene pool muestra el mensaje correcto', async () => {
-    const user = userEvent.setup();
-    const err409 = Object.assign(new Error('no pool'), { response: { status: 409 } });
-    const unpinFn = vi.fn().mockRejectedValue(err409);
-    setup({ pppoe: { ipMode: 'fixed', remoteAddress: '10.0.0.9' }, unpinMutateAsync: unpinFn });
-    renderPanel();
-
-    await user.click(screen.getByRole('button', { name: /Liberar \(volver al pool\)/i }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(/no tiene pool/i);
-    });
-  });
-});
-
-// ── IP-8: Unpin 502 → "Router no disponible" ─────────────────────────────────
-describe('IP-8: unpin 502 → "Router no disponible"', () => {
-  it('cuando el router está caído muestra el mensaje de 502', async () => {
-    const user = userEvent.setup();
-    const err502 = Object.assign(new Error('bad gateway'), { response: { status: 502 } });
-    const unpinFn = vi.fn().mockRejectedValue(err502);
-    setup({ pppoe: { ipMode: 'fixed', remoteAddress: '10.0.0.9' }, unpinMutateAsync: unpinFn });
-    renderPanel();
-
-    await user.click(screen.getByRole('button', { name: /Liberar \(volver al pool\)/i }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(/Router no disponible/i);
-    });
-  });
-});
-
-// ── IP-9: Sin pppoe.manage → control no se renderiza ─────────────────────────
-describe('IP-9: sin pppoe.manage el control no se renderiza', () => {
-  it('sin el permiso no hay control de Asignación de IP', () => {
-    setup({ pppoe: { ipMode: 'fixed', remoteAddress: '10.0.0.9' }, canManage: false });
+  it('YA NO existe la sección "Asignación de IP" ni el botón "Liberar"', () => {
+    setup({ pppoe: { ipMode: 'fixed', remoteAddress: '10.0.0.9' } });
     renderPanel();
 
     expect(screen.queryByText(/Asignación de IP/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Liberar \(volver al pool\)/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Liberar \(volver al pool\)/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('tampoco existe el botón "Fijar IP" del modo pool', () => {
+    setup({ pppoe: { ipMode: 'fixed', remoteAddress: '10.0.0.9' } });
+    renderPanel();
+
+    expect(screen.queryByRole('button', { name: /^Fijar IP$/i })).not.toBeInTheDocument();
   });
 });

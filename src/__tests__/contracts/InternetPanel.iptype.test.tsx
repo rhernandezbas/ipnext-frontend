@@ -139,8 +139,6 @@ function setupBaseMocks({
     isPending: false,
   } as unknown as ReturnType<typeof usePppoeModule.useEnforcePppoeForContract>);
 
-  vi.mocked(usePppoeModule.usePinPppoeIp).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
-  vi.mocked(usePppoeModule.useUnpinPppoeIp).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
 }
 
 function renderPanel() {

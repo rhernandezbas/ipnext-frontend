@@ -117,8 +117,6 @@ function setupMocks({
   vi.mocked(usePppoeModule.useMovePppoe).mockReturnValue({ mutateAsync: moveMutateAsync, isPending: false } as never);
   vi.mocked(usePppoeModule.useDeactivatePppoe).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
   vi.mocked(usePppoeModule.useDeassociatePppoe).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
-  vi.mocked(usePppoeModule.usePinPppoeIp).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
-  vi.mocked(usePppoeModule.useUnpinPppoeIp).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as never);
 
   vi.mocked(useNasModule.useNasServers).mockReturnValue(mockQuery({ data: NAS_SERVERS }));
   vi.mocked(useNasModule.useNextFreeIp).mockReturnValue(mockQuery({

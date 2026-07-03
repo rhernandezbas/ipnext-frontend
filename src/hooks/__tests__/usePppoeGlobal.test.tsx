@@ -36,8 +36,6 @@ vi.mock('@/api/pppoe.api', () => ({
     associate: vi.fn(),
     deassociate: vi.fn(),
     getCallerId: vi.fn(),
-    pinIp: vi.fn(),
-    unpinIp: vi.fn(),
   },
 }));
 

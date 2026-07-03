@@ -329,26 +329,6 @@ export const pppoeApi = {
   },
 
   /**
-   * Fija una IP estática en el PPPoE (ipMode='fixed', remoteAddress=ip).
-   * 422 IP inválida, 409 IP ya tomada, 502 router/orquestador caído.
-   * Gated `pppoe.manage`.
-   */
-  async pinIp(id: string, ip: string): Promise<PppoeServiceDto> {
-    const r = await axiosClient.post<PppoeServiceDto>(`${BASE}/${id}/pin-ip`, { ip });
-    return r.data;
-  },
-
-  /**
-   * Libera la IP fija del PPPoE (ipMode='pool', remoteAddress=null).
-   * 409 si el NAS no tiene pool configurado, 502 router/orquestador caído.
-   * Gated `pppoe.manage`.
-   */
-  async unpinIp(id: string): Promise<PppoeServiceDto> {
-    const r = await axiosClient.post<PppoeServiceDto>(`${BASE}/${id}/unpin-ip`, {});
-    return r.data;
-  },
-
-  /**
    * Registro de movimientos de NAS (tab "Movimientos NAS" de la auditoría).
    * Wire contract D6: { items, total, page, limit }. Gated `network.read`
    * (alineado a los tabs vecinos de la page de auditoría).

@@ -924,32 +924,6 @@
   white-space: nowrap;
 }
 
-/* ── Asignación de IP (IpAssignmentControl) ─────────────────────────────── */
-
-.ipAssignmentControl {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.ipAssignmentRow {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.ipAssignmentInner {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.ipAssignmentCurrent {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
 /* All clickable elements: cursor-pointer, focus-visible ring */
 .btnPrimary:focus-visible,
 .btnSecondary:focus-visible,

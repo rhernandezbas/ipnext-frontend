@@ -121,8 +121,6 @@ function setup(opts: SetupOpts = {}) {
     isPending: false,
   } as unknown as ReturnType<typeof usePppoeModule.useUpdatePppoe>);
 
-  vi.mocked(usePppoeModule.usePinPppoeIp).mockReturnValue(neutralMutation());
-  vi.mocked(usePppoeModule.useUnpinPppoeIp).mockReturnValue(neutralMutation());
 
   // Fixture NAS honesto y completo (main/Ola 1) + mocks pin/unpin (FE sqlippool).
   vi.mocked(useNasModule.useNasServers).mockReturnValue(mockQuery({
