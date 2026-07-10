@@ -22,9 +22,11 @@ vi.mock('@/hooks/useRbacUsers', () => ({
   useRbacUsers: vi.fn(),
 }));
 
-// ContractHistoryModal (rendered unconditionally whenever the lead/match has a
-// clientId) reads this hook internally. Mocked the same way its own test suite
-// does, so opening it here never fires a real network call.
+// ContractHistoryModal mounts only when contractsClientId is set — i.e. after
+// a "Ver contratos" / "Ver contratos del match" click, never unconditionally
+// from the lead/match having a clientId. It reads this hook internally,
+// mocked the same way its own test suite does, so opening it here never
+// fires a real network call.
 vi.mock('@/hooks/useCustomers', () => ({
   useClientContracts: vi.fn(),
 }));
@@ -435,7 +437,7 @@ describe('LeadDetailDrawer — claim/release removed', () => {
 
 // ── live detail wins over prop snapshot (#recapture-drawer-live) ──────────────
 
-import type { RecaptureLeadDetailDto } from '@/types/recaptacion';
+import type { RecaptureLeadDetailDto, MatchedClientSummary } from '@/types/recaptacion';
 
 describe('LeadDetailDrawer — live detail wins over prop snapshot (#recapture-drawer-live)', () => {
   it('L1 — status select reflects detail, not the stale prop (detail wins)', () => {
@@ -622,5 +624,78 @@ describe('LeadDetailDrawer — possible active match section (S13a/S13b)', () =>
     const dialog = await screen.findByRole('dialog', { name: 'Contratos del cliente' });
     // The lead's own contact name shows — not the matched client's.
     expect(within(dialog).getByText('Ana García')).toBeInTheDocument();
+  });
+
+  // ── Review findings hardening (recapture-active-client-match FE fix wave) ──
+
+  it('MS7 — matchedBy chip falls back to the raw signal string for an out-of-contract value', () => {
+    // `matchedBy` is typed as ('phone'|'email'|'reactivated')[], but the BE
+    // wire payload isn't runtime-validated against that union. Simulate a
+    // rogue value via a cast (prod types stay strict) and assert the chip
+    // renders the raw string instead of an empty label.
+    mockDetail({
+      possibleActiveMatch: {
+        signals: ['phone'],
+        matchedClients: [
+          {
+            clientId: 'c2',
+            name: 'Roberto Diaz',
+            status: 'active',
+            matchedBy: ['phone', 'weird_signal'] as unknown as MatchedClientSummary['matchedBy'],
+          },
+        ],
+      },
+    });
+    renderDrawer();
+
+    const section = screen.getByText('Posible cliente activo').closest('section')!;
+    expect(within(section).getByText('weird_signal')).toBeInTheDocument();
+  });
+
+  it('MS8 — a malformed possibleActiveMatch without signals/matchedClients degrades to section-absent (no crash)', () => {
+    // TS promises `{ signals, matchedClients }` are always present, but a
+    // malformed cached/legacy payload could omit both at runtime. Cast past
+    // the compiler in the fixture to simulate that and assert the component
+    // degrades gracefully instead of throwing on `.length`.
+    mockDetail({
+      possibleActiveMatch: {} as unknown as RecaptureLeadDetailDto['possibleActiveMatch'],
+    });
+
+    expect(() => renderDrawer()).not.toThrow();
+    expect(screen.queryByText('Posible cliente activo')).not.toBeInTheDocument();
+  });
+});
+
+// ── contractsClientId resets on lead change (hardening) ───────────────────────
+
+describe('LeadDetailDrawer — contractsClientId resets when the lead prop changes', () => {
+  it('H1 — modal closes/state resets when a different lead is rendered while it was open', async () => {
+    const user = userEvent.setup();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { rerender } = render(
+      <QueryClientProvider client={qc}>
+        <LeadDetailDrawer lead={BASE_LEAD} onClose={vi.fn()} />
+      </QueryClientProvider>
+    );
+
+    await user.click(screen.getByRole('button', { name: /^ver contratos$/i }));
+    expect(await screen.findByRole('dialog', { name: 'Contratos del cliente' })).toBeInTheDocument();
+
+    const otherLead: RecaptureLeadDto = {
+      ...BASE_LEAD,
+      id: 'lead-99',
+      clientId: 'client-2',
+      contactName: 'Otro Contacto',
+    };
+
+    rerender(
+      <QueryClientProvider client={qc}>
+        <LeadDetailDrawer lead={otherLead} onClose={vi.fn()} />
+      </QueryClientProvider>
+    );
+
+    // The modal must NOT still be showing the previous lead's client — the
+    // safe behavior is closed/reset, never carried over to the new lead.
+    expect(screen.queryByRole('dialog', { name: 'Contratos del cliente' })).not.toBeInTheDocument();
   });
 });

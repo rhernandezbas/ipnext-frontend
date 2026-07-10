@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Can } from '@/components/auth/Can';
 import { Button } from '@/components/atoms/Button';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
@@ -57,7 +57,7 @@ function MatchedClientRow({ client, onViewContracts }: MatchedClientRowProps) {
         <StatusBadge status={matchedClientBadgeStatus(client.status)} />
         <span className={styles.matchChips}>
           {client.matchedBy.map((s) => (
-            <span key={s} className={styles.matchChip}>{ACTIVE_MATCH_SIGNAL_LABELS[s]}</span>
+            <span key={s} className={styles.matchChip}>{ACTIVE_MATCH_SIGNAL_LABELS[s] ?? s}</span>
           ))}
         </span>
       </div>
@@ -76,20 +76,25 @@ interface PossibleActiveMatchSectionProps {
 /** Informational only — never mutates the lead. Absent entirely when there
  *  are zero fired signals (no empty shell). */
 function PossibleActiveMatchSection({ match, onViewContracts }: PossibleActiveMatchSectionProps) {
-  if (match.signals.length === 0) return null;
+  // Defensive against a malformed payload (e.g. `possibleActiveMatch: {}`)
+  // that satisfies the TS shape at compile time but omits one or both arrays
+  // at runtime — degrade to section-absent instead of throwing on `.length`.
+  const signals = match.signals ?? [];
+  const matchedClients = match.matchedClients ?? [];
+  if (signals.length === 0) return null;
   return (
     <section className={styles.section}>
       <p className={styles.sectionTitle}>Posible cliente activo</p>
       <div className={styles.matchChips}>
-        {match.signals.map((s) => (
+        {signals.map((s) => (
           <span key={s} className={styles.matchChip}>
             {ACTIVE_MATCH_SIGNAL_LABELS[s as keyof typeof ACTIVE_MATCH_SIGNAL_LABELS] ?? s}
           </span>
         ))}
       </div>
-      {match.matchedClients.length > 0 && (
+      {matchedClients.length > 0 && (
         <div className={styles.matchedClientsList}>
-          {match.matchedClients.map((c) => (
+          {matchedClients.map((c) => (
             <MatchedClientRow key={c.clientId} client={c} onViewContracts={onViewContracts} />
           ))}
         </div>
@@ -232,6 +237,14 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
   // contratos del match" button (each just sets a different clientId).
   const [contractsClientId, setContractsClientId] = useState<string | null>(null);
 
+  // Reset whenever the lead identity changes so the modal can never stay open
+  // (or armed) against a PREVIOUS lead's client. Safe no-op today — the drawer
+  // currently unmounts between leads — but hardens against a future "next
+  // lead" control that would reuse the same mounted instance.
+  useEffect(() => {
+    setContractsClientId(null);
+  }, [lead?.id]);
+
   if (!lead) return null;
 
   // `lead` is a frozen snapshot from the page; `detail` is the re-fetched, always-fresh
@@ -255,7 +268,10 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
   const contractsClientName =
     contractsClientId === view.clientId
       ? view.contactName
-      : view.possibleActiveMatch?.matchedClients.find((m) => m.clientId === contractsClientId)?.name;
+      // `?.` twice: possibleActiveMatch itself is optional, and even when present
+      // a malformed payload may omit matchedClients — guard both so this never
+      // throws (see PossibleActiveMatchSection's own array guard for the section).
+      : view.possibleActiveMatch?.matchedClients?.find((m) => m.clientId === contractsClientId)?.name;
 
   return (
     <div
