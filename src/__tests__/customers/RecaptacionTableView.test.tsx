@@ -291,6 +291,51 @@ describe('RecaptacionTableView — technology column', () => {
   });
 });
 
+// ── possible active-client match badge (S12) ──────────────────────────────────
+
+describe('RecaptacionTableView — possible active match badge (S12)', () => {
+  it('M1 — shows the match indicator in the Contacto cell when signals.length >= 1', () => {
+    render(
+      <RecaptacionTableView
+        leads={[{ ...BASE_LEAD, possibleActiveMatchSignals: ['phone'] }]}
+      />,
+    );
+    expect(screen.getByText('Posible cliente activo')).toBeInTheDocument();
+  });
+
+  it('M2 — renders nothing when possibleActiveMatchSignals is an empty array', () => {
+    render(
+      <RecaptacionTableView
+        leads={[{ ...BASE_LEAD, possibleActiveMatchSignals: [] }]}
+      />,
+    );
+    expect(screen.queryByText('Posible cliente activo')).not.toBeInTheDocument();
+  });
+
+  it('M3 — renders nothing when possibleActiveMatchSignals is undefined (old cached payload)', () => {
+    render(<RecaptacionTableView leads={[BASE_LEAD]} />);
+    expect(screen.queryByText('Posible cliente activo')).not.toBeInTheDocument();
+  });
+
+  it('M4 — the match indicator does not break technology badges or the status pill in the same row', () => {
+    render(
+      <RecaptacionTableView
+        leads={[{
+          ...BASE_LEAD,
+          technologies: ['Wireless'],
+          status: 'interesado',
+          possibleActiveMatchSignals: ['phone', 'email'],
+        }]}
+      />,
+    );
+    // Match indicator present…
+    expect(screen.getByText('Posible cliente activo')).toBeInTheDocument();
+    // …and the pre-existing Wireless tech badge + status pill render unaffected.
+    expect(screen.getByText('Wireless')).toBeInTheDocument();
+    expect(screen.getByLabelText('Estado: Interesado')).toBeInTheDocument();
+  });
+});
+
 describe('RecaptacionTableView — multi-select passthrough', () => {
   const lead = (id: string): RecaptureLeadDto => ({ ...BASE_LEAD, id, contactName: `Lead ${id}` });
 

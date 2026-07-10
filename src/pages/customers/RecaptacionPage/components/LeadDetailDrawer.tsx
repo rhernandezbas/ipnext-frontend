@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Can } from '@/components/auth/Can';
 import { Button } from '@/components/atoms/Button';
+import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
 import { ContractHistoryModal } from '@/components/molecules/ContractHistoryModal';
 import { useRecaptacionLead, useAddContact, useUpdateLeadStatus, useAssignLead } from '@/hooks/useRecaptacion';
 import { useAssignableOperators } from '@/hooks/useAssignableOperators';
@@ -11,11 +12,12 @@ import {
   RECAPTURE_STATUS_COLOR,
   RECAPTURE_CHANNEL_LABELS,
   RECAPTURE_OUTCOME_LABELS,
+  ACTIVE_MATCH_SIGNAL_LABELS,
   RecaptureContactChannel,
   RecaptureContactOutcome,
   RecaptureLeadStatus,
 } from '@/types/recaptacion';
-import type { RecaptureLeadDto, AddContactInput } from '@/types/recaptacion';
+import type { RecaptureLeadDto, AddContactInput, MatchedClientSummary } from '@/types/recaptacion';
 import styles from './LeadDetailDrawer.module.css';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -26,6 +28,75 @@ function formatDatetime(iso: string | null): string {
 
 const CHANNELS = Object.entries(RECAPTURE_CHANNEL_LABELS) as [RecaptureContactChannel, string][];
 const OUTCOMES = Object.entries(RECAPTURE_OUTCOME_LABELS) as [RecaptureContactOutcome, string][];
+
+// ── Possible active-client match section ─────────────────────────────────────
+
+/** Maps CustomerStatus onto the shared StatusBadge presentation variant.
+ *  Mirrors ContractHistoryModal's local badgeStatus mapper. In practice the
+ *  candidate set is always `status:'active'`, but this stays honest for any
+ *  other value the DTO's CustomerStatus type allows. */
+function matchedClientBadgeStatus(status: string): 'active' | 'late' | 'blocked' | 'inactive' | 'baja' {
+  switch (status) {
+    case 'active':  return 'active';
+    case 'blocked': return 'blocked';
+    case 'baja':    return 'baja';
+    default:        return 'inactive';
+  }
+}
+
+interface MatchedClientRowProps {
+  client: MatchedClientSummary;
+  onViewContracts: (clientId: string) => void;
+}
+
+function MatchedClientRow({ client, onViewContracts }: MatchedClientRowProps) {
+  return (
+    <div className={styles.matchedClientRow}>
+      <div className={styles.matchedClientInfo}>
+        <span className={styles.matchedClientName}>{client.name}</span>
+        <StatusBadge status={matchedClientBadgeStatus(client.status)} />
+        <span className={styles.matchChips}>
+          {client.matchedBy.map((s) => (
+            <span key={s} className={styles.matchChip}>{ACTIVE_MATCH_SIGNAL_LABELS[s]}</span>
+          ))}
+        </span>
+      </div>
+      <Button variant="secondary" onClick={() => onViewContracts(client.clientId)}>
+        Ver contratos del match
+      </Button>
+    </div>
+  );
+}
+
+interface PossibleActiveMatchSectionProps {
+  match: { signals: string[]; matchedClients: MatchedClientSummary[] };
+  onViewContracts: (clientId: string) => void;
+}
+
+/** Informational only — never mutates the lead. Absent entirely when there
+ *  are zero fired signals (no empty shell). */
+function PossibleActiveMatchSection({ match, onViewContracts }: PossibleActiveMatchSectionProps) {
+  if (match.signals.length === 0) return null;
+  return (
+    <section className={styles.section}>
+      <p className={styles.sectionTitle}>Posible cliente activo</p>
+      <div className={styles.matchChips}>
+        {match.signals.map((s) => (
+          <span key={s} className={styles.matchChip}>
+            {ACTIVE_MATCH_SIGNAL_LABELS[s as keyof typeof ACTIVE_MATCH_SIGNAL_LABELS] ?? s}
+          </span>
+        ))}
+      </div>
+      {match.matchedClients.length > 0 && (
+        <div className={styles.matchedClientsList}>
+          {match.matchedClients.map((c) => (
+            <MatchedClientRow key={c.clientId} client={c} onViewContracts={onViewContracts} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 
 // ── RegisterContactForm ──────────────────────────────────────────────────────
 
@@ -156,7 +227,10 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
   const { operators } = useAssignableOperators(canAssign);
 
   const [showForm, setShowForm] = useState(false);
-  const [showContracts, setShowContracts] = useState(false);
+  // Which client's contracts the modal shows — null = closed. Shared by the
+  // lead's own "Ver contratos" button AND each matched client's "Ver
+  // contratos del match" button (each just sets a different clientId).
+  const [contractsClientId, setContractsClientId] = useState<string | null>(null);
 
   if (!lead) return null;
 
@@ -175,6 +249,13 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
   const assigneeInPool =
     view.assigneeId != null && operators.some((op) => op.id === view.assigneeId);
   const showPhantom = view.assigneeId != null && !assigneeInPool;
+
+  // The contracts modal can be opened for the lead's own client OR for any
+  // matched client — resolve whichever name applies for the modal subtitle.
+  const contractsClientName =
+    contractsClientId === view.clientId
+      ? view.contactName
+      : view.possibleActiveMatch?.matchedClients.find((m) => m.clientId === contractsClientId)?.name;
 
   return (
     <div
@@ -227,12 +308,20 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
             </div>
             {view.clientId && (
               <div className={styles.contractsAction}>
-                <Button variant="secondary" onClick={() => setShowContracts(true)}>
+                <Button variant="secondary" onClick={() => setContractsClientId(view.clientId)}>
                   Ver contratos
                 </Button>
               </div>
             )}
           </section>
+
+          {/* Possible active-client match (informational, never mutates the lead) */}
+          {view.possibleActiveMatch && (
+            <PossibleActiveMatchSection
+              match={view.possibleActiveMatch}
+              onViewContracts={setContractsClientId}
+            />
+          )}
 
           {/* Actions */}
           <div className={styles.actions}>
@@ -351,12 +440,12 @@ export function LeadDetailDrawer({ lead, onClose }: LeadDetailDrawerProps) {
           </section>
         </div>
       </aside>
-      {view.clientId && (
+      {contractsClientId && (
         <ContractHistoryModal
-          open={showContracts}
-          clientId={view.clientId}
-          clientName={view.contactName}
-          onClose={() => setShowContracts(false)}
+          open
+          clientId={contractsClientId}
+          clientName={contractsClientName}
+          onClose={() => setContractsClientId(null)}
         />
       )}
     </div>

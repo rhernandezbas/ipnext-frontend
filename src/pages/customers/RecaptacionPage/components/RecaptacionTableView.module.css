@@ -88,6 +88,13 @@
   max-width: 360px;
 }
 
+.contactCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 .contactName {
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);

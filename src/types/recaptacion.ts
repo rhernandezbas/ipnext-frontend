@@ -1,3 +1,5 @@
+import type { CustomerStatus } from '@/types/customer';
+
 // ── Enums (string unions, exact values from BE) ─────────────────────────────
 
 export type RecaptureLeadSource = 'churned_client' | 'csv';
@@ -52,6 +54,25 @@ export const RECAPTURE_OUTCOME_LABELS: Record<RecaptureContactOutcome, string> =
   recuperado:     'Recuperado',
   numero_erroneo: 'Número erróneo',
 };
+
+// ── Possible active-client match (informational — never mutates the lead) ───
+
+/** Vocabulary matches the BE wire contract exactly (recapture-active-client-match). */
+export type ActiveMatchSignal = 'phone' | 'email' | 'reactivated' | 'churn_reason';
+
+export const ACTIVE_MATCH_SIGNAL_LABELS: Record<ActiveMatchSignal, string> = {
+  phone:        'Teléfono',
+  email:        'Email',
+  reactivated:  'Re-alta como cliente',
+  churn_reason: 'Motivo de baja: cambio de titularidad',
+};
+
+export interface MatchedClientSummary {
+  clientId: string;
+  name: string;
+  status: CustomerStatus;
+  matchedBy: Array<'phone' | 'email' | 'reactivated'>;
+}
 
 export const RECAPTURE_STATUS_COLOR: Record<RecaptureLeadStatus, string> = {
   nuevo:      '#64748b',
@@ -135,6 +156,22 @@ export interface RecaptureLeadDto {
   claimedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Signals suggesting this lead's contact matches an existing active client.
+   * OPTIONAL (unlike `technologies`) — old cached payloads predating this
+   * feature won't carry it, and marking it required would lie about that.
+   * Read with `?? []` at every call site.
+   */
+  possibleActiveMatchSignals?: ActiveMatchSignal[];
+  /**
+   * Rich match detail (signals + the active clients that matched). Same
+   * optionality rationale as `possibleActiveMatchSignals`. Read with a
+   * truthy/`?.` guard — never assume presence.
+   */
+  possibleActiveMatch?: {
+    signals: ActiveMatchSignal[];
+    matchedClients: MatchedClientSummary[];
+  };
 }
 
 export interface RecaptureContactDto {

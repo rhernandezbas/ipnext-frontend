@@ -120,6 +120,58 @@
   margin-top: var(--space-3);
 }
 
+/* ── Possible active-client match section ── */
+
+.matchChips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.matchChip {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  background: var(--badge-late-bg);
+  color: var(--badge-late-fg);
+}
+
+.matchedClientsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.matchedClientRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  background: var(--color-gray-50);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+}
+
+.matchedClientInfo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.matchedClientName {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
 /* ── Actions bar ── */
 
 .actions {

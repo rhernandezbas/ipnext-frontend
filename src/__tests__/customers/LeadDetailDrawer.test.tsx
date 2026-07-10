@@ -22,6 +22,13 @@ vi.mock('@/hooks/useRbacUsers', () => ({
   useRbacUsers: vi.fn(),
 }));
 
+// ContractHistoryModal (rendered unconditionally whenever the lead/match has a
+// clientId) reads this hook internally. Mocked the same way its own test suite
+// does, so opening it here never fires a real network call.
+vi.mock('@/hooks/useCustomers', () => ({
+  useClientContracts: vi.fn(),
+}));
+
 import {
   useRecaptacionLead,
   useAddContact,
@@ -29,6 +36,7 @@ import {
   useAssignLead,
 } from '@/hooks/useRecaptacion';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
+import { useClientContracts } from '@/hooks/useCustomers';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
 
@@ -152,6 +160,11 @@ function mockHooks(opts?: { can?: (p: string) => boolean; users?: RbacUserWithRo
     isLoading: false,
     isError: false,
   } as unknown as ReturnType<typeof useRbacUsers>);
+
+  vi.mocked(useClientContracts).mockReturnValue({
+    data: [],
+    isLoading: false,
+  } as unknown as ReturnType<typeof useClientContracts>);
 }
 
 function renderDrawer(lead: RecaptureLeadDto | null = BASE_LEAD) {
@@ -501,5 +514,113 @@ describe('LeadDetailDrawer — live detail wins over prop snapshot (#recapture-d
     // Meta-grid "Asignado" must show the detail's assigneeName (not '—')
     const assignedSection = screen.getByText('Asignado').closest('div')!;
     expect(within(assignedSection).getByText('Operador Dos')).toBeInTheDocument();
+  });
+});
+
+// ── Possible active-client match section (S13a/S13b, recapture-active-client-match) ──
+
+describe('LeadDetailDrawer — possible active match section (S13a/S13b)', () => {
+  function detailWith(overrides: Partial<RecaptureLeadDetailDto> = {}): RecaptureLeadDetailDto {
+    return { ...BASE_LEAD, contacts: [], ...overrides };
+  }
+
+  function mockDetail(overrides: Partial<RecaptureLeadDetailDto> = {}) {
+    vi.mocked(useRecaptacionLead).mockReturnValue({
+      data: detailWith(overrides),
+      isLoading: false,
+    } as ReturnType<typeof useRecaptacionLead>);
+  }
+
+  it('MS1 — section absent when possibleActiveMatch is undefined (old cached payload, no crash)', () => {
+    mockDetail(); // no possibleActiveMatch key at all
+    renderDrawer();
+    expect(screen.queryByText('Posible cliente activo')).not.toBeInTheDocument();
+  });
+
+  it('MS2 — section absent when signals is an empty array', () => {
+    mockDetail({ possibleActiveMatch: { signals: [], matchedClients: [] } });
+    renderDrawer();
+    expect(screen.queryByText('Posible cliente activo')).not.toBeInTheDocument();
+  });
+
+  it('MS3 (S13a) — renders a matched client (name/status/matchedBy) and opens ContractHistoryModal for THAT client id, not the lead\'s own', async () => {
+    const user = userEvent.setup();
+    mockDetail({
+      possibleActiveMatch: {
+        signals: ['phone'],
+        matchedClients: [
+          { clientId: 'c2', name: 'Roberto Diaz', status: 'active', matchedBy: ['phone'] },
+        ],
+      },
+    });
+    renderDrawer();
+
+    const section = screen.getByText('Posible cliente activo').closest('section')!;
+    expect(within(section).getByText('Roberto Diaz')).toBeInTheDocument();
+    // Two "Teléfono" chips render inside this section: the lead-level fired
+    // signal AND this client's own matchedBy — both wired to the same label map.
+    expect(within(section).getAllByText('Teléfono')).toHaveLength(2);
+
+    await user.click(screen.getByRole('button', { name: /ver contratos del match/i }));
+
+    // The drawer's own overlay ALSO has role="dialog" (aria-label "Detalle lead: …"),
+    // so scope by the contract modal's own accessible name to disambiguate.
+    const dialog = await screen.findByRole('dialog', { name: 'Contratos del cliente' });
+    // Modal subtitle carries the MATCHED client's name — not the lead's own
+    // contactName ('Ana García') — proving clientId routed to c2, not view.clientId.
+    expect(within(dialog).getByText('Roberto Diaz')).toBeInTheDocument();
+    expect(within(dialog).queryByText('Ana García')).not.toBeInTheDocument();
+  });
+
+  it('MS4 (S13b) — churn_reason with no matched client shows the flag, no per-match contracts button', () => {
+    mockDetail({
+      possibleActiveMatch: { signals: ['churn_reason'], matchedClients: [] },
+    });
+    renderDrawer();
+
+    expect(screen.getByText('Posible cliente activo')).toBeInTheDocument();
+    expect(screen.getByText('Motivo de baja: cambio de titularidad')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /ver contratos del match/i })).not.toBeInTheDocument();
+  });
+
+  it('MS5 — two matched clients each render their own name + a working contracts trigger (dedup/cardinality)', async () => {
+    const user = userEvent.setup();
+    mockDetail({
+      possibleActiveMatch: {
+        signals: ['phone', 'email'],
+        matchedClients: [
+          { clientId: 'c2', name: 'Roberto Diaz', status: 'active', matchedBy: ['phone'] },
+          { clientId: 'c3', name: 'Lucia Fernandez', status: 'active', matchedBy: ['email'] },
+        ],
+      },
+    });
+    renderDrawer();
+
+    expect(screen.getByText('Roberto Diaz')).toBeInTheDocument();
+    expect(screen.getByText('Lucia Fernandez')).toBeInTheDocument();
+    const triggers = screen.getAllByRole('button', { name: /ver contratos del match/i });
+    expect(triggers).toHaveLength(2);
+
+    await user.click(triggers[1]);
+    const dialog = await screen.findByRole('dialog', { name: 'Contratos del cliente' });
+    expect(within(dialog).getByText('Lucia Fernandez')).toBeInTheDocument();
+  });
+
+  it('MS6 — the lead\'s own "Ver contratos" button is unaffected by an active match section', async () => {
+    const user = userEvent.setup();
+    mockDetail({
+      possibleActiveMatch: {
+        signals: ['phone'],
+        matchedClients: [
+          { clientId: 'c2', name: 'Roberto Diaz', status: 'active', matchedBy: ['phone'] },
+        ],
+      },
+    });
+    renderDrawer();
+
+    await user.click(screen.getByRole('button', { name: /^ver contratos$/i }));
+    const dialog = await screen.findByRole('dialog', { name: 'Contratos del cliente' });
+    // The lead's own contact name shows — not the matched client's.
+    expect(within(dialog).getByText('Ana García')).toBeInTheDocument();
   });
 });

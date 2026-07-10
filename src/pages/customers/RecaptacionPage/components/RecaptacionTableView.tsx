@@ -1,5 +1,6 @@
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { Button } from '@/components/atoms/Button';
+import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
 import {
   RECAPTURE_STATUS_LABELS,
   RECAPTURE_STATUS_COLOR,
@@ -117,6 +118,19 @@ function TechnologyBadges({ technologies }: { technologies: string[] }) {
   );
 }
 
+// ── Possible active-client match indicator ────────────────────────────────────
+
+/**
+ * Renders only when the lead has at least one fired signal. Reuses the shared
+ * StatusBadge "late" (red) variant with an explicit label override — its text
+ * content IS the accessible label (not color-only), and red is free in this
+ * cell (the tech column's Wireless badge, in a different cell, is orange).
+ */
+function PossibleActiveMatchIndicator({ signals }: { signals?: string[] }) {
+  if (!signals || signals.length === 0) return null;
+  return <StatusBadge status="late" label="Posible cliente activo" />;
+}
+
 // ── Column definitions ───────────────────────────────────────────────────────
 
 function formatDate(iso: string | null): string {
@@ -131,7 +145,12 @@ const COLUMNS: Array<{
   {
     label: 'Contacto',
     key: 'contactName',
-    render: (r) => <span className={styles.contactName}>{r.contactName}</span>,
+    render: (r) => (
+      <span className={styles.contactCell}>
+        <span className={styles.contactName}>{r.contactName}</span>
+        <PossibleActiveMatchIndicator signals={r.possibleActiveMatchSignals} />
+      </span>
+    ),
   },
   {
     label: 'Teléfono',
