@@ -302,3 +302,25 @@ export interface CancelTvResult {
    */
   renewAttempted: boolean;
 }
+
+// ── service-transfer W4 — transferencia de TV a otro cliente ─────────────────
+
+/** Body de POST /gigared/customers/:sourceCustomerId/transfer-tv (wire pineado). */
+export interface TransferTvPayload {
+  targetCustomerId: string;
+  targetContractId: string;
+  sourceContractId?: string;
+}
+
+/**
+ * Resultado 200/207 del transfer de TV. 207 = parcial: severed=false ||
+ * local*='failed' || targetCleared=false. El BE es resumible e idempotente:
+ * el retry del MISMO request continúa/completa lo pendiente.
+ */
+export interface TransferTvResult {
+  cic: string;
+  severed: boolean;
+  localSource: 'synced' | 'failed';
+  localTarget: 'synced' | 'failed';
+  targetCleared: boolean;
+}

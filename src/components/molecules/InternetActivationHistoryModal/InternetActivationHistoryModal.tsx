@@ -117,6 +117,26 @@ function statusChangeLabel(raw: string | null | undefined): string {
 function PlanChangeInfo({ event }: { event: InternetServiceEvent }) {
   if (event.eventType !== 'modified') return null;
 
+  // service-transfer W4 — transferencias entre clientes: 'transfer-out' (origen)
+  // / 'transfer-in' (destino). oldValue/newValue = nombres snapshot de los
+  // clientes. El badge ámbar marca el PPPoE movido "tal cual" (as-is) — la marca
+  // viaja en notes (hoy solo en el historial por contrato; acá es defensivo).
+  if (event.changeKind === 'transfer-out' || event.changeKind === 'transfer-in') {
+    const pendingRegularize = !!event.notes?.includes('pendiente de regularizar');
+    return (
+      <div className={styles.planChangeInfo}>
+        <span className={styles.planChangeText}>
+          {event.changeKind === 'transfer-out'
+            ? `⇄ Transferido a ${event.newValue ?? '—'}`
+            : `⇄ Recibido por transferencia de ${event.oldValue ?? '—'}`}
+        </span>
+        {pendingRegularize && (
+          <span className={styles.asIsBadge}>Tal cual — pendiente de regularizar</span>
+        )}
+      </div>
+    );
+  }
+
   // pppoe-change-audit — ramas por changeKind (ip / password / status). Un valor
   // null/ausente cae al render de cambio de plan de más abajo (path original).
   if (event.changeKind === 'ip') {

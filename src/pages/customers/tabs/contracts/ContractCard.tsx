@@ -182,7 +182,12 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
       </div>
 
       <div className={styles.equipment}>
-        <ServiceInventorySection serviceId={contract.id} enabled={active} />
+        <ServiceInventorySection
+          serviceId={contract.id}
+          enabled={active}
+          clientId={clientId}
+          customerName={customer?.name ?? null}
+        />
       </div>
 
       {/* client-geolocation — GPS editor for this contract's installation point */}
@@ -216,6 +221,7 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
         <InternetPanel
           contractId={contract.id}
           clientId={clientId}
+          customerName={customer?.name ?? null}
           contractServices={contract.services}
           onClose={() => setInternetPanelOpen(false)}
         />

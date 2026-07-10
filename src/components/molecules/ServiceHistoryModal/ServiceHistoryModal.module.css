@@ -217,3 +217,31 @@
 .reasonLink:hover {
   opacity: 0.8;
 }
+
+/* ── service-transfer W4 — detalle de transferencia ────────────────────────── */
+
+.transferInfo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.transferText {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* Badge ámbar: PPPoE movido "tal cual" — pendiente de regularizar (as-is). */
+.asIsBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}

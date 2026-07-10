@@ -39,7 +39,7 @@ vi.mock('@/hooks/useTaskPriorities', () => ({
 
 // CustomerPicker uses its own internals — stub it
 vi.mock(
-  '@/pages/scheduling/SchedulingTasksPage/components/CustomerPicker',
+  '@/components/molecules/CustomerPicker/CustomerPicker',
   () => ({
     CustomerPicker: () => null,
   }),

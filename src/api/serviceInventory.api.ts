@@ -14,6 +14,8 @@ import type {
   CreateManualSuggestionInput,
   InspectPppoeDevicesResult,
   RetireInstalledItemInput,
+  TransferEquipmentInput,
+  TransferEquipmentResult,
 } from '@/types/serviceInventory';
 
 const CONFLICT_CODES: readonly InventoryConflictCode[] = [
@@ -136,6 +138,20 @@ export const retireInstalledItem = async (
     throw err;
   }
 };
+
+/**
+ * service-transfer W4 — mueve ítems instalados seleccionados al contrato destino
+ * (y si el ítem tiene asset, el BE emite el InventoryMovement TRANSFER entre las
+ * CLIENTE-locations). POST /contracts/:sourceContractId/inventory/transfer.
+ * Errores: 400 / 403 / 404 / 409 — propagan sin normalizar (el modal mapea).
+ */
+export const transferInstalledItems = (
+  contractId: string,
+  input: TransferEquipmentInput,
+): Promise<TransferEquipmentResult> =>
+  axiosClient
+    .post<TransferEquipmentResult>(`/contracts/${contractId}/inventory/transfer`, input)
+    .then(r => r.data);
 
 // ── Task-scoped suggestion staging ──────────────────────────────────────────
 export const listTaskInventorySuggestions = (taskId: string) =>

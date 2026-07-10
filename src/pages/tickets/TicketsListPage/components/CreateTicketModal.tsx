@@ -3,7 +3,7 @@ import { useRbacUsers } from '@/hooks/useRbacUsers';
 import { useTicketAreas } from '@/hooks/useTicketAreas';
 import { useClientContracts } from '@/hooks/useCustomers';
 import { buildContractLabel } from '@/lib/buildContractLabel';
-import { CustomerPicker } from '@/pages/scheduling/SchedulingTasksPage/components/CustomerPicker';
+import { CustomerPicker } from '@/components/molecules/CustomerPicker/CustomerPicker';
 import type { CreateTicketData } from '@/types/ticket';
 import styles from './CreateTicketModal.module.css';
 

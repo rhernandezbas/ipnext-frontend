@@ -71,6 +71,36 @@ export interface RenamePppoeResult {
   message?: string;
 }
 
+/** Modo de POST /api/pppoe/:id/transfer (service-transfer W4, wire pineado). */
+export type TransferPppoeMode = 'as-is' | 'recreate';
+
+/**
+ * Body de POST /api/pppoe/:id/transfer.
+ * - `reason` OBLIGATORIO si mode='as-is' (el BE valida con 400).
+ * - `newPppoe` OBLIGATORIO si mode='recreate' — MISMO shape que el body del
+ *   create PPPoE por contrato (CreatePppoeBody, sin contractId).
+ */
+export interface TransferPppoeBody {
+  targetContractId: string;
+  mode: TransferPppoeMode;
+  reason?: string;
+  newPppoe?: CreatePppoeBody;
+}
+
+/**
+ * Resultado 200/207 del transfer. 207 = recreate PARCIAL (`partial: true`):
+ * el PPPoE nuevo quedó vivo en el destino y el viejo quedó pendiente de borrar
+ * (se completa con DELETE /api/pppoe/:id del viejo). `newUsername` solo en recreate.
+ */
+export interface TransferPppoeResult {
+  mode: TransferPppoeMode;
+  oldContractId: string;
+  newContractId: string;
+  oldUsername: string;
+  newUsername?: string;
+  partial?: boolean;
+}
+
 export interface UpdatePppoeBody {
   profile?: string;
   password?: string;
@@ -251,6 +281,20 @@ export const pppoeApi = {
     const body: { nasId: string; force?: boolean } = { nasId };
     if (force) body.force = true;
     const r = await axiosClient.post<PppoeServiceDto>(`${BASE}/${id}/move`, body);
+    return r.data;
+  },
+
+  /**
+   * Transfiere un PPPoE a un contrato de OTRO cliente (service-transfer W4).
+   * mode='recreate' (recomendado): crea el nuevo PRIMERO, borra el viejo después.
+   * mode='as-is': reasigna el contractId sin tocar RADIUS (reason obligatorio).
+   * Errores 409: PPPOE_ALREADY_ASSOCIATED / PPPOE_CONTRACT_ALREADY_HAS_SERVICE /
+   * PPPOE_USERNAME_TAKEN / PPPOE_TRANSFER_PENDING_RESIDUE (el `error` del body
+   * trae el id de la fila pending y cómo recuperar — mostrarlo al operador).
+   * Gated `pppoe.transfer`.
+   */
+  async transfer(id: string, body: TransferPppoeBody): Promise<TransferPppoeResult> {
+    const r = await axiosClient.post<TransferPppoeResult>(`${BASE}/${id}/transfer`, body);
     return r.data;
   },
 

@@ -17,6 +17,8 @@ import type {
   ChangeTvPasswordResult,
   ActivationHistoryFilter,
   TvActivationEvent,
+  TransferTvPayload,
+  TransferTvResult,
 } from '@/types/gigared';
 
 /**
@@ -265,6 +267,37 @@ export function useTvCredentials(customerId: string, enabled: boolean) {
     queryFn: () => gigaredApi.getTvCredentials(customerId),
     enabled: enabled && customerId !== '',
     staleTime: 60_000,
+  });
+}
+
+/**
+ * service-transfer W4 — transferir la TV del cliente ORIGEN a otro cliente.
+ * Devuelve { status, data }: 207 = parcial (el modal muestra el detalle y ofrece
+ * el retry del MISMO request — el BE es resumible/idempotente).
+ *
+ * Invalidación de AMBOS clientes en onSettled (no onSuccess): un 207 y hasta un
+ * error duro pueden dejar estado parcialmente aplicado en partner/local, así que
+ * SIEMPRE re-leemos cuenta TV + contratos + credenciales de origen y destino,
+ * más summary/listas/historial (set de invalidateLinkCicKeys + destino).
+ */
+export function useTransferTv(sourceCustomerId: string) {
+  const qc = useQueryClient();
+  return useMutation<{ status: number; data: TransferTvResult }, unknown, TransferTvPayload>({
+    mutationFn: (body) => gigaredApi.transferTv(sourceCustomerId, body),
+    onSettled: (_data, _error, variables) => {
+      const ids = [sourceCustomerId, variables?.targetCustomerId].filter(
+        (id): id is string => !!id,
+      );
+      for (const id of ids) {
+        qc.invalidateQueries({ queryKey: accountKey(id) });
+        qc.invalidateQueries({ queryKey: ['client-contracts', id] });
+        qc.invalidateQueries({ queryKey: credentialsKey(id) });
+      }
+      qc.invalidateQueries({ queryKey: SUMMARY_KEY });
+      qc.invalidateQueries({ queryKey: ACCOUNTS_ROOT });
+      qc.invalidateQueries({ queryKey: ALL_ACCOUNTS_ROOT });
+      qc.invalidateQueries({ queryKey: SERVICE_HISTORY_ROOT });
+    },
   });
 }
 

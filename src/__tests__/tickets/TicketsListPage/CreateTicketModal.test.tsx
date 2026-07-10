@@ -5,7 +5,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { CreateTicketModal } from '@/pages/tickets/TicketsListPage/components/CreateTicketModal';
 
 // Mock CustomerPicker to avoid heavy deps
-vi.mock('@/pages/scheduling/SchedulingTasksPage/components/CustomerPicker', () => ({
+vi.mock('@/components/molecules/CustomerPicker/CustomerPicker', () => ({
   CustomerPicker: ({ onChange }: { onChange: (id: string | null, name: string | null) => void }) => (
     <div>
       <button

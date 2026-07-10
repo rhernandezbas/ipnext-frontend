@@ -43,6 +43,17 @@ export interface ServiceEvent {
    * Optional to avoid breaking existing fixtures that were created before this field was added.
    */
   notes?: string | null;
+  /**
+   * service-transfer W4 — clase de cambio de un evento 'modified'. El BE manda
+   * 'transfer-out' (contrato origen) / 'transfer-in' (destino) para las
+   * transferencias entre clientes; 'ip'|'password'|'status' para pppoe-change-audit.
+   * Opcional para no romper fixtures previos.
+   */
+  changeKind?: string | null;
+  /** Transferencias: nombre del cliente ORIGEN (snapshot legible). */
+  oldValue?: string | null;
+  /** Transferencias: nombre del cliente DESTINO (snapshot legible). */
+  newValue?: string | null;
 }
 
 /** One entry in a contract's service history (#73). Includes inactive services. */

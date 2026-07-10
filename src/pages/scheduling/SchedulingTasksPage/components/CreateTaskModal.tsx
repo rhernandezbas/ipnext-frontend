@@ -13,7 +13,7 @@ import type { CreateTaskPayload } from '@/types/scheduling';
 import { useTaskPriorities } from '@/hooks/useTaskPriorities';
 import { useCan } from '@/hooks/useMyPermissions';
 import { useConfirm } from '@/context/ConfirmContext';
-import { CustomerPicker } from './CustomerPicker';
+import { CustomerPicker } from '@/components/molecules/CustomerPicker/CustomerPicker';
 import { NodeSelector } from '@/components/NodeSelector';
 import { applyTaskVariables } from '../../lib/taskVariables';
 import { mapUploadError } from '@/utils/mapUploadError';

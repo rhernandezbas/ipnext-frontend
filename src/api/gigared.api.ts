@@ -22,6 +22,8 @@ import type {
   TvCredentials,
   TvActivationEvent,
   ActivationHistoryFilter,
+  TransferTvPayload,
+  TransferTvResult,
 } from '@/types/gigared';
 
 const BASE = '/gigared';
@@ -128,6 +130,21 @@ export const gigaredApi = {
   async setOtt(customerId: string, body: SetOttPayload): Promise<{ ok: true }> {
     const r = await axiosClient.put<{ ok: true }>(`${BASE}/customers/${customerId}/ott`, body);
     return r.data;
+  },
+
+  // service-transfer W4 — transferir la TV (alias del CIC) a otro cliente.
+  // 200 = completo; 207 = parcial (severed=false || local*='failed' || targetCleared=false).
+  // El BE es resumible e idempotente: reintentar con el MISMO body continúa lo pendiente.
+  // Devuelve { status, data } para que el modal distinga 200 vs 207 (axios resuelve ambos).
+  async transferTv(
+    sourceCustomerId: string,
+    body: TransferTvPayload,
+  ): Promise<{ status: number; data: TransferTvResult }> {
+    const r = await axiosClient.post<TransferTvResult>(
+      `${BASE}/customers/${sourceCustomerId}/transfer-tv`,
+      body,
+    );
+    return { status: r.status, data: r.data };
   },
 
   // #10 — async dar de baja TV: POST → 202 {status:'pending'} (cancel queued on the BE).

@@ -139,6 +139,14 @@ export interface InternetServiceEvent {
    * el BE no la incluye. null cuando no aplica.
    */
   newValue?: string | null;
+  /**
+   * service-transfer W4 — detalle del evento (el badge "pendiente de regularizar"
+   * del as-is se detecta acá). DEFENSIVO: el InternetServiceEventDto GLOBAL del BE
+   * hoy NO manda notes (verificado 2026-07-10, pppoe.dto.ts) — el campo queda
+   * opcional para que el badge prenda solo si el BE lo agrega. El historial POR
+   * CONTRATO (ServiceEventDto) SÍ lo manda y ahí el badge funciona completo.
+   */
+  notes?: string | null;
 }
 
 /**

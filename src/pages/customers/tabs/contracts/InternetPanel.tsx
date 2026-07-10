@@ -1,6 +1,7 @@
 import { useId, useState, useEffect } from 'react';
 import { Can } from '@/components/auth/Can';
 import { ServiceRemovalReasonModal } from '@/components/molecules/ServiceRemovalReasonModal/ServiceRemovalReasonModal';
+import { TransferServiceModal } from '@/components/molecules/TransferServiceModal/TransferServiceModal';
 import {
   useContractPppoe,
   useCreatePppoe,
@@ -28,6 +29,11 @@ import styles from './InternetPanel.module.css';
 interface InternetPanelProps {
   contractId: string;
   clientId: string | number;
+  /**
+   * service-transfer W4 — nombre del cliente para la confirmación de-quién-a-quién
+   * del modal de transferencia. Opcional: sin él, el modal degrada a "este cliente".
+   */
+  customerName?: string | null;
   contractServices: ContractService[];
   onClose: () => void;
 }
@@ -43,11 +49,17 @@ function errorStatus(err: unknown): number | null {
  * Opened from ContractCard when the operator clicks the INTERNET chip or
  * picks Internet from the service picker.
  */
-export function InternetPanel({ contractId, clientId, contractServices: _contractServices, onClose }: InternetPanelProps) {
+export function InternetPanel({ contractId, clientId, customerName, contractServices: _contractServices, onClose }: InternetPanelProps) {
   const pppoeQuery = useContractPppoe(contractId);
   const { data: nasServers = [] } = useNasServers();
   // Resultado terminal de la baja: 'full' (corte + historial) | 'partial' (corte OK, historial no).
   const [bajaOutcome, setBajaOutcome] = useState<null | 'full' | 'partial'>(null);
+
+  // service-transfer W4 — el modal de transferencia vive ACÁ (parent) con un
+  // SNAPSHOT del DTO: al completarse, la invalidación de ['contract-pppoe'] deja
+  // el contrato sin PPPoE activo y ActivePppoeView se desmonta — el resultado
+  // del transfer debe sobrevivir ese flip (mismo racional que el C1 de TV).
+  const [transferPppoe, setTransferPppoe] = useState<PppoeServiceDto | null>(null);
 
   const activePppoe = (pppoeQuery.data ?? []).find((p) => p.status === 'enabled') ?? null;
 
@@ -87,6 +99,7 @@ export function InternetPanel({ contractId, clientId, contractServices: _contrac
         pppoe={activePppoe}
         nasServers={nasServers}
         onBaja={setBajaOutcome}
+        onRequestTransfer={setTransferPppoe}
       />
     );
   } else {
@@ -138,6 +151,18 @@ export function InternetPanel({ contractId, clientId, contractServices: _contrac
           {body}
         </div>
       </div>
+
+      {/* service-transfer W4 — transferir el PPPoE a otro cliente. En el parent
+          (con snapshot del DTO) para sobrevivir el flip post-transfer. */}
+      {transferPppoe && (
+        <TransferServiceModal
+          variant={{ kind: 'pppoe', pppoe: transferPppoe, nasServers }}
+          sourceClientId={String(clientId)}
+          sourceClientName={customerName ?? null}
+          sourceContractId={contractId}
+          onClose={() => setTransferPppoe(null)}
+        />
+      )}
     </div>
   );
 }
@@ -710,12 +735,15 @@ function ActivePppoeView({
   pppoe,
   nasServers,
   onBaja,
+  onRequestTransfer,
 }: {
   contractId: string;
   clientId: string | number;
   pppoe: PppoeServiceDto;
   nasServers: { id: string; name: string }[];
   onBaja: (outcome: 'full' | 'partial') => void;
+  /** service-transfer W4 — abre el modal de transferencia en el PARENT (snapshot del DTO). */
+  onRequestTransfer: (pppoe: PppoeServiceDto) => void;
 }) {
   const update = useUpdatePppoe(contractId, clientId);
   const move = useMovePppoe(contractId, clientId);
@@ -1176,7 +1204,9 @@ function ActivePppoeView({
       </Can>
 
       {/* ── Grupo: Ciclo de vida ─────────────────────────────────────────── */}
-      <Can permissions={['pppoe.manage', 'pppoe.cut']} mode="any">
+      {/* service-transfer W4: pppoe.transfer también habilita la sección (su único
+          item visible sería "Transferir a otro cliente"). */}
+      <Can permissions={['pppoe.manage', 'pppoe.cut', 'pppoe.transfer']} mode="any">
       <section className={styles.actionGroup}>
         <h5 className={styles.actionGroupTitle}>Ciclo de vida</h5>
 
@@ -1198,6 +1228,23 @@ function ActivePppoeView({
             </button>
             <span className={styles.lifecycleHint}>
               Quita el PPPoE del contrato y lo devuelve al inventario de huérfanos.
+            </span>
+          </div>
+        </Can>
+
+        {/* Transferir a otro cliente — pppoe.transfer (service-transfer W4) */}
+        <Can permission="pppoe.transfer">
+          <div className={styles.lifecycleItem}>
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              onClick={() => onRequestTransfer(pppoe)}
+            >
+              Transferir a otro cliente
+            </button>
+            <span className={styles.lifecycleHint}>
+              Mueve este PPPoE a un contrato de otro cliente (cambio de titularidad).
+              Recomendado: recrearlo en el destino.
             </span>
           </div>
         </Can>

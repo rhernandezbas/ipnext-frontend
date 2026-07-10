@@ -30,7 +30,19 @@ const EVENT_LABELS: Record<ServiceEvent['eventType'], string> = {
   modified: 'Cambio de plan',
 };
 
-function EventBadge({ type }: { type: ServiceEvent['eventType'] }) {
+/** True cuando el evento es una transferencia entre clientes (service-transfer W4). */
+function isTransferEvent(ev: ServiceEvent): boolean {
+  return ev.changeKind === 'transfer-out' || ev.changeKind === 'transfer-in';
+}
+
+function EventBadge({ event }: { event: ServiceEvent }) {
+  const type = event.eventType;
+  // service-transfer W4 — las transferencias viajan como 'modified' + changeKind;
+  // el label del map ("Cambio de plan") sería engañoso, así que el badge las
+  // discrimina acá SIN tocar los mapas Record<ServiceEventType,...>.
+  if (isTransferEvent(event)) {
+    return <span className={styles.badgeReactivacion}>Transferencia</span>;
+  }
   const label = EVENT_LABELS[type];
   if (type === 'activated') return <span className={styles.badgeAlta}>{label}</span>;
   if (type === 'deactivated') return <span className={styles.badgeBaja}>{label}</span>;
@@ -39,6 +51,28 @@ function EventBadge({ type }: { type: ServiceEvent['eventType'] }) {
   if (type === 'restored') return <span className={styles.badgeAlta}>{label}</span>;
   // 'modified' and any future neutral events use the amber/info badge
   return <span className={styles.badgeReactivacion}>{label}</span>;
+}
+
+/**
+ * service-transfer W4 — detalle inline de una transferencia entre clientes:
+ * dirección legible + badge ámbar "pendiente de regularizar" cuando el PPPoE
+ * se movió tal cual (la marca viaja en notes).
+ */
+function TransferInfo({ event }: { event: ServiceEvent }) {
+  if (!isTransferEvent(event)) return null;
+  const pendingRegularize = !!event.notes?.includes('pendiente de regularizar');
+  return (
+    <div className={styles.transferInfo}>
+      <span className={styles.transferText}>
+        {event.changeKind === 'transfer-out'
+          ? `⇄ Transferido a ${event.newValue ?? '—'}`
+          : `⇄ Recibido por transferencia de ${event.oldValue ?? '—'}`}
+      </span>
+      {pendingRegularize && (
+        <span className={styles.asIsBadge}>Tal cual — pendiente de regularizar</span>
+      )}
+    </div>
+  );
 }
 
 // ── Event-aware modal title ────────────────────────────────────────────────────
@@ -82,7 +116,10 @@ function EventsTable({ events, showCic }: { events: ServiceEvent[]; showCic: boo
           {events.map((ev) => (
             <tr key={ev.id}>
               <td>{formatDateTimeShort(ev.occurredAt)}</td>
-              <td><EventBadge type={ev.eventType} /></td>
+              <td>
+                <EventBadge event={ev} />
+                <TransferInfo event={ev} />
+              </td>
               {showCic && <td>{ev.cic ?? '—'}</td>}
               <td>{ev.actorName}</td>
               <td>
@@ -93,7 +130,10 @@ function EventsTable({ events, showCic }: { events: ServiceEvent[]; showCic: boo
                     aria-label="Ver motivo"
                     onClick={() => setActiveView({
                       reason: ev.reason!,
-                      title: EVENT_REASON_TITLES[ev.eventType],
+                      // service-transfer W4 — un 'modified' de transferencia no es un cambio de plan.
+                      title: isTransferEvent(ev)
+                        ? 'Detalle de la transferencia'
+                        : EVENT_REASON_TITLES[ev.eventType],
                       detail: ev.notes ?? null,
                     })}
                   >

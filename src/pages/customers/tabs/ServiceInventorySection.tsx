@@ -22,6 +22,7 @@ import type {
 import { InstalledItemFormModal } from './contracts/InstalledItemFormModal';
 import { AddByPppoeReviewModal } from './contracts/AddByPppoeReviewModal';
 import { RetireInstalledItemModal } from './contracts/RetireInstalledItemModal';
+import { TransferServiceModal } from '@/components/molecules/TransferServiceModal/TransferServiceModal';
 import styles from './ServiceInventorySection.module.css';
 
 const FALLBACK_TYPES: InstalledItemType[] = ['ONU', 'ROUTER', 'ANTENA', 'REPETIDOR', 'OTROS'];
@@ -38,15 +39,24 @@ interface Props {
   serviceId: string;
   /** Defer the query until the section is actually shown. */
   enabled?: boolean;
+  /**
+   * service-transfer W4 — cliente dueño del contrato. Necesario para el botón
+   * "Transferir equipos" (invalidación del cliente origen + confirmación
+   * de-quién-a-quién). Sin él, el botón no se renderiza.
+   */
+  clientId?: string;
+  /** Nombre del cliente para la confirmación del modal de transferencia. */
+  customerName?: string | null;
 }
 
-/** Which modal flow is open: none, create, editing a specific item, retiring one, or pppoe review. */
+/** Which modal flow is open: none, create, editing a specific item, retiring one, pppoe review, or transfer. */
 type ModalState =
   | { mode: 'closed' }
   | { mode: 'create' }
   | { mode: 'edit'; item: ServiceInstalledItem }
   | { mode: 'retire'; item: ServiceInstalledItem }
-  | { mode: 'pppoe-review'; result: InspectPppoeDevicesResult };
+  | { mode: 'pppoe-review'; result: InspectPppoeDevicesResult }
+  | { mode: 'transfer'; items: ServiceInstalledItem[] };
 
 const SOURCE_LABELS: Record<string, string> = {
   MANUAL: 'Manual',
@@ -63,7 +73,7 @@ const SOURCE_LABELS: Record<string, string> = {
  * auto-suggested from a closed OS are confirmed from the task; this is the
  * manual / review surface.
  */
-export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
+export function ServiceInventorySection({ serviceId, enabled = true, clientId, customerName }: Props) {
   const { data, isLoading } = useServiceInstalledItems(serviceId, enabled);
   const addItem = useAddInstalledItem(serviceId);
   const updateItem = useUpdateInstalledItem(serviceId);
@@ -145,6 +155,8 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
   }
 
   const items = data ?? [];
+  // service-transfer W4 — solo los ítems ACTIVOS son transferibles (removed/replaced no).
+  const activeItems = items.filter((it) => it.status === 'active');
 
   return (
     <div className={styles.section}>
@@ -155,8 +167,27 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
             <span className={styles.count}>{items.length}</span>
           )}
         </div>
-        <Can permission="inventory.write">
-          <div className={styles.headerActions}>
+        <div className={styles.headerActions}>
+          {/* service-transfer W4 — mover equipos a un contrato de otro cliente.
+              Permiso propio (inventory.transfer); deshabilitado sin ítems activos. */}
+          {clientId && (
+            <Can permission="inventory.transfer">
+              <button
+                type="button"
+                className={styles.addBtn}
+                onClick={() => setModal({ mode: 'transfer', items: activeItems })}
+                disabled={activeItems.length === 0}
+                title={
+                  activeItems.length === 0
+                    ? 'Sin equipos activos para transferir'
+                    : 'Transferí equipos instalados a un contrato de otro cliente'
+                }
+              >
+                Transferir equipos
+              </button>
+            </Can>
+          )}
+          <Can permission="inventory.write">
             <button
               type="button"
               className={styles.addBtn}
@@ -193,8 +224,8 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
               <span aria-hidden="true" className={styles.addIcon}>+</span>
               Agregar SN
             </button>
-          </div>
-        </Can>
+          </Can>
+        </div>
       </div>
       {inspectError && (
         <p className={styles.inspectError} role="alert">{inspectError}</p>
@@ -272,6 +303,18 @@ export function ServiceInventorySection({ serviceId, enabled = true }: Props) {
           result={modal.result}
           onClose={closeModal}
           onCreate={handlePppoeCreate}
+        />
+      )}
+
+      {/* service-transfer W4 — transferencia de equipos a otro cliente. Los ítems
+          van como SNAPSHOT (los activos al momento del click). */}
+      {modal.mode === 'transfer' && clientId && (
+        <TransferServiceModal
+          variant={{ kind: 'equipment', items: modal.items }}
+          sourceClientId={clientId}
+          sourceClientName={customerName ?? null}
+          sourceContractId={serviceId}
+          onClose={closeModal}
         />
       )}
     </div>

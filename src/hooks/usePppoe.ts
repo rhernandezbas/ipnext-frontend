@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { pppoeApi } from '@/api/pppoe.api';
-import type { CreatePppoeBody, UpdatePppoeBody, PppoeCredentials, CreateStandalonePppoeBody, RenamePppoeResult, BulkChangePlanResult, PppoeIdsResult } from '@/api/pppoe.api';
+import type { CreatePppoeBody, UpdatePppoeBody, PppoeCredentials, CreateStandalonePppoeBody, RenamePppoeResult, BulkChangePlanResult, PppoeIdsResult, TransferPppoeMode, TransferPppoeResult } from '@/api/pppoe.api';
 import type {
   EnforcementAction,
   EnforcementTarget,
@@ -147,6 +147,51 @@ export function useDeactivatePppoe(contractId: string, clientId: string | number
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['contract-pppoe', contractId] });
       qc.invalidateQueries({ queryKey: ['client-contracts', String(clientId)] });
+    },
+  });
+}
+
+/**
+ * Variables de useTransferPppoe. `targetClientId` NO viaja en el wire — solo
+ * alimenta la invalidación de los caches del cliente destino.
+ */
+export interface TransferPppoeVariables {
+  id: string;
+  targetClientId: string;
+  targetContractId: string;
+  mode: TransferPppoeMode;
+  reason?: string;
+  newPppoe?: CreatePppoeBody;
+}
+
+/**
+ * service-transfer W4 — transfiere el PPPoE del contrato ORIGEN a un contrato
+ * de otro cliente. Invalidación de AMBOS lados en onSettled (no onSuccess):
+ * un 207 parcial (recreate: nuevo vivo, viejo pendiente de borrar) y hasta un
+ * error duro pueden dejar estado aplicado a medias — SIEMPRE re-leemos los
+ * PPPoE y contratos de origen y destino, la lista global, los huérfanos y el
+ * historial por contrato (los eventos transfer-out/in caen ahí).
+ */
+export function useTransferPppoe(sourceContractId: string, sourceClientId: string | number) {
+  const qc = useQueryClient();
+  return useMutation<TransferPppoeResult, unknown, TransferPppoeVariables>({
+    mutationFn: ({ id, targetContractId, mode, reason, newPppoe }) =>
+      pppoeApi.transfer(id, {
+        targetContractId,
+        mode,
+        ...(reason !== undefined ? { reason } : {}),
+        ...(newPppoe !== undefined ? { newPppoe } : {}),
+      }),
+    onSettled: (_data, _error, variables) => {
+      qc.invalidateQueries({ queryKey: ['contract-pppoe', sourceContractId] });
+      qc.invalidateQueries({ queryKey: ['client-contracts', String(sourceClientId)] });
+      if (variables) {
+        qc.invalidateQueries({ queryKey: ['contract-pppoe', variables.targetContractId] });
+        qc.invalidateQueries({ queryKey: ['client-contracts', String(variables.targetClientId)] });
+      }
+      qc.invalidateQueries({ queryKey: GLOBAL_LIST_KEY });
+      qc.invalidateQueries({ queryKey: unassignedKey() });
+      qc.invalidateQueries({ queryKey: ['contract-service-history'] });
     },
   });
 }

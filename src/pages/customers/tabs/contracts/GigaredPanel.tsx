@@ -14,6 +14,7 @@ import {
   useTvCredentials,
 } from '@/hooks/useGigared';
 import { ActivationHistoryModal } from '@/components/molecules/ActivationHistoryModal/ActivationHistoryModal';
+import { TransferServiceModal } from '@/components/molecules/TransferServiceModal/TransferServiceModal';
 import { deterministicTvEmail, deterministicTvPassword } from './deterministicTv';
 import { useClientContracts } from '@/hooks/useCustomers';
 import { useRemoveContractService } from '@/hooks/useContractServices';
@@ -230,6 +231,15 @@ export function GigaredPanel({ customerId, contractId, customer, grContratoId, o
   // survives re-renders. The customerId for the scoped history is the panel's own.
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
 
+  // service-transfer W4 — el modal de transferencia vive en el PARENT (patrón C1):
+  // al completarse, la invalidación puede flipear linked→unlinked y desmontar
+  // LinkedView; el resultado del transfer debe sobrevivir ese flip.
+  // FIX 4 — se SNAPSHOTEA el sourceContractId AL ABRIR (mismo patrón que el
+  // snapshot del DTO pppoe en InternetPanel): tras un 207 las invalidaciones
+  // recalculan effectiveContractId y el Reintentar debe re-enviar el MISMO
+  // request (el BE es resumible/idempotente). null = modal cerrado.
+  const [transferSourceContractId, setTransferSourceContractId] = useState<string | null>(null);
+
   let body: React.ReactNode;
   let showLocalSection = false;
   if (code === 'GIGARED_NOT_CONFIGURED') {
@@ -265,6 +275,7 @@ export function GigaredPanel({ customerId, contractId, customer, grContratoId, o
           cancelError={cancelError}
           cancelOutcomeVisible={cancelOutcomeVisible}
           onOpenHistory={() => setHistoryModalOpen(true)}
+          onRequestTransfer={() => setTransferSourceContractId(effectiveContractId)}
         />
       ) : (
         <UnlinkedView
@@ -376,6 +387,20 @@ export function GigaredPanel({ customerId, contractId, customer, grContratoId, o
         onClose={() => setHistoryModalOpen(false)}
         customerId={customerId}
       />
+
+      {/* service-transfer W4 — transferir la TV a otro cliente. En el parent para
+          sobrevivir el flip linked→unlinked post-transfer (mismo racional que C1).
+          FIX 4 — sourceContractId = snapshot tomado al abrir, NO el effectivo
+          recalculado (que deriva tras las invalidaciones del 207). */}
+      {transferSourceContractId && (
+        <TransferServiceModal
+          variant={{ kind: 'tv' }}
+          sourceClientId={customerId}
+          sourceClientName={customer?.name ?? null}
+          sourceContractId={transferSourceContractId}
+          onClose={() => setTransferSourceContractId(null)}
+        />
+      )}
 
       {/* Outcome modal — visible regardless of linked state (survives the flip).
           #10 — async: shows spinner while pending/running, banner when terminal. */}
@@ -968,6 +993,7 @@ function LinkedView({
   cancelError,
   cancelOutcomeVisible,
   onOpenHistory,
+  onRequestTransfer,
 }: {
   customerId: string;
   contractId: string;
@@ -987,6 +1013,8 @@ function LinkedView({
   cancelOutcomeVisible: boolean;
   /** #5B — opens the per-client TV activation history modal. */
   onOpenHistory: () => void;
+  /** service-transfer W4 — opens the transfer modal in the PARENT (survives the flip). */
+  onRequestTransfer: () => void;
 }) {
   const confirm = useConfirm();
   const summaryQuery = useGigaredSummary();
@@ -1220,6 +1248,17 @@ function LinkedView({
         >
           Historial TV
         </button>
+        {/* service-transfer W4 — cambio de titularidad SIN CancelTv (jamás: mataría
+            la cuenta CUA que va a usar el destino). Gate doble capa: tv.transfer. */}
+        <Can permission="tv.transfer">
+          <button
+            type="button"
+            className={styles.btnSecondary}
+            onClick={onRequestTransfer}
+          >
+            Transferir a otro cliente
+          </button>
+        </Can>
       </div>
       <section className={styles.card}>
         <h4 className={styles.cardTitle}>Cuenta de TV</h4>

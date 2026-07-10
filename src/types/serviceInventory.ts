@@ -207,3 +207,23 @@ export interface TaskInventorySuggestion {
     serial: string | null;
   } | null;
 }
+
+// ── service-transfer W4 — transferencia de equipos a otro contrato ───────────
+
+/** Body de POST /contracts/:sourceContractId/inventory/transfer (wire pineado). */
+export interface TransferEquipmentInput {
+  targetContractId: string;
+  itemIds: string[];
+}
+
+/**
+ * Resultado 200 del transfer de equipos. `assetMoved` = el ítem TENÍA un asset
+ * vinculado (assetId != null) y el movimiento TRANSFER del ledger entre
+ * CLIENTE-locations se registró. El lote del BE es ATÓMICO — NO existe fallo
+ * parcial de ledger: `assetMoved: false` solo significa "equipo sin asset"
+ * (legacy, caso común), NUNCA un error a mostrar como alarma.
+ */
+export interface TransferEquipmentResult {
+  moved: number;
+  items: { id: string; type: InstalledItemType; assetMoved: boolean }[];
+}

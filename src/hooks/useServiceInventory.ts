@@ -83,6 +83,41 @@ export function useRetireInstalledItem(serviceId: string) {
   });
 }
 
+/**
+ * Variables de useTransferEquipment. `targetClientId` NO viaja en el wire —
+ * solo alimenta la invalidación de los caches del cliente destino.
+ */
+export interface TransferEquipmentVariables {
+  targetContractId: string;
+  targetClientId: string;
+  itemIds: string[];
+}
+
+/**
+ * service-transfer W4 — mueve los ítems seleccionados del contrato ORIGEN al
+ * destino. Invalidación de AMBOS lados en onSettled: inventario por contrato,
+ * equipos agregados por cliente, contratos de ambos clientes y el historial
+ * por contrato (los eventos transfer-out/in caen ahí).
+ */
+export function useTransferEquipment(sourceContractId: string, sourceClientId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ targetContractId, itemIds }: TransferEquipmentVariables) =>
+      api.transferInstalledItems(sourceContractId, { targetContractId, itemIds }),
+    onSettled: (_data, _error, variables) => {
+      void qc.invalidateQueries({ queryKey: itemsKey(sourceContractId) });
+      void qc.invalidateQueries({ queryKey: clientEquipmentKey(sourceClientId) });
+      void qc.invalidateQueries({ queryKey: ['client-contracts', sourceClientId] });
+      if (variables) {
+        void qc.invalidateQueries({ queryKey: itemsKey(variables.targetContractId) });
+        void qc.invalidateQueries({ queryKey: clientEquipmentKey(variables.targetClientId) });
+        void qc.invalidateQueries({ queryKey: ['client-contracts', variables.targetClientId] });
+      }
+      void qc.invalidateQueries({ queryKey: ['contract-service-history'] });
+    },
+  });
+}
+
 // ── Task suggestions ────────────────────────────────────────────────────────
 export function useTaskInventorySuggestions(taskId: string | undefined, enabled = true) {
   return useQuery({

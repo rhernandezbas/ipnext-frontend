@@ -291,3 +291,18 @@
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
+
+/* ── service-transfer W4 — badge ámbar del as-is (pendiente de regularizar) ── */
+
+.asIsBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}

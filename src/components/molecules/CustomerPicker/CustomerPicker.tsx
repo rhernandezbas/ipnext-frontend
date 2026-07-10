@@ -8,14 +8,29 @@ interface Props {
   /** Display name of the selected customer. */
   valueName: string | null;
   onChange: (id: string | null, name: string | null) => void;
+  /**
+   * service-transfer W4 — client id to EXCLUDE from the results (e.g. the
+   * transfer SOURCE client: transferring a service to itself makes no sense).
+   */
+  excludeId?: string;
+  /**
+   * a11y (service-transfer FIX 6) — id for the search input so an external
+   * <label htmlFor> can be associated with it. Optional: existing callers
+   * (scheduling, tickets) keep working without it.
+   */
+  id?: string;
 }
 
 /**
  * Typeahead customer picker: type to filter clients by name (debounced server
  * search), click a result to select. Shows the selected client as a chip with a
  * clear button. The backend Client.id is a UUID string, so ids flow as strings.
+ *
+ * Shared molecule (service-transfer W4) — moved here from
+ * pages/scheduling/SchedulingTasksPage/components so scheduling, tickets and the
+ * transfer modal all use ONE component.
  */
-export function CustomerPicker({ value, valueName, onChange }: Props) {
+export function CustomerPicker({ value, valueName, onChange, excludeId, id }: Props) {
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [open, setOpen] = useState(false);
@@ -27,7 +42,8 @@ export function CustomerPicker({ value, valueName, onChange }: Props) {
 
   // Only hit the API once the dropdown is open and there's something to search.
   const { data, isFetching } = useClientList({ search: debounced || undefined, pageSize: 20 });
-  const results = open && debounced.length > 0 ? data?.data ?? [] : [];
+  const rawResults = open && debounced.length > 0 ? data?.data ?? [] : [];
+  const results = excludeId ? rawResults.filter((c) => String(c.id) !== excludeId) : rawResults;
 
   if (value) {
     return (
@@ -48,6 +64,7 @@ export function CustomerPicker({ value, valueName, onChange }: Props) {
   return (
     <div className={styles.wrap}>
       <input
+        id={id}
         className={styles.input}
         value={query}
         placeholder="Buscar cliente por nombre…"

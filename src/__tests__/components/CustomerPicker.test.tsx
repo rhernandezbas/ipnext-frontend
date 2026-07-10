@@ -1,10 +1,14 @@
+/**
+ * CustomerPicker compartido (components/molecules) — movido desde scheduling
+ * en service-transfer W4. Misma cobertura + exclusión por excludeId.
+ */
 import { render, screen, fireEvent } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 const useClientList = vi.fn();
 vi.mock('@/hooks/useCustomers', () => ({ useClientList: () => useClientList() }));
 
-import { CustomerPicker } from '@/pages/scheduling/SchedulingTasksPage/components/CustomerPicker';
+import { CustomerPicker } from '@/components/molecules/CustomerPicker/CustomerPicker';
 
 const clients = [
   { id: 'c-1', name: 'Juan García', email: 'juan@test.com', phone: '', status: 'active', balance: 0, category: '', tariffPlan: null, login: null, ipRanges: null, accessDevices: 0, createdAt: '' },
@@ -38,5 +42,27 @@ describe('CustomerPicker', () => {
   it('does not show a dropdown before typing', () => {
     render(<CustomerPicker value={null} valueName={null} onChange={onChange} />);
     expect(screen.queryByText('Juan García')).not.toBeInTheDocument();
+  });
+
+  // service-transfer W4 — el modal de transferencia excluye al cliente ORIGEN.
+  it('excludes the excludeId client from the results', async () => {
+    render(<CustomerPicker value={null} valueName={null} onChange={onChange} excludeId="c-1" />);
+    fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'a' } });
+
+    await screen.findByText('María López');
+    expect(screen.queryByText('Juan García')).not.toBeInTheDocument();
+  });
+
+  // service-transfer FIX 6 — a11y: un label externo se asocia al input via la prop id.
+  it('associates an external label to the search input through the id prop', () => {
+    render(
+      <>
+        <label htmlFor="picker-search">Cliente destino</label>
+        <CustomerPicker id="picker-search" value={null} valueName={null} onChange={onChange} />
+      </>,
+    );
+    expect(screen.getByLabelText('Cliente destino')).toBe(
+      screen.getByPlaceholderText(/buscar cliente/i),
+    );
   });
 });
