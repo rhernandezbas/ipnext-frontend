@@ -75,6 +75,10 @@ vi.mock('@/pages/customers/EditCustomerPage', () => ({
 vi.mock('@/pages/customers/CustomerMapPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:CustomerMap]'),
 }));
+// actions-worklist F2 — worklist de titularidad & bajas bajo Clientes.
+vi.mock('@/pages/customers/AccionesPage', () => ({
+  default: () => React.createElement('div', null, '[PAGE:Acciones]'),
+}));
 
 // CRM
 vi.mock('@/pages/customers/LeadsPage', () => ({
@@ -366,6 +370,8 @@ const directCases: Array<{ url: string; marker: string }> = [
   { url: '/admin/customers/map', marker: '[PAGE:CustomerMap]' },
   { url: '/admin/customers/view/42', marker: '[PAGE:ClienteDetail]' },
   { url: '/admin/customers/view/42/edit', marker: '[PAGE:EditCliente]' },
+  // actions-worklist F2 — Acciones (titularidad & bajas)
+  { url: '/admin/customers/acciones', marker: '[PAGE:Acciones]' },
   // Contracts (CP-8 — 2 new routes; total routes 94 → 96)
   { url: '/admin/contracts/list', marker: '[PAGE:ContractsList]' },
   { url: '/admin/contracts/technologies', marker: '[PAGE:ServiceTechnologies]' },
@@ -495,6 +501,8 @@ const catchAllCases: Array<{ url: string; marker: string; shouldNotSee?: string 
   // Specific paths MUST NOT be swallowed by :id catch-all
   { url: '/admin/customers/map', marker: '[PAGE:CustomerMap]', shouldNotSee: '[PAGE:ClienteDetail]' },
   { url: '/admin/customers/add', marker: '[PAGE:AddCliente]', shouldNotSee: '[PAGE:ClienteDetail]' },
+  // actions-worklist F2 — la ruta específica NO debe caer en el catch-all :id
+  { url: '/admin/customers/acciones', marker: '[PAGE:Acciones]', shouldNotSee: '[PAGE:ClienteDetail]' },
 ];
 
 // ── Run direct cases ──────────────────────────────────────────────────────────

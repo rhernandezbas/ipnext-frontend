@@ -1,0 +1,109 @@
+/* OwnershipCasesTab — filtros por estado + grilla de cards. */
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* ── Pills de filtro por estado ── */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.filterPill,
+.filterPillActive {
+  min-height: 44px; /* touch target */
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.filterPill:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+}
+
+.filterPill:focus-visible,
+.filterPillActive:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.filterPillActive {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-white);
+}
+
+/* ── Grilla de cards ── */
+
+.cardList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+@media (max-width: 480px) {
+  .cardList {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Estados loading / vacío / error ── */
+
+.state {
+  margin: 0;
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.error {
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  background: var(--color-surface);
+}
+
+.empty {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.emptyTitle {
+  margin: 0 0 var(--space-2);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.emptyHint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filterPill,
+  .filterPillActive {
+    transition: none;
+  }
+}

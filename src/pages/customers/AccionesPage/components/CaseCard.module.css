@@ -1,0 +1,220 @@
+/* CaseCard — card de un caso de cambio de titularidad. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  min-width: 0;
+}
+
+/* ── Header ── */
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.parties {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-md);
+  min-width: 0;
+}
+
+.party {
+  color: var(--color-primary);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.party:hover {
+  text-decoration: underline;
+}
+
+.party:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.arrow {
+  color: var(--color-text-secondary);
+}
+
+.noTarget {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  font-weight: var(--font-weight-normal);
+}
+
+/* ── Meta ── */
+
+.meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.dismissReason {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  background: var(--color-gray-50);
+  border-left: 3px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+/* ── Candidatos (caso ambiguo) ── */
+
+.candidates {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-gray-50);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.candidatesTitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.candidatesReadOnly {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.candidateList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.candidateRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  min-height: 44px; /* touch target */
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.candidateRow:hover {
+  background: var(--color-surface-hover);
+}
+
+.candidateRow input {
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.candidateRow input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.candidateName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.candidateMeta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+/* ── Error ── */
+
+.error {
+  margin: 0;
+  padding: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+/* ── Acciones ── */
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+.btnPrimary,
+.btnSecondary {
+  min-height: 44px; /* touch target */
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.btnPrimary {
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  color: var(--color-white);
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.btnSecondary {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.btnSecondary:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.btnPrimary:focus-visible,
+.btnSecondary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.btnPrimary:disabled,
+.btnSecondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .candidateRow,
+  .btnPrimary,
+  .btnSecondary {
+    transition: none;
+  }
+}

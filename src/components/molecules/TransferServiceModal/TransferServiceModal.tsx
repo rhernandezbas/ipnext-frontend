@@ -42,6 +42,16 @@ interface TransferServiceModalProps {
   sourceClientName?: string | null;
   /** Contrato ORIGEN del servicio. */
   sourceContractId: string;
+  /**
+   * actions-worklist F2 — 1-click desde un caso de titularidad: destino
+   * precargado. Si vienen `initialTarget` Y `initialTargetContractId`, el
+   * modal arranca DIRECTO en el paso de confirmación (el paso 1 sigue
+   * accesible con "Volver"). Con solo `initialTarget` arranca en el paso 1
+   * con el cliente preseleccionado. Opcionales — los callers existentes no
+   * cambian.
+   */
+  initialTarget?: { id: string; name: string | null };
+  initialTargetContractId?: string;
   onClose: () => void;
 }
 
@@ -147,14 +157,18 @@ export function TransferServiceModal({
   sourceClientId,
   sourceClientName,
   sourceContractId,
+  initialTarget,
+  initialTargetContractId,
   onClose,
 }: TransferServiceModalProps) {
   const serviceLabel = SERVICE_LABELS[variant.kind];
   const sourceName = sourceClientName?.trim() || 'este cliente';
 
-  // ── Paso 1: destino ──
-  const [target, setTarget] = useState<{ id: string; name: string } | null>(null);
-  const [targetContractId, setTargetContractId] = useState('');
+  // ── Paso 1: destino (precargable vía initialTarget/initialTargetContractId) ──
+  const [target, setTarget] = useState<{ id: string; name: string } | null>(() =>
+    initialTarget ? { id: initialTarget.id, name: initialTarget.name?.trim() || '(sin nombre)' } : null,
+  );
+  const [targetContractId, setTargetContractId] = useState(initialTargetContractId ?? '');
   const contractsQuery = useClientContracts(target?.id ?? '', !!target);
   const targetContracts = contractsQuery.data ?? [];
 
@@ -181,7 +195,11 @@ export function TransferServiceModal({
   );
 
   // ── Paso / resultado / error ──
-  const [step, setStep] = useState<'form' | 'confirm'>('form');
+  // Con destino COMPLETO precargado (cliente + contrato) arrancamos en la
+  // confirmación — el 1-click del caso de titularidad. "Volver" lleva al form.
+  const [step, setStep] = useState<'form' | 'confirm'>(() =>
+    initialTarget && initialTargetContractId ? 'confirm' : 'form',
+  );
   const [error, setError] = useState<string | null>(null);
   const [tvResult, setTvResult] = useState<TransferTvResult | null>(null);
   const [pppoeResult, setPppoeResult] = useState<TransferPppoeResult | null>(null);

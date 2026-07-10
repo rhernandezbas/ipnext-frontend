@@ -59,6 +59,8 @@ const CRM_ITEMS: NavParentItem[] = [
       { to: '/admin/customers/recaptacion', label: 'Recaptación', requiredPermission: 'recapture.read' },
       // Mis clientes (Fase 4) — agent's own portfolio. Same gate as Recaptación (recapture.read).
       { to: '/admin/customers/mis-clientes', label: 'Mis clientes', requiredPermission: 'recapture.read' },
+      // actions-worklist F2 — worklist de cambios de titularidad + bajas recientes.
+      { to: '/admin/customers/acciones', label: 'Acciones', requiredPermission: 'actions.read' },
       { to: '/admin/customers/settings', label: 'Configuración' },
     ],
   },

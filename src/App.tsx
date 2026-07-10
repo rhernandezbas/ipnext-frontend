@@ -157,6 +157,8 @@ const PortalUsersPage = lazy(() => import('@/pages/portal/PortalUsersPage'));
 const ContractsListPage = lazy(() => import('@/pages/contracts/ContractsListPage'));
 const RecaptacionPage = lazy(() => import('@/pages/customers/RecaptacionPage'));
 const MisClientesPage = lazy(() => import('@/pages/customers/MisClientesPage'));
+// actions-worklist F2 — worklist de cambios de titularidad + bajas recientes.
+const AccionesPage = lazy(() => import('@/pages/customers/AccionesPage'));
 const PppoeCortesPage = lazy(() => import('@/pages/customers/PppoeCortesPage'));
 const ServiceTechnologiesPage = lazy(() => import('@/pages/contracts/ServiceTechnologiesPage'));
 const NodesPage = lazy(() => import('@/pages/networking/NodesPage'));
@@ -196,6 +198,9 @@ export function App() {
                 {/* Mis clientes (Fase 4) — the agent's own portfolio. Gated by recapture.read.
                     MUST be before :id catch-all. */}
                 <Route path="mis-clientes" element={<RequirePermission permission="recapture.read"><MisClientesPage /></RequirePermission>} />
+                {/* actions-worklist F2 — Acciones (titularidad & bajas). Gated actions.read.
+                    MUST be before :id catch-all. */}
+                <Route path="acciones" element={<RequirePermission permission="actions.read"><AccionesPage /></RequirePermission>} />
                 {/* Cortes PPPoE moved to Gestión de Red (/admin/networking/pppoe-cortes).
                     Redirect preserves old bookmarks. MUST be before :id catch-all. */}
                 <Route path="pppoe-cortes" element={<Navigate to="/admin/networking/pppoe-cortes" replace />} />

@@ -1,0 +1,73 @@
+/* CaseChecklist — checks AUTO read-only + check manual de equipos. */
+
+.checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  min-height: 28px;
+}
+
+.label {
+  min-width: 120px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.counts {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.notEvaluable {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.manualArea {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.manualCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  padding: var(--space-1) 0;
+}
+
+.manualCheck input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.manualCheck input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.manualCheck input:disabled {
+  cursor: not-allowed;
+}
+
+.reviewedMeta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
