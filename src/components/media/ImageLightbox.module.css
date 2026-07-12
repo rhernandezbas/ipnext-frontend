@@ -1,0 +1,111 @@
+/**
+ * ImageLightbox.module.css — extraído de `TaskPhotosGallery.module.css`
+ * (`.lightboxOverlay/.lightboxImage/.lightboxBroken/.lightboxClose`,
+ * messaging-inbox-v2-media F1.5 fase A, design §4).
+ *
+ * `--wa-ease-out` se declara LOCAL en `.lightboxOverlay` (mismo criterio que
+ * `MessageBubble.module.css` en `.row`): el lightbox se monta vía
+ * `createPortal` en `document.body`, FUERA del subárbol DOM de `.row`/`.bubble`
+ * — un custom property heredado de ahí NO llegaría al portal. Declararlo acá
+ * lo hace funcionar standalone (TaskPhotosGallery, MediaImage, Vitest,
+ * Storybook) sin depender de dónde se abra.
+ */
+
+.lightboxOverlay {
+  --wa-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-5);
+  animation: overlayIn 0.18s ease-out;
+}
+
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Bug MEDIUM #10 (post-review-adversarial, fidelidad de la extracción): el
+   original (`TaskPhotosGallery.module.css`, pre-extracción, commit
+   cbf156a5) NO animaba `.lightboxImage` — la extracción había agregado acá
+   un scale-in (`lightboxImageIn`, 0.96->1) que no existía, cambiando el
+   comportamiento visual de las fotos de tareas en prod. Sin animación
+   propia: el fade-in del OVERLAY (`.lightboxOverlay`/`overlayIn`, abajo) sí
+   es del original y se mantiene. */
+.lightboxImage {
+  max-width: 95vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  cursor: default;
+}
+
+/* Fallback shown when the original image fails to load in the lightbox.
+   --color-text-secondary sobre --color-gray-100 da ~3.96:1 — por debajo de
+   4.5:1 (Media.contrast.test.tsx, F5.1). --color-text-primary corrige esto
+   TAMBIÉN en TaskPhotosGallery (fotos de tareas en prod), que comparte este
+   módulo desde la extracción. */
+.lightboxBroken {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 240px;
+  min-height: 160px;
+  padding: var(--space-6);
+  background: var(--color-gray-100);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  text-align: center;
+  cursor: default;
+}
+
+.lightboxClose {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--color-white);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+/* Bug LOW #8 (WCAG 2.5.5): 40×40 < 44px. Invisible touch target extendido,
+   mismo patrón que `.mediaFileDownload::before`/`.tileDelete::before`. */
+.lightboxClose::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+}
+
+.lightboxClose:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.lightboxClose:focus-visible {
+  outline: 2px solid var(--color-white);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lightboxOverlay {
+    animation: none;
+  }
+  .lightboxClose {
+    transition: none;
+  }
+}

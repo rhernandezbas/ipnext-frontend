@@ -1,0 +1,35 @@
+/**
+ * MediaAttachments.module.css — layout de GRUPO (design §6.3). Módulo propio
+ * (a diferencia de las hojas, que comparten `Media.module.css`) porque acá
+ * vive la decisión de composición (stack vs. grid), no el estilo de un tipo
+ * de media puntual.
+ */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stackItem {
+  /* --i habilita el stagger de 40ms/ítem (§7.2) en el blur-up de las
+     imágenes anidadas — ver `.mediaImageWrapper img` en Media.module.css. */
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-1);
+  max-width: 320px;
+}
+
+.gridTile {
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+}
+
+.gridTile > * {
+  width: 100%;
+  height: 100%;
+}

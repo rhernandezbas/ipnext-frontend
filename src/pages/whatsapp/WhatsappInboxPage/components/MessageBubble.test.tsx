@@ -10,7 +10,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { MessageBubble } from './MessageBubble';
-import type { WhatsappMessage } from '@/types/whatsapp';
+import type { WhatsappChatMessageAttachment, WhatsappMessage } from '@/types/whatsapp';
 
 const msg = (over: Partial<WhatsappMessage> = {}): WhatsappMessage => ({
   id: 'msg-1',
@@ -122,5 +122,58 @@ describe('MessageBubble — bug #13 (reduced-motion NO debe aplicar animationDel
     setPrefersReducedMotion(false);
     render(<MessageBubble message={msg()} isNew staggerIndex={5} />);
     expect(screen.getByTestId('message-bubble-row').style.animationDelay).toBe('200ms');
+  });
+});
+
+describe('MessageBubble — media entrante (messaging-inbox-v2-media F1.5 fase A, F4, design §5)', () => {
+  const imageAttachment: WhatsappChatMessageAttachment = {
+    id: 'att-1',
+    fileType: 'image',
+    contentType: 'image/jpeg',
+    filename: 'foto.jpg',
+    fileSize: 102400,
+    width: 800,
+    height: 600,
+    status: 'downloaded',
+    url: '/api/messaging/attachments/att-1/file',
+    thumbUrl: '/api/messaging/attachments/att-1/file?variant=thumb',
+  };
+
+  it('bug del span fantasma: content vacío NO pinta un <span> de texto', () => {
+    render(<MessageBubble message={msg({ content: '' })} />);
+    expect(screen.queryByTestId('message-bubble-content')).toBeNull();
+  });
+
+  it('content solo espacios tampoco pinta el <span> (mismo criterio que vacío)', () => {
+    render(<MessageBubble message={msg({ content: '   ' })} />);
+    expect(screen.queryByTestId('message-bubble-content')).toBeNull();
+  });
+
+  it('con contenido real, SÍ pinta el <span> de texto', () => {
+    render(<MessageBubble message={msg({ content: 'hola' })} />);
+    expect(screen.getByTestId('message-bubble-content')).toHaveTextContent('hola');
+  });
+
+  it('sin attachments (undefined), NO renderiza MessageAttachments', () => {
+    render(<MessageBubble message={msg()} />);
+    expect(screen.queryByTestId('message-attachments')).toBeNull();
+  });
+
+  it('con attachments.length, renderiza MessageAttachments (mensaje solo-media)', () => {
+    render(<MessageBubble message={msg({ content: '', attachments: [imageAttachment] })} />);
+    expect(screen.getByTestId('message-attachments')).toBeInTheDocument();
+    // El mensaje solo-media persiste igual (content='') sin romper el render de ambos.
+    expect(screen.queryByTestId('message-bubble-content')).toBeNull();
+  });
+
+  it('con texto Y attachments, renderiza AMBOS', () => {
+    render(<MessageBubble message={msg({ content: 'mirá esto', attachments: [imageAttachment] })} />);
+    expect(screen.getByTestId('message-bubble-content')).toHaveTextContent('mirá esto');
+    expect(screen.getByTestId('message-attachments')).toBeInTheDocument();
+  });
+
+  it('attachments=[] (array vacío) NO renderiza MessageAttachments', () => {
+    render(<MessageBubble message={msg({ attachments: [] })} />);
+    expect(screen.queryByTestId('message-attachments')).toBeNull();
   });
 });

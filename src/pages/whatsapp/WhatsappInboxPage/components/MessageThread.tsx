@@ -21,6 +21,13 @@ interface MessageThreadProps {
    * imprescindible en mobile, y así queda 100% testeable sin Playwright.
    */
   onBack?: () => void;
+  /**
+   * Fix bug CRÍTICO #1 (post-review-adversarial): `WhatsappInboxPage` (FB4)
+   * es quien tiene `queryClient`+`conversationId` para invalidar la query del
+   * thread — acá solo se threadea el callback hacia cada `MessageBubble`
+   * (mismo criterio que `onBack`, presentacional puro, sin react-query).
+   */
+  onRetryAttachment?: () => void;
 }
 
 /**
@@ -36,7 +43,7 @@ interface MessageThreadProps {
  * en cada render. El set se resetea cuando cambia `conversationId` para que
  * el historial de la conversación recién abierta tampoco se marque "nuevo".
  */
-export function MessageThread({ conversationId, contactName, messages, isLoading, isError = false, onBack }: MessageThreadProps) {
+export function MessageThread({ conversationId, contactName, messages, isLoading, isError = false, onBack, onRetryAttachment }: MessageThreadProps) {
   const seenIdsRef = useRef<Set<string>>(new Set());
   const prevConversationIdRef = useRef<string | null>(null);
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
@@ -205,6 +212,7 @@ export function MessageThread({ conversationId, contactName, messages, isLoading
                 message={m}
                 isNew={newIds.has(m.id)}
                 staggerIndex={newIdsOrder.get(m.id) ?? 0}
+                onRetryAttachment={onRetryAttachment}
               />
             ))}
             <div ref={bottomRef} />

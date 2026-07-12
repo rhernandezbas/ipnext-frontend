@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import {
   useTaskAttachments,
   useUploadTaskAttachments,
@@ -8,6 +7,7 @@ import {
 import { useCan } from '@/hooks/useMyPermissions';
 import { useConfirm } from '@/context/ConfirmContext';
 import { mapUploadError } from '@/utils/mapUploadError';
+import { ImageLightbox } from '@/components/media/ImageLightbox';
 import type { TaskAttachment } from '@/types/taskAttachments';
 import styles from './TaskPhotosGallery.module.css';
 
@@ -37,109 +37,6 @@ function IconTrash() {
       <polyline points="3 6 5 6 21 6" />
       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
     </svg>
-  );
-}
-
-function IconClose() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
-
-// ── Lightbox (clone of the TaskCommentsTimeline pattern) ──────────────────────
-
-interface LightboxProps {
-  url: string;
-  alt: string;
-  onClose: () => void;
-}
-
-function Lightbox({ url, alt, onClose }: LightboxProps) {
-  const dialogRef = useRef<HTMLDivElement | null>(null);
-  const closeRef = useRef<HTMLButtonElement | null>(null);
-  const [broken, setBroken] = useState(false);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
-      // Focus trap: keep Tab inside the dialog so keyboard focus can't escape to
-      // the page behind (otherwise aria-modal is a lie). The lightbox holds a
-      // single focusable (the close button), so Tab/Shift+Tab cycle onto it.
-      if (e.key === 'Tab') {
-        const root = dialogRef.current;
-        if (!root) return;
-        const focusables = Array.from(
-          root.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-          ),
-        );
-        if (focusables.length === 0) {
-          e.preventDefault();
-          return;
-        }
-        const first = focusables[0];
-        const last = focusables[focusables.length - 1];
-        const active = document.activeElement as HTMLElement | null;
-        if (e.shiftKey) {
-          if (active === first || !root.contains(active)) {
-            e.preventDefault();
-            last.focus();
-          }
-        } else if (active === last || !root.contains(active)) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    }
-    document.addEventListener('keydown', onKey);
-    closeRef.current?.focus();
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  return createPortal(
-    <div
-      ref={dialogRef}
-      className={styles.lightboxOverlay}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Vista ampliada de ${alt}`}
-      onClick={onClose}
-    >
-      <button
-        ref={closeRef}
-        type="button"
-        className={styles.lightboxClose}
-        onClick={onClose}
-        aria-label="Cerrar vista ampliada"
-      >
-        <IconClose />
-      </button>
-      {broken ? (
-        <div
-          className={styles.lightboxBroken}
-          role="img"
-          aria-label={alt}
-          onClick={(e) => e.stopPropagation()}
-        >
-          No se pudo cargar la imagen.
-        </div>
-      ) : (
-        <img
-          className={styles.lightboxImage}
-          src={url}
-          alt={alt}
-          onError={() => setBroken(true)}
-          onClick={(e) => e.stopPropagation()}
-        />
-      )}
-    </div>,
-    document.body,
   );
 }
 
@@ -346,7 +243,7 @@ export function TaskPhotosGallery({ taskId }: Props) {
       )}
 
       {lightbox && (
-        <Lightbox url={lightbox.url} alt={lightbox.alt} onClose={handleCloseLightbox} />
+        <ImageLightbox url={lightbox.url} alt={lightbox.alt} onClose={handleCloseLightbox} />
       )}
     </section>
   );

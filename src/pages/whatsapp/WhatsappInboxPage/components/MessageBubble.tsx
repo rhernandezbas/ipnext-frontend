@@ -1,4 +1,5 @@
 import { formatTimeShort } from '@/utils/formatDate';
+import { MediaAttachments } from './MediaAttachments';
 import type { WhatsappMessage } from '@/types/whatsapp';
 import styles from './MessageBubble.module.css';
 
@@ -20,6 +21,13 @@ interface MessageBubbleProps {
    * so simultaneous arrivals cascade instead of popping in at once.
    */
   staggerIndex?: number;
+  /**
+   * Fix bug CRÍTICO #1 (post-review-adversarial): threadeado desde
+   * `WhatsappInboxPage` (único lugar con `queryClient`+`conversationId`) vía
+   * `MessageThread`, hasta `MediaAttachments`→`MediaAttachment`→`MediaError`.
+   * Sin esto, "Reintentar" en un adjunto `failed` era un control muerto.
+   */
+  onRetryAttachment?: () => void;
 }
 
 const STAGGER_MS = 40;
@@ -47,7 +55,7 @@ function prefersReducedMotion(): boolean {
  * design §1/§3/§7, THREAD-1). Puramente presentacional: recibe el mensaje ya
  * resuelto, sin data-fetching ni lógica de negocio.
  */
-export function MessageBubble({ message, isNew = false, staggerIndex = 0 }: MessageBubbleProps) {
+export function MessageBubble({ message, isNew = false, staggerIndex = 0, onRetryAttachment }: MessageBubbleProps) {
   const rowClassName = [
     styles.row,
     styles[message.direction],
@@ -70,7 +78,12 @@ export function MessageBubble({ message, isNew = false, staggerIndex = 0 }: Mess
             {message.senderName}
           </span>
         )}
-        <span>{message.content}</span>
+        {message.content.trim() !== '' && (
+          <span data-testid="message-bubble-content">{message.content}</span>
+        )}
+        {message.attachments && message.attachments.length > 0 && (
+          <MediaAttachments attachments={message.attachments} onRetryAttachment={onRetryAttachment} />
+        )}
         <time className={styles.time} dateTime={message.sentAt}>
           {formatTimeShort(message.sentAt)}
         </time>

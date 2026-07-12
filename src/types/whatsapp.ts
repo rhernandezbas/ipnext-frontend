@@ -34,12 +34,40 @@ export interface WhatsappConversationDetail extends WhatsappConversationListItem
   clientContext: WhatsappClientContext;
 }
 
+// ─── Media entrante (messaging-inbox-v2-media F1.5 fase A, Tanda 1 — RECIBIR)
+// espejo de `ChatMessageAttachmentDto` (`ipnext-backend/src/application/dto/
+// messaging.ts`, MEDIA-4). `url`/`thumbUrl` son rutas BE-proxy relativas al
+// mismo origen (`/api/messaging/attachments/:id/file[?variant=thumb]`) — la
+// cookie de sesión viaja sola, nunca se ve una URL de Chatwoot (spec §MEDIA-4/5).
+
+export interface WhatsappChatMessageAttachment {
+  id: string;
+  fileType: 'image' | 'audio' | 'video' | 'file';
+  contentType: string;
+  filename: string | null;
+  fileSize: number | null;
+  width: number | null;
+  height: number | null;
+  status: 'pending' | 'downloaded' | 'failed';
+  url: string;
+  thumbUrl: string | null;
+}
+
 export interface WhatsappMessage {
   id: string;
   direction: 'inbound' | 'outbound';
   content: string;
   senderName: string | null;
   sentAt: string;
+  /**
+   * Aditivo (F2.2) — opcional para no romper los fixtures existentes que
+   * construyen `WhatsappMessage` sin este campo (MessageThread/Composer/
+   * useWhatsapp tests, anteriores a esta tanda). El BE siempre manda `[]`
+   * cuando no hay adjuntos (nunca `undefined`); el FE lo consume con
+   * `message.attachments?.length` (MessageBubble, F4) — mismo resultado
+   * falsy en ambos casos.
+   */
+  attachments?: WhatsappChatMessageAttachment[];
 }
 
 // ─── Rich client context (messaging-inbox-v2 F1.5, RICH-1..6) — espejo de

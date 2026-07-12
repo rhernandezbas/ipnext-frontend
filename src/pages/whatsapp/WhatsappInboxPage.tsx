@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useWhatsappConversations,
   useWhatsappConversation,
   useWhatsappMessages,
+  whatsappMessagesKey,
 } from '@/hooks/useWhatsapp';
 import { ConversationList } from './WhatsappInboxPage/components/ConversationList';
 import { MessageThread } from './WhatsappInboxPage/components/MessageThread';
@@ -35,10 +37,23 @@ import styles from './WhatsappInboxPage.module.css';
 export default function WhatsappInboxPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query] = useState<WhatsappPaginatedQuery>({});
+  const queryClient = useQueryClient();
 
   const conversationsQuery = useWhatsappConversations(query);
   const detailQuery = useWhatsappConversation(selectedId ?? '');
   const messagesQuery = useWhatsappMessages(selectedId ?? '');
+
+  /**
+   * Fix bug CRÍTICO #1 (post-review-adversarial, 2 reviewers): "Reintentar"
+   * en un adjunto `failed` (`MediaError`) no re-dispara la descarga (eso lo
+   * hace el scheduler del BE, design §3.6) — fuerza un re-check invalidando
+   * la query de mensajes del thread abierto, que dispara un refetch real. Si
+   * el scheduler ya lo bajó, el próximo render lo muestra `downloaded`.
+   */
+  function handleRetryAttachment() {
+    if (!selectedId) return;
+    void queryClient.invalidateQueries({ queryKey: whatsappMessagesKey(selectedId) });
+  }
 
   const conversations = conversationsQuery.data?.data ?? [];
   const messages = messagesQuery.data ?? [];
@@ -74,6 +89,7 @@ export default function WhatsappInboxPage() {
             isLoading={messagesQuery.isLoading}
             isError={messagesQuery.isError}
             onBack={() => setSelectedId(null)}
+            onRetryAttachment={handleRetryAttachment}
           />
         </div>
 

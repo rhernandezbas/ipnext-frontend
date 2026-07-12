@@ -1,0 +1,395 @@
+/**
+ * Media.module.css — compartido por las hojas de media entrante (F3, design
+ * §2/§3/§6/§7/§8). Un solo módulo para las 6 hojas + el placeholder/error, así
+ * los tokens no se fragmentan. `MediaAttachments` (layout de grupo, §6.3)
+ * tiene su propio módulo.
+ *
+ * Principio transversal (§3, apple-design §12 materiales): TODA superficie de
+ * media es una superficie propia (`--color-surface`/`--color-gray-50`),
+ * independiente de si la burbuja es inbound/outbound — el bubble outbound es
+ * `--color-primary-hover`, poner texto de filename/tamaño ahí es el mismo
+ * campo minado de contraste que documenta `MessageBubble.contrast.test.tsx`.
+ *
+ * `--wa-ease-out` se declara LOCAL en cada wrapper raíz (mismo criterio que
+ * `MessageBubble.module.css`/`ImageLightbox.module.css`) — así cada hoja
+ * funciona standalone en test/Storybook sin depender de heredar el token de
+ * un ancestro `.row`.
+ */
+
+/* ── Placeholder (pending) — §3.5/§6 ───────────────────────────────────────── */
+
+.placeholderBox,
+.placeholderBar {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--color-gray-50);
+}
+
+.placeholderBox {
+  aspect-ratio: var(--media-ar, 4 / 3);
+  max-width: min(100%, 240px);
+}
+
+.placeholderBar {
+  width: 100%;
+  max-width: 320px;
+}
+
+.placeholderSkeleton {
+  position: absolute;
+  inset: 0;
+}
+
+.placeholderContent {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+}
+
+/* Spinner: única excepción a "<300ms" (STANDARDS §Easing) — un spinner es un
+   *loop* constante, `linear`, correcto porque comunica progreso indefinido. */
+.placeholderSpinner {
+  animation: mediaSpin 1s linear infinite;
+}
+
+@keyframes mediaSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ── Error (failed) — §3.6 ──────────────────────────────────────────────────── */
+
+.errorCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: 280px;
+  padding: var(--space-3);
+  background: var(--color-danger-bg-hover);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+}
+
+.errorHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-danger);
+}
+
+.errorText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.errorFilename {
+  /* --color-text-secondary (#6c757d) sobre --color-danger-bg-hover (#fff0f1)
+     da ~4.24:1 — por DEBAJO de 4.5:1 (Media.contrast.test.tsx, F5.1). El
+     fondo rosado-claro del error card es más oscuro que blanco puro, así que
+     el mismo secondary que sí pasa sobre --color-surface/--color-gray-50
+     falla acá. --color-text-primary mantiene margen real (~14.9:1). */
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  margin: 0;
+  word-break: break-word;
+}
+
+.errorRetryBtn {
+  min-height: var(--space-11);
+  padding: 0 var(--space-3);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+/* Bug LOW #9 (post-review-adversarial): única regla :hover del módulo sin
+   gatear por hover:hover+pointer:fine (el resto sí lo hace) — sin esto, un
+   tap en touch dejaba el botón "pegado" en estado hover. */
+@media (hover: hover) and (pointer: fine) {
+  .errorRetryBtn:hover {
+    background: var(--color-gray-50);
+    border-color: var(--color-danger);
+  }
+}
+
+.errorRetryBtn:focus-visible {
+  outline: 2px solid var(--color-danger);
+  outline-offset: 2px;
+}
+
+/* ── Image — §3.1/§6.1/§7.1 ─────────────────────────────────────────────────── */
+
+.mediaImageWrapper {
+  --wa-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  display: block;
+  position: relative;
+  aspect-ratio: var(--media-ar, 4 / 3);
+  max-width: min(100%, 240px);
+  max-height: 260px;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: none;
+  padding: 0;
+  background: var(--color-gray-100);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mediaImageWrapper:hover {
+    box-shadow: var(--shadow-md);
+  }
+}
+
+.mediaImageWrapper:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.mediaImageWrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  /* Blur-up (design §7.1, emil-design-eng "blur to mask imperfect
+     transitions"): blur(8px)+opacity:0 -> blur(0)+opacity:1 al terminar de
+     cargar (`data-loaded`, seteado en onLoad). El espacio YA está reservado
+     por el aspect-ratio del wrapper -> no hay layout shift, solo materializa. */
+  filter: blur(8px);
+  opacity: 0;
+  transition: opacity 260ms var(--wa-ease-out), filter 260ms var(--wa-ease-out);
+  /* Stagger (design §7.2): `--i` lo setea `MediaAttachments` por ítem —
+     cascada de 40ms entre adjuntos que llegan juntos en el mismo mensaje.
+     Sin `MediaAttachments` de por medio (imagen suelta), `--i` no existe →
+     fallback 0 = sin delay. */
+  transition-delay: calc(var(--i, 0) * 40ms);
+}
+
+.mediaImageWrapper img[data-loaded='true'] {
+  filter: blur(0);
+  opacity: 1;
+}
+
+.mediaImageBroken {
+  /* --color-gray-400 sobre --color-gray-100 da ~1.75:1 — muy por debajo de
+     4.5:1 (Media.contrast.test.tsx, F5.1). --color-text-primary mantiene
+     margen real (~13:1) sobre esta misma superficie. */
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  background: var(--color-gray-100);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  flex-direction: column;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mediaImageWrapper img {
+    filter: none;
+    transition: opacity 200ms ease;
+  }
+}
+
+/* ── Video — §3.2 ───────────────────────────────────────────────────────────── */
+
+.mediaVideo {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  max-height: 320px;
+  aspect-ratio: var(--media-ar, 16 / 9);
+  border-radius: var(--radius-md);
+  background: var(--color-black);
+}
+
+/* Bug MEDIUM #5 (post-review-adversarial): fallback del 409-race para video
+   (mismo criterio que `.mediaImageBroken`) — reserva la misma caja
+   (aspect-ratio) del `.mediaVideo` real, sin layout shift. */
+.mediaVideoBroken {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  width: 100%;
+  max-width: 320px;
+  max-height: 320px;
+  aspect-ratio: var(--media-ar, 16 / 9);
+  background: var(--color-black);
+  color: var(--color-white);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+/* ── Audio — §3.3 ───────────────────────────────────────────────────────────── */
+
+.mediaAudioWrapper {
+  /* Superficie propia (§3 principio transversal) — SIN esto, la meta
+     (--color-text-secondary) heredaría el fondo del bubble outbound
+     (--color-primary-hover, #0b5ed7), el mismo campo minado de contraste
+     que documenta MessageBubble.contrast.test.tsx. */
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  /* Bug ALTO #3 (post-review-adversarial): un min-width fijo de 240px
+     desbordaba horizontalmente a 375px (ancho disponible real ~221px, con
+     `.list` de MessageThread ya en overflow-y — el eje X se computaba en
+     auto). min() nunca excede el 100% del contenedor; el <audio controls>
+     nativo se achica sin problema. */
+  min-width: min(240px, 100%);
+  max-width: 320px;
+  min-height: 54px;
+  justify-content: center;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+}
+
+.mediaAudioWrapper audio {
+  width: 100%;
+}
+
+.mediaAudioMeta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* Bug MEDIUM #5 (post-review-adversarial): fallback del 409-race para audio
+   — mismo alto mínimo que `.mediaAudioWrapper` (cero layout shift). */
+.mediaAudioBroken {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: min(240px, 100%);
+  max-width: 320px;
+  min-height: 54px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+/* ── File — §3.4 ────────────────────────────────────────────────────────────── */
+
+.mediaFile {
+  --wa-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 72px;
+  max-width: 320px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+}
+
+.mediaFileIcon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+}
+
+.mediaFileInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.mediaFileName {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+  margin: 0;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mediaFileMeta {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.mediaFileDownload {
+  position: relative;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: transform 120ms var(--wa-ease-out), color 0.18s ease, background 0.18s ease;
+}
+
+/* Invisible >=44px touch target around the 32px visible control (WCAG 2.5.5),
+   mismo patrón que `.tileDelete` de TaskPhotosGallery. */
+.mediaFileDownload::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mediaFileDownload:hover {
+    color: var(--color-primary);
+    background: var(--color-gray-50);
+  }
+}
+
+.mediaFileDownload:active {
+  transform: scale(0.97);
+}
+
+.mediaFileDownload:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mediaFileDownload,
+  .errorRetryBtn,
+  .mediaImageWrapper {
+    transition: none;
+  }
+  .placeholderSpinner {
+    animation: none;
+  }
+}
