@@ -1,0 +1,106 @@
+/**
+ * MessageBubble — burbuja inbound/outbound del thread (messaging-inbox F1,
+ * design §7, tasks FB2 2.3/2.4). Tokens locales `--wa-ease-out`/
+ * `--wa-ease-in-out` (design §7) declarados en la propia raíz del componente:
+ * así funciona standalone (Vitest/Storybook) sin depender de montarse bajo
+ * `.page` (WhatsappInboxPage, FB4) — cuando FB4 los declare arriba, el valor
+ * es idéntico, cero drift visual.
+ */
+
+.row {
+  --wa-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  display: flex;
+  margin-bottom: var(--space-2);
+}
+
+.row.inbound {
+  justify-content: flex-start;
+}
+
+.row.outbound {
+  justify-content: flex-end;
+}
+
+.bubble {
+  max-width: 70%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  word-break: break-word;
+}
+
+.inbound .bubble {
+  background-color: var(--color-gray-100);
+  color: var(--color-text-primary);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+.outbound .bubble {
+  /* BUG FIX (post-review-adversarial, A11Y-1 — contraste < 4.5:1): con
+     --color-primary (#0d6efd) de fondo, texto blanco pleno (opacity:1) apenas
+     roza 4.5:1 — CUALQUIER opacity < 1 en .time/.sender lo hacía fallar
+     (0.7 → 2.97:1, 0.85 → 3.68:1). --color-primary-hover (#0b5ed7, YA
+     tokenizado — cero hex nuevo) da margen real: con blanco a opacity 0.85
+     el contraste es ~4.66:1 y a 0.92 ~5.19:1. Verificado con la fórmula WCAG
+     2.1 (relative luminance + (L1+0.05)/(L2+0.05)) — ver
+     MessageBubble.contrast.test.tsx. */
+  background-color: var(--color-primary-hover);
+  color: var(--color-white);
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.sender {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: 2px;
+  opacity: 0.92;
+}
+
+.time {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  text-align: right;
+  opacity: 0.85;
+}
+
+/* ── Motion — burbuja nueva (design §7 row 1): translateY(8px)→0 + opacity, */
+/* 220ms --wa-ease-out. El padre (MessageThread, FB3) decide cuándo `isNew`  */
+/* es true — nunca en la carga inicial del historial (ver AUDIT.md §1).     */
+@keyframes waBubbleEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.row.enter {
+  animation: waBubbleEnter 220ms var(--wa-ease-out) both;
+}
+
+/* prefers-reduced-motion (design §7 + Apple §14): mata translateY, deja un  */
+/* fade corto de opacity — "no zero feedback", solo sin movimiento.         */
+@keyframes waBubbleEnterReduced {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row.enter {
+    animation-name: waBubbleEnterReduced;
+    animation-duration: 200ms;
+    animation-timing-function: ease;
+    animation-fill-mode: both;
+  }
+}

@@ -1,0 +1,115 @@
+/**
+ * ConversationListItem — fila de la lista de conversaciones (messaging-inbox
+ * F1, design §1/§7, tasks FB2 2.1/2.2/2.5). Token local `--wa-ease-out` en la
+ * raíz (mismo motivo que MessageBubble.module.css — standalone-safe).
+ */
+
+.item {
+  list-style: none;
+}
+
+.button {
+  --wa-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--space-11); /* 44px — A11Y-1 touch target */
+  padding: var(--space-3);
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+/* Hover — alta frecuencia (design §7 row 4): SOLO background-color, sin
+   transform. Gateado a hover real (mouse/trackpad) para no disparar en touch. */
+@media (hover: hover) and (pointer: fine) {
+  .button {
+    transition: background-color 150ms ease;
+  }
+  .button:hover {
+    background-color: var(--color-surface-hover);
+  }
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+/* Selección (design §7 row 2): background-color 120ms, sin transform.
+   IMPORTANTE — orden de reglas: `.selected` debe ir DESPUÉS de `.button:hover`
+   en este archivo. Ambas reglas empatan en especificidad (una clase + una
+   pseudo-clase = 0,0,2,0 cada una); por la regla CSS de "after-change style"
+   para transiciones, el navegador usa el `transition-duration` declarado en
+   el estado DESTINO del cambio — por eso hover→hover sigue en 150ms pero
+   cualquier cambio hacia `.selected` usa exactamente 120ms sin approximar. */
+.button.selected {
+  background-color: var(--badge-active-bg);
+  transition: background-color 120ms ease;
+}
+
+.avatar {
+  flex-shrink: 0;
+  width: var(--space-9);
+  height: var(--space-9);
+  border-radius: var(--radius-full);
+  background-color: var(--color-crm-purple);
+  color: var(--color-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+}
+
+.main {
+  flex: 1;
+  min-width: 0; /* permite que el preview trunque dentro del flex item */
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.topRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.name {
+  min-width: 0; /* flex-item ellipsis gotcha: without this it never shrinks below content size */
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.time {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.bottomRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.preview {
+  min-width: 0; /* same flex-item ellipsis gotcha as .name */
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

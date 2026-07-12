@@ -1,0 +1,129 @@
+/**
+ * MessageThread — panel central (messaging-inbox F1, design §1/§7). Token
+ * local `--wa-ease-out` (mismo motivo que MessageBubble.module.css —
+ * standalone-safe, sin depender de `.page` de WhatsappInboxPage/FB4).
+ */
+
+.panel {
+  --wa-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.placeholder {
+  margin: auto;
+  padding: var(--space-4);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.swap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  animation: waThreadSwap 160ms var(--wa-ease-out) both;
+}
+
+@keyframes waThreadSwap {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.contactName {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+/* Bug #8 (mobile trap, post-review-adversarial): botón "volver a la lista".
+   Mismo patrón visual que `TicketHeader.module.css:.backBtn` (botón nativo,
+   sin fondo, ícono `◀`) — se muestra en TODOS los tamaños (no gateado por
+   breakpoint), touch target A11Y-1 (>=44px). */
+.backButton {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--space-11);
+  min-height: var(--space-11);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+}
+
+.backButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.backButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.loadingState {
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.loadingText {
+  margin: 0 0 var(--space-1) 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.skeletonRight {
+  align-self: flex-end;
+}
+
+.emptyState {
+  margin: auto;
+  padding: var(--space-4);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.errorState {
+  margin: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--badge-late-fg);
+  background: var(--badge-late-bg);
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+
+/* BUG FIX (post-review-adversarial, polish #10): `.swap` es un fade de
+   opacity PURA (`waThreadSwap` no anima `transform`) — matarlo con
+   `animation:none` bajo reduced-motion deja el crossfade con "zero
+   feedback" (el thread nuevo aparece de golpe). La regla es "dropear
+   MOVIMIENTO, no feedback" (mismo criterio aplicado en
+   `MessageBubble.module.css`, que conserva un fade corto sin `translateY`
+   bajo reduced-motion): como acá no hay movimiento que dropear, no hace
+   falta ningún override — el fade de opacity corre igual bajo
+   reduced-motion. */

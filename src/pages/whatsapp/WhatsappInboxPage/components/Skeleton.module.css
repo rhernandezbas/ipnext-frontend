@@ -1,0 +1,36 @@
+/**
+ * Skeleton — shimmer compartido (messaging-inbox F1, design §7, task 2.6).
+ * Porta VERBATIM el shimmer de `DataTable.module.css:81-92` (gradiente +
+ * keyframes) para que el loading del inbox se sienta igual al resto del
+ * panel admin — un solo lenguaje visual de "cargando" en toda la app.
+ *
+ * `prefers-reduced-motion`: el shimmer es un loop infinito de baja frecuencia
+ * visual (Apple §14 — nada de "moving background" en loading); bajo reduced
+ * motion se apaga la animación y queda un bloque estático con el gradiente
+ * congelado en el medio (sigue leyéndose como "placeholder de carga", solo
+ * que quieto).
+ */
+
+.skeleton {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--color-border) 25%, var(--color-surface-hover) 50%, var(--color-border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+}
+
+.circle {
+  border-radius: var(--radius-full);
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background-position: 0 0;
+  }
+}

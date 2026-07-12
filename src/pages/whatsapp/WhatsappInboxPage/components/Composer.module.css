@@ -1,0 +1,115 @@
+/**
+ * Composer — textarea + envío (messaging-inbox F1, design §1/§6/§7). Token
+ * local `--wa-ease-out` (mismo motivo que MessageBubble.module.css).
+ */
+
+.composer {
+  --wa-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--space-11); /* 44px */
+  max-height: 140px;
+  resize: vertical;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font: inherit;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+}
+
+.textarea:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--color-surface-hover);
+}
+
+/* Touch target A11Y-1 (≥44px), sin depender del gate `pointer:coarse` del
+   Button atom genérico — el composer lo necesita SIEMPRE, mouse o touch. */
+.sendButton {
+  min-height: var(--space-11);
+  min-width: var(--space-11);
+}
+
+/* Botón enviar :active (design §7 row 5): scale(0.97), feedback de press. */
+.sendButton:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform 150ms ease-out;
+}
+
+.notice {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  color: var(--badge-blocked-fg);
+  background: var(--badge-blocked-bg);
+  animation: waNoticeIn 200ms var(--wa-ease-out) both;
+}
+
+.error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  color: var(--badge-late-fg);
+  background: var(--badge-late-bg);
+  /* BUG FIX (post-review-adversarial, polish #9): cohesión con `.notice` —
+     mismo fade de entrada, mismo timing token. */
+  animation: waNoticeIn 200ms var(--wa-ease-out) both;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes waNoticeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* BUG FIX (post-review-adversarial, polish #10): `.notice`/`.error` ya son
+   fades de opacity PURA (`waNoticeIn` no tiene transform) — matar la
+   animación entera con `animation:none` bajo reduced-motion los deja con
+   "zero feedback" (aparecen de golpe, sin ningún indicio de que son
+   contenido nuevo). La regla de reduced-motion es "dropear MOVIMIENTO, no
+   feedback" (mismo criterio que `MessageBubble.module.css` — ahí se
+   conserva un fade corto sin `translateY`): como acá no hay movimiento que
+   dropear, no hace falta ningún override — el fade de opacity se deja
+   correr igual bajo reduced-motion. Solo el `:active` scale (movimiento
+   real) se sigue neutralizando. */
+@media (prefers-reduced-motion: reduce) {
+  .sendButton:active:not(:disabled) {
+    transform: none;
+    transition: none;
+  }
+}

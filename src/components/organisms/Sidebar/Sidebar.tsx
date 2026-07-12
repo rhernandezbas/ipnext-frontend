@@ -116,6 +116,15 @@ const CRM_ITEMS: NavParentItem[] = [
       { to: '/admin/finance/payment-plans', label: 'Planes de pago' },
     ],
   },
+  {
+    // messaging-inbox-fe F1 — inbox WhatsApp (mirror Chatwoot). Direct-link
+    // item, patrón "Informes" (sin children). NO usar "Mensajes"/"messaging"
+    // en el label: colisiona con la bandeja de soporte existente arriba.
+    label: 'WhatsApp',
+    to: '/admin/whatsapp',
+    matchPaths: ['/admin/whatsapp'],
+    requiredPermission: 'messaging.read',
+  },
 ];
 
 const EMPRESA_ITEMS: NavParentItem[] = [

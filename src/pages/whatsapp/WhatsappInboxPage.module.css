@@ -1,0 +1,131 @@
+/**
+ * WhatsappInboxPage — layout 3-paneles full-height (messaging-inbox F1,
+ * design §2, FB4 tasks 4.2/4.3). PRIMER opt-out del padding de `AdminLayout`
+ * en el repo — cero cambios a `AdminLayout.module.css`, todo local acá.
+ *
+ * Mecanismo (verificado contra `AdminLayout.module.css:22-29` +
+ * `AdminLayout.tsx:100-121` + `Navbar.module.css`, design §2):
+ *
+ * 1) `margin: calc(var(--space-6) * -1)` — `.content` tiene
+ *    `padding: var(--space-6)` (24px) en las 4 direcciones; un margin
+ *    negativo EQUIVALENTE lo cancela sin tocar `AdminLayout` ni usar
+ *    `position:absolute`/`inset:0` (eso rompería el flujo del flex `.main` y
+ *    el `overflow-y:auto` que `.content` ya maneja).
+ *
+ * 2) `height: calc(100% + var(--space-6) * 2)`, NO `100vh` — esta ruta no
+ *    está en `ROUTE_CRUMBS` (`AdminLayout.tsx`), así que `.content` monta el
+ *    `<Outlet/>` directo y `.page` es su hijo ÚNICO. `.content` es flex item
+ *    de `.main` (`flex-direction:column; min-height:100vh; flex:1`) — el
+ *    `Navbar` es `position:fixed` (`Navbar.module.css`) y NO consume espacio
+ *    de ese flex, así que TODO el alto ya disponible después del navbar lo
+ *    tiene `.content` (su propio `margin-top:var(--navbar-height)` ya restó
+ *    eso del flex-basis). Calcular `100vh - navbar-height` acá sería
+ *    recalcular a mano algo que el flex YA resolvió — fragil (2 lugares
+ *    para mantener sincronizados si `--navbar-height` cambia).
+ *
+ *    BUG FIX (post-review-adversarial, revisor de componentes — banda de
+ *    48px al fondo): `height: 100%` a secas resuelve contra el CONTENT-BOX
+ *    de `.content`, que YA restó su `padding: var(--space-6)` (24px arriba +
+ *    24px abajo). El `margin` negativo de acá arriba cancela AMBOS paddings
+ *    para pegar `.page` a los bordes reales de `.content` — pero si
+ *    `height` solo iguala el content-box (ya sin padding), `.page` queda
+ *    corta por `--space-6 * 2` (48px) en el eje vertical: se ve una banda
+ *    de `--color-gray-50` (fondo de `.content`) al fondo. El fix suma esos
+ *    48px de vuelta con `calc(100% + var(--space-6) * 2)`. Con el margin
+ *    negativo ya cancelando el padding en las 4 direcciones, esto NO genera
+ *    scroll — `.page` termina ocupando el mismo rectángulo que `.content`
+ *    medía ANTES del padding, ni un px de más ni de menos.
+ *
+ * `grid-template-rows: minmax(0, 1fr)` — un grid de una sola fila "auto"
+ * crecería con el contenido (mismo problema que `min-width:0` en
+ * `AdminLayout.module.css:.main` pero en el eje vertical); esto la fija al
+ * alto del contenedor y deja que cada columna scrollee INTERNAMENTE
+ * (contrato ya asumido por `ConversationList`/`MessageThread`/
+ * `ClientContextPanel`, que declaran `height:100%; overflow:hidden` en sus
+ * propios `.panel`).
+ *
+ * Nombres de columna (`.listCol`/`.threadCol`/`.contextCol`, no `.list`/
+ * `.thread`/`.context`) deliberados: `ConversationList.module.css` y
+ * `MessageThread.module.css` YA usan `.list` para su propio scroll interno —
+ * reusar ese nombre acá colisionaría bajo `classNameStrategy:'non-scoped'`
+ * de Vitest (vite.config.ts).
+ */
+
+.page {
+  margin: calc(var(--space-6) * -1);
+  height: calc(100% + var(--space-6) * 2);
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr) 320px;
+  grid-template-rows: minmax(0, 1fr);
+  background: var(--color-surface);
+}
+
+.listCol {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--color-border);
+}
+
+.threadCol {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border);
+}
+
+/* Envuelve <MessageThread/>: flex:1 le da un alto DEFINIDO (no `height:100%`
+   directo — en un flex column, `flex:1` short-circuitea el flex-basis; el
+   `height:100%` interno de MessageThread's `.panel` resuelve contra ESTE
+   wrapper, ya medido). <Composer/> queda afuera, como hermano de abajo
+   (`flex-shrink:0` ya declarado en Composer.module.css). */
+.threadArea {
+  flex: 1;
+  min-height: 0;
+}
+
+.contextCol {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* >1200px: layout completo — lista (340px) + thread (flex) + contexto (320px). */
+
+@media (max-width: 1200px) {
+  .page {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+
+  .contextCol {
+    display: none;
+  }
+}
+
+/*
+ * <=860px: mobile, 1 sola columna. "thread-only cuando hay selección"
+ * (design §2 / tasks.md "Known constraints") — el toggle NO es puro CSS: la
+ * page decide `data-has-selection` en `.page` a partir de `selectedId`
+ * (WhatsappInboxPage.tsx). Sin selección se ve la lista completa; con
+ * selección se ve el thread completo. El botón explícito "volver a la
+ * lista" YA existe (bug #8, post-review-adversarial): `MessageThread` lo
+ * renderiza en su header y llama `onBack` → `setSelectedId(null)`.
+ */
+@media (max-width: 860px) {
+  .page {
+    grid-template-columns: 1fr;
+  }
+
+  .page[data-has-selection='true'] .listCol {
+    display: none;
+  }
+
+  .page[data-has-selection='false'] .threadCol,
+  .page[data-has-selection='false'] .contextCol {
+    display: none;
+  }
+}
