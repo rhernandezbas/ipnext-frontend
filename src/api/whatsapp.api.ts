@@ -2,6 +2,7 @@ import axiosClient from './axios-client';
 import type {
   WhatsappConversationDetail,
   WhatsappConversationListItem,
+  WhatsappInboxClientContext,
   WhatsappMessage,
   WhatsappPaginatedQuery,
   WhatsappPaginatedResult,
@@ -53,3 +54,26 @@ export const sendWhatsappMessage = (id: string, content: string): Promise<Whatsa
   axiosClient
     .post<WhatsappMessage>(`${BASE}/conversations/${id}/messages`, { content })
     .then(r => r.data);
+
+/**
+ * getInboxClientContext (messaging-inbox-v2 F1.5, RICH-1..6, design §3.3,
+ * tasks F1) — GET del agregador rico. `clientId` desambigua un `ambiguous`
+ * (validado server-side contra los candidatos, RICH-1). `opts.refreshBalance`
+ * es el nombre LOCAL del flag FE; en el wire viaja como `?refresh=1`
+ * (verificado contra el route handler real, B4: `const {clientId, refresh} =
+ * req.query`) — RICH-4, dispara el refresh vivo de Gestión Real en el BE.
+ * Devuelve el DTO FLAT (sin envelope), igual que `getWhatsappConversation`.
+ */
+export const getInboxClientContext = (
+  conversationId: string,
+  clientId?: string,
+  opts?: { refreshBalance?: boolean },
+): Promise<WhatsappInboxClientContext> => {
+  const params: Record<string, string> = {};
+  if (clientId) params['clientId'] = clientId;
+  if (opts?.refreshBalance) params['refresh'] = '1';
+
+  return axiosClient
+    .get<WhatsappInboxClientContext>(`${BASE}/conversations/${conversationId}/client-context`, { params })
+    .then(r => r.data);
+};

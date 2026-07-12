@@ -12,6 +12,14 @@
  *  WHATS-4 useSendWhatsappMessage(id): onSuccess → append optimista en el
  *          cache de mensajes + invalidate conversations; onError captura
  *          422/503 sin relanzar (el composer, FB3, lee isError/error)
+ *  WHATS-5 useInboxClientContext(conversationId, clientId) (messaging-inbox-v2
+ *          F1.5, tasks F2): SWR 2 fases. Query primaria: enabled:!!conversationId,
+ *          queryKey ['whatsapp','clientContext',conversationId,clientId??'_'],
+ *          refetchInterval:false (el panel NO pollea, a diferencia de los
+ *          otros 3 hooks). Query de refresh de balance: enabled SOLO cuando
+ *          la primaria trajo client.balance.stale===true; en éxito parchea
+ *          SOLO `balance` en el cache de la primaria (setQueryData) sin
+ *          tocar el resto de `client`. isRefreshingBalance = balanceQuery.isFetching.
  */
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -20,6 +28,7 @@ import { createElement, type ReactNode } from 'react';
 import type {
   WhatsappConversationDetail,
   WhatsappConversationListItem,
+  WhatsappInboxClientContext,
   WhatsappMessage,
   WhatsappPaginatedResult,
 } from '@/types/whatsapp';
@@ -29,6 +38,7 @@ vi.mock('@/api/whatsapp.api', () => ({
   getWhatsappConversation: vi.fn(),
   listWhatsappMessages: vi.fn(),
   sendWhatsappMessage: vi.fn(),
+  getInboxClientContext: vi.fn(),
 }));
 
 vi.mock('@/hooks/useDocumentVisible', () => ({
@@ -40,6 +50,7 @@ import {
   getWhatsappConversation,
   listWhatsappMessages,
   sendWhatsappMessage,
+  getInboxClientContext,
 } from '@/api/whatsapp.api';
 import { useDocumentVisible } from '@/hooks/useDocumentVisible';
 import {
@@ -47,9 +58,11 @@ import {
   useWhatsappConversation,
   useWhatsappMessages,
   useSendWhatsappMessage,
+  useInboxClientContext,
   whatsappConversationsKey,
   whatsappConversationKey,
   whatsappMessagesKey,
+  whatsappClientContextKey,
 } from '@/hooks/useWhatsapp';
 
 const LIST_ITEM: WhatsappConversationListItem = {
@@ -95,6 +108,42 @@ const MESSAGE_SENT: WhatsappMessage = {
   content: 'ya te ayudamos',
   senderName: 'Agente',
   sentAt: '2026-07-10T12:05:00.000Z',
+};
+
+const RICH_STALE: WhatsappInboxClientContext = {
+  status: 'matched',
+  client: {
+    id: 'cli-1',
+    name: 'Juan Perez',
+    email: 'juan@example.com',
+    phone: '+5491100000000',
+    status: 'active',
+    fichaClientId: 'cli-1',
+    balance: { due: 5000, currency: 'ARS', isDebtor: true, stale: true, lastRefreshedAt: '2026-07-10T10:00:00.000Z' },
+    lastInvoice: null,
+    nextDueDate: null,
+    contracts: [],
+    openTicketsCount: 0,
+    recentTickets: [],
+    recentTasks: [],
+    recentLogs: [],
+  },
+};
+
+const RICH_FRESH: WhatsappInboxClientContext = {
+  status: 'matched',
+  client: {
+    ...RICH_STALE.client!,
+    balance: { due: 5000, currency: 'ARS', isDebtor: true, stale: false, lastRefreshedAt: '2026-07-10T12:00:00.000Z' },
+  },
+};
+
+const RICH_REFRESHED: WhatsappInboxClientContext = {
+  status: 'matched',
+  client: {
+    ...RICH_STALE.client!,
+    balance: { due: 4200, currency: 'ARS', isDebtor: true, stale: false, lastRefreshedAt: '2026-07-12T12:00:00.000Z' },
+  },
 };
 
 function makeWrapper() {
@@ -344,6 +393,147 @@ describe('WHATS-4: useSendWhatsappMessage(id)', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.error).toBe(windowExpired);
+  });
+});
+
+describe('WHATS-5: useInboxClientContext(conversationId, clientId)', () => {
+  it('con conversationId null NO dispara el fetch (enabled:!!conversationId)', () => {
+    const { wrapper } = makeWrapper();
+    const { result } = renderHook(() => useInboxClientContext(null, null), { wrapper });
+
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(getInboxClientContext).not.toHaveBeenCalled();
+  });
+
+  it('con conversationId trae el DTO y cachea bajo ["whatsapp","clientContext",id,"_"] sin clientId', async () => {
+    vi.mocked(getInboxClientContext).mockResolvedValue(RICH_FRESH);
+    const { qc, wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useInboxClientContext('conv-1', null), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(getInboxClientContext).toHaveBeenCalledWith('conv-1', undefined);
+    expect(result.current.data).toEqual(RICH_FRESH);
+    expect(qc.getQueryData(whatsappClientContextKey('conv-1', null))).toEqual(RICH_FRESH);
+  });
+
+  it('con clientId, la queryKey incluye ESE clientId (no "_")', async () => {
+    vi.mocked(getInboxClientContext).mockResolvedValue(RICH_FRESH);
+    const { qc, wrapper } = makeWrapper();
+
+    renderHook(() => useInboxClientContext('conv-1', 'cli-1'), { wrapper });
+
+    await waitFor(() =>
+      expect(qc.getQueryData(whatsappClientContextKey('conv-1', 'cli-1'))).toEqual(RICH_FRESH),
+    );
+    expect(getInboxClientContext).toHaveBeenCalledWith('conv-1', 'cli-1');
+  });
+
+  it('NO pollea — refetchInterval:false (a diferencia de los otros 3 hooks)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(getInboxClientContext).mockResolvedValue(RICH_FRESH);
+    const { wrapper } = makeWrapper();
+
+    renderHook(() => useInboxClientContext('conv-1', null), { wrapper });
+    await vi.waitFor(() => expect(getInboxClientContext).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(getInboxClientContext).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
+  });
+
+  it('balance fresco (stale:false) — NO dispara la 2da query de refresh (0 llamadas con refreshBalance)', async () => {
+    vi.mocked(getInboxClientContext).mockResolvedValue(RICH_FRESH);
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useInboxClientContext('conv-1', null), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(getInboxClientContext).toHaveBeenCalledTimes(1);
+    expect(getInboxClientContext).not.toHaveBeenCalledWith('conv-1', undefined, { refreshBalance: true });
+    expect(result.current.isRefreshingBalance).toBe(false);
+  });
+
+  it('balance stale (stale:true) — dispara la 2da query en background con opts.refreshBalance:true', async () => {
+    vi.mocked(getInboxClientContext).mockImplementation((_id, _clientId, opts) =>
+      opts?.refreshBalance ? Promise.resolve(RICH_REFRESHED) : Promise.resolve(RICH_STALE),
+    );
+    const { wrapper } = makeWrapper();
+
+    renderHook(() => useInboxClientContext('conv-1', null), { wrapper });
+
+    await waitFor(() =>
+      expect(getInboxClientContext).toHaveBeenCalledWith('conv-1', undefined, { refreshBalance: true }),
+    );
+  });
+
+  it('al resolver el refresh, parchea SOLO `balance` en el cache primario (mantiene el resto de `client` intacto)', async () => {
+    vi.mocked(getInboxClientContext).mockImplementation((_id, _clientId, opts) =>
+      opts?.refreshBalance ? Promise.resolve(RICH_REFRESHED) : Promise.resolve(RICH_STALE),
+    );
+    const { qc, wrapper } = makeWrapper();
+
+    renderHook(() => useInboxClientContext('conv-1', null), { wrapper });
+
+    await waitFor(() => {
+      const cached = qc.getQueryData<WhatsappInboxClientContext>(whatsappClientContextKey('conv-1', null));
+      expect(cached?.client?.balance).toEqual(RICH_REFRESHED.client!.balance);
+    });
+
+    const cached = qc.getQueryData<WhatsappInboxClientContext>(whatsappClientContextKey('conv-1', null));
+    // Resto de `client` (identidad, contratos, etc.) sigue siendo el de la
+    // primaria — el patch NO pisa nada más que `balance`.
+    expect(cached?.client?.id).toBe(RICH_STALE.client!.id);
+    expect(cached?.client?.name).toBe(RICH_STALE.client!.name);
+    expect(cached?.status).toBe('matched');
+  });
+
+  it('isRefreshingBalance refleja isFetching de la query de balance mientras está en vuelo', async () => {
+    let resolveRefresh!: (v: WhatsappInboxClientContext) => void;
+    const refreshPromise = new Promise<WhatsappInboxClientContext>((resolve) => {
+      resolveRefresh = resolve;
+    });
+    vi.mocked(getInboxClientContext).mockImplementation((_id, _clientId, opts) =>
+      opts?.refreshBalance ? refreshPromise : Promise.resolve(RICH_STALE),
+    );
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useInboxClientContext('conv-1', null), { wrapper });
+
+    await waitFor(() => expect(result.current.isRefreshingBalance).toBe(true));
+
+    resolveRefresh(RICH_REFRESHED);
+
+    await waitFor(() => expect(result.current.isRefreshingBalance).toBe(false));
+  });
+
+  it('bug #2 (review adversarial) — expone balanceRefreshFailed: false mientras el refresh de balance no falló', async () => {
+    vi.mocked(getInboxClientContext).mockImplementation((_id, _clientId, opts) =>
+      opts?.refreshBalance ? Promise.resolve(RICH_REFRESHED) : Promise.resolve(RICH_STALE),
+    );
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useInboxClientContext('conv-1', null), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.balanceRefreshFailed).toBe(false));
+  });
+
+  it('bug #2 (review adversarial) — expone balanceRefreshFailed: true cuando la 2da query (refresh de balance) falla, aunque la primaria haya resuelto OK', async () => {
+    vi.mocked(getInboxClientContext).mockImplementation((_id, _clientId, opts) =>
+      opts?.refreshBalance ? Promise.reject(new Error('gestion real caída')) : Promise.resolve(RICH_STALE),
+    );
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useInboxClientContext('conv-1', null), { wrapper });
+
+    // La primaria (mirror-fast) sigue OK — el error es SOLO del refresh.
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.isError).toBe(false);
+    await waitFor(() => expect(result.current.balanceRefreshFailed).toBe(true));
   });
 });
 

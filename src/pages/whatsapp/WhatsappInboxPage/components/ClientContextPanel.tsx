@@ -1,10 +1,20 @@
-import { Link } from 'react-router-dom';
+import { useState, type ReactNode } from 'react';
+import { useInboxClientContext } from '@/hooks/useWhatsapp';
 import type { WhatsappClientContext } from '@/types/whatsapp';
+import { ContextNeutral } from './clientContext/ContextNeutral';
+import { CandidatePicker } from './clientContext/CandidatePicker';
+import { ContextSkeleton } from './clientContext/ContextSkeleton';
+import { ContextError } from './clientContext/ContextError';
+import { MatchedClientView } from './clientContext/MatchedClientView';
 import styles from './ClientContextPanel.module.css';
 
 interface ClientContextPanelProps {
-  /** `undefined`/`null` cuando el detalle todavía no trae `clientContext` (design §3 CONTEXT-1, "contexto ausente"). */
-  clientContext?: WhatsappClientContext | null;
+  conversationId?: string | null;
+  /** `undefined`/`null` cuando el detalle todavía no trae `clientContext`
+   * (contexto ausente). Contexto LIGHT (F1) — instantáneo, ya resuelto por
+   * `useWhatsappConversation`. Distinto del contexto RICO (F1.5) que este
+   * container pide bajo demanda vía `useInboxClientContext`. */
+  lightContext?: WhatsappClientContext | null;
 }
 
 const HEADING_ID = 'wa-context-heading';
@@ -17,78 +27,68 @@ function Heading() {
   );
 }
 
-function NeutralState({ message }: { message: string }) {
-  return (
-    <section className={styles.panel} aria-labelledby={HEADING_ID}>
-      <Heading />
-      <p className={styles.neutral}>{message}</p>
-    </section>
-  );
-}
-
 /**
- * ClientContextPanel — panel derecho (messaging-inbox F1, design §1, CONTEXT-1).
- * 3 estados excluyentes de `clientContext.status` + un estado neutro cuando
- * `clientContext` está ausente — extiende el patrón visual de `CustomerCard`
- * (`SchedulingTaskDetailPage`), que solo cubre 2 estados (con/sin cliente):
- * acá se agrega `ambiguous` como lista de candidatos, sin auto-elegir ninguno.
+ * ClientContextPanel — CONTAINER FINO (messaging-inbox-v2 F1.5, design §1).
+ * Reescritura de F1 (histórico: presentacional puro sobre `clientContext`
+ * plano). Deriva el estado del panel de `lightContext.status` (instantáneo)
+ * + un estado local `chosenId` para desambiguar `ambiguous`. El fetch RICO
+ * (`useInboxClientContext`) SOLO se dispara cuando hay un candidato resuelto
+ * (`matched`, o `ambiguous` ya elegido) — nunca en `ambiguous` sin elección
+ * (CTX-1: no se agregan datos de nadie hasta que el agente elige).
+ *
+ * `status==='matched'` con `lightContext.clients` vacío es un dato
+ * malformado (el BE no debería mandarlo) — cae a neutro sin intentar el
+ * fetch rico, preservando el contrato histórico de F1.
  */
-export function ClientContextPanel({ clientContext }: ClientContextPanelProps) {
-  if (!clientContext) {
-    return <NeutralState message="Sin información de contexto disponible." />;
-  }
+export function ClientContextPanel({ conversationId, lightContext }: ClientContextPanelProps) {
+  const [chosenId, setChosenId] = useState<string | null>(null);
 
-  if (clientContext.status === 'unknown') {
-    return (
-      <section className={styles.panel} aria-labelledby={HEADING_ID}>
-        <Heading />
-        <p className={styles.neutral}>Contacto desconocido — sin cliente asociado.</p>
-      </section>
+  const status = lightContext?.status;
+  const hasCandidates = (lightContext?.clients.length ?? 0) > 0;
+  const isAmbiguousUnchosen = status === 'ambiguous' && chosenId === null;
+  const shouldFetchRich = (status === 'matched' && hasCandidates) || (status === 'ambiguous' && chosenId !== null);
+
+  const richQuery = useInboxClientContext(
+    shouldFetchRich ? conversationId ?? null : null,
+    status === 'ambiguous' ? chosenId : null,
+  );
+
+  let content: ReactNode;
+  if (!lightContext) {
+    content = <ContextNeutral message="Sin información de contexto disponible." />;
+  } else if (status === 'unknown') {
+    content = <ContextNeutral message="Contacto desconocido — sin cliente asociado." />;
+  } else if (status === 'matched' && !hasCandidates) {
+    content = <ContextNeutral message="Sin información de contexto disponible." />;
+  } else if (isAmbiguousUnchosen) {
+    content = <CandidatePicker clients={lightContext.clients} onChoose={setChosenId} />;
+  } else if (richQuery.isLoading) {
+    content = <ContextSkeleton />;
+  } else if (richQuery.isError && !richQuery.data) {
+    content = <ContextError onRetry={() => { void richQuery.refetch(); }} />;
+  } else if (richQuery.data?.client) {
+    content = (
+      <MatchedClientView
+        client={richQuery.data.client}
+        isRefreshingBalance={richQuery.isRefreshingBalance}
+        // Bug #2 fix (post-review-adversarial): el chip "no se pudo
+        // actualizar" es del refresh de BALANCE (2da query, en background),
+        // no de la query PRIMARIA — `richQuery.isError` es de la primaria y
+        // dispara falsos positivos/negativos cruzados.
+        hasStaleError={richQuery.balanceRefreshFailed}
+      />
     );
-  }
-
-  if (clientContext.status === 'ambiguous') {
-    if (clientContext.clients.length === 0) {
-      return <NeutralState message="Sin información de contexto disponible." />;
-    }
-    return (
-      <section className={styles.panel} aria-labelledby={HEADING_ID}>
-        <Heading />
-        <p className={styles.hint}>Varios clientes posibles — elegí uno para confirmar.</p>
-        <ul className={styles.candidateList}>
-          {clientContext.clients.map((c) => (
-            <li key={c.id} className={styles.candidateItem}>
-              <span className={styles.candidateName}>{c.name}</span>
-              <Link to={`/admin/customers/view/${c.id}`} className={styles.link}>
-                Ver perfil →
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
-    );
-  }
-
-  // matched
-  const client = clientContext.clients[0];
-  if (!client) {
-    return <NeutralState message="Sin información de contexto disponible." />;
+  } else {
+    content = <ContextNeutral message="Sin información de contexto disponible." />;
   }
 
   return (
-    <section className={styles.panel} aria-labelledby={HEADING_ID}>
+    // Fix bug ALTO a11y (review adversarial, design §10): `aria-busy` faltaba
+    // — un lector de pantalla no tenía forma de saber que el panel está
+    // recargando contenido cuando cambia de cliente/candidato.
+    <section className={styles.panel} aria-labelledby={HEADING_ID} aria-busy={richQuery.isLoading}>
       <Heading />
-      <div className={styles.card}>
-        <span className={styles.avatar} aria-hidden="true">
-          {client.name.charAt(0).toUpperCase()}
-        </span>
-        <div className={styles.info}>
-          <span className={styles.name}>{client.name}</span>
-          <Link to={`/admin/customers/view/${client.id}`} className={styles.link}>
-            Ver perfil →
-          </Link>
-        </div>
-      </div>
+      {content}
     </section>
   );
 }

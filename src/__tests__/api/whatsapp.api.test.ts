@@ -16,11 +16,18 @@
  *         responde `res.json({data})`)
  *  WAPI-5 sendWhatsappMessage: POST /messaging/conversations/:id/messages con
  *         `{content}`, devuelve el mensaje creado FLAT (201, sin envelope)
+ *  WAPI-6 getInboxClientContext (messaging-inbox-v2 F1.5, tasks F1): GET
+ *         /messaging/conversations/:id/client-context, `clientId` en params
+ *         SOLO si viene, `refresh=1` en params SOLO si `opts.refreshBalance`
+ *         (nombre de wire `refresh`, verificado contra B4 real:
+ *         `const {clientId, refresh} = req.query`), devuelve el DTO FLAT
+ *         (sin envelope, igual que getWhatsappConversation)
  */
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type {
   WhatsappConversationDetail,
   WhatsappConversationListItem,
+  WhatsappInboxClientContext,
   WhatsappMessage,
   WhatsappPaginatedResult,
 } from '@/types/whatsapp';
@@ -38,6 +45,7 @@ import {
   getWhatsappConversation,
   listWhatsappMessages,
   sendWhatsappMessage,
+  getInboxClientContext,
 } from '@/api/whatsapp.api';
 
 const LIST_ITEM: WhatsappConversationListItem = {
@@ -137,5 +145,70 @@ describe('WAPI-5: sendWhatsappMessage', () => {
       content: 'hola, tengo un problema',
     });
     expect(result).toEqual(MESSAGE);
+  });
+});
+
+describe('WAPI-6: getInboxClientContext', () => {
+  const RICH: WhatsappInboxClientContext = {
+    status: 'matched',
+    client: {
+      id: 'cli-1',
+      name: 'Juan Perez',
+      email: null,
+      phone: null,
+      status: 'active',
+      fichaClientId: 'cli-1',
+      balance: { due: 1000, currency: 'ARS', isDebtor: true, stale: true, lastRefreshedAt: null },
+      lastInvoice: null,
+      nextDueDate: null,
+      contracts: [],
+      openTicketsCount: 0,
+      recentTickets: [],
+      recentTasks: [],
+      recentLogs: [],
+    },
+  };
+
+  it('GETs /messaging/conversations/:id/client-context sin clientId/opts no manda params', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: RICH });
+
+    const result = await getInboxClientContext('conv-1');
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations/conv-1/client-context', {
+      params: {},
+    });
+    expect(result).toEqual(RICH);
+    // Honestidad del contrato: flat, sin envelope.
+    expect('data' in (result as object)).toBe(false);
+  });
+
+  it('con clientId arma params.clientId (desambiguación de ambiguous)', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: RICH });
+
+    await getInboxClientContext('conv-1', 'cli-1');
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations/conv-1/client-context', {
+      params: { clientId: 'cli-1' },
+    });
+  });
+
+  it('con opts.refreshBalance manda params.refresh="1" (nombre de wire real, RICH-4)', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: RICH });
+
+    await getInboxClientContext('conv-1', undefined, { refreshBalance: true });
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations/conv-1/client-context', {
+      params: { refresh: '1' },
+    });
+  });
+
+  it('con clientId + opts.refreshBalance combina ambos params', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: RICH });
+
+    await getInboxClientContext('conv-1', 'cli-1', { refreshBalance: true });
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations/conv-1/client-context', {
+      params: { clientId: 'cli-1', refresh: '1' },
+    });
   });
 });

@@ -96,7 +96,13 @@ export default function WhatsappInboxPage() {
       </div>
 
       <div className={styles.contextCol}>
-        <ClientContextPanel clientContext={detail?.clientContext} />
+        {/* Fix bug BLOQUEANTE (review adversarial F1.5): `chosenId` (estado
+            interno del container, para desambiguar `ambiguous`) NO se
+            reseteaba al cambiar de conversación — quedaba "pegado" mostrando
+            el candidato elegido en la conversación anterior. `key={selectedId}`
+            fuerza un remount limpio (chosenId vuelve a null) cada vez que
+            cambia la conversación seleccionada. */}
+        <ClientContextPanel key={selectedId} conversationId={selectedId} lightContext={detail?.clientContext} />
       </div>
     </div>
   );

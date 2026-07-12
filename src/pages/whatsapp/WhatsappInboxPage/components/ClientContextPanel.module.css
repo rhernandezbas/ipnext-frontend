@@ -1,10 +1,24 @@
 /**
- * ClientContextPanel — panel derecho (messaging-inbox F1, design §1).
- * Extiende el patrón visual de `SideCard.module.css` (CustomerCard) con
- * tokens `var(--color-*)` en vez de hex hardcodeado (A11Y-1).
+ * ClientContextPanel.module.css — messaging-inbox-v2 F1.5 (design §1/§7/§8).
+ * MÓDULO COMPARTIDO: el container (`ClientContextPanel.tsx`) y TODOS los
+ * presentacionales de `clientContext/*` importan ESTE archivo (gotcha del
+ * repo: Vitest corre con `classNameStrategy:'non-scoped'`, `vite.config.ts:22`
+ * — nombres de clase repetidos entre módulos DISTINTOS colisionan). Por eso
+ * cada sección usa un PREFIJO propio: `id-` (identidad), `fin-` (financiero),
+ * `svc-` (servicio), `int-` (interacciones), `cand-` (picker), `sk-`
+ * (skeleton), `st-` (estados/contenedor).
+ *
+ * Curva de animación: `--wa-ease-out` (Emil "Strong ease-out"), declarada
+ * local en `.panel` — mismo patrón standalone-safe que
+ * `ConversationListItem.module.css`/`MessageBubble.module.css`. Solo
+ * transform+opacity, todo <300ms (design §8, anti-findings review-animations).
+ * Fix de contraste de links (F4): `--color-primary-hover` en vez de
+ * `--color-primary` (~3.9:1, falla 4.5:1 — mismo fix que MessageBubble).
  */
 
 .panel {
+  --wa-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
   height: 100%;
   overflow-y: auto;
   padding: var(--space-4);
@@ -22,20 +36,135 @@
   letter-spacing: 0.05em;
 }
 
-.neutral,
-.hint {
+/* ─── st- (estados de contenedor: neutral / error / matched wrapper) ────── */
+
+.st-neutral {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
 
-.card {
+.st-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.st-errorText {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.st-retryBtn {
+  min-height: var(--space-11); /* 44px — touch target */
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.st-retryBtn:active {
+  transform: scale(0.97);
+  transition: transform 120ms var(--wa-ease-out);
+}
+.st-retryBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.st-matched {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  /* 8.1/8.3 — entrada del panel al cambiar de conversación/cliente, TAMBIÉN
+     el crossfade skeleton→contenido (el skeleton se desmonta y esto monta
+     en su lugar): blur real que se disipa, no un blur(0) estático muerto. */
+  animation: waContextEnter 180ms var(--wa-ease-out) both;
+}
+
+.st-staleChip {
+  margin: 0;
+  padding: 2px 8px;
+  align-self: flex-start;
+  border-radius: var(--radius-full);
+  background-color: var(--color-gray-100);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  animation: waFadeIn 150ms ease both;
+}
+
+.st-section0,
+.st-section1,
+.st-section2,
+.st-section3 {
+  /* 8.2 — stagger de las 4 secciones, delays 0/60/120/180ms. */
+  animation: waSectionIn 220ms var(--wa-ease-out) both;
+}
+.st-section0 { animation-delay: 0ms; }
+.st-section1 { animation-delay: 60ms; }
+.st-section2 { animation-delay: 120ms; }
+.st-section3 { animation-delay: 180ms; }
+
+@keyframes waContextEnter {
+  from { opacity: 0; transform: translateY(4px); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes waSectionIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes waFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ─── sk- (ContextSkeleton, §8.3 — alto reservado, cero layout shift) ───── */
+
+.sk-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sk-identity {
   display: flex;
   align-items: center;
   gap: var(--space-3);
 }
 
-.avatar {
+.sk-identityLines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+}
+
+.sk-block {
+  border-radius: var(--radius-md);
+}
+
+/* ─── id- (IdentityHeader) ───────────────────────────────────────────────── */
+
+.id-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.id-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.id-avatar {
   flex-shrink: 0;
   width: var(--space-9);
   height: var(--space-9);
@@ -49,38 +178,254 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.info {
+.id-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.name {
-  font-weight: var(--font-weight-medium);
+.id-name {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-md);
   color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.link {
+.id-contactRows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.id-contactRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: var(--font-size-xs);
-  color: var(--color-primary);
+}
+
+.id-contactLabel {
+  color: var(--color-text-secondary);
+  min-width: 40px;
+}
+
+.id-contactMuted {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+}
+
+.id-contactLink {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
   text-decoration: none;
 }
-
-.link:hover {
-  text-decoration: underline;
-}
-
-.link:focus-visible {
+.id-contactLink:hover { text-decoration: underline; }
+.id-contactLink:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
 
-.candidateList {
+.id-link {
+  font-size: var(--font-size-xs);
+  color: var(--color-primary-hover);
+  text-decoration: none;
+  min-height: var(--space-11);
+  display: inline-flex;
+  align-items: center;
+}
+.id-link:hover { text-decoration: underline; }
+.id-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ─── fin- (FinancialSection — HERO deuda, §5.2) ────────────────────────── */
+
+.fin-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.fin-title {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+}
+
+.fin-hero {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  /* 8.4 — crossfade+blur al refrescar el número (SWR). Toggled por
+     `.fin-hero--refreshing` (isRefreshingBalance) en `FinancialSection.tsx`. */
+  transition: opacity 200ms var(--wa-ease-out), filter 200ms var(--wa-ease-out);
+}
+
+.fin-hero--refreshing {
+  opacity: 0.6;
+  filter: blur(2px);
+}
+
+.fin-badgeDebt {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background-color: var(--badge-late-bg);
+  color: var(--badge-late-fg);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+}
+
+.fin-amountDebt {
+  color: var(--badge-late-fg);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.fin-badgePaid {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background-color: var(--badge-paid-bg);
+  color: var(--badge-paid-fg);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+}
+
+.fin-amountPaid {
+  color: var(--badge-paid-fg);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.fin-unknown {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.fin-unknownLabel {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.fin-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.fin-lastRefreshed {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.fin-refreshingPill {
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-gray-100);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  animation: waFadeIn 150ms ease both;
+}
+
+.fin-invoice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.fin-invoiceNumber {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.fin-invoiceAmount {
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.fin-invoiceEmpty {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.fin-nextDue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+}
+
+.fin-nextDueLabel {
+  color: var(--color-text-secondary);
+}
+
+.fin-nextDueValue {
+  color: var(--color-text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fin-hero { transition: none; }
+  /* Fix a11y (re-review F1.5): bajo reduced-motion NO desenfocar ni atenuar el
+     monto — el blur/opacity estático de `--refreshing` reduce la legibilidad
+     del dato clave hasta ~4s durante el refresh de balance. El pill
+     "actualizando…" ya es señal suficiente y accesible. */
+  .fin-hero--refreshing { filter: none; opacity: 1; }
+}
+
+/* ─── svc- (ServiceSection, §5.3) ────────────────────────────────────────── */
+
+.svc-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.svc-title {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+}
+
+.svc-empty {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.svc-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -89,7 +434,196 @@
   gap: var(--space-2);
 }
 
-.candidateItem {
+.svc-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.svc-planRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.svc-plan {
+  min-width: 0;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.svc-tech {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.svc-address {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── int- (InteractionsSection, §5.4) ───────────────────────────────────── */
+
+.int-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.int-title {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+}
+
+.int-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.int-blockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.int-blockTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.int-ticketsCount {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.int-ticketsCountOpen {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--badge-blocked-fg);
+}
+
+.int-link {
+  font-size: var(--font-size-xs);
+  color: var(--color-primary-hover);
+  text-decoration: none;
+  min-height: var(--space-11);
+  display: inline-flex;
+  align-items: center;
+}
+.int-link:hover { text-decoration: underline; }
+.int-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.int-empty {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.int-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.int-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.int-seq {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.int-subject {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.int-status {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.int-logList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.int-logItem {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.int-logTime {
+  color: var(--color-text-secondary);
+}
+
+.int-logType {
+  font-weight: var(--font-weight-medium);
+}
+
+.int-logDesc {
+  color: var(--color-text-secondary);
+}
+
+/* ─── cand- (CandidatePicker, ambiguous sin elección) ───────────────────── */
+
+.cand-hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.cand-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cand-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -97,13 +631,91 @@
   padding: var(--space-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  /* 8.2-ish stagger corto de filas al montar la lista. */
+  animation: waSectionIn 220ms var(--wa-ease-out) both;
 }
+.cand-item:nth-child(1) { animation-delay: 0ms; }
+.cand-item:nth-child(2) { animation-delay: 40ms; }
+.cand-item:nth-child(3) { animation-delay: 80ms; }
+.cand-item:nth-child(4) { animation-delay: 120ms; }
 
-.candidateName {
+.cand-name {
   min-width: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.cand-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cand-link {
+  min-height: var(--space-11);
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-primary-hover);
+  text-decoration: none;
+}
+.cand-link:hover { text-decoration: underline; }
+.cand-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.cand-choose {
+  min-height: var(--space-11);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-primary-hover);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-primary-hover);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-xs);
+}
+
+.cand-choose:active {
+  transform: scale(0.97);
+  transition: transform 120ms var(--wa-ease-out);
+}
+.cand-choose:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cand-item {
+    transition: background-color 150ms ease;
+  }
+  .cand-item:hover {
+    background-color: var(--color-surface-hover);
+  }
+}
+
+/* ─── prefers-reduced-motion (obligatorio, Emil/apple: "menos, no cero") ── */
+@media (prefers-reduced-motion: reduce) {
+  .st-matched,
+  .st-section0,
+  .st-section1,
+  .st-section2,
+  .st-section3,
+  .cand-item,
+  .st-staleChip,
+  .fin-refreshingPill {
+    animation: none;
+    transform: none;
+    transition: none;
+  }
+  .st-retryBtn:active,
+  .cand-choose:active {
+    transform: none;
+  }
 }
