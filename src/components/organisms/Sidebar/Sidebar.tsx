@@ -117,13 +117,20 @@ const CRM_ITEMS: NavParentItem[] = [
     ],
   },
   {
-    // messaging-inbox-fe F1 — inbox WhatsApp (mirror Chatwoot). Direct-link
-    // item, patrón "Informes" (sin children). NO usar "Mensajes"/"messaging"
-    // en el label: colisiona con la bandeja de soporte existente arriba.
+    // messaging-inbox-fe F1 — inbox WhatsApp (mirror Chatwoot). F1.5 polish:
+    // promovido de link directo ("Informes", sin children) a acordeón con
+    // children — mismo patrón que Clientes/Tickets/Gestión de red (item +
+    // "Configuración" como sub-página) — para alojar la nueva
+    // WhatsappSettingsPage (card chat-media-download). NO usar
+    // "Mensajes"/"messaging" en el label: colisiona con la bandeja de
+    // soporte existente arriba.
     label: 'WhatsApp',
-    to: '/admin/whatsapp',
     matchPaths: ['/admin/whatsapp'],
     requiredPermission: 'messaging.read',
+    children: [
+      { to: '/admin/whatsapp', label: 'Bandeja de entrada' },
+      { to: '/admin/whatsapp/settings', label: 'Configuración' },
+    ],
   },
 ];
 

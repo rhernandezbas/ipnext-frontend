@@ -1,12 +1,13 @@
 /**
  * Sidebar — entrada "WhatsApp" en CRM_ITEMS (messaging-inbox-fe F1, FB5).
  *
- * Molde: SidebarAcciones.test.tsx / SidebarVentasAccess.test.tsx. "WhatsApp" es
- * un item de link directo (patrón "Informes": `to` + sin `children`), agregado
- * a `CRM_ITEMS` — junto a "Mensajes" (bandeja de soporte existente), NO la
- * reemplaza ni colisiona con ella.
+ * F1.5 polish: promovida de link directo (patrón "Informes") a acordeón con
+ * children — mismo patrón que Clientes/Tickets/Gestión de red (item +
+ * "Configuración" como sub-página) — para alojar la nueva
+ * WhatsappSettingsPage (card chat-media-download).
  *
- *  SBW-1 con messaging.read → link "WhatsApp" a /admin/whatsapp dentro de CRM
+ *  SBW-1 con messaging.read → grupo "WhatsApp" con children "Bandeja de
+ *        entrada" (/admin/whatsapp) y "Configuración" (/admin/whatsapp/settings)
  *  SBW-2 sin messaging.read → la entrada NO se renderiza (resto de CRM sigue)
  *  SBW-3 loading → la entrada es visible (no layout shift)
  */
@@ -49,6 +50,14 @@ async function openCrm() {
   }
 }
 
+/** Open the "WhatsApp" Level-2 accordion so its children links enter the DOM. */
+async function openWhatsapp() {
+  const whatsapp = screen.queryByRole('button', { name: /^whatsapp$/i });
+  if (whatsapp && whatsapp.getAttribute('aria-expanded') !== 'true') {
+    await userEvent.click(whatsapp);
+  }
+}
+
 /** The "Clientes" L2 item button (not "Clientes potenciales"). */
 function getClientesBtn() {
   return screen
@@ -61,15 +70,28 @@ beforeEach(() => {
 });
 
 describe('SBW-1: entrada WhatsApp visible con messaging.read', () => {
-  it('linkea a /admin/whatsapp dentro de CRM', async () => {
+  it('linkea "Bandeja de entrada" a /admin/whatsapp dentro de CRM', async () => {
     mockPerms({
       permissions: ['messaging.read'],
       can: (p) => (Array.isArray(p) ? p : [p]).includes('messaging.read'),
     });
     renderSidebar();
     await openCrm();
-    const link = screen.getByRole('link', { name: 'WhatsApp' });
+    await openWhatsapp();
+    const link = screen.getByRole('link', { name: 'Bandeja de entrada' });
     expect(link).toHaveAttribute('href', '/admin/whatsapp');
+  });
+
+  it('linkea "Configuración" a /admin/whatsapp/settings dentro de CRM', async () => {
+    mockPerms({
+      permissions: ['messaging.read'],
+      can: (p) => (Array.isArray(p) ? p : [p]).includes('messaging.read'),
+    });
+    renderSidebar();
+    await openCrm();
+    await openWhatsapp();
+    const link = screen.getByRole('link', { name: 'Configuración' });
+    expect(link).toHaveAttribute('href', '/admin/whatsapp/settings');
   });
 });
 
@@ -81,16 +103,16 @@ describe('SBW-2: sin messaging.read no hay entrada', () => {
     });
     renderSidebar('/admin/customers/list');
     await openCrm();
-    expect(screen.queryByRole('link', { name: 'WhatsApp' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^whatsapp$/i })).not.toBeInTheDocument();
     expect(getClientesBtn()).toBeTruthy();
   });
 });
 
 describe('SBW-3: loading muestra la entrada (sin layout shift)', () => {
-  it('renderiza WhatsApp mientras isLoading=true', async () => {
+  it('renderiza el grupo WhatsApp mientras isLoading=true', async () => {
     mockPerms({ isLoading: true, can: () => false });
     renderSidebar();
     await openCrm();
-    expect(screen.getByRole('link', { name: 'WhatsApp' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^whatsapp$/i })).toBeInTheDocument();
   });
 });

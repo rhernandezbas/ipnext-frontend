@@ -92,6 +92,8 @@ const NotificationsPage = lazy(() => import('@/pages/notifications/Notifications
 const ApiDocsPage = lazy(() => import('@/pages/api-docs/ApiDocsPage'));
 // messaging-inbox-fe F1 — inbox WhatsApp (mirror Chatwoot), gated messaging.read.
 const WhatsappInboxPage = lazy(() => import('@/pages/whatsapp/WhatsappInboxPage'));
+// F1.5 polish — settings page del dominio messaging (card chat-media-download).
+const WhatsappSettingsPage = lazy(() => import('@/pages/whatsapp/WhatsappSettingsPage'));
 const GponPage = lazy(() => import('@/pages/gpon/GponPage'));
 // Auditoría / Logs RADIUS — página contenedora con 2 tabs internos (Logs + NE8000).
 // RadiusLogsPage / Ne8000AuditPage ya NO se montan sueltas: viven dentro de NetworkAuditPage.
@@ -396,8 +398,11 @@ export function App() {
               <Route path="api-docs" element={<RequirePermission permission="settings.read"><ApiDocsPage /></RequirePermission>} />
               {/* profile.read — always allow own profile */}
               <Route path="profile" element={<RequirePermission permission="profile.read"><ProfilePage /></RequirePermission>} />
-              {/* messaging.read — inbox WhatsApp (messaging-inbox-fe F1) */}
-              <Route path="whatsapp" element={<RequirePermission permission="messaging.read"><WhatsappInboxPage /></RequirePermission>} />
+              {/* messaging.read — inbox WhatsApp (messaging-inbox-fe F1) + Configuración (F1.5 polish) */}
+              <Route path="whatsapp">
+                <Route index element={<RequirePermission permission="messaging.read"><WhatsappInboxPage /></RequirePermission>} />
+                <Route path="settings" element={<RequirePermission permission="messaging.read"><WhatsappSettingsPage /></RequirePermission>} />
+              </Route>
             </Route>
           </Route>
         </Route>

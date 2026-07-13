@@ -61,6 +61,27 @@ describe('ConversationListItem — LIST-1 (preview+contacto+estado)', () => {
     expect(screen.getByText('Sin mensajes')).toBeInTheDocument();
   });
 
+  it('con preview vacío (string ""), muestra el placeholder ("Sin mensajes")', () => {
+    render(<ConversationListItem conversation={conv({ preview: '' })} selected={false} onClick={vi.fn()} />);
+    expect(screen.getByText('Sin mensajes')).toBeInTheDocument();
+  });
+
+  // F1.5 polish (chat-media-download): el BE ahora manda un preview textual
+  // ("📷 Imagen", "🎥 Video", etc.) para mensajes solo-media, en vez de vacío.
+  // El FE debe mostrar ESE texto tal cual — "Sin mensajes" queda SOLO como
+  // fallback cuando el preview de verdad está vacío/null.
+  it('con preview de solo-media del BE ("📷 Imagen"), lo muestra tal cual (NO "Sin mensajes")', () => {
+    render(<ConversationListItem conversation={conv({ preview: '📷 Imagen' })} selected={false} onClick={vi.fn()} />);
+    expect(screen.getByText('📷 Imagen')).toBeInTheDocument();
+    expect(screen.queryByText('Sin mensajes')).not.toBeInTheDocument();
+  });
+
+  it('con preview de solo-media del BE ("🎥 Video"), lo muestra tal cual (NO "Sin mensajes")', () => {
+    render(<ConversationListItem conversation={conv({ preview: '🎥 Video' })} selected={false} onClick={vi.fn()} />);
+    expect(screen.getByText('🎥 Video')).toBeInTheDocument();
+    expect(screen.queryByText('Sin mensajes')).not.toBeInTheDocument();
+  });
+
   it('sin lastMessageAt, muestra "—" en vez de una hora inválida', () => {
     render(<ConversationListItem conversation={conv({ lastMessageAt: null })} selected={false} onClick={vi.fn()} />);
     expect(screen.getByText('—')).toBeInTheDocument();
