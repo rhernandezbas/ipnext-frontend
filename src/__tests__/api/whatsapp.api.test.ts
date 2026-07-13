@@ -439,7 +439,8 @@ describe('WAPI-11 (messaging-inbox-assignment F1.5-C2): setConversationArea', ()
 describe('WAPI-12 (messaging-inbox-assignment F1.5-C2): getAssignableUsers', () => {
   it('GETs /messaging/assignable-users y devuelve el array plano', async () => {
     const USERS = [{ id: 'u1', name: 'Ana Torres' }, { id: 'u2', name: 'Beto Diaz' }];
-    vi.mocked(axiosClient.get).mockResolvedValue({ data: USERS });
+    // el BE envuelve en { data } (res.json({ data })) — el shape HTTP real, no un array plano
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: { data: USERS } });
 
     const result = await getAssignableUsers();
 
@@ -451,7 +452,8 @@ describe('WAPI-12 (messaging-inbox-assignment F1.5-C2): getAssignableUsers', () 
 describe('WAPI-13 (messaging-inbox-assignment F1.5-C2): getMessagingAreas', () => {
   it('GETs /messaging/areas y devuelve el array plano (catálogo compartido con tickets)', async () => {
     const AREAS = [{ id: 'a1', name: 'Soporte', color: '#2563eb' }, { id: 'a2', name: 'Ventas', color: '#f59e0b' }];
-    vi.mocked(axiosClient.get).mockResolvedValue({ data: AREAS });
+    // el BE envuelve en { data } (res.json({ data })) — el shape HTTP real, no un array plano
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: { data: AREAS } });
 
     const result = await getMessagingAreas();
 

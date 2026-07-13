@@ -171,13 +171,15 @@ export const setConversationArea = (
 
 /**
  * getAssignableUsers / getMessagingAreas (messaging-inbox-assignment F1.5-C2)
- * — catálogos GET planos (sin envelope, sin params) que alimentan los
+ * — catálogos GET (envueltos en `{ data }` por el BE — se desenvuelve acá,
+ * el bug de C2 que el E2E cazó: el componente hacía `.map` sobre el envelope)
+ * que alimentan los
  * dropdowns "Asignar a"/"Área" del header del thread y el chip de la fila de
  * lista. `getMessagingAreas` es el MISMO catálogo que usan Tickets
  * (`GET /messaging/areas`, contrato compartido).
  */
 export const getAssignableUsers = (): Promise<WhatsappAssignee[]> =>
-  axiosClient.get<WhatsappAssignee[]>(`${BASE}/assignable-users`).then(r => r.data);
+  axiosClient.get<{ data: WhatsappAssignee[] }>(`${BASE}/assignable-users`).then(r => r.data.data);
 
 export const getMessagingAreas = (): Promise<WhatsappArea[]> =>
-  axiosClient.get<WhatsappArea[]>(`${BASE}/areas`).then(r => r.data);
+  axiosClient.get<{ data: WhatsappArea[] }>(`${BASE}/areas`).then(r => r.data.data);
