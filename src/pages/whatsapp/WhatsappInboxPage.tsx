@@ -6,18 +6,35 @@ import {
   useWhatsappMessages,
   useSendWhatsappMessage,
   useSetConversationStatus,
+  useSetConversationAssignee,
+  useSetConversationArea,
+  useAssignableUsers,
+  useMessagingAreas,
   usePendingSends,
   whatsappMessagesKey,
 } from '@/hooks/useWhatsapp';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { ConversationList } from './WhatsappInboxPage/components/ConversationList';
 import { MessageThread } from './WhatsappInboxPage/components/MessageThread';
 import { ClientContextPanel } from './WhatsappInboxPage/components/ClientContextPanel';
 import { Composer } from './WhatsappInboxPage/components/Composer';
-import type { WhatsappConversationStatus, WhatsappPaginatedQuery } from '@/types/whatsapp';
+import type {
+  ConversationAssignment,
+  WhatsappArea,
+  WhatsappAssignee,
+  WhatsappConversationStatus,
+  WhatsappPaginatedQuery,
+} from '@/types/whatsapp';
 import styles from './WhatsappInboxPage.module.css';
 
 const STATUS_ERROR_MESSAGE = 'No se pudo actualizar el estado de la conversación. Reintentá.';
-const STATUS_TOAST_DURATION_MS = 4000;
+// hallazgo HIGH #2 (review adversarial F1.5-C2): mismo mecanismo de toast
+// que status — assignee/area piden el mismo permiso (`messaging.send`) y el
+// mismo endpoint-family (`PATCH .../assignee`, `.../area`), así que pueden
+// fallar por las mismas razones (403/500/503) sin ningún indicio hoy.
+const ASSIGNEE_ERROR_MESSAGE = 'No se pudo actualizar el agente asignado. Reintentá.';
+const AREA_ERROR_MESSAGE = 'No se pudo actualizar el área. Reintentá.';
+const INBOX_TOAST_DURATION_MS = 4000;
 
 /**
  * WhatsappInboxPage — container del inbox WhatsApp (messaging-inbox F1,
@@ -42,7 +59,14 @@ const STATUS_TOAST_DURATION_MS = 4000;
  */
 export default function WhatsappInboxPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [query] = useState<WhatsappPaginatedQuery>({});
+  // messaging-inbox-assignment F1.5-C2: `query` ahora tiene setter — el
+  // filtro Todas/Mías/Sin asignar (`ConversationAssignmentFilter`, montado
+  // dentro de `ConversationList`) lo levanta hasta acá. `assignment` queda
+  // AUSENTE del objeto (no `'all'` explícito) cuando el filtro está en
+  // "Todas" — mismo criterio que `listWhatsappConversations` (solo manda el
+  // param cuando viene definido) y preserva el estado inicial `{}` (cero
+  // regresión del wiring/cache-key existentes).
+  const [query, setQuery] = useState<WhatsappPaginatedQuery>({});
   const queryClient = useQueryClient();
 
   const conversationsQuery = useWhatsappConversations(query);
@@ -61,6 +85,22 @@ export default function WhatsappInboxPage() {
   // mutation se derivan del convId capturado AL DISPATCH, no del closure
   // `id` de este hook; ver `useWhatsapp.ts`).
   const { setStatus, isPending: isStatusPending } = useSetConversationStatus(selectedId ?? '');
+  // messaging-inbox-assignment F1.5-C2 (ASIGNACIÓN): mismo criterio que
+  // useSetConversationStatus (instancia PROPIA atada al selectedId; las keys
+  // de cache de la mutation se derivan del convId capturado AL DISPATCH, ver
+  // `useWhatsapp.ts`). Los catálogos (`useAssignableUsers`/`useMessagingAreas`)
+  // son de PÁGINA, no por-conversación — se LLAMAN incondicionalmente (regla
+  // de hooks: nunca detrás de un `if`), pero su fetch real queda gateado por
+  // `enabled` (hallazgo LOW #6, review adversarial): sin `messaging.send` el
+  // usuario no puede asignar nada, así que no tiene sentido pedir el
+  // catálogo. Mismo permiso que gatea la UI (`<Can permission="messaging.send">`
+  // en `MessageThread.tsx`), leído acá vía `useMyPermissions()` directamente.
+  const { setAssignee, isPending: isAssigneePending } = useSetConversationAssignee(selectedId ?? '');
+  const { setArea, isPending: isAreaPending } = useSetConversationArea(selectedId ?? '');
+  const { can } = useMyPermissions();
+  const canAssign = can('messaging.send');
+  const { data: assignableUsers = [] } = useAssignableUsers(canAssign);
+  const { data: messagingAreas = [] } = useMessagingAreas(canAssign);
 
   /**
    * hallazgo MEDIUM #3 (review adversarial F1.5-C): `useSetConversationStatus`
@@ -73,40 +113,67 @@ export default function WhatsappInboxPage() {
    * su propio estado `toast`+`showToast` con un banner `role="alert"`) — NO
    * se inventa un mecanismo nuevo, se replica el existente.
    *
-   * Se engancha vía el 2do argumento de `setStatus` (`opts.onError`,
-   * `useWhatsapp.ts`) en vez de un `useEffect` observando `isError`
-   * reactivamente — evita el problema de "cómo distingo un error nuevo de
-   * uno viejo que ya mostré" que un efecto sobre estado persistente de
-   * TanStack Query arrastraría.
+   * hallazgo HIGH #2 (review adversarial F1.5-C2): generalizado a
+   * `inboxToast` (antes `statusToast`, exclusivo de Resolver/Reabrir) — las
+   * mutations de assignee/area (`onAssigneeChange`/`onAreaChange` de acá
+   * abajo) pegan al mismo endpoint-family y pueden fallar por las mismas
+   * razones, pero quedaban SIN ningún feedback (a diferencia de status). Un
+   * solo estado de toast alcanza: las 3 mutations son mutuamente excluyentes
+   * en la UI (un solo control a la vez dispara un cambio), así que no hace
+   * falta un stack de banners.
+   *
+   * Se engancha vía el 2do argumento de `setStatus`/`setAssignee`/`setArea`
+   * (`opts.onError`, `useWhatsapp.ts`) en vez de un `useEffect` observando
+   * `isError` reactivamente — evita el problema de "cómo distingo un error
+   * nuevo de uno viejo que ya mostré" que un efecto sobre estado persistente
+   * de TanStack Query arrastraría.
    */
-  const [statusToast, setStatusToast] = useState<string | null>(null);
-  const statusToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [inboxToast, setInboxToast] = useState<string | null>(null);
+  const inboxToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showInboxToast(message: string) {
+    setInboxToast(message);
+    if (inboxToastTimer.current) clearTimeout(inboxToastTimer.current);
+    inboxToastTimer.current = setTimeout(() => setInboxToast(null), INBOX_TOAST_DURATION_MS);
+  }
 
   function handleToggleStatus(next: WhatsappConversationStatus) {
-    setStatus(next, {
-      onError: () => {
-        setStatusToast(STATUS_ERROR_MESSAGE);
-        if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
-        statusToastTimer.current = setTimeout(() => setStatusToast(null), STATUS_TOAST_DURATION_MS);
-      },
-    });
+    setStatus(next, { onError: () => showInboxToast(STATUS_ERROR_MESSAGE) });
+  }
+
+  function handleAssigneeChange(next: WhatsappAssignee | null) {
+    setAssignee(next, { onError: () => showInboxToast(ASSIGNEE_ERROR_MESSAGE) });
+  }
+
+  function handleAreaChange(next: WhatsappArea | null) {
+    setArea(next, { onError: () => showInboxToast(AREA_ERROR_MESSAGE) });
+  }
+
+  /**
+   * F1.5-C2 (ASIGNACIÓN) — cambia el filtro server-side de la lista.
+   * `undefined` cuando vuelve a "all": mantiene `{}` como identidad estable
+   * del estado inicial (mismo cache entry, ver comment de `query` arriba).
+   */
+  function handleAssignmentChange(next: ConversationAssignment) {
+    setQuery((q) => ({ ...q, assignment: next === 'all' ? undefined : next }));
   }
 
   /**
    * Re-review MEDIUM (contaminación entre conversaciones, memoria
-   * `inbox-key-por-conversacion` — nos mordió 2 veces): `statusToast` es
+   * `inbox-key-por-conversacion` — nos mordió 2 veces): `inboxToast` es
    * estado de ESTA página (que NO se remonta al cambiar `selectedId`) y solo
    * se limpiaba por su timeout de 4s. Sin esto, un error del Resolver/Reabrir
-   * de la conversación A quedaba visible sobre la B si el agente cambiaba
-   * dentro de esa ventana — el banner genérico ("no se pudo actualizar…")
-   * leería como que la conversación ACTUAL falló cuando fue otra. Al cambiar
-   * de conversación, descartar el toast (y su timer) inmediatamente.
+   * (o de asignación, hallazgo HIGH #2) de la conversación A quedaba visible
+   * sobre la B si el agente cambiaba dentro de esa ventana — el banner
+   * genérico ("no se pudo actualizar…") leería como que la conversación
+   * ACTUAL falló cuando fue otra. Al cambiar de conversación, descartar el
+   * toast (y su timer) inmediatamente.
    */
   useEffect(() => {
-    setStatusToast(null);
-    if (statusToastTimer.current) {
-      clearTimeout(statusToastTimer.current);
-      statusToastTimer.current = null;
+    setInboxToast(null);
+    if (inboxToastTimer.current) {
+      clearTimeout(inboxToastTimer.current);
+      inboxToastTimer.current = null;
     }
   }, [selectedId]);
 
@@ -144,6 +211,8 @@ export default function WhatsappInboxPage() {
           isError={conversationsQuery.isError}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          assignment={query.assignment ?? 'all'}
+          onAssignmentChange={handleAssignmentChange}
         />
       </div>
 
@@ -163,6 +232,14 @@ export default function WhatsappInboxPage() {
             status={detail?.status ?? selectedListItem?.status ?? null}
             onToggleStatus={handleToggleStatus}
             isStatusPending={isStatusPending}
+            assignee={detail?.assignee ?? selectedListItem?.assignee ?? null}
+            area={detail?.area ?? selectedListItem?.area ?? null}
+            assignableUsers={assignableUsers}
+            areas={messagingAreas}
+            onAssigneeChange={handleAssigneeChange}
+            onAreaChange={handleAreaChange}
+            isAssigneePending={isAssigneePending}
+            isAreaPending={isAreaPending}
           />
         </div>
 
@@ -207,12 +284,13 @@ export default function WhatsappInboxPage() {
         <ClientContextPanel key={selectedId} conversationId={selectedId} lightContext={detail?.clientContext} />
       </div>
 
-      {/* hallazgo MEDIUM #3: toast local (mismo mecanismo que
+      {/* hallazgo MEDIUM #3 / HIGH #2: toast local (mismo mecanismo que
           TicketsTableView/RecaptacionPage/SchedulingTaskDetailPage — no hay
-          un ToastContext/useToast global en el repo). */}
-      {statusToast && (
+          un ToastContext/useToast global en el repo). Cubre status/assignee/
+          area — ver `inboxToast` arriba. */}
+      {inboxToast && (
         <div className={styles.statusToast} role="alert" aria-live="assertive">
-          {statusToast}
+          {inboxToast}
         </div>
       )}
     </div>

@@ -1,0 +1,102 @@
+/**
+ * ConversationAssignmentFilter.module.css — segmented radiogroup
+ * Todas/Mías/Sin asignar (messaging-inbox-assignment F1.5-C2). CLON de
+ * `ComposeModeToggle.module.css` generalizado de 2 a 3 segmentos: el pill
+ * mide `(100% - 4px)/3` (mismo padding de 2px del container) y se desplaza en
+ * múltiplos de `translateX(100%)` de SU PROPIO ancho (no del container) — la
+ * misma técnica que ya usa el toggle de 2 segmentos, un selector más. Token
+ * local `--wa-ease-out` (standalone-safe, mismo motivo que el resto de
+ * `WhatsappInboxPage/components/*.module.css`).
+ */
+
+.fieldset {
+  --wa-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.toggle {
+  position: relative;
+  display: flex;
+  padding: 2px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-hover);
+}
+
+.pill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / 3);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  transform: translateX(0%);
+  transition: transform 150ms var(--wa-ease-out);
+  pointer-events: none;
+}
+
+.pill[data-assignment='mine'] {
+  transform: translateX(100%);
+}
+
+.pill[data-assignment='unassigned'] {
+  transform: translateX(200%);
+}
+
+.segment {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--space-11); /* 44px — A11Y-1 touch target */
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+  text-align: center;
+}
+
+.segment:has(.radioInput:checked) {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.segmentLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Radio nativo: oculto visualmente pero focuseable (mismo patrón .srOnly del
+   resto del repo — NUNCA display:none, eso rompe foco/teclado). */
+.radioInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.radioInput:focus-visible + .segmentLabel {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill {
+    transition: none;
+  }
+}

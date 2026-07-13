@@ -12,6 +12,14 @@
   overflow: hidden;
 }
 
+/* messaging-inbox-assignment F1.5-C2 — filtro Todas/Mías/Sin asignar, arriba
+   del search (sin border propio: el `.searchWrapper` de abajo ya cierra el
+   bloque combinado con su `border-bottom`). */
+.filterWrapper {
+  flex-shrink: 0;
+  padding: var(--space-3) var(--space-3) 0;
+}
+
 .searchWrapper {
   flex-shrink: 0;
   padding: var(--space-3);

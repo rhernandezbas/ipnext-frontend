@@ -113,3 +113,57 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* messaging-inbox-assignment F1.5-C2 — 3ra fila condicional (agente + área). */
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 2px;
+}
+
+.assigneeName {
+  min-width: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+ * hallazgo MEDIUM #3 (review adversarial F1.5-C2) — el color del área es
+ * SOLO un acento (`.areaDot`), NUNCA el fondo del texto: un hex arbitrario
+ * del catálogo (ej. rojo puro saturado) no garantiza 4.5:1 de contraste con
+ * NINGÚN texto encima. `.areaName` usa el color de texto seguro del theme.
+ *
+ * hallazgo MEDIUM #4 — `.areaName` tiene tope de ancho (max-width +
+ * overflow:hidden + text-overflow:ellipsis + min-width:0) para que un
+ * nombre de área largo no empuje el layout de la fila (mismo criterio que
+ * ya aplica `.assigneeName`, arriba).
+ */
+.areaChip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.areaDot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+}
+
+.areaName {
+  min-width: 0;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}

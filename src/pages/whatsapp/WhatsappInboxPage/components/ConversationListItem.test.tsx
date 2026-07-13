@@ -93,6 +93,62 @@ describe('ConversationListItem — LIST-1 (preview+contacto+estado)', () => {
   });
 });
 
+describe('ConversationListItem — assignee/area (messaging-inbox-assignment F1.5-C2)', () => {
+  it('con assignee, muestra el nombre del agente asignado', () => {
+    render(<ConversationListItem conversation={conv({ assignee: { id: 'u1', name: 'Ana Torres' } })} selected={false} onClick={vi.fn()} />);
+    expect(screen.getByText('Ana Torres')).toBeInTheDocument();
+  });
+
+  it('sin assignee (null), no muestra ningún texto de agente', () => {
+    render(<ConversationListItem conversation={conv({ assignee: null })} selected={false} onClick={vi.fn()} />);
+    expect(screen.queryByText(/ana torres/i)).toBeNull();
+  });
+
+  it('sin el campo assignee (undefined — fixture previo a esta tanda), no crashea ni muestra nada', () => {
+    render(<ConversationListItem conversation={conv()} selected={false} onClick={vi.fn()} />);
+    expect(screen.getByRole('button')).toBeInTheDocument();
+  });
+
+  // hallazgo MEDIUM #3 (review adversarial F1.5-C2): el chip usaba el hex del
+  // área como FONDO del texto (+ `readableTextColor` encima) — para hexes muy
+  // SATURADOS (ej. rojo puro) ninguna opción de texto (blanco/casi-negro)
+  // llega a 4.5:1 de contraste real (el umbral de luminancia de
+  // `readableTextColor` no captura eso). Fix: el hex es SOLO un acento (un
+  // dot), el nombre va en un color de texto SEGURO del theme — así CUALQUIER
+  // hex del catálogo es legal, sin depender de heurísticas de contraste.
+  it('con area, el nombre usa la clase de texto del theme (NO backgroundColor/color inline calculados del hex)', () => {
+    render(<ConversationListItem conversation={conv({ area: { id: 'a1', name: 'Soporte', color: '#2563eb' } })} selected={false} onClick={vi.fn()} />);
+    const name = screen.getByText('Soporte');
+    expect(name).toBeInTheDocument();
+    expect(name).toHaveClass('areaName');
+    expect(name).not.toHaveStyle({ backgroundColor: '#2563eb' });
+    expect(name.style.color).toBe('');
+  });
+
+  it('el hex del área aparece SOLO como acento (un dot), nunca como fondo del texto — ni siquiera para hexes muy saturados (rojo puro)', () => {
+    render(<ConversationListItem conversation={conv({ area: { id: 'a4', name: 'Alertas', color: '#ff0000' } })} selected={false} onClick={vi.fn()} />);
+    const name = screen.getByText('Alertas');
+    expect(name).not.toHaveStyle({ backgroundColor: '#ff0000' });
+
+    const dot = screen.getByTestId('area-dot');
+    expect(dot).toHaveStyle({ backgroundColor: '#ff0000' });
+    expect(dot).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('el mismo criterio vale sobre un fondo claro (amber) — el nombre sigue en el color de texto del theme, no en negro calculado', () => {
+    render(<ConversationListItem conversation={conv({ area: { id: 'a2', name: 'Ventas', color: '#fde68a' } })} selected={false} onClick={vi.fn()} />);
+    const name = screen.getByText('Ventas');
+    expect(name).toHaveClass('areaName');
+    expect(name).not.toHaveStyle({ backgroundColor: '#fde68a' });
+  });
+
+  it('sin area (null), no muestra ningún chip ni dot', () => {
+    render(<ConversationListItem conversation={conv({ area: null })} selected={false} onClick={vi.fn()} />);
+    expect(screen.queryByText('Soporte')).toBeNull();
+    expect(screen.queryByTestId('area-dot')).toBeNull();
+  });
+});
+
 describe('ConversationListItem — selección (design §7: background-color, sin transform)', () => {
   it('marca el item seleccionado con aria-current', () => {
     render(<ConversationListItem conversation={conv()} selected onClick={vi.fn()} />);

@@ -269,6 +269,57 @@ describe('useSetConversationStatus(id).setStatus — onSettled invalida (el opti
   });
 });
 
+describe('useSetConversationStatus(id) — rollback FIELD-SCOPED (hallazgo CRÍTICO #1, review adversarial F1.5-C2: mismo patrón que useSetConversationAssignee/useSetConversationArea)', () => {
+  it('dos convs: cambiar status de A (falla) DESPUÉS de cambiar status de B (ya asentado) → la fila de B en la lista NO se revierte', async () => {
+    let rejectA!: (e: unknown) => void;
+    vi.mocked(setConversationStatus).mockImplementation((convId: string) => {
+      if (convId === 'conv-1') return new Promise((_resolve, reject) => { rejectA = reject; });
+      return Promise.resolve({ ...OTHER_LIST_ITEM, status: 'resolved' });
+    });
+    const { qc, wrapper } = makeWrapper();
+    qc.setQueryData(whatsappConversationsKey({}), PAGE); // conv-1:open, conv-2:open
+
+    const { result } = renderHook(
+      () => ({
+        a: useSetConversationStatus('conv-1'),
+        b: useSetConversationStatus('conv-2'),
+      }),
+      { wrapper },
+    );
+
+    // 1. A arranca (en vuelo) — snapshotea la página ANTES de que B cambie.
+    act(() => {
+      result.current.a.setStatus('resolved');
+    });
+    await waitFor(() => {
+      const page = qc.getQueryData<WhatsappPaginatedResult<WhatsappConversationListItem>>(whatsappConversationsKey({}));
+      expect(page?.data.find((c) => c.id === 'conv-1')?.status).toBe('resolved');
+    });
+
+    // 2. B cambia y se asienta (mutation completa) MIENTRAS A sigue en vuelo.
+    await act(async () => {
+      result.current.b.setStatus('resolved');
+    });
+    await waitFor(() => {
+      const page = qc.getQueryData<WhatsappPaginatedResult<WhatsappConversationListItem>>(whatsappConversationsKey({}));
+      expect(page?.data.find((c) => c.id === 'conv-2')?.status).toBe('resolved');
+    });
+
+    // 3. AHORA falla A.
+    await act(async () => {
+      rejectA(new Error('403'));
+    });
+
+    await waitFor(() => {
+      const page = qc.getQueryData<WhatsappPaginatedResult<WhatsappConversationListItem>>(whatsappConversationsKey({}));
+      expect(page?.data.find((c) => c.id === 'conv-1')?.status).toBe('open');
+    });
+    // La fila de B (asentada por SU PROPIA mutation, ajena a la de A) NO debe revertirse.
+    const page = qc.getQueryData<WhatsappPaginatedResult<WhatsappConversationListItem>>(whatsappConversationsKey({}));
+    expect(page?.data.find((c) => c.id === 'conv-2')?.status).toBe('resolved');
+  });
+});
+
 describe('useSetConversationStatus(id) — bug CRÍTICO #1 defensa (keys derivadas de convId capturado en el dispatch, no del closure `id`)', () => {
   it('si el conversationId cambia MIENTRAS la mutation está en vuelo, el resultado se asienta en el slice de la conversación ORIGINAL', async () => {
     // hallazgo MEDIUM #4: shape de LISTA, no de detalle (ver nota arriba).

@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Input } from '@/components/atoms/Input/Input';
 import { ConversationListItem } from './ConversationListItem';
+import { ConversationAssignmentFilter } from './ConversationAssignmentFilter';
 import { Skeleton } from './Skeleton';
-import type { WhatsappConversationListItem } from '@/types/whatsapp';
+import type { ConversationAssignment, WhatsappConversationListItem } from '@/types/whatsapp';
 import styles from './ConversationList.module.css';
 
 interface ConversationListProps {
@@ -11,6 +12,14 @@ interface ConversationListProps {
   isError?: boolean;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /**
+   * messaging-inbox-assignment F1.5-C2 — filtro de asignación SERVER-SIDE
+   * (`WhatsappInboxPage` orquesta `useWhatsappConversations` con este valor en
+   * el `query`, design contrato). Opcionales con default 'all'/no-op para no
+   * romper los call sites/tests previos a esta tanda (que no lo pasan).
+   */
+  assignment?: ConversationAssignment;
+  onAssignmentChange?: (next: ConversationAssignment) => void;
 }
 
 const SKELETON_ROWS = 5;
@@ -36,7 +45,15 @@ function timeValue(iso: string | null): number {
  * garantiza orden) y el filtro de búsqueda client-side (sin `search` param en
  * `WhatsappPaginatedQuery`).
  */
-export function ConversationList({ conversations, isLoading, isError = false, selectedId, onSelect }: ConversationListProps) {
+export function ConversationList({
+  conversations,
+  isLoading,
+  isError = false,
+  selectedId,
+  onSelect,
+  assignment = 'all',
+  onAssignmentChange = () => {},
+}: ConversationListProps) {
   const [search, setSearch] = useState('');
 
   const visible = useMemo(
@@ -50,6 +67,10 @@ export function ConversationList({ conversations, isLoading, isError = false, se
 
   return (
     <div className={styles.panel}>
+      <div className={styles.filterWrapper}>
+        <ConversationAssignmentFilter value={assignment} onChange={onAssignmentChange} />
+      </div>
+
       <div className={styles.searchWrapper}>
         <Input
           type="search"

@@ -9,6 +9,26 @@
  * (`ConversationDetailDto`, fetch-on-open). El badge de fila usa `status`.
  */
 
+// ─── Asignación (messaging-inbox-assignment F1.5-C2 — ASIGNACIÓN) — espejo de
+// `ConversationListItemDto.assignee`/`.area` (`ipnext-backend`). `WhatsappAssignee`
+// reusa el MISMO shape que devuelve `GET /messaging/assignable-users` (design
+// contrato: `[{id,name}]`) — el agente asignado de una conversación y una fila
+// de la lista de asignables son el mismo DTO, no hace falta duplicar el tipo.
+
+export interface WhatsappAssignee {
+  id: string;
+  name: string;
+}
+
+/** Catálogo COMPARTIDO con tickets (`GET /messaging/areas`, mismo shape que `TicketArea`). */
+export interface WhatsappArea {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export type ConversationAssignment = 'all' | 'mine' | 'unassigned';
+
 export interface WhatsappConversationListItem {
   id: string;
   contactName: string | null;
@@ -16,6 +36,17 @@ export interface WhatsappConversationListItem {
   lastMessageAt: string | null;
   preview: string | null;
   status: string;
+  /**
+   * Aditivo (messaging-inbox-assignment F1.5-C2) — opcional para no romper
+   * los fixtures existentes (ConversationList/ConversationListItem/
+   * WhatsappInboxPage tests, anteriores a esta tanda) que construyen el DTO
+   * sin estos 2 campos. El BE siempre manda `assignee`/`area` (`null` cuando
+   * no hay asignación), nunca `undefined` — el FE los trata igual
+   * (`conversation.assignee ?? null`), mismo criterio que `attachments`/
+   * `private` en `WhatsappMessage` de más abajo.
+   */
+  assignee?: WhatsappAssignee | null;
+  area?: WhatsappArea | null;
 }
 
 export interface WhatsappClientContextClient {
@@ -222,6 +253,8 @@ export interface PendingSend {
 export interface WhatsappPaginatedQuery {
   page?: number;
   limit?: number;
+  /** messaging-inbox-assignment F1.5-C2 — filtro server-side (LIST-1 enmendado). */
+  assignment?: ConversationAssignment;
 }
 
 export interface WhatsappPaginatedResult<T> {

@@ -23,6 +23,8 @@ import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 import WhatsappInboxPage from '@/pages/whatsapp/WhatsappInboxPage';
 import type {
   PendingSend,
+  WhatsappArea,
+  WhatsappAssignee,
   WhatsappConversationListItem,
   WhatsappConversationDetail,
   WhatsappInboxClientContext,
@@ -196,6 +198,26 @@ function setHooks({
     isError: false,
     error: null,
   } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+  // messaging-inbox-assignment F1.5-C2 (ASIGNACIÓN): defaults neutros —
+  // cada test que necesite espiar `setAssignee`/`setArea` los sobreescribe.
+  vi.mocked(useWhatsappModule.useSetConversationAssignee).mockReturnValue({
+    setAssignee: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+  } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationAssignee>);
+  vi.mocked(useWhatsappModule.useSetConversationArea).mockReturnValue({
+    setArea: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+  } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationArea>);
+  vi.mocked(useWhatsappModule.useAssignableUsers).mockReturnValue(
+    mockQuery<WhatsappAssignee[]>({ data: [], isLoading: false }),
+  );
+  vi.mocked(useWhatsappModule.useMessagingAreas).mockReturnValue(
+    mockQuery<WhatsappArea[]>({ data: [], isLoading: false }),
+  );
 }
 
 function renderPage() {
@@ -640,6 +662,254 @@ describe('WhatsappInboxPage — hallazgo MEDIUM #3 (review adversarial: surface 
     // el agente cambia a OTRA conversación dentro de la ventana de 4s del toast:
     // el banner de error de Maria NO debe quedar visible sobre Juan (leería
     // como que la conversación ACTUAL falló cuando fue otra).
+    await user.click(screen.getByRole('button', { name: /Conversación con Juan Perez/i }));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('WhatsappInboxPage — F1.5-C2 (ASIGNACIÓN): filtro Todas/Mías/Sin asignar (server-side)', () => {
+  it('por default llama a useWhatsappConversations con {} (sin assignment) — cero regresión del wiring existente', () => {
+    renderPage();
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenCalledWith({});
+  });
+
+  it('cambiar a la pestaña "Mías" pasa {assignment:"mine"} a useWhatsappConversations', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('radio', { name: 'Mías' }));
+
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ assignment: 'mine' });
+  });
+
+  it('cambiar a "Sin asignar" pasa {assignment:"unassigned"}', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('radio', { name: 'Sin asignar' }));
+
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ assignment: 'unassigned' });
+  });
+
+  it('volver a "Todas" (desde "Mías") vuelve a {} — mismo cache entry que el estado inicial', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('radio', { name: 'Mías' }));
+    await user.click(screen.getByRole('radio', { name: 'Todas' }));
+
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({});
+  });
+});
+
+describe('WhatsappInboxPage — F1.5-C2 (ASIGNACIÓN): wiring de assignee/area al header del thread', () => {
+  const USER_ANA: WhatsappAssignee = { id: 'u1', name: 'Ana Torres' };
+  const AREA_SOPORTE: WhatsappArea = { id: 'a1', name: 'Soporte', color: '#2563eb' };
+
+  it('useAssignableUsers/useMessagingAreas se llaman incondicionalmente (catálogos de página, no por-conversación)', () => {
+    renderPage();
+    expect(useWhatsappModule.useAssignableUsers).toHaveBeenCalled();
+    expect(useWhatsappModule.useMessagingAreas).toHaveBeenCalled();
+  });
+
+  it('useSetConversationAssignee/useSetConversationArea se llaman con el selectedId (o "" sin selección)', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(useWhatsappModule.useSetConversationAssignee).toHaveBeenCalledWith('');
+    expect(useWhatsappModule.useSetConversationArea).toHaveBeenCalledWith('');
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+
+    expect(useWhatsappModule.useSetConversationAssignee).toHaveBeenLastCalledWith('conv-b');
+    expect(useWhatsappModule.useSetConversationArea).toHaveBeenLastCalledWith('conv-b');
+  });
+
+  it('el header muestra los selects con el catálogo + el assignee/area actuales de la conversación seleccionada', async () => {
+    setHooks({ detail: { ...DETAIL_B, assignee: USER_ANA, area: AREA_SOPORTE }, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useAssignableUsers).mockReturnValue(
+      mockQuery<WhatsappAssignee[]>({ data: [USER_ANA], isLoading: false }),
+    );
+    vi.mocked(useWhatsappModule.useMessagingAreas).mockReturnValue(
+      mockQuery<WhatsappArea[]>({ data: [AREA_SOPORTE], isLoading: false }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+
+    expect(screen.getByRole('combobox', { name: /asignar a/i })).toHaveValue('u1');
+    expect(screen.getByRole('combobox', { name: /^área$/i })).toHaveValue('a1');
+  });
+
+  it('elegir un agente en el select llama a setAssignee del hook', async () => {
+    const setAssignee = vi.fn();
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useAssignableUsers).mockReturnValue(
+      mockQuery<WhatsappAssignee[]>({ data: [USER_ANA], isLoading: false }),
+    );
+    vi.mocked(useWhatsappModule.useSetConversationAssignee).mockReturnValue({
+      setAssignee,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationAssignee>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.selectOptions(screen.getByRole('combobox', { name: /asignar a/i }), 'u1');
+
+    // hallazgo HIGH #2 (review adversarial): `setAssignee` ahora reenvía un
+    // 2do argumento (`{onError}`) para poder surfacear el error de la
+    // mutation (antes descartado en silencio, a diferencia de status) — ver
+    // el describe dedicado a ese hallazgo, más abajo.
+    expect(setAssignee).toHaveBeenCalledWith(USER_ANA, expect.objectContaining({ onError: expect.any(Function) }));
+  });
+
+  it('elegir un área en el select llama a setArea del hook', async () => {
+    const setArea = vi.fn();
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useMessagingAreas).mockReturnValue(
+      mockQuery<WhatsappArea[]>({ data: [AREA_SOPORTE], isLoading: false }),
+    );
+    vi.mocked(useWhatsappModule.useSetConversationArea).mockReturnValue({
+      setArea,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationArea>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.selectOptions(screen.getByRole('combobox', { name: /^área$/i }), 'a1');
+
+    // hallazgo HIGH #2 (review adversarial): mismo criterio que setAssignee arriba.
+    expect(setArea).toHaveBeenCalledWith(AREA_SOPORTE, expect.objectContaining({ onError: expect.any(Function) }));
+  });
+
+  it('isPending de cada mutation deshabilita SOLO su propio select', async () => {
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationAssignee).mockReturnValue({
+      setAssignee: vi.fn(),
+      isPending: true,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationAssignee>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+
+    expect(screen.getByRole('combobox', { name: /asignar a/i })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: /^área$/i })).not.toBeDisabled();
+  });
+
+  it('sin selección, el header no muestra los selects de asignación', () => {
+    renderPage();
+    expect(screen.queryByRole('combobox', { name: /asignar a/i })).toBeNull();
+  });
+});
+
+describe('WhatsappInboxPage — REGRESIÓN + hallazgo LOW #6 (gate: catálogos de asignación solo se piden si el usuario puede asignar)', () => {
+  it('sin permiso messaging.send, useAssignableUsers/useMessagingAreas se llaman con enabled:false (no se pide el catálogo)', () => {
+    vi.mocked(useMyPermissionsModule.useMyPermissions).mockReturnValue({
+      permissions: [],
+      roles: [],
+      user: null,
+      isLoading: false,
+      isError: false,
+      can: () => false,
+    } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+    renderPage();
+
+    expect(useWhatsappModule.useAssignableUsers).toHaveBeenCalledWith(false);
+    expect(useWhatsappModule.useMessagingAreas).toHaveBeenCalledWith(false);
+  });
+
+  it('con permiso messaging.send, se llaman con enabled:true', () => {
+    renderPage();
+
+    expect(useWhatsappModule.useAssignableUsers).toHaveBeenCalledWith(true);
+    expect(useWhatsappModule.useMessagingAreas).toHaveBeenCalledWith(true);
+  });
+});
+
+describe('WhatsappInboxPage — hallazgo HIGH #2 (review adversarial: sin feedback de error al fallar assignee/area, a diferencia de status)', () => {
+  const USER_ANA: WhatsappAssignee = { id: 'u1', name: 'Ana Torres' };
+  const AREA_SOPORTE: WhatsappArea = { id: 'a1', name: 'Soporte', color: '#2563eb' };
+
+  it('si el PATCH de assignee falla, se muestra un feedback de error visible (role="alert")', async () => {
+    const setAssignee = vi.fn((_next: WhatsappAssignee | null, opts?: { onError?: (err: unknown) => void }) => {
+      opts?.onError?.(new Error('403'));
+    });
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useAssignableUsers).mockReturnValue(
+      mockQuery<WhatsappAssignee[]>({ data: [USER_ANA], isLoading: false }),
+    );
+    vi.mocked(useWhatsappModule.useSetConversationAssignee).mockReturnValue({
+      setAssignee,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationAssignee>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    await user.selectOptions(screen.getByRole('combobox', { name: /asignar a/i }), 'u1');
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/no se pudo/i);
+  });
+
+  it('si el PATCH de area falla, se muestra un feedback de error visible (role="alert")', async () => {
+    const setArea = vi.fn((_next: WhatsappArea | null, opts?: { onError?: (err: unknown) => void }) => {
+      opts?.onError?.(new Error('403'));
+    });
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useMessagingAreas).mockReturnValue(
+      mockQuery<WhatsappArea[]>({ data: [AREA_SOPORTE], isLoading: false }),
+    );
+    vi.mocked(useWhatsappModule.useSetConversationArea).mockReturnValue({
+      setArea,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationArea>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+
+    await user.selectOptions(screen.getByRole('combobox', { name: /^área$/i }), 'a1');
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/no se pudo/i);
+  });
+
+  it('el toast de error de assignee NO queda pegado al cambiar de conversación (mismo criterio que el toast de status)', async () => {
+    const setAssignee = vi.fn((_next: WhatsappAssignee | null, opts?: { onError?: (err: unknown) => void }) => {
+      opts?.onError?.(new Error('403'));
+    });
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useAssignableUsers).mockReturnValue(
+      mockQuery<WhatsappAssignee[]>({ data: [USER_ANA], isLoading: false }),
+    );
+    vi.mocked(useWhatsappModule.useSetConversationAssignee).mockReturnValue({
+      setAssignee,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationAssignee>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.selectOptions(screen.getByRole('combobox', { name: /asignar a/i }), 'u1');
+    expect(screen.getByRole('alert')).toHaveTextContent(/no se pudo/i);
+
     await user.click(screen.getByRole('button', { name: /Conversación con Juan Perez/i }));
     expect(screen.queryByRole('alert')).toBeNull();
   });

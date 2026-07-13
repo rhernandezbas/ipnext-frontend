@@ -29,6 +29,15 @@ vi.mock('@/api/whatsapp.api', () => ({
   listWhatsappMessages: vi.fn(),
   sendWhatsappMessage: vi.fn(),
   getInboxClientContext: vi.fn(),
+  // REGRESIÓN (review adversarial hallazgo #0): `WhatsappInboxPage` ahora
+  // también llama a `useAssignableUsers`/`useMessagingAreas` (F1.5-C2,
+  // ASIGNACIÓN) — cualquier test que renderice la page entera y mockee este
+  // módulo necesita estos 2 exports, aunque el gate `enabled` (hallazgo LOW
+  // #6, `useWhatsapp.ts`) los deje sin disparar cuando el usuario no puede
+  // asignar. Acá `useMyPermissions` está mockeado con `messaging.send`
+  // concedido (ver abajo), así que SÍ se disparan.
+  getAssignableUsers: vi.fn(),
+  getMessagingAreas: vi.fn(),
 }));
 vi.mock('@/hooks/useMyPermissions');
 
@@ -120,6 +129,8 @@ beforeEach(() => {
   vi.mocked(whatsappApi.getWhatsappConversation).mockResolvedValue(DETAIL);
   vi.mocked(whatsappApi.listWhatsappMessages).mockResolvedValue([MESSAGE_WITH_FAILED_ATTACHMENT]);
   vi.mocked(whatsappApi.getInboxClientContext).mockResolvedValue(NEUTRAL_RICH_CONTEXT);
+  vi.mocked(whatsappApi.getAssignableUsers).mockResolvedValue([]);
+  vi.mocked(whatsappApi.getMessagingAreas).mockResolvedValue([]);
 });
 
 describe('Retry de adjunto failed — bug crítico #1 (onRetry muerto, control sin cablear)', () => {

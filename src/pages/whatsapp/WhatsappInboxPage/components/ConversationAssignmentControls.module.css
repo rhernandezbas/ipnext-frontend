@@ -1,0 +1,72 @@
+/**
+ * ConversationAssignmentControls — dropdowns "Asignar a"/"Área" del header del
+ * thread (messaging-inbox-assignment F1.5-C2). Token local `--wa-ease-out`
+ * (mismo motivo que el resto de `WhatsappInboxPage/components/*.module.css`
+ * — standalone-safe).
+ */
+
+.controls {
+  --wa-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.label {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.select {
+  min-height: var(--space-11); /* 44px — A11Y-1 touch target */
+  max-width: 160px;
+  padding: 0 var(--space-2);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: border-color 150ms ease;
+}
+
+.select:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Pequeño acento de color del área actual — puramente decorativo (el nombre
+   real vive en el <select>, este dot NO lleva texto encima así que no
+   necesita `readableTextColor`, a diferencia del chip de `ConversationListItem`). */
+.swatch {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .select {
+    transition: none;
+  }
+}

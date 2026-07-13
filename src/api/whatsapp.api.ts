@@ -1,5 +1,7 @@
 import axiosClient from './axios-client';
 import type {
+  WhatsappArea,
+  WhatsappAssignee,
   WhatsappConversationDetail,
   WhatsappConversationListItem,
   WhatsappConversationStatus,
@@ -32,9 +34,13 @@ const BASE = '/messaging';
 export const listWhatsappConversations = (
   query: WhatsappPaginatedQuery = {},
 ): Promise<WhatsappPaginatedResult<WhatsappConversationListItem>> => {
-  const params: Record<string, number> = {};
+  const params: Record<string, number | string> = {};
   if (query.page) params['page'] = query.page;
   if (query.limit) params['limit'] = query.limit;
+  // messaging-inbox-assignment F1.5-C2 (LIST-1 enmendado): 'assignment' filtra
+  // server-side (mine|unassigned|all) — mismo criterio que page/limit, solo se
+  // manda cuando viene definido (WAPI-1/2: sin query no manda params vacíos).
+  if (query.assignment) params['assignment'] = query.assignment;
 
   return axiosClient
     .get<WhatsappPaginatedResult<WhatsappConversationListItem>>(`${BASE}/conversations`, { params })
@@ -139,3 +145,39 @@ export const setConversationStatus = (
   axiosClient
     .post<WhatsappConversationListItem>(`${BASE}/conversations/${id}/status`, { status })
     .then(r => r.data);
+
+/**
+ * setConversationAssignee / setConversationArea (messaging-inbox-assignment
+ * F1.5-C2 — ASIGNACIÓN) — PATCH `.../assignee` y `.../area` con `{assigneeId}`/
+ * `{areaId}` (string | null; `null` desasigna/quita área), devuelven la
+ * conversación actualizada (shape de LISTA, mismo criterio que
+ * `setConversationStatus` — WAPI-8: SIN `canReply`/`clientContext`).
+ */
+export const setConversationAssignee = (
+  id: string,
+  assigneeId: string | null,
+): Promise<WhatsappConversationListItem> =>
+  axiosClient
+    .patch<WhatsappConversationListItem>(`${BASE}/conversations/${id}/assignee`, { assigneeId })
+    .then(r => r.data);
+
+export const setConversationArea = (
+  id: string,
+  areaId: string | null,
+): Promise<WhatsappConversationListItem> =>
+  axiosClient
+    .patch<WhatsappConversationListItem>(`${BASE}/conversations/${id}/area`, { areaId })
+    .then(r => r.data);
+
+/**
+ * getAssignableUsers / getMessagingAreas (messaging-inbox-assignment F1.5-C2)
+ * — catálogos GET planos (sin envelope, sin params) que alimentan los
+ * dropdowns "Asignar a"/"Área" del header del thread y el chip de la fila de
+ * lista. `getMessagingAreas` es el MISMO catálogo que usan Tickets
+ * (`GET /messaging/areas`, contrato compartido).
+ */
+export const getAssignableUsers = (): Promise<WhatsappAssignee[]> =>
+  axiosClient.get<WhatsappAssignee[]>(`${BASE}/assignable-users`).then(r => r.data);
+
+export const getMessagingAreas = (): Promise<WhatsappArea[]> =>
+  axiosClient.get<WhatsappArea[]>(`${BASE}/areas`).then(r => r.data);

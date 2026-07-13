@@ -14,7 +14,7 @@ vi.mock('@/hooks/useMyPermissions');
 
 import * as useMyPermissionsModule from '@/hooks/useMyPermissions';
 import { MessageThread } from './MessageThread';
-import type { PendingSend, WhatsappMessage } from '@/types/whatsapp';
+import type { PendingSend, WhatsappArea, WhatsappAssignee, WhatsappMessage } from '@/types/whatsapp';
 
 /**
  * hallazgo HIGH #1 (review adversarial F1.5-C): mismo helper que
@@ -148,6 +148,98 @@ describe('MessageThread — motion (design §7: burbuja nueva vs historial inici
   it('el swap de conversación aplica la clase de crossfade', () => {
     render(<MessageThread conversationId="c1" contactName="Juan" messages={[]} isLoading={false} />);
     expect(screen.getByTestId('message-thread-swap')).toHaveClass('swap');
+  });
+});
+
+describe('MessageThread — controles de asignación (messaging-inbox-assignment F1.5-C2, header)', () => {
+  const USERS: WhatsappAssignee[] = [{ id: 'u1', name: 'Ana Torres' }];
+  const AREAS: WhatsappArea[] = [{ id: 'a1', name: 'Soporte', color: '#2563eb' }];
+
+  it('con messaging.send, renderiza los selects "Asignar a"/"Área" cuando se pasan los handlers', () => {
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[]}
+        isLoading={false}
+        assignee={null}
+        area={null}
+        assignableUsers={USERS}
+        areas={AREAS}
+        onAssigneeChange={vi.fn()}
+        onAreaChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('combobox', { name: /asignar a/i })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /^área$/i })).toBeInTheDocument();
+  });
+
+  it('sin messaging.send (solo messaging.read), NO renderiza los selects (403 en el PATCH)', () => {
+    setCanSend(false);
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[]}
+        isLoading={false}
+        assignee={null}
+        area={null}
+        assignableUsers={USERS}
+        areas={AREAS}
+        onAssigneeChange={vi.fn()}
+        onAreaChange={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('combobox', { name: /asignar a/i })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: /^área$/i })).toBeNull();
+  });
+
+  it('sin onAssigneeChange/onAreaChange (WhatsappInboxPage no los pasó todavía), no renderiza nada — cero regresión para call sites previos a esta tanda', () => {
+    render(<MessageThread conversationId="c1" contactName="Juan" messages={[]} isLoading={false} />);
+    expect(screen.queryByRole('combobox', { name: /asignar a/i })).toBeNull();
+  });
+
+  it('elegir un agente en el select dispara onAssigneeChange con el objeto elegido', async () => {
+    const onAssigneeChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[]}
+        isLoading={false}
+        assignee={null}
+        area={null}
+        assignableUsers={USERS}
+        areas={AREAS}
+        onAssigneeChange={onAssigneeChange}
+        onAreaChange={vi.fn()}
+      />,
+    );
+
+    await user.selectOptions(screen.getByRole('combobox', { name: /asignar a/i }), 'u1');
+
+    expect(onAssigneeChange).toHaveBeenCalledWith(USERS[0]);
+  });
+
+  it('isAssigneePending/isAreaPending deshabilitan cada select por separado', () => {
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[]}
+        isLoading={false}
+        assignee={null}
+        area={null}
+        assignableUsers={USERS}
+        areas={AREAS}
+        onAssigneeChange={vi.fn()}
+        onAreaChange={vi.fn()}
+        isAssigneePending
+      />,
+    );
+    expect(screen.getByRole('combobox', { name: /asignar a/i })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: /^área$/i })).not.toBeDisabled();
   });
 });
 

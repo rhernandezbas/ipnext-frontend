@@ -36,6 +36,7 @@ vi.mock('@/api/axios-client', () => ({
   default: {
     get: vi.fn(),
     post: vi.fn(),
+    patch: vi.fn(),
   },
 }));
 
@@ -47,6 +48,10 @@ import {
   sendWhatsappMessage,
   getInboxClientContext,
   setConversationStatus,
+  setConversationAssignee,
+  setConversationArea,
+  getAssignableUsers,
+  getMessagingAreas,
 } from '@/api/whatsapp.api';
 
 const LIST_ITEM: WhatsappConversationListItem = {
@@ -101,6 +106,38 @@ describe('WAPI-1/2: listWhatsappConversations', () => {
     await listWhatsappConversations();
 
     expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations', { params: {} });
+  });
+});
+
+describe('WAPI-9 (messaging-inbox-assignment F1.5-C2): listWhatsappConversations con assignment', () => {
+  it('con assignment:"mine" manda params.assignment="mine"', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: PAGINATED });
+
+    await listWhatsappConversations({ assignment: 'mine' });
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations', {
+      params: { assignment: 'mine' },
+    });
+  });
+
+  it('con assignment:"unassigned" manda params.assignment="unassigned"', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: PAGINATED });
+
+    await listWhatsappConversations({ assignment: 'unassigned' });
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations', {
+      params: { assignment: 'unassigned' },
+    });
+  });
+
+  it('combina assignment con page/limit', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: PAGINATED });
+
+    await listWhatsappConversations({ assignment: 'all', page: 2, limit: 20 });
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations', {
+      params: { assignment: 'all', page: 2, limit: 20 },
+    });
   });
 });
 
@@ -354,5 +391,71 @@ describe('WAPI-8: setConversationStatus (messaging-inbox-productivity F1.5-C v1 
     await setConversationStatus('conv-1', 'resolved');
 
     expect((vi.mocked(axiosClient.post).mock.calls[0] as unknown[]).length).toBe(2);
+  });
+});
+
+describe('WAPI-10 (messaging-inbox-assignment F1.5-C2): setConversationAssignee', () => {
+  const ASSIGNED_LIST_ITEM: WhatsappConversationListItem = { ...LIST_ITEM, assignee: { id: 'u1', name: 'Ana Torres' } };
+
+  it('PATCHea /messaging/conversations/:id/assignee con {assigneeId} y devuelve la conversación actualizada', async () => {
+    vi.mocked(axiosClient.patch).mockResolvedValue({ data: ASSIGNED_LIST_ITEM });
+
+    const result = await setConversationAssignee('conv-1', 'u1');
+
+    expect(axiosClient.patch).toHaveBeenCalledWith('/messaging/conversations/conv-1/assignee', { assigneeId: 'u1' });
+    expect(result).toEqual(ASSIGNED_LIST_ITEM);
+  });
+
+  it('assigneeId:null desasigna', async () => {
+    vi.mocked(axiosClient.patch).mockResolvedValue({ data: LIST_ITEM });
+
+    await setConversationAssignee('conv-1', null);
+
+    expect(axiosClient.patch).toHaveBeenCalledWith('/messaging/conversations/conv-1/assignee', { assigneeId: null });
+  });
+});
+
+describe('WAPI-11 (messaging-inbox-assignment F1.5-C2): setConversationArea', () => {
+  const AREA_LIST_ITEM: WhatsappConversationListItem = { ...LIST_ITEM, area: { id: 'a1', name: 'Soporte', color: '#2563eb' } };
+
+  it('PATCHea /messaging/conversations/:id/area con {areaId} y devuelve la conversación actualizada', async () => {
+    vi.mocked(axiosClient.patch).mockResolvedValue({ data: AREA_LIST_ITEM });
+
+    const result = await setConversationArea('conv-1', 'a1');
+
+    expect(axiosClient.patch).toHaveBeenCalledWith('/messaging/conversations/conv-1/area', { areaId: 'a1' });
+    expect(result).toEqual(AREA_LIST_ITEM);
+  });
+
+  it('areaId:null quita el área', async () => {
+    vi.mocked(axiosClient.patch).mockResolvedValue({ data: LIST_ITEM });
+
+    await setConversationArea('conv-1', null);
+
+    expect(axiosClient.patch).toHaveBeenCalledWith('/messaging/conversations/conv-1/area', { areaId: null });
+  });
+});
+
+describe('WAPI-12 (messaging-inbox-assignment F1.5-C2): getAssignableUsers', () => {
+  it('GETs /messaging/assignable-users y devuelve el array plano', async () => {
+    const USERS = [{ id: 'u1', name: 'Ana Torres' }, { id: 'u2', name: 'Beto Diaz' }];
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: USERS });
+
+    const result = await getAssignableUsers();
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/assignable-users');
+    expect(result).toEqual(USERS);
+  });
+});
+
+describe('WAPI-13 (messaging-inbox-assignment F1.5-C2): getMessagingAreas', () => {
+  it('GETs /messaging/areas y devuelve el array plano (catálogo compartido con tickets)', async () => {
+    const AREAS = [{ id: 'a1', name: 'Soporte', color: '#2563eb' }, { id: 'a2', name: 'Ventas', color: '#f59e0b' }];
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: AREAS });
+
+    const result = await getMessagingAreas();
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/areas');
+    expect(result).toEqual(AREAS);
   });
 });

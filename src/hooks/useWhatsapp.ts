@@ -5,6 +5,8 @@ import { useDocumentVisible } from '@/hooks/useDocumentVisible';
 import type {
   DraftAttachment,
   PendingSend,
+  WhatsappArea,
+  WhatsappAssignee,
   WhatsappConversationDetail,
   WhatsappConversationListItem,
   WhatsappConversationStatus,
@@ -45,6 +47,10 @@ export const whatsappPendingSendsKey = (id: string) => ['whatsapp', 'pendingSend
 
 export const whatsappClientContextKey = (conversationId: string, clientId: string | null) =>
   ['whatsapp', 'clientContext', conversationId, clientId ?? '_'] as const;
+
+/** messaging-inbox-assignment F1.5-C2 — catálogos (agentes asignables / áreas). */
+export const whatsappAssignableUsersKey = ['whatsapp', 'assignableUsers'] as const;
+export const whatsappAreasKey = ['whatsapp', 'areas'] as const;
 
 /** LIST-1 — lista de conversaciones, polling ~15s, sin flicker al paginar. */
 export function useWhatsappConversations(query: WhatsappPaginatedQuery) {
@@ -248,8 +254,17 @@ export function useSendWhatsappMessage(id: string) {
  * RESOLVER/REABRIR) — `POST .../status` con optimistic UI: parchea `status`
  * en el detalle cacheado (`whatsappConversationKey`) Y en TODAS las páginas
  * cacheadas de la lista (`whatsappConversationsKey`) que contengan esa
- * conversación, ANTES de que la red resuelva. Rollback EXACTO (via el
- * snapshot que devuelve `onMutate`) si el POST falla.
+ * conversación, ANTES de que la red resuelva.
+ *
+ * Rollback FIELD-SCOPED (hallazgo CRÍTICO #1, review adversarial F1.5-C2):
+ * `onMutate` snapshotea SOLO el `status` previo (detalle + cada página de
+ * lista, por convId) — NO el objeto/fila entera. `onError` restaura ESE
+ * campo con un update funcional que preserva todo lo demás. Antes, el
+ * snapshot era el objeto/fila COMPLETA: si otra mutation (`assignee`/`area`,
+ * u otro `setStatus` de OTRA conversación) corría y se asentaba MIENTRAS
+ * esta seguía en vuelo, el rollback de ESTA pisaba el cambio de la OTRA al
+ * restaurar el snapshot viejo entero. Con field-scoping, dos mutaciones que
+ * overlapean (mismo conv/dos campos, o dos convs/mismo campo) ya no se pisan.
  *
  * Mismo criterio que `useSendWhatsappMessage` (bug CRÍTICO #1 defensa): todas
  * las keys de cache se derivan de `vars.convId`, capturado en `setStatus` AL
@@ -268,8 +283,15 @@ export function useSendWhatsappMessage(id: string) {
 type SetStatusVars = { status: WhatsappConversationStatus; convId: string };
 type SetStatusContext = {
   convId: string;
-  previousDetail: WhatsappConversationDetail | undefined;
-  previousLists: Array<[readonly unknown[], WhatsappPaginatedResult<WhatsappConversationListItem> | undefined]>;
+  // `previousDetailStatus`/`previousListStatuses` son `string`, NO
+  // `WhatsappConversationStatus` — reflejan el tipo ANCHO real del campo
+  // cacheado (`WhatsappConversationListItem.status`/`.Detail.status`, legado
+  // de Chatwoot, ver el tipo en `types/whatsapp.ts`), no el tipo angosto que
+  // la UI puede DISPARAR (`WhatsappConversationStatus`, solo open/resolved).
+  /** `undefined` = no había detalle cacheado al momento del optimista (nunca se tocó ese campo). */
+  previousDetailStatus: string | undefined;
+  /** Por página cacheada: el `status` previo de ESTA conversación en esa página (`undefined` = la fila no estaba ahí). */
+  previousListStatuses: Array<[readonly unknown[], string | undefined]>;
 };
 
 export function useSetConversationStatus(id: string) {
@@ -290,7 +312,7 @@ export function useSetConversationStatus(id: string) {
       await qc.cancelQueries({ queryKey: detailKey });
       await qc.cancelQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
 
-      const previousDetail = qc.getQueryData<WhatsappConversationDetail>(detailKey);
+      const previousDetailStatus = qc.getQueryData<WhatsappConversationDetail>(detailKey)?.status;
       qc.setQueryData<WhatsappConversationDetail>(detailKey, (old) =>
         old ? { ...old, status: vars.status } : old,
       );
@@ -298,6 +320,10 @@ export function useSetConversationStatus(id: string) {
       const previousLists = qc.getQueriesData<WhatsappPaginatedResult<WhatsappConversationListItem>>({
         queryKey: WHATSAPP_CONVERSATIONS_ROOT,
       });
+      const previousListStatuses: SetStatusContext['previousListStatuses'] = previousLists.map(([key, data]) => [
+        key,
+        data?.data.find((c) => c.id === vars.convId)?.status,
+      ]);
       qc.setQueriesData<WhatsappPaginatedResult<WhatsappConversationListItem>>(
         { queryKey: WHATSAPP_CONVERSATIONS_ROOT },
         (old) =>
@@ -306,14 +332,23 @@ export function useSetConversationStatus(id: string) {
             : old,
       );
 
-      return { convId: vars.convId, previousDetail, previousLists };
+      return { convId: vars.convId, previousDetailStatus, previousListStatuses };
     },
 
     onError: (_err, _vars, context) => {
       if (!context) return;
-      qc.setQueryData(whatsappConversationKey(context.convId), context.previousDetail);
-      context.previousLists.forEach(([key, data]) => {
-        qc.setQueryData(key, data);
+      qc.setQueryData<WhatsappConversationDetail>(whatsappConversationKey(context.convId), (current) =>
+        current && context.previousDetailStatus !== undefined
+          ? { ...current, status: context.previousDetailStatus }
+          : current,
+      );
+      context.previousListStatuses.forEach(([key, previousStatus]) => {
+        if (previousStatus === undefined) return; // la fila no estaba en esta página al momento del optimista: nada que revertir
+        qc.setQueryData<WhatsappPaginatedResult<WhatsappConversationListItem>>(key, (old) =>
+          old
+            ? { ...old, data: old.data.map((c) => (c.id === context.convId ? { ...c, status: previousStatus } : c)) }
+            : old,
+        );
       });
     },
 
@@ -353,6 +388,235 @@ export function useSetConversationStatus(id: string) {
     isError: mutation.isError,
     error: mutation.error,
   };
+}
+
+/**
+ * useSetConversationAssignee(id) / useSetConversationArea(id)
+ * (messaging-inbox-assignment F1.5-C2 — ASIGNACIÓN) — CLON estructural de
+ * `useSetConversationStatus` (arriba): `PATCH .../assignee` y `PATCH .../area`
+ * con optimistic UI idéntico — parchea el campo en el detalle cacheado
+ * (`whatsappConversationKey`) Y en TODAS las páginas cacheadas de la lista
+ * (`whatsappConversationsKey`) que contengan esa conversación, ANTES de que
+ * la red resuelva. `onSettled` invalida SIEMPRE (éxito o error) — el
+ * detalle/lista pollean, pero el agente espera ver el cambio YA, y el
+ * polling de Chatwoot NUNCA trae assignee/area (son locales del BE) — sin
+ * este invalidate, un optimista que el BE rechazara en silencio (edge de
+ * red) quedaría "colgado" hasta el próximo poll.
+ *
+ * Rollback FIELD-SCOPED (hallazgo CRÍTICO #1, review adversarial F1.5-C2):
+ * mismo criterio que `useSetConversationStatus` — `onMutate` snapshotea SOLO
+ * el campo propio (`assignee`/`area`, NO el objeto/fila entera). `onError`
+ * restaura ESE campo con un update funcional que preserva todo lo demás.
+ * Antes, el snapshot era el objeto/fila COMPLETA: si `setAssignee`/`setArea`
+ * (u otra instancia del mismo hook para OTRA conversación) corría y se
+ * asentaba MIENTRAS esta mutation seguía en vuelo, el rollback pisaba ese
+ * cambio ajeno al restaurar el snapshot viejo entero. El campo es
+ * `WhatsappAssignee | null` / `WhatsappArea | null` — `null` es un valor
+ * VÁLIDO ("sin asignar"/"sin área"), así que el sentinel de "no había
+ * snapshot" es `undefined` (chequeado con `!== undefined`, NUNCA `??`, que
+ * trataría `null` como ausente y perdería un rollback legítimo a "sin asignar").
+ *
+ * Se reciben `WhatsappAssignee | null` / `WhatsappArea | null` COMPLETOS (no
+ * solo el id) porque el caller (`ConversationAssignmentControls`) ya conoce
+ * el objeto elegido del catálogo (`useAssignableUsers`/`useMessagingAreas`) —
+ * eso permite que el optimista pinte el NOMBRE/COLOR correcto al instante, sin
+ * esperar la respuesta del PATCH (que solo necesita el id en el wire).
+ *
+ * Bug CRÍTICO #1 defensa (mismo criterio que `useSendWhatsappMessage`/
+ * `useSetConversationStatus`): todas las keys de acá para abajo se derivan de
+ * `vars.convId` (capturado en `setAssignee`/`setArea` AL MOMENTO del
+ * dispatch), NUNCA del closure `id` del hook — evita que un cambio de
+ * conversación MIENTRAS la mutation está en vuelo resuelva (o haga rollback)
+ * en el slice de la conversación EQUIVOCADA (memoria `inbox-key-por-conversacion`).
+ */
+type SetAssigneeVars = { assignee: WhatsappAssignee | null; convId: string };
+type SetAreaVars = { area: WhatsappArea | null; convId: string };
+type SetAssigneeContext = {
+  convId: string;
+  /** `undefined` = no había detalle cacheado (nunca se tocó ese campo); `null` = "sin asignar" es un valor válido a restaurar. */
+  previousDetailAssignee: WhatsappAssignee | null | undefined;
+  previousListAssignees: Array<[readonly unknown[], WhatsappAssignee | null | undefined]>;
+};
+type SetAreaContext = {
+  convId: string;
+  previousDetailArea: WhatsappArea | null | undefined;
+  previousListAreas: Array<[readonly unknown[], WhatsappArea | null | undefined]>;
+};
+
+export function useSetConversationAssignee(id: string) {
+  const qc = useQueryClient();
+
+  const mutation = useMutation<WhatsappConversationListItem, unknown, SetAssigneeVars, SetAssigneeContext>({
+    mutationFn: (vars) => api.setConversationAssignee(vars.convId, vars.assignee?.id ?? null),
+
+    onMutate: async (vars) => {
+      const detailKey = whatsappConversationKey(vars.convId);
+      await qc.cancelQueries({ queryKey: detailKey });
+      await qc.cancelQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+
+      const previousDetailAssignee = qc.getQueryData<WhatsappConversationDetail>(detailKey)?.assignee;
+      qc.setQueryData<WhatsappConversationDetail>(detailKey, (old) =>
+        old ? { ...old, assignee: vars.assignee } : old,
+      );
+
+      const previousLists = qc.getQueriesData<WhatsappPaginatedResult<WhatsappConversationListItem>>({
+        queryKey: WHATSAPP_CONVERSATIONS_ROOT,
+      });
+      const previousListAssignees: SetAssigneeContext['previousListAssignees'] = previousLists.map(([key, data]) => [
+        key,
+        data?.data.find((c) => c.id === vars.convId)?.assignee,
+      ]);
+      qc.setQueriesData<WhatsappPaginatedResult<WhatsappConversationListItem>>(
+        { queryKey: WHATSAPP_CONVERSATIONS_ROOT },
+        (old) =>
+          old
+            ? { ...old, data: old.data.map((c) => (c.id === vars.convId ? { ...c, assignee: vars.assignee } : c)) }
+            : old,
+      );
+
+      return { convId: vars.convId, previousDetailAssignee, previousListAssignees };
+    },
+
+    onError: (_err, _vars, context) => {
+      if (!context) return;
+      qc.setQueryData<WhatsappConversationDetail>(whatsappConversationKey(context.convId), (current) =>
+        current && context.previousDetailAssignee !== undefined
+          ? { ...current, assignee: context.previousDetailAssignee }
+          : current,
+      );
+      context.previousListAssignees.forEach(([key, previousAssignee]) => {
+        if (previousAssignee === undefined) return; // la fila no estaba en esta página al momento del optimista: nada que revertir
+        qc.setQueryData<WhatsappPaginatedResult<WhatsappConversationListItem>>(key, (old) =>
+          old
+            ? { ...old, data: old.data.map((c) => (c.id === context.convId ? { ...c, assignee: previousAssignee } : c)) }
+            : old,
+        );
+      });
+    },
+
+    onSettled: (_data, _err, vars) => {
+      void qc.invalidateQueries({ queryKey: whatsappConversationKey(vars.convId) });
+      void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+    },
+  });
+
+  const setAssignee = (
+    assignee: WhatsappAssignee | null,
+    opts?: { onError?: (error: unknown) => void },
+  ) => mutation.mutate({ assignee, convId: id }, opts);
+
+  return {
+    setAssignee,
+    isPending: mutation.isPending && mutation.variables?.convId === id,
+    isError: mutation.isError,
+    error: mutation.error,
+  };
+}
+
+export function useSetConversationArea(id: string) {
+  const qc = useQueryClient();
+
+  const mutation = useMutation<WhatsappConversationListItem, unknown, SetAreaVars, SetAreaContext>({
+    mutationFn: (vars) => api.setConversationArea(vars.convId, vars.area?.id ?? null),
+
+    onMutate: async (vars) => {
+      const detailKey = whatsappConversationKey(vars.convId);
+      await qc.cancelQueries({ queryKey: detailKey });
+      await qc.cancelQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+
+      const previousDetailArea = qc.getQueryData<WhatsappConversationDetail>(detailKey)?.area;
+      qc.setQueryData<WhatsappConversationDetail>(detailKey, (old) =>
+        old ? { ...old, area: vars.area } : old,
+      );
+
+      const previousLists = qc.getQueriesData<WhatsappPaginatedResult<WhatsappConversationListItem>>({
+        queryKey: WHATSAPP_CONVERSATIONS_ROOT,
+      });
+      const previousListAreas: SetAreaContext['previousListAreas'] = previousLists.map(([key, data]) => [
+        key,
+        data?.data.find((c) => c.id === vars.convId)?.area,
+      ]);
+      qc.setQueriesData<WhatsappPaginatedResult<WhatsappConversationListItem>>(
+        { queryKey: WHATSAPP_CONVERSATIONS_ROOT },
+        (old) =>
+          old
+            ? { ...old, data: old.data.map((c) => (c.id === vars.convId ? { ...c, area: vars.area } : c)) }
+            : old,
+      );
+
+      return { convId: vars.convId, previousDetailArea, previousListAreas };
+    },
+
+    onError: (_err, _vars, context) => {
+      if (!context) return;
+      qc.setQueryData<WhatsappConversationDetail>(whatsappConversationKey(context.convId), (current) =>
+        current && context.previousDetailArea !== undefined
+          ? { ...current, area: context.previousDetailArea }
+          : current,
+      );
+      context.previousListAreas.forEach(([key, previousArea]) => {
+        if (previousArea === undefined) return; // la fila no estaba en esta página al momento del optimista: nada que revertir
+        qc.setQueryData<WhatsappPaginatedResult<WhatsappConversationListItem>>(key, (old) =>
+          old
+            ? { ...old, data: old.data.map((c) => (c.id === context.convId ? { ...c, area: previousArea } : c)) }
+            : old,
+        );
+      });
+    },
+
+    onSettled: (_data, _err, vars) => {
+      void qc.invalidateQueries({ queryKey: whatsappConversationKey(vars.convId) });
+      void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+    },
+  });
+
+  const setArea = (
+    area: WhatsappArea | null,
+    opts?: { onError?: (error: unknown) => void },
+  ) => mutation.mutate({ area, convId: id }, opts);
+
+  return {
+    setArea,
+    isPending: mutation.isPending && mutation.variables?.convId === id,
+    isError: mutation.isError,
+    error: mutation.error,
+  };
+}
+
+/**
+ * useAssignableUsers / useMessagingAreas (messaging-inbox-assignment F1.5-C2)
+ * — catálogos simples (GET plano, sin params). `staleTime` alto: el catálogo
+ * de agentes/áreas cambia poco (altas/bajas de RBAC, ABM de áreas), no hace
+ * falta pollear — mismo criterio que `useTicketAreas`/`useRbacUsers`.
+ * `getMessagingAreas` pega al MISMO endpoint que usaría un futuro
+ * `useTicketAreas` de messaging — no se comparte el hook con Tickets porque
+ * `useTicketAreas` pega a `/ticket-areas` (namespace propio), no a
+ * `/messaging/areas`; el catálogo subyacente es compartido en el BE, no el
+ * endpoint FE.
+ *
+ * `enabled` (hallazgo LOW #6, review adversarial): el caller (`WhatsappInboxPage`)
+ * lo ata al permiso `messaging.send` (mismo gate que `<Can permission=
+ * "messaging.send">` envuelve alrededor de `ConversationAssignmentControls`,
+ * `MessageThread.tsx`) — no tiene sentido pedir el catálogo de agentes/áreas
+ * si el usuario no puede asignar. Default `true` (cero regresión: cualquier
+ * caller existente que llame sin argumento sigue fetcheando igual que antes).
+ */
+export function useAssignableUsers(enabled: boolean = true) {
+  return useQuery({
+    queryKey: whatsappAssignableUsersKey,
+    queryFn: api.getAssignableUsers,
+    staleTime: 60_000,
+    enabled,
+  });
+}
+
+export function useMessagingAreas(enabled: boolean = true) {
+  return useQuery({
+    queryKey: whatsappAreasKey,
+    queryFn: api.getMessagingAreas,
+    staleTime: 60_000,
+    enabled,
+  });
 }
 
 /**

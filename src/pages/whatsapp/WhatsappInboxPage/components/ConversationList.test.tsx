@@ -109,6 +109,27 @@ describe('ConversationList — LIST-1 (polling sin perder selección)', () => {
   });
 });
 
+describe('ConversationList — filtro de asignación (messaging-inbox-assignment F1.5-C2, server-side)', () => {
+  it('renderiza el ConversationAssignmentFilter con el value recibido', () => {
+    render(<ConversationList conversations={[]} isLoading={false} selectedId={null} onSelect={vi.fn()} assignment="mine" onAssignmentChange={vi.fn()} />);
+    expect(screen.getByRole('radio', { name: 'Mías' })).toBeChecked();
+  });
+
+  it('sin assignment (default), el filtro arranca en "Todas"', () => {
+    render(<ConversationList conversations={[]} isLoading={false} selectedId={null} onSelect={vi.fn()} />);
+    expect(screen.getByRole('radio', { name: 'Todas' })).toBeChecked();
+  });
+
+  it('cambiar de tab dispara onAssignmentChange con el valor elegido', async () => {
+    const onAssignmentChange = vi.fn();
+    render(<ConversationList conversations={[]} isLoading={false} selectedId={null} onSelect={vi.fn()} assignment="all" onAssignmentChange={onAssignmentChange} />);
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Sin asignar' }));
+
+    expect(onAssignmentChange).toHaveBeenCalledWith('unassigned');
+  });
+});
+
 describe('ConversationList — búsqueda (client-side)', () => {
   it('filtra por nombre/teléfono/preview', async () => {
     const convs = [

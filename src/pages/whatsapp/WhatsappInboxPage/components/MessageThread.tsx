@@ -3,7 +3,8 @@ import { Can } from '@/components/auth/Can';
 import { MessageBubble } from './MessageBubble';
 import { Skeleton } from './Skeleton';
 import { ConversationStatusToggle } from './ConversationStatusToggle';
-import type { PendingSend, WhatsappConversationStatus, WhatsappMessage } from '@/types/whatsapp';
+import { ConversationAssignmentControls } from './ConversationAssignmentControls';
+import type { PendingSend, WhatsappArea, WhatsappAssignee, WhatsappConversationStatus, WhatsappMessage } from '@/types/whatsapp';
 import styles from './MessageThread.module.css';
 
 /**
@@ -127,6 +128,23 @@ interface MessageThreadProps {
   /** Recibe el status DESTINO ya calculado por `ConversationStatusToggle` — se reenvía tal cual a `useSetConversationStatus(id).setStatus`. */
   onToggleStatus?: (next: WhatsappConversationStatus) => void;
   isStatusPending?: boolean;
+  /**
+   * Asignación (messaging-inbox-assignment F1.5-C2, design contract de la
+   * tarea) — mismo criterio que `status`/`onToggleStatus`: `WhatsappInboxPage`
+   * orquesta `useSetConversationAssignee`/`useSetConversationArea` +
+   * `useAssignableUsers`/`useMessagingAreas`, acá solo se consume el
+   * resultado. `onAssigneeChange`/`onAreaChange` ausentes (default) → NO se
+   * renderiza `ConversationAssignmentControls` — cero regresión para
+   * cualquier call site previo a esta tanda (mismo patrón que `onToggleStatus`).
+   */
+  assignee?: WhatsappAssignee | null;
+  area?: WhatsappArea | null;
+  assignableUsers?: WhatsappAssignee[];
+  areas?: WhatsappArea[];
+  onAssigneeChange?: (next: WhatsappAssignee | null) => void;
+  onAreaChange?: (next: WhatsappArea | null) => void;
+  isAssigneePending?: boolean;
+  isAreaPending?: boolean;
 }
 
 /**
@@ -156,6 +174,14 @@ export function MessageThread({
   status = null,
   onToggleStatus,
   isStatusPending = false,
+  assignee = null,
+  area = null,
+  assignableUsers = [],
+  areas = [],
+  onAssigneeChange,
+  onAreaChange,
+  isAssigneePending = false,
+  isAreaPending = false,
 }: MessageThreadProps) {
   // Merge server + pending (design §6.3): los pending van DESPUÉS (son los
   // más nuevos, aún sin confirmar). `pendingById` permite recuperar el
@@ -312,29 +338,55 @@ export function MessageThread({
           esto — el reset real pasa por prevConversationIdRef. */}
       <div className={styles.swap} key={conversationId} data-testid="message-thread-swap">
         <header className={styles.header}>
-          {onBack && (
-            <button
-              type="button"
-              className={styles.backButton}
-              onClick={onBack}
-              aria-label="Volver a la lista de conversaciones"
-            >
-              ◀
-            </button>
-          )}
-          <span className={styles.contactName}>{contactName ?? 'Contacto'}</span>
+          <div className={styles.headerTop}>
+            {onBack && (
+              <button
+                type="button"
+                className={styles.backButton}
+                onClick={onBack}
+                aria-label="Volver a la lista de conversaciones"
+              >
+                ◀
+              </button>
+            )}
+            <span className={styles.contactName}>{contactName ?? 'Contacto'}</span>
+
+            {/*
+             * hallazgo HIGH #1 (review adversarial F1.5-C): `POST .../status`
+             * pide `messaging:send` (mismo endpoint que `Composer`, que YA
+             * gatea con este mismo patrón — `Composer.tsx`) — sin este gate,
+             * un usuario con solo `messaging.read` (gate de la PÁGINA) veía el
+             * botón y recibía un 403 al click. `Can` renderiza `null` si el
+             * check falla (`components/auth/Can.tsx`).
+             */}
+            {onToggleStatus && (
+              <Can permission="messaging.send">
+                <ConversationStatusToggle status={status} onToggle={onToggleStatus} isPending={isStatusPending} />
+              </Can>
+            )}
+          </div>
 
           {/*
-           * hallazgo HIGH #1 (review adversarial F1.5-C): `POST .../status`
-           * pide `messaging:send` (mismo endpoint que `Composer`, que YA
-           * gatea con este mismo patrón — `Composer.tsx`) — sin este gate,
-           * un usuario con solo `messaging.read` (gate de la PÁGINA) veía el
-           * botón y recibía un 403 al click. `Can` renderiza `null` si el
-           * check falla (`components/auth/Can.tsx`).
+           * messaging-inbox-assignment F1.5-C2 — segunda fila del header,
+           * SEPARADA de `ClientContextPanel` (ese es contexto del CLIENTE,
+           * otra responsabilidad — ver design contract de la tarea). Mismo
+           * gate `messaging.send` que el toggle de status: `PATCH
+           * .../assignee`/`.../area` piden el mismo permiso que `POST .../status`.
            */}
-          {onToggleStatus && (
+          {(onAssigneeChange || onAreaChange) && (
             <Can permission="messaging.send">
-              <ConversationStatusToggle status={status} onToggle={onToggleStatus} isPending={isStatusPending} />
+              <div className={styles.headerAssignRow}>
+                <ConversationAssignmentControls
+                  assignee={assignee}
+                  area={area}
+                  users={assignableUsers}
+                  areas={areas}
+                  onAssigneeChange={onAssigneeChange}
+                  onAreaChange={onAreaChange}
+                  isAssigneePending={isAssigneePending}
+                  isAreaPending={isAreaPending}
+                />
+              </div>
             </Can>
           )}
         </header>
