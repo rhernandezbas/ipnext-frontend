@@ -27,6 +27,30 @@ import type {
 } from '@/types/whatsapp';
 import styles from './WhatsappInboxPage.module.css';
 
+/**
+ * F1.5 spec #1 (panel de contexto COLAPSABLE, estilo Chatwoot) — key de
+ * localStorage para persistir la preferencia de colapso del panel de
+ * contexto. Prefijo `wa:` (namespace del inbox WhatsApp, evita colisión con
+ * otras keys del repo tipo `tickets-visible-columns`).
+ */
+const CONTEXT_COLLAPSED_STORAGE_KEY = 'wa:context-collapsed';
+
+/**
+ * Mismo criterio que `useVisibleColumns` (tickets/scheduling): lectura
+ * best-effort, con try/catch por si localStorage no está disponible (modo
+ * privado / contexto sin storage) — nunca debe tirar la página abajo por
+ * esto. Default `false` (panel abierto) si no hay nada guardado o si la
+ * lectura falla.
+ */
+function readStoredContextCollapsed(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(CONTEXT_COLLAPSED_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 const STATUS_ERROR_MESSAGE = 'No se pudo actualizar el estado de la conversación. Reintentá.';
 // hallazgo HIGH #2 (review adversarial F1.5-C2): mismo mecanismo de toast
 // que status — assignee/area piden el mismo permiso (`messaging.send`) y el
@@ -68,6 +92,27 @@ export default function WhatsappInboxPage() {
   // regresión del wiring/cache-key existentes).
   const [query, setQuery] = useState<WhatsappPaginatedQuery>({});
   const queryClient = useQueryClient();
+
+  // F1.5 spec #1 (panel de contexto COLAPSABLE) — lazy-init desde
+  // localStorage (mismo patrón que `useVisibleColumns`): el lector corre UNA
+  // sola vez, en el initializer de `useState`, no en cada render.
+  const [contextCollapsed, setContextCollapsed] = useState<boolean>(() => readStoredContextCollapsed());
+
+  // Persistencia best-effort — mismo criterio que `useVisibleColumns`: si
+  // falla (quota / modo privado), no rompe el toggle, solo no sobrevive el
+  // próximo reload.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(CONTEXT_COLLAPSED_STORAGE_KEY, String(contextCollapsed));
+    } catch {
+      // Ignorado a propósito — ver comentario de arriba.
+    }
+  }, [contextCollapsed]);
+
+  function toggleContext() {
+    setContextCollapsed((prev) => !prev);
+  }
 
   const conversationsQuery = useWhatsappConversations(query);
   const detailQuery = useWhatsappConversation(selectedId ?? '');
@@ -203,7 +248,11 @@ export default function WhatsappInboxPage() {
   const contactNameFallback = detail?.contactName ?? selectedListItem?.contactName ?? selectedListItem?.contactPhone ?? null;
 
   return (
-    <div className={styles.page} data-has-selection={selectedId !== null}>
+    <div
+      className={styles.page}
+      data-has-selection={selectedId !== null}
+      data-context-collapsed={contextCollapsed}
+    >
       <div className={styles.listCol}>
         <ConversationList
           conversations={conversations}
@@ -240,6 +289,8 @@ export default function WhatsappInboxPage() {
             onAreaChange={handleAreaChange}
             isAssigneePending={isAssigneePending}
             isAreaPending={isAreaPending}
+            contextCollapsed={contextCollapsed}
+            onToggleContext={toggleContext}
           />
         </div>
 
@@ -274,7 +325,14 @@ export default function WhatsappInboxPage() {
         )}
       </div>
 
-      <div className={styles.contextCol}>
+      {/* F1.5 spec #1 (panel de contexto COLAPSABLE) — `id` referenciado por
+          el `aria-controls` del botón toggle en `MessageThread` (constante
+          `CONTEXT_PANEL_ID`, mismo valor literal en los dos lugares). El
+          colapso es PURO CSS (`data-context-collapsed` en `.page` arriba +
+          WhatsappInboxPage.module.css) — este div NUNCA se desmonta, así que
+          `ClientContextPanel` (y su `key={selectedId}` de abajo) tampoco: re-
+          abrir el panel es instantáneo, sin refetch. */}
+      <div className={styles.contextCol} id="wa-client-context">
         {/* Fix bug BLOQUEANTE (review adversarial F1.5): `chosenId` (estado
             interno del container, para desambiguar `ambiguous`) NO se
             reseteaba al cambiar de conversación — quedaba "pegado" mostrando

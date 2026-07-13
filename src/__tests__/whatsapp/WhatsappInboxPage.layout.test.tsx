@@ -90,3 +90,35 @@ describe('WhatsappInboxPage.module.css — breakpoint <=860px (thread-only si ha
     expect(block).toMatch(/\[data-has-selection=['"]false['"]\][\s\S]*display:\s*none/);
   });
 });
+
+describe('WhatsappInboxPage.module.css — F1.5 spec #1 (panel de contexto COLAPSABLE, SOLO >1200px)', () => {
+  it('define @media (min-width: 1201px) con el grid a 2 columnas cuando data-context-collapsed="true"', () => {
+    const block = extractMediaBlock(cssText, '@media (min-width: 1201px)');
+    expect(block).toMatch(
+      /\.page\[data-context-collapsed=['"]true['"]\]\s*\{[^}]*grid-template-columns:\s*340px\s+minmax\(0,\s*1fr\)/,
+    );
+  });
+
+  it('oculta .contextCol con display:none cuando data-context-collapsed="true", dentro de ESE media query', () => {
+    const block = extractMediaBlock(cssText, '@media (min-width: 1201px)');
+    expect(block).toMatch(/\[data-context-collapsed=['"]true['"]\][^{]*\.contextCol\s*\{[^}]*display:\s*none/);
+  });
+
+  it('NO agrega ninguna regla de data-context-collapsed fuera del media query >1200px (no debe interferir con los breakpoints <=1200/<=860 existentes)', () => {
+    const block = extractMediaBlock(cssText, '@media (min-width: 1201px)');
+    const withoutBlock = cssText.replace(block, '');
+    // Selector real (`[data-context-collapsed=`), NO el texto libre del
+    // comentario de arriba — el bloque de rationale menciona la palabra
+    // `data-context-collapsed` en prosa (sin corchetes) para explicar el
+    // porqué del gate; eso no es una regla CSS y no debe hacer fallar este
+    // guard de regresión.
+    expect(withoutBlock).not.toMatch(/\[data-context-collapsed=/);
+  });
+
+  it('los breakpoints <=1200px y <=860px existentes siguen intactos (composición, no regresión)', () => {
+    const block1200 = extractMediaBlock(cssText, '@media (max-width: 1200px)');
+    expect(block1200).toMatch(/\.contextCol\s*\{[^}]*display:\s*none/);
+    const block860 = extractMediaBlock(cssText, '@media (max-width: 860px)');
+    expect(block860).toMatch(/\.page\s*\{[^}]*grid-template-columns:\s*1fr/);
+  });
+});

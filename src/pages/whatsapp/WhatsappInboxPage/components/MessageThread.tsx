@@ -4,8 +4,17 @@ import { MessageBubble } from './MessageBubble';
 import { Skeleton } from './Skeleton';
 import { ConversationStatusToggle } from './ConversationStatusToggle';
 import { ConversationAssignmentControls } from './ConversationAssignmentControls';
+import { IconUser } from './statusIcons';
 import type { PendingSend, WhatsappArea, WhatsappAssignee, WhatsappConversationStatus, WhatsappMessage } from '@/types/whatsapp';
 import styles from './MessageThread.module.css';
+
+/**
+ * F1.5 spec #1 (panel de contexto COLAPSABLE) — id del `.contextCol` en
+ * `WhatsappInboxPage.tsx`, referenciado acá vía `aria-controls`. Constante
+ * compartida por nombre literal (no hay un módulo de ids compartido en el
+ * repo todavía) — si cambia, hay que actualizar los DOS lugares.
+ */
+const CONTEXT_PANEL_ID = 'wa-client-context';
 
 /**
  * Bug ALTO #5 (post-review-adversarial): dedup HEURÍSTICO entre un
@@ -145,6 +154,18 @@ interface MessageThreadProps {
   onAreaChange?: (next: WhatsappArea | null) => void;
   isAssigneePending?: boolean;
   isAreaPending?: boolean;
+  /**
+   * F1.5 spec #1 (panel de contexto COLAPSABLE, estilo Chatwoot) — dumb
+   * button + callback, mismo criterio que `onToggleStatus`/`onBack`:
+   * `WhatsappInboxPage` es quien tiene el estado real (`contextCollapsed`,
+   * lazy-init + persistido en localStorage) y la función que lo invierte
+   * (`toggleContext`) — acá solo se renderiza el botón y se reenvía el
+   * click. Sin `onToggleContext`, el botón NO se renderiza (mismo patrón que
+   * `onAssigneeChange`/`onAreaChange`: cero regresión para cualquier call
+   * site previo a esta tanda).
+   */
+  contextCollapsed?: boolean;
+  onToggleContext?: () => void;
 }
 
 /**
@@ -182,6 +203,8 @@ export function MessageThread({
   onAreaChange,
   isAssigneePending = false,
   isAreaPending = false,
+  contextCollapsed = false,
+  onToggleContext,
 }: MessageThreadProps) {
   // Merge server + pending (design §6.3): los pending van DESPUÉS (son los
   // más nuevos, aún sin confirmar). `pendingById` permite recuperar el
@@ -359,11 +382,40 @@ export function MessageThread({
              * botón y recibía un 403 al click. `Can` renderiza `null` si el
              * check falla (`components/auth/Can.tsx`).
              */}
-            {onToggleStatus && (
-              <Can permission="messaging.send">
-                <ConversationStatusToggle status={status} onToggle={onToggleStatus} isPending={isStatusPending} />
-              </Can>
-            )}
+            {/*
+             * F1.5 spec #1 — agrupa Resolver/Reabrir + el toggle de contexto
+             * bajo UN wrapper con `margin-left:auto` (`.headerTopActions`).
+             * `ConversationStatusToggle` trae su PROPIO `margin-left:auto`
+             * interno (`.wrapper`, `ConversationStatusToggle.module.css`) —
+             * anidado acá queda inerte (sin espacio libre que consumir
+             * dentro de `.headerTopActions`, que no crece más allá de su
+             * contenido), así que agrupar los dos controles no requiere
+             * tocar ese archivo. Sin esto, si `onToggleStatus` no estuviera
+             * (sin permiso/sin handler), el toggle de contexto quedaría
+             * pegado al nombre de contacto en vez de ir al extremo derecho.
+             */}
+            <div className={styles.headerTopActions}>
+              {onToggleStatus && (
+                <Can permission="messaging.send">
+                  <ConversationStatusToggle status={status} onToggle={onToggleStatus} isPending={isStatusPending} />
+                </Can>
+              )}
+
+              {onToggleContext && (
+                <button
+                  type="button"
+                  className={[styles.contextToggleButton, !contextCollapsed ? styles.contextToggleButtonActive : '']
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={onToggleContext}
+                  aria-expanded={!contextCollapsed}
+                  aria-controls={CONTEXT_PANEL_ID}
+                  aria-label={contextCollapsed ? 'Mostrar información del cliente' : 'Ocultar información del cliente'}
+                >
+                  <IconUser className={styles.icon} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/*

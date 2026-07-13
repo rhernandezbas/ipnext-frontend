@@ -725,6 +725,123 @@ describe('MessageThread — F1.5-C v1 (Resolver/Reabrir, wiring del control en e
   });
 });
 
+describe('MessageThread — F1.5 spec #1 (panel de contexto COLAPSABLE, toggle en el header)', () => {
+  it('sin onToggleContext (WhatsappInboxPage no lo pasó todavía), no se renderiza ningún botón de contexto — cero regresión para call sites previos a esta tanda', () => {
+    render(<MessageThread conversationId="c1" contactName="Juan" messages={[]} isLoading={false} />);
+    expect(screen.queryByRole('button', { name: /informaci.n del cliente/i })).toBeNull();
+  });
+
+  it('con onToggleContext y contextCollapsed=false (panel abierto), aria-expanded="true" y aria-label "Ocultar información del cliente"', () => {
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[]}
+        isLoading={false}
+        contextCollapsed={false}
+        onToggleContext={vi.fn()}
+      />,
+    );
+    const btn = screen.getByRole('button', { name: 'Ocultar información del cliente' });
+    expect(btn).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('con contextCollapsed=true (panel colapsado), aria-expanded="false" y aria-label "Mostrar información del cliente"', () => {
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[]}
+        isLoading={false}
+        contextCollapsed
+        onToggleContext={vi.fn()}
+      />,
+    );
+    const btn = screen.getByRole('button', { name: 'Mostrar información del cliente' });
+    expect(btn).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('aria-controls apunta al id del panel de contexto (wa-client-context)', () => {
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[]}
+        isLoading={false}
+        contextCollapsed={false}
+        onToggleContext={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /informaci.n del cliente/i })).toHaveAttribute(
+      'aria-controls',
+      'wa-client-context',
+    );
+  });
+
+  it('sin contextCollapsed explícito (default), arranca abierto — aria-expanded="true"', () => {
+    render(
+      <MessageThread conversationId="c1" contactName="Juan" messages={[]} isLoading={false} onToggleContext={vi.fn()} />,
+    );
+    expect(screen.getByRole('button', { name: /informaci.n del cliente/i })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('click dispara onToggleContext', async () => {
+    const onToggleContext = vi.fn();
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[]}
+        isLoading={false}
+        contextCollapsed={false}
+        onToggleContext={onToggleContext}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /informaci.n del cliente/i }));
+
+    expect(onToggleContext).toHaveBeenCalledTimes(1);
+  });
+
+  it('el botón NO usa emoji — accesible solo vía SVG (aria-hidden) + aria-label', () => {
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[]}
+        isLoading={false}
+        contextCollapsed={false}
+        onToggleContext={vi.fn()}
+      />,
+    );
+    const btn = screen.getByRole('button', { name: /informaci.n del cliente/i });
+    // eslint-disable-next-line no-misleading-character-class -- rango deliberado de emoji, no un typo
+    expect(btn.textContent ?? '').not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
+    expect(btn.querySelector('svg')).not.toBeNull();
+  });
+
+  it('no rompe los controles existentes del header (Resolver/Reabrir sigue funcionando junto al toggle de contexto)', async () => {
+    const onToggleStatus = vi.fn();
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[]}
+        isLoading={false}
+        status="open"
+        onToggleStatus={onToggleStatus}
+        contextCollapsed={false}
+        onToggleContext={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /resolver/i }));
+
+    expect(onToggleStatus).toHaveBeenCalledWith('resolved');
+    expect(screen.getByRole('button', { name: /informaci.n del cliente/i })).toBeInTheDocument();
+  });
+});
+
 describe('MessageThread — bug MEDIO #11 (no auto-scrollear en cada tick de progreso, solo ante filas genuinamente nuevas)', () => {
   beforeEach(() => {
     Element.prototype.scrollIntoView = vi.fn();

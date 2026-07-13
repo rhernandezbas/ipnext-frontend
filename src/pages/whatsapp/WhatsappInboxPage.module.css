@@ -52,6 +52,12 @@
  */
 
 .page {
+  /* F1.5 spec #1 (panel de contexto COLAPSABLE) — token local, standalone-safe
+     (mismo motivo que `--wa-ease-out` en MessageThread.module.css/
+     ConversationStatusToggle.module.css/ClientContextPanel.module.css). Usado
+     por la entrada animada de `.contextCol` más abajo. */
+  --wa-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
   margin: calc(var(--space-6) * -1);
   height: calc(100% + var(--space-6) * 2);
   min-height: 0;
@@ -148,4 +154,80 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   box-shadow: var(--shadow-lg);
+}
+
+/*
+ * F1.5 spec #1 — panel de contexto COLAPSABLE (estilo Chatwoot). El toggle
+ * (ícono de persona) vive en el header de `MessageThread`
+ * (`MessageThread.module.css:.contextToggleButton`); acá solo se resuelve el
+ * layout resultante en base a `data-context-collapsed` (`WhatsappInboxPage.tsx`).
+ *
+ * SOLO dentro de `@media (min-width: 1201px)` — a <=1200px `.contextCol` YA
+ * está en `display:none` por el breakpoint responsive de arriba (el estado
+ * colapsado es NO-OP ahí, cero interferencia); a <=860px `data-has-selection`
+ * manda (el contexto tampoco se muestra en mobile). Gatear acá evita que el
+ * selector de atributo (mayor especificidad que un selector de clase simple)
+ * pise esos dos breakpoints — confirmado con un test dedicado
+ * (`WhatsappInboxPage.layout.test.tsx`) que verifica que NINGUNA ocurrencia
+ * de `data-context-collapsed` vive fuera de este bloque.
+ *
+ * `.contextCol` pasa a `display:none` INSTANTÁNEO (sin transición) — no
+ * `width:0` dejando 3 columnas explícitas para poder animar
+ * `grid-template-columns`: esa propiedad es de LAYOUT (misma familia que
+ * width/height/margin/padding — `review-animations` regla #7, GPU-only) y
+ * además NO interpola de forma confiable entre listas de distinta cantidad
+ * de columnas (3→2 acá). Se prefiere el snap instantáneo del grid +
+ * una animación de ENTRADA en `.contextCol` (transform+opacity, `@keyframes`,
+ * GPU-only) para cuando el panel vuelve a aparecer — los `@keyframes` SÍ
+ * reinician de forma confiable al pasar de `display:none` a visible (a
+ * diferencia de `transition`, que necesitaría `@starting-style` +
+ * `transition-behavior:allow-discrete`, soporte no confirmado en el pipeline
+ * de build de este repo — no vale la pena apostar a eso acá). El cierre
+ * queda sin fade-out propio del panel (display:none corta de una) — el
+ * feedback de "esto SÍ registró el click" lo da el propio botón toggle
+ * (`:active` scale-down, MessageThread.module.css), no el panel.
+ */
+@media (min-width: 1201px) {
+  .page[data-context-collapsed='true'] {
+    grid-template-columns: 340px minmax(0, 1fr);
+  }
+
+  .page[data-context-collapsed='true'] .contextCol {
+    display: none;
+  }
+
+  .contextCol {
+    animation: waContextColEnter 200ms var(--wa-ease-out);
+  }
+}
+
+@keyframes waContextColEnter {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Reduced motion: "menos, no cero" (Emil/apple) — se mantiene un fade corto
+   de opacity (feedback de que el panel apareció), se dropea el movimiento
+   (translateX). Mismo criterio que ConversationStatusToggle.module.css. */
+@keyframes waContextColEnterReduced {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (min-width: 1201px) and (prefers-reduced-motion: reduce) {
+  .contextCol {
+    animation-name: waContextColEnterReduced;
+    animation-duration: 200ms;
+    animation-timing-function: ease;
+  }
 }

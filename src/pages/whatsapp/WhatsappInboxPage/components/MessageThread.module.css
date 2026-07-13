@@ -57,6 +57,90 @@
   display: flex;
 }
 
+/* F1.5 spec #1 (panel de contexto COLAPSABLE) — agrupa Resolver/Reabrir + el
+   toggle de contexto al extremo derecho de `.headerTop` (ver comentario en
+   MessageThread.tsx sobre por qué el `margin-left:auto` de
+   ConversationStatusToggle.module.css:.wrapper queda inerte anidado acá). */
+.headerTopActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+/* F1.5 spec #1 — botón "persona" que colapsa/expande el panel de contexto
+   del cliente (estilo Chatwoot). Mismo touch target 44px que `.backButton`
+   de acá arriba (A11Y-1). Oculto <=1200px: ahí `.contextCol`
+   (WhatsappInboxPage.module.css) YA está en display:none por el breakpoint
+   responsive — un toggle para algo que no puede aparecer sería engañoso. */
+.contextToggleButton {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--space-11);
+  min-height: var(--space-11);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  /* Solo transform+opacity a nivel de INTERACCIÓN (press feedback) — GPU-only
+     (review-animations regla #7). El fondo/color del estado activo SÍ
+     transicionan color (no layout), separados del transform de press. */
+  transition: transform 120ms var(--wa-ease-out), background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.contextToggleButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+/* "Buttons must feel responsive" (Emil, Component Building Principles) —
+   mismo scale(0.92) que `.cand-choose`/`.st-retryBtn` de ClientContextPanel. */
+.contextToggleButton:active {
+  transform: scale(0.92);
+}
+
+.contextToggleButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+/* Estado "activo" — el panel está ABIERTO (!contextCollapsed). Reusa los
+   tokens YA verificados de `--badge-active-*` (StatusBadge) en vez de un hex
+   nuevo — misma regla de design-system que el resto del repo. */
+.contextToggleButtonActive {
+  background: var(--badge-active-bg);
+  color: var(--badge-active-fg);
+  border-color: var(--badge-active-fg);
+}
+
+.contextToggleButtonActive:hover {
+  background: var(--badge-active-bg);
+  color: var(--badge-active-fg);
+}
+
+.icon {
+  flex-shrink: 0;
+}
+
+@media (max-width: 1200px) {
+  .contextToggleButton {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contextToggleButton {
+    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+  }
+
+  .contextToggleButton:active {
+    transform: none;
+  }
+}
+
 .contactName {
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);

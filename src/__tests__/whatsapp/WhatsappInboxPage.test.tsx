@@ -234,6 +234,11 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // F1.5 spec #1 (panel de contexto COLAPSABLE): la preferencia se persiste
+  // en localStorage (key `wa:context-collapsed`) — sin este clear, un test
+  // que la setee contaminaría el resto de la suite (jsdom conserva
+  // localStorage entre tests del mismo archivo).
+  window.localStorage.clear();
   setCanSend();
   setHooks();
 });
@@ -833,6 +838,95 @@ describe('WhatsappInboxPage — REGRESIÓN + hallazgo LOW #6 (gate: catálogos d
 
     expect(useWhatsappModule.useAssignableUsers).toHaveBeenCalledWith(true);
     expect(useWhatsappModule.useMessagingAreas).toHaveBeenCalledWith(true);
+  });
+});
+
+describe('WhatsappInboxPage — F1.5 spec #1 (panel de contexto COLAPSABLE, persistido en localStorage)', () => {
+  const STORAGE_KEY = 'wa:context-collapsed';
+
+  it('arranca en data-context-collapsed="false" (abierto) cuando no hay nada en localStorage', () => {
+    const { container } = renderPage();
+    const page = container.firstElementChild as HTMLElement;
+    expect(page).toHaveAttribute('data-context-collapsed', 'false');
+  });
+
+  it('lee el estado colapsado guardado en localStorage al montar (lazy-init)', () => {
+    window.localStorage.setItem(STORAGE_KEY, 'true');
+    const { container } = renderPage();
+    const page = container.firstElementChild as HTMLElement;
+    expect(page).toHaveAttribute('data-context-collapsed', 'true');
+  });
+
+  it('clickear el toggle de contexto invierte data-context-collapsed', async () => {
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    const user = userEvent.setup();
+    const { container } = renderPage();
+    const page = container.firstElementChild as HTMLElement;
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    expect(page).toHaveAttribute('data-context-collapsed', 'false');
+
+    await user.click(screen.getByRole('button', { name: /ocultar informaci.n del cliente/i }));
+
+    expect(page).toHaveAttribute('data-context-collapsed', 'true');
+
+    await user.click(screen.getByRole('button', { name: /mostrar informaci.n del cliente/i }));
+
+    expect(page).toHaveAttribute('data-context-collapsed', 'false');
+  });
+
+  it('persiste el toggle en localStorage al hacer click (write)', async () => {
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: /ocultar informaci.n del cliente/i }));
+
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBe('true');
+  });
+
+  it('el panel de contexto (.contextCol) expone un id que aria-controls referencia', async () => {
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+
+    const toggle = screen.getByRole('button', { name: /informaci.n del cliente/i });
+    const controlsId = toggle.getAttribute('aria-controls');
+    expect(controlsId).toBeTruthy();
+    expect(document.getElementById(controlsId!)).not.toBeNull();
+  });
+
+  it('colapsar el panel NO desmonta ClientContextPanel (sigue montado, solo cambia el layout CSS) — el candidato elegido en un ambiguous sobrevive al toggle', async () => {
+    // El call-count de un hook MOCKEADO no sirve para probar "no remontó"
+    // (React invoca el hook en CADA render, mock o no). La prueba real de
+    // "sigue montado" es que un estado INTERNO de `ClientContextPanel`
+    // (`chosenId`, useState propio) sobreviva al toggle — si el componente se
+    // desmontara/remontara, `chosenId` volvería a `null` y veríamos de nuevo
+    // el CandidatePicker en vez del candidato ya elegido (mismo mecanismo que
+    // el bug BLOQUEANTE de más abajo, `key={selectedId}` vs colapso CSS puro).
+    vi.mocked(useWhatsappModule.useWhatsappConversation).mockReturnValue(
+      mockQuery({ data: DETAIL_A_AMBIG, isLoading: false }),
+    );
+    vi.mocked(useWhatsappModule.useInboxClientContext).mockReturnValue({
+      ...mockQuery<WhatsappInboxClientContext>({ data: RICH_CHOSEN, isLoading: false, isError: false }),
+      isRefreshingBalance: false,
+      balanceRefreshFailed: false,
+    } as ReturnType<typeof useWhatsappModule.useInboxClientContext>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Juan Perez/i }));
+    await user.click(screen.getAllByRole('button', { name: /elegir/i })[0]!);
+    expect(screen.getByText('Cliente Elegido A1')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /ocultar informaci.n del cliente/i }));
+    await user.click(screen.getByRole('button', { name: /mostrar informaci.n del cliente/i }));
+
+    expect(screen.getByText('Cliente Elegido A1')).toBeInTheDocument();
+    expect(screen.queryByText(/varios clientes posibles/i)).not.toBeInTheDocument();
   });
 });
 
