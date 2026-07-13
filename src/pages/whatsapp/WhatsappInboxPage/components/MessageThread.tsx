@@ -1,8 +1,70 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { Skeleton } from './Skeleton';
-import type { WhatsappMessage } from '@/types/whatsapp';
+import type { PendingSend, WhatsappMessage } from '@/types/whatsapp';
 import styles from './MessageThread.module.css';
+
+/**
+ * Bug ALTO #5 (post-review-adversarial): dedup HEURÍSTICO entre un
+ * `PendingSend` (optimista, `tempId`) y un `WhatsappMessage` real (`id`) del
+ * poll. `onSuccess` de `useSendWhatsappMessage` remueve el pending y appendea
+ * el mensaje real bajo `await cancelQueries` — pero si el poll de 5s trae el
+ * mensaje real ANTES de que esa promesa resuelva, `messages` YA incluye el
+ * real mientras el pending sigue en el slice → 2 burbujas para el mismo
+ * envío. Match: misma dirección outbound + mismo `content` + `sentAt` del
+ * real dentro de una ventana chica alrededor del `createdAt` del pending.
+ *
+ * Gap documentado: este matching es una heurística (contenido+tiempo), no
+ * una correlación determinística — dos envíos legítimos con el MISMO texto
+ * en la MISMA ventana (raro, pero posible) colapsarían a 1 burbuja. El fix
+ * determinístico real sería el BE devolviendo/ecoeando un `clientMessageId`
+ * (generado acá, viajando en el POST) que el mensaje real conservara — así
+ * el match sería por id exacto, no por heurística. Ese cambio de contrato
+ * excede esta tanda (requiere tocar el BE); queda como deuda conocida.
+ */
+const DEDUP_WINDOW_MS = 30_000;
+
+function isLikelyDuplicateOfReal(pending: PendingSend, messages: WhatsappMessage[]): boolean {
+  const pendingTime = new Date(pending.createdAt).getTime();
+  return messages.some((m) => {
+    if (m.direction !== 'outbound') return false;
+    if (m.content !== pending.content) return false;
+    const diff = Math.abs(new Date(m.sentAt).getTime() - pendingTime);
+    return diff <= DEDUP_WINDOW_MS;
+  });
+}
+
+/**
+ * toOptimisticMessage (messaging-inbox-v2-media F1.5 fase A, Tanda 2 —
+ * ENVIAR, design §5.3) — mapea un `PendingSend` (envío en vuelo) a un
+ * `WhatsappMessage` de forma que `MessageBubble` lo renderice con el MISMO
+ * `MediaAttachments`/`MediaAttachment` del inbound (reuso puro). `status:
+ * 'downloaded'` (NUNCA 'pending') porque el binario local YA existe vía
+ * objectURL — 'pending' pintaría el skeleton sin sentido.
+ */
+function toOptimisticMessage(pending: PendingSend): WhatsappMessage {
+  return {
+    id: pending.tempId,
+    direction: 'outbound',
+    content: pending.content,
+    senderName: null,
+    sentAt: pending.createdAt,
+    attachments: pending.drafts
+      .filter((d) => d.error === null)
+      .map((d) => ({
+        id: `${pending.tempId}:${d.id}`,
+        fileType: d.fileType,
+        contentType: d.file.type,
+        filename: d.file.name,
+        fileSize: d.file.size,
+        width: null,
+        height: null,
+        status: 'downloaded' as const,
+        url: d.previewUrl ?? '',
+        thumbUrl: null,
+      })),
+  };
+}
 
 interface MessageThreadProps {
   /** `null` cuando no hay conversación seleccionada todavía (estado inicial). */
@@ -28,6 +90,17 @@ interface MessageThreadProps {
    * (mismo criterio que `onBack`, presentacional puro, sin react-query).
    */
   onRetryAttachment?: () => void;
+  /**
+   * Envíos en vuelo (messaging-inbox-v2-media F1.5 fase A, Tanda 2, design
+   * §6.3) — se renderizan DESPUÉS de `messages` (son los más nuevos, aún sin
+   * confirmar). Default `[]` → cero regresión para cualquier consumidor que
+   * no los pase todavía.
+   */
+  pendingSends?: PendingSend[];
+  /** "Reintentar" de una burbuja `failed` — recibe el `PendingSend` entero (drafts incluidos, para re-mutar). */
+  onRetryPending?: (pending: PendingSend) => void;
+  /** "Descartar" de una burbuja `failed`. */
+  onDiscardPending?: (pending: PendingSend) => void;
 }
 
 /**
@@ -43,7 +116,38 @@ interface MessageThreadProps {
  * en cada render. El set se resetea cuando cambia `conversationId` para que
  * el historial de la conversación recién abierta tampoco se marque "nuevo".
  */
-export function MessageThread({ conversationId, contactName, messages, isLoading, isError = false, onBack, onRetryAttachment }: MessageThreadProps) {
+export function MessageThread({
+  conversationId,
+  contactName,
+  messages,
+  isLoading,
+  isError = false,
+  onBack,
+  onRetryAttachment,
+  pendingSends = [],
+  onRetryPending,
+  onDiscardPending,
+}: MessageThreadProps) {
+  // Merge server + pending (design §6.3): los pending van DESPUÉS (son los
+  // más nuevos, aún sin confirmar). `pendingById` permite recuperar el
+  // `PendingSend` original al renderizar (para bindear onRetry/onDiscard con
+  // SU pending), sin mutar la forma de `WhatsappMessage`.
+  // Bug ALTO #5: se filtran los pendings que ya tienen un mensaje real
+  // equivalente en `messages` (ver `isLikelyDuplicateOfReal`) ANTES de
+  // mapearlos a filas — evita la burbuja duplicada en la carrera
+  // poll-vs-onSuccess. `pendingById` se deriva del MISMO set filtrado: un
+  // pending deduplicado no debe seguir prestando su `deliveryStatus`/retry a
+  // ninguna fila (ya no genera una).
+  const visiblePendingSends = useMemo(
+    () => pendingSends.filter((p) => !isLikelyDuplicateOfReal(p, messages)),
+    [pendingSends, messages],
+  );
+  const pendingById = useMemo(() => new Map(visiblePendingSends.map((p) => [p.tempId, p])), [visiblePendingSends]);
+  const rows = useMemo(
+    () => [...messages, ...visiblePendingSends.map(toOptimisticMessage)],
+    [messages, visiblePendingSends],
+  );
+
   const seenIdsRef = useRef<Set<string>>(new Set());
   const prevConversationIdRef = useRef<string | null>(null);
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
@@ -66,7 +170,7 @@ export function MessageThread({ conversationId, contactName, messages, isLoading
     // stops being 0 the moment the 1st item gets added mid-iteration).
     const isInitialLoad = seenIdsRef.current.size === 0;
     const fresh = new Set<string>();
-    for (const m of messages) {
+    for (const m of rows) {
       if (!seenIdsRef.current.has(m.id)) {
         if (!isInitialLoad) fresh.add(m.id);
         seenIdsRef.current.add(m.id);
@@ -79,7 +183,7 @@ export function MessageThread({ conversationId, contactName, messages, isLoading
       return () => clearTimeout(t);
     }
     return undefined;
-  }, [messages, conversationId]);
+  }, [rows, conversationId]);
 
   // BUG FIX (post-review-adversarial, componentes — bug #2): `staggerIndex`
   // NO puede ser el índice absoluto de `messages.map` — en un thread de 20+
@@ -93,14 +197,14 @@ export function MessageThread({ conversationId, contactName, messages, isLoading
   const newIdsOrder = useMemo(() => {
     const order = new Map<string, number>();
     let i = 0;
-    for (const m of messages) {
+    for (const m of rows) {
       if (newIds.has(m.id)) {
         order.set(m.id, i);
         i++;
       }
     }
     return order;
-  }, [messages, newIds]);
+  }, [rows, newIds]);
 
   // BUG FIX (post-review-adversarial, review-animations de Emil — bug #7):
   // el `scrollIntoView` incondicional pateaba al fondo en CADA poll (~5s),
@@ -129,6 +233,17 @@ export function MessageThread({ conversationId, contactName, messages, isLoading
   // usuario que genuinamente scrolleó bastante para leer historial viejo.
   const NEAR_BOTTOM_THRESHOLD_PX = 120;
 
+  // Bug MEDIO #11 (post-review-adversarial): `onUploadProgress` patchea el
+  // `PendingSend` en cada tick (ya throttleado a nivel hook, pero igual
+  // ocurre varias veces por subida) — cada patch crea una nueva referencia
+  // de `pendingSends`/`rows`, y el efecto de abajo estaba en `[rows, ...]`:
+  // recalculaba `isNearBottom`/`scrollIntoView` en CADA tick de progreso,
+  // aunque no haya ninguna fila nueva. La identidad real que importa para
+  // decidir "¿hay que scrollear?" es el CONJUNTO de ids de `rows` (agregar o
+  // quitar una fila), no el contenido de una fila existente — `rowIdsKey`
+  // solo cambia cuando efectivamente entra/sale una fila.
+  const rowIdsKey = useMemo(() => rows.map((r) => r.id).join('|'), [rows]);
+
   useEffect(() => {
     const bottom = bottomRef.current;
     if (!bottom) return;
@@ -136,7 +251,7 @@ export function MessageThread({ conversationId, contactName, messages, isLoading
     const isNewConversation = prevConversationIdForScrollRef.current !== conversationId;
     prevConversationIdForScrollRef.current = conversationId;
 
-    const lastMessage = messages[messages.length - 1];
+    const lastMessage = rows[rows.length - 1];
     const isOwnSend = lastMessage?.direction === 'outbound';
 
     const list = listRef.current;
@@ -148,7 +263,8 @@ export function MessageThread({ conversationId, contactName, messages, isLoading
       // preserva el guard original.
       bottom.scrollIntoView?.({ block: 'end' });
     }
-  }, [messages, conversationId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `rows` se lee dentro (closure) a propósito; el efecto solo debe RE-EJECUTARSE cuando cambia `rowIdsKey` (entra/sale una fila), no en cada tick de progreso de un pending existente (bug #11).
+  }, [rowIdsKey, conversationId]);
 
   if (!conversationId) {
     return (
@@ -194,11 +310,11 @@ export function MessageThread({ conversationId, contactName, messages, isLoading
           </p>
         )}
 
-        {!isLoading && !isError && messages.length === 0 && (
+        {!isLoading && !isError && rows.length === 0 && (
           <p className={styles.emptyState}>Sin mensajes aún.</p>
         )}
 
-        {!isLoading && !isError && messages.length > 0 && (
+        {!isLoading && !isError && rows.length > 0 && (
           <div
             ref={listRef}
             className={styles.list}
@@ -206,15 +322,25 @@ export function MessageThread({ conversationId, contactName, messages, isLoading
             aria-live="polite"
             aria-atomic="false"
           >
-            {messages.map((m) => (
-              <MessageBubble
-                key={m.id}
-                message={m}
-                isNew={newIds.has(m.id)}
-                staggerIndex={newIdsOrder.get(m.id) ?? 0}
-                onRetryAttachment={onRetryAttachment}
-              />
-            ))}
+            {rows.map((m) => {
+              // Solo los rows derivados de un PendingSend (id === tempId)
+              // reciben deliveryStatus/progreso/retry/discard — los mensajes
+              // REALES del server nunca están en `pendingById` (design §5.3).
+              const pending = pendingById.get(m.id);
+              return (
+                <MessageBubble
+                  key={m.id}
+                  message={m}
+                  isNew={newIds.has(m.id)}
+                  staggerIndex={newIdsOrder.get(m.id) ?? 0}
+                  onRetryAttachment={onRetryAttachment}
+                  deliveryStatus={pending?.status}
+                  uploadProgress={pending?.progress}
+                  onRetry={pending ? () => onRetryPending?.(pending) : undefined}
+                  onDiscard={pending ? () => onDiscardPending?.(pending) : undefined}
+                />
+              );
+            })}
             <div ref={bottomRef} />
           </div>
         )}

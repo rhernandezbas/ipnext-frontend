@@ -5,7 +5,8 @@
  * renderizar SVG) — el consumo visual lo cubre `MediaFile.test.tsx` (F3.5).
  */
 import { describe, it, expect } from 'vitest';
-import { pickFileIconKind } from './mediaIcons';
+import { render } from '@testing-library/react';
+import { pickFileIconKind, IconPaperclip } from './mediaIcons';
 
 describe('pickFileIconKind', () => {
   it('application/pdf → "pdf"', () => {
@@ -38,5 +39,17 @@ describe('pickFileIconKind', () => {
 
   it('tipo desconocido → "generic" (mapa chico, no se inventan 20 tipos)', () => {
     expect(pickFileIconKind('application/octet-stream')).toBe('generic');
+  });
+});
+
+describe('IconPaperclip (F1.5 fase A Tanda 2 — botón adjuntar)', () => {
+  it('renderiza un <svg> (nunca un emoji)', () => {
+    const { container } = render(<IconPaperclip />);
+    expect(container.querySelector('svg')).not.toBeNull();
+  });
+
+  it('es decorativo (aria-hidden) — el label accesible vive en el botón que lo envuelve', () => {
+    const { container } = render(<IconPaperclip />);
+    expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
   });
 });

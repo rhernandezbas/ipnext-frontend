@@ -9,9 +9,10 @@
  *          ['whatsapp','conversation',id], refetchInterval visible?25000:false
  *  WHATS-3 useWhatsappMessages(id): enabled:!!id, queryKey
  *          ['whatsapp','messages',id], refetchInterval visible?5000:false
- *  WHATS-4 useSendWhatsappMessage(id): onSuccess → append optimista en el
- *          cache de mensajes + invalidate conversations; onError captura
- *          422/503 sin relanzar (el composer, FB3, lee isError/error)
+ *  WHATS-4 useSendWhatsappMessage(id) — messaging-inbox-v2-media F1.5 fase A
+ *          Tanda 2 reescribió este hook por completo (optimistic UI +
+ *          progreso, design §6.3); su cobertura vive en el archivo dedicado
+ *          `useWhatsapp.send.test.ts`, no acá (ver nota más abajo).
  *  WHATS-5 useInboxClientContext(conversationId, clientId) (messaging-inbox-v2
  *          F1.5, tasks F2): SWR 2 fases. Query primaria: enabled:!!conversationId,
  *          queryKey ['whatsapp','clientContext',conversationId,clientId??'_'],
@@ -37,7 +38,6 @@ vi.mock('@/api/whatsapp.api', () => ({
   listWhatsappConversations: vi.fn(),
   getWhatsappConversation: vi.fn(),
   listWhatsappMessages: vi.fn(),
-  sendWhatsappMessage: vi.fn(),
   getInboxClientContext: vi.fn(),
 }));
 
@@ -49,7 +49,6 @@ import {
   listWhatsappConversations,
   getWhatsappConversation,
   listWhatsappMessages,
-  sendWhatsappMessage,
   getInboxClientContext,
 } from '@/api/whatsapp.api';
 import { useDocumentVisible } from '@/hooks/useDocumentVisible';
@@ -57,7 +56,6 @@ import {
   useWhatsappConversations,
   useWhatsappConversation,
   useWhatsappMessages,
-  useSendWhatsappMessage,
   useInboxClientContext,
   whatsappConversationsKey,
   whatsappConversationKey,
@@ -100,14 +98,6 @@ const MESSAGE_1: WhatsappMessage = {
   content: 'hola, tengo un problema',
   senderName: 'Juan Perez',
   sentAt: '2026-07-10T12:00:00.000Z',
-};
-
-const MESSAGE_SENT: WhatsappMessage = {
-  id: 'msg-2',
-  direction: 'outbound',
-  content: 'ya te ayudamos',
-  senderName: 'Agente',
-  sentAt: '2026-07-10T12:05:00.000Z',
 };
 
 const RICH_STALE: WhatsappInboxClientContext = {
@@ -322,79 +312,16 @@ describe('WHATS-3: useWhatsappMessages(id)', () => {
   });
 });
 
-describe('WHATS-4: useSendWhatsappMessage(id)', () => {
-  it('onSuccess: appendea el mensaje al cache de mensajes de esa conversación (optimistic append)', async () => {
-    vi.mocked(sendWhatsappMessage).mockResolvedValue(MESSAGE_SENT);
-    const { qc, wrapper } = makeWrapper();
-    qc.setQueryData(whatsappMessagesKey('conv-1'), [MESSAGE_1]);
-
-    const { result } = renderHook(() => useSendWhatsappMessage('conv-1'), { wrapper });
-
-    await act(async () => {
-      await result.current.mutateAsync('ya te ayudamos');
-    });
-
-    expect(sendWhatsappMessage).toHaveBeenCalledWith('conv-1', 'ya te ayudamos');
-    expect(qc.getQueryData(whatsappMessagesKey('conv-1'))).toEqual([MESSAGE_1, MESSAGE_SENT]);
-  });
-
-  it('onSuccess: invalida ["whatsapp","conversations"] (barato, NO invalida conversation(id))', async () => {
-    vi.mocked(sendWhatsappMessage).mockResolvedValue(MESSAGE_SENT);
-    const { qc, wrapper } = makeWrapper();
-    const spy = vi.spyOn(qc, 'invalidateQueries');
-    const { result } = renderHook(() => useSendWhatsappMessage('conv-1'), { wrapper });
-
-    await act(async () => {
-      await result.current.mutateAsync('ya te ayudamos');
-    });
-
-    expect(spy).toHaveBeenCalledWith({ queryKey: ['whatsapp', 'conversations'] });
-    expect(spy).not.toHaveBeenCalledWith({ queryKey: whatsappConversationKey('conv-1') });
-  });
-
-  it('bug #5 — onSuccess cancela queries en vuelo del thread ANTES de aplicar el append (evita el race con el poll)', async () => {
-    vi.mocked(sendWhatsappMessage).mockResolvedValue(MESSAGE_SENT);
-    const { qc, wrapper } = makeWrapper();
-    const cancelSpy = vi.spyOn(qc, 'cancelQueries');
-    const { result } = renderHook(() => useSendWhatsappMessage('conv-1'), { wrapper });
-
-    await act(async () => {
-      await result.current.mutateAsync('ya te ayudamos');
-    });
-
-    expect(cancelSpy).toHaveBeenCalledWith({ queryKey: whatsappMessagesKey('conv-1') });
-  });
-
-  it('bug #5 — dedup: si el poll ya trajo el mensaje enviado (mismo id) antes de que resuelva onSuccess, no lo duplica', async () => {
-    vi.mocked(sendWhatsappMessage).mockResolvedValue(MESSAGE_SENT);
-    const { qc, wrapper } = makeWrapper();
-    // El poll "ganó la carrera": el mensaje ya está en cache cuando llega onSuccess.
-    qc.setQueryData(whatsappMessagesKey('conv-1'), [MESSAGE_1, MESSAGE_SENT]);
-    const { result } = renderHook(() => useSendWhatsappMessage('conv-1'), { wrapper });
-
-    await act(async () => {
-      await result.current.mutateAsync('ya te ayudamos');
-    });
-
-    expect(qc.getQueryData(whatsappMessagesKey('conv-1'))).toEqual([MESSAGE_1, MESSAGE_SENT]);
-  });
-
-  it('onError: 422 ventana expirada NO revienta — mutate() no crashea, isError queda accesible', async () => {
-    const windowExpired = Object.assign(new Error('ventana expirada'), {
-      response: { status: 422, data: { error: 'ventana expirada', code: 'MESSAGING_WINDOW_EXPIRED' } },
-    });
-    vi.mocked(sendWhatsappMessage).mockRejectedValue(windowExpired);
-    const { wrapper } = makeWrapper();
-    const { result } = renderHook(() => useSendWhatsappMessage('conv-1'), { wrapper });
-
-    act(() => {
-      result.current.mutate('mensaje tarde');
-    });
-
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(result.current.error).toBe(windowExpired);
-  });
-});
+/**
+ * WHATS-4: useSendWhatsappMessage(id) — messaging-inbox-v2-media F1.5 fase A,
+ * Tanda 2 (ENVIAR) reescribió por completo este hook: de un `useMutation`
+ * crudo (`mutate(content: string)`) a `{send,retry,discard,isError,error}`
+ * con optimistic UI + progreso (design §6.3). La cobertura completa (onMutate
+ * mete el pending, onSuccess dedup+cancelQueries+revoke, onError→'failed',
+ * retry, discard, el poll NO toca el slice) vive en el archivo DEDICADO
+ * `useWhatsapp.send.test.ts` — separado a propósito para no inflar este
+ * archivo con el nuevo contrato completo.
+ */
 
 describe('WHATS-5: useInboxClientContext(conversationId, clientId)', () => {
   it('con conversationId null NO dispara el fetch (enabled:!!conversationId)', () => {

@@ -4,6 +4,8 @@ import {
   useWhatsappConversations,
   useWhatsappConversation,
   useWhatsappMessages,
+  useSendWhatsappMessage,
+  usePendingSends,
   whatsappMessagesKey,
 } from '@/hooks/useWhatsapp';
 import { ConversationList } from './WhatsappInboxPage/components/ConversationList';
@@ -42,6 +44,13 @@ export default function WhatsappInboxPage() {
   const conversationsQuery = useWhatsappConversations(query);
   const detailQuery = useWhatsappConversation(selectedId ?? '');
   const messagesQuery = useWhatsappMessages(selectedId ?? '');
+  // messaging-inbox-v2-media F1.5 fase A, Tanda 2 (ENVIAR, design §6.3):
+  // envíos en vuelo del thread abierto + retry/discard de una burbuja
+  // `failed`. Instancia PROPIA de `useSendWhatsappMessage` (misma que usa
+  // `Composer` para `send`) — ambas operan sobre el mismo slice de cache
+  // (`whatsappPendingSendsKey`), no hace falta compartir el hook.
+  const pendingSends = usePendingSends(selectedId ?? '');
+  const { retry: retryPendingSend, discard: discardPendingSend } = useSendWhatsappMessage(selectedId ?? '');
 
   /**
    * Fix bug CRÍTICO #1 (post-review-adversarial, 2 reviewers): "Reintentar"
@@ -90,11 +99,27 @@ export default function WhatsappInboxPage() {
             isError={messagesQuery.isError}
             onBack={() => setSelectedId(null)}
             onRetryAttachment={handleRetryAttachment}
+            pendingSends={pendingSends}
+            onRetryPending={retryPendingSend}
+            onDiscardPending={discardPendingSend}
           />
         </div>
 
         {selectedId && (
           <Composer
+            // Fix bug CRÍTICO #1 (post-review-adversarial): sin `key`, cambiar
+            // A→B durante un envío/borrador re-renderiza esta MISMA instancia
+            // de `Composer` con un `conversationId` nuevo — el estado local
+            // (`content`, drafts de `useComposerAttachments`) sobrevivía al
+            // cambio, así que el mensaje/borrador de A terminaba viéndose (o
+            // enviándose) en B. `key={selectedId}` fuerza un remount limpio
+            // por conversación (mismo patrón que `ClientContextPanel` de acá
+            // abajo, y que `MessageThread.swap` internamente). La defensa
+            // COMPLEMENTARIA (para un envío YA en vuelo cuando el usuario
+            // cambia de conversación, no solo el estado local del composer)
+            // vive en `useSendWhatsappMessage` (`useWhatsapp.ts`): todas las
+            // keys de cache se derivan de `vars.convId`, nunca del closure `id`.
+            key={selectedId}
             conversationId={selectedId}
             canReply={!!detail?.canReply}
             isDetailLoading={detailQuery.isLoading}

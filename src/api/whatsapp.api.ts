@@ -50,10 +50,38 @@ export const listWhatsappMessages = (id: string): Promise<WhatsappMessage[]> =>
     .get<{ data: WhatsappMessage[] }>(`${BASE}/conversations/${id}/messages`)
     .then(r => r.data.data);
 
-export const sendWhatsappMessage = (id: string, content: string): Promise<WhatsappMessage> =>
-  axiosClient
-    .post<WhatsappMessage>(`${BASE}/conversations/${id}/messages`, { content })
+/**
+ * SendMessageInput (messaging-inbox-v2-media F1.5 fase A, Tanda 2 — ENVIAR,
+ * design §6.1) — `files`/`onUploadProgress` son ADITIVOS: sin `files` el
+ * camino es JSON idéntico a F1 (cero regresión, SEND-4/WAPI-5).
+ */
+export interface SendMessageInput {
+  content: string;
+  files?: File[];
+  onUploadProgress?: (fraction: number) => void;
+}
+
+export const sendWhatsappMessage = (id: string, input: SendMessageInput): Promise<WhatsappMessage> => {
+  if (!input.files || input.files.length === 0) {
+    return axiosClient
+      .post<WhatsappMessage>(`${BASE}/conversations/${id}/messages`, { content: input.content })
+      .then(r => r.data);
+  }
+
+  // field name 'attachments' = multer .array('attachments') del BE (spec-send.md SEND-6).
+  const form = new FormData();
+  form.append('content', input.content);
+  for (const f of input.files) form.append('attachments', f);
+
+  return axiosClient
+    .post<WhatsappMessage>(`${BASE}/conversations/${id}/messages`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' }, // axios 1.x agrega el boundary solo
+      onUploadProgress: (e: { loaded: number; total?: number }) => {
+        if (e.total) input.onUploadProgress?.(e.loaded / e.total);
+      },
+    })
     .then(r => r.data);
+};
 
 /**
  * getInboxClientContext (messaging-inbox-v2 F1.5, RICH-1..6, design §3.3,

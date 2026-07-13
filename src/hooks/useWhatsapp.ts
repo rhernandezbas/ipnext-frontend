@@ -2,7 +2,13 @@ import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import * as api from '@/api/whatsapp.api';
 import { useDocumentVisible } from '@/hooks/useDocumentVisible';
-import type { WhatsappInboxClientContext, WhatsappMessage, WhatsappPaginatedQuery } from '@/types/whatsapp';
+import type {
+  DraftAttachment,
+  PendingSend,
+  WhatsappInboxClientContext,
+  WhatsappMessage,
+  WhatsappPaginatedQuery,
+} from '@/types/whatsapp';
 
 /**
  * useWhatsapp (messaging-inbox F1, design §4/§5) — los 4 hooks del inbox en un
@@ -23,6 +29,15 @@ export const whatsappConversationsKey = (query: WhatsappPaginatedQuery) =>
 export const whatsappConversationKey = (id: string) => ['whatsapp', 'conversation', id] as const;
 
 export const whatsappMessagesKey = (id: string) => ['whatsapp', 'messages', id] as const;
+
+/**
+ * whatsappPendingSendsKey (messaging-inbox-v2-media F1.5 fase A, Tanda 2,
+ * design §6.3) — slice de cache PROPIO para envíos en vuelo, que el poll de
+ * `useWhatsappMessages` (5s) NUNCA toca. Sin esto, una subida de varios MB
+ * dura más que un ciclo de poll y el reemplazo del array entero borraría la
+ * burbuja optimista (parpadeo).
+ */
+export const whatsappPendingSendsKey = (id: string) => ['whatsapp', 'pendingSends', id] as const;
 
 export const whatsappClientContextKey = (conversationId: string, clientId: string | null) =>
   ['whatsapp', 'clientContext', conversationId, clientId ?? '_'] as const;
@@ -73,46 +88,147 @@ export function useWhatsappMessages(id: string) {
 }
 
 /**
- * COMPOSER-1 — envío de un mensaje. `onSuccess` appendea la respuesta 201 (ya
- * el `ChatMessageDto` persistido) directo al cache del thread — instantáneo,
- * sin reconciliar porque el próximo poll reemplaza el array completo por la
- * versión del server — e invalida SOLO la lista (barato, evita recomputar
- * `preview`/`lastMessageAt` en el cliente). NO invalida `conversation(id)`:
- * `canReply` no cambia al enviar, el próximo poll lo confirma igual.
- *
- * BUG FIX (post-review-adversarial — bug #5, race del envío): `useWhatsappMessages`
- * pollea en paralelo (independiente de esta mutation). Si un poll ya estaba
- * en vuelo cuando el POST resolvía, su respuesta (sin el mensaje nuevo
- * todavía, por lag del mirror) podía aterrizar DESPUÉS del `setQueryData` de
- * acá y pisarlo — el mensaje "se manda y desaparece" hasta el próximo poll.
- * `cancelQueries` (con `await`, ANTES del `setQueryData`) aborta ese query en
- * vuelo para que su resultado stale nunca llegue a aplicarse. El dedup por
- * `id` cubre el caso inverso: si el poll SÍ ganó la carrera y ya trajo el
- * mensaje antes de que este `onSuccess` corra, no se duplica.
- *
- * `onError` NO relanza — 422 `MESSAGING_WINDOW_EXPIRED` / 503
- * `CHATWOOT_UNAVAILABLE` quedan en `mutation.error`/`isError` para que el
- * composer (FB3) los muestre sin necesitar try/catch (el interceptor global
- * de `axios-client.ts` solo cubre 401).
+ * usePendingSends(id) (messaging-inbox-v2-media F1.5 fase A, Tanda 2, design
+ * §6.3) — lectura reactiva del slice `whatsappPendingSendsKey`. Patrón
+ * "cache-como-store": `enabled:false` → nunca refetchea (no hay `queryFn`),
+ * pero el observer de React Query SÍ re-renderiza ante cada `setQueryData`
+ * que `useSendWhatsappMessage` haga sobre esta misma key.
  */
+export function usePendingSends(id: string): PendingSend[] {
+  return (
+    useQuery({
+      queryKey: whatsappPendingSendsKey(id),
+      enabled: false,
+      initialData: [] as PendingSend[],
+    }).data ?? []
+  );
+}
+
+/**
+ * COMPOSER-1 / SEND (messaging-inbox-v2-media F1.5 fase A, Tanda 2, design
+ * §6.3) — envío de texto y/o media con optimistic UI + progreso. Devuelve
+ * `{send,retry,discard,isError,error}` (YA NO el `useMutation` crudo — el
+ * spinner de "enviando" vive en la burbuja optimista, no en el botón del
+ * composer, así que `isPending` deja de ser relevante acá).
+ *
+ * Problema resuelto (vs. F1): `useWhatsappMessages` pollea cada 5s; una
+ * subida de varios MB dura más que un ciclo de poll, y el poll reemplaza el
+ * array entero → borraría la burbuja optimista. Los envíos en vuelo viven en
+ * `whatsappPendingSendsKey` — un slice que el poll NUNCA toca.
+ *
+ * `onSuccess` (heredado de F1, bug #5): `cancelQueries` (con `await`, ANTES
+ * del `setQueryData`) aborta cualquier poll en vuelo del thread para que su
+ * resultado stale no pise el append; el dedup por `id` cubre el caso inverso
+ * (el poll ya trajo el mensaje). `onError` NO relanza — marca el pending
+ * `failed` para que la burbuja ofrezca "Reintentar"/"Descartar".
+ */
+/** Bug BAJO #13c: `crypto.randomUUID` puede no existir (contexto no-seguro, navegador viejo) — mismo fallback que `makeDraftId` en `useComposerAttachments.ts`. */
+function makeTempId(): string {
+  const uuid = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+  return `optimistic:${uuid}`;
+}
+
+/**
+ * Bug MEDIO #11: `onUploadProgress` de axios dispara en CADA tick de la
+ * subida (pueden ser decenas por archivo grande), y cada tick hacía un
+ * `setQueryData` que re-renderiza el thread entero. Throttle simple: el
+ * primer tick siempre patchea (progreso inicial visible), los siguientes
+ * solo si avanzaron >= 5 puntos desde el último patcheado, y completar
+ * (fraction===1) siempre patchea (para que la barra llegue a 100% posta).
+ */
+function createProgressThrottle(onPatch: (fraction: number) => void) {
+  let lastPatched: number | null = null;
+  return (fraction: number) => {
+    if (lastPatched !== null && fraction < 1 && fraction - lastPatched < 0.05) return;
+    lastPatched = fraction;
+    onPatch(fraction);
+  };
+}
+
 export function useSendWhatsappMessage(id: string) {
   const qc = useQueryClient();
+  const pendingKey = whatsappPendingSendsKey(id);
 
-  return useMutation({
-    mutationFn: (content: string) => api.sendWhatsappMessage(id, content),
-    onSuccess: async (message: WhatsappMessage) => {
-      await qc.cancelQueries({ queryKey: whatsappMessagesKey(id) });
-      qc.setQueryData<WhatsappMessage[]>(whatsappMessagesKey(id), (old) => {
+  type SendVars = { content: string; files: File[]; drafts: DraftAttachment[]; tempId: string; convId: string };
+
+  const mutation = useMutation({
+    // Bug CRÍTICO #1 defensa (post-review-adversarial): TODAS las keys de
+    // acá para abajo se derivan de `vars.convId` (capturado en `send`/`retry`
+    // AL MOMENTO de disparar el envío), NUNCA del closure `id` de este hook.
+    // Motivo: `Composer` (F1.5 Tanda 2) NO tenía `key={conversationId}` — al
+    // cambiar de conversación sin desmontar, React re-renderiza esta MISMA
+    // instancia de `useMutation` con un `id` nuevo, y TanStack Query actualiza
+    // los callbacks (`onSuccess`/`onError`) al último closure disponible. Si
+    // esos callbacks leyeran `id`/`pendingKey` del closure del hook, un envío
+    // en vuelo de la conversación A terminaría resolviéndose (o marcándose
+    // "failed") en el slice de la conversación B recién seleccionada.
+    mutationFn: (vars: SendVars) => {
+      const patchProgress = createProgressThrottle((fraction) => {
+        qc.setQueryData<PendingSend[]>(whatsappPendingSendsKey(vars.convId), (old = []) =>
+          old.map((p) => (p.tempId === vars.tempId ? { ...p, progress: fraction } : p)),
+        );
+      });
+      return api.sendWhatsappMessage(vars.convId, {
+        content: vars.content,
+        files: vars.files,
+        onUploadProgress: patchProgress,
+      });
+    },
+
+    onMutate: (vars: SendVars) => {
+      // Upsert por tempId: un `retry` reusa el tempId original (misma
+      // burbuja, mismo lugar en el thread) — si ya existe, se actualiza en
+      // vez de agregar una 2da fila duplicada.
+      qc.setQueryData<PendingSend[]>(whatsappPendingSendsKey(vars.convId), (old = []) => {
+        const next: PendingSend = { tempId: vars.tempId, content: vars.content, drafts: vars.drafts, progress: 0, status: 'sending', createdAt: new Date().toISOString() };
+        const exists = old.some((p) => p.tempId === vars.tempId);
+        return exists ? old.map((p) => (p.tempId === vars.tempId ? next : p)) : [...old, next];
+      });
+    },
+
+    onSuccess: async (message: WhatsappMessage, vars: SendVars) => {
+      vars.drafts.forEach((d) => d.previewUrl && URL.revokeObjectURL(d.previewUrl));
+      qc.setQueryData<PendingSend[]>(whatsappPendingSendsKey(vars.convId), (old = []) => old.filter((p) => p.tempId !== vars.tempId));
+      await qc.cancelQueries({ queryKey: whatsappMessagesKey(vars.convId) });
+      qc.setQueryData<WhatsappMessage[]>(whatsappMessagesKey(vars.convId), (old) => {
         const list = old ?? [];
         if (list.some((m) => m.id === message.id)) return list;
         return [...list, message];
       });
       void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
     },
-    onError: (error: unknown) => {
+
+    onError: (error: unknown, vars: SendVars) => {
       console.error('[whatsapp] sendMessage failed', error);
+      qc.setQueryData<PendingSend[]>(whatsappPendingSendsKey(vars.convId), (old = []) =>
+        old.map((p) => (p.tempId === vars.tempId ? { ...p, status: 'failed' as const } : p)),
+      );
     },
   });
+
+  const send = (
+    input: { content: string; files: File[]; drafts: DraftAttachment[] },
+    opts?: { onSuccess?: () => void },
+  ) => mutation.mutate({ ...input, tempId: makeTempId(), convId: id }, opts);
+
+  const retry = (pending: PendingSend) => {
+    // `onMutate` hace el upsert (misma tempId → reemplaza en el lugar,
+    // vuelve a "sending"/progress 0) — no hace falta patchear acá antes.
+    mutation.mutate({
+      content: pending.content,
+      files: pending.drafts.filter((d) => !d.error).map((d) => d.file),
+      drafts: pending.drafts,
+      tempId: pending.tempId,
+      convId: id,
+    });
+  };
+
+  const discard = (pending: PendingSend) => {
+    pending.drafts.forEach((d) => d.previewUrl && URL.revokeObjectURL(d.previewUrl));
+    qc.setQueryData<PendingSend[]>(pendingKey, (old = []) => old.filter((p) => p.tempId !== pending.tempId));
+  };
+
+  return { send, retry, discard, isError: mutation.isError, error: mutation.error };
 }
 
 /**

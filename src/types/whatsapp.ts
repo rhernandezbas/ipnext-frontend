@@ -153,6 +153,36 @@ export interface WhatsappInboxClientContext {
   client?: WhatsappInboxClientSummary;
 }
 
+// ─── Envío de media (messaging-inbox-v2-media F1.5 fase A, Tanda 2 — ENVIAR)
+// FE-only: nunca viajan al wire tal cual (design §3).
+
+/** Draft local del composer — un archivo elegido, antes de enviar. */
+export interface DraftAttachment {
+  /** clave estable local (crypto.randomUUID(); fallback contador si no existe). */
+  id: string;
+  file: File;
+  /** derivado del mimetype, ESPEJO del BE (image|video|audio|file). */
+  fileType: WhatsappChatMessageAttachment['fileType'];
+  /** objectURL para preview inline (image/video); null para audio/file (chip ícono). */
+  previewUrl: string | null;
+  /** validación client-side ANTES de subir. null = válido. */
+  error: null | { code: 'UNSUPPORTED_TYPE' | 'TOO_LARGE'; message: string };
+}
+
+/** Envío optimista en vuelo — vive en un slice de cache no polleado (design §6.3). */
+export interface PendingSend {
+  /** id temporal del mensaje optimista (`optimistic:{uuid}`). */
+  tempId: string;
+  content: string;
+  /** conserva los `File` para poder reintentar. */
+  drafts: DraftAttachment[];
+  /** 0..1, de `onUploadProgress` (axios). */
+  progress: number;
+  status: 'sending' | 'failed';
+  /** ISO — orden estable en el merge del thread. */
+  createdAt: string;
+}
+
 // ─── Pagination (espejo de `application/dto/pagination.ts`) ─────────────────
 
 export interface WhatsappPaginatedQuery {

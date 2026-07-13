@@ -136,15 +136,49 @@ describe('WAPI-4: listWhatsappMessages', () => {
 });
 
 describe('WAPI-5: sendWhatsappMessage', () => {
-  it('POSTea {content} y devuelve el mensaje creado flat', async () => {
+  it('sin files → POSTea {content} JSON idéntico a hoy (cero regresión, messaging-inbox-v2-media Tanda 2)', async () => {
     vi.mocked(axiosClient.post).mockResolvedValue({ data: MESSAGE });
 
-    const result = await sendWhatsappMessage('conv-1', 'hola, tengo un problema');
+    const result = await sendWhatsappMessage('conv-1', { content: 'hola, tengo un problema' });
 
     expect(axiosClient.post).toHaveBeenCalledWith('/messaging/conversations/conv-1/messages', {
       content: 'hola, tengo un problema',
     });
+    // Cero regresión: NO se manda un 3er argumento de config (sin headers multipart).
+    expect(axiosClient.post).toHaveBeenCalledTimes(1);
+    expect((vi.mocked(axiosClient.post).mock.calls[0] as unknown[]).length).toBe(2);
     expect(result).toEqual(MESSAGE);
+  });
+
+  it('con files → POSTea FormData multipart (field "attachments") + onUploadProgress reporta loaded/total', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: MESSAGE });
+    const onUploadProgress = vi.fn();
+    const file = new File(['x'], 'foto.jpg', { type: 'image/jpeg' });
+
+    const result = await sendWhatsappMessage('conv-1', { content: 'mirá esto', files: [file], onUploadProgress });
+
+    expect(axiosClient.post).toHaveBeenCalledTimes(1);
+    const [url, body, config] = vi.mocked(axiosClient.post).mock.calls[0] as [string, FormData, { headers: Record<string, string>; onUploadProgress: (e: { loaded: number; total: number }) => void }];
+    expect(url).toBe('/messaging/conversations/conv-1/messages');
+    expect(body).toBeInstanceOf(FormData);
+    expect(body.get('content')).toBe('mirá esto');
+    expect(body.get('attachments')).toBe(file);
+    expect(config.headers['Content-Type']).toBe('multipart/form-data');
+
+    config.onUploadProgress({ loaded: 50, total: 100 });
+    expect(onUploadProgress).toHaveBeenCalledWith(0.5);
+    expect(result).toEqual(MESSAGE);
+  });
+
+  it('con múltiples files, cada uno se agrega como una parte "attachments" separada', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: MESSAGE });
+    const file1 = new File(['a'], 'a.jpg', { type: 'image/jpeg' });
+    const file2 = new File(['b'], 'b.pdf', { type: 'application/pdf' });
+
+    await sendWhatsappMessage('conv-1', { content: '', files: [file1, file2] });
+
+    const [, body] = vi.mocked(axiosClient.post).mock.calls[0] as [string, FormData];
+    expect(body.getAll('attachments')).toEqual([file1, file2]);
   });
 });
 

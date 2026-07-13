@@ -8,6 +8,7 @@
  * .agents/skills/improve-animations/AUDIT.md §1).
  */
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { MessageBubble } from './MessageBubble';
 import type { WhatsappChatMessageAttachment, WhatsappMessage } from '@/types/whatsapp';
@@ -175,5 +176,88 @@ describe('MessageBubble — media entrante (messaging-inbox-v2-media F1.5 fase A
   it('attachments=[] (array vacío) NO renderiza MessageAttachments', () => {
     render(<MessageBubble message={msg({ attachments: [] })} />);
     expect(screen.queryByTestId('message-attachments')).toBeNull();
+  });
+});
+
+describe('MessageBubble — deliveryStatus (messaging-inbox-v2-media F1.5 fase A, Tanda 2 — ENVIAR, design §5.3)', () => {
+  it('deliveryStatus undefined (default) — SIN overlay, regresión inbound/outbound intacta', () => {
+    render(<MessageBubble message={msg({ direction: 'outbound' })} />);
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('button', { name: /reintentar/i })).toBeNull();
+  });
+
+  it('"sending" — muestra una progressbar con aria-valuenow derivado de uploadProgress', () => {
+    render(<MessageBubble message={msg({ direction: 'outbound' })} deliveryStatus="sending" uploadProgress={0.42} />);
+    const bar = screen.getByRole('progressbar');
+    expect(bar).toHaveAttribute('aria-valuenow', '42');
+  });
+
+  it('"sending" sin uploadProgress — progressbar en 0', () => {
+    render(<MessageBubble message={msg({ direction: 'outbound' })} deliveryStatus="sending" />);
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+  });
+
+  it('"failed" — muestra "Reintentar" y "Descartar", y dispara onRetry/onDiscard', async () => {
+    const onRetry = vi.fn();
+    const onDiscard = vi.fn();
+    render(
+      <MessageBubble
+        message={msg({ direction: 'outbound' })}
+        deliveryStatus="failed"
+        onRetry={onRetry}
+        onDiscard={onDiscard}
+      />,
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/no se pudo enviar/i);
+    await userEvent.click(screen.getByRole('button', { name: /reintentar/i }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole('button', { name: /descartar/i }));
+    expect(onDiscard).toHaveBeenCalledTimes(1);
+  });
+
+  it('"failed" — NO muestra la progressbar de "sending"', () => {
+    render(<MessageBubble message={msg({ direction: 'outbound' })} deliveryStatus="failed" />);
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  });
+});
+
+describe('MessageBubble — bug BAJO #13b (deliveryFailed incluye IconAlert, consistencia con AttachmentPreviewItem)', () => {
+  it('el banner "failed" incluye un ícono de alerta (svg), no solo texto', () => {
+    render(<MessageBubble message={msg({ direction: 'outbound' })} deliveryStatus="failed" />);
+    const alert = screen.getByRole('alert');
+    expect(alert.querySelector('svg')).not.toBeNull();
+  });
+});
+
+describe('MessageBubble — bug MEDIO #11 (aria-live narra hitos de progreso, no un aria-label estático)', () => {
+  it('al cruzar el 25%, anuncia "25% enviado" en una región role=status separada', () => {
+    const { rerender } = render(
+      <MessageBubble message={msg({ direction: 'outbound' })} deliveryStatus="sending" uploadProgress={0.1} />,
+    );
+    rerender(<MessageBubble message={msg({ direction: 'outbound' })} deliveryStatus="sending" uploadProgress={0.3} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('25% enviado');
+  });
+
+  it('al llegar a 100% (upload terminado, esperando confirmación del server), anuncia "Archivo enviado"', () => {
+    const { rerender } = render(
+      <MessageBubble message={msg({ direction: 'outbound' })} deliveryStatus="sending" uploadProgress={0.8} />,
+    );
+    rerender(<MessageBubble message={msg({ direction: 'outbound' })} deliveryStatus="sending" uploadProgress={1} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(/archivo enviado/i);
+  });
+
+  it('al fallar, anuncia el error en la región aria-live', () => {
+    render(<MessageBubble message={msg({ direction: 'outbound' })} deliveryStatus="failed" />);
+    expect(screen.getByRole('status')).toHaveTextContent(/error al enviar/i);
+  });
+
+  it('sin deliveryStatus (bubble normal), no hay ninguna región de anuncio de progreso', () => {
+    render(<MessageBubble message={msg({ direction: 'outbound' })} />);
+    expect(screen.queryByRole('status')).toBeNull();
   });
 });

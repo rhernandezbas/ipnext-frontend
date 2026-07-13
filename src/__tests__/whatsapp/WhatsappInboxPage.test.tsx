@@ -22,6 +22,7 @@ import * as useMyPermissionsModule from '@/hooks/useMyPermissions';
 import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 import WhatsappInboxPage from '@/pages/whatsapp/WhatsappInboxPage';
 import type {
+  PendingSend,
   WhatsappConversationListItem,
   WhatsappConversationDetail,
   WhatsappInboxClientContext,
@@ -145,6 +146,7 @@ function setHooks({
   detail,
   messages = [],
   richContext,
+  pendingSends = [],
 }: {
   conversations?: WhatsappPaginatedResult<WhatsappConversationListItem>;
   detail?: WhatsappConversationDetail;
@@ -154,6 +156,9 @@ function setHooks({
    * panel queda en estado neutro aunque `detail.clientContext` sea `matched`
    * (el nombre/deuda/etc. ahora vienen del fetch rico, no del lightContext). */
   richContext?: WhatsappInboxClientContext;
+  /** messaging-inbox-v2-media F1.5 fase A, Tanda 2 (ENVIAR) — envíos en
+   * vuelo que `usePendingSends` devolvería para la conversación abierta. */
+  pendingSends?: PendingSend[];
 } = {}) {
   vi.mocked(useWhatsappModule.useWhatsappConversations).mockReturnValue(
     mockQuery({ data: conversations, isLoading: false }),
@@ -165,11 +170,13 @@ function setHooks({
     mockQuery({ data: messages, isLoading: false }),
   );
   vi.mocked(useWhatsappModule.useSendWhatsappMessage).mockReturnValue({
-    mutate: vi.fn(),
-    isPending: false,
+    send: vi.fn(),
+    retry: vi.fn(),
+    discard: vi.fn(),
     isError: false,
     error: null,
   } as unknown as ReturnType<typeof useWhatsappModule.useSendWhatsappMessage>);
+  vi.mocked(useWhatsappModule.usePendingSends).mockReturnValue(pendingSends);
   // messaging-inbox-v2 F1.5 (F5): `ClientContextPanel` ahora es un container
   // que llama a `useInboxClientContext` incondicionalmente (reglas de hooks).
   // Sin este default, cualquier test que renderice el panel con una
@@ -413,6 +420,73 @@ describe('WhatsappInboxPage — F5 (messaging-inbox-v2): wiring de conversationI
     renderPage();
 
     expect(screen.getByText('Sin información de contexto disponible.')).toBeInTheDocument();
+  });
+});
+
+describe('WhatsappInboxPage — wiring de pendingSends (messaging-inbox-v2-media F1.5 fase A, Tanda 2 — ENVIAR, design §6.3)', () => {
+  function pending(over: Partial<PendingSend> = {}): PendingSend {
+    return {
+      tempId: 'optimistic:1',
+      content: 'en vuelo',
+      drafts: [],
+      progress: 0.5,
+      status: 'sending',
+      createdAt: '2026-07-12T00:00:00.000Z',
+      ...over,
+    };
+  }
+
+  it('usePendingSends(selectedId) llega hasta MessageThread — la burbuja optimista se ve en el thread abierto', async () => {
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B, pendingSends: [pending()] });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+
+    expect(useWhatsappModule.usePendingSends).toHaveBeenLastCalledWith('conv-b');
+    expect(within(screen.getByTestId('message-thread-list')).getByText('en vuelo')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+  });
+
+  it('"Reintentar" en una burbuja failed llama a retry() del hook con ESE pending', async () => {
+    const retryFn = vi.fn();
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B, pendingSends: [pending({ status: 'failed', tempId: 'optimistic:fail-1' })] });
+    vi.mocked(useWhatsappModule.useSendWhatsappMessage).mockReturnValue({
+      send: vi.fn(),
+      retry: retryFn,
+      discard: vi.fn(),
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSendWhatsappMessage>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: /reintentar/i }));
+
+    expect(retryFn).toHaveBeenCalledWith(expect.objectContaining({ tempId: 'optimistic:fail-1' }));
+  });
+});
+
+describe('WhatsappInboxPage — bug CRÍTICO #1 (Composer sin key: contaminación entre conversaciones)', () => {
+  it('cambiar de conversación limpia el composer — el texto tipeado para A no sobrevive al cambiar a B', async () => {
+    setHooks({ detail: DETAIL_B, messages: [] });
+    // `detail` es constante en este mock (no depende del id seleccionado) —
+    // alcanza para verificar que el composer se REMONTA (limpia su propio
+    // estado local) al cambiar de conversación, más allá de qué `detail`
+    // devuelva el mock.
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Juan Perez/i }));
+    const textareaA = screen.getByRole('textbox', { name: /mensaje/i });
+    await user.type(textareaA, 'Mensaje para Juan');
+    expect(textareaA).toHaveValue('Mensaje para Juan');
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    const textareaB = screen.getByRole('textbox', { name: /mensaje/i });
+
+    expect(textareaB).toHaveValue('');
   });
 });
 

@@ -117,3 +117,32 @@ describe('MessageBubble.module.css — bug #3 (A11Y-1: contraste outbound >= 4.5
     expect(contrastRatio(blendedSender, inboundBg)).toBeGreaterThanOrEqual(WCAG_AA_SMALL_TEXT);
   });
 });
+
+describe('MessageBubble.module.css — bug CRÍTICO #2 (contraste "failed" 2.64:1 + foco invisible 1.3:1)', () => {
+  it('.deliveryFailed NO fija un color propio — hereda --color-white de la burbuja outbound (los botones Reintentar/Descartar ya heredan `color:inherit`)', () => {
+    const block = extractRule(bubbleCss, '.deliveryFailed {');
+    expect(block).not.toMatch(/color:\s*var\(--color-text-primary\)/);
+  });
+
+  it('el texto "No se pudo enviar" sobre el fondo outbound cumple >= 4.5:1 (blanco pleno, sin opacity)', () => {
+    const outboundBg = hexToRgb(resolveToken('--color-primary-hover'));
+    const white = hexToRgb(resolveToken('--color-white'));
+    expect(contrastRatio(white, outboundBg)).toBeGreaterThanOrEqual(WCAG_AA_SMALL_TEXT);
+  });
+
+  it('el focus-visible de Reintentar/Descartar cumple >= 3:1 contra el fondo outbound (WCAG 2.1 SC 1.4.11, no --color-primary — ese es ~1.3:1 sobre sí mismo)', () => {
+    const outboundBg = hexToRgb(resolveToken('--color-primary-hover'));
+    const start = bubbleCss.indexOf('.deliveryRetryBtn:focus-visible,');
+    expect(start).toBeGreaterThan(-1);
+    const open = bubbleCss.indexOf('{', start);
+    const close = bubbleCss.indexOf('}', open);
+    const block = bubbleCss.slice(open + 1, close);
+    const outlineDecl = extractDeclValue(block, 'outline');
+    expect(outlineDecl).not.toMatch(/--color-primary\)/);
+
+    const tokenMatch = outlineDecl.match(/var\((--[a-z0-9-]+)\)/i);
+    expect(tokenMatch).not.toBeNull();
+    const outlineColor = hexToRgb(resolveToken(tokenMatch![1]!));
+    expect(contrastRatio(outlineColor, outboundBg)).toBeGreaterThanOrEqual(3);
+  });
+});
