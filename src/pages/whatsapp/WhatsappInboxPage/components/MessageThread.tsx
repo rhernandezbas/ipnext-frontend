@@ -29,6 +29,12 @@ function isLikelyDuplicateOfReal(pending: PendingSend, messages: WhatsappMessage
   return messages.some((m) => {
     if (m.direction !== 'outbound') return false;
     if (m.content !== pending.content) return false;
+    // messaging-inbox-notes F1.5 fase D (design §5): una nota NO dedupea
+    // contra un reply del mismo texto en la misma ventana (y viceversa) —
+    // sin esto, escribir una nota interna con el mismo texto que un reply ya
+    // enviado colapsaría a UNA sola burbuja, mostrando la variante
+    // equivocada (o borrando la nota entera de la vista).
+    if ((m.private ?? false) !== pending.isPrivate) return false;
     const diff = Math.abs(new Date(m.sentAt).getTime() - pendingTime);
     return diff <= DEDUP_WINDOW_MS;
   });
@@ -49,6 +55,11 @@ function toOptimisticMessage(pending: PendingSend): WhatsappMessage {
     content: pending.content,
     senderName: null,
     sentAt: pending.createdAt,
+    // messaging-inbox-notes F1.5 fase D (design §5): único punto de rename
+    // real del pipeline — `isPrivate` (interno, PendingSend) → `private`
+    // (wire-shape, WhatsappMessage) — así la burbuja optimista de una nota
+    // se pinta como nota AL INSTANTE, sin esperar la confirmación del server.
+    private: pending.isPrivate,
     attachments: pending.drafts
       .filter((d) => d.error === null)
       .map((d) => ({

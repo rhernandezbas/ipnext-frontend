@@ -171,6 +171,49 @@ describe('useComposerAttachments — unmount', () => {
   });
 });
 
+describe('useComposerAttachments — discardAll (fix-fe hallazgo #1/#2: abandonar drafts SIN enviarlos — ej. Composer.handleModeChange al entrar a modo nota)', () => {
+  it('a diferencia de clear() (que NO revoca, ver su describe arriba), discardAll() SÍ revoca el objectURL de todos los drafts', () => {
+    const { result } = renderHook(() => useComposerAttachments());
+    act(() => result.current.add([makeFile('a.jpg', 'image/jpeg'), makeFile('b.png', 'image/png')]));
+
+    act(() => result.current.discardAll());
+
+    expect(result.current.drafts).toHaveLength(0);
+    expect(URL.revokeObjectURL).toHaveBeenCalledTimes(2);
+  });
+
+  it('revoca también drafts con error de validación (bloqueantes) y limpia hasBlocking', () => {
+    const { result } = renderHook(() => useComposerAttachments());
+    act(() => result.current.add([makeFile('grande.jpg', 'image/jpeg', 6 * 1024 * 1024)]));
+    const url = result.current.drafts[0]!.previewUrl;
+    expect(result.current.hasBlocking).toBe(true);
+
+    act(() => result.current.discardAll());
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(url);
+    expect(result.current.hasBlocking).toBe(false);
+  });
+
+  it('sin drafts, no revoca nada (no explota)', () => {
+    const { result } = renderHook(() => useComposerAttachments());
+
+    act(() => result.current.discardAll());
+
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+  });
+
+  it('resetea el feedback de "máximo N archivos" (fix-fe hallazgo #1 re-review nota privada: al entrar a modo nota se hace discardAll() — el composer en modo nota NO tiene tray ni botón de adjuntar, así que un cartel de límite de archivos queda pegado y sin sentido; abandonar los drafts debe limpiar su feedback)', () => {
+    const { result } = renderHook(() => useComposerAttachments());
+    const files = Array.from({ length: 12 }, (_, i) => makeFile(`f${i}.jpg`, 'image/jpeg'));
+    act(() => result.current.add(files));
+    expect(result.current.feedback).toMatch(/m[aá]ximo/i);
+
+    act(() => result.current.discardAll());
+
+    expect(result.current.feedback).toBeNull();
+  });
+});
+
 describe('useComposerAttachments — hasBlocking', () => {
   it('false cuando no hay drafts o ninguno tiene error', () => {
     const { result } = renderHook(() => useComposerAttachments());

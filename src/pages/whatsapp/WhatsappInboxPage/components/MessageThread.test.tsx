@@ -317,6 +317,7 @@ describe('MessageThread — merge server + pendingSends (messaging-inbox-v2-medi
       progress: 0,
       status: 'sending',
       createdAt: '2026-07-12T00:00:00.000Z',
+      isPrivate: false,
       ...over,
     };
   }
@@ -396,7 +397,7 @@ describe('MessageThread — merge server + pendingSends (messaging-inbox-v2-medi
 describe('MessageThread — bug ALTO #5 (dedup optimista(tempId) vs real(id) — no debe duplicar la burbuja)', () => {
   function pending(over: Partial<PendingSend> = {}): PendingSend {
     return {
-      tempId: 'optimistic:1', content: 'mirá esto', drafts: [], progress: 1, status: 'sending', createdAt: '2026-07-12T10:00:00.000Z',
+      tempId: 'optimistic:1', content: 'mirá esto', drafts: [], progress: 1, status: 'sending', createdAt: '2026-07-12T10:00:00.000Z', isPrivate: false,
       ...over,
     };
   }
@@ -452,6 +453,70 @@ describe('MessageThread — bug ALTO #5 (dedup optimista(tempId) vs real(id) —
   });
 });
 
+describe('MessageThread — dedup por isPrivate (messaging-inbox-notes F1.5 fase D — NOTA PRIVADA, design §5)', () => {
+  function notePending(over: Partial<PendingSend> = {}): PendingSend {
+    return {
+      tempId: 'optimistic:note-1', content: 'mirá esto', drafts: [], progress: 1, status: 'sending', createdAt: '2026-07-12T10:00:00.000Z', isPrivate: true,
+      ...over,
+    };
+  }
+
+  it('un pending de NOTA (isPrivate:true) y un mensaje real de REPLY (private:false) con mismo content/ventana NO dedupean (2 filas)', () => {
+    const pendingItem = notePending();
+    const realReply = msg({ id: 'real-1', direction: 'outbound', content: 'mirá esto', private: false, sentAt: '2026-07-12T10:00:02.000Z' });
+
+    render(
+      <MessageThread conversationId="c1" contactName="Juan" messages={[realReply]} isLoading={false} pendingSends={[pendingItem]} />,
+    );
+
+    expect(screen.getAllByTestId('message-bubble-row')).toHaveLength(2);
+  });
+
+  it('un pending de NOTA y un mensaje real que también es NOTA (private:true), mismo content/ventana, SÍ dedupean (1 fila)', () => {
+    const pendingItem = notePending();
+    const realNote = msg({ id: 'real-2', direction: 'outbound', content: 'mirá esto', private: true, sentAt: '2026-07-12T10:00:02.000Z' });
+
+    render(
+      <MessageThread conversationId="c1" contactName="Juan" messages={[realNote]} isLoading={false} pendingSends={[pendingItem]} />,
+    );
+
+    const rows = screen.getAllByTestId('message-bubble-row');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveClass('note');
+  });
+
+  it('una burbuja optimista de nota (pendingSends con isPrivate:true) se renderiza YA con la variante .note, antes de confirmación del server', () => {
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[]}
+        isLoading={false}
+        pendingSends={[notePending({ tempId: 'optimistic:note-2', content: 'nota optimista' })]}
+      />,
+    );
+
+    const row = screen.getByTestId('message-bubble-row');
+    expect(row).toHaveClass('note');
+    expect(row).not.toHaveClass('outbound');
+    expect(screen.getByText('Nota interna')).toBeInTheDocument();
+    expect(screen.getByText('nota optimista')).toBeInTheDocument();
+  });
+
+  it('un pending de REPLY (isPrivate:false) sigue dedupeando normalmente contra un real REPLY (comportamiento bug #5 intacto)', () => {
+    const pendingItem: PendingSend = {
+      tempId: 'optimistic:reply-1', content: 'reply normal', drafts: [], progress: 1, status: 'sending', createdAt: '2026-07-12T10:00:00.000Z', isPrivate: false,
+    };
+    const realReply = msg({ id: 'real-3', direction: 'outbound', content: 'reply normal', private: false, sentAt: '2026-07-12T10:00:01.000Z' });
+
+    render(
+      <MessageThread conversationId="c1" contactName="Juan" messages={[realReply]} isLoading={false} pendingSends={[pendingItem]} />,
+    );
+
+    expect(screen.getAllByTestId('message-bubble-row')).toHaveLength(1);
+  });
+});
+
 describe('MessageThread — bug MEDIO #11 (no auto-scrollear en cada tick de progreso, solo ante filas genuinamente nuevas)', () => {
   beforeEach(() => {
     Element.prototype.scrollIntoView = vi.fn();
@@ -464,7 +529,7 @@ describe('MessageThread — bug MEDIO #11 (no auto-scrollear en cada tick de pro
 
   it('actualizar SOLO el progress de un pending ya existente NO dispara scrollIntoView de nuevo', () => {
     const scrollSpy = vi.mocked(Element.prototype.scrollIntoView);
-    const p: PendingSend = { tempId: 'optimistic:1', content: 'subiendo', drafts: [], progress: 0.1, status: 'sending', createdAt: '2026-07-12T00:00:00.000Z' };
+    const p: PendingSend = { tempId: 'optimistic:1', content: 'subiendo', drafts: [], progress: 0.1, status: 'sending', createdAt: '2026-07-12T00:00:00.000Z', isPrivate: false };
     const { rerender } = render(
       <MessageThread conversationId="c1" contactName="Juan" messages={[]} isLoading={false} pendingSends={[p]} />,
     );
@@ -479,7 +544,7 @@ describe('MessageThread — bug MEDIO #11 (no auto-scrollear en cada tick de pro
 
   it('un pending NUEVO (tempId distinto) sigue disparando el scroll normalmente', () => {
     const scrollSpy = vi.mocked(Element.prototype.scrollIntoView);
-    const p: PendingSend = { tempId: 'optimistic:1', content: 'subiendo', drafts: [], progress: 0.1, status: 'sending', createdAt: '2026-07-12T00:00:00.000Z' };
+    const p: PendingSend = { tempId: 'optimistic:1', content: 'subiendo', drafts: [], progress: 0.1, status: 'sending', createdAt: '2026-07-12T00:00:00.000Z', isPrivate: false };
     const { rerender } = render(
       <MessageThread conversationId="c1" contactName="Juan" messages={[]} isLoading={false} pendingSends={[p]} />,
     );
@@ -491,7 +556,7 @@ describe('MessageThread — bug MEDIO #11 (no auto-scrollear en cada tick de pro
         contactName="Juan"
         messages={[]}
         isLoading={false}
-        pendingSends={[p, { tempId: 'optimistic:2', content: 'otro', drafts: [], progress: 0, status: 'sending', createdAt: '2026-07-12T00:00:01.000Z' }]}
+        pendingSends={[p, { tempId: 'optimistic:2', content: 'otro', drafts: [], progress: 0, status: 'sending', createdAt: '2026-07-12T00:00:01.000Z', isPrivate: false }]}
       />,
     );
 

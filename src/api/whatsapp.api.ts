@@ -59,12 +59,19 @@ export interface SendMessageInput {
   content: string;
   files?: File[];
   onUploadProgress?: (fraction: number) => void;
+  /**
+   * Aditivo (messaging-inbox-notes F1.5 fase D — NOTA PRIVADA, design §5) —
+   * mirror EXACTO del campo wire que el BE lee (`private`/`isPrivate`,
+   * NOTE-6). Opcional para no romper los call sites de 3 args existentes
+   * (F1/F1.5 media, cero regresión).
+   */
+  private?: boolean;
 }
 
 export const sendWhatsappMessage = (id: string, input: SendMessageInput): Promise<WhatsappMessage> => {
   if (!input.files || input.files.length === 0) {
     return axiosClient
-      .post<WhatsappMessage>(`${BASE}/conversations/${id}/messages`, { content: input.content })
+      .post<WhatsappMessage>(`${BASE}/conversations/${id}/messages`, { content: input.content, private: input.private })
       .then(r => r.data);
   }
 
@@ -72,6 +79,9 @@ export const sendWhatsappMessage = (id: string, input: SendMessageInput): Promis
   const form = new FormData();
   form.append('content', input.content);
   for (const f of input.files) form.append('attachments', f);
+  // NOTE-6: solo se agrega el campo cuando es realmente true — ausente/false
+  // queda sin el campo (compat con F1, el BE default a false cuando falta).
+  if (input.private) form.append('private', 'true');
 
   return axiosClient
     .post<WhatsappMessage>(`${BASE}/conversations/${id}/messages`, form, {

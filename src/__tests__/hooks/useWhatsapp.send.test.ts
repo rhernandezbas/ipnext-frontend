@@ -81,7 +81,7 @@ describe('usePendingSends(id) — cache-como-store', () => {
     expect(result.current).toEqual([]);
 
     const pending: PendingSend = {
-      tempId: 'optimistic:1', content: 'hola', drafts: [], progress: 0, status: 'sending', createdAt: '2026-07-12T00:00:00.000Z',
+      tempId: 'optimistic:1', content: 'hola', drafts: [], progress: 0, status: 'sending', createdAt: '2026-07-12T00:00:00.000Z', isPrivate: false,
     };
     act(() => {
       qc.setQueryData(whatsappPendingSendsKey('conv-1'), [pending]);
@@ -217,7 +217,7 @@ describe('useSendWhatsappMessage(id).retry', () => {
   it('re-mutea con el mismo tempId: vuelve a "sending" con progress 0, sin duplicar el pending', async () => {
     const { qc, wrapper } = makeWrapper();
     const failing: PendingSend = {
-      tempId: 'optimistic:retry-1', content: 'reintento', drafts: [draft('a1')], progress: 0, status: 'failed', createdAt: '2026-07-12T00:00:00.000Z',
+      tempId: 'optimistic:retry-1', content: 'reintento', drafts: [draft('a1')], progress: 0, status: 'failed', createdAt: '2026-07-12T00:00:00.000Z', isPrivate: false,
     };
     qc.setQueryData(whatsappPendingSendsKey('conv-1'), [failing]);
     let resolveSend!: (m: WhatsappMessage) => void;
@@ -360,11 +360,95 @@ describe('useSendWhatsappMessage(id).send — bug BAJO #13c (crypto.randomUUID s
   });
 });
 
+describe('useSendWhatsappMessage(id).send — isPrivate threading (messaging-inbox-notes F1.5 fase D — NOTA PRIVADA)', () => {
+  it('send({..., isPrivate:true}) → onMutate guarda un PendingSend con isPrivate:true', async () => {
+    vi.mocked(sendWhatsappMessage).mockImplementation(() => new Promise(() => {}));
+    const { qc, wrapper } = makeWrapper();
+    const { result } = renderHook(() => useSendWhatsappMessage('conv-1'), { wrapper });
+
+    act(() => {
+      result.current.send({ content: 'nota interna', files: [], drafts: [], isPrivate: true });
+    });
+
+    await waitFor(() => {
+      const pending = qc.getQueryData<PendingSend[]>(whatsappPendingSendsKey('conv-1')) ?? [];
+      expect(pending).toHaveLength(1);
+      expect(pending[0]?.isPrivate).toBe(true);
+    });
+  });
+
+  it('send({...}) SIN isPrivate → default false (cero regresión de los call sites de 3 args existentes)', async () => {
+    vi.mocked(sendWhatsappMessage).mockImplementation(() => new Promise(() => {}));
+    const { qc, wrapper } = makeWrapper();
+    const { result } = renderHook(() => useSendWhatsappMessage('conv-1'), { wrapper });
+
+    act(() => {
+      result.current.send({ content: 'reply normal', files: [], drafts: [] });
+    });
+
+    await waitFor(() => {
+      const pending = qc.getQueryData<PendingSend[]>(whatsappPendingSendsKey('conv-1')) ?? [];
+      expect(pending[0]?.isPrivate).toBe(false);
+    });
+  });
+
+  it('mutationFn llama a api.sendWhatsappMessage con private:true cuando el pending es una nota', async () => {
+    vi.mocked(sendWhatsappMessage).mockImplementation(() => new Promise(() => {}));
+    const { wrapper } = makeWrapper();
+    const { result } = renderHook(() => useSendWhatsappMessage('conv-1'), { wrapper });
+
+    act(() => {
+      result.current.send({ content: 'nota interna', files: [], drafts: [], isPrivate: true });
+    });
+
+    await waitFor(() => expect(sendWhatsappMessage).toHaveBeenCalled());
+    const [, input] = vi.mocked(sendWhatsappMessage).mock.calls[0] as [string, { private?: boolean }];
+    expect(input.private).toBe(true);
+  });
+
+  it('mutationFn llama a api.sendWhatsappMessage con private:false cuando el pending es un reply normal', async () => {
+    vi.mocked(sendWhatsappMessage).mockImplementation(() => new Promise(() => {}));
+    const { wrapper } = makeWrapper();
+    const { result } = renderHook(() => useSendWhatsappMessage('conv-1'), { wrapper });
+
+    act(() => {
+      result.current.send({ content: 'reply normal', files: [], drafts: [] });
+    });
+
+    await waitFor(() => expect(sendWhatsappMessage).toHaveBeenCalled());
+    const [, input] = vi.mocked(sendWhatsappMessage).mock.calls[0] as [string, { private?: boolean }];
+    expect(input.private).toBe(false);
+  });
+
+  it('retry(pending) conserva pending.isPrivate en el re-mutate (nota que falló, reintentada, sigue siendo nota)', async () => {
+    const { qc, wrapper } = makeWrapper();
+    const failingNote: PendingSend = {
+      tempId: 'optimistic:note-retry-1', content: 'nota que falló', drafts: [], progress: 0, status: 'failed', createdAt: '2026-07-12T00:00:00.000Z', isPrivate: true,
+    };
+    qc.setQueryData(whatsappPendingSendsKey('conv-1'), [failingNote]);
+    vi.mocked(sendWhatsappMessage).mockImplementation(() => new Promise(() => {}));
+
+    const { result } = renderHook(() => useSendWhatsappMessage('conv-1'), { wrapper });
+
+    act(() => {
+      result.current.retry(failingNote);
+    });
+
+    await waitFor(() => {
+      const pending = qc.getQueryData<PendingSend[]>(whatsappPendingSendsKey('conv-1')) ?? [];
+      expect(pending[0]?.isPrivate).toBe(true);
+      expect(pending[0]?.status).toBe('sending');
+    });
+    const [, input] = vi.mocked(sendWhatsappMessage).mock.calls[0] as [string, { private?: boolean }];
+    expect(input.private).toBe(true);
+  });
+});
+
 describe('useSendWhatsappMessage(id).discard', () => {
   it('revoca los objectURL de los drafts y remueve el pending del slice', () => {
     const { qc, wrapper } = makeWrapper();
     const failing: PendingSend = {
-      tempId: 'optimistic:discard-1', content: 'chau', drafts: [draft('a1', 'blob:discard')], progress: 0, status: 'failed', createdAt: '2026-07-12T00:00:00.000Z',
+      tempId: 'optimistic:discard-1', content: 'chau', drafts: [draft('a1', 'blob:discard')], progress: 0, status: 'failed', createdAt: '2026-07-12T00:00:00.000Z', isPrivate: false,
     };
     qc.setQueryData(whatsappPendingSendsKey('conv-1'), [failing]);
     const { result } = renderHook(() => useSendWhatsappMessage('conv-1'), { wrapper });

@@ -440,6 +440,205 @@ describe('Composer — bug MEDIO/BAJO #10 (el composer se limpia AL DISPARAR el 
   });
 });
 
+// ── messaging-inbox-notes F1.5 fase D — NOTA PRIVADA ───────────────────────
+
+describe('Composer — modo Nota (fase D, design §10: 4 combinaciones mode×canReply)', () => {
+  it('reply + canReply:true → intacto (textarea/botón habilitados)', () => {
+    render(<Composer conversationId="c1" canReply />);
+    expect(screen.getByRole('textbox', { name: /mensaje/i })).toBeEnabled();
+  });
+
+  it('reply + canReply:false → deshabilitado (intacto, ya cubierto arriba, se re-afirma acá)', () => {
+    render(<Composer conversationId="c1" canReply={false} />);
+    expect(screen.getByRole('textbox', { name: /mensaje/i })).toBeDisabled();
+  });
+
+  it('note + canReply:false → textarea y botón HABILITADOS (la ventana 24h no aplica a una nota)', async () => {
+    render(<Composer conversationId="c1" canReply={false} />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Nota interna' }));
+
+    expect(screen.getByRole('textbox', { name: /nota interna/i })).toBeEnabled();
+    await userEvent.type(screen.getByRole('textbox', { name: /nota interna/i }), 'hola');
+    expect(screen.getByRole('button', { name: /agregar nota/i })).toBeEnabled();
+  });
+
+  it('note + canReply:true → habilitado igual (no depende de canReply)', async () => {
+    render(<Composer conversationId="c1" canReply />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Nota interna' }));
+
+    expect(screen.getByRole('textbox', { name: /nota interna/i })).toBeEnabled();
+  });
+
+  it('note + canReply:false → sin aviso de ventana expirada', async () => {
+    render(<Composer conversationId="c1" canReply={false} />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Nota interna' }));
+
+    expect(screen.queryByText(/ventana de 24h expirada/i)).toBeNull();
+  });
+});
+
+describe('Composer — copy por modo (fase D, design §3.3)', () => {
+  it('modo nota: placeholder, label sr-only, botón y aria-label del form cambian', async () => {
+    render(<Composer conversationId="c1" canReply />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Nota interna' }));
+
+    const textarea = screen.getByRole('textbox', { name: /nota interna/i });
+    expect(textarea).toHaveAttribute('placeholder', 'Escribí una nota interna…');
+    expect(screen.getByRole('button', { name: /agregar nota/i })).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: /agregar nota interna/i })).toBeInTheDocument();
+  });
+
+  it('modo reply (default): copy actual intacto (cero regresión)', () => {
+    render(<Composer conversationId="c1" canReply />);
+    expect(screen.getByRole('textbox', { name: /mensaje/i })).toHaveAttribute('placeholder', 'Escribí un mensaje…');
+    expect(screen.getByRole('button', { name: /enviar/i })).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: /responder/i })).toBeInTheDocument();
+  });
+});
+
+describe('Composer — avisos de ventana solo en modo reply (fase D, design §3.2)', () => {
+  it('modo nota + isDetailLoading + isDetailError + canReply:false → NINGÚN aviso de ventana (irrelevante para una nota)', async () => {
+    render(<Composer conversationId="c1" canReply={false} isDetailLoading isDetailError />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Nota interna' }));
+
+    expect(screen.queryByText(/verificando si pod[eé]s responder/i)).toBeNull();
+    expect(screen.queryByText(/ventana de 24 horas/i)).toBeNull();
+    expect(screen.queryByText(/ventana de 24h expirada/i)).toBeNull();
+  });
+
+  it('modo nota + error real de ENVÍO (isError) → el aviso de error SÍ se muestra (no es un aviso de ventana)', () => {
+    setMutationState({
+      isError: true,
+      error: { response: { data: { error: 'no disponible', code: 'CHATWOOT_UNAVAILABLE' } } },
+    });
+    render(<Composer conversationId="c1" canReply />);
+    expect(screen.getByRole('alert')).toHaveTextContent(/no está disponible/i);
+  });
+});
+
+describe('Composer — adjuntos ocultos en modo nota (fase D, design §3.5)', () => {
+  it('en modo nota, el botón de adjuntar NO se renderiza', async () => {
+    render(<Composer conversationId="c1" canReply />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Nota interna' }));
+
+    expect(screen.queryByTestId('composer-attach-input')).toBeNull();
+  });
+
+  it('adjuntos elegidos en modo reply NO viajan al enviar una nota tras cambiar de modo', async () => {
+    render(<Composer conversationId="c1" canReply />);
+    const input = screen.getByTestId('composer-attach-input') as HTMLInputElement;
+    await userEvent.upload(input, new File(['x'], 'foto.jpg', { type: 'image/jpeg' }));
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Nota interna' }));
+    await userEvent.type(screen.getByRole('textbox', { name: /nota interna/i }), 'nota con texto');
+    await userEvent.click(screen.getByRole('button', { name: /agregar nota/i }));
+
+    expect(mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({ content: 'nota con texto', files: [], isPrivate: true }),
+    );
+  });
+});
+
+describe('Composer — threading de isPrivate al enviar (fase D, design §5)', () => {
+  it('modo nota: trySend llama a send con isPrivate:true, files/drafts vacíos', async () => {
+    render(<Composer conversationId="c1" canReply />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Nota interna' }));
+    await userEvent.type(screen.getByRole('textbox', { name: /nota interna/i }), 'nota interna de prueba');
+    await userEvent.click(screen.getByRole('button', { name: /agregar nota/i }));
+
+    expect(mockSend).toHaveBeenCalledWith({ content: 'nota interna de prueba', files: [], drafts: [], isPrivate: true });
+  });
+
+  it('modo reply: trySend sigue llamando a send SIN isPrivate en true (cero regresión de la aserción exacta)', async () => {
+    render(<Composer conversationId="c1" canReply />);
+    await userEvent.type(screen.getByRole('textbox', { name: /mensaje/i }), 'reply normal');
+    await userEvent.click(screen.getByRole('button', { name: /enviar/i }));
+
+    expect(mockSend).toHaveBeenCalledWith({ content: 'reply normal', files: [], drafts: [] });
+  });
+});
+
+describe('Composer — fix-fe hallazgo #1 (un draft inválido de reply ya no bloquea el modo nota)', () => {
+  it('adjuntar un archivo inválido en reply y cambiar a nota deja el botón "Agregar nota" HABILITADO al escribir texto', async () => {
+    render(<Composer conversationId="c1" canReply />);
+    const input = screen.getByTestId('composer-attach-input') as HTMLInputElement;
+    const bigFile = new File(['x'], 'grande.jpg', { type: 'image/jpeg' });
+    Object.defineProperty(bigFile, 'size', { value: 6 * 1024 * 1024 });
+    await userEvent.upload(input, bigFile);
+    // Sanity: en reply, el draft inválido efectivamente bloquea (el bug NO es este gate).
+    await userEvent.type(screen.getByRole('textbox', { name: /mensaje/i }), 'hola');
+    expect(screen.getByRole('button', { name: /enviar/i })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Nota interna' }));
+    await userEvent.type(screen.getByRole('textbox', { name: /nota interna/i }), 'nota igual');
+
+    expect(screen.getByRole('button', { name: /agregar nota/i })).toBeEnabled();
+  });
+});
+
+describe('Composer — fix-fe hallazgo #2 (no leakea el objectURL de un draft de reply al pasar a nota)', () => {
+  it('cambiar a modo nota revoca de inmediato el objectURL de un draft de reply pendiente (no espera al envío)', async () => {
+    render(<Composer conversationId="c1" canReply />);
+    const input = screen.getByTestId('composer-attach-input') as HTMLInputElement;
+    await userEvent.upload(input, new File(['x'], 'foto.jpg', { type: 'image/jpeg' }));
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Nota interna' }));
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock');
+  });
+
+  it('adjuntar una imagen válida en reply, cambiar a nota y enviar: el objectURL del draft se revocó (no queda huérfano)', async () => {
+    render(<Composer conversationId="c1" canReply />);
+    const input = screen.getByTestId('composer-attach-input') as HTMLInputElement;
+    await userEvent.upload(input, new File(['x'], 'foto.jpg', { type: 'image/jpeg' }));
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Nota interna' }));
+    await userEvent.type(screen.getByRole('textbox', { name: /nota interna/i }), 'nota con texto');
+    await userEvent.click(screen.getByRole('button', { name: /agregar nota/i }));
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock');
+    expect(mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({ content: 'nota con texto', files: [], drafts: [], isPrivate: true }),
+    );
+  });
+});
+
+describe('Composer — foco + aria-live al cambiar de modo (fase D, design §3.4)', () => {
+  it('cambiar a modo nota mueve el foco al textarea', async () => {
+    render(<Composer conversationId="c1" canReply />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Nota interna' }));
+
+    expect(screen.getByRole('textbox', { name: /nota interna/i })).toHaveFocus();
+  });
+
+  it('cambiar de vuelta a modo reply también mueve el foco al textarea', async () => {
+    render(<Composer conversationId="c1" canReply />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Nota interna' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Respuesta' }));
+
+    expect(screen.getByRole('textbox', { name: /mensaje/i })).toHaveFocus();
+  });
+
+  it('el contenido tipeado se preserva al cambiar de modo', async () => {
+    render(<Composer conversationId="c1" canReply />);
+    await userEvent.type(screen.getByRole('textbox', { name: /mensaje/i }), 'no se pierde');
+    await userEvent.click(screen.getByRole('radio', { name: 'Nota interna' }));
+
+    expect(screen.getByRole('textbox', { name: /nota interna/i })).toHaveValue('no se pierde');
+  });
+
+  it('una región aria-live=polite anuncia el cambio de modo', async () => {
+    render(<Composer conversationId="c1" canReply />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Nota interna' }));
+
+    expect(screen.getByText(/modo nota interna/i)).toHaveAttribute('aria-live', 'polite');
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Respuesta' }));
+    expect(screen.getByText(/modo respuesta/i)).toHaveAttribute('aria-live', 'polite');
+  });
+});
+
 describe('Composer — bug BAJO #13d (Enter durante composición IME no envía)', () => {
   it('Enter mientras nativeEvent.isComposing=true (IME activo) NO envía', async () => {
     render(<Composer conversationId="c1" canReply />);

@@ -88,6 +88,31 @@ export function useComposerAttachments() {
     setDrafts(() => []);
   }
 
+  /**
+   * Fix-fe hallazgo #1/#2 (post-review-adversarial, F1.5-D nota privada): a
+   * diferencia de `clear()` (arriba — NO revoca, porque la propiedad de esos
+   * objectURL pasa al pipeline de envío), `discardAll()` SÍ revoca. Es para
+   * el caso en que los drafts se ABANDONAN sin enviarse nunca — ej.
+   * `Composer.handleModeChange` al entrar a modo nota: los adjuntos de un
+   * reply a medio armar son irrelevantes ahí (v1 de nota es texto-only,
+   * design §3.5), así que ningún pipeline de envío los va a revocar por su
+   * cuenta. Revoca TODOS los drafts (con o sin error de validación — ninguno
+   * viaja) y limpia `hasBlocking` de paso. Mismo patrón que `add()`: el
+   * efecto sucio corre AFUERA del updater (vía `draftsRef`, no dentro de
+   * `setDrafts`) para no duplicar revocaciones bajo StrictMode.
+   *
+   * Fix-fe hallazgo #1 (re-review nota privada): limpia TAMBIÉN el `feedback`
+   * de "máximo N archivos". Si no, al entrar a modo nota (que llama acá) el
+   * aviso queda pegado en un composer que ya no tiene tray ni botón de
+   * adjuntar — un cartel de límite de archivos sin ningún contexto. Abandonar
+   * los drafts abandona su feedback.
+   */
+  function discardAll() {
+    draftsRef.current.forEach((d) => d.previewUrl && URL.revokeObjectURL(d.previewUrl));
+    setDrafts(() => []);
+    setFeedback(null);
+  }
+
   // Revoca cualquier objectURL que quede vigente al desmontar (no leak).
   useEffect(() => {
     return () => {
@@ -97,5 +122,5 @@ export function useComposerAttachments() {
 
   const hasBlocking = drafts.some((d) => d.error !== null);
 
-  return { drafts, add, remove, clear, hasBlocking, feedback };
+  return { drafts, add, remove, clear, discardAll, hasBlocking, feedback };
 }

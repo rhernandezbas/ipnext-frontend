@@ -232,6 +232,76 @@ describe('MessageBubble — bug BAJO #13b (deliveryFailed incluye IconAlert, con
   });
 });
 
+describe('MessageBubble — variante nota (messaging-inbox-notes F1.5 fase D — NOTA PRIVADA, design §4)', () => {
+  it('message.private:true → el row tiene clase note, NO inbound NI outbound (ignora direction)', () => {
+    render(<MessageBubble message={msg({ direction: 'inbound', private: true })} />);
+    const row = screen.getByTestId('message-bubble-row');
+    expect(row).toHaveClass('note');
+    expect(row).not.toHaveClass('inbound');
+    expect(row).not.toHaveClass('outbound');
+  });
+
+  it('message.private:true con direction outbound también ignora direction (una nota es una nota, no un outbound)', () => {
+    render(<MessageBubble message={msg({ direction: 'outbound', private: true })} />);
+    const row = screen.getByTestId('message-bubble-row');
+    expect(row).toHaveClass('note');
+    expect(row).not.toHaveClass('outbound');
+  });
+
+  it('renderiza el label "Nota interna" visible', () => {
+    render(<MessageBubble message={msg({ private: true })} />);
+    expect(screen.getByText('Nota interna')).toBeInTheDocument();
+  });
+
+  it('el label incluye un ícono SVG aria-hidden (no emoji)', () => {
+    render(<MessageBubble message={msg({ private: true })} />);
+    const label = screen.getByText('Nota interna');
+    const icon = label.parentElement?.querySelector('svg[aria-hidden="true"]');
+    expect(icon).not.toBeNull();
+  });
+
+  it('senderName/content/time se siguen renderizando dentro de una nota', () => {
+    render(<MessageBubble message={msg({ private: true, senderName: 'Agente Rocío', content: 'Cliente moroso, ojo' })} />);
+    expect(screen.getByText('Agente Rocío')).toBeInTheDocument();
+    expect(screen.getByTestId('message-bubble-content')).toHaveTextContent('Cliente moroso, ojo');
+  });
+
+  it('sin message.private (undefined), NO renderiza el label de nota (cero regresión)', () => {
+    render(<MessageBubble message={msg()} />);
+    expect(screen.queryByText('Nota interna')).toBeNull();
+  });
+
+  it('message.private:false explícito tampoco renderiza el label de nota', () => {
+    render(<MessageBubble message={msg({ direction: 'outbound', private: false })} />);
+    const row = screen.getByTestId('message-bubble-row');
+    expect(row).toHaveClass('outbound');
+    expect(row).not.toHaveClass('note');
+    expect(screen.queryByText('Nota interna')).toBeNull();
+  });
+
+  it('una nota optimista "sending" sigue mostrando la progressbar dentro de la variante note', () => {
+    render(<MessageBubble message={msg({ private: true, direction: 'outbound' })} deliveryStatus="sending" uploadProgress={0.5} />);
+    expect(screen.getByTestId('message-bubble-row')).toHaveClass('note');
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '50');
+  });
+
+  it('una nota "failed" sigue mostrando Reintentar/Descartar dentro de la variante note', async () => {
+    const onRetry = vi.fn();
+    const onDiscard = vi.fn();
+    render(
+      <MessageBubble
+        message={msg({ private: true, direction: 'outbound' })}
+        deliveryStatus="failed"
+        onRetry={onRetry}
+        onDiscard={onDiscard}
+      />,
+    );
+    expect(screen.getByTestId('message-bubble-row')).toHaveClass('note');
+    await userEvent.click(screen.getByRole('button', { name: /reintentar/i }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('MessageBubble — bug MEDIO #11 (aria-live narra hitos de progreso, no un aria-label estático)', () => {
   it('al cruzar el 25%, anuncia "25% enviado" en una región role=status separada', () => {
     const { rerender } = render(

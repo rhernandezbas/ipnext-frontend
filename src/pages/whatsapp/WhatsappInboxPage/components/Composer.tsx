@@ -6,6 +6,8 @@ import { useSendWhatsappMessage } from '@/hooks/useWhatsapp';
 import { useComposerAttachments } from '@/hooks/useComposerAttachments';
 import { ComposerAttachButton } from './ComposerAttachButton';
 import { ComposerAttachmentTray } from './ComposerAttachmentTray';
+import { ComposeModeToggle } from './ComposeModeToggle';
+import type { ComposeMode } from './ComposeModeToggle';
 import { MAX_FILES } from '@/utils/validateAttachment';
 import { mapSendError } from '@/utils/mapSendError';
 import styles from './Composer.module.css';
@@ -74,20 +76,28 @@ const VERIFY_WINDOW_ERROR_NOTICE =
  */
 export function Composer({ conversationId, canReply, isDetailLoading = false, isDetailError = false }: ComposerProps) {
   const [content, setContent] = useState('');
+  // messaging-inbox-notes F1.5 fase D (design §3.1): 'reply' es el default —
+  // cero cambio de comportamiento al abrir el composer.
+  const [mode, setMode] = useState<ComposeMode>('reply');
+  const [modeAnnouncement, setModeAnnouncement] = useState('');
   // Bug CRÍTICO #4: `feedback` estaba en el hook pero NUNCA se destructuraba
   // acá — cuando se elegían más de `MAX_FILES` archivos, los excedentes
   // desaparecían en silencio (el hook los recortaba, pero nadie mostraba el
   // aviso). Ahora se destructura y se renderiza más abajo.
-  const { drafts, add, remove, clear, hasBlocking, feedback } = useComposerAttachments();
+  const { drafts, add, remove, clear, discardAll, hasBlocking, feedback } = useComposerAttachments();
   const { send, isError, error } = useSendWhatsappMessage(conversationId);
   // Bug CRÍTICO #3: destino del foco cuando se quita el ÚLTIMO adjunto del
   // tray (`ComposerAttachmentTray.onEmptied`) — sin esto, el foco quedaba
   // perdido en `document.body`.
   const attachBtnRef = useRef<HTMLButtonElement | null>(null);
+  // design §3.4: al cambiar de modo, el foco vuelve al textarea (mismo nodo,
+  // no se remonta entre modos) sin un Tab extra.
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const trimmed = content.trim();
   const validDrafts = drafts.filter((d) => d.error === null);
   const validFiles = validDrafts.map((d) => d.file);
+  const isNoteMode = mode === 'note';
 
   // Bug #4: mientras el detalle carga, todavía NO sabemos el `canReply`
   // real — deshabilitar es lo seguro (no dejar mandar un mensaje que el BE
@@ -100,11 +110,42 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
   // expiró como si el detalle nunca resolvió). Cuando `canReply` es
   // conocido-bueno (`true`), un poll de fondo fallido NO debe cortar una
   // respuesta en curso — por eso `isDetailError` sola ya no deshabilita.
-  const windowDisabled = isDetailLoading || !canReply;
+  //
+  // messaging-inbox-notes F1.5 fase D (design §3.2, el punto delicado de esta
+  // tanda): una NOTA interna nunca cruza a WhatsApp, así que la ventana de
+  // 24h de Meta es irrelevante para ella — en modo nota el composer se
+  // habilita SIEMPRE, sin importar `canReply`/`isDetailLoading`. Los dos
+  // gatings NO se colapsan en un ternario: `canReply` sigue mandando en
+  // reply, se ignora por completo en nota.
+  const windowDisabled = mode === 'reply' && (isDetailLoading || !canReply);
 
   // F4.5 (design §4.1): "al menos uno" — texto O archivos válidos. Un draft
   // con error (type/size) bloquea el envío entero hasta que se saque.
-  const canSend = !windowDisabled && !hasBlocking && (trimmed.length > 0 || validFiles.length > 0);
+  // Fase D (design §3.2): en modo nota, `validFiles` NO entra en el gate —
+  // notas v1 son solo texto (adjuntos en nota, fuera de alcance v1).
+  const canSend = !windowDisabled && !hasBlocking && (trimmed.length > 0 || (mode === 'reply' && validFiles.length > 0));
+
+  function handleModeChange(next: ComposeMode) {
+    // Fix-fe hallazgo #1/#2 (post-review-adversarial, causa raíz compartida):
+    // entrar a modo nota abandona cualquier draft de reply a medio armar —
+    // v1 de nota es texto-only (design §3.5), esos adjuntos NUNCA van a
+    // viajar. Sin este `discardAll`, un draft inválido dejaba `hasBlocking`
+    // colgado (bloqueaba "Agregar nota" sin tray visible para sacarlo —
+    // hallazgo #1, el tray se oculta gateado a `mode==='reply'`) y sus
+    // objectURL quedaban huérfanos, porque el único camino que usa `trySend`
+    // es `clear()`, que por contrato NO revoca (esa revocación se la cede al
+    // pipeline de envío — que en nota nunca ve estos drafts, hallazgo #2,
+    // leak real). Sin drafts, no hay `hasBlocking` ni objectURL vivo que
+    // leakear — se resuelve en el origen, no parcheando `canSend`.
+    if (next === 'note') {
+      discardAll();
+    }
+    setMode(next);
+    setModeAnnouncement(next === 'note' ? 'Modo nota interna' : 'Modo respuesta');
+    // El textarea es el MISMO nodo en ambos modos (nunca se remonta) — el
+    // foco puede pedirse ya, sin esperar el próximo render.
+    textareaRef.current?.focus();
+  }
 
   /**
    * Bug MEDIO/BAJO #10 (post-review-adversarial): antes, `content`/`drafts`
@@ -124,7 +165,17 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
    */
   function trySend() {
     if (!canSend) return;
-    send({ content: trimmed, files: validFiles, drafts: validDrafts });
+    // Fase D (design §3.5/§5): en modo nota los adjuntos NUNCA viajan, aunque
+    // hubiera drafts cargados de un cambio de modo previo (reply→nota) — el
+    // pipeline threadea `files`/`drafts` para cuando note-media llegue (v2),
+    // pero v1 es texto-only. `isPrivate` viaja SOLO como `true` en nota; en
+    // reply se omite (el hook lo defaultea a `false`), cero regresión de la
+    // aserción exacta que ya cubren los tests de F1/F1.5.
+    if (isNoteMode) {
+      send({ content: trimmed, files: [], drafts: [], isPrivate: true });
+    } else {
+      send({ content: trimmed, files: validFiles, drafts: validDrafts });
+    }
     setContent('');
     clear();
   }
@@ -153,8 +204,24 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
 
   return (
     <Can permission="messaging.send">
-      <form className={styles.composer} onSubmit={handleSubmit} aria-label="Responder">
-        {isDetailLoading && (
+      <form
+        className={styles.composer}
+        onSubmit={handleSubmit}
+        aria-label={isNoteMode ? 'Agregar nota interna' : 'Responder'}
+      >
+        <ComposeModeToggle mode={mode} onChange={handleModeChange} />
+
+        {/* design §3.4: sr-only, anuncia el cambio de modo aunque el foco ya
+            haya saltado al textarea (así un lector de pantalla confirma el
+            cambio de contexto). */}
+        <span className={styles.srOnly} role="status" aria-live="polite">
+          {modeAnnouncement}
+        </span>
+
+        {/* design §3.2: los 3 avisos de VENTANA solo tienen sentido en modo
+            reply — una nota interna nunca cruza a WhatsApp, no hay ventana
+            de 24h que verificar/haber expirado para ella. */}
+        {mode === 'reply' && isDetailLoading && (
           <p className={styles.notice} role="status">
             {VERIFYING_WINDOW_NOTICE}
           </p>
@@ -164,18 +231,21 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
             NO hay un `canReply` conocido-bueno — si `canReply` es `true`
             (React Query v5 conservó `data` pese al poll fallido), no hay nada
             que "verificar", el composer ya sabe que puede responder. */}
-        {!isDetailLoading && isDetailError && !canReply && (
+        {mode === 'reply' && !isDetailLoading && isDetailError && !canReply && (
           <p className={styles.error} role="alert">
             {VERIFY_WINDOW_ERROR_NOTICE}
           </p>
         )}
 
-        {!isDetailLoading && !isDetailError && !canReply && (
+        {mode === 'reply' && !isDetailLoading && !isDetailError && !canReply && (
           <p className={styles.notice} role="status">
             {WINDOW_EXPIRED_NOTICE}
           </p>
         )}
 
+        {/* El error de ENVÍO real (422/503/etc, mapSendError) es distinto de
+            los avisos de ventana de arriba — se muestra en AMBOS modos: un
+            intento de nota también puede fallar. */}
         {isError && (
           <p className={styles.error} role="alert">
             {mapSendError(error)}
@@ -191,31 +261,38 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
           </p>
         )}
 
-        <ComposerAttachmentTray
-          drafts={drafts}
-          onRemove={remove}
-          onEmptied={() => attachBtnRef.current?.focus()}
-        />
+        {/* design §3.5: adjuntos FUERA de alcance v1 en modo nota — más
+            limpio no montarlos que deshabilitarlos (nada que explicar). */}
+        {mode === 'reply' && (
+          <ComposerAttachmentTray
+            drafts={drafts}
+            onRemove={remove}
+            onEmptied={() => attachBtnRef.current?.focus()}
+          />
+        )}
 
         <div className={styles.row}>
-          <ComposerAttachButton
-            onFiles={add}
-            disabled={windowDisabled}
-            count={drafts.length}
-            max={MAX_FILES}
-            buttonRef={(el) => { attachBtnRef.current = el; }}
-          />
+          {mode === 'reply' && (
+            <ComposerAttachButton
+              onFiles={add}
+              disabled={windowDisabled}
+              count={drafts.length}
+              max={MAX_FILES}
+              buttonRef={(el) => { attachBtnRef.current = el; }}
+            />
+          )}
 
           <label className={styles.srOnly} htmlFor="whatsapp-composer-input">
-            Mensaje
+            {isNoteMode ? 'Nota interna' : 'Mensaje'}
           </label>
           <textarea
             id="whatsapp-composer-input"
+            ref={textareaRef}
             className={styles.textarea}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={drafts.length > 0 ? 'Agregá un texto…' : 'Escribí un mensaje…'}
+            placeholder={isNoteMode ? 'Escribí una nota interna…' : drafts.length > 0 ? 'Agregá un texto…' : 'Escribí un mensaje…'}
             disabled={windowDisabled}
           />
           <Button
@@ -223,9 +300,9 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
             variant="primary"
             className={styles.sendButton}
             disabled={!canSend}
-            aria-label="Enviar mensaje"
+            aria-label={isNoteMode ? 'Agregar nota' : 'Enviar mensaje'}
           >
-            Enviar
+            {isNoteMode ? 'Agregar nota' : 'Enviar'}
           </Button>
         </div>
       </form>

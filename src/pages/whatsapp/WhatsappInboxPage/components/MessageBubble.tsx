@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatTimeShort } from '@/utils/formatDate';
 import { MediaAttachments } from './MediaAttachments';
-import { IconAlert } from './mediaIcons';
+import { IconAlert, IconNote } from './mediaIcons';
 import type { WhatsappMessage } from '@/types/whatsapp';
 import styles from './MessageBubble.module.css';
 
@@ -119,9 +119,12 @@ export function MessageBubble({
   onRetry,
   onDiscard,
 }: MessageBubbleProps) {
+  // messaging-inbox-notes F1.5 fase D (design §4.1) — la nota IGNORA
+  // `direction` por completo: ni inbound ni outbound, es una 3ra rama visual
+  // (ancho completo, sin alineación izq/der — patrón Chatwoot).
   const rowClassName = [
     styles.row,
-    styles[message.direction],
+    message.private ? styles.note : styles[message.direction],
     isNew ? styles.enter : '',
   ]
     .filter(Boolean)
@@ -144,6 +147,17 @@ export function MessageBubble({
       style={applyStaggerDelay ? { animationDelay: `${staggerIndex * STAGGER_MS}ms` } : undefined}
     >
       <div className={bubbleClassName}>
+        {/* design §4.3 — indicador NO-color (a11y): el fill amber solo casi
+            no se distingue de la página (1.11:1), así que el label+ícono son
+            OBLIGATORIOS, no decorativos. El label es el nombre accesible que
+            el lector anuncia ANTES del contenido: "Nota interna, {sender},
+            {content}". */}
+        {message.private && (
+          <div className={styles.noteHeader}>
+            <IconNote className={styles.noteIcon} />
+            <span>Nota interna</span>
+          </div>
+        )}
         {message.senderName && (
           <span data-testid="message-bubble-sender" className={styles.sender}>
             {message.senderName}

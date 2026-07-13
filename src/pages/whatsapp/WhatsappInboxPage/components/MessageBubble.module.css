@@ -109,8 +109,28 @@
 /* ENVIAR, design §5.3/§8) — burbuja optimista en vuelo / fallida.         */
 
 .bubble.sending {
-  opacity: 0.85;
+  /* fix-fe hallazgo #3 (post-review-adversarial, contraste .time/.sender en
+     burbuja .sending): 0.85 original + el opacity PROPIO de `.time`/
+     `.sender` (0.85/0.92) se COMPONÍAN (multiplicaban) — el timestamp caía a
+     ~4.10:1 (nota) / ~3.64:1 (outbound), ambos < 4.5:1. Subido a 0.9 —
+     necesario incluso con la 2da capa desactivada más abajo: a 0.85, texto
+     blanco PLENO (opacity:1) sobre el fondo outbound-sending ya da apenas
+     ~4.41:1 (el "sending" en sí mismo, no el .time, es lo marginal). Ver
+     MessageBubble.note.contrast.test.tsx. */
+  opacity: 0.9;
   transition: opacity 200ms ease;
+}
+
+/* fix-fe hallazgo #3: el de-énfasis de "enviando" ya lo da la burbuja
+   ENTERA (`.bubble.sending` arriba) — el texto no necesita una SEGUNDA capa
+   de atenuación encima de esa. Sin este override, el opacity propio de
+   `.time`/`.sender` (de-énfasis normal, fuera de este estado) se compone con
+   el de `.bubble.sending` y cae por debajo de 4.5:1 (ver test). Selector más
+   específico que `.time`/`.sender` genéricos → gana en la cascada solo
+   mientras la burbuja está en vuelo. */
+.bubble.sending .time,
+.bubble.sending .sender {
+  opacity: 1;
 }
 
 .deliveryProgress {
@@ -190,4 +210,50 @@
   .deliveryProgressFill {
     transition: none;
   }
+}
+
+/* ── Variante nota (messaging-inbox-notes F1.5 fase D — NOTA PRIVADA,       */
+/* design §4.1/§4.2) — 3ra rama visual, ni inbound ni outbound: ancho        */
+/* completo, sin alineación izq/der (patrón Chatwoot), fondo/texto/acento    */
+/* con tokens DEDICADOS (--color-note-*, tokens/variables.css) — NUNCA       */
+/* --badge-blocked-* (esos significan "estado bloqueado", sería una mentira  */
+/* semántica). Contraste verificado en MessageBubble.note.contrast.test.tsx. */
+
+.row.note {
+  justify-content: stretch;
+}
+
+.note .bubble {
+  max-width: 100%;
+  width: 100%;
+  background-color: var(--color-note-bg);
+  color: var(--color-note-fg);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-note-accent);
+}
+
+.noteHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: 2px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-note-fg);
+}
+
+.noteIcon {
+  flex-shrink: 0;
+  color: var(--color-note-accent);
+}
+
+/* Riesgo explícito (design §6): `.deliveryFailed` NO fija `color` propio —
+   hereda por cascada de `.note .bubble` (--color-note-fg, oscuro) en vez de
+   --color-white (heredado del caso outbound) — cero código extra necesario
+   para el texto/botones. El OUTLINE de foco sí es un valor FIJO (no
+   heredado) en la regla general de abajo — necesita este override explícito,
+   si no quedaría --color-white (invisible sobre amber). */
+.note .deliveryRetryBtn:focus-visible,
+.note .deliveryDiscardBtn:focus-visible {
+  outline-color: var(--color-note-accent);
 }

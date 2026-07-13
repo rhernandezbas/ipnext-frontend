@@ -1,0 +1,89 @@
+/**
+ * ComposeModeToggle.module.css — segmented radiogroup Reply/Nota
+ * (messaging-inbox-notes F1.5 fase D — NOTA PRIVADA, design §3.1/§7). Token
+ * local `--wa-ease-out` (mismo motivo que Composer.module.css/
+ * MessageBubble.module.css — standalone-safe).
+ */
+
+.fieldset {
+  --wa-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* Reset del border/padding por defecto de <fieldset> — el visual real lo
+     da .toggle (design §3.1: "borde sr-only, visual = segmented"). */
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.toggle {
+  position: relative;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-hover);
+}
+
+.pill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  transform: translateX(0%);
+  transition: transform 150ms var(--wa-ease-out);
+  pointer-events: none;
+}
+
+.pill[data-mode='note'] {
+  transform: translateX(100%);
+}
+
+.segment {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--space-11); /* 44px — A11Y-1 touch target */
+  min-width: var(--space-11);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.segment:has(.radioInput:checked) {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Radio nativo: oculto visualmente pero focuseable (mismo patrón .srOnly del
+   resto del repo — NUNCA display:none, eso rompe foco/teclado). */
+.radioInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.radioInput:focus-visible + .segmentLabel {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill {
+    transition: none;
+  }
+}

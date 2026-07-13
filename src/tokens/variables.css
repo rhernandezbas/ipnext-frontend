@@ -147,4 +147,17 @@
      StatusBadge (blast radius menor, ver design.md §F3). */
   --badge-paid-bg: #dcfce7;
   --badge-paid-fg: #166534;
+
+  /* ------------------------------------------------------------------ */
+  /* Note / internal annotation (messaging-inbox-notes F1.5 fase D —      */
+  /* NOTA PRIVADA, design §4.2). Rampa amber DEDICADA — NO reusar         */
+  /* --badge-blocked-* (significa "estado bloqueado", sería una mentira   */
+  /* semántica para una nota). Contraste verificado WCAG 2.1: texto       */
+  /* --color-note-fg sobre --color-note-bg = 8.15:1 (5.61:1 en el peor    */
+  /* caso, burbuja optimista a opacity 0.85); acento/ícono                */
+  /* --color-note-accent sobre --color-note-bg = 4.51:1.                  */
+  /* ------------------------------------------------------------------ */
+  --color-note-bg: #fef3c7;
+  --color-note-fg: #78350f;
+  --color-note-accent: #b45309;
 }

@@ -68,6 +68,18 @@ export interface WhatsappMessage {
    * falsy en ambos casos.
    */
   attachments?: WhatsappChatMessageAttachment[];
+  /**
+   * Aditivo (messaging-inbox-notes F1.5 fase D — NOTA PRIVADA) — mirror
+   * EXACTO del wire (`ChatMessageDto.private`, spec.md NOTE-5). A propósito
+   * NO se llama `isPrivate` acá (aunque el dominio/BE internamente rename
+   * `isPrivate`↔`private`): este tipo es un espejo campo-a-campo del DTO real
+   * (ver header del archivo), y cualquier paso de mapeo extra es un lugar
+   * más donde el flag podría "olvidarse" (design.md §0 — el mismo leak de F1,
+   * más sutil). Opcional para no romper fixtures anteriores a esta tanda;
+   * `undefined` se trata como `false` (degrade seguro si el BE aún no lo
+   * expone).
+   */
+  private?: boolean;
 }
 
 // ─── Rich client context (messaging-inbox-v2 F1.5, RICH-1..6) — espejo de
@@ -181,6 +193,16 @@ export interface PendingSend {
   status: 'sending' | 'failed';
   /** ISO — orden estable en el merge del thread. */
   createdAt: string;
+  /**
+   * messaging-inbox-notes F1.5 fase D — NOTA PRIVADA (design §5). NO opcional
+   * a propósito: es el único booleano que tiene que viajar intacto en TODO
+   * envío en vuelo (reply o nota) — dejarlo opcional habilitaría un
+   * `undefined` silencioso exactamente en el punto que `toOptimisticMessage`
+   * (`MessageThread.tsx`) usa para decidir si la burbuja se pinta como nota.
+   * FE-interno (sin equivalente 1:1 en el wire, a diferencia de
+   * `WhatsappMessage.private`) — de ahí el nombre distinto.
+   */
+  isPrivate: boolean;
 }
 
 // ─── Pagination (espejo de `application/dto/pagination.ts`) ─────────────────

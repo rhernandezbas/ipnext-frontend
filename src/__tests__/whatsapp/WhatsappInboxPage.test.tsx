@@ -432,6 +432,7 @@ describe('WhatsappInboxPage — wiring de pendingSends (messaging-inbox-v2-media
       progress: 0.5,
       status: 'sending',
       createdAt: '2026-07-12T00:00:00.000Z',
+      isPrivate: false,
       ...over,
     };
   }

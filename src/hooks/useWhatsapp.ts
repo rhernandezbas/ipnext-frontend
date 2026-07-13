@@ -149,7 +149,7 @@ export function useSendWhatsappMessage(id: string) {
   const qc = useQueryClient();
   const pendingKey = whatsappPendingSendsKey(id);
 
-  type SendVars = { content: string; files: File[]; drafts: DraftAttachment[]; tempId: string; convId: string };
+  type SendVars = { content: string; files: File[]; drafts: DraftAttachment[]; tempId: string; convId: string; isPrivate: boolean };
 
   const mutation = useMutation({
     // Bug CRÍTICO #1 defensa (post-review-adversarial): TODAS las keys de
@@ -172,6 +172,10 @@ export function useSendWhatsappMessage(id: string) {
         content: vars.content,
         files: vars.files,
         onUploadProgress: patchProgress,
+        // messaging-inbox-notes F1.5 fase D (design §5): mirror EXACTO del
+        // campo wire — el único cruce de nombre isPrivate(interno)→private
+        // (wire) de todo el pipeline.
+        private: vars.isPrivate,
       });
     },
 
@@ -180,7 +184,7 @@ export function useSendWhatsappMessage(id: string) {
       // burbuja, mismo lugar en el thread) — si ya existe, se actualiza en
       // vez de agregar una 2da fila duplicada.
       qc.setQueryData<PendingSend[]>(whatsappPendingSendsKey(vars.convId), (old = []) => {
-        const next: PendingSend = { tempId: vars.tempId, content: vars.content, drafts: vars.drafts, progress: 0, status: 'sending', createdAt: new Date().toISOString() };
+        const next: PendingSend = { tempId: vars.tempId, content: vars.content, drafts: vars.drafts, progress: 0, status: 'sending', createdAt: new Date().toISOString(), isPrivate: vars.isPrivate };
         const exists = old.some((p) => p.tempId === vars.tempId);
         return exists ? old.map((p) => (p.tempId === vars.tempId ? next : p)) : [...old, next];
       });
@@ -207,19 +211,23 @@ export function useSendWhatsappMessage(id: string) {
   });
 
   const send = (
-    input: { content: string; files: File[]; drafts: DraftAttachment[] },
+    input: { content: string; files: File[]; drafts: DraftAttachment[]; isPrivate?: boolean },
     opts?: { onSuccess?: () => void },
-  ) => mutation.mutate({ ...input, tempId: makeTempId(), convId: id }, opts);
+  ) => mutation.mutate({ ...input, isPrivate: input.isPrivate ?? false, tempId: makeTempId(), convId: id }, opts);
 
   const retry = (pending: PendingSend) => {
     // `onMutate` hace el upsert (misma tempId → reemplaza en el lugar,
     // vuelve a "sending"/progress 0) — no hace falta patchear acá antes.
+    // `isPrivate` viaja del pending original (messaging-inbox-notes F1.5
+    // fase D): reintentar una nota fallida sigue siendo una nota, nunca
+    // "degrada" a reply.
     mutation.mutate({
       content: pending.content,
       files: pending.drafts.filter((d) => !d.error).map((d) => d.file),
       drafts: pending.drafts,
       tempId: pending.tempId,
       convId: id,
+      isPrivate: pending.isPrivate,
     });
   };
 

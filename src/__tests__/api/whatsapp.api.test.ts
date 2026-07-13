@@ -182,6 +182,70 @@ describe('WAPI-5: sendWhatsappMessage', () => {
   });
 });
 
+describe('WAPI-7: sendWhatsappMessage con private (messaging-inbox-notes F1.5 fase D — NOTA PRIVADA)', () => {
+  it('con private:true (JSON, sin files) → el body incluye {content, private:true}', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: MESSAGE });
+
+    await sendWhatsappMessage('conv-1', { content: 'nota interna', private: true });
+
+    expect(axiosClient.post).toHaveBeenCalledWith('/messaging/conversations/conv-1/messages', {
+      content: 'nota interna',
+      private: true,
+    });
+  });
+
+  it('sin private (ausente) → el body NO trae el campo private (cero regresión, toEqual ignora undefined)', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: MESSAGE });
+
+    await sendWhatsappMessage('conv-1', { content: 'hola' });
+
+    expect(axiosClient.post).toHaveBeenCalledWith('/messaging/conversations/conv-1/messages', {
+      content: 'hola',
+    });
+  });
+
+  it('con private:false explícito → tampoco aparece un private:true engañoso (mismo criterio, JSON queda {content, private:false})', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: MESSAGE });
+
+    await sendWhatsappMessage('conv-1', { content: 'hola', private: false });
+
+    expect(axiosClient.post).toHaveBeenCalledWith('/messaging/conversations/conv-1/messages', {
+      content: 'hola',
+      private: false,
+    });
+  });
+
+  it('con files + private:true → el multipart agrega form.append("private","true")', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: MESSAGE });
+    const file = new File(['x'], 'foto.jpg', { type: 'image/jpeg' });
+
+    await sendWhatsappMessage('conv-1', { content: 'mirá esto', files: [file], private: true });
+
+    const [, body] = vi.mocked(axiosClient.post).mock.calls[0] as [string, FormData];
+    expect(body.get('private')).toBe('true');
+  });
+
+  it('con files sin private (ausente) → el multipart NO trae el campo private', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: MESSAGE });
+    const file = new File(['x'], 'foto.jpg', { type: 'image/jpeg' });
+
+    await sendWhatsappMessage('conv-1', { content: 'mirá esto', files: [file] });
+
+    const [, body] = vi.mocked(axiosClient.post).mock.calls[0] as [string, FormData];
+    expect(body.has('private')).toBe(false);
+  });
+
+  it('con files + private:false explícito → el multipart tampoco agrega el campo (solo se manda cuando es true)', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: MESSAGE });
+    const file = new File(['x'], 'foto.jpg', { type: 'image/jpeg' });
+
+    await sendWhatsappMessage('conv-1', { content: 'mirá esto', files: [file], private: false });
+
+    const [, body] = vi.mocked(axiosClient.post).mock.calls[0] as [string, FormData];
+    expect(body.has('private')).toBe(false);
+  });
+});
+
 describe('WAPI-6: getInboxClientContext', () => {
   const RICH: WhatsappInboxClientContext = {
     status: 'matched',
