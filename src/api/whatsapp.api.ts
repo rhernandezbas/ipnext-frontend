@@ -2,6 +2,7 @@ import axiosClient from './axios-client';
 import type {
   WhatsappConversationDetail,
   WhatsappConversationListItem,
+  WhatsappConversationStatus,
   WhatsappInboxClientContext,
   WhatsappMessage,
   WhatsappPaginatedQuery,
@@ -115,3 +116,26 @@ export const getInboxClientContext = (
     .get<WhatsappInboxClientContext>(`${BASE}/conversations/${conversationId}/client-context`, { params })
     .then(r => r.data);
 };
+
+/**
+ * setConversationStatus (messaging-inbox-productivity F1.5-C v1 —
+ * RESOLVER/REABRIR) — POST /messaging/conversations/:id/status con
+ * `{status}`, devuelve la conversación actualizada (sin envelope — WAPI-8).
+ *
+ * hallazgo MEDIUM #4 (review adversarial): el BE devuelve el shape de LISTA
+ * (`ConversationListItemDto`), NO el de detalle — SIN `canReply`/
+ * `clientContext` (esos son exclusivos de `GetConversation`, el fetch-on-open
+ * del detalle). El tipo estaba declarado `WhatsappConversationDetail` por
+ * error (copy-paste de `getWhatsappConversation`); era inerte porque
+ * `useSetConversationStatus` (`useWhatsapp.ts`) solo lee `.status` de la
+ * respuesta para asentar el optimista en el refetch/`onSettled` — pero
+ * cualquier código nuevo que leyera `.canReply`/`.clientContext` de acá
+ * compilaría igual y rompería en runtime (`undefined`).
+ */
+export const setConversationStatus = (
+  id: string,
+  status: WhatsappConversationStatus,
+): Promise<WhatsappConversationListItem> =>
+  axiosClient
+    .post<WhatsappConversationListItem>(`${BASE}/conversations/${id}/status`, { status })
+    .then(r => r.data);

@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useWhatsappConversations,
   useWhatsappConversation,
   useWhatsappMessages,
   useSendWhatsappMessage,
+  useSetConversationStatus,
   usePendingSends,
   whatsappMessagesKey,
 } from '@/hooks/useWhatsapp';
@@ -12,8 +13,11 @@ import { ConversationList } from './WhatsappInboxPage/components/ConversationLis
 import { MessageThread } from './WhatsappInboxPage/components/MessageThread';
 import { ClientContextPanel } from './WhatsappInboxPage/components/ClientContextPanel';
 import { Composer } from './WhatsappInboxPage/components/Composer';
-import type { WhatsappPaginatedQuery } from '@/types/whatsapp';
+import type { WhatsappConversationStatus, WhatsappPaginatedQuery } from '@/types/whatsapp';
 import styles from './WhatsappInboxPage.module.css';
+
+const STATUS_ERROR_MESSAGE = 'No se pudo actualizar el estado de la conversación. Reintentá.';
+const STATUS_TOAST_DURATION_MS = 4000;
 
 /**
  * WhatsappInboxPage — container del inbox WhatsApp (messaging-inbox F1,
@@ -51,6 +55,60 @@ export default function WhatsappInboxPage() {
   // (`whatsappPendingSendsKey`), no hace falta compartir el hook.
   const pendingSends = usePendingSends(selectedId ?? '');
   const { retry: retryPendingSend, discard: discardPendingSend } = useSendWhatsappMessage(selectedId ?? '');
+  // messaging-inbox-productivity F1.5-C v1 (Resolver/Reabrir): instancia
+  // PROPIA de useSetConversationStatus, atada al selectedId igual que
+  // useSendWhatsappMessage — mismo criterio (las keys de cache de la
+  // mutation se derivan del convId capturado AL DISPATCH, no del closure
+  // `id` de este hook; ver `useWhatsapp.ts`).
+  const { setStatus, isPending: isStatusPending } = useSetConversationStatus(selectedId ?? '');
+
+  /**
+   * hallazgo MEDIUM #3 (review adversarial F1.5-C): `useSetConversationStatus`
+   * exponía `isError`/`error`, pero acá se descartaban por completo — si el
+   * POST fallaba (403/500/503), el único indicio para el agente era el badge
+   * de estado animándose ida y vuelta (rollback optimista), sin ningún
+   * aviso. Mismo mecanismo de toast local que YA usa el resto del repo
+   * (`TicketsTableView`/`RecaptacionPage`/`SchedulingTaskDetailPage`: no hay
+   * un `useToast`/`ToastContext` global instalado, cada page/tabla mantiene
+   * su propio estado `toast`+`showToast` con un banner `role="alert"`) — NO
+   * se inventa un mecanismo nuevo, se replica el existente.
+   *
+   * Se engancha vía el 2do argumento de `setStatus` (`opts.onError`,
+   * `useWhatsapp.ts`) en vez de un `useEffect` observando `isError`
+   * reactivamente — evita el problema de "cómo distingo un error nuevo de
+   * uno viejo que ya mostré" que un efecto sobre estado persistente de
+   * TanStack Query arrastraría.
+   */
+  const [statusToast, setStatusToast] = useState<string | null>(null);
+  const statusToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleToggleStatus(next: WhatsappConversationStatus) {
+    setStatus(next, {
+      onError: () => {
+        setStatusToast(STATUS_ERROR_MESSAGE);
+        if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
+        statusToastTimer.current = setTimeout(() => setStatusToast(null), STATUS_TOAST_DURATION_MS);
+      },
+    });
+  }
+
+  /**
+   * Re-review MEDIUM (contaminación entre conversaciones, memoria
+   * `inbox-key-por-conversacion` — nos mordió 2 veces): `statusToast` es
+   * estado de ESTA página (que NO se remonta al cambiar `selectedId`) y solo
+   * se limpiaba por su timeout de 4s. Sin esto, un error del Resolver/Reabrir
+   * de la conversación A quedaba visible sobre la B si el agente cambiaba
+   * dentro de esa ventana — el banner genérico ("no se pudo actualizar…")
+   * leería como que la conversación ACTUAL falló cuando fue otra. Al cambiar
+   * de conversación, descartar el toast (y su timer) inmediatamente.
+   */
+  useEffect(() => {
+    setStatusToast(null);
+    if (statusToastTimer.current) {
+      clearTimeout(statusToastTimer.current);
+      statusToastTimer.current = null;
+    }
+  }, [selectedId]);
 
   /**
    * Fix bug CRÍTICO #1 (post-review-adversarial, 2 reviewers): "Reintentar"
@@ -102,6 +160,9 @@ export default function WhatsappInboxPage() {
             pendingSends={pendingSends}
             onRetryPending={retryPendingSend}
             onDiscardPending={discardPendingSend}
+            status={detail?.status ?? selectedListItem?.status ?? null}
+            onToggleStatus={handleToggleStatus}
+            isStatusPending={isStatusPending}
           />
         </div>
 
@@ -145,6 +206,15 @@ export default function WhatsappInboxPage() {
             cambia la conversación seleccionada. */}
         <ClientContextPanel key={selectedId} conversationId={selectedId} lightContext={detail?.clientContext} />
       </div>
+
+      {/* hallazgo MEDIUM #3: toast local (mismo mecanismo que
+          TicketsTableView/RecaptacionPage/SchedulingTaskDetailPage — no hay
+          un ToastContext/useToast global en el repo). */}
+      {statusToast && (
+        <div className={styles.statusToast} role="alert" aria-live="assertive">
+          {statusToast}
+        </div>
+      )}
     </div>
   );
 }

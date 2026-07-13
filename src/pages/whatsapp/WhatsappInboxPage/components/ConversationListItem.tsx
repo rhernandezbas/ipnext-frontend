@@ -1,5 +1,6 @@
 import { formatTimeShort } from '@/utils/formatDate';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
+import { CONVERSATION_STATUS_VARIANT, CONVERSATION_STATUS_LABEL } from './conversationStatus';
 import type { WhatsappConversationListItem } from '@/types/whatsapp';
 import styles from './ConversationListItem.module.css';
 
@@ -8,24 +9,6 @@ interface ConversationListItemProps {
   selected: boolean;
   onClick: () => void;
 }
-
-/**
- * `status` (Chatwoot `open|resolved|pending`, design §3 — drift cerrado:
- * `unreadCount`/`canReply` NO existen en `ConversationListItemDto`, esos
- * viven en el detalle) mapeado a la variante de color de `StatusBadge`
- * (reuso del atom existente — cero hex nuevo, cero token nuevo).
- */
-const STATUS_VARIANT: Record<string, 'active' | 'blocked' | 'inactive'> = {
-  open: 'active',
-  pending: 'blocked',
-  resolved: 'inactive',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  open: 'Abierta',
-  pending: 'Pendiente',
-  resolved: 'Resuelta',
-};
 
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -44,8 +27,8 @@ export function ConversationListItem({ conversation, selected, onClick }: Conver
   const displayName = conversation.contactName?.trim() || conversation.contactPhone || 'Contacto sin nombre';
   const preview = conversation.preview?.trim() || 'Sin mensajes';
   const time = formatTimeShort(conversation.lastMessageAt);
-  const variant = STATUS_VARIANT[conversation.status] ?? 'inactive';
-  const label = STATUS_LABEL[conversation.status] ?? conversation.status;
+  const variant = CONVERSATION_STATUS_VARIANT[conversation.status] ?? 'inactive';
+  const label = CONVERSATION_STATUS_LABEL[conversation.status] ?? conversation.status;
 
   return (
     <li className={styles.item}>

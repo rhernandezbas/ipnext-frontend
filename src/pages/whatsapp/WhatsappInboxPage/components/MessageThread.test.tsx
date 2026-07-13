@@ -6,11 +6,37 @@
  * `useWhatsappMessages` (design §1/§4) y el "fetch on open" (`enabled:!!id`)
  * ya lo resuelven esos hooks; acá solo se consume el resultado.
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+vi.mock('@/hooks/useMyPermissions');
+
+import * as useMyPermissionsModule from '@/hooks/useMyPermissions';
 import { MessageThread } from './MessageThread';
 import type { PendingSend, WhatsappMessage } from '@/types/whatsapp';
+
+/**
+ * hallazgo HIGH #1 (review adversarial F1.5-C): mismo helper que
+ * `Composer.test.tsx` (`setCanSend`) — el endpoint de `ConversationStatusToggle`
+ * (`POST .../status`) pide `messaging.send`, igual que el Composer. Default
+ * `true` (via el `beforeEach` de abajo) para no romper los tests existentes de
+ * este describe, que asumían el botón SIEMPRE visible antes del gate.
+ */
+function setCanSend(can: boolean) {
+  vi.mocked(useMyPermissionsModule.useMyPermissions).mockReturnValue({
+    permissions: can ? ['messaging.send'] : ['messaging.read'],
+    roles: [],
+    user: null,
+    isLoading: false,
+    isError: false,
+    can: () => can,
+  } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+}
+
+beforeEach(() => {
+  setCanSend(true);
+});
 
 const msg = (over: Partial<WhatsappMessage> = {}): WhatsappMessage => ({
   id: 'm1',
@@ -514,6 +540,96 @@ describe('MessageThread — dedup por isPrivate (messaging-inbox-notes F1.5 fase
     );
 
     expect(screen.getAllByTestId('message-bubble-row')).toHaveLength(1);
+  });
+});
+
+describe('MessageThread — F1.5-C v1 (Resolver/Reabrir, wiring del control en el header)', () => {
+  it('sin status (default), no se renderiza ningún control de estado', () => {
+    render(<MessageThread conversationId="c1" contactName="Juan" messages={[]} isLoading={false} />);
+    expect(screen.queryByRole('button', { name: /resolver|reabrir/i })).toBeNull();
+  });
+
+  it('hallazgo HIGH #1: con permiso messaging.read (SIN messaging.send), el botón Resolver/Reabrir NO se renderiza (el endpoint pide messaging.send, mismo gate que el Composer)', () => {
+    setCanSend(false);
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[]}
+        isLoading={false}
+        status="open"
+        onToggleStatus={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: /resolver|reabrir/i })).toBeNull();
+  });
+
+  it('hallazgo HIGH #1: con permiso messaging.send, el botón Resolver/Reabrir SÍ se renderiza', () => {
+    setCanSend(true);
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[]}
+        isLoading={false}
+        status="open"
+        onToggleStatus={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /resolver/i })).toBeInTheDocument();
+  });
+
+  it('con status "open", muestra "Resolver" en el header y dispara onToggleStatus("resolved") al click', async () => {
+    const onToggleStatus = vi.fn();
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[]}
+        isLoading={false}
+        status="open"
+        onToggleStatus={onToggleStatus}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /resolver/i }));
+
+    expect(onToggleStatus).toHaveBeenCalledWith('resolved');
+  });
+
+  it('con status "resolved", muestra "Reabrir" y respeta isStatusPending (deshabilitado + spinner)', () => {
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[]}
+        isLoading={false}
+        status="resolved"
+        onToggleStatus={vi.fn()}
+        isStatusPending
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /reabrir/i })).toBeDisabled();
+  });
+
+  it('el control se renderiza en el mismo header que el nombre de contacto (independiente de isLoading/isError de los mensajes)', () => {
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[]}
+        isLoading
+        status="open"
+        onToggleStatus={vi.fn()}
+      />,
+    );
+
+    const header = screen.getByTestId('message-thread-swap');
+    expect(within(header).getByText('Juan')).toBeInTheDocument();
+    expect(within(header).getByRole('button', { name: /resolver/i })).toBeInTheDocument();
   });
 });
 

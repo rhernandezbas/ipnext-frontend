@@ -187,6 +187,15 @@ function setHooks({
     isRefreshingBalance: false,
     balanceRefreshFailed: false,
   } as ReturnType<typeof useWhatsappModule.useInboxClientContext>);
+  // messaging-inbox-productivity F1.5-C v1 (Resolver/Reabrir): default
+  // neutro — cada test que necesite espiar `setStatus`/`isPending` lo
+  // sobreescribe con su propio mock.
+  vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+    setStatus: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+  } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
 }
 
 function renderPage() {
@@ -524,5 +533,114 @@ describe('WhatsappInboxPage — bug BLOQUEANTE (chosenId pegado entre conversaci
     expect(screen.getByText(/varios clientes posibles/i)).toBeInTheDocument();
     expect(screen.getByText('Candidato Tres')).toBeInTheDocument();
     expect(screen.queryByText('Cliente Elegido A1')).not.toBeInTheDocument();
+  });
+});
+
+describe('WhatsappInboxPage — F1.5-C v1 (Resolver/Reabrir): wiring de useSetConversationStatus', () => {
+  it('llama a useSetConversationStatus con el selectedId (o "" sin selección)', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(useWhatsappModule.useSetConversationStatus).toHaveBeenCalledWith('');
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+
+    expect(useWhatsappModule.useSetConversationStatus).toHaveBeenLastCalledWith('conv-b');
+  });
+
+  it('el header del thread muestra "Resolver" para CONV_B (status "pending" → tratado como "no resuelta") y el click llama a setStatus("resolved")', async () => {
+    const setStatus = vi.fn();
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: /resolver/i }));
+
+    // hallazgo MEDIUM #3 (review adversarial): `setStatus` ahora reenvía un
+    // 2do argumento (`{onError}`) para poder surfacear el error de la
+    // mutation (antes descartado en silencio) — ver el describe de abajo.
+    expect(setStatus).toHaveBeenCalledWith('resolved', expect.objectContaining({ onError: expect.any(Function) }));
+  });
+
+  it('isPending de la mutation deshabilita el botón Resolver/Reabrir del header', async () => {
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus: vi.fn(),
+      isPending: true,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+
+    expect(screen.getByRole('button', { name: /resolver/i })).toBeDisabled();
+  });
+
+  it('sin selección, el header no muestra ningún control de estado (nada que resolver todavía)', () => {
+    renderPage();
+    expect(screen.queryByRole('button', { name: /resolver|reabrir/i })).toBeNull();
+  });
+});
+
+describe('WhatsappInboxPage — hallazgo MEDIUM #3 (review adversarial: surface de error de useSetConversationStatus, hoy silenciosa)', () => {
+  it('si el POST de status falla, se muestra un feedback de error visible (role="alert") — antes el único indicio era el badge animando ida y vuelta', async () => {
+    // Simula EXACTAMENTE lo que hace la mutation real cuando el POST falla:
+    // invoca el `onError` que el caller pasó como 2do argumento (ver
+    // `useSetConversationStatus`, `useWhatsapp.ts` — `opts` se reenvía a
+    // `mutation.mutate`). Acá se mockea el hook entero (mismo criterio que
+    // el resto de este describe), así que se simula el callback a mano.
+    const setStatus = vi.fn((_next: string, opts?: { onError?: (err: unknown) => void }) => {
+      opts?.onError?.(new Error('503 chatwoot caído'));
+    });
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: /resolver/i }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/no se pudo/i);
+  });
+
+  it('el toast de error NO queda pegado al cambiar de conversación (contaminación entre conversaciones, memoria inbox-key-por-conversacion)', async () => {
+    const setStatus = vi.fn((_next: string, opts?: { onError?: (err: unknown) => void }) => {
+      opts?.onError?.(new Error('503 chatwoot caído'));
+    });
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: /resolver/i }));
+    expect(screen.getByRole('alert')).toHaveTextContent(/no se pudo/i);
+
+    // el agente cambia a OTRA conversación dentro de la ventana de 4s del toast:
+    // el banner de error de Maria NO debe quedar visible sobre Juan (leería
+    // como que la conversación ACTUAL falló cuando fue otra).
+    await user.click(screen.getByRole('button', { name: /Conversación con Juan Perez/i }));
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });

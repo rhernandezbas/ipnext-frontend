@@ -129,3 +129,23 @@
     display: none;
   }
 }
+
+/*
+ * hallazgo MEDIUM #3 (review adversarial F1.5-C): toast de error de
+ * Resolver/Reabrir — mismo look que el `.toast`/`.toastError` de
+ * `TicketsTableView.module.css` (posición fija, esquina inferior derecha),
+ * es el patrón que YA usa el repo (no hay un ToastContext/useToast global).
+ */
+.statusToast {
+  position: fixed;
+  bottom: var(--space-6);
+  right: var(--space-6);
+  z-index: 1100;
+  background: var(--color-danger, #dc2626);
+  color: var(--color-white);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  box-shadow: var(--shadow-lg);
+}

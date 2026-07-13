@@ -46,6 +46,7 @@ import {
   listWhatsappMessages,
   sendWhatsappMessage,
   getInboxClientContext,
+  setConversationStatus,
 } from '@/api/whatsapp.api';
 
 const LIST_ITEM: WhatsappConversationListItem = {
@@ -308,5 +309,50 @@ describe('WAPI-6: getInboxClientContext', () => {
     expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations/conv-1/client-context', {
       params: { clientId: 'cli-1', refresh: '1' },
     });
+  });
+});
+
+describe('WAPI-8: setConversationStatus (messaging-inbox-productivity F1.5-C v1 — RESOLVER/REABRIR)', () => {
+  // hallazgo MEDIUM #4 (review adversarial): el BE devuelve el shape de
+  // LISTA (`WhatsappConversationListItem`), NO el de detalle — SIN
+  // `canReply`/`clientContext` (ver la nota de `setConversationStatus`,
+  // `whatsapp.api.ts`). Antes este fixture hormaba `RESOLVED_DETAIL` con
+  // esos campos, horneando un contrato que el BE real nunca cumple.
+  const RESOLVED_LIST_ITEM: WhatsappConversationListItem = { ...LIST_ITEM, status: 'resolved' };
+
+  it('POSTea /messaging/conversations/:id/status con {status} y devuelve la conversación actualizada (shape de LISTA)', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: RESOLVED_LIST_ITEM });
+
+    const result = await setConversationStatus('conv-1', 'resolved');
+
+    expect(axiosClient.post).toHaveBeenCalledWith('/messaging/conversations/conv-1/status', { status: 'resolved' });
+    expect(result).toEqual(RESOLVED_LIST_ITEM);
+    // Honestidad del contrato: sin canReply/clientContext (exclusivos del detalle).
+    expect('canReply' in (result as object)).toBe(false);
+    expect('clientContext' in (result as object)).toBe(false);
+  });
+
+  it('acepta status "open" (reabrir)', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: LIST_ITEM });
+
+    await setConversationStatus('conv-1', 'open');
+
+    expect(axiosClient.post).toHaveBeenCalledWith('/messaging/conversations/conv-1/status', { status: 'open' });
+  });
+
+  it('acepta status "pending" (el tipo lo contempla aunque v1 no lo dispare desde la UI)', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: { ...LIST_ITEM, status: 'pending' } });
+
+    await setConversationStatus('conv-1', 'pending');
+
+    expect(axiosClient.post).toHaveBeenCalledWith('/messaging/conversations/conv-1/status', { status: 'pending' });
+  });
+
+  it('cada llamada postea SOLO {status} en el body (sin 3er argumento de config extra)', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: RESOLVED_LIST_ITEM });
+
+    await setConversationStatus('conv-1', 'resolved');
+
+    expect((vi.mocked(axiosClient.post).mock.calls[0] as unknown[]).length).toBe(2);
   });
 });

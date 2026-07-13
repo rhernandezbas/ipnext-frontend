@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Can } from '@/components/auth/Can';
 import { MessageBubble } from './MessageBubble';
 import { Skeleton } from './Skeleton';
-import type { PendingSend, WhatsappMessage } from '@/types/whatsapp';
+import { ConversationStatusToggle } from './ConversationStatusToggle';
+import type { PendingSend, WhatsappConversationStatus, WhatsappMessage } from '@/types/whatsapp';
 import styles from './MessageThread.module.css';
 
 /**
@@ -112,6 +114,19 @@ interface MessageThreadProps {
   onRetryPending?: (pending: PendingSend) => void;
   /** "Descartar" de una burbuja `failed`. */
   onDiscardPending?: (pending: PendingSend) => void;
+  /**
+   * Resolver/Reabrir (messaging-inbox-productivity F1.5-C v1, design contract
+   * de la tarea) — `status` llega resuelto como prop (mismo criterio que
+   * `contactName`: `WhatsappInboxPage` orquesta `useWhatsappConversation` +
+   * `useSetConversationStatus`, acá solo se consume el resultado).
+   * `undefined`/`null` → `ConversationStatusToggle` no renderiza nada (nada
+   * que resolver/reabrir todavía, ej. mientras el detalle fetch-on-open
+   * sigue en vuelo).
+   */
+  status?: WhatsappConversationStatus | string | null;
+  /** Recibe el status DESTINO ya calculado por `ConversationStatusToggle` — se reenvía tal cual a `useSetConversationStatus(id).setStatus`. */
+  onToggleStatus?: (next: WhatsappConversationStatus) => void;
+  isStatusPending?: boolean;
 }
 
 /**
@@ -138,6 +153,9 @@ export function MessageThread({
   pendingSends = [],
   onRetryPending,
   onDiscardPending,
+  status = null,
+  onToggleStatus,
+  isStatusPending = false,
 }: MessageThreadProps) {
   // Merge server + pending (design §6.3): los pending van DESPUÉS (son los
   // más nuevos, aún sin confirmar). `pendingById` permite recuperar el
@@ -305,6 +323,20 @@ export function MessageThread({
             </button>
           )}
           <span className={styles.contactName}>{contactName ?? 'Contacto'}</span>
+
+          {/*
+           * hallazgo HIGH #1 (review adversarial F1.5-C): `POST .../status`
+           * pide `messaging:send` (mismo endpoint que `Composer`, que YA
+           * gatea con este mismo patrón — `Composer.tsx`) — sin este gate,
+           * un usuario con solo `messaging.read` (gate de la PÁGINA) veía el
+           * botón y recibía un 403 al click. `Can` renderiza `null` si el
+           * check falla (`components/auth/Can.tsx`).
+           */}
+          {onToggleStatus && (
+            <Can permission="messaging.send">
+              <ConversationStatusToggle status={status} onToggle={onToggleStatus} isPending={isStatusPending} />
+            </Can>
+          )}
         </header>
 
         {isLoading && (

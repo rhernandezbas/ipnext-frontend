@@ -34,6 +34,18 @@ export interface WhatsappConversationDetail extends WhatsappConversationListItem
   clientContext: WhatsappClientContext;
 }
 
+/**
+ * WhatsappConversationStatus (messaging-inbox-productivity F1.5-C v1 —
+ * RESOLVER/REABRIR) — unión real del `status` que Chatwoot expone y que el
+ * BE espeja (`ConversationListItem.status`/`ConversationDetail.status`
+ * siguen tipados como `string` ancho por legado — ver la nota de arriba).
+ * v1 SOLO deja setear `open`/`resolved` desde la UI (`useSetConversationStatus`,
+ * `POST /messaging/conversations/:id/status`); `pending` queda contemplado
+ * en el tipo (puede LLEGAR como status leído de Chatwoot) pero ningún
+ * control de la UI lo dispara todavía.
+ */
+export type WhatsappConversationStatus = 'open' | 'resolved' | 'pending';
+
 // ─── Media entrante (messaging-inbox-v2-media F1.5 fase A, Tanda 1 — RECIBIR)
 // espejo de `ChatMessageAttachmentDto` (`ipnext-backend/src/application/dto/
 // messaging.ts`, MEDIA-4). `url`/`thumbUrl` son rutas BE-proxy relativas al

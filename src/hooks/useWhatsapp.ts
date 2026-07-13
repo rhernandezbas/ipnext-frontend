@@ -5,9 +5,13 @@ import { useDocumentVisible } from '@/hooks/useDocumentVisible';
 import type {
   DraftAttachment,
   PendingSend,
+  WhatsappConversationDetail,
+  WhatsappConversationListItem,
+  WhatsappConversationStatus,
   WhatsappInboxClientContext,
   WhatsappMessage,
   WhatsappPaginatedQuery,
+  WhatsappPaginatedResult,
 } from '@/types/whatsapp';
 
 /**
@@ -237,6 +241,118 @@ export function useSendWhatsappMessage(id: string) {
   };
 
   return { send, retry, discard, isError: mutation.isError, error: mutation.error };
+}
+
+/**
+ * useSetConversationStatus(id) (messaging-inbox-productivity F1.5-C v1 —
+ * RESOLVER/REABRIR) — `POST .../status` con optimistic UI: parchea `status`
+ * en el detalle cacheado (`whatsappConversationKey`) Y en TODAS las páginas
+ * cacheadas de la lista (`whatsappConversationsKey`) que contengan esa
+ * conversación, ANTES de que la red resuelva. Rollback EXACTO (via el
+ * snapshot que devuelve `onMutate`) si el POST falla.
+ *
+ * Mismo criterio que `useSendWhatsappMessage` (bug CRÍTICO #1 defensa): todas
+ * las keys de cache se derivan de `vars.convId`, capturado en `setStatus` AL
+ * MOMENTO del dispatch — nunca del closure `id` del hook. Sin esto, un
+ * header sin `key={conversationId}` que cambiara de conversación MIENTRAS la
+ * mutation está en vuelo resolvería el optimista (o el rollback) en el slice
+ * de la conversación EQUIVOCADA.
+ *
+ * `onSettled` invalida (no solo asienta el optimista) TANTO en éxito como en
+ * error: el detalle pollea cada 25s y la lista cada 15s (`useWhatsapp.ts`
+ * header), pero el agente espera ver el cambio YA — invalidar fuerza un
+ * refetch inmediato de ambas queries si están activas, que además es la
+ * fuente de verdad final (el BE recién actualiza el mirror post-OK del POST
+ * — el optimista es una promesa hasta ese refetch la confirma).
+ */
+type SetStatusVars = { status: WhatsappConversationStatus; convId: string };
+type SetStatusContext = {
+  convId: string;
+  previousDetail: WhatsappConversationDetail | undefined;
+  previousLists: Array<[readonly unknown[], WhatsappPaginatedResult<WhatsappConversationListItem> | undefined]>;
+};
+
+export function useSetConversationStatus(id: string) {
+  const qc = useQueryClient();
+
+  // hallazgo MEDIUM #4 (review adversarial F1.5-C): TData es
+  // `WhatsappConversationListItem`, NO `WhatsappConversationDetail` — el BE
+  // real devuelve el shape de LISTA (ver `api.setConversationStatus`, sin
+  // `canReply`/`clientContext`). Inerte hoy (nada de acá abajo lee `data`
+  // más allá de `_data` descartado en `onSettled`), pero honesto: si algo
+  // llegara a leer `mutation.data.canReply` compilaría igual y rompería en
+  // runtime.
+  const mutation = useMutation<WhatsappConversationListItem, unknown, SetStatusVars, SetStatusContext>({
+    mutationFn: (vars) => api.setConversationStatus(vars.convId, vars.status),
+
+    onMutate: async (vars) => {
+      const detailKey = whatsappConversationKey(vars.convId);
+      await qc.cancelQueries({ queryKey: detailKey });
+      await qc.cancelQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+
+      const previousDetail = qc.getQueryData<WhatsappConversationDetail>(detailKey);
+      qc.setQueryData<WhatsappConversationDetail>(detailKey, (old) =>
+        old ? { ...old, status: vars.status } : old,
+      );
+
+      const previousLists = qc.getQueriesData<WhatsappPaginatedResult<WhatsappConversationListItem>>({
+        queryKey: WHATSAPP_CONVERSATIONS_ROOT,
+      });
+      qc.setQueriesData<WhatsappPaginatedResult<WhatsappConversationListItem>>(
+        { queryKey: WHATSAPP_CONVERSATIONS_ROOT },
+        (old) =>
+          old
+            ? { ...old, data: old.data.map((c) => (c.id === vars.convId ? { ...c, status: vars.status } : c)) }
+            : old,
+      );
+
+      return { convId: vars.convId, previousDetail, previousLists };
+    },
+
+    onError: (_err, _vars, context) => {
+      if (!context) return;
+      qc.setQueryData(whatsappConversationKey(context.convId), context.previousDetail);
+      context.previousLists.forEach(([key, data]) => {
+        qc.setQueryData(key, data);
+      });
+    },
+
+    onSettled: (_data, _err, vars) => {
+      void qc.invalidateQueries({ queryKey: whatsappConversationKey(vars.convId) });
+      void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+    },
+  });
+
+  /**
+   * hallazgo MEDIUM #3 (review adversarial F1.5-C): `opts` es ADITIVO
+   * (mismo patrón que `send`, arriba en este archivo) — se reenvía tal cual
+   * al `mutate` de TanStack Query, que lo invoca EN ADICIÓN a los callbacks
+   * de `useMutation` de arriba (`onError` de acá abajo NO reemplaza el
+   * `onError` del rollback, corre después). Así el caller (`WhatsappInboxPage`)
+   * puede surfacear el error (toast/banner) sin un `useEffect` aparte
+   * observando `isError`/`error` reactivamente.
+   */
+  const setStatus = (
+    status: WhatsappConversationStatus,
+    opts?: { onError?: (error: unknown) => void },
+  ) => mutation.mutate({ status, convId: id }, opts);
+
+  return {
+    setStatus,
+    // Bug ALTO #2 (review adversarial F1.5-C): la MISMA instancia de
+    // `useMutation` persiste entre renders del hook (no se remonta al
+    // cambiar `id` — mismo criterio que el bug CRÍTICO #1 de
+    // `useSendWhatsappMessage`, arriba). `mutation.isPending` crudo seguía
+    // reflejando un request en vuelo de la conversación ANTERIOR después de
+    // cambiar de selección — el botón de la conversación NUEVA quedaba
+    // disabled+spinner por un request AJENO. `mutation.variables` (TanStack
+    // Query v5) expone las variables del `mutate` en vuelo; comparar su
+    // `convId` contra el `id` ACTUAL del hook scopea `isPending` a la
+    // conversación que el caller realmente pidió.
+    isPending: mutation.isPending && mutation.variables?.convId === id,
+    isError: mutation.isError,
+    error: mutation.error,
+  };
 }
 
 /**
