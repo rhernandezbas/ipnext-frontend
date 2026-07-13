@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { WhatsappInboxClientSummary } from '@/types/whatsapp';
 import { formatDateShort } from '@/utils/formatDate';
+import { IconCheck } from '../statusIcons';
 import styles from '../ClientContextPanel.module.css';
 
 interface InteractionsSectionProps {
@@ -8,19 +9,69 @@ interface InteractionsSectionProps {
 }
 
 /**
+ * Etiqueta del contador de la subsección "Cerrados"/"Cerradas" (F1.5 spec #2).
+ * El BE ya trunca el array mostrado (top 2) — si el total real es mayor, se
+ * aclara cuántos se están mostrando ("Cerrados: 5 · mostrando 2") en vez de
+ * mentir con un número que no coincide con la lista renderizada.
+ */
+function closedCounterLabel(word: 'Cerrados' | 'Cerradas', total: number, shown: number): string {
+  return total > shown ? `${word}: ${total} · mostrando ${shown}` : `${word}: ${total}`;
+}
+
+/**
  * InteractionsSection — tickets abiertos / tareas / bitácora (messaging-inbox-v2
  * F1.5, design §5.4). Los límites (3/3/5) ya vienen truncados por el DTO
  * (RICH-3) — este componente solo renderiza lo que recibe, no vuelve a
  * cortar. Empty POSITIVO ("sin tickets abiertos", no cara triste).
+ *
+ * F1.5 spec #2 (ESTADOS ABIERTO/CERRADO) — cada bloque (tickets, tareas) se
+ * agrupa en 2 subsecciones cuando hay cerrados: "Abiertos"/"Abiertas" arriba
+ * (el estilo accionable de siempre) y "Cerrados"/"Cerradas" debajo, MUTED.
+ * El heading de subsección SOLO aparece si hay cerrados (`closed*Count>0`) —
+ * un cliente sin cerrados se ve exactamente como antes de este cambio. La
+ * distinción NO depende solo del color: ítems cerrados llevan además un
+ * ícono ✓ `aria-hidden` (el nombre accesible vive en el heading "Cerrados",
+ * mismo patrón que `statusIcons.tsx`) y un label textual por-ítem —
+ * "Cerrado" para tickets, "Cerrada"/"Descartada" para tareas (paridad a11y,
+ * fix review adversarial: antes el ticket cerrado no tenía texto por-ítem).
+ *
+ * Gate de la subsección "Cerrados"/"Cerradas" (fix review adversarial,
+ * bug MEDIO): se gatea por el ARRAY (`recentClosed*.length > 0`), NUNCA por
+ * el contador — igual que el bloque "Abiertos". Si el BE manda un count y un
+ * array inconsistentes (race entre queries), el array manda: nunca se pierde
+ * silenciosamente un ítem que sí llegó. El contador que se muestra en el
+ * heading se CLAMPEA a `Math.max(count, array.length)` — nunca puede mostrar
+ * un número menor a la cantidad de ítems listados.
  */
 export function InteractionsSection({ client }: InteractionsSectionProps) {
-  const { openTicketsCount, recentTickets, recentTasks, recentLogs, fichaClientId } = client;
+  const {
+    openTicketsCount,
+    recentTickets,
+    recentClosedTickets,
+    closedTicketsCount,
+    openTasksCount,
+    recentTasks,
+    recentClosedTasks,
+    closedTasksCount,
+    recentLogs,
+    fichaClientId,
+  } = client;
   const ficha = `/admin/customers/view/${fichaClientId}`;
   // Fix bug BAJO (review adversarial): guards defensivos — si el BE degrada
   // mal y manda alguno de estos arrays undefined/null en vez de `[]`,
-  // `.length`/`.map` no deben tirar TypeError.
+  // `.length`/`.map` no deben tirar TypeError. Mismo criterio para los
+  // campos nuevos de cerrados (spec #2).
   const tickets = recentTickets ?? [];
+  const closedTickets = recentClosedTickets ?? [];
+  // Fix bug MEDIO (review adversarial): gate por ARRAY (no por contador) +
+  // contador clampeado — ver comentario del bloque arriba.
+  const hasClosedTickets = closedTickets.length > 0;
+  const closedTicketsTotal = Math.max(closedTicketsCount ?? 0, closedTickets.length);
+  const openTasksTotal = openTasksCount ?? 0;
   const tasks = recentTasks ?? [];
+  const closedTasks = recentClosedTasks ?? [];
+  const hasClosedTasks = closedTasks.length > 0;
+  const closedTasksTotal = Math.max(closedTasksCount ?? 0, closedTasks.length);
   const logs = recentLogs ?? [];
 
   return (
@@ -40,6 +91,7 @@ export function InteractionsSection({ client }: InteractionsSectionProps) {
             Ver todos →
           </Link>
         </div>
+        {hasClosedTickets && <h4 className={styles['int-subheading']}>Abiertos</h4>}
         {tickets.length === 0 ? (
           <p className={styles['int-empty']}>Sin tickets abiertos</p>
         ) : (
@@ -53,15 +105,45 @@ export function InteractionsSection({ client }: InteractionsSectionProps) {
             ))}
           </ul>
         )}
+        {hasClosedTickets && (
+          <div className={styles['int-closedGroup']}>
+            <h4 className={[styles['int-subheading'], styles['int-subheadingMuted']].join(' ')}>
+              {closedCounterLabel('Cerrados', closedTicketsTotal, closedTickets.length)}
+            </h4>
+            <ul className={styles['int-list']}>
+              {closedTickets.map((t) => (
+                <li key={t.id} className={[styles['int-item'], styles['int-itemClosed']].join(' ')}>
+                  <IconCheck className={styles['int-closedIcon']} />
+                  <span className={styles['int-seq']}>#{t.sequenceNumber}</span>
+                  <span className={[styles['int-subject'], styles['int-subjectClosed']].join(' ')}>
+                    {t.subject}
+                  </span>
+                  {/* Fix bug BAJO (review adversarial) — paridad a11y con la
+                      tarea cerrada: label textual por-ítem, no solo el ícono
+                      aria-hidden (un lector de pantalla que entra al <li> sin
+                      pasar por el heading "Cerrados" no sabía que estaba
+                      cerrado). */}
+                  <span className={styles['int-closedLabel']}>Cerrado</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       <div className={styles['int-block']}>
         <div className={styles['int-blockHeader']}>
-          <span className={styles['int-blockTitle']}>Tareas</span>
+          {/* Fix bug BAJO (review adversarial): `openTasksCount` era código
+              muerto (el tipo lo tenía, nada lo renderizaba). Paridad con el
+              bloque de tickets — mismo patrón/estilo (`int-ticketsCount(Open)`). */}
+          <span className={openTasksTotal > 0 ? styles['int-ticketsCountOpen'] : styles['int-ticketsCount']}>
+            {openTasksTotal} {openTasksTotal === 1 ? 'tarea abierta' : 'tareas abiertas'}
+          </span>
           <Link to={ficha} className={styles['int-link']}>
             Ver todas →
           </Link>
         </div>
+        {hasClosedTasks && <h4 className={styles['int-subheading']}>Abiertas</h4>}
         {tasks.length === 0 ? (
           <p className={styles['int-empty']}>Sin actividad reciente</p>
         ) : (
@@ -73,6 +155,25 @@ export function InteractionsSection({ client }: InteractionsSectionProps) {
               </li>
             ))}
           </ul>
+        )}
+        {hasClosedTasks && (
+          <div className={styles['int-closedGroup']}>
+            <h4 className={[styles['int-subheading'], styles['int-subheadingMuted']].join(' ')}>
+              {closedCounterLabel('Cerradas', closedTasksTotal, closedTasks.length)}
+            </h4>
+            <ul className={styles['int-list']}>
+              {closedTasks.map((t) => (
+                <li key={t.id} className={[styles['int-item'], styles['int-itemClosed']].join(' ')}>
+                  <IconCheck className={styles['int-closedIcon']} />
+                  <span className={styles['int-seq']}>#{t.sequenceNumber}</span>
+                  <span className={[styles['int-subject'], styles['int-subjectClosed']].join(' ')}>{t.title}</span>
+                  <span className={styles['int-taskLabel']}>
+                    {t.status === 'dismissed' ? 'Descartada' : 'Cerrada'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
 

@@ -578,6 +578,66 @@
   color: var(--color-text-secondary);
 }
 
+/* ─── Abiertos/Cerrados (F1.5 spec #2 — ESTADOS ABIERTO/CERRADO) ─────────
+   Heading de subsección: SOLO se monta cuando hay cerrados (ver
+   InteractionsSection.tsx) — no cambia el layout de un cliente sin cerrados.
+   `.int-subheadingMuted` baja el peso de fuente respecto de "Abiertos" (el
+   grupo abierto sigue siendo el prominente, el cerrado es secundario). */
+
+.int-subheading {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.int-subheadingMuted {
+  font-weight: var(--font-weight-normal);
+}
+
+.int-closedGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+/* Distinción NO-solo-color (a11y): ítem cerrado = ícono ✓ (`IconCheck`,
+   aria-hidden) + texto en --color-text-secondary (>= 4.5:1 sobre blanco,
+   verificado en InteractionsSection.contrast.test.tsx) + el heading
+   "Cerrados"/"Cerradas" ya anunciado por encima para lectores de pantalla. */
+.int-itemClosed {
+  align-items: center;
+  color: var(--color-text-secondary);
+}
+
+.int-closedIcon {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.int-subjectClosed {
+  color: var(--color-text-secondary);
+}
+
+.int-taskLabel {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* Label "Cerrado" del ticket cerrado (fix a11y, review adversarial) — mismo
+   tratamiento visual que `.int-taskLabel` (paridad ticket/tarea), regla propia
+   para no romper el selector literal `.int-taskLabel {` que ya usa
+   InteractionsSection.contrast.test.tsx. */
+.int-closedLabel {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
 .int-logList {
   list-style: none;
   margin: 0;

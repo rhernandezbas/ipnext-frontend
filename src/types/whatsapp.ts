@@ -196,7 +196,29 @@ export interface WhatsappInboxClientSummary {
   contracts: WhatsappInboxContract[];
   openTicketsCount: number;
   recentTickets: WhatsappInboxTicket[];
+  /**
+   * Aditivo (messaging-inbox-v2 F1.5 spec #2 — ESTADOS ABIERTO/CERRADO). Top 2
+   * tickets NO abiertos (resueltos/cerrados), ya truncados por el BE (RICH-3,
+   * mismo criterio que `recentTickets`). Opcional para no romper los fixtures
+   * existentes (FinancialSection/MatchedClientView/ClientContextPanel/
+   * WhatsappInboxPage/useWhatsapp/whatsapp.api tests, anteriores a esta tanda)
+   * que construyen el DTO sin este campo — el BE siempre manda `[]` cuando no
+   * hay cerrados (nunca `undefined`); el FE lo trata igual que `recentTickets`
+   * (`?? []`, mismo patrón defensivo, ver `InteractionsSection.tsx`).
+   */
+  recentClosedTickets?: WhatsappInboxTicket[];
+  /** Aditivo, ver `recentClosedTickets` — total real (puede ser > 2, ya truncado arriba). */
+  closedTicketsCount?: number;
+  /**
+   * Aditivo (F1.5 spec #2) — `recentTasks` ahora SOLO trae tareas abiertas
+   * (antes traía cualquier estado); este es el total real de abiertas.
+   */
   recentTasks: WhatsappInboxTask[];
+  openTasksCount?: number;
+  /** Aditivo (F1.5 spec #2) — top 2 tareas `closed`/`dismissed`. */
+  recentClosedTasks?: WhatsappInboxTask[];
+  /** Aditivo (F1.5 spec #2) — total real de tareas cerradas + descartadas. */
+  closedTasksCount?: number;
   recentLogs: WhatsappInboxLog[];
 }
 
