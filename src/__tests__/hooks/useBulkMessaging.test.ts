@@ -16,6 +16,10 @@
  *        la pestaña está visible (useDocumentVisible)
  *  MBH-6 useCampaigns(query): queryKey ['messagingBulk','campaigns',query],
  *        sin polling (historial, refresco manual/on-mount)
+ *  MBH-7 useSegmentRecipients(segment,page,limit,enabled) (v1.1, BE en PROD):
+ *        queryKey ['messagingBulk','segmentRecipients',segment,page,limit],
+ *        gateado por `enabled`; `keepPreviousData` para paginar SIN flash de
+ *        loading entre páginas
  */
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -28,6 +32,7 @@ import type {
   GetCampaignOutput,
   PaginatedResult,
   PreviewSegmentOutput,
+  SegmentRecipientsOutput,
   TemplateSummaryDto,
 } from '@/types/messagingBulk';
 
@@ -38,6 +43,7 @@ vi.mock('@/api/messagingBulk.api', () => ({
   sendCampaign: vi.fn(),
   getCampaign: vi.fn(),
   listCampaigns: vi.fn(),
+  listSegmentRecipients: vi.fn(),
 }));
 
 vi.mock('@/hooks/useDocumentVisible', () => ({
@@ -51,6 +57,7 @@ import {
   sendCampaign,
   getCampaign,
   listCampaigns,
+  listSegmentRecipients,
 } from '@/api/messagingBulk.api';
 import { useDocumentVisible } from '@/hooks/useDocumentVisible';
 import {
@@ -60,6 +67,7 @@ import {
   useSendCampaign,
   useCampaign,
   useCampaigns,
+  useSegmentRecipients,
   bulkTemplatesKey,
   bulkCampaignsKey,
   bulkCampaignKey,
@@ -72,12 +80,14 @@ const TEMPLATE: TemplateSummaryDto = {
   variables: ['1', '2'],
   approvalStatus: 'approved',
   sendable: true,
+  body: 'Hola {{1}}, tu saldo de ${{2}} vence pronto.',
 };
 
 const PREVIEW: PreviewSegmentOutput = {
   count: 42,
-  sample: [{ clientId: 'cli-1', name: 'Juan Perez', phoneE164: '+5491100000000' }],
+  sample: [{ clientId: 'cli-1', name: 'Juan Perez', phoneE164: '+5491100000000', status: 'late' }],
   skipped: { optedOut: 1, duplicatePhone: 2, invalidPhone: 3 },
+  statusCounts: { late: 42 },
 };
 
 function makeCampaignDto(overrides: Partial<CampaignDto> = {}): CampaignDto {
@@ -435,5 +445,59 @@ describe('MBH-6: useCampaigns(query)', () => {
       await vi.advanceTimersByTimeAsync(30_000);
     });
     expect(listCampaigns).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('MBH-7: useSegmentRecipients (v1.1)', () => {
+  const RECIPIENTS_OUTPUT: SegmentRecipientsOutput = {
+    data: [{ clientId: 'cli-1', name: 'Juan Perez', phoneE164: '+5491100000000', status: 'late' }],
+    total: 42,
+    page: 1,
+    limit: 20,
+    skipped: { optedOut: 0, duplicatePhone: 0, invalidPhone: 0 },
+    statusCounts: { late: 42 },
+  };
+
+  it('llama a listSegmentRecipients(segment,page,limit) y cachea el resultado', async () => {
+    vi.mocked(listSegmentRecipients).mockResolvedValue(RECIPIENTS_OUTPUT);
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useSegmentRecipients({ statuses: ['late'] }, 1, 20), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(listSegmentRecipients).toHaveBeenCalledWith({ statuses: ['late'] }, 1, 20);
+    expect(result.current.data).toEqual(RECIPIENTS_OUTPUT);
+  });
+
+  it('enabled:false NO dispara el fetch (ej. sin criterio de segmento todavía)', () => {
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useSegmentRecipients({ statuses: [] }, 1, 20, false), { wrapper });
+
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(listSegmentRecipients).not.toHaveBeenCalled();
+  });
+
+  it('cambiar de página mantiene la data anterior visible (keepPreviousData) mientras resuelve la nueva', async () => {
+    vi.mocked(listSegmentRecipients).mockResolvedValueOnce(RECIPIENTS_OUTPUT);
+    const { wrapper } = makeWrapper();
+
+    const { result, rerender } = renderHook(({ page }) => useSegmentRecipients({ statuses: ['late'] }, page, 20), {
+      wrapper,
+      initialProps: { page: 1 },
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    let resolvePage2!: (v: SegmentRecipientsOutput) => void;
+    vi.mocked(listSegmentRecipients).mockReturnValueOnce(new Promise((res) => (resolvePage2 = res)));
+    rerender({ page: 2 });
+
+    // Sigue mostrando la data de la página 1 (isFetching true, isPending false) mientras espera la 2.
+    expect(result.current.data).toEqual(RECIPIENTS_OUTPUT);
+    expect(result.current.isFetching).toBe(true);
+
+    const page2Output: SegmentRecipientsOutput = { ...RECIPIENTS_OUTPUT, page: 2 };
+    act(() => resolvePage2(page2Output));
+    await waitFor(() => expect(result.current.data).toEqual(page2Output));
   });
 });

@@ -1,0 +1,155 @@
+.wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--space-11); /* 44px — touch target */
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-normal),
+    box-shadow var(--transition-normal);
+}
+
+.trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.trigger[data-placeholder] .value {
+  color: var(--color-text-secondary);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.value {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.caret {
+  flex: 0 0 auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  transition: transform var(--transition-normal);
+}
+
+.trigger[aria-expanded='true'] .caret {
+  transform: rotate(180deg);
+}
+
+.listbox {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  animation: select-appear var(--transition-fast) ease;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--space-11); /* 44px — touch target */
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-primary);
+  transition: background-color var(--transition-fast);
+}
+
+/* FIX-4a — el highlight de teclado con --color-surface-hover (#f0f0f5) sobre
+   #fff daba ~1.05:1: prácticamente invisible al navegar con flechas. Fondo
+   gray-100 (más marcado) + barra indicadora primary (inset 3px): el bar
+   #0d6efd sobre #fff da ~4.5:1 (>=3:1 para objetos no-texto, WCAG 1.4.11),
+   un cue de posición/color claramente perceptible. */
+.option[data-active] {
+  background: var(--color-gray-100);
+  box-shadow: inset 3px 0 0 0 var(--color-primary);
+}
+
+.option[aria-disabled='true'] {
+  cursor: not-allowed;
+  color: var(--color-text-secondary);
+  opacity: 0.6;
+}
+
+.option[aria-selected='true'] {
+  font-weight: var(--font-weight-semibold);
+}
+
+/* FIX-4b — el check ✓ con --color-primary (#0d6efd) caía a ~3.8:1 sobre el
+   fondo activo (falla 4.5:1). Con --color-primary-hover (#0b5ed7) da >=4.5:1
+   tanto sobre #fff (~5.8) como sobre el gray-100 activo (~4.9). Igual la
+   selección NO depende sólo del check (es aria-hidden, decorativo): la
+   refuerzan `aria-selected` + el peso semibold de `.option[aria-selected]`. */
+.check {
+  flex: 0 0 16px;
+  width: 16px;
+  color: var(--color-primary-hover);
+  font-weight: var(--font-weight-bold);
+}
+
+.optionLabel {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes select-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger,
+  .caret,
+  .option {
+    transition: none;
+  }
+  .listbox {
+    animation: none;
+  }
+}

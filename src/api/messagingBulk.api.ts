@@ -1,5 +1,6 @@
 import axiosClient from './axios-client';
 import type {
+  CampaignSegment,
   CampaignSummaryDto,
   CreateCampaignInput,
   CreateCampaignOutput,
@@ -9,6 +10,8 @@ import type {
   PaginatedResult,
   PreviewSegmentInput,
   PreviewSegmentOutput,
+  SegmentRecipientsOutput,
+  SegmentRecipientsQuery,
   SendCampaignOutput,
   TemplateSummaryDto,
 } from '@/types/messagingBulk';
@@ -44,6 +47,27 @@ export const listBulkTemplates = (): Promise<TemplateSummaryDto[]> =>
 
 export const previewSegment = (input: PreviewSegmentInput): Promise<PreviewSegmentOutput> =>
   axiosClient.post<PreviewSegmentOutput>(`${BASE}/segment/preview`, input).then((r) => r.data);
+
+/**
+ * v1.1 (BE en PROD) — recipients PAGINADOS del segmento (a diferencia de
+ * `previewSegment`, que trunca a una muestra de 20). Mismo criterio de
+ * envelope que `previewSegment` (FLAT, sin `{data}` de por medio — el `data`
+ * de acá es el campo real del `PaginatedResult`, no un envelope).
+ *
+ * El BE también expone el GET equivalente (deep-links) — el composer sigue
+ * siendo de 1-página sin deep-linking, así que acá solo se cablea el POST
+ * (mismo criterio documentado arriba para `previewSegment`).
+ */
+export const listSegmentRecipients = (
+  segment: CampaignSegment,
+  page?: number,
+  limit?: number,
+): Promise<SegmentRecipientsOutput> => {
+  const body: SegmentRecipientsQuery = { ...segment };
+  if (page) body.page = page;
+  if (limit) body.limit = limit;
+  return axiosClient.post<SegmentRecipientsOutput>(`${BASE}/segment/recipients`, body).then((r) => r.data);
+};
 
 export const createCampaign = (input: CreateCampaignInput): Promise<CreateCampaignOutput> =>
   axiosClient.post<CreateCampaignOutput>(`${BASE}/campaigns`, input).then((r) => r.data);

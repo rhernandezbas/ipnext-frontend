@@ -1,4 +1,4 @@
-import type { ChangeEvent } from 'react';
+import { Select, type SelectOption } from '@/components/molecules/Select/Select';
 import type { TemplateSummaryDto } from '@/types/messagingBulk';
 import styles from './TemplateSelector.module.css';
 
@@ -10,21 +10,31 @@ interface TemplateSelectorProps {
   onSelect: (template: TemplateSummaryDto | null) => void;
 }
 
-const SELECT_ID = 'bulk-template-select';
+const EMPTY_VALUE = '';
 
 /**
- * TemplateSelector (F2 apply chunk 2, TPL-1/TPL-2) — <select> nativo SOLO de
- * templates. El fetch (`useTemplates`, gateado a `messaging.templates`) y el
- * permiso viven en `CampaignComposer` — este componente es presentacional
- * puro, 4 ramas (loading/error/empty/success, patrón F1).
+ * TemplateSelector (F2 apply chunk 2, TPL-1/TPL-2; migrado al `Select` propio
+ * en messaging-bulk-v11 FE apply chunk 1 — PROHIBIDO el `<select>` nativo de
+ * cara al operador). El fetch (`useTemplates`, gateado a
+ * `messaging.templates`) y el permiso viven en `CampaignComposer` — este
+ * componente es presentacional puro, 4 ramas (loading/error/empty/success,
+ * patrón F1).
  *
  * Templates NO `sendable` (pending/rejected/unsubmitted) SE MUESTRAN pero
  * `disabled`, con nota "(no aprobado)" — informativo en vez de ocultarlos sin
  * explicación (spec: "no aparecen o van disabled con nota").
  */
 export function TemplateSelector({ templates, isLoading, isError, selected, onSelect }: TemplateSelectorProps) {
-  function handleChange(e: ChangeEvent<HTMLSelectElement>) {
-    const contentSid = e.target.value;
+  const options: SelectOption[] = [
+    { value: EMPTY_VALUE, label: 'Seleccioná un template…' },
+    ...templates.map((t) => ({
+      value: t.contentSid,
+      label: t.sendable ? t.friendlyName : `${t.friendlyName} (no aprobado)`,
+      disabled: !t.sendable,
+    })),
+  ];
+
+  function handleChange(contentSid: string) {
     if (!contentSid) {
       onSelect(null);
       return;
@@ -34,10 +44,6 @@ export function TemplateSelector({ templates, isLoading, isError, selected, onSe
 
   return (
     <div className={styles.section}>
-      <label htmlFor={SELECT_ID} className={styles.label}>
-        Template
-      </label>
-
       {isLoading && (
         <p className={styles.notice} role="status">
           Cargando templates…
@@ -58,15 +64,13 @@ export function TemplateSelector({ templates, isLoading, isError, selected, onSe
 
       {!isLoading && !isError && templates.length > 0 && (
         <>
-          <select id={SELECT_ID} className={styles.select} value={selected?.contentSid ?? ''} onChange={handleChange}>
-            <option value="">Seleccioná un template…</option>
-            {templates.map((t) => (
-              <option key={t.contentSid} value={t.contentSid} disabled={!t.sendable}>
-                {t.friendlyName}
-                {!t.sendable ? ' (no aprobado)' : ''}
-              </option>
-            ))}
-          </select>
+          <Select
+            label="Template"
+            options={options}
+            value={selected?.contentSid ?? EMPTY_VALUE}
+            onChange={handleChange}
+            placeholder="Seleccioná un template…"
+          />
 
           {selected && (
             <div className={styles.details}>

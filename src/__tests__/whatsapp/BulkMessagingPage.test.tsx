@@ -48,12 +48,14 @@ const TEMPLATE: TemplateSummaryDto = {
   variables: [],
   approvalStatus: 'approved',
   sendable: true,
+  body: 'Hola {{1}}, este es tu recordatorio de pago.',
 };
 
 const PREVIEW: PreviewSegmentOutput = {
   count: 10,
-  sample: [{ clientId: 'cli-1', name: 'Juan Perez', phoneE164: '+5491100000000' }],
+  sample: [{ clientId: 'cli-1', name: 'Juan Perez', phoneE164: '+5491100000000', status: 'late' }],
   skipped: { optedOut: 0, duplicatePhone: 0, invalidPhone: 0 },
+  statusCounts: { late: 10 },
 };
 
 const CAMPAIGN_DTO: CampaignDto = {
@@ -147,7 +149,8 @@ describe('BMP-5: creación → cambia a Historial + persiste el id', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.selectOptions(await screen.findByRole('combobox', { name: /template/i }), 'HX123');
+    await user.click(await screen.findByRole('combobox', { name: /template/i }));
+    await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
     await user.click(screen.getByRole('checkbox', { name: /atrasado/i }));
     await user.click(screen.getByRole('button', { name: /ver preview/i }));
     await waitFor(() => expect(screen.getByText('10')).toBeInTheDocument());

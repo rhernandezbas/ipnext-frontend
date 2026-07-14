@@ -18,6 +18,12 @@
  *          → FLAT ({campaign, recipients?})
  *  MBAPI-6 listCampaigns: GET /messaging/bulk/campaigns con page/limit →
  *          `res.json(result)` → FLAT (PaginatedResult<CampaignSummaryDto>)
+ *  MBAPI-7 listSegmentRecipients (v1.1, BE en PROD): POST
+ *          /messaging/bulk/segment/recipients con {statuses,balanceMin?,
+ *          balanceMax?,page?,limit?} → `res.json(result)` → FLAT (mismo
+ *          criterio que previewSegment — el BE también expone el GET
+ *          equivalente para deep-links, acá solo se cablea el POST, ver
+ *          nota de `previewSegment` más abajo)
  */
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type {
@@ -28,6 +34,7 @@ import type {
   GetCampaignOutput,
   PaginatedResult,
   PreviewSegmentOutput,
+  SegmentRecipientsOutput,
   SendCampaignOutput,
   TemplateSummaryDto,
 } from '@/types/messagingBulk';
@@ -47,6 +54,7 @@ import {
   sendCampaign,
   getCampaign,
   listCampaigns,
+  listSegmentRecipients,
 } from '@/api/messagingBulk.api';
 
 const TEMPLATE: TemplateSummaryDto = {
@@ -57,12 +65,14 @@ const TEMPLATE: TemplateSummaryDto = {
   approvalStatus: 'approved',
   category: 'UTILITY',
   sendable: true,
+  body: 'Hola {{1}}, tu saldo de ${{2}} vence pronto.',
 };
 
 const PREVIEW: PreviewSegmentOutput = {
   count: 42,
-  sample: [{ clientId: 'cli-1', name: 'Juan Perez', phoneE164: '+5491100000000' }],
+  sample: [{ clientId: 'cli-1', name: 'Juan Perez', phoneE164: '+5491100000000', status: 'late' }],
   skipped: { optedOut: 1, duplicatePhone: 2, invalidPhone: 3 },
+  statusCounts: { late: 42 },
 };
 
 const CREATE_OUTPUT: CreateCampaignOutput = { campaignId: 'camp-1', total: 42, status: 'pending' };
@@ -239,5 +249,40 @@ describe('MBAPI-6: listCampaigns', () => {
     expect(axiosClient.get).toHaveBeenCalledWith('/messaging/bulk/campaigns', {
       params: { page: 2, limit: 10 },
     });
+  });
+});
+
+describe('MBAPI-7: listSegmentRecipients (v1.1)', () => {
+  const RECIPIENTS_OUTPUT: SegmentRecipientsOutput = {
+    data: [{ clientId: 'cli-1', name: 'Juan Perez', phoneE164: '+5491100000000', status: 'late' }],
+    total: 42,
+    page: 1,
+    limit: 20,
+    skipped: { optedOut: 1, duplicatePhone: 2, invalidPhone: 3 },
+    statusCounts: { late: 42 },
+  };
+
+  it('POSTea /messaging/bulk/segment/recipients con el segmento + paginación y devuelve el resultado FLAT', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: RECIPIENTS_OUTPUT });
+
+    const result = await listSegmentRecipients({ statuses: ['late'], balanceMin: 1000 }, 1, 20);
+
+    expect(axiosClient.post).toHaveBeenCalledWith('/messaging/bulk/segment/recipients', {
+      statuses: ['late'],
+      balanceMin: 1000,
+      page: 1,
+      limit: 20,
+    });
+    expect(result).toEqual(RECIPIENTS_OUTPUT);
+    // Honestidad del contrato: FLAT, sin envelope {data} adicional.
+    expect(result).toHaveProperty('total');
+  });
+
+  it('sin page/limit no los manda en el body', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: RECIPIENTS_OUTPUT });
+
+    await listSegmentRecipients({ statuses: ['blocked'] });
+
+    expect(axiosClient.post).toHaveBeenCalledWith('/messaging/bulk/segment/recipients', { statuses: ['blocked'] });
   });
 });

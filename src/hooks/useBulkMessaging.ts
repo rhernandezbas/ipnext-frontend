@@ -1,8 +1,9 @@
 import axios from 'axios';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as api from '@/api/messagingBulk.api';
 import { useDocumentVisible } from '@/hooks/useDocumentVisible';
 import type {
+  CampaignSegment,
   CampaignSendConflictBody,
   CreateCampaignInput,
   CreateCampaignMissingVariablesBody,
@@ -31,6 +32,9 @@ export const bulkCampaignsKey = (query: PaginatedQuery) => ['messagingBulk', 'ca
 
 export const bulkCampaignKey = (id: string, query: GetCampaignQuery = {}) =>
   ['messagingBulk', 'campaign', id, query] as const;
+
+export const bulkSegmentRecipientsKey = (segment: CampaignSegment, page?: number, limit?: number) =>
+  ['messagingBulk', 'segmentRecipients', segment, page, limit] as const;
 
 /** TPL-1/TPL-2 — catálogo de templates. `enabled` lo ata el caller al permiso `messaging.templates`. */
 export function useTemplates(enabled: boolean = true) {
@@ -217,5 +221,25 @@ export function useCampaigns(query: PaginatedQuery) {
   return useQuery({
     queryKey: bulkCampaignsKey(query),
     queryFn: () => api.listCampaigns(query),
+  });
+}
+
+/**
+ * v1.1 (BE en PROD) — recipients PAGINADOS de un segmento (a diferencia de
+ * `usePreviewSegment`, que trunca a una muestra de 20 vía mutation). Query
+ * (no mutation): pensado para paginar una tabla, no para un "Ver preview"
+ * on-demand — `enabled` lo ata el caller a si ya hay un criterio efectivo
+ * (mismo gate que `useTemplates(enabled)`).
+ *
+ * `keepPreviousData` (v5: `placeholderData`) — al cambiar de página, la
+ * tabla sigue mostrando la página anterior (sin flash de loading) mientras
+ * resuelve la nueva; `isFetching` distingue ese estado de `isPending`.
+ */
+export function useSegmentRecipients(segment: CampaignSegment, page?: number, limit?: number, enabled: boolean = true) {
+  return useQuery({
+    queryKey: bulkSegmentRecipientsKey(segment, page, limit),
+    queryFn: () => api.listSegmentRecipients(segment, page, limit),
+    enabled,
+    placeholderData: keepPreviousData,
   });
 }

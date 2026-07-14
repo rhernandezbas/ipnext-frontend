@@ -23,6 +23,12 @@ export interface TemplateSummaryDto {
   category?: string;
   /** `true` solo si `approvalStatus === 'approved'` (TPL-1) — gatea seleccionable en el composer. */
   sendable: boolean;
+  /**
+   * v1.1 (BE en PROD) — texto del template con placeholders `{{N}}`, ej.
+   * "Hola {{1}}, saldo de ${{2}}...". Usado por `VariablesMapForm` para
+   * mostrar CADA variable en su contexto real (anti-error humano al mapear).
+   */
+  body: string;
 }
 
 // ─── Segmentación (SEG-1..SEG-5) ─────────────────────────────────────────────
@@ -40,6 +46,8 @@ export interface PreviewSegmentSampleItemDto {
   clientId: string;
   name: string;
   phoneE164: string;
+  /** v1.1 (BE en PROD) — status del cliente (mismo dominio que `CampaignSegment.statuses`, ej. 'late'|'blocked'|'active'). */
+  status: string;
 }
 
 export interface PreviewSegmentOutput {
@@ -55,6 +63,32 @@ export interface PreviewSegmentOutput {
     /** SEG-4 — teléfono ausente/inválido. */
     invalidPhone: number;
   };
+  /** v1.1 (BE en PROD) — cuenta de clientes MATCHEADOS por status, sobre TODO el segmento (no solo el `sample` de 20). */
+  statusCounts: Record<string, number>;
+}
+
+// ─── Recipients paginados del segmento (v1.1, BE en PROD) ────────────────────
+
+/** Input de `/segment/recipients` — mismo shape que `CampaignSegment` + paginación. */
+export interface SegmentRecipientsQuery extends CampaignSegment {
+  page?: number;
+  limit?: number;
+}
+
+export interface SegmentRecipientDto {
+  clientId: string;
+  name: string;
+  phoneE164: string;
+  status: string;
+}
+
+export interface SegmentRecipientsOutput {
+  data: SegmentRecipientDto[];
+  total: number;
+  page: number;
+  limit: number;
+  skipped: PreviewSegmentOutput['skipped'];
+  statusCounts: Record<string, number>;
 }
 
 // ─── Variables por-destinatario (CAMP-1/CAMP-3, design §3.3) ────────────────

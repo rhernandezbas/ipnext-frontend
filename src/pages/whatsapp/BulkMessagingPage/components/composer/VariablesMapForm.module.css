@@ -35,6 +35,29 @@
   color: var(--color-text-primary);
 }
 
+/* v1.1 (BE en PROD) — contexto real del template.body alrededor de cada {{N}} */
+.context {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  /* FIX-6a criterio: gray-600 sobre surface >= 4.5:1 (mismo tono usado en .variablesList). */
+  color: var(--color-gray-600);
+}
+
+.highlight {
+  padding: 0 2px;
+  border-radius: var(--radius-sm);
+  /* Neutral (gray-100/gray-800, ~13:1) — a propósito NO reusa un token semántico
+     (--color-note-*/--badge-*): esto resalta un TÉRMINO dentro de texto plano,
+     no es un estado ni una nota, sería una mentira semántica pedirle prestado
+     el color a otro significado (mismo criterio que el comentario de
+     --color-note-* en tokens/variables.css). */
+  background: var(--color-gray-100);
+  color: var(--color-gray-800);
+  font-weight: var(--font-weight-semibold);
+  font-style: normal;
+}
+
 .select {
   flex: 1;
   min-width: 160px;

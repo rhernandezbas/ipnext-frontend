@@ -33,14 +33,15 @@ vi.mock('@/api/messagingBulk.api', () => ({
   sendCampaign: vi.fn(),
   getCampaign: vi.fn(),
   listCampaigns: vi.fn(),
+  listSegmentRecipients: vi.fn(),
 }));
 vi.mock('@/hooks/useMyPermissions');
 
-import { listBulkTemplates, previewSegment, createCampaign } from '@/api/messagingBulk.api';
+import { listBulkTemplates, previewSegment, createCampaign, listSegmentRecipients } from '@/api/messagingBulk.api';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
 import { CampaignComposer } from '@/pages/whatsapp/BulkMessagingPage/components/composer/CampaignComposer';
-import type { PreviewSegmentOutput, TemplateSummaryDto } from '@/types/messagingBulk';
+import type { PreviewSegmentOutput, SegmentRecipientsOutput, TemplateSummaryDto } from '@/types/messagingBulk';
 
 const TEMPLATE: TemplateSummaryDto = {
   contentSid: 'HX123',
@@ -49,18 +50,39 @@ const TEMPLATE: TemplateSummaryDto = {
   variables: ['1', '2'],
   approvalStatus: 'approved',
   sendable: true,
+  body: 'Hola {{1}}, tu saldo de ${{2}} vence pronto.',
 };
 
 const PREVIEW: PreviewSegmentOutput = {
   count: 42,
-  sample: [{ clientId: 'cli-1', name: 'Juan Perez', phoneE164: '+5491100000000' }],
+  sample: [{ clientId: 'cli-1', name: 'Juan Perez', phoneE164: '+5491100000000', status: 'late' }],
   skipped: { optedOut: 0, duplicatePhone: 0, invalidPhone: 0 },
+  statusCounts: { late: 42 },
 };
 
 const ZERO_PREVIEW: PreviewSegmentOutput = {
   count: 0,
   sample: [],
   skipped: { optedOut: 0, duplicatePhone: 0, invalidPhone: 0 },
+  statusCounts: {},
+};
+
+/**
+ * messaging-bulk-v11 FE apply chunk 2 — default del `PreviewModal` (query
+ * PROPIA, `useSegmentRecipients`, independiente de `previewSegment`). Vacío a
+ * propósito: estos tests NO verifican el contenido del modal (eso vive en
+ * `PreviewModal.test.tsx`), sólo que "Ver preview" lo abre sin romper nada —
+ * un total:0 evita CUALQUIER colisión de texto con las aserciones de acá
+ * (p.ej. "42" del count de `SegmentPreviewPanel`, o "0 destinatarios" de
+ * `ZERO_PREVIEW`, que el modal redacta distinto — "Sin destinatarios...").
+ */
+const EMPTY_RECIPIENTS: SegmentRecipientsOutput = {
+  data: [],
+  total: 0,
+  page: 1,
+  limit: 20,
+  skipped: { optedOut: 0, duplicatePhone: 0, invalidPhone: 0 },
+  statusCounts: {},
 };
 
 function mockPerms(granted: boolean) {
@@ -84,9 +106,12 @@ function renderComposer(onCampaignCreated = vi.fn()) {
 
 async function selectTemplateAndMapVariables() {
   const user = userEvent.setup({ delay: null });
-  await user.selectOptions(screen.getByRole('combobox', { name: /template/i }), 'HX123');
-  await user.selectOptions(screen.getByRole('combobox', { name: '{{1}}' }), 'name');
-  await user.selectOptions(screen.getByRole('combobox', { name: '{{2}}' }), 'balanceDue');
+  await user.click(screen.getByRole('combobox', { name: /template/i }));
+  await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
+  await user.click(screen.getByRole('combobox', { name: '{{1}}' }));
+  await user.click(screen.getByRole('option', { name: /nombre del cliente/i }));
+  await user.click(screen.getByRole('combobox', { name: '{{2}}' }));
+  await user.click(screen.getByRole('option', { name: /monto de deuda/i }));
 }
 
 beforeEach(() => {
@@ -95,6 +120,7 @@ beforeEach(() => {
   vi.mocked(listBulkTemplates).mockResolvedValue([TEMPLATE]);
   vi.mocked(previewSegment).mockResolvedValue(PREVIEW);
   vi.mocked(createCampaign).mockResolvedValue({ campaignId: 'camp-1', total: 42, status: 'pending' });
+  vi.mocked(listSegmentRecipients).mockResolvedValue(EMPTY_RECIPIENTS);
 });
 
 afterEach(() => {
@@ -118,7 +144,8 @@ describe('CC-2: elegir un template', () => {
     renderComposer();
 
     await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
-    await user.selectOptions(screen.getByRole('combobox', { name: /template/i }), 'HX123');
+    await user.click(screen.getByRole('combobox', { name: /template/i }));
+    await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
 
     expect(screen.getByRole('combobox', { name: '{{1}}' })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: '{{2}}' })).toBeInTheDocument();
@@ -131,7 +158,8 @@ describe('CC-3: variables sin mapear', () => {
     renderComposer();
 
     await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
-    await user.selectOptions(screen.getByRole('combobox', { name: /template/i }), 'HX123');
+    await user.click(screen.getByRole('combobox', { name: /template/i }));
+    await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
 
     expect(screen.getByRole('button', { name: /crear campaña/i })).toBeDisabled();
   });
@@ -238,8 +266,8 @@ describe('CC-8: 422 MISSING_TEMPLATE_VARIABLES', () => {
   });
 });
 
-describe('CC-9: botón "Ver preview" manual', () => {
-  it('dispara previewSegment sin esperar el debounce', async () => {
+describe('CC-9: botón "Ver preview" abre el PreviewModal (messaging-bulk-v11 FE apply chunk 2)', () => {
+  it('abre el modal completo, que dispara SU PROPIA query de destinatarios paginados', async () => {
     const user = userEvent.setup();
     renderComposer();
 
@@ -247,6 +275,12 @@ describe('CC-9: botón "Ver preview" manual', () => {
     await user.click(screen.getByRole('checkbox', { name: /atrasado/i }));
     await user.click(screen.getByRole('button', { name: /ver preview/i }));
 
+    expect(screen.getByRole('dialog', { name: /preview del envío/i })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(listSegmentRecipients).toHaveBeenCalledWith({ statuses: ['late'] }, 1, 20),
+    );
+    // El indicador liviano de `SegmentPreviewPanel` sigue viniendo del debounce
+    // automático (`previewSegment`), NO de este click — ver CC-5.
     await waitFor(() => expect(previewSegment).toHaveBeenCalledWith({ statuses: ['late'] }));
   });
 });

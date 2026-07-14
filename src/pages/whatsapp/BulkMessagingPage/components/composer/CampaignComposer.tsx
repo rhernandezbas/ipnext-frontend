@@ -8,6 +8,7 @@ import { TemplateSelector } from './TemplateSelector';
 import { VariablesMapForm } from './VariablesMapForm';
 import { SegmentBuilder } from './SegmentBuilder';
 import { SegmentPreviewPanel } from './SegmentPreviewPanel';
+import { PreviewModal } from './PreviewModal';
 import { hasSegmentCriteria } from './segmentCriteria';
 import styles from './CampaignComposer.module.css';
 
@@ -22,17 +23,24 @@ const EMPTY_SEGMENT: CampaignSegment = { statuses: [] };
 const NAME_INPUT_ID = 'bulk-campaign-name';
 
 /**
- * CampaignComposer (F2 apply chunk 2) — container-fino del tab "Nueva
+ * CampaignComposer (F2 apply chunk 2; wiring del `PreviewModal` en
+ * messaging-bulk-v11 FE apply chunk 2) — container-fino del tab "Nueva
  * campaña" de `BulkMessagingPage`. Orquesta los 3 hooks de datos
  * (`useTemplates`/`usePreviewSegment`/`useCreateCampaign`, `useBulkMessaging.ts`
- * chunk 1) + los 4 presentacionales del composer (`TemplateSelector`/
- * `VariablesMapForm`/`SegmentBuilder`/`SegmentPreviewPanel`) — layout de
- * 2 columnas (controles | preview live, decisión LOCKED del explore).
+ * chunk 1) + los presentacionales del composer (`TemplateSelector`/
+ * `VariablesMapForm`/`SegmentBuilder`/`SegmentPreviewPanel`/`PreviewModal`) —
+ * layout de 2 columnas (controles | preview live, decisión LOCKED del explore).
  *
  * El fetch de templates está gateado a `messaging.templates` (TPL-1) — un
  * permiso PROPIO, independiente del `messaging.bulk` que ya gatea la ruta
  * entera (`RequirePermission`, `App.tsx`). Sin él, ni se pide el catálogo
  * (`enabled`) ni se monta el selector (`<Can>`).
+ *
+ * `previewModalOpen` es un ESTADO PROPIO, separado del `usePreviewSegment`
+ * (indicador liviano de `SegmentPreviewPanel`, sigue debounceado ~500ms) — el
+ * `PreviewModal` tiene su PROPIA query (`useSegmentRecipients`, gateada a
+ * `open`) para el detalle rico, así que abrir/cerrar el modal no necesita
+ * (ni debe) volver a disparar `preview(segment)`.
  */
 export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignComposerProps) {
   const { can } = useMyPermissions();
@@ -53,6 +61,10 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   const [segment, setSegment] = useState<CampaignSegment>(EMPTY_SEGMENT);
   const [campaignName, setCampaignName] = useState('');
   const [toast, setToast] = useState<string | null>(null);
+  // messaging-bulk-v11 FE apply chunk 2 — el modal completo (mensaje real +
+  // resumen + destinatarios paginados) se abre desde "Ver preview"
+  // (`SegmentPreviewPanel`), independiente del indicador liviano de ahí.
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const criteriaPresent = hasSegmentCriteria(segment);
@@ -180,6 +192,7 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
             value={variablesMap}
             onChange={setVariablesMap}
             missingVariables={missingVariables}
+            templateBody={selectedTemplate.body}
           />
         )}
 
@@ -229,9 +242,17 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
           isPending={isPreviewPending}
           isError={isPreviewError}
           data={previewData}
-          onRefresh={() => preview(segment)}
+          onOpenPreview={() => setPreviewModalOpen(true)}
         />
       </div>
+
+      <PreviewModal
+        open={previewModalOpen}
+        onClose={() => setPreviewModalOpen(false)}
+        segment={segment}
+        templateBody={selectedTemplate?.body}
+        variablesMap={variablesMap}
+      />
 
       {toast && (
         <div className={styles.toast} role="alert" aria-live="assertive">
