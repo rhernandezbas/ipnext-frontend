@@ -10,6 +10,15 @@
  *        entrada" (/admin/whatsapp) y "Configuración" (/admin/whatsapp/settings)
  *  SBW-2 sin messaging.read → la entrada NO se renderiza (resto de CRM sigue)
  *  SBW-3 loading → la entrada es visible (no layout shift)
+ *
+ * F2 (Bulk Messaging, apply chunk 1) — 3er child "Envío masivo"
+ * (/admin/whatsapp/bulk), gate PROPIO `messaging.bulk` (independiente del
+ * `messaging.read` del padre — mismo criterio que "Recaptación"/"Mis
+ * clientes" dentro de "Clientes": un child con permiso propio NO se combina
+ * con el del padre, ver `canSeeChild` en Sidebar.tsx):
+ *  SBW-4 con messaging.bulk → aparece "Envío masivo" -> /admin/whatsapp/bulk
+ *  SBW-5 sin messaging.bulk (con messaging.read) → "Envío masivo" NO aparece,
+ *        el resto del grupo WhatsApp sigue
  */
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -114,5 +123,37 @@ describe('SBW-3: loading muestra la entrada (sin layout shift)', () => {
     renderSidebar();
     await openCrm();
     expect(screen.getByRole('button', { name: /^whatsapp$/i })).toBeInTheDocument();
+  });
+});
+
+describe('SBW-4 (F2): "Envío masivo" visible con messaging.bulk', () => {
+  it('linkea "Envío masivo" a /admin/whatsapp/bulk dentro de CRM', async () => {
+    mockPerms({
+      permissions: ['messaging.read', 'messaging.bulk'],
+      can: (p) => {
+        const perms = Array.isArray(p) ? p : [p];
+        return perms.some((x) => ['messaging.read', 'messaging.bulk'].includes(x));
+      },
+    });
+    renderSidebar();
+    await openCrm();
+    await openWhatsapp();
+    const link = screen.getByRole('link', { name: 'Envío masivo' });
+    expect(link).toHaveAttribute('href', '/admin/whatsapp/bulk');
+  });
+});
+
+describe('SBW-5 (F2): sin messaging.bulk no hay "Envío masivo"', () => {
+  it('oculta "Envío masivo" pero mantiene "Bandeja de entrada"/"Configuración"', async () => {
+    mockPerms({
+      permissions: ['messaging.read'],
+      can: (p) => (Array.isArray(p) ? p : [p]).includes('messaging.read'),
+    });
+    renderSidebar();
+    await openCrm();
+    await openWhatsapp();
+    expect(screen.queryByRole('link', { name: 'Envío masivo' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Bandeja de entrada' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Configuración' })).toBeInTheDocument();
   });
 });

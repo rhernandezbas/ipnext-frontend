@@ -1,0 +1,243 @@
+import { useEffect, useRef, useState } from 'react';
+import { Can } from '@/components/auth/Can';
+import { Button } from '@/components/atoms/Button/Button';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
+import { useTemplates, usePreviewSegment, useCreateCampaign } from '@/hooks/useBulkMessaging';
+import type { CampaignSegment, CampaignVariableSpec, TemplateSummaryDto } from '@/types/messagingBulk';
+import { TemplateSelector } from './TemplateSelector';
+import { VariablesMapForm } from './VariablesMapForm';
+import { SegmentBuilder } from './SegmentBuilder';
+import { SegmentPreviewPanel } from './SegmentPreviewPanel';
+import { hasSegmentCriteria } from './segmentCriteria';
+import styles from './CampaignComposer.module.css';
+
+interface CampaignComposerProps {
+  /** Se llama con el `campaignId` recién creado — `BulkMessagingPage` decide adónde navegar (chunk 3 renderiza el detalle). */
+  onCampaignCreated?: (campaignId: string) => void;
+}
+
+const PREVIEW_DEBOUNCE_MS = 500;
+const TOAST_DURATION_MS = 4000;
+const EMPTY_SEGMENT: CampaignSegment = { statuses: [] };
+const NAME_INPUT_ID = 'bulk-campaign-name';
+
+/**
+ * CampaignComposer (F2 apply chunk 2) — container-fino del tab "Nueva
+ * campaña" de `BulkMessagingPage`. Orquesta los 3 hooks de datos
+ * (`useTemplates`/`usePreviewSegment`/`useCreateCampaign`, `useBulkMessaging.ts`
+ * chunk 1) + los 4 presentacionales del composer (`TemplateSelector`/
+ * `VariablesMapForm`/`SegmentBuilder`/`SegmentPreviewPanel`) — layout de
+ * 2 columnas (controles | preview live, decisión LOCKED del explore).
+ *
+ * El fetch de templates está gateado a `messaging.templates` (TPL-1) — un
+ * permiso PROPIO, independiente del `messaging.bulk` que ya gatea la ruta
+ * entera (`RequirePermission`, `App.tsx`). Sin él, ni se pide el catálogo
+ * (`enabled`) ni se monta el selector (`<Can>`).
+ */
+export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignComposerProps) {
+  const { can } = useMyPermissions();
+  const canUseTemplates = can('messaging.templates');
+
+  const templatesQuery = useTemplates(canUseTemplates);
+  const {
+    preview,
+    data: previewData,
+    isPending: isPreviewPending,
+    isError: isPreviewError,
+    reset: resetPreview,
+  } = usePreviewSegment();
+  const { createAsync, isPending: isCreating, missingVariablesError, serverError: createServerError } = useCreateCampaign();
+
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateSummaryDto | null>(null);
+  const [variablesMap, setVariablesMap] = useState<CampaignVariableSpec>({});
+  const [segment, setSegment] = useState<CampaignSegment>(EMPTY_SEGMENT);
+  const [campaignName, setCampaignName] = useState('');
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const criteriaPresent = hasSegmentCriteria(segment);
+
+  // SEG (composer) — preview automático con debounce ~500ms al cambiar el
+  // segmento (decisión LOCKED: on-demand, NUNCA en cada tecla de un input
+  // individual — acá "cada tecla" ya es el segmento COMPLETO, no una letra
+  // suelta). Dependencias primitivas (no el objeto `segment`, que cambia de
+  // identidad en cada render) para no re-disparar el timer sin motivo real.
+  useEffect(() => {
+    // FIX-5 — invalidar el preview ante CUALQUIER cambio del segmento (no sólo
+    // cuando desaparece el criterio): un `previewData` viejo con el count de un
+    // segmento anterior dejaba `canCreate` en true con un número que ya no
+    // corresponde. Reseteando acá, "Crear campaña" se re-gatea con el segmento
+    // ACTUAL hasta que el nuevo preview resuelva.
+    resetPreview();
+    if (!criteriaPresent) return;
+    const timer = setTimeout(() => {
+      preview(segment);
+    }, PREVIEW_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps primitivas a propósito, ver comentario de arriba
+  }, [segment.statuses.join(','), segment.balanceMin, segment.balanceMax, criteriaPresent]);
+
+  function handleSelectTemplate(template: TemplateSummaryDto | null) {
+    setSelectedTemplate(template);
+    setVariablesMap({});
+  }
+
+  function showToast(message: string) {
+    setToast(message);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), TOAST_DURATION_MS);
+  }
+
+  const previewCount = previewData?.count ?? 0;
+
+  /** Una variable está "completa" cuando tiene fuente Y (si es literal) un valor no-vacío. */
+  function isVariableMapped(variable: string): boolean {
+    const entry = variablesMap[variable];
+    if (!entry) return false;
+    return entry.source !== 'literal' || (entry.value ?? '').trim().length > 0;
+  }
+
+  const allVariablesMapped = !selectedTemplate || selectedTemplate.variables.every(isVariableMapped);
+
+  // NOTA: `missingVariablesError.missing` se usa TAL CUAL (sin re-filtrar
+  // contra el `variablesMap` actual) — el 422 es la respuesta AUTORITATIVA
+  // del servidor sobre ESE intento de creación. En el flujo normal el gate
+  // de `allVariablesMapped` ya impide llegar acá con algo sin mapear, así
+  // que este error es señal de un desacuerdo real FE/BE (carrera, versión
+  // de template distinta) — no debe autolimpiarse con un chequeo local que
+  // asuma que el FE tiene razón.
+  const missingVariables = missingVariablesError?.missing ?? [];
+
+  const canCreate =
+    !!selectedTemplate &&
+    allVariablesMapped &&
+    criteriaPresent &&
+    !!previewData &&
+    previewCount > 0 &&
+    campaignName.trim().length > 0 &&
+    !isCreating;
+
+  async function handleCreate() {
+    if (!selectedTemplate || !canCreate) return;
+    const name = campaignName.trim();
+    try {
+      const output = await createAsync({
+        name,
+        templateRef: selectedTemplate.contentSid,
+        templateName: selectedTemplate.friendlyName,
+        segment,
+        variablesMap,
+      });
+      showToast(`Campaña "${name}" creada — ${output.total} destinatario${output.total === 1 ? '' : 's'}.`);
+      onCampaignCreated(output.campaignId);
+      // Deja el composer listo para la próxima campaña.
+      setSelectedTemplate(null);
+      setVariablesMap({});
+      setSegment(EMPTY_SEGMENT);
+      setCampaignName('');
+      resetPreview();
+    } catch {
+      // El error se refleja reactivamente vía el hook: el 422
+      // MISSING_TEMPLATE_VARIABLES resalta filas en `VariablesMapForm`
+      // (`missingVariablesError`); los demás (EMPTY_SEGMENT/UNFILTERED_SEGMENT/
+      // TEMPLATE_NOT_APPROVED/red/500) se muestran en `.serverError`
+      // (`createServerError`, FIX-3b). El botón queda habilitado para reintentar.
+    }
+  }
+
+  const disabledReason = !selectedTemplate
+    ? 'Elegí un template para empezar.'
+    : !allVariablesMapped
+      ? 'Mapeá todas las variables del template.'
+      : !criteriaPresent
+        ? 'Definí al menos un criterio de segmento.'
+        : !previewData
+          ? 'Generá el preview del segmento antes de crear la campaña.'
+          : previewCount === 0
+            ? 'El segmento no tiene destinatarios — revisalo.'
+            : campaignName.trim().length === 0
+              ? 'Ingresá un nombre para la campaña.'
+              : null;
+
+  return (
+    <div className={styles.layout}>
+      <div className={styles.controls}>
+        {canUseTemplates && (
+          <Can permission="messaging.templates">
+            <TemplateSelector
+              templates={templatesQuery.data ?? []}
+              isLoading={templatesQuery.isLoading}
+              isError={templatesQuery.isError}
+              selected={selectedTemplate}
+              onSelect={handleSelectTemplate}
+            />
+          </Can>
+        )}
+
+        {selectedTemplate && (
+          <VariablesMapForm
+            variables={selectedTemplate.variables}
+            value={variablesMap}
+            onChange={setVariablesMap}
+            missingVariables={missingVariables}
+          />
+        )}
+
+        <SegmentBuilder value={segment} onChange={setSegment} />
+
+        <div className={styles.nameField}>
+          <label htmlFor={NAME_INPUT_ID}>Nombre de la campaña</label>
+          <input
+            id={NAME_INPUT_ID}
+            type="text"
+            className={styles.nameInput}
+            value={campaignName}
+            onChange={(e) => setCampaignName(e.target.value)}
+            placeholder="Ej: Recordatorio julio"
+          />
+        </div>
+
+        {missingVariables.length > 0 && (
+          <p className={styles.serverError} role="alert">
+            El servidor rechazó la campaña: faltan mapear {missingVariables.join(', ')}.
+          </p>
+        )}
+
+        {/* FIX-3b — errores de creación que NO son el 422 MISSING (EMPTY_SEGMENT,
+            UNFILTERED_SEGMENT, TEMPLATE_NOT_APPROVED, red/500) ya no caen silenciosos. */}
+        {createServerError && missingVariables.length === 0 && (
+          <p className={styles.serverError} role="alert">
+            {createServerError}
+          </p>
+        )}
+
+        <div className={styles.createRow}>
+          <Button type="button" variant="primary" loading={isCreating} disabled={!canCreate} onClick={handleCreate}>
+            Crear campaña
+          </Button>
+          {disabledReason && (
+            <p className={styles.hint} role="status">
+              {disabledReason}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className={styles.preview}>
+        <SegmentPreviewPanel
+          hasCriteria={criteriaPresent}
+          isPending={isPreviewPending}
+          isError={isPreviewError}
+          data={previewData}
+          onRefresh={() => preview(segment)}
+        />
+      </div>
+
+      {toast && (
+        <div className={styles.toast} role="alert" aria-live="assertive">
+          {toast}
+        </div>
+      )}
+    </div>
+  );
+}

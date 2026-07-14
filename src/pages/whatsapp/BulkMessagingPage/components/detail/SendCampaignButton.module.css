@@ -1,0 +1,62 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+/* Touch target A11Y-1 (>=44px) — molde `Composer.sendButton` (F1): acción
+   primaria persistente con costo/irreversibilidad real, mismo criterio de
+   EXCEPCIÓN documentado ahí (no depende del gate pointer:coarse del Button
+   atom genérico). */
+.sendButton {
+  min-height: var(--space-11);
+  min-width: var(--space-11);
+  padding: 0 var(--space-5);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-white);
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-button);
+  cursor: pointer;
+  transition: transform 150ms ease-out, filter var(--transition-fast);
+}
+.sendButton:hover:not(:disabled) { filter: brightness(0.95); }
+.sendButton:active:not(:disabled) { transform: scale(0.97); }
+.sendButton:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+.conflict {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--badge-late-fg);
+  background: var(--badge-late-bg);
+}
+
+/* FIX-3a — fallo de envío que NO es el 409 (red/500): antes caía silencioso. */
+.sendError {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--badge-late-fg);
+  background: var(--badge-late-bg);
+}
+
+.toast {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--badge-paid-fg);
+  background: var(--badge-paid-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sendButton:active:not(:disabled) {
+    transform: none;
+    transition: none;
+  }
+}

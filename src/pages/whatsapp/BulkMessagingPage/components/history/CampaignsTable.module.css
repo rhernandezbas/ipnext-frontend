@@ -1,0 +1,34 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.nameLink {
+  /* FIX-7b — tap target >= 44px (era ~20px). inline-flex para que min-height
+     aplique en un botón-como-link, manteniendo underline + focus ring. */
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--space-11);
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-accent);
+  font-weight: var(--font-weight-medium);
+  font-size: inherit;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.nameLink:hover { color: var(--color-accent-hover); }
+.nameLink:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+.error {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--badge-late-fg);
+  background: var(--badge-late-bg);
+}

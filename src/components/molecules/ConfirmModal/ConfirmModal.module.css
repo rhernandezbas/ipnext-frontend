@@ -72,6 +72,12 @@
   cursor: not-allowed;
 }
 
+/* FIX-8c — anillo de foco explícito y consistente con el resto de la app. */
+.cancel:focus-visible, .confirm:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
@@ -79,4 +85,14 @@
 @keyframes slideUp {
   from { transform: translateY(8px); opacity: 0; }
   to   { transform: translateY(0); opacity: 1; }
+}
+
+/* messaging-bulk F2 apply chunk 3 — el doble-confirm de SendCampaignButton
+   necesita que este modal (compartido) respete reduced-motion; se deja el
+   fade/slide-up SOLO neutralizado acá (molde `Composer.sendButton`, que
+   solo neutraliza el `:active` scale — el movimiento real, no la opacidad). */
+@media (prefers-reduced-motion: reduce) {
+  .backdrop, .dialog {
+    animation: none;
+  }
 }

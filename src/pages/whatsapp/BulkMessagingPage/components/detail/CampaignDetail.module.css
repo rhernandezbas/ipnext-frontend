@@ -1,0 +1,33 @@
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.back {
+  align-self: flex-start;
+  min-height: var(--space-11);
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: none;
+  color: var(--color-accent);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+}
+.back:hover { background: var(--color-surface-hover); }
+.back:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* FIX-3c/FIX-5 — banner de éxito persistente (sobrevive al cambio de estado
+   que desmonta SendCampaignButton). Verde "al día" ya accesible del repo
+   (--badge-paid-*, ~7:1). */
+.sentBanner {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--badge-paid-fg);
+  background: var(--badge-paid-bg);
+}

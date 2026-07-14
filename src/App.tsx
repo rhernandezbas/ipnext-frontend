@@ -94,6 +94,8 @@ const ApiDocsPage = lazy(() => import('@/pages/api-docs/ApiDocsPage'));
 const WhatsappInboxPage = lazy(() => import('@/pages/whatsapp/WhatsappInboxPage'));
 // F1.5 polish — settings page del dominio messaging (card chat-media-download).
 const WhatsappSettingsPage = lazy(() => import('@/pages/whatsapp/WhatsappSettingsPage'));
+// F2 (Bulk Messaging) — envío masivo de templates WhatsApp, gated messaging.bulk.
+const BulkMessagingPage = lazy(() => import('@/pages/whatsapp/BulkMessagingPage'));
 const GponPage = lazy(() => import('@/pages/gpon/GponPage'));
 // Auditoría / Logs RADIUS — página contenedora con 2 tabs internos (Logs + NE8000).
 // RadiusLogsPage / Ne8000AuditPage ya NO se montan sueltas: viven dentro de NetworkAuditPage.
@@ -402,6 +404,8 @@ export function App() {
               <Route path="whatsapp">
                 <Route index element={<RequirePermission permission="messaging.read"><WhatsappInboxPage /></RequirePermission>} />
                 <Route path="settings" element={<RequirePermission permission="messaging.read"><WhatsappSettingsPage /></RequirePermission>} />
+                {/* F2 (Bulk Messaging) — gate PROPIO messaging.bulk, independiente de messaging.read. */}
+                <Route path="bulk" element={<RequirePermission permission="messaging.bulk"><BulkMessagingPage /></RequirePermission>} />
               </Route>
             </Route>
           </Route>

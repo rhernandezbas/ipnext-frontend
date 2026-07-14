@@ -137,7 +137,9 @@
   --badge-blocked-bg: #ffedd5;
   --badge-blocked-fg: #9a3412;
   --badge-inactive-bg: #f3f4f6;
-  --badge-inactive-fg: #6b7280;
+  /* FIX-6b — #6b7280 sobre #f3f4f6 daba 4.39:1 (FALLA 4.5:1). #5f6772 = ~5.2:1,
+     oscurecimiento mínimo del fg (mismo look de badge "inactivo" gris). */
+  --badge-inactive-fg: #5f6772;
   --badge-baja-bg: #e9d5ff;
   --badge-baja-fg: #6b21a8;
   /* messaging-inbox-v2 F1.5 (tasks F3) — verde "al día" (FinancialSection).
@@ -147,6 +149,14 @@
      StatusBadge (blast radius menor, ver design.md §F3). */
   --badge-paid-bg: #dcfce7;
   --badge-paid-fg: #166534;
+
+  /* messaging-bulk F2 apply chunk 3 (HIST-1) — CampaignStatusPill 'paused'.
+     Ámbar DEDICADO — NO reusar --color-note-* (significa "nota privada",
+     sería una mentira semántica para un estado de campaña, mismo criterio
+     que el comentario de --color-note-* de abajo). Contraste verificado
+     WCAG 2.1: #92400e sobre #fef3c7 ≈ 6.39:1 (>=4.5:1). */
+  --badge-paused-bg: #fef3c7;
+  --badge-paused-fg: #92400e;
 
   /* ------------------------------------------------------------------ */
   /* Note / internal annotation (messaging-inbox-notes F1.5 fase D —      */

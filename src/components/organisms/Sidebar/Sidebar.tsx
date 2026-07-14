@@ -130,6 +130,10 @@ const CRM_ITEMS: NavParentItem[] = [
     children: [
       { to: '/admin/whatsapp', label: 'Bandeja de entrada' },
       { to: '/admin/whatsapp/settings', label: 'Configuración' },
+      // F2 (Bulk Messaging) — gate PROPIO messaging.bulk (independiente del
+      // messaging.read del padre, mismo criterio que Recaptación/Mis
+      // clientes dentro de Clientes — ver canSeeChild más abajo).
+      { to: '/admin/whatsapp/bulk', label: 'Envío masivo', requiredPermission: 'messaging.bulk' },
     ],
   },
 ];
