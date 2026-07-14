@@ -117,44 +117,68 @@ describe('VMF-7: variables faltantes (422 MISSING_TEMPLATE_VARIABLES)', () => {
   });
 });
 
-describe('VMF-8: contexto del template (v1.1, templateBody)', () => {
-  it('muestra {{1}} resaltado con el texto que lo rodea', () => {
-    render(<VariablesMapForm variables={['1', '2']} value={{}} onChange={vi.fn()} templateBody={TEMPLATE_BODY} />);
+describe('VMF-8: mensaje completo del template (rediseño #4, templateBody)', () => {
+  it('renderiza el mensaje COMPLETO una sola vez, con los tokens en su lugar real (sin truncar)', () => {
+    const { container } = render(
+      <VariablesMapForm variables={['1', '2']} value={{}} onChange={vi.fn()} templateBody={TEMPLATE_BODY} />,
+    );
 
-    const highlighted1 = screen.getAllByText('{{1}}').find((el) => el.tagName.toLowerCase() === 'mark');
-    expect(highlighted1).toBeDefined();
-    expect(highlighted1!.closest('p')).toHaveTextContent(/hola.*\{\{1\}\}.*saldo/i);
+    const highlight = container.querySelector('.highlight');
+    expect(highlight).not.toBeNull();
+    const messageEl = highlight!.closest('p');
+    expect(messageEl).not.toBeNull();
+    // El body ENTERO reconstruido con los {{N}} en su lugar — sin fragmentos cortados.
+    expect(messageEl!.textContent).toBe(TEMPLATE_BODY);
   });
 
-  it('muestra {{2}} resaltado con el texto que lo rodea', () => {
-    render(<VariablesMapForm variables={['1', '2']} value={{}} onChange={vi.fn()} templateBody={TEMPLATE_BODY} />);
+  it('resalta cada {{N}} con una clase tokenizada en un <span>, NO con el <mark> pelado del navegador', () => {
+    const { container } = render(
+      <VariablesMapForm variables={['1', '2']} value={{}} onChange={vi.fn()} templateBody={TEMPLATE_BODY} />,
+    );
 
-    const highlighted2 = screen.getAllByText('{{2}}').find((el) => el.tagName.toLowerCase() === 'mark');
-    expect(highlighted2).toBeDefined();
-    expect(highlighted2!.closest('p')).toHaveTextContent(/saldo de.*\{\{2\}\}.*vence/i);
+    // El <mark> nativo se pinta amarillo por default del browser: no se usa.
+    expect(container.querySelector('mark')).not.toBeInTheDocument();
+
+    const highlights = Array.from(container.querySelectorAll('.highlight'));
+    expect(highlights.map((el) => el.textContent)).toEqual(['{{1}}', '{{2}}']);
+    highlights.forEach((el) => expect(el.tagName.toLowerCase()).toBe('span'));
   });
 });
 
 describe('VMF-9: sin templateBody', () => {
-  it('no renderiza ningún <mark> de contexto y el resto sigue funcionando', () => {
-    render(<VariablesMapForm variables={['1']} value={{}} onChange={vi.fn()} />);
-    expect(document.querySelector('mark')).not.toBeInTheDocument();
+  it('no renderiza el mensaje ni ningún resaltado, y el mapeo sigue funcionando', () => {
+    const { container } = render(<VariablesMapForm variables={['1']} value={{}} onChange={vi.fn()} />);
+    expect(container.querySelector('mark')).not.toBeInTheDocument();
+    expect(container.querySelector('.highlight')).not.toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: '{{1}}' })).toBeInTheDocument();
   });
 });
 
-describe('VMF-10: label del input de valor fijo referencia el contexto', () => {
-  it('el label del input literal incluye el contexto de esa variable', () => {
+describe('VMF-10: label sr-only del input de valor fijo', () => {
+  it('el input literal tiene un label accesible que referencia su {{N}}', () => {
     const value: CampaignVariableSpec = { '2': { source: 'literal', value: '' } };
     render(<VariablesMapForm variables={['2']} value={value} onChange={vi.fn()} templateBody={TEMPLATE_BODY} />);
 
-    expect(screen.getByLabelText(/valor fijo.*\{\{2\}\}.*saldo/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/valor fijo.*\{\{2\}\}/i)).toBeInTheDocument();
   });
 
-  it('sin templateBody, el label sigue siendo claro (solo {{N}})', () => {
+  it('sin templateBody, el label sigue siendo claro (Valor fijo para {{N}})', () => {
     const value: CampaignVariableSpec = { '1': { source: 'literal', value: '' } };
     render(<VariablesMapForm variables={['1']} value={value} onChange={vi.fn()} />);
 
     expect(screen.getByLabelText(/valor fijo.*\{\{1\}\}/i)).toBeInTheDocument();
+  });
+});
+
+describe('VMF-11: sin repetición del contexto por variable (rediseño #4)', () => {
+  it('el mensaje se renderiza UNA sola vez (todos los tokens en el mismo párrafo), no un fragmento por fila', () => {
+    const { container } = render(
+      <VariablesMapForm variables={['1', '2']} value={{}} onChange={vi.fn()} templateBody={TEMPLATE_BODY} />,
+    );
+
+    const paragraphs = new Set(
+      Array.from(container.querySelectorAll('.highlight')).map((el) => el.closest('p')),
+    );
+    expect(paragraphs.size).toBe(1);
   });
 });

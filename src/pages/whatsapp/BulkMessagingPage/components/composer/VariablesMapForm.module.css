@@ -15,6 +15,41 @@
   color: var(--color-text-primary);
 }
 
+/* #4 — mensaje COMPLETO del template, una sola vez arriba. El operador lee la
+   frase entera como le llega al cliente antes de mapear. */
+.templatePreview {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.highlight {
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  /* Neutral (gray-100/gray-800, ~13:1) — a propósito NO reusa un token semántico
+     (--color-note-*/--badge-*): esto resalta un TÉRMINO dentro de texto plano,
+     no es un estado ni una nota, sería una mentira semántica pedirle prestado
+     el color a otro significado (mismo criterio que el comentario de
+     --color-note-* en tokens/variables.css). Se usa un <span> (no <mark>) para
+     no heredar el amarillo default del navegador. */
+  background: var(--color-gray-100);
+  color: var(--color-gray-800);
+  font-family: monospace;
+  font-weight: var(--font-weight-semibold);
+}
+
+.mapList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
 .row {
   display: flex;
   flex-wrap: wrap;
@@ -26,48 +61,6 @@
   padding: var(--space-2);
   border-radius: var(--radius-md);
   background: var(--badge-late-bg);
-}
-
-.varLabel {
-  min-width: 48px;
-  font-family: monospace;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-}
-
-/* v1.1 (BE en PROD) — contexto real del template.body alrededor de cada {{N}} */
-.context {
-  flex-basis: 100%;
-  margin: 0;
-  font-size: var(--font-size-sm);
-  /* FIX-6a criterio: gray-600 sobre surface >= 4.5:1 (mismo tono usado en .variablesList). */
-  color: var(--color-gray-600);
-}
-
-.highlight {
-  padding: 0 2px;
-  border-radius: var(--radius-sm);
-  /* Neutral (gray-100/gray-800, ~13:1) — a propósito NO reusa un token semántico
-     (--color-note-*/--badge-*): esto resalta un TÉRMINO dentro de texto plano,
-     no es un estado ni una nota, sería una mentira semántica pedirle prestado
-     el color a otro significado (mismo criterio que el comentario de
-     --color-note-* en tokens/variables.css). */
-  background: var(--color-gray-100);
-  color: var(--color-gray-800);
-  font-weight: var(--font-weight-semibold);
-  font-style: normal;
-}
-
-.select {
-  flex: 1;
-  min-width: 160px;
-  min-height: var(--space-11);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font: inherit;
-  color: var(--color-text-primary);
-  background: var(--color-surface);
 }
 
 .literalInput {
@@ -82,7 +75,6 @@
   background: var(--color-surface);
 }
 
-.select:focus-visible,
 .literalInput:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: -2px;

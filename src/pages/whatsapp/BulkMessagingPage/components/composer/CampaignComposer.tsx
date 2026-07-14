@@ -9,6 +9,7 @@ import { VariablesMapForm } from './VariablesMapForm';
 import { SegmentBuilder } from './SegmentBuilder';
 import { SegmentPreviewPanel } from './SegmentPreviewPanel';
 import { PreviewModal } from './PreviewModal';
+import { CreateCampaignConfirmModal } from './CreateCampaignConfirmModal';
 import { hasSegmentCriteria } from './segmentCriteria';
 import styles from './CampaignComposer.module.css';
 
@@ -65,6 +66,10 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   // resumen + destinatarios paginados) se abre desde "Ver preview"
   // (`SegmentPreviewPanel`), independiente del indicador liviano de ahí.
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  // #5 — doble-confirmación al crear. El click de "Crear campaña" ya no
+  // dispara `createAsync` directo: abre este modal con el resumen de impacto,
+  // y recién el confirm de ADENTRO llama a `handleCreate`.
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const criteriaPresent = hasSegmentCriteria(segment);
@@ -157,6 +162,22 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
     }
   }
 
+  // #5 — confirm del modal. El modal es un CHECKPOINT de revisión, NO vive
+  // durante la creación: cerramos ANTES de disparar el create y recién ahí
+  // llamamos `handleCreate` (fire-and-forget — atrapa sus propios errores). Así
+  // evitamos el trap del "server colgado": si `createCampaign` nunca responde
+  // (el axios client no tiene timeout global), `isCreating` quedaría true para
+  // siempre; si el modal viviera durante la creación gateado por `busy`,
+  // quedaría INCERRABLE + scroll-lock. El feedback de "creando" lo da el botón
+  // "Crear campaña" del composer (`loading={isCreating}`), no el modal. El
+  // gate `canCreate` (incluye `!isCreating`) impide reabrirlo mientras crea, así
+  // que no hay doble-submit. `handleCreate` lee el estado vivo del composer al
+  // ejecutarse — intacto, porque el reset ocurre DENTRO tras el create OK.
+  function handleConfirmCreate() {
+    setConfirmOpen(false);
+    void handleCreate();
+  }
+
   const disabledReason = !selectedTemplate
     ? 'Elegí un template para empezar.'
     : !allVariablesMapped
@@ -225,7 +246,9 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         )}
 
         <div className={styles.createRow}>
-          <Button type="button" variant="primary" loading={isCreating} disabled={!canCreate} onClick={handleCreate}>
+          {/* #5 — el gate `canCreate` sigue siendo la precondición para ABRIR
+              el modal; el confirm de adentro dispara la creación real. */}
+          <Button type="button" variant="primary" loading={isCreating} disabled={!canCreate} onClick={() => setConfirmOpen(true)}>
             Crear campaña
           </Button>
           {disabledReason && (
@@ -252,6 +275,20 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         segment={segment}
         templateBody={selectedTemplate?.body}
         variablesMap={variablesMap}
+      />
+
+      {/* #5 — doble-confirmación con resumen de impacto. Todo el contenido sale
+          de `previewData`/`selectedTemplate` (ya en memoria por el gate
+          `canCreate` que habilitó abrirlo) — cero fetch nuevo. */}
+      <CreateCampaignConfirmModal
+        open={confirmOpen}
+        campaignName={campaignName.trim()}
+        templateName={selectedTemplate?.friendlyName ?? ''}
+        total={previewCount}
+        statusCounts={previewData?.statusCounts ?? {}}
+        skipped={previewData?.skipped}
+        onConfirm={handleConfirmCreate}
+        onCancel={() => setConfirmOpen(false)}
       />
 
       {toast && (

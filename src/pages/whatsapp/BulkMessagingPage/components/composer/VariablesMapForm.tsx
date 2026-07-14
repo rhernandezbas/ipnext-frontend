@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { Select, type SelectOption } from '@/components/molecules/Select/Select';
 import type { CampaignVariableSource, CampaignVariableSpec } from '@/types/messagingBulk';
 import styles from './VariablesMapForm.module.css';
@@ -10,11 +11,10 @@ interface VariablesMapFormProps {
   /** `missing` del 422 MISSING_TEMPLATE_VARIABLES (CAMP-4) — resalta esas filas. */
   missingVariables?: string[];
   /**
-   * v1.1 (BE en PROD) — `template.body` del template elegido. Si viene,
-   * muestra CADA `{{N}}` resaltado en su contexto real ("...saldo de
-   * **{{2}}**...") — anti-error humano: el operador ve QUÉ es la variable
-   * ANTES de mapearla, en vez de mapear a ciegas por número. Opcional (no
-   * rompe si el caller todavía no lo pasa).
+   * `template.body` del template elegido. Si viene, se muestra el mensaje
+   * COMPLETO una sola vez arriba, con cada `{{N}}` resaltado EN SU LUGAR real
+   * — así el operador lee la frase entera como le llega al cliente antes de
+   * mapear (anti-error humano). Opcional (no rompe si el caller todavía no lo pasa).
    */
   templateBody?: string;
 }
@@ -27,9 +27,6 @@ const SOURCE_OPTIONS: Array<{ value: CampaignVariableSource; label: string }> = 
 
 const EMPTY_SOURCE_OPTION: SelectOption = { value: '', label: 'Elegí una fuente…' };
 const SOURCE_SELECT_OPTIONS: SelectOption[] = [EMPTY_SOURCE_OPTION, ...SOURCE_OPTIONS];
-
-/** Cuánto texto de contexto mostrar a cada lado del `{{N}}` resaltado antes de truncar con "…". */
-const CONTEXT_MAX_CHARS = 40;
 
 type TemplateBodyPart = { text: string } | { variable: string };
 
@@ -48,56 +45,22 @@ function splitTemplateBody(body: string): TemplateBodyPart[] {
   return parts;
 }
 
-function truncateStart(text: string, max: number): string {
-  return text.length <= max ? text : `…${text.slice(text.length - max)}`;
-}
-
-function truncateEnd(text: string, max: number): string {
-  return text.length <= max ? text : `${text.slice(0, max)}…`;
-}
-
-interface VariableContext {
-  prefix: string;
-  token: string;
-  suffix: string;
-}
-
-/**
- * Contexto REAL de una variable dentro de `template.body` — el texto plano
- * inmediatamente antes/después de su `{{N}}`, cortado en el placeholder
- * VECINO más cercano (nunca se cuela el `{{M}}` de otra variable en el
- * contexto de esta), truncado a `CONTEXT_MAX_CHARS` por lado si el segmento
- * es muy largo. `null` si la variable no aparece literalmente en el body
- * (defensivo — no debería pasar si `variables` viene del mismo template).
- */
-function variableContext(body: string, variable: string): VariableContext | null {
-  const parts = splitTemplateBody(body);
-  const idx = parts.findIndex((p) => 'variable' in p && p.variable === variable);
-  if (idx === -1) return null;
-
-  const prevPart = parts[idx - 1];
-  const nextPart = parts[idx + 1];
-  const prevText = prevPart && 'text' in prevPart ? prevPart.text : '';
-  const nextText = nextPart && 'text' in nextPart ? nextPart.text : '';
-
-  return {
-    prefix: truncateStart(prevText, CONTEXT_MAX_CHARS),
-    token: `{{${variable}}}`,
-    suffix: truncateEnd(nextText, CONTEXT_MAX_CHARS),
-  };
-}
-
-/** Label sr-only del input de valor fijo — referencia el contexto real cuando está disponible. */
-function literalLabel(variable: string, context: VariableContext | null): string {
-  if (!context) return `Valor fijo para {{${variable}}}`;
-  return `Valor fijo para {{${variable}}} (${context.prefix}${context.token}${context.suffix})`;
+/** Label sr-only del input de valor fijo. */
+function literalLabel(variable: string): string {
+  return `Valor fijo para {{${variable}}}`;
 }
 
 /**
  * VariablesMapForm (F2 apply chunk 2, CAMP-1/CAMP-3, design §3.3; migrado al
- * `Select` propio + descripciones de contexto en messaging-bulk-v11 FE apply
- * chunk 1) — mapea CADA variable del template a una fuente v1
- * (`name`|`balanceDue`|`literal`).
+ * `Select` propio en messaging-bulk-v11; rediseño #4 en bulk-composer-polish)
+ * — mapea CADA variable del template a una fuente v1 (`name`|`balanceDue`|`literal`).
+ *
+ * Layout: el mensaje COMPLETO del template arriba, una sola vez, con cada
+ * `{{N}}` resaltado en su lugar real (token gris, `<span>` con clase tokenizada
+ * — NO el `<mark>` nativo que el browser pinta amarillo). Debajo, una lista
+ * limpia de mapeo: una fila por variable `{{N}} → [Select fuente]` (+ input de
+ * valor fijo si `literal`). Sin repetir el mensaje ni mostrar fragmentos
+ * truncados por variable.
  *
  * Controlado 100% (`value`+`onChange`), sin estado propio — CampaignComposer
  * es dueño del `variablesMap` (necesita el shape completo para `createCampaign`).
@@ -131,55 +94,60 @@ export function VariablesMapForm({ variables, value, onChange, missingVariables 
     <fieldset className={styles.fieldset}>
       <legend className={styles.legend}>Variables del template</legend>
 
-      {variables.map((variable) => {
-        const entry = value[variable];
-        const selectId = `bulk-variable-${variable}-source`;
-        const literalId = `bulk-variable-${variable}-literal`;
-        const isMissing = missingVariables.includes(variable);
-        const context = templateBody ? variableContext(templateBody, variable) : null;
+      {templateBody && (
+        <p className={styles.templatePreview}>
+          {splitTemplateBody(templateBody).map((part, i) =>
+            'variable' in part ? (
+              <span key={i} className={styles.highlight}>{`{{${part.variable}}}`}</span>
+            ) : (
+              <Fragment key={i}>{part.text}</Fragment>
+            ),
+          )}
+        </p>
+      )}
 
-        return (
-          <div key={variable} className={styles.row} data-missing={isMissing || undefined}>
-            {context && (
-              <p className={styles.context}>
-                {context.prefix}
-                <mark className={styles.highlight}>{context.token}</mark>
-                {context.suffix}
-              </p>
-            )}
+      <div className={styles.mapList}>
+        {variables.map((variable) => {
+          const entry = value[variable];
+          const selectId = `bulk-variable-${variable}-source`;
+          const literalId = `bulk-variable-${variable}-literal`;
+          const isMissing = missingVariables.includes(variable);
 
-            <Select
-              id={selectId}
-              label={`{{${variable}}}`}
-              options={SOURCE_SELECT_OPTIONS}
-              value={entry?.source ?? ''}
-              onChange={(source) => handleSourceChange(variable, source as CampaignVariableSource | '')}
-            />
+          return (
+            <div key={variable} className={styles.row} data-missing={isMissing || undefined}>
+              <Select
+                id={selectId}
+                label={`{{${variable}}}`}
+                options={SOURCE_SELECT_OPTIONS}
+                value={entry?.source ?? ''}
+                onChange={(source) => handleSourceChange(variable, source as CampaignVariableSource | '')}
+              />
 
-            {entry?.source === 'literal' && (
-              <>
-                <label htmlFor={literalId} className={styles.srOnly}>
-                  {literalLabel(variable, context)}
-                </label>
-                <input
-                  id={literalId}
-                  type="text"
-                  className={styles.literalInput}
-                  value={entry.value ?? ''}
-                  onChange={(e) => handleLiteralChange(variable, e.target.value)}
-                  placeholder="Valor…"
-                />
-              </>
-            )}
+              {entry?.source === 'literal' && (
+                <>
+                  <label htmlFor={literalId} className={styles.srOnly}>
+                    {literalLabel(variable)}
+                  </label>
+                  <input
+                    id={literalId}
+                    type="text"
+                    className={styles.literalInput}
+                    value={entry.value ?? ''}
+                    onChange={(e) => handleLiteralChange(variable, e.target.value)}
+                    placeholder="Valor…"
+                  />
+                </>
+              )}
 
-            {isMissing && (
-              <p className={styles.error} role="alert">
-                Falta mapear esta variable (rechazada por el servidor).
-              </p>
-            )}
-          </div>
-        );
-      })}
+              {isMissing && (
+                <p className={styles.error} role="alert">
+                  Falta mapear esta variable (rechazada por el servidor).
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </fieldset>
   );
 }

@@ -20,7 +20,7 @@
  *  CC-8 422 MISSING_TEMPLATE_VARIABLES → resalta la variable rechazada
  *  CC-9 botón "Ver preview" manual dispara sin esperar el debounce
  */
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -112,6 +112,32 @@ async function selectTemplateAndMapVariables() {
   await user.click(screen.getByRole('option', { name: /nombre del cliente/i }));
   await user.click(screen.getByRole('combobox', { name: '{{2}}' }));
   await user.click(screen.getByRole('option', { name: /monto de deuda/i }));
+}
+
+/**
+ * Deja el composer en estado "válido para crear" y devuelve el botón "Crear
+ * campaña" ya habilitado. A partir del #5 ese botón ABRE el modal de
+ * confirmación — NO dispara `createCampaign` directo (eso lo hace el confirm
+ * DENTRO del modal, ver `confirmCreate`).
+ */
+async function fillValidCampaign(user: ReturnType<typeof userEvent.setup>) {
+  await selectTemplateAndMapVariables();
+  await user.click(screen.getByRole('checkbox', { name: /atrasado/i }));
+  // El count del gate `canCreate` sale del preview AUTOMÁTICO (debounce 500ms,
+  // ver CC-5) — NO de abrir el PreviewModal. No lo abrimos acá a propósito: así
+  // el ÚNICO diálogo en el DOM durante el flujo es el modal de confirmación #5.
+  await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
+  await user.type(screen.getByLabelText(/nombre de la campaña/i), 'Recordatorio julio');
+  const createButton = screen.getByRole('button', { name: /crear campaña/i });
+  await waitFor(() => expect(createButton).toBeEnabled());
+  return createButton;
+}
+
+/** Abre el modal de confirmación (#5) y clickea "Confirmar y crear" adentro. */
+async function confirmCreate(user: ReturnType<typeof userEvent.setup>, createButton: HTMLElement) {
+  await user.click(createButton);
+  const dialog = await screen.findByRole('dialog', { name: /nueva campaña/i });
+  await user.click(within(dialog).getByRole('button', { name: /confirmar y crear/i }));
 }
 
 beforeEach(() => {
@@ -208,22 +234,22 @@ describe('CC-6: preview con count=0', () => {
   });
 });
 
-describe('CC-7: flujo completo de creación', () => {
-  it('con todo completo, "Crear campaña" se habilita; al click crea la campaña, muestra el toast y navega', async () => {
+describe('CC-7: flujo completo de creación (vía modal de confirmación #5)', () => {
+  it('con todo completo, "Crear campaña" abre el modal; confirmar crea la campaña, muestra el toast, navega y cierra el modal', async () => {
     const user = userEvent.setup();
     const onCampaignCreated = vi.fn();
     renderComposer(onCampaignCreated);
 
     await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
-    await selectTemplateAndMapVariables();
-    await user.click(screen.getByRole('checkbox', { name: /atrasado/i }));
-    await user.click(screen.getByRole('button', { name: /ver preview/i }));
-    await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
-    await user.type(screen.getByLabelText(/nombre de la campaña/i), 'Recordatorio julio');
+    const createButton = await fillValidCampaign(user);
 
-    const createButton = screen.getByRole('button', { name: /crear campaña/i });
-    await waitFor(() => expect(createButton).toBeEnabled());
+    // El click de "Crear campaña" abre el modal — todavía NO crea nada.
     await user.click(createButton);
+    expect(createCampaign).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole('dialog', { name: /nueva campaña/i });
+
+    // Confirmar DENTRO del modal dispara la creación real.
+    await user.click(within(dialog).getByRole('button', { name: /confirmar y crear/i }));
 
     await waitFor(() => expect(createCampaign).toHaveBeenCalledWith({
       name: 'Recordatorio julio',
@@ -235,6 +261,8 @@ describe('CC-7: flujo completo de creación', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/recordatorio julio/i);
     expect(onCampaignCreated).toHaveBeenCalledWith('camp-1');
+    // Al crear OK, el modal se cierra.
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 });
 
@@ -252,15 +280,8 @@ describe('CC-8: 422 MISSING_TEMPLATE_VARIABLES', () => {
     renderComposer();
 
     await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
-    await selectTemplateAndMapVariables();
-    await user.click(screen.getByRole('checkbox', { name: /atrasado/i }));
-    await user.click(screen.getByRole('button', { name: /ver preview/i }));
-    await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
-    await user.type(screen.getByLabelText(/nombre de la campaña/i), 'Recordatorio julio');
-
-    const createButton = screen.getByRole('button', { name: /crear campaña/i });
-    await waitFor(() => expect(createButton).toBeEnabled());
-    await user.click(createButton);
+    const createButton = await fillValidCampaign(user);
+    await confirmCreate(user, createButton);
 
     await waitFor(() => expect(screen.getByText(/falta mapear/i)).toBeInTheDocument());
   });
@@ -296,15 +317,8 @@ describe('CC-10: error de creación que NO es 422-MISSING (FIX-3b)', () => {
     renderComposer();
 
     await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
-    await selectTemplateAndMapVariables();
-    await user.click(screen.getByRole('checkbox', { name: /atrasado/i }));
-    await user.click(screen.getByRole('button', { name: /ver preview/i }));
-    await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
-    await user.type(screen.getByLabelText(/nombre de la campaña/i), 'Recordatorio julio');
-
-    const createButton = screen.getByRole('button', { name: /crear campaña/i });
-    await waitFor(() => expect(createButton).toBeEnabled());
-    await user.click(createButton);
+    const createButton = await fillValidCampaign(user);
+    await confirmCreate(user, createButton);
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(/segmento|no se pudo crear/i);
@@ -341,5 +355,83 @@ describe('CC-12: hint del primer paso sin template (FIX-8a)', () => {
 
     expect(screen.getByText(/elegí un template/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /crear campaña/i })).toBeDisabled();
+  });
+});
+
+describe('CC-13: "Crear campaña" abre el modal de confirmación con el resumen (#5)', () => {
+  it('abre el modal con nombre + template + total + desglose, SIN disparar createCampaign', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+    const createButton = await fillValidCampaign(user);
+    await user.click(createButton);
+
+    const dialog = await screen.findByRole('dialog', { name: /nueva campaña/i });
+    expect(createCampaign).not.toHaveBeenCalled();
+
+    // Resumen de impacto (todo desde previewData, ya en memoria — sin fetch).
+    expect(within(dialog).getByText('Recordatorio julio')).toBeInTheDocument();
+    expect(within(dialog).getByText('Recordatorio de pago')).toBeInTheDocument();
+    // total (42) y statusCount late (42) — ambos "42"; basta con que aparezca.
+    expect(within(dialog).getAllByText('42').length).toBeGreaterThan(0);
+    expect(within(dialog).getByText('Atrasado')).toBeInTheDocument();
+  });
+});
+
+describe('CC-14: cancelar el modal no crea nada y preserva el estado (#5)', () => {
+  it('Cancelar cierra el modal, NO llama createCampaign y el nombre queda intacto', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+    const createButton = await fillValidCampaign(user);
+    await user.click(createButton);
+
+    const dialog = await screen.findByRole('dialog', { name: /nueva campaña/i });
+    await user.click(within(dialog).getByRole('button', { name: /cancelar/i }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(createCampaign).not.toHaveBeenCalled();
+    // El estado del composer sigue intacto (el nombre NO se limpió).
+    expect(screen.getByLabelText(/nombre de la campaña/i)).toHaveValue('Recordatorio julio');
+  });
+});
+
+describe('CC-15: Esc en el modal no crea nada (#5)', () => {
+  it('Esc cierra el modal sin llamar createCampaign', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+    const createButton = await fillValidCampaign(user);
+    await user.click(createButton);
+    await screen.findByRole('dialog', { name: /nueva campaña/i });
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(createCampaign).not.toHaveBeenCalled();
+  });
+});
+
+describe('CC-16: el modal cierra al confirmar aunque createCampaign cuelgue (fix wave 2 — anti-trap)', () => {
+  it('con createCampaign colgado (server acepta pero nunca responde), confirmar CIERRA el modal — la página no queda atrapada', async () => {
+    // El axios client NO tiene timeout global: si el server nunca responde,
+    // `isCreating` quedaría true para siempre. El modal NO debe vivir durante
+    // la creación: cierra AL confirmar, antes de disparar el create.
+    vi.mocked(createCampaign).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderComposer();
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+    const createButton = await fillValidCampaign(user);
+    await user.click(createButton);
+    const dialog = await screen.findByRole('dialog', { name: /nueva campaña/i });
+    await user.click(within(dialog).getByRole('button', { name: /confirmar y crear/i }));
+
+    // El modal se cerró (no queda incerrable) y la creación igual se disparó.
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(createCampaign).toHaveBeenCalled();
   });
 });

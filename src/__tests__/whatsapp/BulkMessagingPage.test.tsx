@@ -19,7 +19,7 @@
  * resueltos al `beforeEach` — ambos tabs se montan siempre
  * (`Tabs mountMode="all"`), así que Historial fetchea desde el primer render.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useSearchParams } from 'react-router-dom';
@@ -158,7 +158,10 @@ describe('BMP-5: creación → cambia a Historial + persiste el id', () => {
 
     const createButton = screen.getByRole('button', { name: /crear campaña/i });
     await waitFor(() => expect(createButton).toBeEnabled());
+    // #5 — "Crear campaña" abre el modal de confirmación; el confirm de adentro dispara la creación.
     await user.click(createButton);
+    const confirmDialog = await screen.findByRole('dialog', { name: /nueva campaña/i });
+    await user.click(within(confirmDialog).getByRole('button', { name: /confirmar y crear/i }));
 
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Historial' })).toHaveAttribute('aria-selected', 'true'));
   });
