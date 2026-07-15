@@ -1,0 +1,15 @@
+.pill {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.approved    { background-color: var(--badge-paid-bg);   color: var(--badge-paid-fg); }
+.pending     { background-color: var(--badge-paused-bg); color: var(--badge-paused-fg); }
+.rejected    { background-color: var(--badge-late-bg);   color: var(--badge-late-fg); }
+.unsubmitted { background-color: var(--color-gray-100);  color: var(--color-gray-700); }

@@ -157,3 +157,35 @@ describe('SBW-5 (F2): sin messaging.bulk no hay "Envío masivo"', () => {
     expect(screen.getByRole('link', { name: 'Configuración' })).toBeInTheDocument();
   });
 });
+
+describe('SBW-6 (Change 3): "Templates" visible con messaging.templates', () => {
+  it('linkea "Templates" a /admin/whatsapp/templates dentro de CRM', async () => {
+    mockPerms({
+      permissions: ['messaging.read', 'messaging.templates'],
+      can: (p) => {
+        const perms = Array.isArray(p) ? p : [p];
+        return perms.some((x) => ['messaging.read', 'messaging.templates'].includes(x));
+      },
+    });
+    renderSidebar();
+    await openCrm();
+    await openWhatsapp();
+    const link = screen.getByRole('link', { name: 'Templates' });
+    expect(link).toHaveAttribute('href', '/admin/whatsapp/templates');
+  });
+});
+
+describe('SBW-7 (Change 3): sin messaging.templates no hay "Templates"', () => {
+  it('oculta "Templates" pero mantiene "Bandeja de entrada"/"Configuración"', async () => {
+    mockPerms({
+      permissions: ['messaging.read'],
+      can: (p) => (Array.isArray(p) ? p : [p]).includes('messaging.read'),
+    });
+    renderSidebar();
+    await openCrm();
+    await openWhatsapp();
+    expect(screen.queryByRole('link', { name: 'Templates' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Bandeja de entrada' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Configuración' })).toBeInTheDocument();
+  });
+});

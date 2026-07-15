@@ -359,3 +359,28 @@ describe('FIX-6: click en el label no re-togglea (sin parpadeo close+reopen)', (
     expect(screen.getByRole('listbox')).toBeInTheDocument();
   });
 });
+
+describe('SEL-18: estado inválido (aditivo)', () => {
+  it('reenvía aria-invalid/aria-describedby al combobox cuando se pasan', () => {
+    render(
+      <Select
+        options={OPTIONS}
+        value=""
+        onChange={vi.fn()}
+        label="Estado"
+        aria-invalid
+        aria-describedby="estado-error"
+      />,
+    );
+    const trigger = screen.getByRole('combobox', { name: 'Estado' });
+    expect(trigger).toHaveAttribute('aria-invalid', 'true');
+    expect(trigger).toHaveAttribute('aria-describedby', 'estado-error');
+  });
+
+  it('sin las props NO agrega los atributos (no rompe los usos existentes)', () => {
+    render(<Select options={OPTIONS} value="" onChange={vi.fn()} label="Estado" />);
+    const trigger = screen.getByRole('combobox', { name: 'Estado' });
+    expect(trigger).not.toHaveAttribute('aria-invalid');
+    expect(trigger).not.toHaveAttribute('aria-describedby');
+  });
+});

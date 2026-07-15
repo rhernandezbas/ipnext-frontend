@@ -19,6 +19,10 @@ interface SelectProps {
   /** Nombre accesible SIN renderizar un `<label>` visible — usar cuando el caller ya provee su propio label externo. */
   'aria-label'?: string;
   id?: string;
+  /** Marca el combobox como inválido para lectores de pantalla (aditivo — default: sin atributo). */
+  'aria-invalid'?: boolean;
+  /** Asocia el combobox a un mensaje de error/ayuda externo por id (aditivo — default: sin atributo). */
+  'aria-describedby'?: string;
 }
 
 /**
@@ -45,6 +49,8 @@ export function Select({
   label,
   'aria-label': ariaLabel,
   id,
+  'aria-invalid': ariaInvalid,
+  'aria-describedby': ariaDescribedBy,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -233,6 +239,8 @@ export function Select({
         aria-activedescendant={open && activeIndex >= 0 ? optionId(activeIndex) : undefined}
         aria-labelledby={label ? labelId : undefined}
         aria-label={!label ? ariaLabel : undefined}
+        aria-invalid={ariaInvalid || undefined}
+        aria-describedby={ariaDescribedBy}
         data-placeholder={!selectedOption || undefined}
       >
         <span className={styles.value}>{selectedOption ? selectedOption.label : placeholder}</span>

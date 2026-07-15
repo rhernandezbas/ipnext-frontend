@@ -134,6 +134,9 @@ const CRM_ITEMS: NavParentItem[] = [
       // messaging.read del padre, mismo criterio que Recaptación/Mis
       // clientes dentro de Clientes — ver canSeeChild más abajo).
       { to: '/admin/whatsapp/bulk', label: 'Envío masivo', requiredPermission: 'messaging.bulk' },
+      // Change 3 (Templates CRUD) — gate PROPIO messaging.templates (leer el ABM
+      // de templates es independiente de messaging.read/messaging.bulk).
+      { to: '/admin/whatsapp/templates', label: 'Templates', requiredPermission: 'messaging.templates' },
     ],
   },
 ];
