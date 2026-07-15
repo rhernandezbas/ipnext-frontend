@@ -11,7 +11,7 @@
  *   - El campo NO aparece cuando kind='network' y networkType='red'
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -108,9 +108,14 @@ describe('DatosForm – iclassCityCode (Deuda #3)', () => {
   it('el select de localidad contiene las opciones activas+seleccionables del catálogo', () => {
     renderForm({ kind: 'network', networkType: 'fibra' });
     const select = screen.getByLabelText(/localidad/i);
-    // LOC-001 y LOC-002 son activos y seleccionables
-    expect(select).toContainElement(screen.getByRole('option', { name: /LOC-001/i }));
-    expect(select).toContainElement(screen.getByRole('option', { name: /LOC-002/i }));
+    // LOC-001 y LOC-002 son activos y seleccionables. Se consultan con
+    // within(select).getByRole('option') en lugar de toContainElement(option):
+    // toContainElement fallaba bajo happy-dom (difiere de jsdom en cómo resuelve
+    // el role/accessible-name de <option> dentro de <select>). within() recorre el
+    // subárbol del select vía querySelectorAll y verifica lo mismo —la opción vive
+    // DENTRO del select de localidad— de forma robusta al environment.
+    expect(within(select).getByRole('option', { name: /LOC-001/i })).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: /LOC-002/i })).toBeInTheDocument();
     // LOC-003 es inactivo — no debe aparecer
     expect(screen.queryByRole('option', { name: /LOC-003/i })).not.toBeInTheDocument();
   });

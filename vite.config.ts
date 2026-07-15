@@ -6,7 +6,7 @@ import { resolve } from 'path'
 export default defineConfig({
   test: {
     globals: true,
-    environment: 'jsdom',
+    environment: 'happy-dom',
     // Retry timing-flaky tests up to 2× (3 attempts). The suite (~1985 tests)
     // runs many files in parallel; under CPU starvation a userEvent interaction
     // can occasionally race the React commit (e.g. a controlled input not yet

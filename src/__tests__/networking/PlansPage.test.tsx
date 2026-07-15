@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -317,7 +317,17 @@ describe('PlansPage — create modal', () => {
     await user.type(within(dialog).getByLabelText(/nombre/i), 'IP-Test-50');
     await user.type(within(dialog).getByLabelText(/bajada/i), '50');
     await user.type(within(dialog).getByLabelText(/subida/i), '20');
-    await user.click(within(dialog).getByRole('button', { name: /guardar/i }));
+    // GOTCHA happy-dom (bug de validación del step decimal): este form tiene inputs
+    // number con `step="0.001"` (bajada/subida). happy-dom valida MAL el step decimal —
+    // `checkValidity()` da `stepMismatch:true` para value=50 aunque (50-0.001)/0.001 =
+    // 49999 es entero exacto (jsdom lo da válido). Con el campo "inválido",
+    // `requestSubmit()` —que happy-dom SÍ dispara al clickear el submit— se niega a
+    // emitir el evento → `user.click(Guardar)` nunca llega al onSubmit. Disparamos el
+    // submit sobre el <form> directamente: ejercita el mismo handleSubmit → onSubmit →
+    // createPlan.mutate (los valores SON válidos en un browser real; el bug es de
+    // happy-dom). REGLA: todo form con number+step decimal testeado por click-en-submit
+    // necesita fireEvent.submit hasta que happy-dom arregle el stepMismatch.
+    fireEvent.submit(dialog.querySelector('form')!);
 
     expect(mutateMock).toHaveBeenCalledWith(
       expect.objectContaining({
