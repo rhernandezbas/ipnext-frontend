@@ -10,7 +10,8 @@ import { SegmentBuilder } from './SegmentBuilder';
 import { SegmentPreviewPanel } from './SegmentPreviewPanel';
 import { PreviewModal } from './PreviewModal';
 import { CreateCampaignConfirmModal } from './CreateCampaignConfirmModal';
-import { hasSegmentCriteria } from './segmentCriteria';
+import { ManualRecipientsPicker, type ManualRecipient } from '@/components/molecules/ManualRecipientsPicker/ManualRecipientsPicker';
+import { hasRecipients } from './segmentCriteria';
 import styles from './CampaignComposer.module.css';
 
 interface CampaignComposerProps {
@@ -55,11 +56,14 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
     isError: isPreviewError,
     reset: resetPreview,
   } = usePreviewSegment();
-  const { createAsync, isPending: isCreating, missingVariablesError, serverError: createServerError } = useCreateCampaign();
+  const { createAsync, isPending: isCreating, missingVariablesError, missingRecipientsError, serverError: createServerError } = useCreateCampaign();
 
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateSummaryDto | null>(null);
   const [variablesMap, setVariablesMap] = useState<CampaignVariableSpec>({});
   const [segment, setSegment] = useState<CampaignSegment>(EMPTY_SEGMENT);
+  // manual-recipients-fe — lista manual (metadata FE-only para los chips). El
+  // contrato con el BE es `manualClientIds: string[]`, derivado abajo.
+  const [manualRecipients, setManualRecipients] = useState<ManualRecipient[]>([]);
   const [campaignName, setCampaignName] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   // messaging-bulk-v11 FE apply chunk 2 — el modal completo (mensaje real +
@@ -72,27 +76,37 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   const [confirmOpen, setConfirmOpen] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const criteriaPresent = hasSegmentCriteria(segment);
+  // manual-recipients-fe — ids de la lista manual (el shape que espera el BE).
+  const manualClientIds = manualRecipients.map((r) => r.id);
+  // El gate ahora combina el segmento con la lista manual (COMP-1): una lista
+  // manual no vacía habilita el preview/create aunque el segmento esté vacío.
+  const criteriaPresent = hasRecipients(segment, manualClientIds);
+
+  /** Input del preview/segmento: se OMITE `manualClientIds` cuando está vacío (cero cambio en el payload del flujo por-segmento). */
+  function buildSegmentInput() {
+    return manualClientIds.length > 0 ? { ...segment, manualClientIds } : segment;
+  }
 
   // SEG (composer) — preview automático con debounce ~500ms al cambiar el
-  // segmento (decisión LOCKED: on-demand, NUNCA en cada tecla de un input
-  // individual — acá "cada tecla" ya es el segmento COMPLETO, no una letra
-  // suelta). Dependencias primitivas (no el objeto `segment`, que cambia de
-  // identidad en cada render) para no re-disparar el timer sin motivo real.
+  // segmento O la lista manual (decisión LOCKED: on-demand, NUNCA en cada tecla
+  // de un input individual). Dependencias primitivas (no el objeto `segment`,
+  // que cambia de identidad en cada render) para no re-disparar el timer sin
+  // motivo real — incluye `manualClientIds.join(',')` (manual-recipients-fe), si
+  // no, agregar/quitar un manual no re-dispararía el preview.
   useEffect(() => {
-    // FIX-5 — invalidar el preview ante CUALQUIER cambio del segmento (no sólo
-    // cuando desaparece el criterio): un `previewData` viejo con el count de un
-    // segmento anterior dejaba `canCreate` en true con un número que ya no
-    // corresponde. Reseteando acá, "Crear campaña" se re-gatea con el segmento
+    // FIX-5 — invalidar el preview ante CUALQUIER cambio del segmento/lista (no
+    // sólo cuando desaparece el criterio): un `previewData` viejo con el count de
+    // un segmento anterior dejaba `canCreate` en true con un número que ya no
+    // corresponde. Reseteando acá, "Crear campaña" se re-gatea con el estado
     // ACTUAL hasta que el nuevo preview resuelva.
     resetPreview();
     if (!criteriaPresent) return;
     const timer = setTimeout(() => {
-      preview(segment);
+      preview(buildSegmentInput());
     }, PREVIEW_DEBOUNCE_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deps primitivas a propósito, ver comentario de arriba
-  }, [segment.statuses.join(','), segment.balanceMin, segment.balanceMax, criteriaPresent]);
+  }, [segment.statuses.join(','), segment.balanceMin, segment.balanceMax, manualClientIds.join(','), criteriaPresent]);
 
   function handleSelectTemplate(template: TemplateSummaryDto | null) {
     setSelectedTemplate(template);
@@ -144,6 +158,9 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         templateName: selectedTemplate.friendlyName,
         segment,
         variablesMap,
+        // manual-recipients-fe — PARALELO a `segment`, se OMITE cuando la lista
+        // está vacía (cero cambio en el payload del flujo por-segmento).
+        ...(manualClientIds.length > 0 ? { manualClientIds } : {}),
       });
       showToast(`Campaña "${name}" creada — ${output.total} destinatario${output.total === 1 ? '' : 's'}.`);
       onCampaignCreated(output.campaignId);
@@ -151,6 +168,7 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
       setSelectedTemplate(null);
       setVariablesMap({});
       setSegment(EMPTY_SEGMENT);
+      setManualRecipients([]);
       setCampaignName('');
       resetPreview();
     } catch {
@@ -183,7 +201,7 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
     : !allVariablesMapped
       ? 'Mapeá todas las variables del template.'
       : !criteriaPresent
-        ? 'Definí al menos un criterio de segmento.'
+        ? 'Definí un criterio de segmento o agregá destinatarios manuales.'
         : !previewData
           ? 'Generá el preview del segmento antes de crear la campaña.'
           : previewCount === 0
@@ -219,6 +237,12 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
 
         <SegmentBuilder value={segment} onChange={setSegment} />
 
+        <ManualRecipientsPicker
+          value={manualRecipients}
+          onChange={setManualRecipients}
+          invalidIds={missingRecipientsError?.missingClientIds}
+        />
+
         <div className={styles.nameField}>
           <label htmlFor={NAME_INPUT_ID}>Nombre de la campaña</label>
           <input
@@ -234,6 +258,18 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         {missingVariables.length > 0 && (
           <p className={styles.serverError} role="alert">
             El servidor rechazó la campaña: faltan mapear {missingVariables.join(', ')}.
+          </p>
+        )}
+
+        {/* manual-recipients-fe (ERR-1) — 422 MANUAL_RECIPIENTS_NOT_FOUND: los
+            chips inválidos ya se marcan en el picker (via `invalidIds`); acá va el
+            mensaje agregado. `aria-live` para anunciarlo sin robar el foco. */}
+        {missingRecipientsError && (
+          <p className={styles.serverError} role="alert" aria-live="polite">
+            {missingRecipientsError.missingClientIds.length} destinatario
+            {missingRecipientsError.missingClientIds.length === 1 ? '' : 's'} manual
+            {missingRecipientsError.missingClientIds.length === 1 ? '' : 'es'} ya no{' '}
+            {missingRecipientsError.missingClientIds.length === 1 ? 'existe' : 'existen'} — quitalos y volvé a intentar.
           </p>
         )}
 
@@ -275,6 +311,9 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         segment={segment}
         templateBody={selectedTemplate?.body}
         variablesMap={variablesMap}
+        // FIX 2 — el modal SOLO consulta el segmento; le pasamos el conteo de
+        // manuales para que muestre el aviso y no contradiga/oculte el envío.
+        manualCount={manualClientIds.length}
       />
 
       {/* #5 — doble-confirmación con resumen de impacto. Todo el contenido sale
@@ -285,6 +324,7 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         campaignName={campaignName.trim()}
         templateName={selectedTemplate?.friendlyName ?? ''}
         total={previewCount}
+        manualCount={manualClientIds.length}
         statusCounts={previewData?.statusCounts ?? {}}
         skipped={previewData?.skipped}
         onConfirm={handleConfirmCreate}

@@ -174,6 +174,20 @@ function makeMissingVariablesError(missing: string[]): AxiosError {
   return error;
 }
 
+/** manual-recipients-fe (ERR-1) — fixture genérico de error de create con status + body. */
+function makeCreateError(status: number, data: Record<string, unknown>): AxiosError {
+  const error = new AxiosError(`Request failed with status code ${status}`, 'ERR_BAD_REQUEST');
+  error.response = {
+    status,
+    statusText: 'Error',
+    headers: {},
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- fixture mínimo de AxiosResponse
+    config: { headers: new AxiosHeaders() } as any,
+    data,
+  };
+  return error;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(useDocumentVisible).mockReturnValue(true);
@@ -282,6 +296,74 @@ describe('MBH-3: useCreateCampaign', () => {
     const { result } = renderHook(() => useCreateCampaign(), { wrapper });
 
     expect(result.current.missingVariablesError).toBeNull();
+  });
+});
+
+describe('MBH-8: useCreateCampaign — errores de manual recipients (ERR-1)', () => {
+  const CREATE_INPUT = {
+    name: 'Recordatorio julio',
+    templateRef: 'HX123',
+    segment: { statuses: [] as string[] },
+    variablesMap: { '1': { source: 'name' as const } },
+    manualClientIds: ['x', 'y'],
+  };
+
+  it('422 MANUAL_RECIPIENTS_NOT_FOUND se expone como `missingRecipientsError` con los ids', async () => {
+    vi.mocked(createCampaign).mockRejectedValue(
+      makeCreateError(422, {
+        error: 'Algunos destinatarios ya no existen',
+        code: 'MANUAL_RECIPIENTS_NOT_FOUND',
+        missingClientIds: ['x', 'y'],
+      }),
+    );
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useCreateCampaign(), { wrapper });
+    act(() => result.current.create(CREATE_INPUT));
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.missingRecipientsError).toEqual({
+      code: 'MANUAL_RECIPIENTS_NOT_FOUND',
+      message: 'Algunos destinatarios ya no existen',
+      missingClientIds: ['x', 'y'],
+    });
+    // NO se duplica en el error genérico (lo maneja el error dedicado).
+    expect(result.current.serverError).toBeNull();
+  });
+
+  it('422 TOO_MANY_MANUAL_RECIPIENTS → mensaje con el máximo de 5000', async () => {
+    vi.mocked(createCampaign).mockRejectedValue(
+      makeCreateError(422, { error: 'demasiados', code: 'TOO_MANY_MANUAL_RECIPIENTS' }),
+    );
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useCreateCampaign(), { wrapper });
+    act(() => result.current.create(CREATE_INPUT));
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.serverError).toMatch(/5000/);
+    expect(result.current.missingRecipientsError).toBeNull();
+  });
+
+  it('400 VALIDATION_ERROR → mensaje de validación genérico', async () => {
+    vi.mocked(createCampaign).mockRejectedValue(
+      makeCreateError(400, { error: 'inválido', code: 'VALIDATION_ERROR' }),
+    );
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useCreateCampaign(), { wrapper });
+    act(() => result.current.create(CREATE_INPUT));
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.serverError).toMatch(/inválid/i);
+  });
+
+  it('sin error, `missingRecipientsError` es null', () => {
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useCreateCampaign(), { wrapper });
+
+    expect(result.current.missingRecipientsError).toBeNull();
   });
 });
 

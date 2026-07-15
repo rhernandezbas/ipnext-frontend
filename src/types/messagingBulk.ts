@@ -39,8 +39,15 @@ export interface CampaignSegment {
   balanceMax?: number;
 }
 
-/** Input del preview — mismo shape que `CampaignSegment` (SEG-1). */
-export type PreviewSegmentInput = CampaignSegment;
+/**
+ * Input del preview — el segmento (SEG-1) MÁS, opcionalmente, una lista manual
+ * de clientes (manual-recipients-fe, TYPE-1). `manualClientIds` viaja FLAT
+ * (junto a `statuses`) porque `previewSegment` postea el input directo; el BE
+ * devuelve `count` = unión dedup del segmento y la lista. UUIDs como `string[]`.
+ */
+export type PreviewSegmentInput = CampaignSegment & {
+  manualClientIds?: string[];
+};
 
 export interface PreviewSegmentSampleItemDto {
   clientId: string;
@@ -114,6 +121,13 @@ export interface CreateCampaignInput {
   templateName?: string;
   segment: CampaignSegment;
   variablesMap: CampaignVariableSpec;
+  /**
+   * manual-recipients-fe (TYPE-1) — lista manual de clientes, PARALELA a
+   * `segment` (top-level, NO anidada). El BE une (dedup) esta lista con el
+   * segmento. Opcional: se OMITE cuando está vacía (cero cambio en el payload
+   * de los flujos que sólo usan segmento). UUIDs como `string[]`.
+   */
+  manualClientIds?: string[];
   // NOTA: `createdById` NO viaja en el body — el BE lo deriva SIEMPRE del
   // usuario autenticado (`req.user.id`, ver `messagingBulk.routes.ts`), nunca
   // del cliente. Incluirlo acá sería un campo fantasma que el BE ignora.
@@ -135,6 +149,17 @@ export interface CreateCampaignMissingVariablesBody {
   error: string;
   code: 'MISSING_TEMPLATE_VARIABLES';
   missing: string[];
+}
+
+/**
+ * Body del 422 cuando algún `manualClientIds` ya no existe en el sistema
+ * (manual-recipients-fe, ERR-1). `missingClientIds` son los ids que el BE no
+ * encontró — el composer los usa para marcar esos chips como inválidos.
+ */
+export interface CreateCampaignManualRecipientsNotFoundBody {
+  error: string;
+  code: 'MANUAL_RECIPIENTS_NOT_FOUND';
+  missingClientIds: string[];
 }
 
 // ─── Envío (SEND-1) ───────────────────────────────────────────────────────────

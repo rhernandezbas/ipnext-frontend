@@ -6,6 +6,7 @@ import type {
   CampaignSegment,
   CampaignSendConflictBody,
   CreateCampaignInput,
+  CreateCampaignManualRecipientsNotFoundBody,
   CreateCampaignMissingVariablesBody,
   GetCampaignQuery,
   PaginatedQuery,
@@ -88,11 +89,34 @@ function toMissingVariablesError(error: unknown): CreateCampaignMissingVariables
   };
 }
 
+/** DTO de error expuesto por el hook cuando algún `manualClientIds` ya no existe (ERR-1). */
+export interface ManualRecipientsNotFoundError {
+  code: CreateCampaignManualRecipientsNotFoundBody['code'];
+  message: string;
+  /** Ids que el BE no encontró — el composer marca esos chips como inválidos. */
+  missingClientIds: string[];
+}
+
+/** Detecta el 422 MANUAL_RECIPIENTS_NOT_FOUND — mismo criterio que `toMissingVariablesError`. */
+function toManualRecipientsNotFoundError(error: unknown): ManualRecipientsNotFoundError | null {
+  if (!axios.isAxiosError(error) || error.response?.status !== 422) return null;
+  const body = error.response.data as Partial<CreateCampaignManualRecipientsNotFoundBody> | undefined;
+  if (body?.code !== 'MANUAL_RECIPIENTS_NOT_FOUND') return null;
+  return {
+    code: 'MANUAL_RECIPIENTS_NOT_FOUND',
+    message: body.error ?? 'Algunos destinatarios manuales ya no existen',
+    missingClientIds: body.missingClientIds ?? [],
+  };
+}
+
 /** Mensajes claros para los códigos de error del BE al crear (contrato CAMPAIGN spec). */
 const CREATE_ERROR_MESSAGES: Record<string, string> = {
   EMPTY_SEGMENT: 'El segmento no tiene destinatarios. Ajustá los filtros y volvé a intentar.',
   UNFILTERED_SEGMENT: 'El segmento no tiene ningún filtro efectivo (elegí un estado o una deuda mayor a $0).',
   TEMPLATE_NOT_APPROVED: 'El template seleccionado no está aprobado para envío. Elegí otro.',
+  // manual-recipients-fe (ERR-1) — errores de la lista manual.
+  TOO_MANY_MANUAL_RECIPIENTS: 'Máximo 5000 destinatarios manuales. Reducí la lista y volvé a intentar.',
+  VALIDATION_ERROR: 'Hay datos inválidos en la campaña. Revisá los destinatarios y volvé a intentar.',
 };
 
 /**
@@ -105,8 +129,14 @@ function toCreateServerError(error: unknown): string | null {
   if (!error) return null;
   if (axios.isAxiosError(error)) {
     const body = error.response?.data as { code?: string } | undefined;
-    if (error.response?.status === 422 && body?.code === 'MISSING_TEMPLATE_VARIABLES') {
-      return null; // lo maneja `missingVariablesError`
+    // Ambos 422 con dato estructurado se manejan aparte (resaltan filas/chips),
+    // no como un texto genérico: MISSING_TEMPLATE_VARIABLES (`missingVariablesError`)
+    // y MANUAL_RECIPIENTS_NOT_FOUND (`missingRecipientsError`, ERR-1).
+    if (
+      error.response?.status === 422 &&
+      (body?.code === 'MISSING_TEMPLATE_VARIABLES' || body?.code === 'MANUAL_RECIPIENTS_NOT_FOUND')
+    ) {
+      return null;
     }
     if (body?.code && CREATE_ERROR_MESSAGES[body.code]) return CREATE_ERROR_MESSAGES[body.code];
   }
@@ -143,6 +173,7 @@ export function useCreateCampaign() {
     error: mutation.error,
     reset: mutation.reset,
     missingVariablesError: toMissingVariablesError(mutation.error),
+    missingRecipientsError: toManualRecipientsNotFoundError(mutation.error),
     serverError: toCreateServerError(mutation.error),
   };
 }

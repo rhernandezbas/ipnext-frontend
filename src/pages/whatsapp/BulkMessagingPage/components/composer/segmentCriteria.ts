@@ -27,6 +27,18 @@ export function hasSegmentCriteria(segment: CampaignSegment): boolean {
 }
 
 /**
+ * hasRecipients (manual-recipients-fe, CRIT-1) — gate de "hay destinatarios" del
+ * composer, que combina el segmento por estado/deuda con la LISTA MANUAL. Una
+ * lista manual no vacía cuenta como criterio aunque el segmento esté vacío (el
+ * BE devuelve `count` = unión dedup de ambos). Se mantiene `hasSegmentCriteria`
+ * separado porque `SegmentBuilder` lo usa para SU propio hint (que habla sólo
+ * del segmento, no de la lista manual).
+ */
+export function hasRecipients(segment: CampaignSegment, manualClientIds: string[]): boolean {
+  return hasSegmentCriteria(segment) || manualClientIds.length > 0;
+}
+
+/**
  * true si el operador ingresó un balance que NO filtra (0/negativo/NaN) — sirve
  * para avisarle EXPLÍCITAMENTE que ese valor no cuenta como criterio, en vez de
  * dejarlo pensar que sí y chocar con el 400 del BE.

@@ -41,8 +41,14 @@ interface CreateCampaignConfirmModalProps {
   campaignName: string;
   /** `template.friendlyName` del template elegido. */
   templateName: string;
-  /** `previewData.count` — total de destinatarios del segmento. */
+  /** `previewData.count` — total de destinatarios (unión dedup de segmento + lista manual). */
   total: number;
+  /**
+   * manual-recipients-fe (CONF-1) — cuántos destinatarios provienen de la lista
+   * manual. El `total` ya es la unión dedup calculada por el BE; esto sólo aclara
+   * que una parte se agregó a mano. Opcional (default 0 = campaña sólo por segmento).
+   */
+  manualCount?: number;
   /** `previewData.statusCounts` — desglose de matcheados por estado. */
   statusCounts: Record<string, number>;
   /** `previewData.skipped` — excluidos del envío (opt-out / duplicado / inválido). Opcional. */
@@ -72,6 +78,7 @@ export function CreateCampaignConfirmModal({
   campaignName,
   templateName,
   total,
+  manualCount = 0,
   statusCounts,
   skipped,
   onConfirm,
@@ -170,6 +177,15 @@ export function CreateCampaignConfirmModal({
             <dd className={styles.summaryValue}>
               <strong className={styles.total}>{total}</strong>{' '}
               {total === 1 ? 'cliente' : 'clientes'}
+              {manualCount > 0 && (
+                // FIX 8 — `manualCount` es el largo CRUDO de la lista FE; `total`
+                // es la unión dedup del BE (descuenta overlap/opt-out/inexistentes)
+                // y puede ser MENOR. "hasta N" evita el copy contradictorio
+                // ("2 clientes (incluye 3 agregados manualmente)").
+                <span className={styles.manualNote}>
+                  {' '}(incluye hasta {manualCount} agregado{manualCount === 1 ? '' : 's'} manualmente)
+                </span>
+              )}
             </dd>
           </div>
         </dl>

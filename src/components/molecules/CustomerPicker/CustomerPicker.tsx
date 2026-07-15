@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useClientList } from '@/hooks/useCustomers';
+import type { CustomerSummary } from '@/types/customer';
 import styles from './CustomerPicker.module.css';
 
 interface Props {
@@ -7,12 +8,24 @@ interface Props {
   value: string | null;
   /** Display name of the selected customer. */
   valueName: string | null;
-  onChange: (id: string | null, name: string | null) => void;
+  /**
+   * `client` (3rd arg, manual-recipients-fe) — the full selected `CustomerSummary`,
+   * ADDITIVE and OPTIONAL: the multi-select wrapper reads `client.phone` for the
+   * chip. Existing 2-arg callers (`(id, name) => …`) ignore it — zero break. It is
+   * `undefined` on the clear path (`onChange(null, null)`).
+   */
+  onChange: (id: string | null, name: string | null, client?: CustomerSummary) => void;
   /**
    * service-transfer W4 — client id to EXCLUDE from the results (e.g. the
    * transfer SOURCE client: transferring a service to itself makes no sense).
    */
   excludeId?: string;
+  /**
+   * manual-recipients-fe — MULTIPLE client ids to exclude from the results
+   * (e.g. everyone already added to a manual recipients list). Additive next to
+   * the single `excludeId`; both are combined. Existing callers omit it.
+   */
+  excludeIds?: string[];
   /**
    * a11y (service-transfer FIX 6) — id for the search input so an external
    * <label htmlFor> can be associated with it. Optional: existing callers
@@ -30,7 +43,7 @@ interface Props {
  * pages/scheduling/SchedulingTasksPage/components so scheduling, tickets and the
  * transfer modal all use ONE component.
  */
-export function CustomerPicker({ value, valueName, onChange, excludeId, id }: Props) {
+export function CustomerPicker({ value, valueName, onChange, excludeId, excludeIds, id }: Props) {
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [open, setOpen] = useState(false);
@@ -43,7 +56,10 @@ export function CustomerPicker({ value, valueName, onChange, excludeId, id }: Pr
   // Only hit the API once the dropdown is open and there's something to search.
   const { data, isFetching } = useClientList({ search: debounced || undefined, pageSize: 20 });
   const rawResults = open && debounced.length > 0 ? data?.data ?? [] : [];
-  const results = excludeId ? rawResults.filter((c) => String(c.id) !== excludeId) : rawResults;
+  // Combine the single `excludeId` (service-transfer) with the multi `excludeIds`
+  // (manual-recipients-fe) into one lookup set — one place filters the results.
+  const excluded = new Set<string>([...(excludeId ? [excludeId] : []), ...(excludeIds ?? [])]);
+  const results = excluded.size > 0 ? rawResults.filter((c) => !excluded.has(String(c.id))) : rawResults;
 
   if (value) {
     return (
@@ -82,7 +98,7 @@ export function CustomerPicker({ value, valueName, onChange, excludeId, id }: Pr
                 type="button"
                 className={styles.option}
                 onMouseDown={e => e.preventDefault()}
-                onClick={() => { onChange(String(c.id), c.name); setOpen(false); }}
+                onClick={() => { onChange(String(c.id), c.name, c); setOpen(false); }}
               >
                 <span className={styles.optName}>{c.name}</span>
                 {c.email && <span className={styles.optMeta}>{c.email}</span>}

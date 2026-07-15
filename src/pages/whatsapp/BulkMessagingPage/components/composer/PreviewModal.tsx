@@ -5,6 +5,7 @@ import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
 import { Skeleton } from '@/pages/whatsapp/WhatsappInboxPage/components/Skeleton';
 import { useSegmentRecipients } from '@/hooks/useBulkMessaging';
+import { hasSegmentCriteria } from './segmentCriteria';
 import { renderPreviewMessage } from './previewMessage';
 import type { CampaignSegment, CampaignVariableSpec, SegmentRecipientDto } from '@/types/messagingBulk';
 import styles from './PreviewModal.module.css';
@@ -16,6 +17,15 @@ interface PreviewModalProps {
   /** `selectedTemplate?.body` — puede no haber template elegido todavía (SegmentPreviewPanel no lo exige). */
   templateBody: string | undefined;
   variablesMap: CampaignVariableSpec;
+  /**
+   * manual-recipients-fe (fix wave FIX 2) — cuántos destinatarios manuales
+   * agregó el operador. La query de este modal (`useSegmentRecipients`) SOLO
+   * conoce el segmento: el BE aún NO extendió `/segment/recipients` con
+   * `manualClientIds` (deuda, ver design.md §9). Sin este dato, una campaña
+   * solo-manual mostraba "sin destinatarios" (engañoso) y una mixta un set
+   * distinto al count. Lo usamos para un aviso claro. Default 0 = sólo segmento.
+   */
+  manualCount?: number;
 }
 
 const LIMIT = 20;
@@ -74,13 +84,24 @@ function StatusCell({ status }: { status: string }) {
  * Esc/backdrop cierran, scroll-lock del body) — NO se reinventa, sólo se
  * adapta para contenido rico (no title+message+dos botones).
  */
-export function PreviewModal({ open, onClose, segment, templateBody, variablesMap }: PreviewModalProps) {
+export function PreviewModal({ open, onClose, segment, templateBody, variablesMap, manualCount = 0 }: PreviewModalProps) {
   const [page, setPage] = useState(1);
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
-  const { data, isLoading, isError, isPlaceholderData } = useSegmentRecipients(segment, page, LIMIT, open);
+  // FIX 2 (gate) — la query SOLO corre si el segmento tiene criterio PROPIO
+  // (`hasSegmentCriteria`, NO `hasRecipients`). En una campaña solo-manual el
+  // segmento está vacío y el BE lo rechaza con 400 UNFILTERED_SEGMENT
+  // (`assertSegmentIsFiltered`); sin este gate, un preview VÁLIDO mostraría un
+  // error rojo. Con el gate, en solo-manual sólo se ve la nota de los manuales.
+  const segmentHasCriteria = hasSegmentCriteria(segment);
+  const { data, isLoading, isError, isPlaceholderData } = useSegmentRecipients(
+    segment,
+    page,
+    LIMIT,
+    open && segmentHasCriteria,
+  );
 
   // FIX-1 — `keepPreviousData` mantiene la paginación SUAVE dentro del mismo
   // segmento, pero al reabrir con OTRO segmento devolvería los destinatarios
@@ -202,7 +223,24 @@ export function PreviewModal({ open, onClose, segment, templateBody, variablesMa
             )}
           </section>
 
-          {showLoading && (
+          {/* FIX 2 — aviso de destinatarios manuales. La tabla de abajo sale de
+              `useSegmentRecipients` (SOLO segmento; el BE no extendió el endpoint
+              con `manualClientIds` — deuda, design.md §9), así que sin esto la
+              pantalla de revisión CONTRADIRÍA el count o esconderá a quién se le
+              envía. role=note (informativo, no bloquea nada). */}
+          {manualCount > 0 && (
+            <p className={styles.manualNote} role="note">
+              Sumaste {manualCount} destinatario{manualCount === 1 ? '' : 's'} manual
+              {manualCount === 1 ? '' : 'es'}. Se validan al enviar; el detalle de destinatarios de
+              abajo muestra solo el segmento.
+            </p>
+          )}
+
+          {/* FIX 2 (gate) — TODO el bloque de resultados del SEGMENTO (loading /
+              error / empty / resumen+tabla) se gatea con `segmentHasCriteria`: en
+              solo-manual la query no corre y no hay data/loading/error/empty que
+              mostrar — queda sólo la nota de manuales de arriba. */}
+          {segmentHasCriteria && showLoading && (
             <div className={styles.loading} aria-busy="true">
               <p role="status" className={styles.srOnlyStatus}>Cargando destinatarios…</p>
               <Skeleton height={20} />
@@ -211,7 +249,7 @@ export function PreviewModal({ open, onClose, segment, templateBody, variablesMa
             </div>
           )}
 
-          {!showLoading && isError && (
+          {segmentHasCriteria && !showLoading && isError && (
             <p className={styles.error} role="alert">
               No se pudieron cargar los destinatarios. Reintentá.
             </p>
@@ -221,13 +259,16 @@ export function PreviewModal({ open, onClose, segment, templateBody, variablesMa
               `SegmentPreviewPanel` (que SÍ bloquea "Crear campaña" y amerita
               assertive), acá es informativo — el gate real de creación ya
               vive afuera del modal. */}
-          {!showLoading && !isError && data && data.total === 0 && (
+          {/* FIX 2 — cuando hay manuales, un total 0 del SEGMENTO NO es "sin
+              destinatarios": hay N manuales (los muestra el aviso de arriba).
+              Sólo mostramos el empty cuando NO hay manuales. */}
+          {segmentHasCriteria && !showLoading && !isError && data && data.total === 0 && manualCount === 0 && (
             <p className={styles.emptyResult} role="status">
               Sin destinatarios para este segmento.
             </p>
           )}
 
-          {!showLoading && !isError && data && data.total > 0 && (
+          {segmentHasCriteria && !showLoading && !isError && data && data.total > 0 && (
             <>
               <section aria-labelledby={SUMMARY_HEADING_ID}>
                 <h3 id={SUMMARY_HEADING_ID} className={styles.sectionTitle}>Resumen</h3>

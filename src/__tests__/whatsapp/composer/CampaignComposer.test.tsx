@@ -36,8 +36,12 @@ vi.mock('@/api/messagingBulk.api', () => ({
   listSegmentRecipients: vi.fn(),
 }));
 vi.mock('@/hooks/useMyPermissions');
+// El composer ahora monta `ManualRecipientsPicker` → `CustomerPicker`, que usa
+// `useClientList`. Se mockea a nivel hook (mismo seam que CustomerPicker.test).
+vi.mock('@/hooks/useCustomers', () => ({ useClientList: vi.fn() }));
 
 import { listBulkTemplates, previewSegment, createCampaign, listSegmentRecipients } from '@/api/messagingBulk.api';
+import { useClientList } from '@/hooks/useCustomers';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
 import { CampaignComposer } from '@/pages/whatsapp/BulkMessagingPage/components/composer/CampaignComposer';
@@ -84,6 +88,11 @@ const EMPTY_RECIPIENTS: SegmentRecipientsOutput = {
   skipped: { optedOut: 0, duplicatePhone: 0, invalidPhone: 0 },
   statusCounts: {},
 };
+
+const CLIENTS = [
+  { id: 'c-1', name: 'Juan García', email: 'juan@test.com', phone: '+5491111111111', status: 'active', balance: 0, category: '', tariffPlan: null, login: null, ipRanges: null, accessDevices: 0, createdAt: '' },
+  { id: 'c-2', name: 'María López', email: 'maria@test.com', phone: '+5492222222222', status: 'active', balance: 0, category: '', tariffPlan: null, login: null, ipRanges: null, accessDevices: 0, createdAt: '' },
+];
 
 function mockPerms(granted: boolean) {
   vi.mocked(useMyPermissions).mockReturnValue({
@@ -147,7 +156,15 @@ beforeEach(() => {
   vi.mocked(previewSegment).mockResolvedValue(PREVIEW);
   vi.mocked(createCampaign).mockResolvedValue({ campaignId: 'camp-1', total: 42, status: 'pending' });
   vi.mocked(listSegmentRecipients).mockResolvedValue(EMPTY_RECIPIENTS);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useClientList
+  vi.mocked(useClientList).mockReturnValue({ data: { data: CLIENTS, total: 2, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false } as any);
 });
+
+/** Agrega un destinatario manual vía el typeahead del `ManualRecipientsPicker`. */
+async function addManualRecipient(user: ReturnType<typeof userEvent.setup>, name = 'Juan García') {
+  await user.type(screen.getByLabelText(/buscar cliente/i), 'a');
+  await user.click(await screen.findByText(name));
+}
 
 afterEach(() => {
   vi.useRealTimers();
@@ -433,5 +450,77 @@ describe('CC-16: el modal cierra al confirmar aunque createCampaign cuelgue (fix
     // El modal se cerró (no queda incerrable) y la creación igual se disparó.
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(createCampaign).toHaveBeenCalled();
+  });
+});
+
+describe('CC-17: preview se dispara al agregar un destinatario manual (COMP-1)', () => {
+  it('con el segmento vacío, agregar un manual dispara previewSegment con manualClientIds', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+    // Sin criterio de segmento ni lista manual, el preview NO se dispara.
+    expect(previewSegment).not.toHaveBeenCalled();
+
+    await addManualRecipient(user);
+
+    await waitFor(() =>
+      expect(previewSegment).toHaveBeenCalledWith({ statuses: [], manualClientIds: ['c-1'] }),
+    );
+  });
+});
+
+describe('CC-18: crear con SÓLO lista manual (COMP-1)', () => {
+  it('canCreate con sólo manual; el body de create incluye manualClientIds y segment vacío', async () => {
+    const user = userEvent.setup();
+    const onCampaignCreated = vi.fn();
+    renderComposer(onCampaignCreated);
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+    await selectTemplateAndMapVariables();
+    await addManualRecipient(user);
+
+    // El preview automático (count 42) habilita el gate — sin tildar ningún estado.
+    await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
+    await user.type(screen.getByLabelText(/nombre de la campaña/i), 'Recordatorio julio');
+
+    const createButton = screen.getByRole('button', { name: /crear campaña/i });
+    await waitFor(() => expect(createButton).toBeEnabled());
+
+    await user.click(createButton);
+    const dialog = await screen.findByRole('dialog', { name: /nueva campaña/i });
+    await user.click(within(dialog).getByRole('button', { name: /confirmar y crear/i }));
+
+    await waitFor(() =>
+      expect(createCampaign).toHaveBeenCalledWith({
+        name: 'Recordatorio julio',
+        templateRef: 'HX123',
+        templateName: 'Recordatorio de pago',
+        segment: { statuses: [] },
+        variablesMap: { '1': { source: 'name', value: undefined }, '2': { source: 'balanceDue', value: undefined } },
+        manualClientIds: ['c-1'],
+      }),
+    );
+    expect(onCampaignCreated).toHaveBeenCalledWith('camp-1');
+  });
+});
+
+describe('CC-19: el modal de confirmación refleja los destinatarios manuales (CONF-1)', () => {
+  it('muestra cuántos fueron agregados manualmente', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+    await selectTemplateAndMapVariables();
+    await addManualRecipient(user);
+    await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
+    await user.type(screen.getByLabelText(/nombre de la campaña/i), 'Recordatorio julio');
+
+    const createButton = screen.getByRole('button', { name: /crear campaña/i });
+    await waitFor(() => expect(createButton).toBeEnabled());
+    await user.click(createButton);
+
+    const dialog = await screen.findByRole('dialog', { name: /nueva campaña/i });
+    expect(within(dialog).getByText(/1.*manual/i)).toBeInTheDocument();
   });
 });

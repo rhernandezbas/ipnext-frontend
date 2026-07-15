@@ -11,8 +11,8 @@ vi.mock('@/hooks/useCustomers', () => ({ useClientList: () => useClientList() })
 import { CustomerPicker } from '@/components/molecules/CustomerPicker/CustomerPicker';
 
 const clients = [
-  { id: 'c-1', name: 'Juan García', email: 'juan@test.com', phone: '', status: 'active', balance: 0, category: '', tariffPlan: null, login: null, ipRanges: null, accessDevices: 0, createdAt: '' },
-  { id: 'c-2', name: 'María López', email: 'maria@test.com', phone: '', status: 'active', balance: 0, category: '', tariffPlan: null, login: null, ipRanges: null, accessDevices: 0, createdAt: '' },
+  { id: 'c-1', name: 'Juan García', email: 'juan@test.com', phone: '+5491111111111', status: 'active', balance: 0, category: '', tariffPlan: null, login: null, ipRanges: null, accessDevices: 0, createdAt: '' },
+  { id: 'c-2', name: 'María López', email: 'maria@test.com', phone: '+5492222222222', status: 'active', balance: 0, category: '', tariffPlan: null, login: null, ipRanges: null, accessDevices: 0, createdAt: '' },
 ];
 
 describe('CustomerPicker', () => {
@@ -29,7 +29,9 @@ describe('CustomerPicker', () => {
 
     const option = await screen.findByText('Juan García');
     fireEvent.click(option);
-    expect(onChange).toHaveBeenCalledWith('c-1', 'Juan García');
+    // manual-recipients-fe — onChange ahora lleva el objeto cliente como 3er arg
+    // (aditivo); los callers de 2 args lo ignoran.
+    expect(onChange).toHaveBeenCalledWith('c-1', 'Juan García', expect.objectContaining({ id: 'c-1' }));
   });
 
   it('renders the selected customer as a chip with a clear button', () => {
@@ -47,6 +49,31 @@ describe('CustomerPicker', () => {
   // service-transfer W4 — el modal de transferencia excluye al cliente ORIGEN.
   it('excludes the excludeId client from the results', async () => {
     render(<CustomerPicker value={null} valueName={null} onChange={onChange} excludeId="c-1" />);
+    fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'a' } });
+
+    await screen.findByText('María López');
+    expect(screen.queryByText('Juan García')).not.toBeInTheDocument();
+  });
+
+  // manual-recipients-fe — onChange gana un 3er arg OPCIONAL con el objeto
+  // cliente completo (para leer el teléfono en el chip del multi-select). Los
+  // callers viejos de 2 args lo ignoran; acá verificamos que llega.
+  it('passes the full client object as an optional 3rd onChange arg', async () => {
+    render(<CustomerPicker value={null} valueName={null} onChange={onChange} />);
+    fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'Juan' } });
+
+    fireEvent.click(await screen.findByText('Juan García'));
+    expect(onChange).toHaveBeenCalledWith(
+      'c-1',
+      'Juan García',
+      expect.objectContaining({ id: 'c-1', name: 'Juan García', phone: '+5491111111111' }),
+    );
+  });
+
+  // manual-recipients-fe — excludeIds (array) excluye MÚLTIPLES clientes (los
+  // ya agregados a la lista manual), aditivo junto al excludeId single.
+  it('excludes all excludeIds clients from the results', async () => {
+    render(<CustomerPicker value={null} valueName={null} onChange={onChange} excludeIds={['c-1']} />);
     fireEvent.change(screen.getByPlaceholderText(/buscar cliente/i), { target: { value: 'a' } });
 
     await screen.findByText('María López');

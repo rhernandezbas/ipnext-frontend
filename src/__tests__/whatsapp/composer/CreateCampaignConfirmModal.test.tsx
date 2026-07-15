@@ -35,6 +35,7 @@ function renderModal(
     campaignName: string;
     templateName: string;
     total: number;
+    manualCount: number;
     statusCounts: Record<string, number>;
     skipped: Skipped;
     onConfirm: () => void;
@@ -49,6 +50,7 @@ function renderModal(
       campaignName={props.campaignName ?? 'Recordatorio julio'}
       templateName={props.templateName ?? 'Recordatorio de pago'}
       total={props.total ?? 42}
+      manualCount={props.manualCount}
       statusCounts={props.statusCounts ?? { late: 30, blocked: 12 }}
       skipped={'skipped' in props ? props.skipped : NO_SKIPPED}
       onConfirm={onConfirm}
@@ -181,6 +183,28 @@ describe('CCM-10: focus-trap cíclico', () => {
     expect(cancel).toHaveFocus();
     fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
     expect(confirm).toHaveFocus();
+  });
+});
+
+// FIX 8 (fix wave) — `manualCount` es el largo CRUDO de la lista FE; `total` es
+// la unión dedup del BE (descuenta overlap/opt-out/inexistentes) → puede ser
+// MENOR que manualCount. El copy no debe contradecir ("2 clientes (incluye 3
+// agregados manualmente)"): usa "hasta N" para dejar claro que el total ya está
+// deduplicado/validado.
+describe('CONF-1: nota de destinatarios manuales (FIX 8 — copy no contradice el total)', () => {
+  it('con manualCount > total usa "hasta N" (el total ya está deduplicado)', () => {
+    renderModal({ total: 2, manualCount: 3 });
+    expect(screen.getByText(/incluye hasta 3 agregados manualmente/i)).toBeInTheDocument();
+  });
+
+  it('singular: "hasta 1 agregado manualmente"', () => {
+    renderModal({ total: 5, manualCount: 1 });
+    expect(screen.getByText(/incluye hasta 1 agregado manualmente/i)).toBeInTheDocument();
+  });
+
+  it('sin manuales (manualCount 0/omitido) no muestra la nota', () => {
+    renderModal();
+    expect(screen.queryByText(/agregad. manualmente/i)).not.toBeInTheDocument();
   });
 });
 

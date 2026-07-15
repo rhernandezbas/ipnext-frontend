@@ -1,0 +1,189 @@
+/*
+ * ManualRecipientsPicker.module.css — mismo lenguaje tokenizado que
+ * `CampaignComposer.module.css` (NO el de CustomerPicker, hex crudos fuera de
+ * convención). Todo por tokens `var(--*)`.
+ *
+ * Contraste calculado (WCAG 2.1, AA texto ≥4.5:1):
+ *  - .subtitle / .counter = --color-gray-600 (#495057) sobre el fondo REAL de la
+ *    página (AdminLayout .content = --color-gray-50 #f8f9fa) → 7.76:1. OJO (fix
+ *    wave FIX 1): --color-text-secondary (#6c757d) sobre ese mismo #f8f9fa da
+ *    4.45:1 y FALLA el 4.5:1 (texto 12px). El comentario anterior afirmaba
+ *    "sobre #ffffff → 4.84:1, pasa" — era FALSO: el fondo no es blanco.
+ *  - .chipName  = --color-text-primary (#212529) sobre chip bg --color-surface-hover
+ *    (#f0f0f5) → muy alto.
+ *  - .chipPhone = --color-gray-600 (#495057) sobre --color-surface-hover (#f0f0f5)
+ *    → ~7.2:1. --color-text-secondary (#6c757d) sobre ese mismo bg da 4.13:1 y FALLA.
+ *  - chip inválido: --badge-late-fg (#991b1b) sobre --badge-late-bg (#fee2e2) → ~7:1
+ *    (pairing de badge ya validado).
+ */
+
+/* FIX 7 — ahora es un <fieldset>: reset de sus defaults (border/margin/padding)
+   para conservar exactamente el mismo layout que tenía como <section>. */
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* <legend> (FIX 7) — reset del padding-inline default del legend. */
+.title {
+  margin: 0;
+  padding: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  /* FIX 1 — gray-600 (7.76:1 sobre el fondo real #f8f9fa); text-secondary fallaba (4.45:1). */
+  color: var(--color-gray-600);
+}
+
+.searchLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.counter {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  /* FIX 1 — gray-600 (7.76:1 sobre el fondo real #f8f9fa); text-secondary fallaba (4.45:1). */
+  color: var(--color-gray-600);
+}
+
+.chipList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  /* FIX 6 — con muchos chips (50+) la lista crecía sin tope y empujaba el campo
+     Nombre / botón Crear. Cap + scroll interno. La escala de spacing (4px base,
+     tope 48px) no llega a este alto → 12.5rem (=200px) como cap de layout
+     deliberado, en rem (no px crudo). */
+  max-height: 12.5rem;
+  overflow-y: auto;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-hover);
+  /* Motion: el chip entra desde abajo (origen físico) con ease-OUT (nunca
+     ease-in para entradas), 180ms. Ver @media reduced-motion abajo. */
+  animation: chipIn 180ms ease-out;
+}
+
+.chipInvalid {
+  border-color: var(--badge-late-fg);
+  background: var(--badge-late-bg);
+}
+
+.chipBody {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: var(--line-height-tight);
+}
+
+.chipName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* FIX 5 — ancho de truncado por CARACTERES (relativo, no px crudo). ~22ch
+     cubre nombres largos sin desbordar el chip. */
+  max-width: 22ch;
+}
+
+.chipPhone {
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-600);
+}
+
+.chipInvalid .chipName,
+.chipInvalid .chipPhone {
+  color: var(--badge-late-fg);
+}
+
+.chipInvalidTag {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--badge-late-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* Touch target ≥44px — el área clickeable es el botón entero, el SVG es chico. */
+.remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--space-11);
+  min-height: var(--space-11);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.remove:hover {
+  background: var(--color-gray-100);
+  color: var(--color-text-primary);
+}
+
+.remove:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.chipInvalid .remove {
+  color: var(--badge-late-fg);
+}
+
+.chipInvalid .remove:hover {
+  background: var(--color-danger-bg-hover);
+}
+
+.removeIcon {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+@keyframes chipIn {
+  from {
+    opacity: 0;
+    /* FIX 5 — 4px = --space-1. */
+    transform: translateY(var(--space-1)) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip {
+    animation: none;
+  }
+  .remove {
+    transition: none;
+  }
+}

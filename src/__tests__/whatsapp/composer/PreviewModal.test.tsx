@@ -78,6 +78,7 @@ function renderModal(
     segment: CampaignSegment;
     templateBody: string | undefined;
     variablesMap: CampaignVariableSpec;
+    manualCount: number;
   }> = {},
 ) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -96,6 +97,7 @@ function renderModal(
       segment={props.segment ?? SEGMENT}
       templateBody={templateBody}
       variablesMap={props.variablesMap ?? VARIABLES_MAP}
+      manualCount={props.manualCount}
     />,
     { wrapper },
   );
@@ -389,6 +391,68 @@ describe('FIX-1: no muestra el segmento anterior al reabrir (stale flash)', () =
     resolveB(DATA_B);
     expect(await screen.findByText('Cliente Beta')).toBeInTheDocument();
     expect(screen.queryByText('Cliente Alfa')).not.toBeInTheDocument();
+  });
+});
+
+// FIX-2 (fix wave) — la query de este modal (`useSegmentRecipients`) SOLO conoce
+// el segmento; el BE aún no extendió `/segment/recipients` con `manualClientIds`
+// (deuda documentada). Con `manualCount` mostramos un aviso claro (role=note).
+//
+// GATE (fix wave 2) — en una campaña solo-manual (segmento SIN criterio propio)
+// la query NO debe dispararse: el BE rechaza el segmento vacío con 400
+// UNFILTERED_SEGMENT (`ListSegmentRecipients` → `assertSegmentIsFiltered`), y el
+// operador vería un error rojo en un preview VÁLIDO. Se gatea `enabled` con
+// `hasSegmentCriteria(segment)` (predicado SOLO-segmento, NO `hasRecipients`).
+describe('FIX-2: destinatarios manuales + gate del segmento vacío', () => {
+  it('mixta (segmento CON criterio + manuales): tabla del segmento + aviso, sin error', async () => {
+    vi.mocked(listSegmentRecipients).mockResolvedValue(RECIPIENTS);
+    renderModal({ manualCount: 3 }); // SEGMENT = { statuses: ['late'] } tiene criterio
+
+    const note = await screen.findByRole('note');
+    expect(note).toHaveTextContent(/3/);
+    expect(note).toHaveTextContent(/manual/i);
+    // La tabla del segmento sí se muestra (hay criterio → la query corre).
+    expect(await screen.findByText('Juan Perez')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(listSegmentRecipients).toHaveBeenCalledWith(SEGMENT, 1, 20);
+  });
+
+  it('solo-manual (segmento VACÍO + manuales): NO dispara la query (evita el 400) y muestra sólo el aviso', async () => {
+    // El mock resolvería si se llamara — la aserción clave es que NO se llama.
+    vi.mocked(listSegmentRecipients).mockResolvedValue(EMPTY_RECIPIENTS);
+    renderModal({ manualCount: 2, segment: { statuses: [] } });
+
+    const note = await screen.findByRole('note');
+    expect(note).toHaveTextContent(/2/);
+    // La query NO corre con el segmento sin criterio → no hay 400.
+    expect(listSegmentRecipients).not.toHaveBeenCalled();
+    // Ni error, ni empty engañoso, ni tabla.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText(/sin destinatarios para este segmento/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('solo-segmento (segmento con criterio, sin manuales): tabla como hoy, sin aviso', async () => {
+    vi.mocked(listSegmentRecipients).mockResolvedValue(RECIPIENTS);
+    renderModal(); // manualCount default 0
+
+    expect(await screen.findByText('Juan Perez')).toBeInTheDocument();
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  });
+
+  it('sin manuales y total 0 (segmento con criterio): muestra el empty, sin aviso', async () => {
+    vi.mocked(listSegmentRecipients).mockResolvedValue(EMPTY_RECIPIENTS);
+    renderModal();
+
+    expect(await screen.findByText(/sin destinatarios para este segmento/i)).toBeInTheDocument();
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  });
+
+  it('error real del endpoint CON segmento con criterio: sigue mostrando role=alert', async () => {
+    vi.mocked(listSegmentRecipients).mockRejectedValue(new Error('fail'));
+    renderModal({ manualCount: 1 }); // SEGMENT tiene criterio → la query corre → error
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no se pudieron cargar/i);
   });
 });
 

@@ -114,6 +114,19 @@
   background: var(--badge-late-bg);
 }
 
+/* FIX 2 — aviso de destinatarios manuales. Acento izquierdo (--space-1 = 4px)
+   para leerse como info, no error. --color-gray-600 (#495057) sobre
+   --color-surface-hover (#f0f0f5) → ~7.2:1 (AA). */
+.manualNote {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border-left: var(--space-1) solid var(--color-primary);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+  background: var(--color-surface-hover);
+}
+
 .emptyResult {
   margin: 0;
   padding: var(--space-2) var(--space-3);
