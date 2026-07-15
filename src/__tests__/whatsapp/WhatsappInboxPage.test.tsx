@@ -16,11 +16,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/hooks/useWhatsapp');
 vi.mock('@/hooks/useMyPermissions');
+// messaging-bulk-inbox Change 2 — la page ahora pide el catálogo de campañas
+// (`useCampaigns`, gateado por `messaging.bulk`) para poblar el filtro de
+// campaña. Auto-mock: `setHooks` fija un default vacío (sin campañas → sin
+// filtro montado, cero interferencia con el resto de la suite).
+vi.mock('@/hooks/useBulkMessaging');
 
 import * as useWhatsappModule from '@/hooks/useWhatsapp';
 import * as useMyPermissionsModule from '@/hooks/useMyPermissions';
+import * as useBulkMessagingModule from '@/hooks/useBulkMessaging';
 import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 import WhatsappInboxPage from '@/pages/whatsapp/WhatsappInboxPage';
+import type { CampaignSummaryDto, PaginatedResult } from '@/types/messagingBulk';
 import type {
   PendingSend,
   WhatsappArea,
@@ -31,6 +38,29 @@ import type {
   WhatsappMessage,
   WhatsappPaginatedResult,
 } from '@/types/whatsapp';
+
+function campaign(over: Partial<CampaignSummaryDto> & { id: string; name: string }): CampaignSummaryDto {
+  return {
+    templateName: null,
+    status: 'done',
+    total: 0,
+    sentCount: 0,
+    failedCount: 0,
+    skippedCount: 0,
+    optedOutCount: 0,
+    createdAt: '2026-07-01T00:00:00.000Z',
+    startedAt: null,
+    finishedAt: null,
+    ...over,
+  };
+}
+
+function setCampaigns(campaigns: CampaignSummaryDto[]) {
+  const page: PaginatedResult<CampaignSummaryDto> = { data: campaigns, total: campaigns.length, page: 1, limit: 50 };
+  vi.mocked(useBulkMessagingModule.useCampaigns).mockReturnValue(
+    mockQuery<PaginatedResult<CampaignSummaryDto>>({ data: page, isLoading: false }),
+  );
+}
 
 const CONV_A: WhatsappConversationListItem = {
   id: 'conv-a',
@@ -217,6 +247,11 @@ function setHooks({
   );
   vi.mocked(useWhatsappModule.useMessagingAreas).mockReturnValue(
     mockQuery<WhatsappArea[]>({ data: [], isLoading: false }),
+  );
+  // messaging-bulk-inbox Change 2 — default vacío: sin campañas el filtro de
+  // campaña no se monta (cada test que lo necesite llama a `setCampaigns`).
+  vi.mocked(useBulkMessagingModule.useCampaigns).mockReturnValue(
+    mockQuery<PaginatedResult<CampaignSummaryDto>>({ data: undefined, isLoading: false }),
   );
 }
 
@@ -704,6 +739,94 @@ describe('WhatsappInboxPage — F1.5-C2 (ASIGNACIÓN): filtro Todas/Mías/Sin as
     await user.click(screen.getByRole('radio', { name: 'Todas' }));
 
     expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({});
+  });
+});
+
+describe('WhatsappInboxPage — Change 2 (BULK): filtro de campaña (Select propio, server-side)', () => {
+  const CAMPAIGNS = [
+    campaign({ id: 'camp-1', name: 'Recordatorio Julio' }),
+    campaign({ id: 'camp-2', name: 'Black Friday' }),
+  ];
+
+  it('sin campañas en el catálogo, NO monta el filtro de campaña (nada útil que filtrar)', () => {
+    renderPage();
+    expect(screen.queryByRole('combobox', { name: /campaña/i })).toBeNull();
+  });
+
+  it('con campañas, monta el filtro (combobox PROPIO, no <select> nativo) mostrando "Todas las campañas"', () => {
+    setCampaigns(CAMPAIGNS);
+    const { container } = renderPage();
+
+    const combobox = screen.getByRole('combobox', { name: /campaña/i });
+    expect(combobox).toHaveTextContent(/todas las campañas/i);
+    expect(combobox.tagName).toBe('BUTTON');
+    expect(container.querySelector('select')).toBeNull();
+  });
+
+  it('por default (sin elegir campaña) llama a useWhatsappConversations con {} — cero regresión', () => {
+    setCampaigns(CAMPAIGNS);
+    renderPage();
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenCalledWith({});
+  });
+
+  it('elegir una campaña pasa {campaignId} a useWhatsappConversations (filtro SERVER-SIDE)', async () => {
+    setCampaigns(CAMPAIGNS);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('combobox', { name: /campaña/i }));
+    await user.click(screen.getByRole('option', { name: 'Black Friday' }));
+
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ campaignId: 'camp-2' });
+  });
+
+  it('volver a "Todas las campañas" LIMPIA el filtro → {} (mismo cache entry que el estado inicial)', async () => {
+    setCampaigns(CAMPAIGNS);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('combobox', { name: /campaña/i }));
+    await user.click(screen.getByRole('option', { name: 'Recordatorio Julio' }));
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ campaignId: 'camp-1' });
+
+    await user.click(screen.getByRole('combobox', { name: /campaña/i }));
+    await user.click(screen.getByRole('option', { name: /todas las campañas/i }));
+
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({});
+  });
+
+  it('el filtro de campaña y el de asignación coexisten (ambos server-side en el mismo query)', async () => {
+    setCampaigns(CAMPAIGNS);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('radio', { name: 'Mías' }));
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ assignment: 'mine' });
+
+    await user.click(screen.getByRole('combobox', { name: /campaña/i }));
+    await user.click(screen.getByRole('option', { name: 'Black Friday' }));
+
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ assignment: 'mine', campaignId: 'camp-2' });
+  });
+});
+
+describe('WhatsappInboxPage — Change 2 (BULK): gate del catálogo de campañas por messaging.bulk', () => {
+  it('con messaging.bulk, useCampaigns se pide con enabled:true', () => {
+    renderPage();
+    expect(useBulkMessagingModule.useCampaigns).toHaveBeenCalledWith(expect.anything(), true);
+  });
+
+  it('sin messaging.bulk, useCampaigns se pide con enabled:false (no se pide el catálogo)', () => {
+    vi.mocked(useMyPermissionsModule.useMyPermissions).mockReturnValue({
+      permissions: [],
+      roles: [],
+      user: null,
+      isLoading: false,
+      isError: false,
+      can: () => false,
+    } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
+    renderPage();
+    expect(useBulkMessagingModule.useCampaigns).toHaveBeenCalledWith(expect.anything(), false);
   });
 });
 

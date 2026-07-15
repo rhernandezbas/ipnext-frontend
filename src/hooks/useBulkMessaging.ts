@@ -216,11 +216,22 @@ export function useCampaign(id: string, query: GetCampaignQuery = {}) {
   });
 }
 
-/** HIST-1 — historial paginado de campañas. Sin polling (refresco manual/on-mount, molde `useAssignableUsers`). */
-export function useCampaigns(query: PaginatedQuery) {
+/**
+ * HIST-1 — historial paginado de campañas. Sin polling (refresco manual/on-mount,
+ * molde `useAssignableUsers`).
+ *
+ * `enabled` (messaging-bulk-inbox Change 2) — el caller lo ata a un permiso
+ * (mismo patrón que `useTemplates(enabled)`): el filtro de campaña del inbox
+ * gatea este fetch a `messaging.bulk` (el endpoint `/messaging/bulk/campaigns`
+ * lo requiere; sin permiso sería un 403). Default `true` (cero regresión:
+ * Historial y cualquier caller previo que llame sin el 2do argumento sigue
+ * fetcheando igual que antes).
+ */
+export function useCampaigns(query: PaginatedQuery, enabled: boolean = true) {
   return useQuery({
     queryKey: bulkCampaignsKey(query),
     queryFn: () => api.listCampaigns(query),
+    enabled,
   });
 }
 

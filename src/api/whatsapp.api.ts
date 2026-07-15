@@ -41,6 +41,10 @@ export const listWhatsappConversations = (
   // server-side (mine|unassigned|all) — mismo criterio que page/limit, solo se
   // manda cuando viene definido (WAPI-1/2: sin query no manda params vacíos).
   if (query.assignment) params['assignment'] = query.assignment;
+  // messaging-bulk-inbox Change 2: 'campaignId' filtra server-side por campaña
+  // (JOIN Conversation×CampaignRecipient) — mismo criterio que assignment,
+  // solo se manda cuando viene definido.
+  if (query.campaignId) params['campaignId'] = query.campaignId;
 
   return axiosClient
     .get<WhatsappPaginatedResult<WhatsappConversationListItem>>(`${BASE}/conversations`, { params })

@@ -141,6 +141,38 @@ describe('WAPI-9 (messaging-inbox-assignment F1.5-C2): listWhatsappConversations
   });
 });
 
+describe('WAPI-14 (messaging-bulk-inbox Change 2): listWhatsappConversations con campaignId', () => {
+  it('con campaignId manda params.campaignId (filtro server-side por campaña)', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: PAGINATED });
+
+    await listWhatsappConversations({ campaignId: 'camp-1' });
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations', {
+      params: { campaignId: 'camp-1' },
+    });
+  });
+
+  it('combina campaignId con assignment y page/limit', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: PAGINATED });
+
+    await listWhatsappConversations({ campaignId: 'camp-1', assignment: 'mine', page: 2, limit: 20 });
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations', {
+      params: { campaignId: 'camp-1', assignment: 'mine', page: 2, limit: 20 },
+    });
+  });
+
+  it('sin campaignId no manda el param (cero regresión, mismo criterio que assignment)', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: PAGINATED });
+
+    await listWhatsappConversations({ assignment: 'mine' });
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations', {
+      params: { assignment: 'mine' },
+    });
+  });
+});
+
 describe('WAPI-3: getWhatsappConversation', () => {
   it('GETs /messaging/conversations/:id y devuelve el detalle flat (sin envelope)', async () => {
     vi.mocked(axiosClient.get).mockResolvedValue({ data: DETAIL });

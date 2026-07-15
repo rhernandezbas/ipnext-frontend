@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react';
 import { Input } from '@/components/atoms/Input/Input';
 import { ConversationListItem } from './ConversationListItem';
 import { ConversationAssignmentFilter } from './ConversationAssignmentFilter';
+import { ConversationCampaignFilter } from './ConversationCampaignFilter';
 import { Skeleton } from './Skeleton';
-import type { ConversationAssignment, WhatsappConversationListItem } from '@/types/whatsapp';
+import type { ConversationAssignment, WhatsappCampaignTag, WhatsappConversationListItem } from '@/types/whatsapp';
 import styles from './ConversationList.module.css';
 
 interface ConversationListProps {
@@ -20,6 +21,17 @@ interface ConversationListProps {
    */
   assignment?: ConversationAssignment;
   onAssignmentChange?: (next: ConversationAssignment) => void;
+  /**
+   * messaging-bulk-inbox Change 2 — filtro de campaña SERVER-SIDE (mismo molde
+   * que `assignment`: `WhatsappInboxPage` orquesta `useWhatsappConversations`
+   * con `campaignId` en el `query`). El catálogo (`campaigns`) viene de
+   * `useCampaigns`, gateado por `messaging.bulk`; cuando está vacío el filtro
+   * ni se monta (nada útil que filtrar). Opcionales con default para no romper
+   * los call sites/tests previos a esta tanda.
+   */
+  campaigns?: WhatsappCampaignTag[];
+  campaignId?: string;
+  onCampaignChange?: (next: string | undefined) => void;
 }
 
 const SKELETON_ROWS = 5;
@@ -53,6 +65,9 @@ export function ConversationList({
   onSelect,
   assignment = 'all',
   onAssignmentChange = () => {},
+  campaigns = [],
+  campaignId,
+  onCampaignChange = () => {},
 }: ConversationListProps) {
   const [search, setSearch] = useState('');
 
@@ -69,6 +84,11 @@ export function ConversationList({
     <div className={styles.panel}>
       <div className={styles.filterWrapper}>
         <ConversationAssignmentFilter value={assignment} onChange={onAssignmentChange} />
+        {/* messaging-bulk-inbox Change 2 — solo se monta si hay campañas en el
+            catálogo (sin ellas no hay nada que filtrar). */}
+        {campaigns.length > 0 && (
+          <ConversationCampaignFilter campaigns={campaigns} value={campaignId} onChange={onCampaignChange} />
+        )}
       </div>
 
       <div className={styles.searchWrapper}>

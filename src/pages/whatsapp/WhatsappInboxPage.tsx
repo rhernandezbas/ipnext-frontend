@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useWhatsappConversations,
@@ -14,6 +14,7 @@ import {
   whatsappMessagesKey,
 } from '@/hooks/useWhatsapp';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
+import { useCampaigns } from '@/hooks/useBulkMessaging';
 import { ConversationList } from './WhatsappInboxPage/components/ConversationList';
 import { MessageThread } from './WhatsappInboxPage/components/MessageThread';
 import { ClientContextPanel } from './WhatsappInboxPage/components/ClientContextPanel';
@@ -147,6 +148,20 @@ export default function WhatsappInboxPage() {
   const { data: assignableUsers = [] } = useAssignableUsers(canAssign);
   const { data: messagingAreas = [] } = useMessagingAreas(canAssign);
 
+  // messaging-bulk-inbox Change 2 (filtro de campaña): catálogo de PÁGINA
+  // (no por-conversación) que alimenta el `ConversationCampaignFilter` de la
+  // lista. Gateado por `messaging.bulk` (mismo criterio que los catálogos de
+  // asignación con `messaging.send`): sin ese permiso el endpoint
+  // `/messaging/bulk/campaigns` da 403, y de todos modos el filtro solo tiene
+  // sentido para quien conoce/opera campañas. El chip de campaña de la fila NO
+  // depende de esto (viene en el DTO de la lista, sin permiso extra).
+  const canBulk = can('messaging.bulk');
+  const { data: campaignsPage } = useCampaigns({ limit: 50 }, canBulk);
+  const campaigns = useMemo(
+    () => (campaignsPage?.data ?? []).map((c) => ({ id: c.id, name: c.name })),
+    [campaignsPage],
+  );
+
   /**
    * hallazgo MEDIUM #3 (review adversarial F1.5-C): `useSetConversationStatus`
    * exponía `isError`/`error`, pero acá se descartaban por completo — si el
@@ -201,6 +216,17 @@ export default function WhatsappInboxPage() {
    */
   function handleAssignmentChange(next: ConversationAssignment) {
     setQuery((q) => ({ ...q, assignment: next === 'all' ? undefined : next }));
+  }
+
+  /**
+   * messaging-bulk-inbox Change 2 — cambia el filtro server-side por campaña.
+   * `undefined` cuando se vuelve a "Todas las campañas": mismo criterio que
+   * `handleAssignmentChange` (React Query dropea las keys `undefined` al
+   * hashear, así `{campaignId: undefined}` colapsa al mismo cache entry que el
+   * estado inicial `{}` — cero regresión del wiring existente).
+   */
+  function handleCampaignChange(next: string | undefined) {
+    setQuery((q) => ({ ...q, campaignId: next }));
   }
 
   /**
@@ -262,6 +288,9 @@ export default function WhatsappInboxPage() {
           onSelect={setSelectedId}
           assignment={query.assignment ?? 'all'}
           onAssignmentChange={handleAssignmentChange}
+          campaigns={campaigns}
+          campaignId={query.campaignId}
+          onCampaignChange={handleCampaignChange}
         />
       </div>
 

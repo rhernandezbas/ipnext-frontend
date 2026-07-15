@@ -27,6 +27,18 @@ export interface WhatsappArea {
   color: string;
 }
 
+/**
+ * Etiqueta de campaña (messaging-bulk-inbox Change 2) — espejo del sub-DTO
+ * `campaigns[]` que el BE agrega a `ConversationListItemDto`: las campañas
+ * cuya audiencia incluye a ese cliente (JOIN Conversation×CampaignRecipient).
+ * Sin `color` (a diferencia de `WhatsappArea`): el chip de campaña deriva su
+ * color de un token dedicado, no de un hex por-campaña.
+ */
+export interface WhatsappCampaignTag {
+  id: string;
+  name: string;
+}
+
 export type ConversationAssignment = 'all' | 'mine' | 'unassigned';
 
 export interface WhatsappConversationListItem {
@@ -47,6 +59,15 @@ export interface WhatsappConversationListItem {
    */
   assignee?: WhatsappAssignee | null;
   area?: WhatsappArea | null;
+  /**
+   * Aditivo (messaging-bulk-inbox Change 2) — campañas cuya audiencia incluye
+   * a este cliente. El BE lo manda SIEMPRE (array vacío `[]` cuando no hay
+   * ninguna, nunca `undefined`); opcional acá — mismo criterio defensivo que
+   * `assignee`/`area` — para no romper los fixtures previos a esta tanda, que
+   * construyen el DTO sin este campo. El FE lo consume con
+   * `conversation.campaigns?.length` (mismo patrón falsy que `attachments`).
+   */
+  campaigns?: WhatsappCampaignTag[];
 }
 
 export interface WhatsappClientContextClient {
@@ -277,6 +298,13 @@ export interface WhatsappPaginatedQuery {
   limit?: number;
   /** messaging-inbox-assignment F1.5-C2 — filtro server-side (LIST-1 enmendado). */
   assignment?: ConversationAssignment;
+  /**
+   * messaging-bulk-inbox Change 2 — filtro server-side por campaña
+   * (`GET /messaging/conversations?campaignId=<id>`, JOIN Conversation×
+   * CampaignRecipient). Mismo criterio que `assignment`: solo se manda cuando
+   * viene definido (ausente = "Todas las campañas").
+   */
+  campaignId?: string;
 }
 
 export interface WhatsappPaginatedResult<T> {

@@ -117,6 +117,7 @@
 /* messaging-inbox-assignment F1.5-C2 — 3ra fila condicional (agente + área). */
 .metaRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   margin-top: 2px;
@@ -166,4 +167,46 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
+}
+
+/*
+ * messaging-bulk-inbox Change 2 — chip de campaña. SUPERFICIE PROPIA: fondo
+ * dedicado `--color-campaign-bg` + texto `--color-campaign-fg`, así el
+ * contraste (7.15:1, ConversationListItem.contrast.test.tsx) es
+ * determinístico sin importar el estado de la fila (surface / surface-hover /
+ * seleccionada). El nombre textual "Campaña: {name}" es el indicador
+ * accesible; el color es refuerzo, nunca el único canal. Tope de ancho
+ * (max-width + ellipsis) para que un nombre largo no empuje el layout (mismo
+ * criterio que `.areaName`).
+ */
+.campaignChip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 160px;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-campaign-bg);
+  /* border con el fg del chip: la afordancia de pill se mantiene incluso cuando
+     la fila está seleccionada (mismo hex de fondo que .button.selected). */
+  border: 1px solid var(--color-campaign-fg);
+}
+
+.campaignName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-campaign-fg);
+}
+
+.campaignMore {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-campaign-fg);
 }

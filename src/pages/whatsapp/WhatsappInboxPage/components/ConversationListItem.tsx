@@ -30,6 +30,15 @@ export function ConversationListItem({ conversation, selected, onClick }: Conver
   const variant = CONVERSATION_STATUS_VARIANT[conversation.status] ?? 'inactive';
   const label = CONVERSATION_STATUS_LABEL[conversation.status] ?? conversation.status;
 
+  // messaging-bulk-inbox Change 2 — chip de campaña. El BE manda `campaigns`
+  // como array (posiblemente vacío o con >1); se muestra la PRIMERA (el orden
+  // lo decide el BE — el DTO no trae timestamp para elegir "la más reciente"
+  // en el FE) + un contador "+N" del resto. Chip de superficie propia (tokens
+  // dedicados, contraste verificado en ConversationListItem.contrast.test.tsx).
+  const campaigns = conversation.campaigns ?? [];
+  const primaryCampaign = campaigns[0] ?? null;
+  const extraCampaigns = Math.max(0, campaigns.length - 1);
+
   return (
     <li className={styles.item}>
       <button
@@ -80,7 +89,7 @@ export function ConversationListItem({ conversation, selected, onClick }: Conver
            * largo NO empuje el layout de la fila — mismo criterio que ya
            * aplica `.assigneeName`.
            */}
-          {(conversation.assignee || conversation.area) && (
+          {(conversation.assignee || conversation.area || primaryCampaign) && (
             <span className={styles.metaRow}>
               {conversation.assignee && (
                 <span className={styles.assigneeName}>{conversation.assignee.name}</span>
@@ -94,6 +103,26 @@ export function ConversationListItem({ conversation, selected, onClick }: Conver
                     data-testid="area-dot"
                   />
                   <span className={styles.areaName}>{conversation.area.name}</span>
+                </span>
+              )}
+              {/*
+               * messaging-bulk-inbox Change 2 — chip de campaña. El nombre
+               * textual ("Campaña: {name}") es el indicador accesible (NUNCA
+               * solo-color); el color del chip es un refuerzo. El "+N" del
+               * resto lleva su propio `aria-label` para no ser un "+2" críptico.
+               */}
+              {primaryCampaign && (
+                <span className={styles.campaignChip} data-testid="campaign-chip">
+                  <span className={styles.campaignName}>Campaña: {primaryCampaign.name}</span>
+                  {extraCampaigns > 0 && (
+                    <span
+                      className={styles.campaignMore}
+                      data-testid="campaign-more"
+                      aria-label={`y ${extraCampaigns} ${extraCampaigns === 1 ? 'campaña' : 'campañas'} más`}
+                    >
+                      +{extraCampaigns}
+                    </span>
+                  )}
                 </span>
               )}
             </span>

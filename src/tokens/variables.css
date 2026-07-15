@@ -170,4 +170,17 @@
   --color-note-bg: #fef3c7;
   --color-note-fg: #78350f;
   --color-note-accent: #b45309;
+
+  /* ------------------------------------------------------------------ */
+  /* Campaign chip (messaging-bulk-inbox Change 2) — etiqueta de campaña */
+  /* en la fila del inbox. Azul "campaña" DEDICADO (mismo criterio que    */
+  /* --badge-paused-* / --color-note-*: no reusar un token de status para */
+  /* no mentir semánticamente, aunque comparta hex con --badge-active-*). */
+  /* SUPERFICIE PROPIA: el texto se apoya en --color-campaign-bg, nunca en */
+  /* el fondo variable de la fila. Contraste verificado WCAG 2.1:          */
+  /* #1e40af sobre #dbeafe = 7.15:1 (>=4.5:1). Ver                          */
+  /* ConversationListItem.contrast.test.tsx.                               */
+  /* ------------------------------------------------------------------ */
+  --color-campaign-bg: #dbeafe;
+  --color-campaign-fg: #1e40af;
 }

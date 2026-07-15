@@ -149,6 +149,90 @@ describe('ConversationListItem — assignee/area (messaging-inbox-assignment F1.
   });
 });
 
+describe('ConversationListItem — chip de campaña (messaging-bulk-inbox Change 2)', () => {
+  it('con campaigns no vacío, muestra el chip "Campaña: {name}"', () => {
+    render(
+      <ConversationListItem
+        conversation={conv({ campaigns: [{ id: 'c1', name: 'Recordatorio Julio' }] })}
+        selected={false}
+        onClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Campaña: Recordatorio Julio')).toBeInTheDocument();
+  });
+
+  it('el nombre textual está presente (indicador NO-solo-color: la etiqueta lleva el texto de la campaña)', () => {
+    render(
+      <ConversationListItem
+        conversation={conv({ campaigns: [{ id: 'c1', name: 'Black Friday' }] })}
+        selected={false}
+        onClick={vi.fn()}
+      />,
+    );
+    const chip = screen.getByTestId('campaign-chip');
+    expect(chip).toHaveTextContent(/campaña:\s*black friday/i);
+  });
+
+  it('con campaigns vacío ([]), no muestra ningún chip de campaña', () => {
+    render(<ConversationListItem conversation={conv({ campaigns: [] })} selected={false} onClick={vi.fn()} />);
+    expect(screen.queryByTestId('campaign-chip')).toBeNull();
+    expect(screen.queryByText(/campaña:/i)).toBeNull();
+  });
+
+  it('sin el campo campaigns (undefined — fixture previo a esta tanda), no crashea ni muestra chip', () => {
+    render(<ConversationListItem conversation={conv()} selected={false} onClick={vi.fn()} />);
+    expect(screen.getByRole('button')).toBeInTheDocument();
+    expect(screen.queryByTestId('campaign-chip')).toBeNull();
+  });
+
+  it('con >1 campaña, muestra la primera + "+N" (N = resto), sin listar todas', () => {
+    render(
+      <ConversationListItem
+        conversation={conv({
+          campaigns: [
+            { id: 'c1', name: 'Campaña Uno' },
+            { id: 'c2', name: 'Campaña Dos' },
+            { id: 'c3', name: 'Campaña Tres' },
+          ],
+        })}
+        selected={false}
+        onClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Campaña: Campaña Uno')).toBeInTheDocument();
+    expect(screen.getByTestId('campaign-more')).toHaveTextContent('+2');
+    // no lista las otras por nombre completo
+    expect(screen.queryByText('Campaña: Campaña Dos')).toBeNull();
+  });
+
+  it('con exactamente 1 campaña, NO muestra el "+N"', () => {
+    render(
+      <ConversationListItem
+        conversation={conv({ campaigns: [{ id: 'c1', name: 'Única' }] })}
+        selected={false}
+        onClick={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId('campaign-more')).toBeNull();
+  });
+
+  it('el "+N" expone un nombre accesible (no un "+2" críptico solo visual)', () => {
+    render(
+      <ConversationListItem
+        conversation={conv({
+          campaigns: [
+            { id: 'c1', name: 'Campaña Uno' },
+            { id: 'c2', name: 'Campaña Dos' },
+          ],
+        })}
+        selected={false}
+        onClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('campaign-more')).toHaveAccessibleName(/1 campaña más/i);
+  });
+});
+
 describe('ConversationListItem — selección (design §7: background-color, sin transform)', () => {
   it('marca el item seleccionado con aria-current', () => {
     render(<ConversationListItem conversation={conv()} selected onClick={vi.fn()} />);
