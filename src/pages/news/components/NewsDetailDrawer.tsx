@@ -1,6 +1,9 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatDateTimeShort } from '@/utils/formatDate';
+import { useArchiveNewsPost } from '@/hooks/useNews';
+import { useConfirm } from '@/context/ConfirmContext';
+import { Can } from '@/components/auth/Can';
 import type { NewsPost } from '@/types/news';
 import styles from './NewsDetailDrawer.module.css';
 
@@ -24,6 +27,8 @@ interface NewsDetailDrawerProps {
   onClose: () => void;
   /** Called exactly once, on mount, when `post.read` is false. */
   onMarkRead: (id: string) => void;
+  /** news.manage review fix (M3): opens NewsPostModal in edit mode with this post. */
+  onEdit: (post: NewsPost) => void;
 }
 
 /**
@@ -33,13 +38,45 @@ interface NewsDetailDrawerProps {
  * guard de mark-read— contamina entre noticias distintas). Body renders as
  * plain `white-space: pre-wrap` text — React already escapes it, no HTML is
  * ever interpreted.
+ *
+ * Review fix M3: `NewsPostModal` (edit) and `useArchiveNewsPost` existed but
+ * were never wired to any trigger — dead code, feature unreachable despite
+ * BE support + spec BD-5 ("creación/edición"). "Editar"/"Archivar" live here
+ * (gated `news.manage`), acting on the drawer's own post snapshot.
  */
-export function NewsDetailDrawer({ post, onClose, onMarkRead }: NewsDetailDrawerProps) {
+export function NewsDetailDrawer({ post, onClose, onMarkRead, onEdit }: NewsDetailDrawerProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const markedRef = useRef(false);
   const titleId = useId();
+
+  const archiveMutation = useArchiveNewsPost();
+  const confirm = useConfirm();
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const isArchived = !!post.archivedAt;
+
+  async function handleArchive() {
+    const nextArchived = !isArchived;
+    const ok = await confirm({
+      message: nextArchived
+        ? `¿Archivar la noticia "${post.title}"? Deja de verse en el tablón activo.`
+        : `¿Restaurar la noticia "${post.title}" al tablón activo?`,
+      tone: nextArchived ? 'danger' : 'default',
+      confirmLabel: nextArchived ? 'Archivar' : 'Restaurar',
+    });
+    if (!ok) return;
+    setFeedback(null);
+    try {
+      await archiveMutation.mutateAsync({ id: post.id, archived: nextArchived });
+      setFeedback({
+        type: 'success',
+        text: nextArchived ? 'Noticia archivada.' : 'Noticia restaurada al tablón activo.',
+      });
+    } catch {
+      setFeedback({ type: 'error', text: 'No se pudo archivar la noticia. Intentá de nuevo.' });
+    }
+  }
 
   // Mark-read: fires once per mount (guarded), only for an unread post. The
   // parent keys this component by post.id, so a NEW post always gets a fresh
@@ -139,6 +176,30 @@ export function NewsDetailDrawer({ post, onClose, onMarkRead }: NewsDetailDrawer
           <span aria-hidden="true">·</span>
           <span>{formatDateTimeShort(post.publishedAt)}</span>
         </div>
+
+        <Can permission="news.manage">
+          <div className={styles.manageActions}>
+            <button type="button" className={styles.actionBtn} onClick={() => onEdit(post)}>
+              Editar
+            </button>
+            <button
+              type="button"
+              className={`${styles.actionBtn} ${isArchived ? '' : styles.actionBtnDanger}`}
+              onClick={handleArchive}
+              disabled={archiveMutation.isPending}
+            >
+              {archiveMutation.isPending ? 'Guardando…' : isArchived ? 'Desarchivar' : 'Archivar'}
+            </button>
+          </div>
+          {feedback && (
+            <p
+              role={feedback.type === 'error' ? 'alert' : 'status'}
+              className={feedback.type === 'error' ? styles.actionFeedbackError : styles.actionFeedbackSuccess}
+            >
+              {feedback.text}
+            </p>
+          )}
+        </Can>
 
         <p className={styles.body}>{post.body}</p>
       </div>

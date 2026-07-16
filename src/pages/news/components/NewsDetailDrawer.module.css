@@ -1,6 +1,11 @@
 .overlay {
   position: fixed;
   inset: 0;
+  /* L2 review — no `--color-scrim`/overlay token exists in tokens/variables.css;
+     this raw rgba is the house-wide convention for modal/drawer backdrops
+     (ConfirmModal, NewsPostModal, NewsCategoriesBody, ImportCsvModal, etc. all
+     use rgba(15,23,42, .4-.5)) — documented here rather than introducing a
+     one-off token unilaterally. */
   background: rgba(15, 23, 42, 0.45);
   display: flex;
   justify-content: flex-end;
@@ -53,8 +58,8 @@
 }
 
 .categoryDot {
-  width: 8px;
-  height: 8px;
+  width: var(--space-2); /* 8px */
+  height: var(--space-2);
   border-radius: var(--radius-full);
   flex: 0 0 auto;
 }
@@ -110,6 +115,69 @@
 .author {
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
+}
+
+/* M3 review fix — Editar/Archivar (news.manage). */
+.manageActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.actionBtn {
+  min-height: var(--space-9); /* 36px */
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.actionBtn:hover:not(:disabled) {
+  background: var(--color-gray-100);
+}
+
+.actionBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.actionBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.actionBtnDanger {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.actionBtnDanger:hover:not(:disabled) {
+  background: var(--color-danger-bg-hover);
+}
+
+.actionFeedbackSuccess,
+.actionFeedbackError {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+.actionFeedbackSuccess {
+  background: var(--color-success-bg);
+  border: 1px solid var(--color-success-strong);
+  color: var(--color-success-strong);
+}
+
+.actionFeedbackError {
+  background: var(--color-danger-bg-hover);
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
 }
 
 .body {

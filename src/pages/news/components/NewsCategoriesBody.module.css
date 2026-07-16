@@ -59,6 +59,8 @@
 
 .swatch {
   display: inline-block;
+  /* L2 review — 18px has no exact match on the --space-N scale (16/20px
+     neighbors), left as a literal rather than forcing an inexact token. */
   width: 18px;
   height: 18px;
   border-radius: var(--radius-full);
@@ -129,6 +131,8 @@
 .overlay {
   position: fixed;
   inset: 0;
+  /* L2 review — no `--color-scrim` token exists; raw rgba matches the
+     house-wide backdrop convention (ConfirmModal, NewsPostModal, etc). */
   background: rgba(15, 23, 42, 0.5);
   display: flex;
   align-items: center;

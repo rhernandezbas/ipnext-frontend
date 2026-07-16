@@ -8,17 +8,21 @@ interface NewsCardProps {
 }
 
 /**
- * NewsCard (internal-news FE apply, NEWS-FE-BD-2) — tablón item. Native
- * <button> for free click + keyboard (Enter/Space) activation and a real
- * focus-visible ring, instead of a div+onClick+tabIndex reimplementation.
+ * NewsCard (internal-news FE apply, NEWS-FE-BD-2 — review fix M2) — tablón
+ * item. A `<button>` cannot legally wrap flow content like `<h3>`/`<p>`
+ * (phrasing-content-only children per the HTML spec) — screen readers then
+ * collapse the whole card to one accessible name and the h3 stops being a
+ * navigable heading landmark. Fix: `<article>` root with a REAL `<h3>`
+ * heading, and the click/keyboard trigger is a `<button>` scoped to just the
+ * title text, stretched over the full card via `::after` (the classic
+ * "stretched link" card pattern — see NewsCard.module.css `.titleButton`).
+ * Net result: heading navigable by SR, short accessible name (the title
+ * only, not the whole card), full-card click/touch target, real
+ * focus-visible ring on the card boundary.
  */
 export function NewsCard({ post, onOpen }: NewsCardProps) {
   return (
-    <button
-      type="button"
-      className={`${styles.card} ${!post.read ? styles.cardUnread : ''}`}
-      onClick={() => onOpen(post.id)}
-    >
+    <article className={`${styles.card} ${!post.read ? styles.cardUnread : ''}`}>
       <div className={styles.topRow}>
         {/*
           The category color is arbitrary BE data (any hex a news.manage user
@@ -45,7 +49,11 @@ export function NewsCard({ post, onOpen }: NewsCardProps) {
         {!post.read && <span className={styles.unreadDot} aria-label="No leída" />}
       </div>
 
-      <h3 className={styles.title}>{post.title}</h3>
+      <h3 className={styles.title}>
+        <button type="button" className={styles.titleButton} onClick={() => onOpen(post.id)}>
+          {post.title}
+        </button>
+      </h3>
       <p className={styles.excerpt}>{post.body}</p>
 
       <div className={styles.metaRow}>
@@ -53,6 +61,6 @@ export function NewsCard({ post, onOpen }: NewsCardProps) {
         <span className={styles.dot} aria-hidden="true">·</span>
         <span className={styles.date}>{formatRelative(post.publishedAt)}</span>
       </div>
-    </button>
+    </article>
   );
 }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useNewsList, useNewsCategories, useMarkNewsRead } from '@/hooks/useNews';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { Can } from '@/components/auth/Can';
+import type { NewsPost } from '@/types/news';
 import { NewsCard } from './components/NewsCard';
 import { NewsDetailDrawer } from './components/NewsDetailDrawer';
 import { NewsPostModal } from './components/NewsPostModal';
@@ -23,8 +24,15 @@ export default function NewsBoardPage() {
   const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [archived, setArchived] = useState(false);
-  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  // M1 review fix: a LOCAL snapshot of the opened post, taken once at open
+  // time — NOT derived from `items` on every render. Under `unreadOnly`,
+  // mark-read invalidates ['news'] and the refetched list drops the (now
+  // read) post; deriving `selectedPost = items.find(...)` would then go
+  // null and unmount the drawer out from under the user mid-read. The
+  // snapshot stays stable until the user explicitly closes it.
+  const [openPost, setOpenPost] = useState<NewsPost | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingPost, setEditingPost] = useState<NewsPost | null>(null);
 
   const filters = useMemo(
     () => ({ categoryId, unreadOnly, archived: canManage ? archived : false }),
@@ -36,14 +44,19 @@ export default function NewsBoardPage() {
   const markRead = useMarkNewsRead();
 
   const items = data?.items ?? [];
-  const selectedPost = items.find((p) => p.id === selectedPostId) ?? null;
 
   function handleOpen(id: string) {
-    setSelectedPostId(id);
+    const post = items.find((p) => p.id === id);
+    if (post) setOpenPost(post);
   }
 
   function handleMarkRead(id: string) {
     markRead.mutate(id);
+  }
+
+  function handleEdit(post: NewsPost) {
+    setEditingPost(post);
+    setOpenPost(null);
   }
 
   return (
@@ -143,17 +156,25 @@ export default function NewsBoardPage() {
         </div>
       )}
 
-      {selectedPost && (
+      {openPost && (
         <NewsDetailDrawer
-          key={selectedPost.id}
-          post={selectedPost}
-          onClose={() => setSelectedPostId(null)}
+          key={openPost.id}
+          post={openPost}
+          onClose={() => setOpenPost(null)}
           onMarkRead={handleMarkRead}
+          onEdit={handleEdit}
         />
       )}
 
-      {showCreateModal && (
-        <NewsPostModal categories={categories} onClose={() => setShowCreateModal(false)} />
+      {(showCreateModal || editingPost) && (
+        <NewsPostModal
+          categories={categories}
+          initial={editingPost ?? undefined}
+          onClose={() => {
+            setShowCreateModal(false);
+            setEditingPost(null);
+          }}
+        />
       )}
     </div>
   );

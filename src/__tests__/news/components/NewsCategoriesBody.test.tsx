@@ -110,4 +110,45 @@ describe('NewsCategoriesBody — CRUD (NEWS-FE-CAT-1)', () => {
     expect(await screen.findByText(/tiene noticias asociadas/i)).toBeInTheDocument();
     expect(screen.getByText('Comercial')).toBeInTheDocument();
   });
+
+  it('maps a 404 NEWS_CATEGORY_NOT_FOUND on update to a specific message (L3), modal stays open', async () => {
+    const user = userEvent.setup();
+    const { update } = setupMutations();
+    update.mutateAsync.mockRejectedValue({
+      response: { status: 404, data: { code: 'NEWS_CATEGORY_NOT_FOUND' } },
+    });
+    render(<NewsCategoriesBody />);
+
+    const row = screen.getByText('Comercial').closest('tr')!;
+    const editBtn = Array.from(row.querySelectorAll('button')).find((b) => /editar/i.test(b.textContent ?? '')) as HTMLElement;
+    await user.click(editBtn);
+    await user.click(screen.getByRole('button', { name: /^guardar$/i }));
+
+    expect(await screen.findByText(/ya no existe/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/nombre/i)).toBeInTheDocument();
+  });
+});
+
+describe('NewsCategoryModal — accessible shell (L1)', () => {
+  it('closes on Escape, same as NewsPostModal', async () => {
+    const user = userEvent.setup();
+    render(<NewsCategoriesBody />);
+
+    await user.click(screen.getByRole('button', { name: /nueva categoría/i }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('renders via a portal (dialog is a direct child of document.body, not nested under the page markup)', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<NewsCategoriesBody />);
+
+    await user.click(screen.getByRole('button', { name: /nueva categoría/i }));
+    const dialog = screen.getByRole('dialog');
+
+    expect(container.contains(dialog)).toBe(false);
+    expect(document.body.contains(dialog)).toBe(true);
+  });
 });

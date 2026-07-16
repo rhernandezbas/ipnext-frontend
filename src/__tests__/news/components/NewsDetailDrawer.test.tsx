@@ -1,8 +1,30 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi } from 'vitest';
-import { NewsDetailDrawer } from '@/pages/news/components/NewsDetailDrawer';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { NewsPost } from '@/types/news';
+
+vi.mock('@/hooks/useNews', () => ({
+  useArchiveNewsPost: vi.fn(),
+}));
+
+import { useArchiveNewsPost } from '@/hooks/useNews';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
+import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
+import { NewsDetailDrawer } from '@/pages/news/components/NewsDetailDrawer';
+
+const mockUseArchive = useArchiveNewsPost as unknown as ReturnType<typeof vi.fn>;
+
+function mockPerms(overrides: Partial<UseMyPermissionsResult>) {
+  const base: UseMyPermissionsResult = {
+    user: null,
+    roles: [],
+    permissions: ['news.read', 'news.manage'],
+    isLoading: false,
+    isError: false,
+    can: () => true,
+  };
+  vi.mocked(useMyPermissions).mockReturnValue({ ...base, ...overrides });
+}
 
 function makePost(over: Partial<NewsPost> = {}): NewsPost {
   return {
@@ -22,9 +44,27 @@ function makePost(over: Partial<NewsPost> = {}): NewsPost {
   };
 }
 
+function renderDrawer(props: Partial<Parameters<typeof NewsDetailDrawer>[0]> = {}) {
+  return render(
+    <NewsDetailDrawer
+      post={makePost()}
+      onClose={vi.fn()}
+      onMarkRead={vi.fn()}
+      onEdit={vi.fn()}
+      {...props}
+    />,
+  );
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockPerms({});
+  mockUseArchive.mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(makePost()), isPending: false });
+});
+
 describe('NewsDetailDrawer', () => {
   it('renders the full body as plain pre-wrap text, WITHOUT interpreting HTML (NEWS-FE-BD-3)', () => {
-    render(<NewsDetailDrawer post={makePost()} onClose={vi.fn()} onMarkRead={vi.fn()} />);
+    renderDrawer();
     // The raw "<b>" tag text must be visible as literal text, not rendered as a <b> element.
     expect(screen.getByText(/<b>HTML crudo<\/b>/)).toBeInTheDocument();
     expect(screen.queryByRole('strong')).not.toBeInTheDocument();
@@ -32,19 +72,19 @@ describe('NewsDetailDrawer', () => {
 
   it('calls onMarkRead exactly once when opening an UNREAD post', () => {
     const onMarkRead = vi.fn();
-    render(<NewsDetailDrawer post={makePost({ id: 'post-9', read: false })} onClose={vi.fn()} onMarkRead={onMarkRead} />);
+    renderDrawer({ post: makePost({ id: 'post-9', read: false }), onMarkRead });
     expect(onMarkRead).toHaveBeenCalledTimes(1);
     expect(onMarkRead).toHaveBeenCalledWith('post-9');
   });
 
   it('does NOT call onMarkRead when opening an already-READ post', () => {
     const onMarkRead = vi.fn();
-    render(<NewsDetailDrawer post={makePost({ read: true })} onClose={vi.fn()} onMarkRead={onMarkRead} />);
+    renderDrawer({ post: makePost({ read: true }), onMarkRead });
     expect(onMarkRead).not.toHaveBeenCalled();
   });
 
   it('is an accessible dialog: role=dialog, aria-modal, aria-labelledby pointing to the title', () => {
-    render(<NewsDetailDrawer post={makePost()} onClose={vi.fn()} onMarkRead={vi.fn()} />);
+    renderDrawer();
     const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveAttribute('aria-modal', 'true');
     const labelledBy = dialog.getAttribute('aria-labelledby');
@@ -55,7 +95,7 @@ describe('NewsDetailDrawer', () => {
   it('closes on Escape', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<NewsDetailDrawer post={makePost()} onClose={onClose} onMarkRead={vi.fn()} />);
+    renderDrawer({ onClose });
     await user.keyboard('{Escape}');
     expect(onClose).toHaveBeenCalled();
   });
@@ -63,16 +103,93 @@ describe('NewsDetailDrawer', () => {
   it('closes when the close button is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<NewsDetailDrawer post={makePost()} onClose={onClose} onMarkRead={vi.fn()} />);
+    renderDrawer({ onClose });
     await user.click(screen.getByRole('button', { name: /cerrar/i }));
     expect(onClose).toHaveBeenCalled();
   });
 
   it('renders author + AR-formatted publish date and category name', () => {
-    render(<NewsDetailDrawer post={makePost()} onClose={vi.fn()} onMarkRead={vi.fn()} />);
+    renderDrawer();
     expect(screen.getByText(/Ana Pérez/)).toBeInTheDocument();
     expect(screen.getByText('General')).toBeInTheDocument();
     // formatDateTimeShort('2026-06-01T15:30:00.000Z') → AR (UTC-3) = 01 jun 2026 - 12:30
     expect(screen.getByText(/01 jun 2026 - 12:30/)).toBeInTheDocument();
+  });
+});
+
+describe('NewsDetailDrawer — manage actions (M3: editar/archivar wiring)', () => {
+  it('shows "Editar" and "Archivar" for a news.manage user', () => {
+    renderDrawer();
+    expect(screen.getByRole('button', { name: /^editar$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^archivar$/i })).toBeInTheDocument();
+  });
+
+  it('hides "Editar" and "Archivar" WITHOUT news.manage', () => {
+    mockPerms({ permissions: ['news.read'], can: (p) => (Array.isArray(p) ? p[0] === 'news.read' : p === 'news.read') });
+    renderDrawer();
+    expect(screen.queryByRole('button', { name: /^editar$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^archivar$/i })).not.toBeInTheDocument();
+  });
+
+  it('"Editar" calls onEdit with the current (snapshot) post', async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    const post = makePost({ id: 'post-edit' });
+    renderDrawer({ post, onEdit });
+
+    await user.click(screen.getByRole('button', { name: /^editar$/i }));
+
+    expect(onEdit).toHaveBeenCalledWith(post);
+  });
+
+  it('"Archivar" confirms, then calls useArchiveNewsPost with {id, archived:true} and shows visible success feedback', async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue(makePost({ archivedAt: '2026-07-16T00:00:00.000Z' }));
+    mockUseArchive.mockReturnValue({ mutateAsync, isPending: false });
+    renderDrawer({ post: makePost({ id: 'post-arch', archivedAt: null }) });
+
+    await user.click(screen.getByRole('button', { name: /^archivar$/i }));
+
+    expect(mutateAsync).toHaveBeenCalledWith({ id: 'post-arch', archived: true });
+    expect(await screen.findByRole('status')).toHaveTextContent(/archivad/i);
+  });
+
+  it('an ALREADY-archived post shows "Desarchivar" and calls the mutation with archived:false', async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue(makePost());
+    mockUseArchive.mockReturnValue({ mutateAsync, isPending: false });
+    renderDrawer({ post: makePost({ id: 'post-arch-2', archivedAt: '2026-07-01T00:00:00.000Z' }) });
+
+    const btn = screen.getByRole('button', { name: /desarchivar/i });
+    await user.click(btn);
+
+    expect(mutateAsync).toHaveBeenCalledWith({ id: 'post-arch-2', archived: false });
+  });
+
+  it('shows a visible error and keeps the drawer open when archiving fails', async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockRejectedValue(new Error('network'));
+    mockUseArchive.mockReturnValue({ mutateAsync, isPending: false });
+    const onClose = vi.fn();
+    renderDrawer({ onClose });
+
+    await user.click(screen.getByRole('button', { name: /^archivar$/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no se pudo/i);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('does NOT archive when the confirmation is declined', async () => {
+    const { useConfirm } = await import('@/context/ConfirmContext');
+    vi.mocked(useConfirm).mockReturnValue(vi.fn().mockResolvedValue(false));
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn();
+    mockUseArchive.mockReturnValue({ mutateAsync, isPending: false });
+    renderDrawer();
+
+    await user.click(screen.getByRole('button', { name: /^archivar$/i }));
+
+    expect(mutateAsync).not.toHaveBeenCalled();
   });
 });

@@ -10,18 +10,22 @@ vi.mock('@/hooks/useNews', () => ({
   useNewsList: vi.fn(),
   useNewsCategories: vi.fn(),
   useMarkNewsRead: vi.fn(),
+  // NewsDetailDrawer (rendered by this page) calls useArchiveNewsPost directly (M3 review fix).
+  useArchiveNewsPost: vi.fn(),
 }));
 
 import {
   useNewsList,
   useNewsCategories,
   useMarkNewsRead,
+  useArchiveNewsPost,
 } from '@/hooks/useNews';
 import NewsBoardPage from '@/pages/news/NewsBoardPage';
 
 const mockUseNewsList = useNewsList as unknown as ReturnType<typeof vi.fn>;
 const mockUseNewsCategories = useNewsCategories as unknown as ReturnType<typeof vi.fn>;
 const mockUseMarkNewsRead = useMarkNewsRead as unknown as ReturnType<typeof vi.fn>;
+const mockUseArchive = useArchiveNewsPost as unknown as ReturnType<typeof vi.fn>;
 
 const CATEGORY_RED: NewsCategory = { id: 'cat-red', name: 'Red/Infraestructura', color: '#6366f1' };
 const CATEGORY_COM: NewsCategory = { id: 'cat-com', name: 'Comercial', color: '#10b981' };
@@ -79,6 +83,7 @@ beforeEach(() => {
   mockPerms({});
   mockUseNewsCategories.mockReturnValue({ data: [CATEGORY_RED, CATEGORY_COM], isLoading: false });
   mockUseMarkNewsRead.mockReturnValue({ mutate: vi.fn(), mutateAsync: vi.fn() });
+  mockUseArchive.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
   mockList({ data: { items: [], unreadCount: 0 } });
 });
 
@@ -205,5 +210,34 @@ describe('NewsBoardPage — detalle marca leída (NEWS-FE-BD-3)', () => {
     await user.click(screen.getByRole('button', { name: /ya leída/i }));
 
     expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('M1 — the drawer stays open with the snapshot content after mark-read shrinks the "unreadOnly" list', async () => {
+    const user = userEvent.setup();
+    const mutate = vi.fn();
+    mockUseMarkNewsRead.mockReturnValue({ mutate, mutateAsync: vi.fn() });
+    const post = makePost({ id: 'unread-1', read: false, title: 'Sin leer bajo filtro' });
+    mockList({ data: { items: [post], unreadCount: 1 } });
+
+    const { rerender } = renderPage();
+
+    await user.click(screen.getByRole('button', { name: /sin leer bajo filtro/i }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    // Simulate the invalidation refetch triggered by mark-read: under
+    // unreadOnly, the now-read post disappears from the BE response.
+    mockList({ data: { items: [], unreadCount: 0 } });
+    rerender(
+      <MemoryRouter>
+        <NewsBoardPage />
+      </MemoryRouter>,
+    );
+
+    // The drawer must NOT unmount just because `items` shrank — it holds a
+    // local snapshot of the post taken at open time.
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('Sin leer bajo filtro')).toBeInTheDocument();
+    expect(within(dialog).getByText('Cuerpo de la noticia.')).toBeInTheDocument();
   });
 });

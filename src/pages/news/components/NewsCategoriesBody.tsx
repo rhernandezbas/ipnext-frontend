@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   useNewsCategories,
   useCreateNewsCategory,
@@ -12,6 +13,21 @@ import styles from './NewsCategoriesBody.module.css';
 
 const DEFAULT_CATEGORY_COLOR = '#6366f1';
 
+/** Elementos tabulables dentro del modal (focus-trap), molde NewsPostModal/ConfirmModal. */
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'textarea:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+function getFocusable(container: HTMLElement | null): HTMLElement[] {
+  if (!container) return [];
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+}
+
 interface ApiErrorLike {
   response?: { status?: number; data?: { code?: string } };
 }
@@ -23,10 +39,66 @@ interface ModalProps {
   loading: boolean;
 }
 
+/**
+ * NewsCategoryModal (review fix L1) — brought up to the same accessible
+ * shell as `NewsPostModal.tsx`: portal + focus-trap + Esc + body scroll-lock
+ * + focus restoration on close. Previously a plain in-tree div with no
+ * keyboard escape hatch, inconsistent with every other modal in the feature.
+ */
 function NewsCategoryModal({ initial, onClose, onSave, loading }: ModalProps) {
   const [name, setName] = useState(initial?.name ?? '');
   const [color, setColor] = useState(initial?.color ?? DEFAULT_CATEGORY_COLOR);
   const [error, setError] = useState<string | null>(null);
+
+  const nameRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const baseId = useId();
+
+  useEffect(() => {
+    restoreFocusRef.current = document.activeElement as HTMLElement | null;
+    nameRef.current?.focus();
+    return () => {
+      const el = restoreFocusRef.current;
+      if (el && typeof el.focus === 'function') el.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const focusables = getFocusable(dialogRef.current);
+      if (focusables.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      const outside = !dialogRef.current?.contains(active);
+      if (e.shiftKey) {
+        if (active === first || outside) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || outside) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
 
   async function handleSave() {
     setError(null);
@@ -35,29 +107,41 @@ function NewsCategoryModal({ initial, onClose, onSave, loading }: ModalProps) {
       onClose();
     } catch (err: unknown) {
       const e = err as ApiErrorLike;
-      if (e.response?.status === 409 && e.response.data?.code === 'NEWS_CATEGORY_NAME_CONFLICT') {
+      const status = e.response?.status;
+      const code = e.response?.data?.code;
+      if (status === 409 && code === 'NEWS_CATEGORY_NAME_CONFLICT') {
         setError('Ya existe una categoría con ese nombre.');
+      } else if (status === 404 && code === 'NEWS_CATEGORY_NOT_FOUND') {
+        // L3 review fix — TOCTOU: another user deleted this category between
+        // page-load and save. Previously fell through to the generic message.
+        setError('La categoría ya no existe — puede haber sido eliminada por otra persona.');
       } else {
         setError('No se pudo guardar la categoría.');
       }
     }
   }
 
-  return (
+  return createPortal(
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="news-category-modal-title">
-        <h2 id="news-category-modal-title" className={styles.modalTitle}>
+      <div
+        className={styles.modal}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${baseId}-title`}
+      >
+        <h2 id={`${baseId}-title`} className={styles.modalTitle}>
           {initial ? 'Editar categoría' : 'Nueva categoría'}
         </h2>
         {error && <p role="alert" className={styles.error}>{error}</p>}
         <label className={styles.label}>
           Nombre *
           <input
+            ref={nameRef}
             className={styles.input}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Ej: Campañas"
-            autoFocus
             maxLength={60}
           />
         </label>
@@ -85,7 +169,8 @@ function NewsCategoryModal({ initial, onClose, onSave, loading }: ModalProps) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

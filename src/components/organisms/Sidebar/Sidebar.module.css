@@ -273,6 +273,9 @@
 .navBadge {
   margin-left: auto;
   flex: 0 0 auto;
+  /* L2 review — 18px/10px have no exact match on the --space-N / font-size-N
+     scales (16px/20px and 12px neighbors respectively); kept literal rather
+     than forcing an inexact token substitution. */
   min-width: 18px;
   height: 18px;
   padding: 0 var(--space-1);

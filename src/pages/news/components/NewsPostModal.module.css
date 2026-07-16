@@ -1,6 +1,8 @@
 .overlay {
   position: fixed;
   inset: 0;
+  /* L2 review — no `--color-scrim` token exists; raw rgba matches the
+     house-wide backdrop convention (ConfirmModal, NewsCategoriesBody, etc). */
   background: rgba(15, 23, 42, 0.5);
   display: flex;
   align-items: center;

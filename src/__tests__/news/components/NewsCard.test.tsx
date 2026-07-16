@@ -68,4 +68,35 @@ describe('NewsCard', () => {
     await user.keyboard('{Enter}');
     expect(onOpen).toHaveBeenCalledWith('post-7');
   });
+
+  describe('M2 — valid HTML structure + real heading + short accessible name', () => {
+    it('renders the card as an <article> (not a <button> wrapping flow content)', () => {
+      render(<NewsCard post={makePost()} onOpen={vi.fn()} />);
+      expect(screen.getByRole('article')).toBeInTheDocument();
+    });
+
+    it('exposes the title as a real level-3 heading, navigable by screen readers', () => {
+      render(<NewsCard post={makePost()} onOpen={vi.fn()} />);
+      expect(
+        screen.getByRole('heading', { level: 3, name: 'Corte programado en Nodo Centro' }),
+      ).toBeInTheDocument();
+    });
+
+    it('the activation control has a SHORT accessible name (the title only, not the whole card text)', () => {
+      render(<NewsCard post={makePost({ pinned: true, read: false })} onOpen={vi.fn()} />);
+      const trigger = screen.getByRole('button', { name: 'Corte programado en Nodo Centro' });
+      expect(trigger).toHaveAccessibleName('Corte programado en Nodo Centro');
+      // The excerpt/author/category text must NOT be part of the button's name.
+      expect(trigger.textContent).toBe('Corte programado en Nodo Centro');
+    });
+
+    it('is still keyboard-activatable via the (now title-scoped) button', async () => {
+      const user = userEvent.setup();
+      const onOpen = vi.fn();
+      render(<NewsCard post={makePost({ id: 'post-9' })} onOpen={onOpen} />);
+      screen.getByRole('button', { name: /corte programado/i }).focus();
+      await user.keyboard('{Enter}');
+      expect(onOpen).toHaveBeenCalledWith('post-9');
+    });
+  });
 });

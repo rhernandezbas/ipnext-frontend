@@ -1,9 +1,13 @@
 .card {
+  /* positioned: the containing block for .titleButton::after (stretched-link,
+     M2 review fix) — the pseudo needs `.card` as its nearest positioned
+     ancestor to cover the FULL card, not just the title button's own box. */
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   width: 100%;
-  min-height: var(--space-11); /* 44px — touch target */
+  min-height: var(--space-11); /* 44px — touch target, even with minimal content */
   padding: var(--space-4);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -11,7 +15,6 @@
   border-radius: var(--radius-lg);
   text-align: left;
   font-family: inherit;
-  cursor: pointer;
   /* Only transform/opacity/color/border/box-shadow — never layout props. */
   transition:
     transform 160ms ease-out,
@@ -30,11 +33,6 @@
 
 .card:active {
   transform: scale(0.99);
-}
-
-.card:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
 }
 
 /* Unread accent — left stripe + faint tint, molde `notifItemUnread`. */
@@ -62,8 +60,8 @@
 }
 
 .categoryDot {
-  width: 8px;
-  height: 8px;
+  width: var(--space-2); /* 8px */
+  height: var(--space-2);
   border-radius: var(--radius-full);
   flex: 0 0 auto;
 }
@@ -78,8 +76,8 @@
 }
 
 .unreadDot {
-  width: 8px;
-  height: 8px;
+  width: var(--space-2); /* 8px */
+  height: var(--space-2);
   border-radius: var(--radius-full);
   background: var(--color-primary);
   margin-left: auto;
@@ -90,8 +88,35 @@
   margin: 0;
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
   line-height: var(--line-height-tight);
+}
+
+/*
+ * M2 review fix — "stretched link" card pattern. The button itself only
+ * wraps the title text (short accessible name, real <h3> stays navigable),
+ * but its ::after is absolutely positioned to `inset:0` against `.card`
+ * (the nearest positioned ancestor — see `.card { position: relative }`
+ * above), so the WHOLE card is the click/touch target, not just the title.
+ * `all: unset` strips the UA button chrome; properties re-applied below.
+ */
+.titleButton {
+  all: unset;
+  display: inline;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.titleButton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.titleButton:focus-visible::after {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-lg);
 }
 
 .excerpt {
