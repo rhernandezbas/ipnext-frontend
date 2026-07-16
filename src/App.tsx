@@ -89,6 +89,10 @@ const PartnersPage = lazy(() => import('@/pages/system/PartnersPage'));
 const ReportsPage = lazy(() => import('@/pages/reports/ReportsPage'));
 const MonitoringPage = lazy(() => import('@/pages/monitoring/MonitoringPage'));
 const NotificationsPage = lazy(() => import('@/pages/notifications/NotificationsPage'));
+// internal-news — tablón interno del equipo, gated news.read/news.manage.
+// /admin/notifications (arriba) queda intacta — target del footer de la campanita.
+const NewsBoardPage = lazy(() => import('@/pages/news/NewsBoardPage'));
+const NewsSettingsPage = lazy(() => import('@/pages/news/NewsSettingsPage'));
 const ApiDocsPage = lazy(() => import('@/pages/api-docs/ApiDocsPage'));
 // messaging-inbox-fe F1 — inbox WhatsApp (mirror Chatwoot), gated messaging.read.
 const WhatsappInboxPage = lazy(() => import('@/pages/whatsapp/WhatsappInboxPage'));
@@ -385,6 +389,13 @@ export function App() {
               <Route path="monitoring" element={<RequirePermission permission="monitoring.read"><MonitoringPage /></RequirePermission>} />
               {/* notifications.read */}
               <Route path="notifications" element={<RequirePermission permission="notifications.read"><NotificationsPage /></RequirePermission>} />
+              {/* internal-news (NEWS-FE-RT-1) — news.read tablón + news.manage categorías.
+                  "settings" MUST precede the (nonexistent) catch-all — no :id route here, so order is
+                  purely for readability, molde de las demás rutas static-before-:id. */}
+              <Route path="news">
+                <Route index element={<RequirePermission permission="news.read"><NewsBoardPage /></RequirePermission>} />
+                <Route path="settings" element={<RequirePermission permission="news.manage"><NewsSettingsPage /></RequirePermission>} />
+              </Route>
               {/* settings.read — api-docs */}
               <Route path="api-docs" element={<RequirePermission permission="settings.read"><ApiDocsPage /></RequirePermission>} />
               {/* profile.read — always allow own profile */}

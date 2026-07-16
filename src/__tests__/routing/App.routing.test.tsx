@@ -315,6 +315,14 @@ vi.mock('@/pages/monitoring/MonitoringPage', () => ({
 vi.mock('@/pages/notifications/NotificationsPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:Notifications]'),
 }));
+// internal-news (NEWS-FE-RT-1) — /admin/notifications above stays untouched
+// (campanita footer target); these are the NEW routes added by this change.
+vi.mock('@/pages/news/NewsBoardPage', () => ({
+  default: () => React.createElement('div', null, '[PAGE:NewsBoard]'),
+}));
+vi.mock('@/pages/news/NewsSettingsPage', () => ({
+  default: () => React.createElement('div', null, '[PAGE:NewsSettings]'),
+}));
 vi.mock('@/pages/api-docs/ApiDocsPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:ApiDocs]'),
 }));
@@ -443,6 +451,9 @@ const directCases: Array<{ url: string; marker: string }> = [
   { url: '/admin/reports', marker: '[PAGE:Informes]' },
   { url: '/admin/monitoring', marker: '[PAGE:Monitoring]' },
   { url: '/admin/notifications', marker: '[PAGE:Notifications]' },
+  // internal-news (NEWS-FE-RT-1) — tablón + configuración de categorías.
+  { url: '/admin/news', marker: '[PAGE:NewsBoard]' },
+  { url: '/admin/news/settings', marker: '[PAGE:NewsSettings]' },
   { url: '/admin/api-docs', marker: '[PAGE:ApiDocs]' },
   { url: '/admin/profile', marker: '[PAGE:Profile]' },
   // Not found
