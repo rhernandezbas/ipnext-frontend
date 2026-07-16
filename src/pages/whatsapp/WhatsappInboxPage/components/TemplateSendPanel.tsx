@@ -300,6 +300,15 @@ export function TemplateSendPanel({ conversationId, onClose, onSent }: TemplateS
                 </p>
               )}
 
+              {/* BAJO/aceptado (review adversarial): el 422 MISSING_TEMPLATE_VARIABLES
+                  trae un `missing[]` con los nombres puntuales — acá NO se usa para
+                  resaltar los inputs correspondientes, solo se muestra el copy
+                  mapeado (ERR-1 exige eso, ya cumplido por `mapSendError`). El gate
+                  client-side (`allVariablesFilled`/`canConfirm`) ya bloquea el
+                  "Confirmar y enviar" mientras falte alguna variable, así que este
+                  422 es casi inalcanzable en la práctica (solo por una carrera o un
+                  bypass del cliente) — deuda menor, no vale la complejidad de
+                  mapear `missing[]` a los inputs por ahora. */}
               {isError && (
                 <p className={styles.error} role="alert">
                   {mapSendError(error)}
