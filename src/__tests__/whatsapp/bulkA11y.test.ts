@@ -94,6 +94,20 @@ describe('FIX-6a: notices/hints del bulk sobre fondo tintado >= 4.5:1', () => {
   });
 });
 
+describe('Rediseño C: stat tiles del detalle sobre fondo tintado >= 4.5:1', () => {
+  it('CampaignHeader .counter dt (labels sobre el surface-hover del tile)', () => {
+    // El rediseño le dio fondo --color-surface-hover al .counter: los labels
+    // (dt) ya no se apoyan sobre surface blanco — mismo pairing que FIX-6a.
+    expect(
+      ruleContrast(
+        'src/pages/whatsapp/BulkMessagingPage/components/detail/CampaignHeader.module.css',
+        'counter dt',
+        '--color-surface-hover',
+      ),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
 describe('FIX-6b: StatusBadge .inactive >= 4.5:1 (token compartido)', () => {
   it('badge-inactive-fg sobre badge-inactive-bg', () => {
     expect(

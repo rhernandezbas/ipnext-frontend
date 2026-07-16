@@ -5,7 +5,7 @@
  * simple confirm. Modal = EXENTO de origin-aware (queda centrado, `STANDARDS.md`
  * §Physicality) — se mantiene centrado/con slide-up corto (200-500ms, budget
  * de modal). `.messageBubble` se rediseña con una "cola" de burbuja de chat
- * (temática WhatsApp) vía `::after` — puramente decorativo.
+ * (temática WhatsApp) vía `::before` — puramente decorativo.
  */
 
 .backdrop {
@@ -92,7 +92,7 @@
 }
 
 /* Burbuja de chat con "cola" — temática WhatsApp, refuerza que esto es
-   EXACTAMENTE lo que el cliente recibe. Decorativo (::after), no cambia el
+   EXACTAMENTE lo que el cliente recibe. Decorativo (::before), no cambia el
    texto/estructura del mensaje. */
 .messageBubble {
   position: relative;
