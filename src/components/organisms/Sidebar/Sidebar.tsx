@@ -89,17 +89,6 @@ const CRM_ITEMS: NavParentItem[] = [
     ],
   },
   {
-    label: 'Mensajes',
-    matchPaths: ['/admin/support'],
-    requiredPermission: 'support.read', // /admin/support/* → support.read
-    children: [
-      { to: '/admin/support/inbox', label: 'Bandeja de entrada' },
-      { to: '/admin/support/mass-send', label: 'Envío masivo' },
-      { to: '/admin/support/messengers', label: 'Messengers' },
-      { to: '/admin/support/news', label: 'Noticias' },
-    ],
-  },
-  {
     label: 'Finanzas',
     matchPaths: ['/admin/finance'],
     requiredPermission: 'billing.read', // /admin/finance/* → billing.read
@@ -121,10 +110,13 @@ const CRM_ITEMS: NavParentItem[] = [
     // promovido de link directo ("Informes", sin children) a acordeón con
     // children — mismo patrón que Clientes/Tickets/Gestión de red (item +
     // "Configuración" como sub-página) — para alojar la nueva
-    // WhatsappSettingsPage (card chat-media-download). NO usar
-    // "Mensajes"/"messaging" en el label: colisiona con la bandeja de
-    // soporte existente arriba.
-    label: 'WhatsApp',
+    // WhatsappSettingsPage (card chat-media-download).
+    // sidebar-comunicaciones — renombrado de "WhatsApp" a "Comunicaciones":
+    // el "Mensajes" (Support legacy) que motivaba evitar ese nombre fue
+    // eliminado del sidebar, así que el grupo pasa a usar el nombre de
+    // dominio genérico. Rutas (/admin/whatsapp/*), matchPaths y permisos
+    // quedan intactos — solo cambia el label visible.
+    label: 'Comunicaciones',
     matchPaths: ['/admin/whatsapp'],
     requiredPermission: 'messaging.read',
     children: [

@@ -36,10 +36,9 @@ describe('Sidebar', () => {
     ).not.toMatch(/^crm/i);
   });
 
-  it('Mensajes parent is labelled "Mensajes" (not "Soporte")', () => {
-    renderSidebar('/admin/support/inbox');
-    expect(screen.getByRole('button', { name: /mensajes/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^soporte$/i })).not.toBeInTheDocument();
+  it('does not render a "Mensajes" nav item (Support legacy removed)', () => {
+    renderSidebar('/admin/customers/list');
+    expect(screen.queryByRole('button', { name: /^mensajes$/i })).not.toBeInTheDocument();
   });
 
   it('Clientes has a "Clientes" sub-item linking to /admin/customers/list; no Búsqueda/Vouchers', () => {
@@ -54,11 +53,6 @@ describe('Sidebar', () => {
   it('Tickets has no "Nuevo" sub-item', () => {
     renderSidebar('/admin/tickets/opened');
     expect(screen.queryByRole('link', { name: /^nuevo$/i })).not.toBeInTheDocument();
-  });
-
-  it('Mensajes has "Envío masivo" sub-item', () => {
-    renderSidebar('/admin/support/inbox');
-    expect(screen.getByRole('link', { name: /envío masivo/i })).toBeInTheDocument();
   });
 
   it('Voz has Categorías and Prefijos sub-items', () => {

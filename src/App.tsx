@@ -111,10 +111,6 @@ const CrmMapPage = lazy(() => import('@/pages/crm/CrmMapPage'));
 const CustomerMapPage = lazy(() => import('@/pages/customers/CustomerMapPage'));
 const TicketRequestersPage = lazy(() => import('@/pages/tickets/TicketRequestersPage'));
 const TicketsSettingsPage = lazy(() => import('@/pages/tickets/TicketsSettingsPage'));
-const SupportInboxPage = lazy(() => import('@/pages/support/SupportInboxPage'));
-const MassSendPage = lazy(() => import('@/pages/support/MassSendPage'));
-const MessengersPage = lazy(() => import('@/pages/support/MessengersPage'));
-const NewsPage = lazy(() => import('@/pages/support/NewsPage'));
 const NetworkMapPage = lazy(() => import('@/pages/networking/NetworkMapPage'));
 const SchedulingDashboardPage = lazy(() => import('@/pages/scheduling/SchedulingDashboardPage'));
 const SchedulingProjectsPage = lazy(() => import('@/pages/scheduling/SchedulingProjectsPage'));
@@ -218,7 +214,6 @@ export function App() {
               </Route>
 
               <Route path="leads" element={<Navigate to="/admin/crm/leads" replace />} />
-              <Route path="messages" element={<Navigate to="/admin/support/inbox" replace />} />
               {/* ── Tickets (tickets.read) ─────────────────────────────────── */}
               <Route path="tickets">
                 <Route index element={<RequirePermission permission="tickets.read"><TicketsDashboardPage /></RequirePermission>} />
@@ -335,14 +330,6 @@ export function App() {
                 <Route path="returns" element={<RequirePermission permission="inventory.read"><InventoryReturnsPendingPage /></RequirePermission>} />
                 <Route path="deductions" element={<RequirePermission permission="inventory.read"><InventoryDeductionsPendingPage /></RequirePermission>} />
                 <Route path="settings" element={<RequirePermission permission="inventory.read"><InventorySettingsPage /></RequirePermission>} />
-              </Route>
-
-              {/* ── Support (support.read) ─────────────────────────────────── */}
-              <Route path="support">
-                <Route path="inbox" element={<RequirePermission permission="support.read"><SupportInboxPage /></RequirePermission>} />
-                <Route path="mass-send" element={<RequirePermission permission="support.read"><MassSendPage /></RequirePermission>} />
-                <Route path="messengers" element={<RequirePermission permission="support.read"><MessengersPage /></RequirePermission>} />
-                <Route path="news" element={<RequirePermission permission="support.read"><NewsPage /></RequirePermission>} />
               </Route>
 
               {/* ── CRM (crm.read) ─────────────────────────────────────────── */}

@@ -1,12 +1,14 @@
 /**
- * Sidebar — entrada "WhatsApp" en CRM_ITEMS (messaging-inbox-fe F1, FB5).
+ * Sidebar — entrada "Comunicaciones" (ex "WhatsApp") en CRM_ITEMS
+ * (messaging-inbox-fe F1, FB5; renombrada en sidebar-comunicaciones tras
+ * eliminar el "Mensajes" legacy que colisionaba con el label).
  *
  * F1.5 polish: promovida de link directo (patrón "Informes") a acordeón con
  * children — mismo patrón que Clientes/Tickets/Gestión de red (item +
  * "Configuración" como sub-página) — para alojar la nueva
  * WhatsappSettingsPage (card chat-media-download).
  *
- *  SBW-1 con messaging.read → grupo "WhatsApp" con children "Bandeja de
+ *  SBW-1 con messaging.read → grupo "Comunicaciones" con children "Bandeja de
  *        entrada" (/admin/whatsapp) y "Configuración" (/admin/whatsapp/settings)
  *  SBW-2 sin messaging.read → la entrada NO se renderiza (resto de CRM sigue)
  *  SBW-3 loading → la entrada es visible (no layout shift)
@@ -59,9 +61,9 @@ async function openCrm() {
   }
 }
 
-/** Open the "WhatsApp" Level-2 accordion so its children links enter the DOM. */
+/** Open the "Comunicaciones" Level-2 accordion so its children links enter the DOM. */
 async function openWhatsapp() {
-  const whatsapp = screen.queryByRole('button', { name: /^whatsapp$/i });
+  const whatsapp = screen.queryByRole('button', { name: /^comunicaciones$/i });
   if (whatsapp && whatsapp.getAttribute('aria-expanded') !== 'true') {
     await userEvent.click(whatsapp);
   }
@@ -112,7 +114,7 @@ describe('SBW-2: sin messaging.read no hay entrada', () => {
     });
     renderSidebar('/admin/customers/list');
     await openCrm();
-    expect(screen.queryByRole('button', { name: /^whatsapp$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^comunicaciones$/i })).not.toBeInTheDocument();
     expect(getClientesBtn()).toBeTruthy();
   });
 });
@@ -122,7 +124,7 @@ describe('SBW-3: loading muestra la entrada (sin layout shift)', () => {
     mockPerms({ isLoading: true, can: () => false });
     renderSidebar();
     await openCrm();
-    expect(screen.getByRole('button', { name: /^whatsapp$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^comunicaciones$/i })).toBeInTheDocument();
   });
 });
 

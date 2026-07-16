@@ -283,20 +283,6 @@ vi.mock('@/pages/resellers/ResellerDetailPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:ResellerDetail]'),
 }));
 
-// Support
-vi.mock('@/pages/support/SupportInboxPage', () => ({
-  default: () => React.createElement('div', null, '[PAGE:SupportInbox]'),
-}));
-vi.mock('@/pages/support/MassSendPage', () => ({
-  default: () => React.createElement('div', null, '[PAGE:MassSend]'),
-}));
-vi.mock('@/pages/support/MessengersPage', () => ({
-  default: () => React.createElement('div', null, '[PAGE:Messengers]'),
-}));
-vi.mock('@/pages/support/NewsPage', () => ({
-  default: () => React.createElement('div', null, '[PAGE:News]'),
-}));
-
 // Portal
 vi.mock('@/pages/portal/PortalConfigPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:PortalConfig]'),
@@ -445,11 +431,6 @@ const directCases: Array<{ url: string; marker: string }> = [
   // Resellers
   { url: '/admin/resellers', marker: '[PAGE:ResellersList]' },
   { url: '/admin/resellers/r-42', marker: '[PAGE:ResellerDetail]' },
-  // Support
-  { url: '/admin/support/inbox', marker: '[PAGE:SupportInbox]' },
-  { url: '/admin/support/mass-send', marker: '[PAGE:MassSend]' },
-  { url: '/admin/support/messengers', marker: '[PAGE:Messengers]' },
-  { url: '/admin/support/news', marker: '[PAGE:News]' },
   // Portal
   { url: '/admin/portal', marker: '[PAGE:PortalConfig]' },
   { url: '/admin/portal/users', marker: '[PAGE:PortalUsers]' },
@@ -472,7 +453,6 @@ const directCases: Array<{ url: string; marker: string }> = [
 const redirectCases: Array<{ url: string; redirectsTo: string; marker: string }> = [
   { url: '/', redirectsTo: '/admin/dashboard', marker: '[PAGE:Dashboard]' },
   { url: '/admin/leads', redirectsTo: '/admin/crm/leads', marker: '[PAGE:Leads]' },
-  { url: '/admin/messages', redirectsTo: '/admin/support/inbox', marker: '[PAGE:SupportInbox]' },
   { url: '/admin/tickets/dashboard', redirectsTo: '/admin/tickets', marker: '[PAGE:TicketsDashboard]' },
   { url: '/admin/tickets/list', redirectsTo: '/admin/tickets/opened', marker: '[PAGE:TicketsList]' },
   { url: '/admin/tickets/archive', redirectsTo: '/admin/tickets/trash', marker: '[PAGE:TicketsArchive]' },

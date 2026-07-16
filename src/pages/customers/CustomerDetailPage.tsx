@@ -258,7 +258,7 @@ export default function CustomerDetailPage() {
                 </Can>
                 <button
                   className={styles.dropdownItem}
-                  onClick={() => { navigate('/admin/support/inbox'); setAccionesOpen(false); }}
+                  onClick={() => { navigate('/admin/whatsapp'); setAccionesOpen(false); }}
                 >
                   Enviar mensaje
                 </button>
