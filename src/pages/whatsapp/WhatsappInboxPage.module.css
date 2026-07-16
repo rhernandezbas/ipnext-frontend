@@ -164,7 +164,7 @@
  * fondo oscuro dedicado (`--color-gray-900`), mismo patrón "snackbar" que
  * Slack/Chatwoot para acciones de undo. Texto blanco sobre `--color-gray-900`
  * (#111214) es ~19:1 de contraste — muy por encima de 4.5:1, no hace falta
- * un token de contraste dedicado (a diferencia de --badge-*/--color-note-*,
+ * un token de contraste dedicado (a diferencia de --badge-… y --color-note-…,
  * que sí lo necesitan por trabajar con fondos claros).
  */
 .statusToast[data-kind='undo'] {
