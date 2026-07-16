@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
 import { Select, type SelectOption } from '@/components/molecules/Select/Select';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
@@ -55,8 +56,24 @@ export function SegmentBuilder({ value, onChange }: SegmentBuilderProps) {
   // M2 (fix wave) — mismatch RBAC: `GET /access-points` exige `network.read`
   // (`/network-sites` es auth-only). Sin el permiso, la fila del AP no se
   // renderiza NI se dispara la query (403 seguro que ningún "Reintentá" cura).
-  const { can } = useMyPermissions();
+  const { can, isLoading: permsLoading, isError: permsError } = useMyPermissions();
   const canReadNetwork = can('network.read');
+
+  // M3 (micro fix wave) — misma clase de "filtro oculto" que M1, por otra
+  // puerta: si network.read se REVOCA a mitad de sesión (refetch de /me,
+  // staleTime 5min) con un AP ya elegido, el gate M2 esconde la fila pero
+  // `accessPointId` seguiría viajando en preview/create — un filtro que el
+  // operador no puede ver ni limpiar (y el confirm mostraría el uuid pelado,
+  // catálogo con query disabled). Se limpia SOLO con el permiso resuelto en
+  // false DEFINITIVO: el hook devuelve can()=false mientras carga
+  // (permissions=[]) y tras un fetch fallido — limpiar ahí le borraría el
+  // filtro a un usuario CON permiso. El nodo QUEDA (su endpoint es auth-only).
+  const revokedWithApSet = !permsLoading && !permsError && !canReadNetwork && !!value.accessPointId;
+  useEffect(() => {
+    if (!revokedWithApSet) return;
+    onChange({ ...value, accessPointId: undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- gateado por el booleano derivado; value/onChange frescos al disparar
+  }, [revokedWithApSet]);
 
   const sitesQuery = useNetworkSites({ staleTime: SITES_STALE_TIME_MS });
   // El nodo elegido ACOTA el catálogo de APs (mismo patrón que el picker de

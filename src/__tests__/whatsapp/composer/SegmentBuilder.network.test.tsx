@@ -104,14 +104,19 @@ function setupCatalogs({
   vi.mocked(useAssignableAccessPoints).mockReturnValue(mockQuery({ data: aps, isLoading: false }));
 }
 
-/** M2 — `network.read` togglable; el resto de los permisos siempre concedidos. */
-function mockPerms(canReadNetwork = true) {
+/**
+ * M2 — `network.read` togglable; el resto de los permisos siempre concedidos.
+ * `isLoading`/`isError` overrideables (M3): el hook real devuelve `can()=false`
+ * MIENTRAS carga (permissions=[]) — el builder no debe confundir ese estado
+ * transitorio con una revocación definitiva.
+ */
+function mockPerms(canReadNetwork = true, opts: { isLoading?: boolean; isError?: boolean } = {}) {
   vi.mocked(useMyPermissions).mockReturnValue({
     user: null,
     roles: [],
     permissions: [],
-    isLoading: false,
-    isError: false,
+    isLoading: opts.isLoading ?? false,
+    isError: opts.isError ?? false,
     can: (permission: string | string[]) => {
       const perms = Array.isArray(permission) ? permission : [permission];
       return perms.every((p) => (p === 'network.read' ? canReadNetwork : true));
@@ -419,6 +424,66 @@ describe('M2: gate network.read del select de AP (fix wave)', () => {
     render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
 
     expect(screen.getByRole('combobox', { name: /access point/i })).toBeInTheDocument();
+  });
+});
+
+describe('M3: revocación de network.read con AP ya elegido (micro fix wave)', () => {
+  // La misma clase de "filtro oculto" que M1 por otra puerta: si el permiso se
+  // revoca a mitad de sesión (refetch de /me) con un AP YA elegido, la fila
+  // del AP desaparece (gate M2) pero `accessPointId` seguiría viajando en
+  // preview/create — un filtro que el operador no puede ver ni limpiar.
+  const WITH_AP: CampaignSegment = { statuses: [], networkSiteId: 'site-1', accessPointId: 'ap-1' };
+
+  it('(a) permiso false RESUELTO + AP seteado → onChange limpia accessPointId (el nodo QUEDA)', () => {
+    mockPerms(false);
+    setupCatalogs();
+    const onChange = vi.fn();
+    render(<SegmentBuilder value={WITH_AP} onChange={onChange} />);
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const next = onChange.mock.calls[0][0] as CampaignSegment;
+    expect(next.accessPointId).toBeUndefined();
+    // El nodo NO se toca: /network-sites es auth-only, sigue siendo un filtro legítimo.
+    expect(next.networkSiteId).toBe('site-1');
+    expect(next.statuses).toEqual([]);
+  });
+
+  it('(b) permisos AÚN CARGANDO (can=false transitorio) → NO limpia nada', () => {
+    // El hook real devuelve can()=false mientras carga (permissions=[]):
+    // limpiar acá le borraría el filtro a un usuario CON permiso.
+    mockPerms(false, { isLoading: true });
+    setupCatalogs();
+    const onChange = vi.fn();
+    render(<SegmentBuilder value={WITH_AP} onChange={onChange} />);
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('(b2) fetch de permisos en ERROR (can=false no-definitivo) → NO limpia nada', () => {
+    mockPerms(false, { isError: true });
+    setupCatalogs();
+    const onChange = vi.fn();
+    render(<SegmentBuilder value={WITH_AP} onChange={onChange} />);
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('(c) con permiso true, el AP elegido queda intacto', () => {
+    mockPerms(true);
+    setupCatalogs();
+    const onChange = vi.fn();
+    render(<SegmentBuilder value={WITH_AP} onChange={onChange} />);
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('(d) permiso false resuelto SIN AP seteado → no emite onChange (sin churn)', () => {
+    mockPerms(false);
+    setupCatalogs();
+    const onChange = vi.fn();
+    render(<SegmentBuilder value={{ statuses: [], networkSiteId: 'site-1' }} onChange={onChange} />);
+
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
 
