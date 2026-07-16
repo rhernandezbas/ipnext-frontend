@@ -9,6 +9,7 @@ import type {
   CreateCampaignInput,
   CreateCampaignManualRecipientsNotFoundBody,
   CreateCampaignMissingVariablesBody,
+  GetCampaignOutput,
   GetCampaignQuery,
   PaginatedQuery,
   PreviewSegmentInput,
@@ -246,6 +247,19 @@ export function useSendCampaign() {
  * ya detecta la transición a `running` con SU propio poll de 30s; recién ahí
  * la variante pesada arranca su poll de 5s. `heavy` default `false` (misma
  * política de siempre para la variante liviana).
+ *
+ * MEDIUM (re-review Fix Wave) — la promesa de arriba ("la liviana detecta la
+ * transición y recién ahí la pesada arranca") NO estaba cableada: como la
+ * heavy jamás refetchea en pending/paused, `q.state.data?.campaign.status`
+ * (adentro de `refetchInterval`) leía SIEMPRE el status VIEJO de SU PROPIO
+ * cache — nunca el de la key liviana. Si el envío lo disparaba OTRO
+ * operador/sesión (no esta misma pestaña), la heavy quedaba clavada en
+ * pending para siempre, aunque la liviana ya viera `running`. Fix: dentro de
+ * `useCampaign` (abajo) se lee TAMBIÉN `queryClient.getQueryData` de la key
+ * liviana (`bulkCampaignKey(id)`) y se prefiere ese status si existe — así
+ * el recompute del interval (que React Query dispara en cada render vía
+ * `setOptions`) usa el dato más fresco disponible, sea cual sea el cache que
+ * lo trajo.
  */
 export function campaignPollInterval(
   status: CampaignStatusDto | undefined,
@@ -274,16 +288,32 @@ export function campaignPollInterval(
  *
  * `heavy` se deriva de `query.includeRecipients` — no hace falta que el
  * caller lo pase aparte, ya viene en la misma query que arma el payload.
+ *
+ * MEDIUM (re-review Fix Wave) — para la variante heavy, el status que decide
+ * el próximo intervalo NO sale solo de `q.state.data` (SU PROPIO cache,
+ * potencialmente viejo si nunca refetcheó) sino, con preferencia, del cache
+ * de la key LIVIANA (`bulkCampaignKey(id)`, sin `includeRecipients` —
+ * misma key que usan `CampaignHeader`/`CampaignDetail`). Esa key pollea
+ * siempre que haya `running`/`pending`/`paused` (nunca queda "muda" como la
+ * heavy), así que es la fuente más fresca disponible en el `QueryClient`
+ * compartido — sin importar qué pestaña/hook la haya escrito.
  */
 export function useCampaign(id: string, query: GetCampaignQuery = {}, active: boolean = true) {
   const visible = useDocumentVisible();
   const heavy = !!query.includeRecipients;
+  const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: bulkCampaignKey(id, query),
     queryFn: () => api.getCampaign(id, query),
     enabled: !!id,
-    refetchInterval: (q) => campaignPollInterval(q.state.data?.campaign.status, visible && active, { heavy }),
+    refetchInterval: (q) => {
+      const ownStatus = q.state.data?.campaign.status;
+      const status = heavy
+        ? (queryClient.getQueryData<GetCampaignOutput>(bulkCampaignKey(id))?.campaign.status ?? ownStatus)
+        : ownStatus;
+      return campaignPollInterval(status, visible && active, { heavy });
+    },
   });
 }
 

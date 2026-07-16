@@ -270,7 +270,14 @@ describe('BMP-10: tab-gating detiene el poll del historial/detalle oculto (Fix W
       campaign: CAMPAIGN_DTO, // status: 'pending' (30s de poll cuando active)
       recipients: { data: [], total: 0, page: 1, limit: 20 },
     });
-    const user = userEvent.setup();
+    // LOW (re-review Fix Wave) — fake timers ANTES del mount/click (mismo
+    // criterio honesto que CD-7/CT-8/SCB-7 `4s+`): instalarlos DESPUÉS
+    // agenda el `setInterval` del poll con el timer NATIVO, y
+    // `advanceTimersByTimeAsync` nunca lo dispara — el test pasaba CON y SIN
+    // el gate (guardia inerte). `userEvent.setup({ advanceTimers })` es lo
+    // que permite que los clicks sigan funcionando bajo fake timers.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderPage(['/admin/whatsapp/bulk?campaign=camp-1']);
 
     // arranca en "Historial" (hay ?campaign=), CampaignDetail visible y activo
@@ -283,7 +290,6 @@ describe('BMP-10: tab-gating detiene el poll del historial/detalle oculto (Fix W
     await waitFor(() => expect(getCampaign).toHaveBeenCalled());
     const callsAtTabSwitch = vi.mocked(getCampaign).mock.calls.length;
 
-    vi.useFakeTimers({ shouldAdvanceTime: true });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(30_000);
     });

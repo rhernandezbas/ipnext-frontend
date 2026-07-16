@@ -664,6 +664,58 @@ describe('MBH-10: useCampaign con includeRecipients (variante PESADA, MEDIUM-3 F
   });
 });
 
+describe('MBH-11: la heavy sigue el status MÁS FRESCO de la key liviana (re-review Fix Wave, MEDIUM)', () => {
+  // MEDIUM (re-review adversarial) — la heavy (`includeRecipients:true`) NO
+  // pollea en pending/paused (MEDIUM-3), así que si el envío lo dispara OTRO
+  // operador/sesión, la key LIVIANA detecta `running` con su propio poll de
+  // 30s pero la heavy sigue leyendo el `pending` VIEJO de SU PROPIO cache —
+  // como nunca refetcheó, nunca se entera. Fix: el refetchInterval de la
+  // heavy también mira `queryClient.getQueryData(bulkCampaignKey(id))` (la
+  // key liviana) y prefiere ESE status si está disponible.
+  it('heavy con cache propio "pending" + la liviana pasa a "running" (setQueryData directo, simula otra sesión) → el próximo cómputo del interval de la heavy es 5_000, no el "pending" viejo de su propio cache', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(getCampaign).mockResolvedValue({ campaign: makeCampaignDto({ status: 'pending' }) });
+    vi.mocked(useDocumentVisible).mockReturnValue(true);
+    const { qc, wrapper } = makeWrapper();
+
+    const { rerender } = renderHook(() => useCampaign('camp-1', { includeRecipients: true }), { wrapper });
+    await vi.waitFor(() => expect(getCampaign).toHaveBeenCalledTimes(1));
+
+    // la heavy NUNCA refetcheó (pending+heavy → false, MEDIUM-3) — su propio
+    // cache sigue "pending". La key LIVIANA, en cambio, ya vio "running" (en
+    // la app real esto lo detecta su propio poll de 30s; acá se simula
+    // directo con setQueryData, sin pasar por un fetch de la heavy).
+    qc.setQueryData(bulkCampaignKey('camp-1'), { campaign: makeCampaignDto({ status: 'running' }) });
+    // el re-render (en prod: el que dispara la propia key liviana al
+    // actualizar su cache, cascadeando por `CampaignDetail`/`CampaignHeader`
+    // hacia `RecipientsTable`) es lo que hace que React Query recompute el
+    // intervalo (`setOptions` → `computeRefetchInterval`).
+    await act(async () => {
+      rerender();
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(getCampaign).toHaveBeenCalledTimes(2);
+  });
+
+  it('heavy con cache propio "pending" y la liviana SIN cache (nadie la montó todavía) → sigue usando su propio status ("pending"), NO pollea', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(getCampaign).mockResolvedValue({ campaign: makeCampaignDto({ status: 'pending' }) });
+    vi.mocked(useDocumentVisible).mockReturnValue(true);
+    const { wrapper } = makeWrapper();
+
+    renderHook(() => useCampaign('camp-1', { includeRecipients: true }), { wrapper });
+    await vi.waitFor(() => expect(getCampaign).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(getCampaign).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('MBH-9: campaignPollInterval (pura, bulk-detail-polling-fe Change A)', () => {
   it('pestaña no visible → false, sea cual sea el status', () => {
     expect(campaignPollInterval('running', false)).toBe(false);

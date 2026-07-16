@@ -84,6 +84,50 @@ Hallazgos verificados sobre `f69067e2`, aplicados TDD (test rojo → fix). Ver
   (11) — 187 tests, 10 archivos, todos en verde.
 - [x] `npx tsc --noEmit` en el worktree tras el Fix Wave — sin errores.
 
+## Fix Wave 2 (re-review adversarial, 2026-07-16)
+
+Sobre `34e65f5f` (HEAD del Fix Wave anterior, ya rebaseado). TDD (test rojo → fix) para cada hallazgo.
+
+- [x] **MEDIUM — la heavy queda clavada en pending/paused ante una transición externa**: el
+  `refetchInterval` de la variante `includeRecipients:true` leía `q.state.data?.campaign.status`
+  (SU PROPIO cache). Como la heavy NO pollea en pending/paused (MEDIUM-3), si el envío lo dispara
+  OTRO operador/sesión la key liviana detecta `running` en ≤30s pero la heavy sigue leyendo el
+  `pending` viejo de su propio cache → nunca arranca su poll de 5s (tabla de recipients congelada).
+  El flujo mismo-navegador se salvaba solo por el `invalidateQueries` de `useSendCampaign`. Fix:
+  `useCampaign` captura `useQueryClient()` y, para la variante heavy, el callback de
+  `refetchInterval` prefiere `queryClient.getQueryData(bulkCampaignKey(id))` (key liviana, la
+  misma que usan `CampaignHeader`/`CampaignDetail`) por sobre su propio `q.state.data` — la key
+  liviana nunca queda "muda", así que es la fuente más fresca en el `QueryClient` compartido, sin
+  importar qué pestaña/hook la escribió. `campaignPollInterval` (función pura) queda IGUAL — el
+  cambio es solo en qué status se le pasa.
+  Tests: `useBulkMessaging.test.ts` (`MBH-11`, nuevo describe — rojo primero con
+  `queryClient.setQueryData` simulando la key liviana + `rerender()`, verde tras el fix; segundo
+  caso confirma que sin cache liviano sigue usando su propio status, sin regresión).
+  Archivo: `src/hooks/useBulkMessaging.ts`.
+
+- [x] **LOW — `BMP-10` era un guard inerte**: instalaba `vi.useFakeTimers` DESPUÉS del
+  mount/click — el `setInterval` del poll quedó agendado con el timer NATIVO y
+  `advanceTimersByTimeAsync` nunca lo disparaba, así que el test pasaba CON y SIN el gate del tab
+  (falso positivo). Fix: fake timers instalados ANTES del render + `userEvent.setup({
+  advanceTimers: vi.advanceTimersByTime })` (mismo criterio honesto que `CD-7`/`CT-8`/`SCB-7`).
+  Verificado manualmente (sin commitear) que ahora SÍ se pone rojo si se rompe el gate: cambiando
+  temporalmente `active={isHistoryActive}` → `active={true}` en `BulkMessagingPage.tsx`, el test
+  falla (`expected 3 to be 2`) — confirma que el test corregido realmente ejercita el `setInterval`
+  fake, no solo lo parece. Revertido antes de commitear (sin diff).
+  Test: `BulkMessagingPage.test.tsx` (`BMP-10`).
+
+- [x] **NIT (doc-only) — comentario CSS con hex equivocados**: `CampaignDetail.module.css` decía
+  "gray-700 (#495057)" (ese hex es en realidad `--color-gray-600`) y "#f1f3f5" (no es ningún token
+  del repo) con "≈8.9:1". Corregido a los valores reales de `tokens/variables.css`: gray-700 =
+  `#343a40`, gray-100 = `#e9ecef`, ratio ≈ 9.7:1.
+  Archivo: `CampaignDetail.module.css` (línea del comentario sobre `.pendingBanner`).
+
+- [x] Tests tocados verdes: `useBulkMessaging.test.ts` (50, +2 nuevos MBH-11),
+  `BulkMessagingPage.test.tsx` (11). Suite completa `whatsapp/` + `useBulkMessaging.test.ts` — 356
+  tests, 27 archivos, todos en verde (el ruido `ECONNREFUSED :3000` en stderr es el LOW-6
+  preexistente, no afecta resultados).
+- [x] `npx tsc --noEmit` en el worktree tras el Fix Wave 2 — sin errores.
+
 ## Root cause del incidente de prod — crear ≠ enviar (scope adicional, 2026-07-16)
 
 Cerrado EN VIVO con el usuario: el "bug" del POST `/send` que nunca salía era **UX, no código**.

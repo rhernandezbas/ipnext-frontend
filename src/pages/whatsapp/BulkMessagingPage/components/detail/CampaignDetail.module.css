@@ -37,7 +37,7 @@
    gray-100/gray-700 que ya usa el pill "pendiente" de esta feature
    (`CampaignStatusPill.module.css` .pending) y el fallback de estado de
    `CreateCampaignConfirmModal.module.css` .statusFallback.
-   gray-700 (#495057) sobre gray-100 (#f1f3f5) ≈ 8.9:1. */
+   gray-700 (#343a40) sobre gray-100 (#e9ecef) ≈ 9.7:1. */
 .pendingBanner {
   display: flex;
   align-items: flex-start;
