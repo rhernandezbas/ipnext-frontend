@@ -104,7 +104,16 @@
 
 .error {
   font-size: var(--font-size-sm);
-  color: var(--color-danger);
+  /* FIX WAVE 2 (re-review, contrato-node-ap) — la migración N2 a
+     var(--color-danger) (#dc3545) sobre var(--color-danger-bg-hover)
+     (#fff0f1) da 4.09:1, FALLA AA texto normal (>=4.5:1). --color-danger
+     es un token de acción/fill (botones, bordes) compartido por 38 archivos
+     — no es texto-safe y no se toca. No hay --color-danger-fg/-text
+     dedicado en variables.css. Se vuelve al hex oscuro original de este
+     picker (#991b1b) SOLO para el texto: #991b1b sobre
+     var(--color-danger-bg-hover) = 7.51:1 (>=4.5:1). Fondo/borde quedan
+     tokenizados sin cambios. */
+  color: #991b1b;
   background: var(--color-danger-bg-hover);
   border: 1px solid var(--color-danger);
   border-radius: var(--radius-md);
@@ -114,7 +123,16 @@
 
 .success {
   font-size: var(--font-size-sm);
-  color: var(--color-success-strong);
+  /* FIX WAVE 2 (re-review, contrato-node-ap) — la migración N2 a
+     var(--color-success-strong) (#16a34a) sobre var(--color-success-bg)
+     (#f0fdf4) da 3.15:1, FALLA AA texto normal (>=4.5:1). --color-success /
+     --color-success-strong son tokens de acción/fill compartidos por otros
+     componentes — no son texto-safe y no se tocan. No hay
+     --color-success-fg/-text dedicado en variables.css. Se vuelve al hex
+     oscuro original de este picker (#065f46) SOLO para el texto: #065f46
+     sobre var(--color-success-bg) = 7.34:1 (>=4.5:1). Fondo/borde quedan
+     tokenizados sin cambios. */
+  color: #065f46;
   background: var(--color-success-bg);
   border: 1px solid var(--color-success);
   border-radius: var(--radius-md);

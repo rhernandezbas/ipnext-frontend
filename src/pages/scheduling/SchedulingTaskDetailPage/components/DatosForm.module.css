@@ -80,7 +80,18 @@
   margin-top: 2px;
 }
 
-/* Inline warning shown when reassigning a task that already has an IClass OS */
+/* Inline warning shown when reassigning a task that already has an IClass OS.
+   FIX WAVE 2 (re-review, contrato-node-ap) — variables.css ahora define
+   --color-warning-bg (#fef3c7) y --color-warning-border (#fde68a) (token
+   N2 "ámbar no disponible"), que pisan los fallbacks locales de acá
+   (#fff8e1 / #ffe082) porque los NOMBRES coinciden. Evaluado y ACEPTADO
+   a propósito: misma familia ámbar (deltas RGB minúsculos, <=26/255 en
+   el canal más afectado), y --color-warning-text NO tiene token dedicado
+   (sigue en #7a5800 sin cambios) — contraste de texto sobre el nuevo
+   fondo: #7a5800 sobre #fef3c7 = 5.85:1 (antes 6.13:1 sobre #fff8e1),
+   sigue >=4.5:1 AA. Consolida el mismo criterio "ámbar warning" que ya
+   usan UispSyncCard y ContractNetworkAssignmentPicker (ver comentario N2
+   en tokens/variables.css) — NO se aísla con un token nuevo. */
 .iclassWarning {
   font-size: 12px;
   color: var(--color-warning-text, #7a5800);

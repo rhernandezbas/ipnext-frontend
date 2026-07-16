@@ -133,7 +133,7 @@
      disponible con confianza". Consolida el mismo hex ya duplicado a mano en
      UispSyncCard (.bannerInfo, .statusBadgeUnknown) y en el hint de estado
      desconocido de ContractNetworkAssignmentPicker — MISMO significado en los tres
-     lugares (a diferencia de --badge-paused-*/--color-note-*, que son ámbar con
+     lugares (a diferencia de --badge-paused-* / --color-note-*, que son ámbar con
      otro significado y no se reusan). */
   --color-warning-bg: #fef3c7;
   --color-warning-fg: #92400e;
