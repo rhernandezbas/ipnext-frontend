@@ -52,6 +52,9 @@ export const whatsappClientContextKey = (conversationId: string, clientId: strin
 export const whatsappAssignableUsersKey = ['whatsapp', 'assignableUsers'] as const;
 export const whatsappAreasKey = ['whatsapp', 'areas'] as const;
 
+/** inbox-template-send (design D11) — catálogo de templates enviables desde el composer. */
+export const whatsappSendTemplatesKey = ['whatsapp', 'sendTemplates'] as const;
+
 /** LIST-1 — lista de conversaciones, polling ~15s, sin flicker al paginar. */
 export function useWhatsappConversations(query: WhatsappPaginatedQuery) {
   const visible = useDocumentVisible();
@@ -680,5 +683,90 @@ export function useInboxClientContext(conversationId: string | null, clientId: s
     // el container lo usa para el chip "no se pudo actualizar" sin confundir
     // "el refresh de balance falló" con "la query primaria falló".
     balanceRefreshFailed: balanceQuery.isError,
+  };
+}
+
+/**
+ * useSendableTemplates(enabled) (inbox-template-send, design D11/PICK-1) —
+ * catálogo de templates para el picker del composer (CTA "Enviar template"
+ * en ventana expirada). Molde `useTemplates(enabled)` de `useBulkMessaging.ts`
+ * — MISMO criterio de `staleTime` (60s, el catálogo cambia poco) pero query
+ * key/endpoint PROPIOS (`/messaging/send-templates`, gate `messaging.send` —
+ * design D7, NO el `/messaging/bulk/templates` de `messaging.templates`).
+ * `enabled` lo ata el caller (`TemplateSendPanel`) a si el panel está abierto
+ * — sin sentido pedir el catálogo si el agente todavía no clickeó el CTA.
+ */
+export function useSendableTemplates(enabled: boolean) {
+  return useQuery({
+    queryKey: whatsappSendTemplatesKey,
+    queryFn: api.listSendableTemplates,
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * useSendWhatsappTemplate(id) (inbox-template-send, design D11/SEND-1) —
+ * envío one-off de un template desde el hilo abierto. A diferencia de
+ * `useSendWhatsappMessage` (optimistic UI + `pendingSends`, envíos largos con
+ * media), acá el flujo es MODAL-BLOQUEANTE: confirm → spinner en el botón del
+ * panel → cierre on-success (design D11, "sin burbuja optimista"). El POST es
+ * corto (JSON), no justifica un slice de cache propio.
+ *
+ * `onSuccess` clona el patrón de `useSendWhatsappMessage.onSuccess` (bug
+ * CRÍTICO #1 defensa, memoria `inbox-key-por-conversacion`): TODAS las keys
+ * de acá para abajo se derivan de `vars.convId` (capturado en `sendTemplate`
+ * AL MOMENTO de disparar), NUNCA del closure `id` del hook — si el agente
+ * cambia de conversación mientras el POST sigue en vuelo, el resultado
+ * aterriza en el slice de la conversación que ORIGINÓ el envío, no en la que
+ * está seleccionada ahora. `await cancelQueries` ANTES del append asegura que
+ * un poll en vuelo no pise el mensaje recién agregado; el dedup por `id`
+ * cubre el caso inverso (el poll de 5s ya lo trajo).
+ *
+ * `isPending` scoped por convId (molde `useSetConversationStatus`,
+ * `useWhatsapp.ts:387`): la MISMA instancia de `useMutation` persiste entre
+ * renders del hook — comparar `mutation.variables?.convId` contra el `id`
+ * ACTUAL evita que el botón confirm de una conversación NUEVA quede
+ * disabled+spinner por un envío ajeno en vuelo de la conversación anterior.
+ *
+ * La `idempotencyKey` (contrato H1, design D5/D11) vive en el ESTADO del
+ * `TemplateSendPanel` (generada al abrir el panel, reusada en reintentos) —
+ * este hook sólo la threadea tal cual en el body del POST, nunca la genera.
+ */
+export function useSendWhatsappTemplate(id: string) {
+  const qc = useQueryClient();
+
+  type SendTemplateVars = { templateRef: string; variables: Record<string, string>; idempotencyKey: string; convId: string };
+
+  const mutation = useMutation({
+    mutationFn: (vars: SendTemplateVars) =>
+      api.sendWhatsappTemplate(vars.convId, {
+        templateRef: vars.templateRef,
+        variables: vars.variables,
+        idempotencyKey: vars.idempotencyKey,
+      }),
+
+    onSuccess: async (message: WhatsappMessage, vars: SendTemplateVars) => {
+      await qc.cancelQueries({ queryKey: whatsappMessagesKey(vars.convId) });
+      qc.setQueryData<WhatsappMessage[]>(whatsappMessagesKey(vars.convId), (old) => {
+        const list = old ?? [];
+        if (list.some((m) => m.id === message.id)) return list;
+        return [...list, message];
+      });
+      void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+    },
+  });
+
+  const sendTemplate = (
+    input: { templateRef: string; variables: Record<string, string>; idempotencyKey: string },
+    opts?: { onSuccess?: (message: WhatsappMessage) => void; onError?: (error: unknown) => void },
+  ) => mutation.mutate({ ...input, convId: id }, opts);
+
+  return {
+    sendTemplate,
+    isPending: mutation.isPending && mutation.variables?.convId === id,
+    isError: mutation.isError,
+    error: mutation.error,
+    reset: mutation.reset,
   };
 }

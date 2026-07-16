@@ -1,0 +1,243 @@
+/**
+ * TemplateSendPanel.module.css — inbox-template-send (design D11, A11Y-1).
+ * Mismo lenguaje visual que `ConfirmModal.module.css`/`PreviewModal.module.css`
+ * (backdrop dim, dialog card, fadeIn+slideUp, reduced-motion neutraliza SOLO
+ * el movimiento, nunca la opacidad — memoria de motion del repo, ver el
+ * comentario de `Composer.module.css`).
+ */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-4);
+  animation: fadeIn 0.16s ease-out;
+}
+
+.dialog {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100vh - var(--space-6) * 2);
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.18s ease-out;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.closeBtn {
+  min-width: var(--space-11);
+  min-height: var(--space-11);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.closeBtn:hover { background: var(--color-surface-hover); }
+.closeBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  overflow-y: auto;
+}
+
+.notice {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+  background: var(--color-surface-hover);
+}
+
+.error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--badge-late-fg);
+  background: var(--badge-late-bg);
+  animation: fadeIn 0.16s ease-out;
+}
+
+.retryBtn {
+  align-self: flex-start;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.retryBtn:hover { background: var(--color-surface-hover); }
+
+.fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.legend {
+  padding: 0;
+  margin: 0 0 var(--space-1) 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.variableRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.variableLabel {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.variableInput {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font: inherit;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+}
+.variableInput:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+.variableInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--color-surface-hover);
+}
+
+.preview {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.pending {
+  padding: 0 4px;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--badge-blocked-bg);
+  color: var(--badge-blocked-fg);
+  font-size: 0.9em;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+.cancel, .confirm {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-button);
+  cursor: pointer;
+  border: 1px solid transparent;
+  min-height: var(--space-11);
+}
+
+.cancel {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+.cancel:hover:not(:disabled) { background: var(--color-gray-50); }
+
+.confirm {
+  background: var(--color-accent);
+  color: white;
+}
+.confirm:hover:not(:disabled) { filter: brightness(0.95); }
+
+.cancel:disabled, .confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancel:focus-visible, .confirm:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slideUp {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop, .dialog {
+    animation: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .backdrop {
+    padding: var(--space-3);
+  }
+}

@@ -1,0 +1,304 @@
+import { Fragment, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Select, type SelectOption } from '@/components/molecules/Select/Select';
+import { useSendableTemplates, useSendWhatsappTemplate } from '@/hooks/useWhatsapp';
+import { mapSendError } from '@/utils/mapSendError';
+import type { TemplateSummaryDto } from '@/types/messagingBulk';
+import styles from './TemplateSendPanel.module.css';
+
+/** Elementos tabulables dentro del diálogo (para el focus-trap) — mismo criterio que `ConfirmModal`/`PreviewModal`. */
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'textarea:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+function getFocusable(container: HTMLElement | null): HTMLElement[] {
+  if (!container) return [];
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+}
+
+const TITLE_ID = 'template-send-panel-title';
+const EMPTY_VALUE = '';
+
+/** Bug BAJO #13c precedent (`useWhatsapp.ts:makeTempId`) — `crypto.randomUUID` puede faltar (contexto no-seguro/browser viejo). */
+function makeIdempotencyKey(): string {
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `idem-${Date.now()}-${Math.random()}`;
+}
+
+type TemplateBodyPart = { text: string } | { variable: string };
+
+/** Parte `template.body` en segmentos de texto plano y placeholders `{{N}}` — mismo patrón que `VariablesMapForm.splitTemplateBody` (bulk), no exportado desde ahí. */
+function splitTemplateBody(body: string): TemplateBodyPart[] {
+  const parts: TemplateBodyPart[] = [];
+  const re = /\{\{(\w+)\}\}/g;
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body))) {
+    if (m.index > lastIndex) parts.push({ text: body.slice(lastIndex, m.index) });
+    parts.push({ variable: m[1] });
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < body.length) parts.push({ text: body.slice(lastIndex) });
+  return parts;
+}
+
+interface TemplateSendPanelProps {
+  conversationId: string;
+  /** Backdrop/Esc/botón "Cerrar"/"Cancelar" — el padre (`Composer`) decide qué hacer (cerrar el panel). */
+  onClose: () => void;
+  /** Envío OK — el padre cierra el panel Y anuncia "Template enviado" (design SEND-1; el panel ya se desmonta, el announcement vive en `Composer`). */
+  onSent: () => void;
+}
+
+/**
+ * TemplateSendPanel (inbox-template-send, design D11) — picker de templates
+ * aprobados + variables + preview + confirm/envío, para cuando la ventana de
+ * 24h expiró (CTA "Enviar template" del composer). Modal por portal, molde
+ * a11y de `PreviewModal`/`ConfirmModal` (foco inicial dentro del diálogo,
+ * focus-trap Tab/Shift+Tab, Esc/backdrop cierran, restauración de foco al
+ * desmontar, scroll-lock del body).
+ *
+ * A diferencia de esos moldes, este componente NO recibe un prop `open` —
+ * el padre (`Composer`) lo monta/desmonta condicionalmente
+ * (`{templatePanelOpen && <TemplateSendPanel .../>}`), así que "montado" ==
+ * "abierto": los efectos de foco/scroll-lock/teclado corren una vez al montar
+ * y limpian al desmontar (equivalente exacto al patrón `[open]` de los otros
+ * modales, sin la rama `if (!open) return null`). Esto también evita que
+ * suites que auto-mockean `@/hooks/useWhatsapp` (ej. `WhatsappInboxPage.test.tsx`)
+ * necesiten stubear `useSendableTemplates`/`useSendWhatsappTemplate` sólo
+ * porque el composer renderiza — los hooks nuevos sólo se llaman cuando el
+ * agente efectivamente clickeó el CTA.
+ *
+ * `conversationId` — el caller (`Composer`) monta este componente con
+ * `key={conversationId}` (design D11/SEND-1): un cambio de conversación
+ * fuerza un remount limpio (selección/variables/idempotencyKey de la
+ * conversación anterior NUNCA sobreviven, memoria `inbox-key-por-conversacion`).
+ *
+ * `idempotencyKey` (contrato H1, design D5/D11) se genera UNA vez al montar
+ * (`useState` lazy init — corre en el primer render, nunca se regenera en
+ * re-renders posteriores) y se REUSA en todos los reintentos de este mismo
+ * intento de envío. Un UUID nuevo sólo sale de un remount real (cerrar+abrir
+ * el panel, o cambiar de conversación).
+ */
+export function TemplateSendPanel({ conversationId, onClose, onSent }: TemplateSendPanelProps) {
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateSummaryDto | null>(null);
+  const [variables, setVariables] = useState<Record<string, string>>({});
+  const [idempotencyKey] = useState<string>(() => makeIdempotencyKey());
+
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+
+  const templatesQuery = useSendableTemplates(true);
+  const { sendTemplate, isPending, isError, error, reset } = useSendWhatsappTemplate(conversationId);
+
+  // Foco inicial (al botón "Cerrar") + restauración al desmontar — molde
+  // `PreviewModal`, pero keyed en `[]` (corre una vez al montar) porque este
+  // componente no tiene prop `open`: existir YA es estar abierto.
+  useEffect(() => {
+    restoreFocusRef.current = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    return () => {
+      const el = restoreFocusRef.current;
+      if (el && typeof el.focus === 'function') el.focus();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- una sola vez, al montar/desmontar.
+  }, []);
+
+  // Scroll lock + teclado (Esc cierra, Tab atrapa el foco dentro del diálogo).
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const focusables = getFocusable(dialogRef.current);
+      if (focusables.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      const outside = !dialogRef.current?.contains(active);
+      if (e.shiftKey) {
+        if (active === first || outside) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || outside) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
+
+  const sendableTemplates = (templatesQuery.data ?? []).filter((t) => t.sendable);
+
+  function handleSelectTemplate(contentSid: string) {
+    const next = sendableTemplates.find((t) => t.contentSid === contentSid) ?? null;
+    setSelectedTemplate(next);
+    setVariables({});
+    // PICK-1/ERR-1: elegir OTRO template limpia un error de envío previo — no
+    // tiene sentido que un error del template A siga colgado sobre el B recién elegido.
+    reset();
+  }
+
+  function handleVariableChange(variable: string, value: string) {
+    setVariables((prev) => ({ ...prev, [variable]: value }));
+  }
+
+  const allVariablesFilled = !!selectedTemplate && selectedTemplate.variables.every((v) => (variables[v] ?? '').trim().length > 0);
+  const canConfirm = !!selectedTemplate && allVariablesFilled && !isPending;
+
+  function handleConfirm() {
+    if (!selectedTemplate || !canConfirm) return;
+    // D8 (wire): SIEMPRE el shape completo derivado de `template.variables` —
+    // un template sin variables manda `variables:{}` (contrato explícito,
+    // spec.md WAPI-1 "variables ausentes viajan como objeto vacío").
+    const payloadVariables: Record<string, string> = {};
+    for (const v of selectedTemplate.variables) payloadVariables[v] = variables[v] ?? '';
+
+    sendTemplate(
+      { templateRef: selectedTemplate.contentSid, variables: payloadVariables, idempotencyKey },
+      { onSuccess: () => onSent() },
+    );
+  }
+
+  const templateOptions: SelectOption[] = [
+    { value: EMPTY_VALUE, label: 'Seleccioná un template…' },
+    ...sendableTemplates.map((t) => ({ value: t.contentSid, label: t.friendlyName })),
+  ];
+
+  return createPortal(
+    <div
+      className={styles.backdrop}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={TITLE_ID}
+    >
+      <div className={styles.dialog} ref={dialogRef}>
+        <div className={styles.header}>
+          <h2 id={TITLE_ID} className={styles.title}>Enviar template</h2>
+          <button ref={closeRef} type="button" className={styles.closeBtn} onClick={onClose} aria-label="Cerrar">
+            ×
+          </button>
+        </div>
+
+        <div className={styles.body}>
+          {templatesQuery.isLoading && (
+            <p className={styles.notice} role="status">
+              Cargando templates…
+            </p>
+          )}
+
+          {!templatesQuery.isLoading && templatesQuery.isError && (
+            <>
+              <p className={styles.error} role="alert">
+                No se pudieron cargar los templates. Reintentá.
+              </p>
+              <button type="button" className={styles.retryBtn} onClick={() => templatesQuery.refetch()}>
+                Reintentar
+              </button>
+            </>
+          )}
+
+          {!templatesQuery.isLoading && !templatesQuery.isError && sendableTemplates.length === 0 && (
+            <p className={styles.notice} role="status">
+              No hay templates aprobados.
+            </p>
+          )}
+
+          {!templatesQuery.isLoading && !templatesQuery.isError && sendableTemplates.length > 0 && (
+            <>
+              <Select
+                label="Template"
+                options={templateOptions}
+                value={selectedTemplate?.contentSid ?? EMPTY_VALUE}
+                onChange={handleSelectTemplate}
+                placeholder="Seleccioná un template…"
+                disabled={isPending}
+              />
+
+              {selectedTemplate && selectedTemplate.variables.length > 0 && (
+                <fieldset className={styles.fieldset}>
+                  <legend className={styles.legend}>Variables del template</legend>
+                  {selectedTemplate.variables.map((variable) => {
+                    const inputId = `template-send-variable-${variable}`;
+                    return (
+                      <div key={variable} className={styles.variableRow}>
+                        <label htmlFor={inputId} className={styles.variableLabel}>{`{{${variable}}}`}</label>
+                        <input
+                          id={inputId}
+                          type="text"
+                          className={styles.variableInput}
+                          value={variables[variable] ?? ''}
+                          onChange={(e) => handleVariableChange(variable, e.target.value)}
+                          disabled={isPending}
+                        />
+                      </div>
+                    );
+                  })}
+                </fieldset>
+              )}
+
+              {selectedTemplate && (
+                <p className={styles.preview}>
+                  {splitTemplateBody(selectedTemplate.body).map((part, i) => {
+                    if (!('variable' in part)) return <Fragment key={i}>{part.text}</Fragment>;
+                    const value = (variables[part.variable] ?? '').trim();
+                    if (value.length > 0) return <Fragment key={i}>{variables[part.variable]}</Fragment>;
+                    return (
+                      <span
+                        key={i}
+                        className={styles.pending}
+                        data-testid={`template-preview-pending-${part.variable}`}
+                      >
+                        {`{{${part.variable}}}`}
+                        <span className={styles.srOnly}> (pendiente)</span>
+                      </span>
+                    );
+                  })}
+                </p>
+              )}
+
+              {isError && (
+                <p className={styles.error} role="alert">
+                  {mapSendError(error)}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className={styles.actions}>
+          <button type="button" className={styles.cancel} onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="button" className={styles.confirm} onClick={handleConfirm} disabled={!canConfirm}>
+            {isPending ? 'Enviando…' : 'Confirmar y enviar'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}

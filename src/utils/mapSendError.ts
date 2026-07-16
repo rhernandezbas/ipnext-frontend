@@ -22,6 +22,21 @@ export function mapSendError(err: unknown): string {
       return 'El servicio de mensajería no está disponible. Reintentá en unos minutos.';
     case 'CONVERSATION_NOT_FOUND':
       return 'Esta conversación ya no existe.';
+    // inbox-template-send (ERR-1, design D6/D9/D11) — errores del envío de
+    // template (`SendTemplateMessage`, `POST .../send-template`). Misma
+    // superficie de mapeo — el default de abajo queda intacto.
+    case 'TEMPLATE_NOT_APPROVED':
+      return 'Este template ya no está aprobado. Elegí otro de la lista.';
+    case 'MISSING_TEMPLATE_VARIABLES':
+      return 'Faltan variables del template por completar.';
+    case 'TEMPLATE_SEND_REJECTED':
+      return 'El proveedor rechazó el envío del template.';
+    case 'TEMPLATE_PROVIDER_UNAVAILABLE':
+      return 'El proveedor de WhatsApp no está disponible. Reintentá en unos minutos.';
+    case 'TEMPLATE_PROVIDER_MISCONFIGURED':
+      return 'El template no está configurado correctamente. Contactá a soporte.';
+    case 'CONVERSATION_PHONE_MISSING':
+      return 'Esta conversación no tiene un teléfono válido para enviar el template.';
     default:
       return 'No se pudo enviar el mensaje. Reintentá.';
   }

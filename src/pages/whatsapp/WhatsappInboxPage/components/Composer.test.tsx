@@ -84,7 +84,11 @@ describe('Composer — COMPOSER-1 (canReply=false)', () => {
   it('deshabilita input y botón, y muestra el aviso de ventana de 24h', () => {
     render(<Composer conversationId="c1" canReply={false} />);
     expect(screen.getByRole('textbox', { name: /mensaje/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /enviar/i })).toBeDisabled();
+    // inbox-template-send (CTA-1): esta MISMA rama ahora también renderiza el
+    // botón "Enviar template" — `/enviar/i` sola ya no desambigua entre los
+    // dos ("Enviar mensaje" vs "Enviar template"); se ancla al aria-label
+    // exacto del botón de envío de texto.
+    expect(screen.getByRole('button', { name: /^enviar mensaje$/i })).toBeDisabled();
     expect(screen.getByText('Ventana de 24h expirada — se necesita un template')).toBeInTheDocument();
   });
 

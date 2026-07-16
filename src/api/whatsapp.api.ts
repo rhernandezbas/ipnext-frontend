@@ -10,6 +10,7 @@ import type {
   WhatsappPaginatedQuery,
   WhatsappPaginatedResult,
 } from '@/types/whatsapp';
+import type { TemplateSummaryDto } from '@/types/messagingBulk';
 
 /**
  * whatsapp.api (messaging-inbox F1, design §4) — cliente del router
@@ -191,3 +192,36 @@ export const getAssignableUsers = (): Promise<WhatsappAssignee[]> =>
 
 export const getMessagingAreas = (): Promise<WhatsappArea[]> =>
   axiosClient.get<{ data: WhatsappArea[] }>(`${BASE}/areas`).then(r => r.data.data);
+
+/**
+ * listSendableTemplates / sendWhatsappTemplate (inbox-template-send, design
+ * D11/WAPI-1) — catálogo + envío del picker de template del composer, para
+ * cuando la ventana de 24h expiró. Verificado contra el BE real EN PROD:
+ *
+ * - `GET /messaging/send-templates` (gate `messaging:send`, ruta NUEVA
+ *   distinta de `/messaging/bulk/templates` — ver design.md D7): envelope
+ *   `{data}`, se desenvuelve acá (mismo criterio que `listWhatsappMessages`/
+ *   `getAssignableUsers`). Tipo `TemplateSummaryDto` REUSADO de
+ *   `types/messagingBulk.ts` — cero duplicación (design D11).
+ * - `POST /messaging/conversations/:id/send-template` (gate `messaging:send`):
+ *   responde el DTO FLAT (sin envelope) — 201 en un envío nuevo, 200 en un
+ *   retry deduped por `idempotencyKey` (design D5), MISMO body en ambos casos.
+ *   El FE no ramifica por status code acá — sólo consume el resultado.
+ */
+export const listSendableTemplates = (): Promise<TemplateSummaryDto[]> =>
+  axiosClient.get<{ data: TemplateSummaryDto[] }>(`${BASE}/send-templates`).then(r => r.data.data);
+
+/**
+ * CONTRATO H1 (fix wave BE, idempotency-key server-side, design D5/D11): el
+ * FE genera `idempotencyKey` como UUID al ABRIR el panel de confirmación y lo
+ * REUSA en todos los reintentos de ESE MISMO intento de envío (ver
+ * `TemplateSendPanel.tsx`) — acá sólo se threadea tal cual en el body.
+ */
+export interface SendWhatsappTemplateInput {
+  templateRef: string;
+  variables: Record<string, string>;
+  idempotencyKey: string;
+}
+
+export const sendWhatsappTemplate = (id: string, input: SendWhatsappTemplateInput): Promise<WhatsappMessage> =>
+  axiosClient.post<WhatsappMessage>(`${BASE}/conversations/${id}/send-template`, input).then(r => r.data);

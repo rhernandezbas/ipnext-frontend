@@ -43,3 +43,35 @@ describe('mapSendError', () => {
     expect(mapSendError(errWithCode('ALGO_RARO'))).toMatch(/no se pudo enviar/i);
   });
 });
+
+/**
+ * ERR-1 (inbox-template-send, design D11) — extensión de `mapSendError` con
+ * los 6 códigos del envío de template (`SendTemplateMessage`, design D6/D9).
+ * Misma superficie de mapeo (única función) — el default existente arriba
+ * queda intacto (última prueba de este bloque).
+ */
+describe('mapSendError — ERR-1 (inbox-template-send): códigos del envío de template', () => {
+  it('TEMPLATE_NOT_APPROVED → copy accionable de elegir otro template', () => {
+    expect(mapSendError(errWithCode('TEMPLATE_NOT_APPROVED'))).toMatch(/no está aprobado/i);
+  });
+
+  it('MISSING_TEMPLATE_VARIABLES → copy de variables incompletas', () => {
+    expect(mapSendError(errWithCode('MISSING_TEMPLATE_VARIABLES'))).toMatch(/faltan variables/i);
+  });
+
+  it('TEMPLATE_SEND_REJECTED → copy de rechazo del proveedor', () => {
+    expect(mapSendError(errWithCode('TEMPLATE_SEND_REJECTED'))).toMatch(/rechazó el envío/i);
+  });
+
+  it('TEMPLATE_PROVIDER_UNAVAILABLE → copy accionable de reintentar en unos minutos', () => {
+    expect(mapSendError(errWithCode('TEMPLATE_PROVIDER_UNAVAILABLE'))).toMatch(/reintentá en unos minutos/i);
+  });
+
+  it('TEMPLATE_PROVIDER_MISCONFIGURED → copy de configuración, deriva a soporte', () => {
+    expect(mapSendError(errWithCode('TEMPLATE_PROVIDER_MISCONFIGURED'))).toMatch(/no está configurado correctamente/i);
+  });
+
+  it('CONVERSATION_PHONE_MISSING → copy de teléfono ausente/inválido', () => {
+    expect(mapSendError(errWithCode('CONVERSATION_PHONE_MISSING'))).toMatch(/no tiene un teléfono válido/i);
+  });
+});

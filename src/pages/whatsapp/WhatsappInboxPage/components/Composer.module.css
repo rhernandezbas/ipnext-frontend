@@ -58,6 +58,15 @@
   transition: transform 150ms ease-out;
 }
 
+/* CTA-1 (inbox-template-send, design D11) — botón "Enviar template" que
+   acompaña el aviso de ventana expirada. `align-self:flex-start`: no debe
+   estirarse a lo ancho del composer como el textarea/sendButton. */
+.templateCtaButton {
+  align-self: flex-start;
+  min-height: var(--space-11);
+  animation: waNoticeIn 200ms var(--wa-ease-out) both;
+}
+
 .notice {
   margin: 0;
   padding: var(--space-2) var(--space-3);

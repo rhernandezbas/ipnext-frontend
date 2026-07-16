@@ -8,6 +8,7 @@ import { ComposerAttachButton } from './ComposerAttachButton';
 import { ComposerAttachmentTray } from './ComposerAttachmentTray';
 import { ComposeModeToggle } from './ComposeModeToggle';
 import type { ComposeMode } from './ComposeModeToggle';
+import { TemplateSendPanel } from './TemplateSendPanel';
 import { MAX_FILES } from '@/utils/validateAttachment';
 import { mapSendError } from '@/utils/mapSendError';
 import styles from './Composer.module.css';
@@ -43,6 +44,8 @@ interface ComposerProps {
 }
 
 const WINDOW_EXPIRED_NOTICE = 'Ventana de 24h expirada — se necesita un template';
+/** CTA-1 (inbox-template-send, design D11) — anunciado por `TEMPLATE_SENT_ANNOUNCEMENT` cuando el envío del panel resuelve OK. */
+const TEMPLATE_SENT_ANNOUNCEMENT = 'Template enviado';
 const VERIFYING_WINDOW_NOTICE = 'Verificando si podés responder…';
 const VERIFY_WINDOW_ERROR_NOTICE =
   'No se pudo verificar si la ventana de 24 horas sigue abierta. Recargá la conversación para reintentar.';
@@ -80,6 +83,14 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
   // cero cambio de comportamiento al abrir el composer.
   const [mode, setMode] = useState<ComposeMode>('reply');
   const [modeAnnouncement, setModeAnnouncement] = useState('');
+  // CTA-1 (inbox-template-send, design D11) — estado LOCAL del panel del
+  // picker de templates. `templateAnnouncement` es un sr-only PERSISTENTE
+  // (molde `modeAnnouncement` de acá arriba): el panel se DESMONTA al
+  // cerrar (`TemplateSendPanel` no tiene prop `open`), así que el
+  // announcement "Template enviado" no puede vivir dentro de él — tiene que
+  // sobrevivir al desmonte para que el lector de pantalla lo alcance a leer.
+  const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
+  const [templateAnnouncement, setTemplateAnnouncement] = useState('');
   // Bug CRÍTICO #4: `feedback` estaba en el hook pero NUNCA se destructuraba
   // acá — cuando se elegían más de `MAX_FILES` archivos, los excedentes
   // desaparecían en silencio (el hook los recortaba, pero nadie mostraba el
@@ -202,6 +213,15 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
     }
   }
 
+  // CTA-1/SEND-1 (inbox-template-send, design D11) — el panel avisa OK vía
+  // `onSent`: cierra (unmount) Y deja el announcement accesible. D2 (LOCKED):
+  // acá NUNCA se toca `canReply`/`mode`/`content` — el template no abre la
+  // ventana, el composer de texto libre queda EXACTAMENTE como estaba.
+  function handleTemplateSent() {
+    setTemplatePanelOpen(false);
+    setTemplateAnnouncement(TEMPLATE_SENT_ANNOUNCEMENT);
+  }
+
   return (
     <Can permission="messaging.send">
       <form
@@ -216,6 +236,16 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
             cambio de contexto). */}
         <span className={styles.srOnly} role="status" aria-live="polite">
           {modeAnnouncement}
+        </span>
+
+        {/* CTA-1 (inbox-template-send, design D11/SEND-1) — sr-only,
+            PERSISTENTE (sobrevive al desmonte del panel): anuncia el
+            resultado del envío de template. Mismo criterio que
+            `modeAnnouncement` de arriba — un `role="status"` DENTRO del
+            panel no alcanzaría a ser leído porque el panel se desmonta al
+            cerrar (`handleTemplateSent`). */}
+        <span className={styles.srOnly} role="status" aria-live="polite">
+          {templateAnnouncement}
         </span>
 
         {/* design §3.2: los 3 avisos de VENTANA solo tienen sentido en modo
@@ -237,10 +267,25 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
           </p>
         )}
 
+        {/* CTA-1 (inbox-template-send, design D11) — rama EXACTA del aviso
+            estático: la ÚNICA de las 4 ramas de ventana (+ nota) donde el
+            aviso pasa a aviso+acción. El botón vive DENTRO del mismo `<Can
+            permission="messaging.send">` que envuelve todo el form — cero
+            permiso nuevo (mismo guard que el envío). */}
         {mode === 'reply' && !isDetailLoading && !isDetailError && !canReply && (
-          <p className={styles.notice} role="status">
-            {WINDOW_EXPIRED_NOTICE}
-          </p>
+          <>
+            <p className={styles.notice} role="status">
+              {WINDOW_EXPIRED_NOTICE}
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              className={styles.templateCtaButton}
+              onClick={() => setTemplatePanelOpen(true)}
+            >
+              Enviar template
+            </Button>
+          </>
         )}
 
         {/* El error de ENVÍO real (422/503/etc, mapSendError) es distinto de
@@ -306,6 +351,27 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
           </Button>
         </div>
       </form>
+
+      {/* CTA-1/SEND-1 (inbox-template-send, design D11) — montado/desmontado
+          condicionalmente (SIN prop `open`): sólo existe mientras el agente
+          efectivamente abrió el picker. Esto mantiene inerte a cualquier
+          suite que auto-mockee `@/hooks/useWhatsapp` sin stubear
+          `useSendableTemplates`/`useSendWhatsappTemplate` (ej.
+          `WhatsappInboxPage.test.tsx`) — esos hooks nuevos NUNCA se llaman a
+          menos que se clickee el CTA. `key={conversationId}` (design SEND-1,
+          memoria `inbox-key-por-conversacion`): defensa explícita — aunque
+          `Composer` YA remonta por `key={selectedId}` en
+          `WhatsappInboxPage.tsx`, un cambio de conversación fuerza además un
+          panel 100% limpio (selección/variables/idempotencyKey nunca
+          sobreviven a un cambio de conv). */}
+      {templatePanelOpen && (
+        <TemplateSendPanel
+          key={conversationId}
+          conversationId={conversationId}
+          onClose={() => setTemplatePanelOpen(false)}
+          onSent={handleTemplateSent}
+        />
+      )}
     </Can>
   );
 }
