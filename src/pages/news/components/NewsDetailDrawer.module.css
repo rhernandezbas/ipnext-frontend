@@ -68,8 +68,8 @@
 .closeBtn {
   margin-left: auto;
   flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
+  width: var(--space-11); /* 44px — touch target */
+  height: var(--space-11);
   display: flex;
   align-items: center;
   justify-content: center;
