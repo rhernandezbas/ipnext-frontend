@@ -8,6 +8,52 @@
   list-style: none;
 }
 
+/*
+ * MOTION-1 (inbox-resolve, design.md D7) — colapso de salida cuando una fila
+ * deja el bucket activo por una acción del AGENTE (resolver/reabrir
+ * optimista, `data-exiting` seteado por `ConversationList`). 220ms cae en el
+ * rango 200-250ms de la spec; SINCRONIZADO a mano con `EXIT_DURATION_MS` en
+ * `ConversationList.tsx` (el timer JS que saca la fila del DOM al terminar).
+ *
+ * `max-height` es la técnica documentada para colapsos de altura sin medir
+ * el alto real (`AUDIT.md` cataloga Accordion/Collapse como excepción
+ * deliberada a la regla general de "solo animar transform/opacity" — la
+ * decisión YA está tomada en design.md D7, no se re-litiga acá). 96px cubre
+ * con margen la fila más alta (avatar+2 líneas+metaRow opcional); el exceso
+ * no se nota porque el contenido real siempre es menor y `overflow:hidden`
+ * lo recorta durante el colapso.
+ */
+.item[data-exiting='true'] {
+  --wa-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  overflow: hidden;
+  pointer-events: none;
+  animation: waConvItemExit 220ms var(--wa-ease-out) forwards;
+}
+
+@keyframes waConvItemExit {
+  from {
+    max-height: 96px;
+    opacity: 1;
+  }
+  to {
+    max-height: 0;
+    opacity: 0;
+  }
+}
+
+/* Reduced motion: el timer JS (`ConversationList.tsx`) ya remueve la fila a
+   0ms — esta regla es la 2da capa de defensa (belt-and-suspenders, mismo
+   criterio que `ConversationAssignmentFilter.module.css`) para el frame
+   intermedio entre el mount del ghost y el timeout. */
+@media (prefers-reduced-motion: reduce) {
+  .item[data-exiting='true'] {
+    animation: none;
+    max-height: 0;
+    opacity: 0;
+  }
+}
+
 .button {
   --wa-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 

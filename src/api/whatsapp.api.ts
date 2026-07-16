@@ -45,6 +45,10 @@ export const listWhatsappConversations = (
   // (JOIN Conversation×CampaignRecipient) — mismo criterio que assignment,
   // solo se manda cuando viene definido.
   if (query.campaignId) params['campaignId'] = query.campaignId;
+  // inbox-resolve (API-1): 'status' filtra server-side por bucket
+  // (open|resolved, design.md D2) — mismo criterio, solo se manda cuando
+  // viene definido.
+  if (query.status) params['status'] = query.status;
 
   return axiosClient
     .get<WhatsappPaginatedResult<WhatsappConversationListItem>>(`${BASE}/conversations`, { params })

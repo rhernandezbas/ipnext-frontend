@@ -306,6 +306,16 @@ export interface WhatsappPaginatedQuery {
    * viene definido (ausente = "Todas las campañas").
    */
   campaignId?: string;
+  /**
+   * inbox-resolve (API-1) — filtro server-side por ciclo de vida, espejo del
+   * contrato BE (`GET /messaging/conversations?status=open|resolved`).
+   * `'open'` es un BUCKET (`status != 'resolved'`), no un match exacto —
+   * `pending`/`snoozed` entran ahí (design.md D2). Mismo criterio que
+   * `assignment`/`campaignId`: solo se manda cuando viene definido; el FE
+   * (`WhatsappInboxPage`) manda `'open'` explícito como default VISUAL, el
+   * default del CONTRATO (ausente = sin filtro) no cambia.
+   */
+  status?: 'open' | 'resolved';
 }
 
 export interface WhatsappPaginatedResult<T> {

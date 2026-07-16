@@ -173,6 +173,46 @@ describe('WAPI-14 (messaging-bulk-inbox Change 2): listWhatsappConversations con
   });
 });
 
+describe('API-1 (inbox-resolve): listWhatsappConversations con status', () => {
+  it('con status:"open" manda params.status="open"', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: PAGINATED });
+
+    await listWhatsappConversations({ status: 'open' });
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations', {
+      params: { status: 'open' },
+    });
+  });
+
+  it('con status:"resolved" manda params.status="resolved"', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: PAGINATED });
+
+    await listWhatsappConversations({ status: 'resolved' });
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations', {
+      params: { status: 'resolved' },
+    });
+  });
+
+  it('sin status no manda el param (mismo criterio que assignment/campaignId)', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: PAGINATED });
+
+    await listWhatsappConversations({});
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations', { params: {} });
+  });
+
+  it('combina status con assignment y campaignId', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: PAGINATED });
+
+    await listWhatsappConversations({ status: 'open', assignment: 'mine', campaignId: 'camp-1' });
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations', {
+      params: { status: 'open', assignment: 'mine', campaignId: 'camp-1' },
+    });
+  });
+});
+
 describe('WAPI-3: getWhatsappConversation', () => {
   it('GETs /messaging/conversations/:id y devuelve el detalle flat (sin envelope)', async () => {
     vi.mocked(axiosClient.get).mockResolvedValue({ data: DETAIL });

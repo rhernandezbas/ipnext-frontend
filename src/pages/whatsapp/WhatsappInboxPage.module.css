@@ -147,6 +147,9 @@
   bottom: var(--space-6);
   right: var(--space-6);
   z-index: 1100;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   background: var(--color-danger, #dc2626);
   color: var(--color-white);
   padding: var(--space-3) var(--space-4);
@@ -154,6 +157,40 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   box-shadow: var(--shadow-lg);
+}
+
+/*
+ * inbox-resolve (UNDO-1, design.md D6) — variante NEUTRA (no es un error):
+ * fondo oscuro dedicado (`--color-gray-900`), mismo patrón "snackbar" que
+ * Slack/Chatwoot para acciones de undo. Texto blanco sobre `--color-gray-900`
+ * (#111214) es ~19:1 de contraste — muy por encima de 4.5:1, no hace falta
+ * un token de contraste dedicado (a diferencia de --badge-*/--color-note-*,
+ * que sí lo necesitan por trabajar con fondos claros).
+ */
+.statusToast[data-kind='undo'] {
+  background: var(--color-gray-900);
+}
+
+.toastAction {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  text-decoration: underline;
+  cursor: pointer;
+  /* A11Y-1: el toast entero es compacto (padding var(--space-3)), pero el
+     botón en sí no necesita el touch target de 44px de una fila de lista —
+     es una acción secundaria de bajo compromiso motor (undo de una acción
+     que YA se ejecutó), mismo criterio que otros toast-actions del repo. */
+}
+
+.toastAction:focus-visible {
+  outline: 2px solid var(--color-white);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 /*

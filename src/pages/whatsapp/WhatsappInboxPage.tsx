@@ -60,6 +60,11 @@ const STATUS_ERROR_MESSAGE = 'No se pudo actualizar el estado de la conversació
 const ASSIGNEE_ERROR_MESSAGE = 'No se pudo actualizar el agente asignado. Reintentá.';
 const AREA_ERROR_MESSAGE = 'No se pudo actualizar el área. Reintentá.';
 const INBOX_TOAST_DURATION_MS = 4000;
+// inbox-resolve (UNDO-1, design.md D6) — "Conversación resuelta — Deshacer"
+// vive ~5s (más que el toast de error: es una ACCIÓN ofrecida, no solo un
+// aviso, el agente necesita tiempo real para decidir si la deshace).
+const UNDO_TOAST_MESSAGE = 'Conversación resuelta';
+const UNDO_TOAST_DURATION_MS = 5000;
 
 /**
  * WhatsappInboxPage — container del inbox WhatsApp (messaging-inbox F1,
@@ -89,9 +94,15 @@ export default function WhatsappInboxPage() {
   // dentro de `ConversationList`) lo levanta hasta acá. `assignment` queda
   // AUSENTE del objeto (no `'all'` explícito) cuando el filtro está en
   // "Todas" — mismo criterio que `listWhatsappConversations` (solo manda el
-  // param cuando viene definido) y preserva el estado inicial `{}` (cero
-  // regresión del wiring/cache-key existentes).
-  const [query, setQuery] = useState<WhatsappPaginatedQuery>({});
+  // param cuando viene definido).
+  //
+  // inbox-resolve (design.md D5): estado inicial AHORA `{status:'open'}`
+  // (antes `{}`) — a diferencia de `assignment`, `status` SIEMPRE viaja
+  // explícito (nunca se omite): el default del CONTRATO BE es "sin filtro"
+  // (D2), pero el default VISUAL del FE es la tab Abiertas, y eso requiere
+  // mandar `status=open` a propósito en cada fetch, no confiar en un default
+  // implícito del servidor.
+  const [query, setQuery] = useState<WhatsappPaginatedQuery>({ status: 'open' });
   const queryClient = useQueryClient();
 
   // F1.5 spec #1 (panel de contexto COLAPSABLE) — lazy-init desde
@@ -187,18 +198,74 @@ export default function WhatsappInboxPage() {
    * `isError` reactivamente — evita el problema de "cómo distingo un error
    * nuevo de uno viejo que ya mostré" que un efecto sobre estado persistente
    * de TanStack Query arrastraría.
+   *
+   * inbox-resolve (UNDO-1, design.md D6) — `inboxToast` pasa de `string` a
+   * una unión discriminada: el toast de ERROR (existente) y el toast de
+   * UNDO (resolver) comparten el mismo slice de estado (sigue siendo UN
+   * solo toast a la vez — mismo criterio que el comentario de arriba), pero
+   * el de undo necesita cargar el `convId` CAPTURADO AL DISPATCH (disciplina
+   * `vars.convId` de `useSetConversationStatus`, memoria
+   * `inbox-key-por-conversacion`) para que "Deshacer" nunca pueda disparar
+   * sobre la conversación equivocada.
    */
-  const [inboxToast, setInboxToast] = useState<string | null>(null);
+  type InboxToast = { kind: 'error'; message: string } | { kind: 'undo'; message: string; convId: string };
+  const [inboxToast, setInboxToast] = useState<InboxToast | null>(null);
   const inboxToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  function dismissInboxToast() {
+    setInboxToast(null);
+    if (inboxToastTimer.current) {
+      clearTimeout(inboxToastTimer.current);
+      inboxToastTimer.current = null;
+    }
+  }
+
   function showInboxToast(message: string) {
-    setInboxToast(message);
+    setInboxToast({ kind: 'error', message });
     if (inboxToastTimer.current) clearTimeout(inboxToastTimer.current);
     inboxToastTimer.current = setTimeout(() => setInboxToast(null), INBOX_TOAST_DURATION_MS);
   }
 
+  /**
+   * UNDO-1 — toast de acción tras resolver. El toast de ERROR (arriba) tiene
+   * PRIORIDAD si el POST falla: como ambos escriben el mismo estado
+   * (`setInboxToast`) y `onError` de la mutation SIEMPRE llega DESPUÉS de
+   * este dispatch síncrono (nunca antes — ni siquiera con latencia cero, la
+   * red es async), un error posterior overwritea el toast de undo
+   * automáticamente, sin lógica de prioridad explícita.
+   */
+  function showUndoToast(convId: string) {
+    setInboxToast({ kind: 'undo', message: UNDO_TOAST_MESSAGE, convId });
+    if (inboxToastTimer.current) clearTimeout(inboxToastTimer.current);
+    inboxToastTimer.current = setTimeout(() => setInboxToast(null), UNDO_TOAST_DURATION_MS);
+  }
+
   function handleToggleStatus(next: WhatsappConversationStatus) {
+    // Capturado AL DISPATCH — nunca `selectedId` al momento del click en
+    // "Deshacer" (que podría, en teoría, haber cambiado si algún día se
+    // relaja el efecto de abajo que descarta el toast al cambiar de
+    // conversación). Mismo criterio que `vars.convId` en
+    // `useSetConversationStatus` (`useWhatsapp.ts`).
+    const convId = selectedId;
+    // UNDO-1 es SOLO para resolver (D6) — reabrir no ofrece "Deshacer".
+    // Se dispara ANTES de `setStatus` a propósito: así, si `onError` llegara
+    // a correr sincrónicamente (nunca pasa en producción, pero blinda el
+    // orden igual), el toast de error sigue ganando por escribirse último.
+    if (next === 'resolved' && convId) showUndoToast(convId);
     setStatus(next, { onError: () => showInboxToast(STATUS_ERROR_MESSAGE) });
+  }
+
+  /**
+   * UNDO-1 — "Deshacer" reabre la conversación resuelta. Cinturón: solo
+   * dispara si `convId` (capturado al resolver) sigue siendo la conversación
+   * ACTUALMENTE seleccionada — invariante que YA garantiza el efecto de
+   * abajo (el toast se descarta al cambiar de conversación), pero el guard
+   * cuesta 2 líneas y blinda contra un futuro refactor de ese efecto.
+   */
+  function handleUndoResolve(convId: string) {
+    if (convId !== selectedId) return;
+    setStatus('open', { onError: () => showInboxToast(STATUS_ERROR_MESSAGE) });
+    dismissInboxToast();
   }
 
   function handleAssigneeChange(next: WhatsappAssignee | null) {
@@ -216,6 +283,15 @@ export default function WhatsappInboxPage() {
    */
   function handleAssignmentChange(next: ConversationAssignment) {
     setQuery((q) => ({ ...q, assignment: next === 'all' ? undefined : next }));
+  }
+
+  /**
+   * inbox-resolve (TAB-1, design.md D5) — cambia el filtro server-side de
+   * ciclo de vida. A diferencia de `handleAssignmentChange`, `status` NUNCA
+   * se omite (no hay tab "Todas" en v1 — dos buckets es el feature).
+   */
+  function handleStatusChange(next: WhatsappPaginatedQuery['status']) {
+    setQuery((q) => ({ ...q, status: next }));
   }
 
   /**
@@ -239,13 +315,15 @@ export default function WhatsappInboxPage() {
    * genérico ("no se pudo actualizar…") leería como que la conversación
    * ACTUAL falló cuando fue otra. Al cambiar de conversación, descartar el
    * toast (y su timer) inmediatamente.
+   *
+   * inbox-resolve (UNDO-1): la MISMA disciplina cubre el toast de undo
+   * "sin código extra" — es el mecanismo que garantiza que "Deshacer" nunca
+   * quede visible (ni accionable) sobre una conversación distinta a la que
+   * se resolvió.
    */
   useEffect(() => {
-    setInboxToast(null);
-    if (inboxToastTimer.current) {
-      clearTimeout(inboxToastTimer.current);
-      inboxToastTimer.current = null;
-    }
+    dismissInboxToast();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `dismissInboxToast` no cambia entre renders de forma relevante (cierra sobre refs/setters estables); declararla en deps dispararía el efecto de más.
   }, [selectedId]);
 
   /**
@@ -286,6 +364,8 @@ export default function WhatsappInboxPage() {
           isError={conversationsQuery.isError}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          status={query.status ?? 'open'}
+          onStatusChange={handleStatusChange}
           assignment={query.assignment ?? 'all'}
           onAssignmentChange={handleAssignmentChange}
           campaigns={campaigns}
@@ -374,10 +454,20 @@ export default function WhatsappInboxPage() {
       {/* hallazgo MEDIUM #3 / HIGH #2: toast local (mismo mecanismo que
           TicketsTableView/RecaptacionPage/SchedulingTaskDetailPage — no hay
           un ToastContext/useToast global en el repo). Cubre status/assignee/
-          area — ver `inboxToast` arriba. */}
+          area (kind:'error') y UNDO-1 (kind:'undo', inbox-resolve) — ver
+          `inboxToast` arriba. */}
       {inboxToast && (
-        <div className={styles.statusToast} role="alert" aria-live="assertive">
-          {inboxToast}
+        <div className={styles.statusToast} data-kind={inboxToast.kind} role="alert" aria-live="assertive">
+          <span>{inboxToast.message}</span>
+          {inboxToast.kind === 'undo' && (
+            <button
+              type="button"
+              className={styles.toastAction}
+              onClick={() => handleUndoResolve(inboxToast.convId)}
+            >
+              Deshacer
+            </button>
+          )}
         </div>
       )}
     </div>

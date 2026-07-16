@@ -8,11 +8,11 @@
  * (design §4, LIST-1) — sobrevive a un refetch de la lista porque nunca lo
  * toca la data de `useWhatsappConversations`.
  */
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('@/hooks/useWhatsapp');
 vi.mock('@/hooks/useMyPermissions');
@@ -279,10 +279,10 @@ beforeEach(() => {
 });
 
 describe('WhatsappInboxPage — wiring de los 4 hooks (FB4, task 4.1)', () => {
-  it('llama a useWhatsappConversations con un query estable y a los hooks de detalle/mensajes con "" sin selección', () => {
+  it('llama a useWhatsappConversations con un query estable (status:"open" default, inbox-resolve D5) y a los hooks de detalle/mensajes con "" sin selección', () => {
     renderPage();
 
-    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenCalledWith({});
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenCalledWith({ status: 'open' });
     expect(useWhatsappModule.useWhatsappConversation).toHaveBeenCalledWith('');
     expect(useWhatsappModule.useWhatsappMessages).toHaveBeenCalledWith('');
   });
@@ -707,38 +707,273 @@ describe('WhatsappInboxPage — hallazgo MEDIUM #3 (review adversarial: surface 
   });
 });
 
-describe('WhatsappInboxPage — F1.5-C2 (ASIGNACIÓN): filtro Todas/Mías/Sin asignar (server-side)', () => {
-  it('por default llama a useWhatsappConversations con {} (sin assignment) — cero regresión del wiring existente', () => {
-    renderPage();
-    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenCalledWith({});
+describe('WhatsappInboxPage — inbox-resolve (UNDO-1): resolver directo + toast "Deshacer"', () => {
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
-  it('cambiar a la pestaña "Mías" pasa {assignment:"mine"} a useWhatsappConversations', async () => {
+  it('resolver muestra un toast con "Deshacer" (sin confirm previo)', async () => {
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus: vi.fn(),
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: /^resolver/i }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/resuelta/i);
+    expect(screen.getByRole('button', { name: /deshacer/i })).toBeInTheDocument();
+  });
+
+  it('reabrir (next="open") NO muestra el toast de Deshacer (UNDO-1 es solo para resolver)', async () => {
+    setHooks({ detail: { ...DETAIL_B, status: 'resolved' }, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus: vi.fn(),
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: /reabrir/i }));
+
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('click en "Deshacer" despacha setStatus("open") para el convId capturado al resolver', async () => {
+    const setStatus = vi.fn();
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: /^resolver/i }));
+    expect(setStatus).toHaveBeenLastCalledWith('resolved', expect.objectContaining({ onError: expect.any(Function) }));
+
+    await user.click(screen.getByRole('button', { name: /deshacer/i }));
+
+    expect(setStatus).toHaveBeenLastCalledWith('open', expect.objectContaining({ onError: expect.any(Function) }));
+    expect(screen.queryByRole('button', { name: /deshacer/i })).toBeNull();
+  });
+
+  it('el toast de Deshacer expira a los ~5s sin dejar timer colgado', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus: vi.fn(),
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: /^resolver/i }));
+    expect(screen.getByRole('button', { name: /deshacer/i })).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(screen.queryByRole('button', { name: /deshacer/i })).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('el toast de Deshacer se descarta al cambiar de conversación (misma disciplina que el toast de error — inbox-key-por-conversacion)', async () => {
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus: vi.fn(),
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: /^resolver/i }));
+    expect(screen.getByRole('button', { name: /deshacer/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Juan Perez/i }));
+
+    expect(screen.queryByRole('button', { name: /deshacer/i })).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('si el POST de resolver falla (async, simulando latencia real), el toast de ERROR reemplaza al de Deshacer (prioridad, UNDO-1)', async () => {
+    let rejectResolve: (() => void) | null = null;
+    const setStatus = vi.fn((_next: string, opts?: { onError?: (err: unknown) => void }) => {
+      rejectResolve = () => opts?.onError?.(new Error('503 chatwoot caído'));
+    });
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: /^resolver/i }));
+    expect(screen.getByRole('button', { name: /deshacer/i })).toBeInTheDocument();
+
+    // el POST falla DESPUÉS (simula la latencia real de red — a diferencia
+    // del mock síncrono de la describe de arriba).
+    act(() => {
+      rejectResolve?.();
+    });
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/no se pudo/i);
+    expect(screen.queryByRole('button', { name: /deshacer/i })).toBeNull();
+  });
+});
+
+describe('WhatsappInboxPage — inbox-resolve: Reabrir funciona seleccionando desde la tab Resueltas', () => {
+  it('tab Resueltas → seleccionar una conversación resuelta → Reabrir llama a setStatus("open") (el toggle existente ya lo permite)', async () => {
+    const CONV_RESOLVED: WhatsappConversationListItem = { ...CONV_B, id: 'conv-r', contactName: 'Resuelta Uno', status: 'resolved' };
+    const setStatus = vi.fn();
+    setHooks({
+      conversations: { data: [CONV_A, CONV_B, CONV_RESOLVED], total: 3, page: 1, limit: 50 },
+      detail: { ...DETAIL_B, id: 'conv-r', status: 'resolved' },
+      messages: MESSAGES_B,
+    });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('radio', { name: 'Resueltas' }));
+    expect(screen.getByRole('button', { name: /Conversación con Resuelta Uno/i })).toBeInTheDocument();
+    // las abiertas no aparecen en esta tab.
+    expect(screen.queryByRole('button', { name: /Conversación con Maria Gomez/i })).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Resuelta Uno/i }));
+    await user.click(screen.getByRole('button', { name: /^reabrir/i }));
+
+    expect(setStatus).toHaveBeenCalledWith('open', expect.objectContaining({ onError: expect.any(Function) }));
+  });
+});
+
+describe('WhatsappInboxPage — F1.5-C2 (ASIGNACIÓN): filtro Todas/Mías/Sin asignar (server-side)', () => {
+  it('por default llama a useWhatsappConversations con {status:"open"} (sin assignment, inbox-resolve D5) — cero regresión del wiring existente', () => {
+    renderPage();
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenCalledWith({ status: 'open' });
+  });
+
+  it('cambiar a la pestaña "Mías" pasa {status:"open",assignment:"mine"} a useWhatsappConversations', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('radio', { name: 'Mías' }));
 
-    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ assignment: 'mine' });
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open', assignment: 'mine' });
   });
 
-  it('cambiar a "Sin asignar" pasa {assignment:"unassigned"}', async () => {
+  it('cambiar a "Sin asignar" pasa {status:"open",assignment:"unassigned"}', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('radio', { name: 'Sin asignar' }));
 
-    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ assignment: 'unassigned' });
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open', assignment: 'unassigned' });
   });
 
-  it('volver a "Todas" (desde "Mías") vuelve a {} — mismo cache entry que el estado inicial', async () => {
+  it('volver a "Todas" (desde "Mías") vuelve a {status:"open"} — mismo cache entry que el estado inicial', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('radio', { name: 'Mías' }));
     await user.click(screen.getByRole('radio', { name: 'Todas' }));
 
-    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({});
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open' });
+  });
+});
+
+describe('WhatsappInboxPage — inbox-resolve (TAB-1): tabs Abiertas/Resueltas (server-side)', () => {
+  it('default: la tab Abiertas está seleccionada y el request lleva status=open', () => {
+    renderPage();
+    expect(screen.getByRole('radio', { name: 'Abiertas' })).toBeChecked();
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenCalledWith({ status: 'open' });
+  });
+
+  it('cambiar a Resueltas pasa {status:"resolved"} a useWhatsappConversations', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('radio', { name: 'Resueltas' }));
+
+    expect(screen.getByRole('radio', { name: 'Resueltas' })).toBeChecked();
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'resolved' });
+  });
+
+  it('combinable con filtros existentes: tab Abiertas + "Mías" manda {status:"open",assignment:"mine"} (los filtros NO se resetean al cambiar de tab)', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('radio', { name: 'Mías' }));
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open', assignment: 'mine' });
+
+    await user.click(screen.getByRole('radio', { name: 'Resueltas' }));
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'resolved', assignment: 'mine' });
+  });
+});
+
+describe('WhatsappInboxPage — inbox-resolve (TAB-3): selectedId/thread sobreviven al resolve y al cambio de tab', () => {
+  it('resolver la conversación seleccionada NO toca selectedId — el thread sigue montado (design D8, paridad Chatwoot)', async () => {
+    const setStatus = vi.fn();
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: /resolver/i }));
+
+    // el thread de conv-b sigue montado (composer + mensajes), nada se
+    // desmontó ni se deseleccionó por resolver.
+    expect(screen.getByRole('textbox', { name: /mensaje/i })).toBeInTheDocument();
+    expect(useWhatsappModule.useWhatsappConversation).toHaveBeenLastCalledWith('conv-b');
+    expect(useWhatsappModule.useWhatsappMessages).toHaveBeenLastCalledWith('conv-b');
+  });
+
+  it('cambiar de tab (Abiertas → Resueltas) NO toca selectedId — el thread de la conversación seleccionada sigue montado', async () => {
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    expect(screen.getByRole('textbox', { name: /mensaje/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('radio', { name: 'Resueltas' }));
+
+    expect(useWhatsappModule.useWhatsappConversation).toHaveBeenLastCalledWith('conv-b');
+    expect(useWhatsappModule.useWhatsappMessages).toHaveBeenLastCalledWith('conv-b');
+    expect(screen.getByRole('textbox', { name: /mensaje/i })).toBeInTheDocument();
   });
 });
 
@@ -763,13 +998,13 @@ describe('WhatsappInboxPage — Change 2 (BULK): filtro de campaña (Select prop
     expect(container.querySelector('select')).toBeNull();
   });
 
-  it('por default (sin elegir campaña) llama a useWhatsappConversations con {} — cero regresión', () => {
+  it('por default (sin elegir campaña) llama a useWhatsappConversations con {status:"open"} — cero regresión', () => {
     setCampaigns(CAMPAIGNS);
     renderPage();
-    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenCalledWith({});
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenCalledWith({ status: 'open' });
   });
 
-  it('elegir una campaña pasa {campaignId} a useWhatsappConversations (filtro SERVER-SIDE)', async () => {
+  it('elegir una campaña pasa {status:"open",campaignId} a useWhatsappConversations (filtro SERVER-SIDE)', async () => {
     setCampaigns(CAMPAIGNS);
     const user = userEvent.setup();
     renderPage();
@@ -777,22 +1012,22 @@ describe('WhatsappInboxPage — Change 2 (BULK): filtro de campaña (Select prop
     await user.click(screen.getByRole('combobox', { name: /campaña/i }));
     await user.click(screen.getByRole('option', { name: 'Black Friday' }));
 
-    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ campaignId: 'camp-2' });
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open', campaignId: 'camp-2' });
   });
 
-  it('volver a "Todas las campañas" LIMPIA el filtro → {} (mismo cache entry que el estado inicial)', async () => {
+  it('volver a "Todas las campañas" LIMPIA el filtro → {status:"open"} (mismo cache entry que el estado inicial)', async () => {
     setCampaigns(CAMPAIGNS);
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('combobox', { name: /campaña/i }));
     await user.click(screen.getByRole('option', { name: 'Recordatorio Julio' }));
-    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ campaignId: 'camp-1' });
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open', campaignId: 'camp-1' });
 
     await user.click(screen.getByRole('combobox', { name: /campaña/i }));
     await user.click(screen.getByRole('option', { name: /todas las campañas/i }));
 
-    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({});
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open' });
   });
 
   it('el filtro de campaña y el de asignación coexisten (ambos server-side en el mismo query)', async () => {
@@ -801,12 +1036,12 @@ describe('WhatsappInboxPage — Change 2 (BULK): filtro de campaña (Select prop
     renderPage();
 
     await user.click(screen.getByRole('radio', { name: 'Mías' }));
-    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ assignment: 'mine' });
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open', assignment: 'mine' });
 
     await user.click(screen.getByRole('combobox', { name: /campaña/i }));
     await user.click(screen.getByRole('option', { name: 'Black Friday' }));
 
-    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ assignment: 'mine', campaignId: 'camp-2' });
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open', assignment: 'mine', campaignId: 'camp-2' });
   });
 });
 

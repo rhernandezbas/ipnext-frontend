@@ -8,6 +8,14 @@ interface ConversationListItemProps {
   conversation: WhatsappConversationListItem;
   selected: boolean;
   onClick: () => void;
+  /**
+   * MOTION-1 (inbox-resolve, design.md D7) — `true` mientras la fila está
+   * saliendo del bucket activo (resolver/reabrir optimista): dispara el
+   * colapso altura+opacity de `ConversationList.module.css`/
+   * `ConversationListItem.module.css` vía `data-exiting`. Default `false`
+   * para no romper call sites/tests previos a esta tanda.
+   */
+  exiting?: boolean;
 }
 
 function initialsOf(name: string): string {
@@ -23,7 +31,7 @@ function initialsOf(name: string): string {
  * Presentacional: recibe el DTO ya resuelto, `onClick` sin argumentos (el
  * padre, `ConversationList` FB3, cierra sobre `conversation.id`).
  */
-export function ConversationListItem({ conversation, selected, onClick }: ConversationListItemProps) {
+export function ConversationListItem({ conversation, selected, onClick, exiting = false }: ConversationListItemProps) {
   const displayName = conversation.contactName?.trim() || conversation.contactPhone || 'Contacto sin nombre';
   const preview = conversation.preview?.trim() || 'Sin mensajes';
   const time = formatTimeShort(conversation.lastMessageAt);
@@ -40,7 +48,7 @@ export function ConversationListItem({ conversation, selected, onClick }: Conver
   const extraCampaigns = Math.max(0, campaigns.length - 1);
 
   return (
-    <li className={styles.item}>
+    <li className={styles.item} data-exiting={exiting ? 'true' : undefined}>
       <button
         type="button"
         className={[styles.button, selected ? styles.selected : ''].filter(Boolean).join(' ')}
