@@ -164,6 +164,15 @@
   }
 }
 
+/* ── Acciones (REQ-FE-CURE-2) ────────────────────────────────────────────── */
+
+/* La celda de acciones ALOJA el botón "Curar sesión colgada" + su feedback
+   (aria-live) apilado debajo — necesita permitir wrap, a diferencia del resto
+   de las celdas de la tabla (nowrap por default, ver .table td arriba). */
+.actionsCell {
+  white-space: normal;
+}
+
 /* ── Result badges (texto + color, sin emoji) ────────────────────────────── */
 
 /*

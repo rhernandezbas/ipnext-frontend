@@ -5,6 +5,11 @@ import type {
   PaginatedRadiusAuthEvents,
   RadiusAuthReply,
 } from '@/types/networkAudit';
+import type {
+  PaginatedRadiusSessionCureEvents,
+  CureSessionBody,
+  CureSessionResult,
+} from '@/types/radiusSessionCure';
 
 // ── RADIUS Events params ───────────────────────────────────────────────────────
 
@@ -44,6 +49,18 @@ export interface RadiusAuthFailuresParams {
   reason?: 'session_stuck' | 'user_not_found' | 'other';
 }
 
+// ── RADIUS Session Cures params (radius-session-autocure FE-1) ──────────────────
+
+export interface RadiusSessionCuresParams {
+  username?: string;
+  outcome?: string;
+  trigger?: 'auto' | 'manual';
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+}
+
 // ── API functions ──────────────────────────────────────────────────────────────
 
 export const getRadiusEvents = (params: RadiusEventsParams): Promise<PaginatedRadiusEvents> =>
@@ -61,4 +78,25 @@ export const getRadiusAuthFailures = (
 ): Promise<PaginatedRadiusAuthEvents> =>
   axiosClient
     .get<PaginatedRadiusAuthEvents>('/radius/auth-failures', { params })
+    .then((r) => r.data);
+
+/** GET /radius/session-cures — auditoría de curas (gate `network.read`, D8). */
+export const getRadiusSessionCures = (
+  params: RadiusSessionCuresParams,
+): Promise<PaginatedRadiusSessionCureEvents> =>
+  axiosClient
+    .get<PaginatedRadiusSessionCureEvents>('/radius/session-cures', { params })
+    .then((r) => r.data);
+
+/**
+ * POST /radius/session-cures — cura MANUAL (escape hatch, gate `network.manage`, D8).
+ * Sin `force`: respeta los gates fail-closed (409 CURE_SKIPPED_ALIVE/CURE_SKIPPED_AMBIGUOUS
+ * si detecta sesión viva/ambigua). Con `force: true` (SOLO tras la segunda confirmación
+ * explícita del operador): saltea esos gates. 502 ORCHESTRATOR_UNREACHABLE si el
+ * orchestrator no responde. axios lanza para cualquier status fuera de 2xx — el caller
+ * inspecciona `err.response.{status,data.code,data.message}` (ver utils/mapCureSessionError).
+ */
+export const postRadiusSessionCure = (body: CureSessionBody): Promise<CureSessionResult> =>
+  axiosClient
+    .post<CureSessionResult>('/radius/session-cures', body)
     .then((r) => r.data);

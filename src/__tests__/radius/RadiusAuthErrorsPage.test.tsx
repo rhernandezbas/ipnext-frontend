@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import RadiusAuthErrorsPage from '@/pages/radius/RadiusAuthErrorsPage';
 import * as useRadiusAuthFailuresModule from '@/hooks/useRadiusAuthFailures';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { PaginatedRadiusAuthEvents } from '@/types/networkAudit';
 
 // Mock PARCIAL: sólo el hook de datos. Preservamos los helpers puros del módulo
@@ -15,6 +16,23 @@ vi.mock('@/hooks/useRadiusAuthFailures', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/hooks/useRadiusAuthFailures')>();
   return { ...actual, useRadiusAuthFailures: vi.fn() };
 });
+
+// radius-session-autocure FE-1 (REQ-FE-CURE-2): mock LOCAL de useMyPermissions con el
+// MISMO default permisivo del global de src/test/setup.ts (permissions: ['*']). El
+// factory-implementation sobrevive a vi.clearAllMocks() (no toca el implementation, solo
+// el historial de llamadas) — todos los describes preexistentes de este archivo siguen
+// viendo <Can> como GRANTED sin tocar sus beforeEach. Solo el test S2.4 (deny) lo pisa
+// puntualmente con mockReturnValueOnce.
+vi.mock('@/hooks/useMyPermissions', () => ({
+  useMyPermissions: vi.fn(() => ({
+    permissions: ['*'],
+    roles: [],
+    user: null,
+    isLoading: false,
+    isError: false,
+    can: () => true,
+  })),
+}));
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -268,7 +286,7 @@ describe('ReasonChips — Ola 2', () => {
     mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
     renderPage();
     expect(screen.getByRole('button', { name: /todos/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /sesión colgada/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^sesión colgada/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /usuario no existe/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /credenciales/i })).toBeInTheDocument();
   });
@@ -277,7 +295,7 @@ describe('ReasonChips — Ola 2', () => {
     mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
     renderPage();
     // 5831 → "5.831", 1234 → "1.234", 789 → "789"
-    expect(screen.getByRole('button', { name: /sesión colgada/i }).textContent).toContain('5.831');
+    expect(screen.getByRole('button', { name: /^sesión colgada/i }).textContent).toContain('5.831');
     expect(screen.getByRole('button', { name: /usuario no existe/i }).textContent).toContain('1.234');
     expect(screen.getByRole('button', { name: /credenciales/i }).textContent).toContain('789');
   });
@@ -291,7 +309,7 @@ describe('ReasonChips — Ola 2', () => {
   it('reason chip is NOT active by default (aria-pressed=false)', () => {
     mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
     renderPage();
-    expect(screen.getByRole('button', { name: /sesión colgada/i })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: /^sesión colgada/i })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByRole('button', { name: /usuario no existe/i })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByRole('button', { name: /credenciales/i })).toHaveAttribute('aria-pressed', 'false');
   });
@@ -300,7 +318,7 @@ describe('ReasonChips — Ola 2', () => {
     const user = userEvent.setup();
     mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
     renderPage();
-    await user.click(screen.getByRole('button', { name: /sesión colgada/i }));
+    await user.click(screen.getByRole('button', { name: /^sesión colgada/i }));
     expect(useRadiusAuthFailuresModule.useRadiusAuthFailures).toHaveBeenLastCalledWith(
       expect.objectContaining({ reason: 'session_stuck' }),
     );
@@ -320,7 +338,7 @@ describe('ReasonChips — Ola 2', () => {
     mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
     // Start with reason already in URL
     renderPage('/?auth_reason=session_stuck');
-    const chip = screen.getByRole('button', { name: /sesión colgada/i });
+    const chip = screen.getByRole('button', { name: /^sesión colgada/i });
     // Should start as active
     expect(chip).toHaveAttribute('aria-pressed', 'true');
     // Click to deactivate
@@ -564,5 +582,49 @@ describe('Auto-refresh toggle', () => {
     expect(screen.getByText('Actualizado 12:30')).toBeInTheDocument();
     // No debe colar la hora UTC del host.
     expect(screen.queryByText('Actualizado 15:30')).not.toBeInTheDocument();
+  });
+});
+
+// ── radius-session-autocure FE-1: botón "Curar sesión colgada" (REQ-FE-CURE-2) ──
+
+describe('CureSessionButton wiring — REQ-FE-CURE-2', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders "Curar sesión colgada" ONLY in the session_stuck row, never in the others', () => {
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    const { container } = renderPage();
+    const tbody = container.querySelector('tbody')!;
+
+    // auth-1 (stuck@isp.com) is the ONLY session_stuck row in MOCK_DATA.
+    const cureButtons = within(tbody).getAllByRole('button', { name: /curar sesión colgada/i });
+    expect(cureButtons).toHaveLength(1);
+
+    const stuckRow = screen.getByText('stuck@isp.com').closest('tr') as HTMLElement;
+    expect(within(stuckRow).getByRole('button', { name: /curar sesión colgada/i })).toBeInTheDocument();
+
+    // Ninguna de las otras 3 filas (user_not_found / other / null-Access-Accept) la tiene.
+    const notFoundRow = screen.getByText('notfound@isp.com').closest('tr') as HTMLElement;
+    expect(within(notFoundRow).queryByRole('button', { name: /curar sesión colgada/i })).not.toBeInTheDocument();
+    const otherRow = screen.getByText('other@isp.com').closest('tr') as HTMLElement;
+    expect(within(otherRow).queryByRole('button', { name: /curar sesión colgada/i })).not.toBeInTheDocument();
+    const acceptedRow = screen.getByText('accepted@isp.com').closest('tr') as HTMLElement;
+    expect(within(acceptedRow).queryByRole('button', { name: /curar sesión colgada/i })).not.toBeInTheDocument();
+  });
+
+  it('S2.4: sin network.manage la acción NO se renderiza (never "visible pero muerta")', () => {
+    vi.mocked(useMyPermissions).mockReturnValueOnce({
+      permissions: [],
+      roles: [],
+      user: null,
+      isLoading: false,
+      isError: false,
+      can: () => false,
+    });
+    mockHook({ data: MOCK_DATA, isLoading: false, isError: false });
+    renderPage();
+
+    expect(screen.queryByRole('button', { name: /curar sesión colgada/i })).not.toBeInTheDocument();
   });
 });

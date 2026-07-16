@@ -1,0 +1,78 @@
+/* Botón "Curar sesión colgada" (radius-session-autocure FE-1, REQ-FE-CURE-2) —
+   vive dentro de una celda de la tabla de "Errores de auth". El feedback se
+   apila DEBAJO del botón, dentro de la misma celda: la celda contenedora
+   necesita permitir wrap (ver .cureActionsCell en RadiusAuthErrorsPage.module.css)
+   porque el resto de la tabla usa white-space: nowrap. */
+
+.cureCell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  white-space: normal;
+}
+
+.cureBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-3);
+  min-height: 44px;                       /* touch target ≥44px */
+  border: 1px solid var(--badge-blocked-fg);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--badge-blocked-fg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.cureBtn:hover:not(:disabled) {
+  background: var(--badge-blocked-bg);
+}
+
+.cureBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.cureBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cureBtn {
+    transition: none;
+  }
+}
+
+/* ── Feedback (aria-live) — mismo lenguaje visual que .partialAlert/.successAlert
+   del resto del repo (PppoeManagementTab): texto + color, sin emoji. ────────── */
+
+.feedbackSuccess,
+.feedbackInfo,
+.feedbackError {
+  max-width: 260px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  white-space: normal;
+}
+
+.feedbackSuccess {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.feedbackInfo {
+  background: var(--badge-inactive-bg);
+  color: var(--color-gray-600);
+}
+
+.feedbackError {
+  background: var(--badge-late-bg);
+  color: var(--badge-late-fg);
+}

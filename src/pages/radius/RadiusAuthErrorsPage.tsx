@@ -1,6 +1,8 @@
 import { useRadiusAuthFailures } from '@/hooks/useRadiusAuthFailures';
 import { useAuthFailuresFilterUrl } from './hooks/useAuthFailuresFilterUrl';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
+import { Can } from '@/components/auth/Can';
+import { CureSessionButton } from './CureSessionButton';
 import { formatDateTimeShort, formatTimeShort } from '@/utils/formatDate';
 import type { RadiusAuthReply, RelativeRange } from '@/types/networkAudit';
 import styles from './RadiusAuthErrorsPage.module.css';
@@ -298,12 +300,13 @@ export default function RadiusAuthErrorsPage() {
               <th>Resultado</th>
               <th>Fecha</th>
               <th>Motivo</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={4} className={styles.stateCell}>
+                <td colSpan={5} className={styles.stateCell}>
                   <span className={styles.spinner} aria-label="Cargando" />
                   Cargando...
                 </td>
@@ -311,14 +314,14 @@ export default function RadiusAuthErrorsPage() {
             )}
             {isError && !isLoading && (
               <tr>
-                <td colSpan={4} className={styles.stateCell}>
+                <td colSpan={5} className={styles.stateCell}>
                   Error al cargar los intentos de auth
                 </td>
               </tr>
             )}
             {!isLoading && !isError && data && data.data.length === 0 && (
               <tr>
-                <td colSpan={4} className={styles.stateCell}>
+                <td colSpan={5} className={styles.stateCell}>
                   No hay intentos de auth
                 </td>
               </tr>
@@ -335,6 +338,15 @@ export default function RadiusAuthErrorsPage() {
                 </td>
                 <td>{formatDateTimeShort(evt.authdate)}</td>
                 <td><MotivoBadge reason={evt.reason} /></td>
+                <td className={styles.actionsCell}>
+                  {/* REQ-FE-CURE-2 (S2.4): SOLO en filas session_stuck, SOLO con
+                      network.manage — sin el permiso la acción no se renderiza. */}
+                  {evt.reason === 'session_stuck' && (
+                    <Can permission="network.manage">
+                      <CureSessionButton username={evt.username} />
+                    </Can>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

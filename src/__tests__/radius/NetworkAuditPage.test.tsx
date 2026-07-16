@@ -8,17 +8,20 @@ import * as useRadiusEventsModule from '@/hooks/useRadiusEvents';
 import * as useNe8000AuditModule from '@/hooks/useNe8000Audit';
 import * as useRadiusAuthFailuresModule from '@/hooks/useRadiusAuthFailures';
 import * as usePppoeNasMoveEventsModule from '@/hooks/usePppoeNasMoveEvents';
+import * as useRadiusSessionCuresModule from '@/hooks/useRadiusSessionCures';
 import type {
   PaginatedRadiusEvents,
   PaginatedNe8000Audit,
   PaginatedRadiusAuthEvents,
 } from '@/types/networkAudit';
 import type { PaginatedPppoeNasMoveEvents } from '@/types/pppoeNasMove';
+import type { PaginatedRadiusSessionCureEvents } from '@/types/radiusSessionCure';
 
 vi.mock('@/hooks/useRadiusEvents');
 vi.mock('@/hooks/useNe8000Audit');
 vi.mock('@/hooks/useRadiusAuthFailures');
 vi.mock('@/hooks/usePppoeNasMoveEvents');
+vi.mock('@/hooks/useRadiusSessionCures');
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -114,6 +117,34 @@ const NAS_MOVES_DATA: PaginatedPppoeNasMoveEvents = {
   limit: 50,
 };
 
+const SESSION_CURES_DATA: PaginatedRadiusSessionCureEvents = {
+  data: [
+    {
+      id: 'cure-1',
+      username: 'cures.user@isp.com',
+      nasIp: '10.60.0.10',
+      sessionId: 'sess-1',
+      sessionStartedAt: '2026-07-16T10:00:00Z',
+      sessionLastUpdate: '2026-07-16T10:35:00Z',
+      signalUsed: 'persistent_rejects',
+      trigger: 'auto',
+      action: 'both',
+      outcome: 'cured',
+      reason: null,
+      actorName: 'sistema',
+      createdAt: '2026-07-16T11:00:00Z',
+    },
+  ],
+  total: 1,
+  page: 1,
+  limit: 50,
+  hasNext: false,
+  countsByOutcome: {
+    cured: 1, already_cured: 0, skipped_alive: 0, skipped_ambiguous: 0,
+    skipped_no_session: 0, skipped_no_signal: 0, flagged_flapping: 0, failed: 0,
+  },
+};
+
 function renderPage() {
   return render(
     <QueryClientProvider client={makeQC()}>
@@ -147,14 +178,40 @@ describe('NetworkAuditPage', () => {
       isLoading: false,
       isError: false,
     } as unknown as ReturnType<typeof usePppoeNasMoveEventsModule.usePppoeNasMoveEvents>);
+    vi.mocked(useRadiusSessionCuresModule.useRadiusSessionCures).mockReturnValue({
+      data: SESSION_CURES_DATA,
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useRadiusSessionCuresModule.useRadiusSessionCures>);
+    // El auto-mock del módulo (arriba) TAMBIÉN stubea useCureSession — usado por
+    // CureSessionButton dentro del tab "Errores de auth" (REQ-FE-CURE-2). Sin este
+    // default, cureSession queda `undefined` y `.isPending` revienta al montar la fila
+    // session_stuck del tab vecino.
+    vi.mocked(useRadiusSessionCuresModule.useCureSession).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useRadiusSessionCuresModule.useCureSession>);
   });
 
-  it('renders four internal tabs (Logs RADIUS + Auditoría NE8000 + Errores de auth + Movimientos NAS)', () => {
+  it('renders five internal tabs (Logs RADIUS + Auditoría NE8000 + Errores de auth + Movimientos NAS + Sesiones curadas)', () => {
     renderPage();
     expect(screen.getByRole('button', { name: /logs radius/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /auditoría ne8000/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /errores de auth/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /movimientos nas/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /sesiones curadas/i })).toBeInTheDocument();
+  });
+
+  it('switches to the Sesiones curadas tab and shows its content (S1.4: same route guard as its neighbors)', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /sesiones curadas/i }));
+
+    expect(screen.getByText('cures.user@isp.com')).toBeInTheDocument();
+    // The other tabs' rows are not mounted while this tab is active.
+    expect(screen.queryByText('logs.user@isp.com')).not.toBeInTheDocument();
+    expect(screen.queryByText('auth.user@isp.com')).not.toBeInTheDocument();
   });
 
   it('switches to the Errores de auth tab and shows its content', async () => {
