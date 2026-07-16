@@ -118,8 +118,11 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   // cache TanStack) que ya dispara `SegmentBuilder` adentro — acá es un
   // lookup sobre la cache compartida, cero fetch extra. Fallback al id crudo
   // si el catálogo todavía no resolvió (nunca ocultar que hay un filtro).
+  // M2 (fix wave) — /access-points exige network.read: sin el permiso la query
+  // ni se dispara (SegmentBuilder tampoco renderiza la fila del AP, así que
+  // segment.accessPointId nunca se setea por esta vía).
   const { data: networkSitesCatalog } = useNetworkSites({ staleTime: 60_000 });
-  const { data: accessPointsCatalog } = useAssignableAccessPoints(segment.networkSiteId ?? null);
+  const { data: accessPointsCatalog } = useAssignableAccessPoints(segment.networkSiteId ?? null, can('network.read'));
   const networkSiteName = segment.networkSiteId
     ? networkSitesCatalog?.find((s) => s.id === segment.networkSiteId)?.name ?? segment.networkSiteId
     : undefined;

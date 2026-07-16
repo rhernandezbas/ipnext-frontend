@@ -21,9 +21,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // `SegmentBuilder.network.test.tsx` — acá solo se neutralizan.
 vi.mock('@/hooks/useNetworkSites', () => ({ useNetworkSites: vi.fn() }));
 vi.mock('@/hooks/useAccessPoints', () => ({ useAssignableAccessPoints: vi.fn() }));
+// M2 (fix wave) — el builder gatea la fila del AP con can('network.read');
+// acá se concede todo (los escenarios RBAC viven en el .network.test).
+vi.mock('@/hooks/useMyPermissions');
 
 import { useNetworkSites } from '@/hooks/useNetworkSites';
 import { useAssignableAccessPoints } from '@/hooks/useAccessPoints';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
+import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
 import { SegmentBuilder } from '@/pages/whatsapp/BulkMessagingPage/components/composer/SegmentBuilder';
 import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 import type { NetworkSite } from '@/types/networkSite';
@@ -56,6 +61,14 @@ const AP: AccessPointOption = { id: 'ap-1', name: 'AP Centro Torre', mac: null, 
 beforeEach(() => {
   vi.mocked(useNetworkSites).mockReturnValue(mockQuery({ data: [SITE], isLoading: false }));
   vi.mocked(useAssignableAccessPoints).mockReturnValue(mockQuery({ data: [AP], isLoading: false }));
+  vi.mocked(useMyPermissions).mockReturnValue({
+    user: null,
+    roles: [],
+    permissions: [],
+    isLoading: false,
+    isError: false,
+    can: () => true,
+  } as UseMyPermissionsResult);
 });
 
 describe('SB-1: checkboxes de estado', () => {

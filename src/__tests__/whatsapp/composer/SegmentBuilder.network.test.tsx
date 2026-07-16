@@ -23,6 +23,16 @@
  *  NSB-11 rama empty: aviso "no hay nodos/APs disponibles"
  *  NSB-12 nodo o AP solos cuentan como criterio → sin nota; la nota vacía
  *         ahora menciona nodo/AP
+ *
+ * Fix wave (review adversarial de b18e5769):
+ *  M1  refetch fallido con catálogo CACHEADO → el filtro elegido SIGUE
+ *      visible y limpiable (options desde la cache, select habilitado) —
+ *      antes el trigger caía al placeholder "Todos los nodos" MIENTRAS el
+ *      id seguía viajando en el payload (filtro oculto)
+ *  M2  /access-points exige network.read (mismatch RBAC con messaging.bulk):
+ *      sin el permiso NO se renderiza la fila del AP ni se dispara la query
+ *  LOW error sin data nunca cargada → placeholder neutro "No disponible"
+ *      (no "Todos los nodos", que se lee como valor aplicado)
  */
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -32,9 +42,14 @@ import type { CampaignSegment } from '@/types/messagingBulk';
 
 vi.mock('@/hooks/useNetworkSites', () => ({ useNetworkSites: vi.fn() }));
 vi.mock('@/hooks/useAccessPoints', () => ({ useAssignableAccessPoints: vi.fn() }));
+// M2 — el builder gatea la fila del AP con can('network.read'); mock a nivel
+// hook (useMyPermissions usa useQuery — sin mock no hay QueryClient acá).
+vi.mock('@/hooks/useMyPermissions');
 
 import { useNetworkSites } from '@/hooks/useNetworkSites';
 import { useAssignableAccessPoints } from '@/hooks/useAccessPoints';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
+import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
 import { SegmentBuilder } from '@/pages/whatsapp/BulkMessagingPage/components/composer/SegmentBuilder';
 import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
@@ -89,8 +104,24 @@ function setupCatalogs({
   vi.mocked(useAssignableAccessPoints).mockReturnValue(mockQuery({ data: aps, isLoading: false }));
 }
 
+/** M2 — `network.read` togglable; el resto de los permisos siempre concedidos. */
+function mockPerms(canReadNetwork = true) {
+  vi.mocked(useMyPermissions).mockReturnValue({
+    user: null,
+    roles: [],
+    permissions: [],
+    isLoading: false,
+    isError: false,
+    can: (permission: string | string[]) => {
+      const perms = Array.isArray(permission) ? permission : [permission];
+      return perms.every((p) => (p === 'network.read' ? canReadNetwork : true));
+    },
+  } as UseMyPermissionsResult);
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  mockPerms(true);
 });
 
 describe('NSB-1: combobox propios de Nodo y Access Point', () => {
@@ -148,16 +179,16 @@ describe('NSB-3: elegir un nodo', () => {
 });
 
 describe('NSB-4: el nodo elegido acota los APs', () => {
-  it('pide los APs scoped al networkSiteId del value', () => {
+  it('pide los APs scoped al networkSiteId del value (query habilitada con network.read)', () => {
     setupCatalogs({ aps: APS_SITE_2 });
     render(<SegmentBuilder value={{ statuses: [], networkSiteId: 'site-2' }} onChange={vi.fn()} />);
-    expect(useAssignableAccessPoints).toHaveBeenCalledWith('site-2');
+    expect(useAssignableAccessPoints).toHaveBeenCalledWith('site-2', true);
   });
 
   it('sin nodo elegido pide el catálogo completo (null)', () => {
     setupCatalogs();
     render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
-    expect(useAssignableAccessPoints).toHaveBeenCalledWith(null);
+    expect(useAssignableAccessPoints).toHaveBeenCalledWith(null, true);
   });
 
   it('el select de AP lista las opciones del nodo', () => {
@@ -300,6 +331,94 @@ describe('NSB-11: rama empty', () => {
     render(<SegmentBuilder value={{ statuses: [], networkSiteId: 'site-1' }} onChange={vi.fn()} />);
     expect(screen.getByText(/no hay access points disponibles/i)).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: /access point/i })).toBeDisabled();
+  });
+});
+
+describe('M1: refetch fallido con catálogo cacheado (fix wave)', () => {
+  it('el nodo elegido SIGUE visible (options desde la cache) y el select queda usable', () => {
+    // TanStack v5: un refetch fallido deja isError=true PERO conserva `data`
+    // del último success — el escenario real es staleTime vencido + refocus.
+    vi.mocked(useNetworkSites).mockReturnValue(
+      mockQuery({ data: SITES, isError: true, error: new Error('boom'), isSuccess: false, status: 'error' }),
+    );
+    vi.mocked(useAssignableAccessPoints).mockReturnValue(mockQuery({ data: APS_SITE_1, isLoading: false }));
+    render(<SegmentBuilder value={{ statuses: [], networkSiteId: 'site-1' }} onChange={vi.fn()} />);
+
+    const trigger = screen.getByRole('combobox', { name: /^nodo$/i });
+    // Antes: options=[] → el trigger caía al placeholder "Todos los nodos"
+    // MIENTRAS networkSiteId seguía viajando en el payload (filtro oculto).
+    expect(trigger).toHaveTextContent('Nodo Centro');
+    expect(trigger).toBeEnabled();
+  });
+
+  it('el AP elegido SIGUE visible con cache + error de refetch', () => {
+    vi.mocked(useNetworkSites).mockReturnValue(mockQuery({ data: SITES, isLoading: false }));
+    vi.mocked(useAssignableAccessPoints).mockReturnValue(
+      mockQuery({ data: APS_SITE_1, isError: true, error: new Error('boom'), isSuccess: false, status: 'error' }),
+    );
+    render(
+      <SegmentBuilder
+        value={{ statuses: [], networkSiteId: 'site-1', accessPointId: 'ap-1' }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const trigger = screen.getByRole('combobox', { name: /access point/i });
+    expect(trigger).toHaveTextContent('AP Centro Torre');
+    expect(trigger).toBeEnabled();
+  });
+
+  it('con cache + error avisa que el catálogo puede estar desactualizado (role=alert)', () => {
+    vi.mocked(useNetworkSites).mockReturnValue(
+      mockQuery({ data: SITES, isError: true, error: new Error('boom'), isSuccess: false, status: 'error' }),
+    );
+    vi.mocked(useAssignableAccessPoints).mockReturnValue(mockQuery({ data: APS_SITE_1, isLoading: false }));
+    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+
+    const alerts = screen.getAllByRole('alert');
+    expect(alerts.some((a) => /actualizar|última versión/i.test(a.textContent ?? ''))).toBe(true);
+  });
+});
+
+describe('LOW: placeholder neutro en error sin cache (fix wave)', () => {
+  it('error con data nunca cargada → "No disponible", no "Todos los nodos"', () => {
+    vi.mocked(useNetworkSites).mockReturnValue(
+      mockQuery({ data: undefined, isError: true, error: new Error('boom'), isSuccess: false, status: 'error' }),
+    );
+    vi.mocked(useAssignableAccessPoints).mockReturnValue(mockQuery({ data: APS_SITE_1, isLoading: false }));
+    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+
+    const trigger = screen.getByRole('combobox', { name: /^nodo$/i });
+    expect(trigger).toHaveTextContent(/no disponible/i);
+    expect(trigger).not.toHaveTextContent(/todos los nodos/i);
+  });
+});
+
+describe('M2: gate network.read del select de AP (fix wave)', () => {
+  it('sin network.read NO renderiza el select de AP ni ningún alert; el de Nodo queda (auth-only)', () => {
+    mockPerms(false);
+    setupCatalogs();
+    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+
+    expect(screen.queryByRole('combobox', { name: /access point/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /^nodo$/i })).toBeInTheDocument();
+  });
+
+  it('sin network.read la query de APs queda deshabilitada (ni un 403 al aire)', () => {
+    mockPerms(false);
+    setupCatalogs();
+    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+
+    expect(useAssignableAccessPoints).toHaveBeenCalledWith(null, false);
+  });
+
+  it('con network.read todo sigue igual (fila de AP presente)', () => {
+    mockPerms(true);
+    setupCatalogs();
+    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+
+    expect(screen.getByRole('combobox', { name: /access point/i })).toBeInTheDocument();
   });
 });
 

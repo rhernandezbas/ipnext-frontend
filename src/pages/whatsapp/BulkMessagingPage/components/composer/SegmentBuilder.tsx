@@ -1,5 +1,6 @@
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
 import { Select, type SelectOption } from '@/components/molecules/Select/Select';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { useNetworkSites } from '@/hooks/useNetworkSites';
 import { useAssignableAccessPoints } from '@/hooks/useAccessPoints';
 import type { CampaignSegment } from '@/types/messagingBulk';
@@ -51,25 +52,42 @@ export function SegmentBuilder({ value, onChange }: SegmentBuilderProps) {
   // que no cuenta, en vez de dejarlo creer que ya hay criterio (dead-end 400).
   const ineffectiveBalance = hasIneffectiveBalance(value);
 
+  // M2 (fix wave) — mismatch RBAC: `GET /access-points` exige `network.read`
+  // (`/network-sites` es auth-only). Sin el permiso, la fila del AP no se
+  // renderiza NI se dispara la query (403 seguro que ningún "Reintentá" cura).
+  const { can } = useMyPermissions();
+  const canReadNetwork = can('network.read');
+
   const sitesQuery = useNetworkSites({ staleTime: SITES_STALE_TIME_MS });
   // El nodo elegido ACOTA el catálogo de APs (mismo patrón que el picker de
   // contrato); sin nodo se pide el catálogo completo (elegir AP suelto es válido).
-  const apsQuery = useAssignableAccessPoints(value.networkSiteId ?? null);
+  const apsQuery = useAssignableAccessPoints(value.networkSiteId ?? null, canReadNetwork);
 
   const sites = sitesQuery.data ?? [];
   const aps = apsQuery.data ?? [];
-  const sitesEmpty = !sitesQuery.isLoading && !sitesQuery.isError && sites.length === 0;
-  const apsEmpty = !apsQuery.isLoading && !apsQuery.isError && aps.length === 0;
 
-  // 4 ramas por select (loading/error/empty/success): en las 3 primeras el
-  // Select queda deshabilitado SIN opciones (así el trigger muestra el
-  // placeholder de la rama); solo en success se arma "Todos" + catálogo.
+  // M1 (fix wave) — la cache de TanStack v5 SOBREVIVE a un refetch fallido
+  // (`isError` con `data` del último success): las options se arman desde la
+  // cache igual, así el filtro elegido SIGUE visible y limpiable. Antes, en
+  // error se forzaba options=[] → el trigger caía al placeholder "Todos los
+  // nodos" MIENTRAS `networkSiteId` seguía viajando en el payload (filtro
+  // OCULTO: el operador creía mandar a toda la base). "No disponible" queda
+  // solo para data nunca cargada.
+  const sitesUnavailable = sitesQuery.isLoading || (sitesQuery.isError && sitesQuery.data === undefined);
+  const apsUnavailable = apsQuery.isLoading || (apsQuery.isError && apsQuery.data === undefined);
+  const sitesEmpty = !sitesUnavailable && sites.length === 0;
+  const apsEmpty = !apsUnavailable && aps.length === 0;
+
+  // 4 ramas por select (loading / error-sin-cache / empty / success-o-cache):
+  // sin catálogo usable el Select queda deshabilitado SIN opciones (el trigger
+  // muestra el placeholder de la rama); con catálogo (fresco O cacheado tras
+  // un refetch fallido, M1) se arma "Todos" + opciones y queda usable.
   const siteOptions: SelectOption[] =
-    sitesQuery.isLoading || sitesQuery.isError || sitesEmpty
+    sitesUnavailable || sitesEmpty
       ? []
       : [{ value: '', label: 'Todos los nodos' }, ...sites.map((s) => ({ value: s.id, label: s.name }))];
   const apOptions: SelectOption[] =
-    apsQuery.isLoading || apsQuery.isError || apsEmpty
+    apsUnavailable || apsEmpty
       ? []
       : [{ value: '', label: 'Todos los APs' }, ...aps.map((a) => ({ value: a.id, label: a.name }))];
 
@@ -157,36 +175,50 @@ export function SegmentBuilder({ value, onChange }: SegmentBuilderProps) {
             value={value.networkSiteId ?? ''}
             onChange={handleSiteChange}
             options={siteOptions}
-            placeholder={sitesQuery.isLoading ? 'Cargando nodos…' : 'Todos los nodos'}
-            disabled={sitesQuery.isLoading || sitesQuery.isError || sitesEmpty}
+            placeholder={
+              // LOW (fix wave) — en error sin cache, "Todos los nodos" se
+              // leería como valor aplicado: placeholder neutro.
+              sitesQuery.isLoading ? 'Cargando nodos…' : sitesQuery.isError ? 'No disponible' : 'Todos los nodos'
+            }
+            disabled={sitesUnavailable || sitesEmpty}
             aria-describedby={sitesQuery.isError ? NODE_ERROR_ID : undefined}
           />
           {sitesQuery.isError && (
             <p id={NODE_ERROR_ID} className={styles.fieldError} role="alert">
-              No se pudieron cargar los nodos. Reintentá.
+              {sitesQuery.data
+                ? 'No se pudo actualizar el catálogo de nodos — se muestra la última versión cargada.'
+                : 'No se pudieron cargar los nodos. Reintentá.'}
             </p>
           )}
           {sitesEmpty && <p className={styles.fieldHint}>No hay nodos disponibles.</p>}
         </div>
 
-        <div className={styles.networkField}>
-          <Select
-            id="bulk-segment-ap"
-            label="Access Point"
-            value={value.accessPointId ?? ''}
-            onChange={handleApChange}
-            options={apOptions}
-            placeholder={apsQuery.isLoading ? 'Cargando APs…' : 'Todos los APs'}
-            disabled={apsQuery.isLoading || apsQuery.isError || apsEmpty}
-            aria-describedby={apsQuery.isError ? AP_ERROR_ID : undefined}
-          />
-          {apsQuery.isError && (
-            <p id={AP_ERROR_ID} className={styles.fieldError} role="alert">
-              No se pudieron cargar los access points. Reintentá.
-            </p>
-          )}
-          {apsEmpty && <p className={styles.fieldHint}>No hay access points disponibles.</p>}
-        </div>
+        {/* M2 (fix wave) — TODA la fila del AP detrás del gate: sin
+            network.read no hay select ni un alert de 403 incurable. */}
+        {canReadNetwork && (
+          <div className={styles.networkField}>
+            <Select
+              id="bulk-segment-ap"
+              label="Access Point"
+              value={value.accessPointId ?? ''}
+              onChange={handleApChange}
+              options={apOptions}
+              placeholder={
+                apsQuery.isLoading ? 'Cargando APs…' : apsQuery.isError ? 'No disponible' : 'Todos los APs'
+              }
+              disabled={apsUnavailable || apsEmpty}
+              aria-describedby={apsQuery.isError ? AP_ERROR_ID : undefined}
+            />
+            {apsQuery.isError && (
+              <p id={AP_ERROR_ID} className={styles.fieldError} role="alert">
+                {apsQuery.data
+                  ? 'No se pudo actualizar el catálogo de access points — se muestra la última versión cargada.'
+                  : 'No se pudieron cargar los access points. Reintentá.'}
+              </p>
+            )}
+            {apsEmpty && <p className={styles.fieldHint}>No hay access points disponibles.</p>}
+          </div>
+        )}
       </div>
 
       {!criteriaPresent && (
