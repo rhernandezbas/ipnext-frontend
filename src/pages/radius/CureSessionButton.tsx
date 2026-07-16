@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useConfirm } from '@/context/ConfirmContext';
 import { useCureSession } from '@/hooks/useRadiusSessionCures';
 import {
-  isCureSkippedAlive,
-  isCureSkippedAmbiguous,
+  isCureGateRejection,
   isOrchestratorUnreachable,
   cureErrorReason,
+  cureGateCopy,
 } from '@/utils/mapCureSessionError';
 import type { CureSessionResult } from '@/types/radiusSessionCure';
 import styles from './CureSessionButton.module.css';
@@ -60,10 +60,13 @@ function feedbackForOutcome(result: CureSessionResult): Feedback {
  * automática:
  *   1. confirm 1 explica el efecto (CoA Disconnect + cierre contable) → POST SIN force.
  *   2. Si el BE responde 409 (CURE_SKIPPED_ALIVE / CURE_SKIPPED_AMBIGUOUS) — los gates
- *      fail-closed detectaron la sesión posiblemente viva/ambigua — se muestra el
- *      motivo REAL del BE y se pide un SEGUNDO confirm explícito con copy de riesgo
- *      antes de reenviar con `force: true`. Un 502 (orchestrator caído) NO es un gate:
- *      no se ofrece forzar (forzar no arregla que el orchestrator esté caído).
+ *      fail-closed detectaron la sesión posiblemente viva/ambigua — se pide un SEGUNDO
+ *      confirm explícito con copy de riesgo antes de reenviar con `force: true`. El
+ *      copy de ese segundo confirm es SIEMPRE la frase humana mapeada por CODE
+ *      (`cureGateCopy`, ver mapCureSessionError.ts) — nunca el `message` máquina crudo
+ *      del BE (fix MEDIUM, review adversarial: mostrar el token en la confirmación que
+ *      corta un cliente vivo es inaceptable). Un 502 (orchestrator caído) NO es un
+ *      gate: no se ofrece forzar (forzar no arregla que el orchestrator esté caído).
  * El refresco del tab "Sesiones curadas" lo maneja `useCureSession` (invalidate
  * onSettled) — cualquier intento, exitoso o rechazado por el gate, deja fila (D8).
  */
@@ -77,12 +80,8 @@ export function CureSessionButton({ username }: CureSessionButtonProps) {
       const result = await cureSession.mutateAsync({ username, force: force || undefined });
       setFeedback(feedbackForOutcome(result));
     } catch (err) {
-      if (!force && isCureSkippedAlive(err)) {
-        await offerForce(err, 'La sesión parece estar viva.');
-        return;
-      }
-      if (!force && isCureSkippedAmbiguous(err)) {
-        await offerForce(err, 'Hay sesiones activas en varios NAS a la vez (estado ambiguo).');
+      if (!force && isCureGateRejection(err)) {
+        await offerForce(err);
         return;
       }
       if (isOrchestratorUnreachable(err)) {
@@ -96,12 +95,17 @@ export function CureSessionButton({ username }: CureSessionButtonProps) {
     }
   }
 
-  /** El ÚNICO camino a `force: true` — segunda confirmación explícita, jamás automática. */
-  async function offerForce(err: unknown, hint: string) {
-    const reason = cureErrorReason(err, hint);
+  /**
+   * El ÚNICO camino a `force: true` — segunda confirmación explícita, jamás
+   * automática. El copy se arma con `cureGateCopy`: la frase humana SIEMPRE
+   * primero, el detalle técnico del BE (si aporta) va anexado entre paréntesis.
+   */
+  async function offerForce(err: unknown) {
+    const { humanPhrase, technicalDetail } = cureGateCopy(err);
+    const detailSuffix = technicalDetail ? ` (${technicalDetail})` : '';
     const ok = await confirm({
       title: 'Forzar la cura',
-      message: `El sistema rechazó la cura automática: "${reason}". Forzar la desconecta igual — ¿continuar?`,
+      message: `${humanPhrase}${detailSuffix} Forzar la desconecta igual — ¿continuar?`,
       tone: 'danger',
       confirmLabel: 'Forzar cura',
     });
@@ -138,15 +142,20 @@ export function CureSessionButton({ username }: CureSessionButtonProps) {
       >
         {cureSession.isPending ? 'Curando…' : 'Curar sesión colgada'}
       </button>
-      {feedback && (
-        <div
-          className={toneClass}
-          role={feedback.tone === 'error' ? 'alert' : 'status'}
-          aria-live={feedback.tone === 'error' ? 'assertive' : 'polite'}
-        >
-          {feedback.message}
-        </div>
-      )}
+      {/* La live-region SIEMPRE está montada (fix LOW a11y, review adversarial):
+          NVDA/JAWS necesitan que el nodo con aria-live ya exista en el DOM ANTES
+          de que cambie el texto para anunciarlo — montarla condicionalmente
+          junto con el mensaje no es confiable. El resultado de una acción que
+          puede cortar un cliente vivo tiene que anunciarse siempre. Cuando no
+          hay feedback se oculta visualmente (`feedbackHidden`) pero sigue
+          presente para el screen reader; solo cambian el texto y la clase de tono. */}
+      <div
+        className={`${toneClass} ${feedback ? '' : styles.feedbackHidden}`}
+        role={feedback?.tone === 'error' ? 'alert' : 'status'}
+        aria-live={feedback?.tone === 'error' ? 'assertive' : 'polite'}
+      >
+        {feedback?.message ?? ''}
+      </div>
     </div>
   );
 }

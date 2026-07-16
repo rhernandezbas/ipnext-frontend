@@ -84,10 +84,13 @@ function formatCount(n: number): string {
   return n.toLocaleString('es-AR');
 }
 
-const CHIP_ORDER: RadiusSessionCureOutcome[] = [
-  'cured', 'already_cured', 'skipped_alive', 'skipped_ambiguous',
-  'skipped_no_session', 'skipped_no_signal', 'flagged_flapping', 'failed',
-];
+/**
+ * Orden de los chips — derivado de RADIUS_SESSION_CURE_OUTCOMES (fuente única,
+ * ver types/radiusSessionCure.ts) en vez de duplicar los 8 valores acá: un 9º
+ * outcome nuevo del BE se agrega solo con un cambio en un único lugar (nit
+ * review adversarial).
+ */
+const CHIP_ORDER: readonly RadiusSessionCureOutcome[] = RADIUS_SESSION_CURE_OUTCOMES;
 
 /**
  * Tab "Sesiones curadas" — auditoría del watcher `AutoCureStuckSessions` + la cura

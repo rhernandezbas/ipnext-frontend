@@ -1,7 +1,7 @@
 /* Botón "Curar sesión colgada" (radius-session-autocure FE-1, REQ-FE-CURE-2) —
    vive dentro de una celda de la tabla de "Errores de auth". El feedback se
    apila DEBAJO del botón, dentro de la misma celda: la celda contenedora
-   necesita permitir wrap (ver .cureActionsCell en RadiusAuthErrorsPage.module.css)
+   necesita permitir wrap (ver .actionsCell en RadiusAuthErrorsPage.module.css)
    porque el resto de la tabla usa white-space: nowrap. */
 
 .cureCell {
@@ -75,4 +75,23 @@
 .feedbackError {
   background: var(--badge-late-bg);
   color: var(--badge-late-fg);
+}
+
+/* La live-region de feedback está SIEMPRE montada (fix LOW a11y) — cuando no
+   hay mensaje se oculta visualmente con el patrón .srOnly del resto del repo
+   (ver ComposerAttachmentTray.module.css / TicketCommentsTimeline.module.css)
+   en vez de desmontar el nodo, para que el screen reader ya lo tenga
+   registrado cuando llegue el próximo anuncio. Declarada DESPUÉS de las
+   clases de tono (misma especificidad — .feedbackInfo/Success/Error) para
+   que gane sobre su padding/max-width mientras está vacía. */
+.feedbackHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

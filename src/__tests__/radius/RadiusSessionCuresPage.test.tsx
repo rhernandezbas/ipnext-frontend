@@ -11,9 +11,10 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import type {
-  PaginatedRadiusSessionCureEvents,
-  RadiusSessionCureEvent,
+import {
+  RADIUS_SESSION_CURE_OUTCOMES,
+  type PaginatedRadiusSessionCureEvents,
+  type RadiusSessionCureEvent,
 } from '@/types/radiusSessionCure';
 
 vi.mock('@/hooks/useRadiusSessionCures');
@@ -218,6 +219,12 @@ describe('RadiusSessionCuresPage — chips de countsByOutcome', () => {
     expect(chip).toHaveAttribute('aria-pressed', 'true');
     await userEvent.click(chip);
     expect(lastHookParams().outcome).toBeUndefined();
+  });
+
+  it('nit review: renderiza exactamente un chip por cada outcome de RADIUS_SESSION_CURE_OUTCOMES (CHIP_ORDER derivado, no duplicado)', () => {
+    renderPage();
+    const chipBar = screen.getByRole('group', { name: /resultado — chips/i });
+    expect(within(chipBar).getAllByRole('button')).toHaveLength(RADIUS_SESSION_CURE_OUTCOMES.length);
   });
 });
 

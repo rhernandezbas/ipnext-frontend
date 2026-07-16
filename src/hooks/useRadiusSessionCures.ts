@@ -28,6 +28,13 @@ export function useRadiusSessionCures(params: RadiusSessionCuresParams) {
  * `onSettled` (no `onSuccess`): el BE registra fila SIEMPRE, incluso en los 409
  * fail-closed (alive/ambiguous) — el tab "Sesiones curadas" debe refrescar tanto en
  * éxito como en un intento rechazado por el gate, para que la fila nueva sea visible.
+ *
+ * Nota (aviso, no bug): solo invalida `RADIUS_SESSION_CURES_KEY`, NO la query
+ * `['radius-auth-failures', ...]` (useRadiusAuthFailures.ts) de donde vive el botón —
+ * la fila `session_stuck` de "Errores de auth" no desaparece sola tras curar. Es
+ * inocuo: un reclick sobre la misma fila devuelve `skipped_no_session` (200), no
+ * rompe nada. Si algún día se quiere invalidar ambas, hay que decidir el costo
+ * (refetch de una tabla ajena en cada cura) vs. el beneficio (fila desaparece sola).
  */
 export function useCureSession() {
   const queryClient = useQueryClient();

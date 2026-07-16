@@ -5,6 +5,7 @@ import {
   isCureGateRejection,
   isOrchestratorUnreachable,
   cureErrorReason,
+  cureGateCopy,
 } from '@/utils/mapCureSessionError';
 
 function axiosError(status: number, data: { code?: string; message?: string }) {
@@ -56,5 +57,38 @@ describe('mapCureSessionError', () => {
     expect(isCureSkippedAlive(err)).toBe(false);
     expect(isCureSkippedAmbiguous(err)).toBe(false);
     expect(isOrchestratorUnreachable(err)).toBe(false);
+  });
+});
+
+/**
+ * cureGateCopy — MEDIUM del review adversarial: el 2do confirm mostraba el
+ * `message` MÁQUINA crudo del BE en vez de la frase humana. El copy PRIMARIO
+ * se mapea por CODE (nunca por `message`); el `message` crudo se anexa como
+ * detalle técnico SOLO cuando aporta algo que la frase humana no dice.
+ */
+describe('cureGateCopy', () => {
+  it('CURE_SKIPPED_ALIVE — humanPhrase es la frase humana, SIN detalle técnico (el token no aporta)', () => {
+    const err = axiosError(409, { code: 'CURE_SKIPPED_ALIVE', message: 'session_fresh_interim' });
+    const copy = cureGateCopy(err);
+    expect(copy.humanPhrase).toMatch(/la sesión parece estar viva/i);
+    expect(copy.technicalDetail).toBeUndefined();
+  });
+
+  it('CURE_SKIPPED_AMBIGUOUS — humanPhrase + la lista de NAS como detalle técnico (SÍ aporta)', () => {
+    const err = axiosError(409, {
+      code: 'CURE_SKIPPED_AMBIGUOUS',
+      message: 'sessions_on_multiple_nas:10.0.0.1,10.0.0.2',
+    });
+    const copy = cureGateCopy(err);
+    expect(copy.humanPhrase).toMatch(/hay sesiones activas en varios nas/i);
+    expect(copy.technicalDetail).toContain('10.0.0.1');
+    expect(copy.technicalDetail).toContain('10.0.0.2');
+  });
+
+  it('CURE_SKIPPED_AMBIGUOUS con un message que no matchea el prefijo conocido → sin detalle, degrada a la frase humana sola', () => {
+    const err = axiosError(409, { code: 'CURE_SKIPPED_AMBIGUOUS', message: 'algo_inesperado' });
+    const copy = cureGateCopy(err);
+    expect(copy.humanPhrase).toMatch(/hay sesiones activas en varios nas/i);
+    expect(copy.technicalDetail).toBeUndefined();
   });
 });
