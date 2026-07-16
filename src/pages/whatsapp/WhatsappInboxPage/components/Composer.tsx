@@ -90,7 +90,16 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
   // announcement "Template enviado" no puede vivir dentro de él — tiene que
   // sobrevivir al desmonte para que el lector de pantalla lo alcance a leer.
   const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
-  const [templateAnnouncement, setTemplateAnnouncement] = useState('');
+  // Bug MEDIO a11y (post-review-adversarial): antes esto era
+  // `useState('')` seteado SIEMPRE a la MISMA constante
+  // `TEMPLATE_SENT_ANNOUNCEMENT` en `handleTemplateSent` — del 2º envío en
+  // adelante React hace bail-out (Object.is sobre el mismo string) y NO toca
+  // el DOM, así que un lector de pantalla NUNCA re-anuncia los envíos
+  // siguientes. El flujo real de este CTA es mandar templates a una COLA de
+  // conversaciones (envíos repetidos), no un envío único — el bug era real.
+  // Fix: un contador incremental que fuerza que el TEXTO renderizado cambie
+  // en cada envío exitoso (ver `templateAnnouncement` derivado más abajo).
+  const [templateSentCount, setTemplateSentCount] = useState(0);
   // Bug CRÍTICO #4: `feedback` estaba en el hook pero NUNCA se destructuraba
   // acá — cuando se elegían más de `MAX_FILES` archivos, los excedentes
   // desaparecían en silencio (el hook los recortaba, pero nadie mostraba el
@@ -219,8 +228,20 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
   // ventana, el composer de texto libre queda EXACTAMENTE como estaba.
   function handleTemplateSent() {
     setTemplatePanelOpen(false);
-    setTemplateAnnouncement(TEMPLATE_SENT_ANNOUNCEMENT);
+    setTemplateSentCount((count) => count + 1);
   }
+
+  // Deriva el texto del announcement a partir del contador — el 1er envío
+  // sigue leyendo EXACTAMENTE "Template enviado" (cero regresión de copy),
+  // del 2º en adelante suma un sufijo "(N)" que garantiza que el string
+  // CAMBIE respecto del envío anterior (mutación real del nodo de texto, no
+  // solo un re-render con el mismo valor).
+  const templateAnnouncement =
+    templateSentCount === 0
+      ? ''
+      : templateSentCount === 1
+        ? TEMPLATE_SENT_ANNOUNCEMENT
+        : `${TEMPLATE_SENT_ANNOUNCEMENT} (${templateSentCount})`;
 
   return (
     <Can permission="messaging.send">

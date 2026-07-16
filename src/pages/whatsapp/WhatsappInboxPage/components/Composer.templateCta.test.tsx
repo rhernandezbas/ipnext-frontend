@@ -196,4 +196,34 @@ describe('CTA-3: envío feliz — panel cierra, composer SIGUE bloqueado (D2), a
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /enviar template/i })).toBeInTheDocument();
   });
+
+  it('MEDIUM a11y (review adversarial): DOS envíos de template consecutivos re-anuncian las DOS veces — el flujo real es mandar templates a una cola de conversaciones, no un envío único', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    // --- 1er envío ---
+    await user.click(screen.getByRole('button', { name: /enviar template/i }));
+    await user.click(screen.getByRole('combobox', { name: /template/i }));
+    await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
+    await user.click(screen.getByRole('button', { name: /confirmar y enviar/i }));
+
+    // El nodo del announcement es PERSISTENTE (vive en Composer, sobrevive al
+    // desmonte del panel) — capturamos la MISMA referencia para probar que el
+    // 2° envío MUTA su contenido (no solo que "existe un texto igual").
+    const announcement = screen.getByText('Template enviado');
+    expect(announcement).toBeInTheDocument();
+
+    // --- 2do envío (mismo composer, se reabre el panel) ---
+    await user.click(screen.getByRole('button', { name: /enviar template/i }));
+    await user.click(screen.getByRole('combobox', { name: /template/i }));
+    await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
+    await user.click(screen.getByRole('button', { name: /confirmar y enviar/i }));
+
+    // Sin el fix (nonce), React haría bail-out (Object.is sobre la misma
+    // constante `TEMPLATE_SENT_ANNOUNCEMENT`) y el texto quedaría IDÉNTICO —
+    // el lector de pantalla no re-anunciaría nada. Con el fix, el contenido
+    // del MISMO nodo cambia en el 2° envío.
+    expect(announcement.textContent).not.toBe('Template enviado');
+    expect(screen.queryByText('Template enviado', { exact: true })).not.toBeInTheDocument();
+  });
 });

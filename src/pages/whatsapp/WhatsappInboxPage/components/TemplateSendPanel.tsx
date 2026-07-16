@@ -80,16 +80,26 @@ interface TemplateSendPanelProps {
  * fuerza un remount limpio (selección/variables/idempotencyKey de la
  * conversación anterior NUNCA sobreviven, memoria `inbox-key-por-conversacion`).
  *
- * `idempotencyKey` (contrato H1, design D5/D11) se genera UNA vez al montar
- * (`useState` lazy init — corre en el primer render, nunca se regenera en
- * re-renders posteriores) y se REUSA en todos los reintentos de este mismo
- * intento de envío. Un UUID nuevo sólo sale de un remount real (cerrar+abrir
- * el panel, o cambiar de conversación).
+ * `idempotencyKey` (contrato H1, design D5/D11; ampliado por el review
+ * adversarial post-CTA-1) se genera al montar (`useState` lazy init) y se
+ * REUSA en los reintentos de un MISMO intento de envío — mismo template,
+ * "Confirmar y enviar" de nuevo tras un error, doble click — así el guard-0
+ * server-side dedupea correctamente. PERO `handleSelectTemplate` la
+ * REGENERA cuando el template elegido CAMBIA (contentSid distinto al ya
+ * seleccionado): cambiar de template es una intención NUEVA, y reusar la
+ * key vieja causaría un wrong-send silencioso (el operador elige A,
+ * confirma, sufre un timeout ambiguo, elige B, confirma — B viajaría con la
+ * key de A, el server lo dedupea contra A y B nunca sale). El PRIMER pick
+ * (null → algo) NO regenera — reusa la key de montaje, porque todavía no
+ * hubo ningún intento de envío con ella. Cambiar SOLO variables (mismo
+ * template) tampoco regenera — un reintento con vars corregidas del MISMO
+ * template sigue protegido contra doble-cargo. Un UUID nuevo, además, sale
+ * de un remount real (cerrar+abrir el panel, o cambiar de conversación).
  */
 export function TemplateSendPanel({ conversationId, onClose, onSent }: TemplateSendPanelProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateSummaryDto | null>(null);
   const [variables, setVariables] = useState<Record<string, string>>({});
-  const [idempotencyKey] = useState<string>(() => makeIdempotencyKey());
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => makeIdempotencyKey());
 
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -152,6 +162,16 @@ export function TemplateSendPanel({ conversationId, onClose, onSent }: TemplateS
 
   function handleSelectTemplate(contentSid: string) {
     const next = sendableTemplates.find((t) => t.contentSid === contentSid) ?? null;
+    // EDGE de contrato (review adversarial, arreglado): cambiar de template
+    // dentro del MISMO panel es una intención NUEVA — regenerar acá evita el
+    // wrong-send silencioso (ver el doc comment del componente, arriba).
+    // Regla lean: SOLO dispara cuando hay un template PREVIO y uno NUEVO, y
+    // son distintos entre sí. El primer pick (`selectedTemplate` todavía
+    // `null`) no regenera — reusa la key de montaje. Cambiar solo variables
+    // nunca pasa por acá (`handleVariableChange` no toca la key).
+    if (selectedTemplate && next && selectedTemplate.contentSid !== next.contentSid) {
+      setIdempotencyKey(makeIdempotencyKey());
+    }
     setSelectedTemplate(next);
     setVariables({});
     // PICK-1/ERR-1: elegir OTRO template limpia un error de envío previo — no

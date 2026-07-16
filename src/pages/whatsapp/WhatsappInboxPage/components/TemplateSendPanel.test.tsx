@@ -323,6 +323,86 @@ describe('SEND-1: gate de confirm + envío', () => {
   });
 });
 
+describe('EDGE de contrato (review adversarial, arreglado): cambiar de template regenera idempotencyKey', () => {
+  it('elegir A y confirmar, después elegir B (template DISTINTO) → nueva key; reintentar B sin cambiar de template → misma key que el intento anterior de B', async () => {
+    const user = userEvent.setup();
+    const sendTemplate = vi.fn(
+      (_input: { templateRef: string; variables: Record<string, string>; idempotencyKey: string }) => {
+        // No invoca onSuccess: simula un timeout/ambigüedad tras el accept de
+        // Twilio — el panel sigue abierto, el operador puede seguir operando.
+      },
+    );
+    mockSendTemplate({ sendTemplate });
+    mockTemplates([APPROVED, APPROVED_NO_VARS]);
+    renderPanel();
+
+    // Elige A (con variables) y confirma.
+    await user.click(screen.getByRole('combobox', { name: /template/i }));
+    await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
+    await user.type(screen.getByLabelText('{{1}}'), 'Juan');
+    await user.type(screen.getByLabelText('{{2}}'), '$5.000');
+    await user.click(screen.getByRole('button', { name: /confirmar y enviar/i }));
+    const keyA = sendTemplate.mock.calls[0][0].idempotencyKey;
+
+    // Cambia a B (sin variables) — intención NUEVA, la key debe cambiar.
+    await user.click(screen.getByRole('combobox', { name: /template/i }));
+    await user.click(screen.getByRole('option', { name: /bienvenida/i }));
+    await user.click(screen.getByRole('button', { name: /confirmar y enviar/i }));
+    const keyB1 = sendTemplate.mock.calls[1][0].idempotencyKey;
+    expect(keyB1).not.toBe(keyA);
+
+    // Reintenta B SIN volver a elegir template — misma intención, misma key
+    // (protección anti doble-cargo del retry).
+    await user.click(screen.getByRole('button', { name: /confirmar y enviar/i }));
+    const keyB2 = sendTemplate.mock.calls[2][0].idempotencyKey;
+    expect(keyB2).toBe(keyB1);
+  });
+});
+
+describe('Invariante anti-doble-cargo (camino de la plata, agregado por el review): protege el idempotencyKey contra refactors futuros', () => {
+  it('confirm → error → confirm de nuevo (MISMO template, sin re-seleccionar) usa el idempotencyKey IDÉNTICO en ambas llamadas', async () => {
+    const user = userEvent.setup();
+    const sendTemplate = vi.fn();
+    mockSendTemplate({ sendTemplate, isError: true, error: errWithCode('TEMPLATE_PROVIDER_UNAVAILABLE') });
+    mockTemplates([APPROVED_NO_VARS]);
+    renderPanel();
+
+    await user.click(screen.getByRole('combobox', { name: /template/i }));
+    await user.click(screen.getByRole('option', { name: /bienvenida/i }));
+    await user.click(screen.getByRole('button', { name: /confirmar y enviar/i }));
+    await user.click(screen.getByRole('button', { name: /confirmar y enviar/i }));
+
+    expect(sendTemplate).toHaveBeenCalledTimes(2);
+    const key1 = sendTemplate.mock.calls[0][0].idempotencyKey;
+    const key2 = sendTemplate.mock.calls[1][0].idempotencyKey;
+    expect(key2).toBe(key1);
+  });
+
+  it('cerrar y reabrir el panel (unmount/mount — molde real de Composer al togglear el CTA) acuña una idempotencyKey NUEVA y distinta', async () => {
+    const user = userEvent.setup();
+    const sendTemplate = vi.fn();
+    mockSendTemplate({ sendTemplate });
+    mockTemplates([APPROVED_NO_VARS]);
+
+    const { unmount } = render(
+      <TemplateSendPanel conversationId="conv-1" onClose={vi.fn()} onSent={vi.fn()} />,
+    );
+    await user.click(screen.getByRole('combobox', { name: /template/i }));
+    await user.click(screen.getByRole('option', { name: /bienvenida/i }));
+    await user.click(screen.getByRole('button', { name: /confirmar y enviar/i }));
+    unmount();
+
+    render(<TemplateSendPanel conversationId="conv-1" onClose={vi.fn()} onSent={vi.fn()} />);
+    await user.click(screen.getByRole('combobox', { name: /template/i }));
+    await user.click(screen.getByRole('option', { name: /bienvenida/i }));
+    await user.click(screen.getByRole('button', { name: /confirmar y enviar/i }));
+
+    expect(sendTemplate).toHaveBeenCalledTimes(2);
+    const [key1, key2] = sendTemplate.mock.calls.map((call) => call[0].idempotencyKey);
+    expect(key2).not.toBe(key1);
+  });
+});
+
 describe('ERR-1: errores del envío mapeados inline, panel abierto', () => {
   it('422 TEMPLATE_NOT_APPROVED → role=alert con el copy mapeado, catálogo sigue eligible', async () => {
     const user = userEvent.setup();
