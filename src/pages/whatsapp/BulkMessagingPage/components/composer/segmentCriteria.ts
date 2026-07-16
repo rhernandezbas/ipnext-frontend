@@ -6,6 +6,14 @@ function isEffectiveBalance(value: number | undefined): boolean {
 }
 
 /**
+ * node-segment-fe — un filtro de red (nodo o AP) es un id NO vacío. `null` es
+ * "limpiar explícitamente" (contrato BE), no un filtro; `''` tampoco filtra.
+ */
+function isNetworkFilter(value: string | null | undefined): boolean {
+  return typeof value === 'string' && value.length > 0;
+}
+
+/**
  * hasSegmentCriteria (F2 apply chunk 2, FIX-1 fix wave) — true si el segmento
  * tiene AL MENOS un criterio de filtrado REAL. Se usa para gatear tanto el
  * preview automático (`CampaignComposer`) como el botón "Crear campaña" y la
@@ -17,12 +25,17 @@ function isEffectiveBalance(value: number | undefined): boolean {
  * rechaza con 400 UNFILTERED_SEGMENT. Antes el FE usaba `!= null`, lo que dejaba
  * pasar `balanceMin: 0` como criterio válido → preview inválido → dead-end 400
  * sin explicación. Ahora `<=0`/negativos/NaN cuentan como NO-criterio.
+ *
+ * node-segment-fe — el nodo/AP también cuenta como criterio: el BE actualizó
+ * su regla (nodo o AP SOLOS ya son un segmento válido, sin estados/deuda).
  */
 export function hasSegmentCriteria(segment: CampaignSegment): boolean {
   return (
     segment.statuses.length > 0 ||
     isEffectiveBalance(segment.balanceMin) ||
-    isEffectiveBalance(segment.balanceMax)
+    isEffectiveBalance(segment.balanceMax) ||
+    isNetworkFilter(segment.networkSiteId) ||
+    isNetworkFilter(segment.accessPointId)
   );
 }
 

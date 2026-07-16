@@ -2,8 +2,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { NetworkSite, NetworkSiteCreate } from '@/types/networkSite';
 import * as api from '@/api/networkSite.api';
 
-export function useNetworkSites() {
-  return useQuery({ queryKey: ['network-sites'], queryFn: api.getNetworkSites });
+/**
+ * `staleTime` opcional (node-segment-fe) — los consumidores de CATÁLOGO (los
+ * selects de nodo del bulk composer) no necesitan refetch agresivo; los de
+ * gestión (NetworkSitesPage) siguen con el default (0) sin cambio.
+ */
+export function useNetworkSites(options: { staleTime?: number } = {}) {
+  return useQuery({
+    queryKey: ['network-sites'],
+    queryFn: api.getNetworkSites,
+    staleTime: options.staleTime,
+  });
 }
 
 export function useCreateNetworkSite() {

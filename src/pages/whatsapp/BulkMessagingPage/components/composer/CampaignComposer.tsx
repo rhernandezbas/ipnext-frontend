@@ -3,6 +3,8 @@ import { Can } from '@/components/auth/Can';
 import { Button } from '@/components/atoms/Button/Button';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { useTemplates, usePreviewSegment, useCreateCampaign } from '@/hooks/useBulkMessaging';
+import { useNetworkSites } from '@/hooks/useNetworkSites';
+import { useAssignableAccessPoints } from '@/hooks/useAccessPoints';
 import type { CampaignSegment, CampaignVariableSpec, TemplateSummaryDto } from '@/types/messagingBulk';
 import { TemplateSelector } from './TemplateSelector';
 import { VariablesMapForm } from './VariablesMapForm';
@@ -111,6 +113,20 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
     [csvFileName, csvContacts],
   );
 
+  // node-segment-fe — nombres de nodo/AP para el resumen del confirm modal
+  // (el operador revisa NOMBRES, no uuids). MISMAS queries (misma key de
+  // cache TanStack) que ya dispara `SegmentBuilder` adentro — acá es un
+  // lookup sobre la cache compartida, cero fetch extra. Fallback al id crudo
+  // si el catálogo todavía no resolvió (nunca ocultar que hay un filtro).
+  const { data: networkSitesCatalog } = useNetworkSites({ staleTime: 60_000 });
+  const { data: accessPointsCatalog } = useAssignableAccessPoints(segment.networkSiteId ?? null);
+  const networkSiteName = segment.networkSiteId
+    ? networkSitesCatalog?.find((s) => s.id === segment.networkSiteId)?.name ?? segment.networkSiteId
+    : undefined;
+  const accessPointName = segment.accessPointId
+    ? accessPointsCatalog?.find((a) => a.id === segment.accessPointId)?.name ?? segment.accessPointId
+    : undefined;
+
   /** Input del preview/segmento: se OMITEN `manualClientIds`/`manualContacts` cuando están vacíos (cero cambio en el payload del flujo por-segmento). */
   function buildRecipientsInput() {
     return {
@@ -148,6 +164,10 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
     segment.statuses.join(','),
     segment.balanceMin,
     segment.balanceMax,
+    // node-segment-fe — el filtro de red también re-dispara el preview (deps
+    // primitivas, mismo criterio que statuses/balance).
+    segment.networkSiteId,
+    segment.accessPointId,
     manualClientIds.join(','),
     csvFingerprint,
     criteriaPresent,
@@ -382,6 +402,8 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         csvCount={csvContacts.length}
         statusCounts={previewData?.statusCounts ?? {}}
         skipped={previewData?.skipped}
+        networkSiteName={networkSiteName}
+        accessPointName={accessPointName}
         onConfirm={handleConfirmCreate}
         onCancel={() => setConfirmOpen(false)}
       />

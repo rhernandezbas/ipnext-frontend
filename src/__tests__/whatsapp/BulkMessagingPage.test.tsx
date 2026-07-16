@@ -34,8 +34,15 @@ vi.mock('@/api/messagingBulk.api', () => ({
   listCampaigns: vi.fn(),
 }));
 vi.mock('@/hooks/useMyPermissions');
+// node-segment-fe — el composer monta los selects de Nodo/AP (catálogos de
+// red); mock a nivel fetch para que no salgan requests reales. Los escenarios
+// de red viven en CampaignComposer.networkSegment.test.tsx.
+vi.mock('@/api/networkSite.api', () => ({ getNetworkSites: vi.fn() }));
+vi.mock('@/api/accessPoints.api', () => ({ listAssignableAccessPoints: vi.fn() }));
 
 import { listBulkTemplates, previewSegment, createCampaign, listCampaigns, getCampaign, sendCampaign } from '@/api/messagingBulk.api';
+import { getNetworkSites } from '@/api/networkSite.api';
+import { listAssignableAccessPoints } from '@/api/accessPoints.api';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
 import BulkMessagingPage from '@/pages/whatsapp/BulkMessagingPage';
@@ -101,6 +108,8 @@ beforeEach(() => {
   vi.mocked(createCampaign).mockResolvedValue({ campaignId: 'camp-1', total: 10, status: 'pending' });
   vi.mocked(listCampaigns).mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 });
   vi.mocked(getCampaign).mockResolvedValue({ campaign: CAMPAIGN_DTO });
+  vi.mocked(getNetworkSites).mockResolvedValue([]);
+  vi.mocked(listAssignableAccessPoints).mockResolvedValue([]);
 });
 
 afterEach(() => {

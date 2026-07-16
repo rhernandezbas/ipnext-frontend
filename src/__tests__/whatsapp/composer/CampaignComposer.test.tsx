@@ -43,8 +43,16 @@ vi.mock('@/hooks/useMyPermissions');
 // El composer ahora monta `ManualRecipientsPicker` → `CustomerPicker`, que usa
 // `useClientList`. Se mockea a nivel hook (mismo seam que CustomerPicker.test).
 vi.mock('@/hooks/useCustomers', () => ({ useClientList: vi.fn() }));
+// node-segment-fe — el SegmentBuilder (y el composer, para los nombres del
+// confirm modal) fetchean los catálogos de red. Mock a nivel fetch (mismo
+// seam que messagingBulk.api); los escenarios de red viven en
+// `CampaignComposer.networkSegment.test.tsx` — acá solo se neutralizan.
+vi.mock('@/api/networkSite.api', () => ({ getNetworkSites: vi.fn() }));
+vi.mock('@/api/accessPoints.api', () => ({ listAssignableAccessPoints: vi.fn() }));
 
 import { listBulkTemplates, previewSegment, createCampaign, listSegmentRecipients, listExcludedRecipients } from '@/api/messagingBulk.api';
+import { getNetworkSites } from '@/api/networkSite.api';
+import { listAssignableAccessPoints } from '@/api/accessPoints.api';
 import { useClientList } from '@/hooks/useCustomers';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
@@ -161,6 +169,8 @@ beforeEach(() => {
   vi.mocked(createCampaign).mockResolvedValue({ campaignId: 'camp-1', total: 42, status: 'pending' });
   vi.mocked(listSegmentRecipients).mockResolvedValue(EMPTY_RECIPIENTS);
   vi.mocked(listExcludedRecipients).mockResolvedValue({ ...EMPTY_RECIPIENTS, data: [] });
+  vi.mocked(getNetworkSites).mockResolvedValue([]);
+  vi.mocked(listAssignableAccessPoints).mockResolvedValue([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useClientList
   vi.mocked(useClientList).mockReturnValue({ data: { data: CLIENTS, total: 2, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false } as any);
 });

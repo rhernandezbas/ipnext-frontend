@@ -60,6 +60,14 @@ interface CreateCampaignConfirmModalProps {
   statusCounts: Record<string, number>;
   /** `previewData.skipped` — excluidos del envío (opt-out / duplicado / inválido). Opcional. */
   skipped?: PreviewSegmentOutput['skipped'];
+  /**
+   * node-segment-fe — NOMBRE del nodo elegido como filtro del segmento (el
+   * composer lo resuelve del catálogo; el operador revisa nombres, no uuids).
+   * Opcional: sin filtro de red, la fila no se muestra (cero cambio visual).
+   */
+  networkSiteName?: string;
+  /** node-segment-fe — NOMBRE del Access Point elegido (puede venir sin nodo). */
+  accessPointName?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -89,6 +97,8 @@ export function CreateCampaignConfirmModal({
   csvCount = 0,
   statusCounts,
   skipped,
+  networkSiteName,
+  accessPointName,
   onConfirm,
   onCancel,
 }: CreateCampaignConfirmModalProps) {
@@ -180,6 +190,18 @@ export function CreateCampaignConfirmModal({
             <dt className={styles.summaryTerm}>Template</dt>
             <dd className={styles.summaryValue}>{templateName}</dd>
           </div>
+          {/* node-segment-fe — el filtro de red por NOMBRE (nodo y/o AP; el AP
+              puede venir solo). Sin filtro, la fila entera se omite. */}
+          {(networkSiteName || accessPointName) && (
+            <div className={styles.summaryRow}>
+              <dt className={styles.summaryTerm}>Filtro de red</dt>
+              <dd className={styles.summaryValue}>
+                {networkSiteName ? `Nodo: ${networkSiteName}` : ''}
+                {networkSiteName && accessPointName ? ' · ' : ''}
+                {accessPointName ? `AP: ${accessPointName}` : ''}
+              </dd>
+            </div>
+          )}
           <div className={styles.summaryRow}>
             <dt className={styles.summaryTerm}>Destinatarios</dt>
             <dd className={styles.summaryValue}>

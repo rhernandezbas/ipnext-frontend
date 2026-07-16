@@ -70,3 +70,27 @@ describe('SC-6: valores no-positivos o inválidos (FIX-1)', () => {
     expect(hasSegmentCriteria({ statuses: ['blocked'], balanceMin: 0 })).toBe(true);
   });
 });
+
+describe('SC-7: filtro de red nodo/AP (node-segment-fe)', () => {
+  // Alineado con el BE: nodo o AP SOLOS ya son un segmento válido (el BE ya
+  // no exige estados/deuda si hay nodo/AP). AND con estados/deuda.
+  it('networkSiteId solo → true (nodo solo ya filtra)', () => {
+    expect(hasSegmentCriteria({ statuses: [], networkSiteId: 'site-1' })).toBe(true);
+  });
+
+  it('accessPointId solo → true (AP sin nodo es válido)', () => {
+    expect(hasSegmentCriteria({ statuses: [], accessPointId: 'ap-1' })).toBe(true);
+  });
+
+  it('nodo + AP → true', () => {
+    expect(hasSegmentCriteria({ statuses: [], networkSiteId: 'site-1', accessPointId: 'ap-1' })).toBe(true);
+  });
+
+  it('null explícito NO cuenta como criterio (null = limpiar, no filtrar)', () => {
+    expect(hasSegmentCriteria({ statuses: [], networkSiteId: null, accessPointId: null })).toBe(false);
+  });
+
+  it('string vacío NO cuenta como criterio', () => {
+    expect(hasSegmentCriteria({ statuses: [], networkSiteId: '' })).toBe(false);
+  });
+});

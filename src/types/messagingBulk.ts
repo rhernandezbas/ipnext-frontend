@@ -37,6 +37,20 @@ export interface CampaignSegment {
   statuses: string[];
   balanceMin?: number;
   balanceMax?: number;
+  /**
+   * node-segment-fe — filtro por nodo (`NetworkSite.id`). Semántica BE (contrato
+   * FIJO): AND con estados/deuda; un nodo SOLO ya es un segmento válido (el BE
+   * ya no exige estados/deuda si hay nodo/AP). `undefined` = sin filtro (la key
+   * se OMITE del payload, mismo criterio que `balanceMin` vacío); `null` también
+   * aceptado por el BE como "sin filtro" explícito.
+   */
+  networkSiteId?: string | null;
+  /**
+   * node-segment-fe — filtro por Access Point (`AccessPointOption.id`). Puede ir
+   * CON o SIN nodo (un AP solo también es un segmento válido). Mismas reglas de
+   * `undefined`/`null` que `networkSiteId`.
+   */
+  accessPointId?: string | null;
 }
 
 /**

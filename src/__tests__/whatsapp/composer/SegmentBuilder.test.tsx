@@ -13,11 +13,50 @@
  */
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// node-segment-fe — el builder ahora monta los selects de Nodo/AP con
+// catálogos vía hooks propios; se mockean a nivel hook (misma convención que
+// `ContractNetworkAssignmentPicker.test.tsx`). Los escenarios de red viven en
+// `SegmentBuilder.network.test.tsx` — acá solo se neutralizan.
+vi.mock('@/hooks/useNetworkSites', () => ({ useNetworkSites: vi.fn() }));
+vi.mock('@/hooks/useAccessPoints', () => ({ useAssignableAccessPoints: vi.fn() }));
+
+import { useNetworkSites } from '@/hooks/useNetworkSites';
+import { useAssignableAccessPoints } from '@/hooks/useAccessPoints';
 import { SegmentBuilder } from '@/pages/whatsapp/BulkMessagingPage/components/composer/SegmentBuilder';
+import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
+import type { NetworkSite } from '@/types/networkSite';
+import type { AccessPointOption } from '@/types/accessPoint';
 import type { CampaignSegment } from '@/types/messagingBulk';
 
 const EMPTY: CampaignSegment = { statuses: [] };
+
+const SITE: NetworkSite = {
+  id: 'site-1',
+  siteNumber: 1,
+  fixedCode: 'NODO 1',
+  name: 'Nodo Centro',
+  address: '',
+  city: '',
+  coordinates: null,
+  type: 'nodo',
+  status: 'active',
+  deviceCount: 0,
+  clientCount: 0,
+  uplink: '',
+  parentSiteId: null,
+  description: '',
+  iclassNodeCode: null,
+  uispSiteId: null,
+};
+
+const AP: AccessPointOption = { id: 'ap-1', name: 'AP Centro Torre', mac: null, networkSiteId: 'site-1' };
+
+beforeEach(() => {
+  vi.mocked(useNetworkSites).mockReturnValue(mockQuery({ data: [SITE], isLoading: false }));
+  vi.mocked(useAssignableAccessPoints).mockReturnValue(mockQuery({ data: [AP], isLoading: false }));
+});
 
 describe('SB-1: checkboxes de estado', () => {
   it('renderiza los 5 estados con label asociado', () => {
