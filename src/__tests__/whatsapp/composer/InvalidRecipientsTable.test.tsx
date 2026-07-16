@@ -11,11 +11,20 @@
  *  IRT-4 con datos → nombre/teléfono/motivo (es-AR)/fuente
  *  IRT-5 status=baja → StatusBadge + texto "Cliente de baja" (no sólo color)
  *  IRT-6 paginación → onPageChange con la página nueva
+ *  IRT-7 M2 (review adversarial) — `excludedRowId` da un id ÚNICO por fila
+ *        aunque dos excluidos crudos (clientId:null) compartan teléfono (ej.
+ *        familia que comparte número); ambas filas quedan visibles en la
+ *        tabla. NOTA: se testea la función pura directamente (no vía
+ *        console.error de React) porque `DataTable` envuelve cada fila en
+ *        un `<>` SIN key propia (bug ajeno, fuera de este change) — eso
+ *        neutraliza el warning de "same key" de React independientemente de
+ *        si `row.id` colisiona o no, así que ese warning NO es una señal
+ *        confiable para este fix.
  */
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
-import { InvalidRecipientsTable } from '@/pages/whatsapp/BulkMessagingPage/components/composer/InvalidRecipientsTable';
+import { InvalidRecipientsTable, excludedRowId } from '@/pages/whatsapp/BulkMessagingPage/components/composer/InvalidRecipientsTable';
 import type { ExcludedRecipientDto } from '@/types/messagingBulk';
 
 const ROWS: ExcludedRecipientDto[] = [
@@ -80,5 +89,32 @@ describe('IRT-6: paginación', () => {
 
     await user.click(screen.getByRole('button', { name: '2' }));
     expect(onPageChange).toHaveBeenCalledWith(2);
+  });
+});
+
+describe('IRT-7: key estable con teléfonos duplicados (M2, review adversarial)', () => {
+  it('excludedRowId da un id ÚNICO por fila aunque dos excluidos compartan teléfono y clientId:null', () => {
+    const a: ExcludedRecipientDto = { name: 'Ana Gomez', phone: '+5491100000000', reason: 'sin_nombre', source: 'csv' };
+    const b: ExcludedRecipientDto = { name: 'Ana Gomez Hijo', phone: '+5491100000000', reason: 'sin_nombre', source: 'csv' };
+
+    expect(excludedRowId(a, 0)).not.toBe(excludedRowId(b, 1));
+  });
+
+  it('sigue priorizando clientId cuando está presente (no rompe el caso normal)', () => {
+    const row: ExcludedRecipientDto = { name: 'Juan Perez', phone: '+5491100000001', reason: 'duplicado', clientId: 'cli-2' };
+    expect(excludedRowId(row, 5)).toBe('cli-2');
+  });
+
+  it('la tabla renderiza AMBAS filas de excluidos con el mismo teléfono (sin colapsar)', () => {
+    const DUP_ROWS: ExcludedRecipientDto[] = [
+      { name: 'Ana Gomez', phone: '+5491100000000', reason: 'sin_nombre', source: 'csv' },
+      { name: 'Ana Gomez Hijo', phone: '+5491100000000', reason: 'sin_nombre', source: 'csv' },
+    ];
+
+    render(<InvalidRecipientsTable data={DUP_ROWS} isLoading={false} isError={false} page={1} totalPages={1} onPageChange={vi.fn()} />);
+
+    expect(screen.getByText('Ana Gomez')).toBeInTheDocument();
+    expect(screen.getByText('Ana Gomez Hijo')).toBeInTheDocument();
+    expect(screen.getAllByText('+5491100000000')).toHaveLength(2);
   });
 });

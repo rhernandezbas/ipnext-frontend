@@ -30,6 +30,10 @@
  *  CSV-FE-9  con CSV cargado (manualContacts), la query los incluye
  *  FIX-1  no muestra el input anterior al reabrir con otro input (stale flash)
  *  FIX-5  resetea página/tab al cerrar (evita el doble fetch al reabrir)
+ *  L2     (review adversarial, consistencia con FIX-1) — la pestaña
+ *         Excluidos tampoco muestra el input anterior si el segmento cambia
+ *         mientras esa pestaña está activa (mismo guard de `keepPreviousData`
+ *         que la vista de Destinatarios)
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -561,6 +565,55 @@ describe('FIX-1: no muestra el input anterior al reabrir (stale flash)', () => {
     resolveB(DATA_B);
     expect(await screen.findByText('Cliente Beta')).toBeInTheDocument();
     expect(screen.queryByText('Cliente Alfa')).not.toBeInTheDocument();
+  });
+});
+
+describe('L2: excluidos no muestra el input anterior al cambiar de segmento (review adversarial)', () => {
+  it('cambiar de segmento con la pestaña Excluidos activa muestra skeleton hasta la data nueva, nunca la del segmento viejo', async () => {
+    const SEG_A: CampaignSegment = { statuses: ['late'] };
+    const SEG_B: CampaignSegment = { statuses: ['active'] };
+    const EXCLUDED_A: ExcludedRecipientsOutput = {
+      data: [{ name: 'Excluido Alfa', phone: '+540000000001', reason: 'telefono_invalido', source: 'csv' }],
+      total: 1,
+      page: 1,
+      limit: 20,
+      skipped: RECIPIENTS.skipped,
+      statusCounts: {},
+    };
+    const EXCLUDED_B: ExcludedRecipientsOutput = {
+      data: [{ name: 'Excluido Beta', phone: '+540000000002', reason: 'duplicado', source: 'csv' }],
+      total: 1,
+      page: 1,
+      limit: 20,
+      skipped: RECIPIENTS.skipped,
+      statusCounts: {},
+    };
+
+    vi.mocked(listSegmentRecipients).mockResolvedValue(RECIPIENTS);
+    let resolveExcludedB: (v: ExcludedRecipientsOutput) => void = () => {};
+    vi.mocked(listExcludedRecipients).mockImplementation((query) => {
+      if (query.statuses[0] === 'late') return Promise.resolve(EXCLUDED_A);
+      return new Promise<ExcludedRecipientsOutput>((res) => {
+        resolveExcludedB = res;
+      });
+    });
+
+    const user = userEvent.setup();
+    const { rerender } = renderWithControl({ open: true, segment: SEG_A });
+    await screen.findByText('Juan Perez');
+    await user.click(screen.getByRole('tab', { name: /excluidos/i }));
+    expect(await screen.findByText('Excluido Alfa')).toBeInTheDocument();
+
+    // Cambiar de segmento SIN cerrar el modal — la pestaña Excluidos sigue activa.
+    rerender({ open: true, segment: SEG_B });
+
+    // Mientras B no llega: skeleton, NUNCA "Excluido Alfa" del segmento viejo.
+    expect(screen.queryByText('Excluido Alfa')).not.toBeInTheDocument();
+    expect(screen.getByText(/cargando excluidos/i)).toBeInTheDocument();
+
+    resolveExcludedB(EXCLUDED_B);
+    expect(await screen.findByText('Excluido Beta')).toBeInTheDocument();
+    expect(screen.queryByText('Excluido Alfa')).not.toBeInTheDocument();
   });
 });
 

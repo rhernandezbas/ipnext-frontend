@@ -93,10 +93,16 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   // (bulk-csv-recipients CSV-FE-5): una lista manual o un CSV no vacíos
   // habilitan el preview/create aunque el segmento esté vacío.
   const criteriaPresent = hasRecipients(segment, manualClientIds, csvContacts.length > 0);
-  // Fingerprint ESTABLE del archivo para el dep-array del debounce (CSV-FE-5)
-  // — NO un `join` de hasta 5000 contactos: sólo cambia cuando el ARCHIVO
-  // cambia (nombre nuevo) o su cantidad de filas válidas cambia.
-  const csvFingerprint = `${csvFileName ?? ''}:${csvContacts.length}`;
+  // Fingerprint del archivo para el dep-array del debounce (CSV-FE-5, fix M3
+  // review adversarial) — sobre el CONTENIDO real de `csvContacts`
+  // (`JSON.stringify`, mismo patrón robusto que
+  // `PreviewModal.inputFingerprint`), no `${fileName}:${length}`. Ese combo
+  // era LOSSY: re-subir un archivo con el MISMO nombre y la MISMA cantidad
+  // de filas válidas pero contenido DISTINTO (ej. se corrigió un teléfono,
+  // mismo N) no cambiaba el fingerprint → el preview debounceado no se
+  // re-disparaba y `previewData.count`/`canCreate` quedaban STALE contra los
+  // `csvContacts` FRESCOS que sí viajan en `handleCreate`.
+  const csvFingerprint = `${csvFileName ?? ''}:${JSON.stringify(csvContacts)}`;
 
   /** Input del preview/segmento: se OMITEN `manualClientIds`/`manualContacts` cuando están vacíos (cero cambio en el payload del flujo por-segmento). */
   function buildRecipientsInput() {

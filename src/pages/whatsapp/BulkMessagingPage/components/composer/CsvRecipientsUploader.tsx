@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { parseRecipientsCsv, type CsvContact, type CsvInvalidRow, type CsvParseError, type CsvParseErrorCode } from './parseRecipientsCsv';
+import { parseRecipientsCsv, MAX_CSV_BYTES, type CsvContact, type CsvInvalidRow, type CsvParseError, type CsvParseErrorCode } from './parseRecipientsCsv';
 import { RECIPIENT_REASON_LABELS } from './recipientReasonLabels';
 import styles from './CsvRecipientsUploader.module.css';
 
@@ -48,6 +48,19 @@ export function CsvRecipientsUploader({ onChange }: CsvRecipientsUploaderProps) 
     // Permite re-seleccionar el MISMO nombre de archivo después de un rechazo/quitar.
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (!file) return;
+
+    // M1 (review adversarial) — guard de tamaño ANTES de leer el archivo:
+    // `file.text()` carga el archivo ENTERO en memoria, así que esperar a que
+    // `parseRecipientsCsv` lo rechace por el cap de 1MB llega tarde (ya
+    // cargamos + re-codificamos todo con `TextEncoder` para medirlo — doble
+    // presión de memoria que puede tumbar la pestaña ANTES del rechazo).
+    // Mismo patrón que `validateAttachment.ts` (`file.size > MAX_BYTES`):
+    // rechazo temprano por `file.size`, sin tocar el contenido.
+    if (file.size > MAX_CSV_BYTES) {
+      setState({ status: 'error', fileName: file.name, error: { code: 'DEMASIADAS_FILAS' } });
+      onChange([], null);
+      return;
+    }
 
     const text = await file.text();
     const result = parseRecipientsCsv(text);

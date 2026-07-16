@@ -15,8 +15,27 @@ interface InvalidRecipientsTableProps {
   onPageChange: (page: number) => void;
 }
 
-/** `ExcludedRecipientDto` no trae `id` — `DataTable<T>` lo exige para keys. `clientId ?? phone` es único dentro del set resuelto (CSV-FE-6/D11). */
+/** `ExcludedRecipientDto` no trae `id` — `DataTable<T>` lo exige para keys. */
 type ExcludedRow = ExcludedRecipientDto & { id: string };
+
+/**
+ * Id ESTABLE por fila (M2, review adversarial) — `clientId ?? phone` NO
+ * alcanza: dos excluidos crudos (`clientId:null`, típico de CSV) pueden
+ * compartir el MISMO teléfono (familia que comparte número, o el número
+ * repetido dos veces en el CSV) → id idéntico → key duplicada de React.
+ * El `#${index}` sólo necesita ser único DENTRO de la página renderizada
+ * (esta tabla es read-only y paginada, nunca reordena localmente), no
+ * global — no rompe nada usarlo como desempate.
+ *
+ * NOTA CSV-injection (aceptado, sin superficie en este flujo) — `name`
+ * llega TAL CUAL del CSV/BE y se renderiza como texto plano en la tabla, no
+ * se re-exporta a ningún lado hoy. Si en el futuro estos nombres se
+ * re-exportan a CSV/Excel, sanitizar (prefijo `'` a valores que arrancan
+ * con `=`, `+`, `-`, `@`).
+ */
+export function excludedRowId(r: ExcludedRecipientDto, index: number): string {
+  return r.clientId ?? `${r.phone}#${index}`;
+}
 
 const SOURCE_LABELS: Record<string, string> = {
   segment: 'Segmento',
@@ -62,7 +81,7 @@ export function InvalidRecipientsTable({ data, isLoading, isError, page, totalPa
     );
   }
 
-  const rows: ExcludedRow[] = data.map((r) => ({ ...r, id: r.clientId ?? r.phone }));
+  const rows: ExcludedRow[] = data.map((r, index) => ({ ...r, id: excludedRowId(r, index) }));
 
   const columns = [
     { label: 'Nombre', key: 'name' },

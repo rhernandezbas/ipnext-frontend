@@ -160,6 +160,19 @@ export function PreviewModal({
   const showStaleInput = isPlaceholderData && settledFingerprint !== inputFingerprint;
   const showLoading = isLoading || showStaleInput;
 
+  // L2 (review adversarial, consistencia con FIX-1) — MISMO guard para la
+  // pestaña Excluidos: `useExcludedRecipients` también usa
+  // `placeholderData: keepPreviousData`, así que cambiar de input (segmento/
+  // manuales/CSV) con esa pestaña activa mostraría los excluidos del input
+  // ANTERIOR (isPlaceholderData=true pero `isLoading=false`) — la misma
+  // trampa de FIX-1, sólo que en la otra tabla.
+  const [excludedSettledFingerprint, setExcludedSettledFingerprint] = useState<string | null>(null);
+  if (!excluded.isPlaceholderData && excluded.data && excludedSettledFingerprint !== inputFingerprint) {
+    setExcludedSettledFingerprint(inputFingerprint);
+  }
+  const showExcludedStaleInput = excluded.isPlaceholderData && excludedSettledFingerprint !== inputFingerprint;
+  const showExcludedLoading = excluded.isLoading || showExcludedStaleInput;
+
   // FIX-5 — resetea la página (Y la vista) a su default al CERRAR (no al
   // abrir). Reseteándolo en un effect al abrir, el PRIMER render ya habilitó
   // la query con la página vieja → un fetch redundante que se vuelve a
@@ -235,6 +248,19 @@ export function PreviewModal({
     : 1;
   // CSV-FE-7 — N sale de los contadores agregados YA PRESENTES en la vista de
   // destinatarios (no hace falta pedir la vista `excluded` sólo para el label del tab).
+  //
+  // L1 (review adversarial, documentado y ACEPTADO — no se cambia) — este
+  // sumatorio sólo cubre 3 de los 5 motivos de `ExcludedRecipientReason`
+  // ('opt_out'/'duplicado'/'telefono_invalido', vía `skipped`); NO incluye
+  // 'sin_nombre'/'sin_telefono'. Hoy es inofensivo porque el FE ya filtra esas
+  // dos razones del CSV client-side (nunca llegan al BE por esa vía) — pero
+  // si el BE alguna vez las emite para un excluido de OTRA fuente (segmento/
+  // manual, "defensa en profundidad" per el comentario de
+  // `ExcludedRecipientReason`), el label "Excluidos (N)" quedaría por debajo
+  // del total real de `listExcludedRecipients`. Alinearlo de verdad
+  // implicaría pedir SIEMPRE la vista `excluded` (aunque esa pestaña no esté
+  // activa) sólo para el label — el trade-off de fetch fue DELIBERADO (ver
+  // arriba), así que se documenta el acoplamiento en vez de cambiarlo.
   const excludedCount = data ? data.skipped.optedOut + data.skipped.duplicatePhone + data.skipped.invalidPhone : 0;
 
   const columns: { label: string; key: string; render?: (row: RecipientRow) => JSX.Element }[] = [
@@ -355,7 +381,7 @@ export function PreviewModal({
                   content: (
                     <InvalidRecipientsTable
                       data={excluded.data?.data ?? []}
-                      isLoading={excluded.isLoading}
+                      isLoading={showExcludedLoading}
                       isError={excluded.isError}
                       page={excludedPage}
                       totalPages={excludedTotalPages}

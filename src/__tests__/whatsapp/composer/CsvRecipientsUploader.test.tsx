@@ -13,6 +13,8 @@
  *  CU-4  un archivo nuevo reemplaza al anterior (onChange con el set nuevo)
  *  CU-5  archivo 100% válido (sin inválidas) no muestra "fila inválida"
  *  CU-6  input asociado a un <label>, accept=".csv,text/csv"
+ *  CU-7  M1 (review adversarial) — archivo > 1MB se rechaza por `file.size`
+ *        ANTES de `file.text()` (sin cargar el contenido en memoria)
  */
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -139,5 +141,26 @@ describe('CU-6: a11y del input', () => {
     expect(input).toHaveAttribute('accept', '.csv,text/csv');
     // Asociado por <label for> o aria-labelledby — accesible por rol implícito.
     expect(within(document.body).getByLabelText(/archivo csv/i)).toBe(input);
+  });
+});
+
+describe('CU-7: archivo > 1MB se rechaza SIN leer el contenido (M1, review adversarial)', () => {
+  it('rechaza por file.size antes de llamar file.text() — evita el blowup de memoria', async () => {
+    const onChange = vi.fn();
+    render(<CsvRecipientsUploader onChange={onChange} />);
+
+    // Contenido chico a propósito (el test NO depende de generar 1MB reales) —
+    // se fuerza `file.size` por encima del cap y se espía `file.text` para
+    // probar que el guard corta ANTES de leer.
+    const file = makeCsvFile('nombre;telefono\nAna;1123456789', 'gigante.csv');
+    Object.defineProperty(file, 'size', { value: 2 * 1024 * 1024 }); // 2MB > MAX_CSV_BYTES (1MB)
+    const textSpy = vi.spyOn(file, 'text');
+
+    fireEvent.change(getFileInput(), { target: { files: [file] } });
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/1MB/i);
+    expect(textSpy).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledWith([], null);
   });
 });

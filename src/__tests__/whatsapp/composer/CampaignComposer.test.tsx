@@ -19,6 +19,9 @@
  *       (role=alert) y llama a onCampaignCreated con el id
  *  CC-8 422 MISSING_TEMPLATE_VARIABLES → resalta la variable rechazada
  *  CC-9 botón "Ver preview" manual dispara sin esperar el debounce
+ *  CC-24 M3 (review adversarial) — re-subir un CSV con el MISMO nombre y la
+ *        MISMA cantidad de filas válidas pero contenido DISTINTO re-dispara
+ *        el preview (el fingerprint ya no es lossy sobre `fileName:length`)
  */
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -621,5 +624,36 @@ describe('CC-23: resetea el CSV tras crear la campaña (CSV-FE-5.5)', () => {
     await user.click(within(dialog).getByRole('button', { name: /confirmar y crear/i }));
 
     await waitFor(() => expect(screen.queryByText(/destinatario.*del archivo/i)).not.toBeInTheDocument());
+  });
+});
+
+describe('CC-24: fingerprint del CSV refleja el CONTENIDO, no sólo nombre+cantidad (M3, review adversarial)', () => {
+  it('re-subir el mismo archivo (mismo nombre, misma cantidad de filas) con OTRO teléfono re-dispara el preview', async () => {
+    renderComposer();
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+
+    uploadCsv('nombre;telefono\nAna;1123456789', 'destinatarios.csv');
+    await waitFor(() =>
+      expect(previewSegment).toHaveBeenLastCalledWith({
+        statuses: [],
+        manualContacts: [{ name: 'Ana', phone: '1123456789' }],
+      }),
+    );
+
+    vi.mocked(previewSegment).mockClear();
+
+    // Mismo nombre de archivo, misma cantidad de filas válidas (1) — pero el
+    // teléfono cambió (ej. el operador corrigió un dato y volvió a exportar
+    // con el mismo nombre de archivo). Con `fileName:length` esto NO
+    // dispararía el preview de nuevo, dejándolo stale contra los
+    // `csvContacts` frescos que sí viajan en `handleCreate`.
+    uploadCsv('nombre;telefono\nAna;1199998888', 'destinatarios.csv');
+
+    await waitFor(() =>
+      expect(previewSegment).toHaveBeenCalledWith({
+        statuses: [],
+        manualContacts: [{ name: 'Ana', phone: '1199998888' }],
+      }),
+    );
   });
 });
