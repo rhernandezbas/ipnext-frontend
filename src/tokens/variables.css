@@ -129,6 +129,16 @@
   --color-danger: #dc3545;
   --color-danger-bg-hover: #fff0f1;
 
+  /* N2 (review, contract-node-ap-auto-assign) — familia ámbar "estado no legible/no
+     disponible con confianza". Consolida el mismo hex ya duplicado a mano en
+     UispSyncCard (.bannerInfo, .statusBadgeUnknown) y en el hint de estado
+     desconocido de ContractNetworkAssignmentPicker — MISMO significado en los tres
+     lugares (a diferencia de --badge-paused-*/--color-note-*, que son ámbar con
+     otro significado y no se reusan). */
+  --color-warning-bg: #fef3c7;
+  --color-warning-fg: #92400e;
+  --color-warning-border: #fde68a;
+
   /* Badge tokens */
   --badge-active-bg: #dbeafe;
   --badge-active-fg: #1e40af;

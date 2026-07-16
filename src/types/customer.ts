@@ -121,6 +121,16 @@ export interface Contract {
   gpsLat?: number | null;
   gpsLng?: number | null;
   gpsPlusCode?: string | null;
+  /**
+   * contract-node-ap-auto-assign (Fase B) — nodo/AP persistido de este contrato.
+   * DEUDA BE (ver ContractNetworkAssignmentPicker): hasta que el DTO de
+   * ListContracts/GetClient exponga estos campos, llegan `undefined` = estado
+   * DESCONOCIDO (no "sin asignar"). `null` = confirmado sin asignar.
+   */
+  networkSiteId?: string | null;
+  networkSiteName?: string | null;
+  accessPointId?: string | null;
+  accessPointName?: string | null;
 }
 
 export interface LogEntry {

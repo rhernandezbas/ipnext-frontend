@@ -21,8 +21,14 @@ vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/lib/geocode', () => ({
 // contract-node-ap-auto-assign (Fase B) — ContractCard now also renders
 // ContractNetworkAssignmentPicker, which reads these catalogs. Mocked (not real
 // QueryClient fetches) so this GPS-focused suite stays isolated and silent.
+// One site is seeded (M1 fix, review) so the "saving from the picker" wiring test
+// below has something to pick — with an empty catalog Guardar has nothing to
+// select and stays disabled (there is nothing to save).
 vi.mock('@/hooks/useNetworkSites', () => ({
-  useNetworkSites: vi.fn(() => ({ data: [], isLoading: false })),
+  useNetworkSites: vi.fn(() => ({
+    data: [{ id: 'site-1', name: 'Nodo Test' }],
+    isLoading: false,
+  })),
 }));
 vi.mock('@/hooks/useAccessPoints', () => ({
   useAssignableAccessPoints: vi.fn(() => ({ data: [], isLoading: false })),
@@ -173,14 +179,19 @@ describe('ContractCard — network assignment picker (nodo/AP)', () => {
   });
 
   it('saving from the picker calls useSetContractNetworkAssignment.mutateAsync with the contract id', async () => {
+    // M1 (review, DESTRUCTIVO) — Guardar con selección vacía queda deshabilitado (nada que
+    // guardar), así que este test de wiring elige un nodo antes de guardar, igual que un
+    // operador real tendría que hacerlo.
     const user = userEvent.setup();
     renderCard();
+    await user.click(screen.getByRole('combobox', { name: /^nodo$/i }));
+    await user.click(screen.getByRole('option', { name: 'Nodo Test' }));
     await user.click(screen.getByTestId('network-assignment-save-button'));
 
     await waitFor(() => {
       expect(networkMutateAsyncMock).toHaveBeenCalledWith({
         contractId: 'contract-uuid-1',
-        data: { networkSiteId: null, accessPointId: null },
+        data: { networkSiteId: 'site-1', accessPointId: null },
       });
     });
   });

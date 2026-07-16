@@ -1,13 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Can } from '@/components/auth/Can';
 import { Select, type SelectOption } from '@/components/molecules/Select/Select';
 import { useNetworkSites } from '@/hooks/useNetworkSites';
 import { useAssignableAccessPoints } from '@/hooks/useAccessPoints';
 import styles from './ContractNetworkAssignmentPicker.module.css';
 
+/**
+ * `undefined` = campo NO tocado — se OMITE del payload (el BE no lo modifica).
+ * `null` = limpiar explícitamente ese campo. `string` = asignar ese id.
+ * Espeja `SetContractNetworkAssignmentPayload` (design §9.1): `networkSiteId: null`
+ * limpia AMBOS del lado del BE, por eso el componente solo lo emite desde "Limpiar"
+ * (review M1/M2 — nunca como efecto colateral de un submit con selección parcial).
+ */
 export interface ContractNetworkAssignmentValue {
-  networkSiteId: string | null;
-  accessPointId: string | null;
+  networkSiteId?: string | null;
+  accessPointId?: string | null;
 }
 
 export interface ContractNetworkAssignmentPickerProps {
@@ -79,6 +86,18 @@ export function ContractNetworkAssignmentPicker({
     setApId(currentAccessPointId ?? null);
   }, [currentNetworkSiteId, currentAccessPointId]);
 
+  // N3 (nit, review) — el toast de éxito se auto-oculta con un setTimeout; sin cleanup, si el
+  // componente se desmonta antes (navegación, cierre de ficha) queda un timer colgado que intenta
+  // setState sobre un componente ya desmontado. Se guarda el id para limpiarlo en cada persist
+  // nuevo y al desmontar.
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
+    };
+  }, []);
+
   const currentUnknown = currentNetworkSiteId === undefined && currentAccessPointId === undefined;
 
   async function persist(value: ContractNetworkAssignmentValue) {
@@ -88,7 +107,8 @@ export function ContractNetworkAssignmentPicker({
     try {
       await onSave(value);
       setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2500);
+      if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = setTimeout(() => setSaveSuccess(false), 2500);
     } catch (err) {
       setSaveError(mapAssignmentError(err));
     } finally {
@@ -112,8 +132,24 @@ export function ContractNetworkAssignmentPicker({
     }
   }
 
+  // M1 (review, DESTRUCTIVO) — con selección vacía no hay nada que guardar: un
+  // submit acá mandaría {networkSiteId:null, accessPointId:null}, que el BE
+  // interpreta como "limpiar ambos" (borra un auto-assign previo con un toast
+  // de éxito mentiroso). Para desasignar a propósito está el botón "Limpiar".
+  const nothingToSave = siteId === null && apId === null;
+
   function handleSubmit() {
-    void persist({ networkSiteId: siteId, accessPointId: apId });
+    if (nothingToSave) return;
+    // M2 (review, DESTRUCTIVO) — un AP sin nodo linkeado deja siteId===null
+    // (handleApChange lo autocompleta a ap.networkSiteId). Mandar acá
+    // `networkSiteId: null` dispararía la rama "limpiar ambos" del BE en vez
+    // de la rama "AP sin nodo" (design fila 10): hay que OMITIR la key, no
+    // mandarla en null.
+    const payload: ContractNetworkAssignmentValue =
+      siteId === null && apId !== null
+        ? { accessPointId: apId }
+        : { networkSiteId: siteId, accessPointId: apId };
+    void persist(payload);
   }
 
   function handleClear() {
@@ -126,23 +162,27 @@ export function ContractNetworkAssignmentPicker({
   const apOptions: SelectOption[] = (aps ?? []).map((a) => ({ value: a.id, label: a.name }));
 
   return (
-    <section className={styles.section} aria-labelledby="network-assignment-heading">
-      <h2 id="network-assignment-heading" className={styles.sectionTitle}>
-        Nodo / Access Point
-      </h2>
+    // L1 (review) — TODA la sección va detrás del gate, título y hint incluidos: un
+    // read-only NO debe ver "Nodo / Access Point" ni el hint que invita a asignar y
+    // recién después un "No tenés permiso" — eso es confuso e insinúa una capacidad
+    // que no tiene. Sin permiso, se ve únicamente el fallback.
+    <Can
+      permission="contracts.assign"
+      fallback={<p className={styles.noPermissionHint}>No tenés permiso para asignar nodo/AP.</p>}
+    >
+      <section className={styles.section} aria-labelledby="network-assignment-heading">
+        <h2 id="network-assignment-heading" className={styles.sectionTitle}>
+          Nodo / Access Point
+        </h2>
 
-      {currentUnknown && (
-        <p className={styles.unknownHint}>
-          Estado actual no disponible: el backend todavía no expone una lectura de la asignación de
-          red persistida de este contrato. Podés asignar o cambiar el nodo/AP desde acá — lo que
-          veas en los selectores es tu selección, no necesariamente lo que ya esté guardado.
-        </p>
-      )}
+        {currentUnknown && (
+          <p className={styles.unknownHint}>
+            Estado actual no disponible: el backend todavía no expone una lectura de la asignación de
+            red persistida de este contrato. Podés asignar o cambiar el nodo/AP desde acá — lo que
+            veas en los selectores es tu selección, no necesariamente lo que ya esté guardado.
+          </p>
+        )}
 
-      <Can
-        permission="contracts.assign"
-        fallback={<p className={styles.noPermissionHint}>No tenés permiso para asignar nodo/AP.</p>}
-      >
         <div className={styles.row}>
           <Select
             label="Nodo"
@@ -178,7 +218,7 @@ export function ContractNetworkAssignmentPicker({
             type="button"
             className={styles.btnPrimary}
             onClick={handleSubmit}
-            disabled={saving}
+            disabled={saving || nothingToSave}
             aria-busy={saving}
             data-testid="network-assignment-save-button"
           >
@@ -194,7 +234,7 @@ export function ContractNetworkAssignmentPicker({
             Limpiar
           </button>
         </div>
-      </Can>
-    </section>
+      </section>
+    </Can>
   );
 }

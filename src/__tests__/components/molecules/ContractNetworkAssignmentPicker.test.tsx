@@ -79,6 +79,11 @@ const APS_SITE_2: AccessPointOption[] = [
   { id: 'ap-3', name: 'AP Norte Torre', mac: 'AA:BB:CC:DD:EE:03', networkSiteId: 'site-2' },
 ];
 
+// M2 (review) — AP sin nodo linkeado (networkSiteId: null). Fibra / catálogo sin scope de nodo.
+const APS_NO_NODE: AccessPointOption[] = [
+  { id: 'ap-9', name: 'AP Suelto', mac: null, networkSiteId: null },
+];
+
 function setupHooks({
   permissions = ['contracts.assign'],
   aps = APS_SITE_1,
@@ -212,7 +217,10 @@ describe('ContractNetworkAssignmentPicker', () => {
     expect(nodeTrigger).toHaveTextContent('Nodo Norte');
   });
 
-  // ── Gate contracts.assign ─────────────────────────────────────────────
+  // ── Gate contracts.assign (L1, review) ─────────────────────────────────
+  // TODA la sección (título + hint incluidos) va detrás del gate: un read-only
+  // NO debe ver "Nodo / Access Point" ni el hint que invita a asignar, solo
+  // el fallback de permiso denegado.
 
   it('does NOT render editable controls without contracts.assign', () => {
     setupHooks({ permissions: [] });
@@ -220,10 +228,111 @@ describe('ContractNetworkAssignmentPicker', () => {
     expect(screen.queryByRole('combobox', { name: /^nodo$/i })).not.toBeInTheDocument();
   });
 
+  it('L1 — does NOT render the section title/heading without contracts.assign', () => {
+    setupHooks({ permissions: [] });
+    render(<ContractNetworkAssignmentPicker onSave={onSave} />);
+    expect(screen.queryByText(/nodo \/ access point/i)).not.toBeInTheDocument();
+  });
+
+  it('L1 — does NOT render the "estado no disponible" hint without contracts.assign', () => {
+    setupHooks({ permissions: [] });
+    render(<ContractNetworkAssignmentPicker onSave={onSave} />);
+    expect(screen.queryByText(/estado actual no disponible/i)).not.toBeInTheDocument();
+  });
+
+  it('L1 — shows only the no-permission fallback without contracts.assign', () => {
+    setupHooks({ permissions: [] });
+    render(<ContractNetworkAssignmentPicker onSave={onSave} />);
+    expect(screen.getByText(/no tenés permiso para asignar nodo\/ap/i)).toBeInTheDocument();
+  });
+
   it('renders editable controls with contracts.assign', () => {
     setupHooks();
     render(<ContractNetworkAssignmentPicker onSave={onSave} />);
     expect(screen.getByRole('combobox', { name: /^nodo$/i })).toBeInTheDocument();
+  });
+
+  // ── M1 (review, DESTRUCTIVO) — Guardar con selección vacía ──────────────
+  // Guardar con siteId===null && apId===null NO debe habilitarse: no hay nada
+  // que guardar y el submit mandaría {networkSiteId:null, accessPointId:null},
+  // que el BE interpreta como "limpiar ambos" — borraría un auto-assign previo
+  // con un toast de éxito mentiroso. Para desasignar está "Limpiar".
+
+  it('M1 — disables Guardar when there is no selection (siteId and apId both null)', () => {
+    setupHooks();
+    render(<ContractNetworkAssignmentPicker onSave={onSave} />);
+    expect(screen.getByTestId('network-assignment-save-button')).toBeDisabled();
+  });
+
+  it('M1 — clicking a disabled Guardar with empty selection never calls onSave', () => {
+    setupHooks();
+    render(<ContractNetworkAssignmentPicker onSave={onSave} />);
+    fireEvent.click(screen.getByTestId('network-assignment-save-button'));
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('M1 — Guardar stays disabled even with confirmed-empty current values (null/null)', () => {
+    setupHooks();
+    render(
+      <ContractNetworkAssignmentPicker
+        currentNetworkSiteId={null}
+        currentAccessPointId={null}
+        onSave={onSave}
+      />,
+    );
+    expect(screen.getByTestId('network-assignment-save-button')).toBeDisabled();
+  });
+
+  it('M1 — enables Guardar once a node is selected', () => {
+    setupHooks();
+    render(<ContractNetworkAssignmentPicker onSave={onSave} />);
+    fireEvent.click(screen.getByRole('combobox', { name: /^nodo$/i }));
+    fireEvent.click(screen.getByRole('option', { name: 'Nodo Centro' }));
+    expect(screen.getByTestId('network-assignment-save-button')).not.toBeDisabled();
+  });
+
+  it('M1 — enables Guardar once an AP is selected', () => {
+    setupHooks({ aps: APS_NO_NODE });
+    render(<ContractNetworkAssignmentPicker onSave={onSave} />);
+    fireEvent.click(screen.getByRole('combobox', { name: /access point/i }));
+    fireEvent.click(screen.getByRole('option', { name: /AP Suelto/i }));
+    expect(screen.getByTestId('network-assignment-save-button')).not.toBeDisabled();
+  });
+
+  // ── M2 (review, DESTRUCTIVO) — elegir un AP sin nodo no debe borrarlo ───
+  // Si el AP elegido tiene networkSiteId===null, el payload NO debe incluir
+  // `networkSiteId: null` (eso dispara la rama "limpiar ambos" del BE) sino
+  // OMITIR la key para que el BE tome la rama "AP sin nodo".
+
+  it('M2 — choosing an AP without a linked node omits networkSiteId from the payload', async () => {
+    setupHooks({ aps: APS_NO_NODE });
+    render(<ContractNetworkAssignmentPicker onSave={onSave} />);
+    fireEvent.click(screen.getByRole('combobox', { name: /access point/i }));
+    fireEvent.click(screen.getByRole('option', { name: /AP Suelto/i }));
+    fireEvent.click(screen.getByTestId('network-assignment-save-button'));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalled();
+    });
+    const payload = onSave.mock.calls[0][0] as Record<string, unknown>;
+    expect('networkSiteId' in payload).toBe(false);
+    expect(payload).toEqual({ accessPointId: 'ap-9' });
+  });
+
+  it('M2 — a normal node+AP selection still sends both keys (no regression)', async () => {
+    setupHooks();
+    render(
+      <ContractNetworkAssignmentPicker
+        currentNetworkSiteId="site-1"
+        currentAccessPointId="ap-1"
+        onSave={onSave}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('network-assignment-save-button'));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith({ networkSiteId: 'site-1', accessPointId: 'ap-1' });
+    });
   });
 
   // ── Guardar: idle → saving → success ──────────────────────────────────
@@ -253,7 +362,13 @@ describe('ContractNetworkAssignmentPicker', () => {
           resolveSave = resolve;
         }),
     );
-    render(<ContractNetworkAssignmentPicker onSave={onSave} />);
+    render(
+      <ContractNetworkAssignmentPicker
+        currentNetworkSiteId="site-1"
+        currentAccessPointId="ap-1"
+        onSave={onSave}
+      />,
+    );
 
     fireEvent.click(screen.getByTestId('network-assignment-save-button'));
 
@@ -268,7 +383,13 @@ describe('ContractNetworkAssignmentPicker', () => {
 
   it('shows a success banner after onSave resolves', async () => {
     setupHooks();
-    render(<ContractNetworkAssignmentPicker onSave={onSave} />);
+    render(
+      <ContractNetworkAssignmentPicker
+        currentNetworkSiteId="site-1"
+        currentAccessPointId="ap-1"
+        onSave={onSave}
+      />,
+    );
     fireEvent.click(screen.getByTestId('network-assignment-save-button'));
 
     await waitFor(() => {
@@ -276,12 +397,41 @@ describe('ContractNetworkAssignmentPicker', () => {
     });
   });
 
+  // ── N3 (nit, review) — cleanup del setTimeout del toast en unmount ──────
+
+  it('N3 — clears the pending success-toast timeout on unmount (no leak)', async () => {
+    setupHooks();
+    const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout');
+    const { unmount } = render(
+      <ContractNetworkAssignmentPicker
+        currentNetworkSiteId="site-1"
+        currentAccessPointId="ap-1"
+        onSave={onSave}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('network-assignment-save-button'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toBeInTheDocument();
+    });
+
+    clearTimeoutSpy.mockClear();
+    unmount();
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+  });
+
   // ── Errores mapeados (422 tipados) ─────────────────────────────────────
 
   it('maps ACCESS_POINT_NOT_IN_SITE to a specific message', async () => {
     setupHooks();
     onSave.mockRejectedValue({ response: { status: 422, data: { code: 'ACCESS_POINT_NOT_IN_SITE' } } });
-    render(<ContractNetworkAssignmentPicker onSave={onSave} />);
+    render(
+      <ContractNetworkAssignmentPicker
+        currentNetworkSiteId="site-1"
+        currentAccessPointId="ap-1"
+        onSave={onSave}
+      />,
+    );
     fireEvent.click(screen.getByTestId('network-assignment-save-button'));
 
     await waitFor(() => {
@@ -292,7 +442,13 @@ describe('ContractNetworkAssignmentPicker', () => {
   it('maps ACCESS_POINT_RETIRED to a specific message', async () => {
     setupHooks();
     onSave.mockRejectedValue({ response: { status: 422, data: { code: 'ACCESS_POINT_RETIRED' } } });
-    render(<ContractNetworkAssignmentPicker onSave={onSave} />);
+    render(
+      <ContractNetworkAssignmentPicker
+        currentNetworkSiteId="site-1"
+        currentAccessPointId="ap-1"
+        onSave={onSave}
+      />,
+    );
     fireEvent.click(screen.getByTestId('network-assignment-save-button'));
 
     await waitFor(() => {
@@ -303,7 +459,13 @@ describe('ContractNetworkAssignmentPicker', () => {
   it('shows a generic message for unmapped errors', async () => {
     setupHooks();
     onSave.mockRejectedValue({ response: { status: 500, data: {} } });
-    render(<ContractNetworkAssignmentPicker onSave={onSave} />);
+    render(
+      <ContractNetworkAssignmentPicker
+        currentNetworkSiteId="site-1"
+        currentAccessPointId="ap-1"
+        onSave={onSave}
+      />,
+    );
     fireEvent.click(screen.getByTestId('network-assignment-save-button'));
 
     await waitFor(() => {

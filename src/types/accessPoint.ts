@@ -7,7 +7,8 @@
 export interface AccessPointOption {
   id: string;
   name: string;
-  mac: string;
+  /** N1 (review) — algunos AP del catálogo (equipos no-Ubiquiti, altas manuales) no traen MAC. */
+  mac: string | null;
   /** Nodo (NetworkSite) al que pertenece el AP. null = AP sin nodo linkeado. */
   networkSiteId: string | null;
 }

@@ -210,12 +210,15 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
         referenceAddress={contract.address ?? null}
       />
 
-      {/* contract-node-ap-auto-assign (Fase B) — picker manual del nodo/AP. NO se pasan
-          currentNetworkSiteId/currentAccessPointId: hoy no existe ningún GET (ni este endpoint
-          de ficha de cliente ni ListContracts) que exponga la asignación persistida del
-          contrato — deuda documentada, ver ContractNetworkAssignmentPicker. El componente
-          declara el estado "no disponible" en vez de mentir un "Sin asignar". */}
+      {/* contract-node-ap-auto-assign (Fase B) — picker manual del nodo/AP. WIRE de lectura
+          (review): currentNetworkSiteId/currentAccessPointId vienen del DTO del contrato una vez
+          que el BE los expone (en paralelo). Mientras el BE no deployó, `contract.networkSiteId`/
+          `contract.accessPointId` llegan `undefined` → el picker sigue mostrando "Estado actual
+          no disponible" (degradación grácil que ya maneja); cuando el BE deploye, se pueblan
+          solos sin tocar este componente. */}
       <ContractNetworkAssignmentPicker
+        currentNetworkSiteId={contract.networkSiteId}
+        currentAccessPointId={contract.accessPointId}
         onSave={async (v) => {
           await setNetworkAssignment.mutateAsync({ contractId: contract.id, data: v });
         }}
