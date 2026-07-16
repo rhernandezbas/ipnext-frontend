@@ -31,6 +31,7 @@ import type {
   CampaignSummaryDto,
   CreateCampaignInput,
   CreateCampaignOutput,
+  ExcludedRecipientsOutput,
   GetCampaignOutput,
   PaginatedResult,
   PreviewSegmentOutput,
@@ -55,6 +56,7 @@ import {
   getCampaign,
   listCampaigns,
   listSegmentRecipients,
+  listExcludedRecipients,
 } from '@/api/messagingBulk.api';
 
 const TEMPLATE: TemplateSummaryDto = {
@@ -252,7 +254,7 @@ describe('MBAPI-6: listCampaigns', () => {
   });
 });
 
-describe('MBAPI-7: listSegmentRecipients (v1.1)', () => {
+describe('MBAPI-7: listSegmentRecipients (v1.1 + bulk-csv-recipients CSV-FE-6)', () => {
   const RECIPIENTS_OUTPUT: SegmentRecipientsOutput = {
     data: [{ clientId: 'cli-1', name: 'Juan Perez', phoneE164: '+5491100000000', status: 'late' }],
     total: 42,
@@ -262,10 +264,10 @@ describe('MBAPI-7: listSegmentRecipients (v1.1)', () => {
     statusCounts: { late: 42 },
   };
 
-  it('POSTea /messaging/bulk/segment/recipients con el segmento + paginación y devuelve el resultado FLAT', async () => {
+  it('POSTea /messaging/bulk/segment/recipients con el input COMPLETO (query object, no args posicionales)', async () => {
     vi.mocked(axiosClient.post).mockResolvedValue({ data: RECIPIENTS_OUTPUT });
 
-    const result = await listSegmentRecipients({ statuses: ['late'], balanceMin: 1000 }, 1, 20);
+    const result = await listSegmentRecipients({ statuses: ['late'], balanceMin: 1000, page: 1, limit: 20 });
 
     expect(axiosClient.post).toHaveBeenCalledWith('/messaging/bulk/segment/recipients', {
       statuses: ['late'],
@@ -284,5 +286,50 @@ describe('MBAPI-7: listSegmentRecipients (v1.1)', () => {
     await listSegmentRecipients({ statuses: ['blocked'] });
 
     expect(axiosClient.post).toHaveBeenCalledWith('/messaging/bulk/segment/recipients', { statuses: ['blocked'] });
+  });
+
+  it('con manualClientIds + manualContacts los manda tal cual (unión completa, CSV-FE-6)', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: RECIPIENTS_OUTPUT });
+
+    await listSegmentRecipients({
+      statuses: [],
+      manualClientIds: ['c-1'],
+      manualContacts: [{ name: 'Ana', phone: '1123456789' }],
+      page: 1,
+      limit: 20,
+    });
+
+    expect(axiosClient.post).toHaveBeenCalledWith('/messaging/bulk/segment/recipients', {
+      statuses: [],
+      manualClientIds: ['c-1'],
+      manualContacts: [{ name: 'Ana', phone: '1123456789' }],
+      page: 1,
+      limit: 20,
+    });
+  });
+});
+
+describe('MBAPI-8: listExcludedRecipients (bulk-csv-recipients CSV-FE-7)', () => {
+  const EXCLUDED_OUTPUT: ExcludedRecipientsOutput = {
+    data: [{ name: 'Ana', phone: '1123456789', reason: 'telefono_invalido', source: 'csv' }],
+    total: 1,
+    page: 1,
+    limit: 20,
+    skipped: { optedOut: 1, duplicatePhone: 2, invalidPhone: 3 },
+    statusCounts: {},
+  };
+
+  it('fuerza view=excluded en el body, sin importar lo que mande el caller', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: EXCLUDED_OUTPUT });
+
+    const result = await listExcludedRecipients({ statuses: ['late'], page: 1, limit: 20 });
+
+    expect(axiosClient.post).toHaveBeenCalledWith('/messaging/bulk/segment/recipients', {
+      statuses: ['late'],
+      page: 1,
+      limit: 20,
+      view: 'excluded',
+    });
+    expect(result).toEqual(EXCLUDED_OUTPUT);
   });
 });

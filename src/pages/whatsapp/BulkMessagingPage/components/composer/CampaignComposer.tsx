@@ -11,6 +11,8 @@ import { SegmentPreviewPanel } from './SegmentPreviewPanel';
 import { PreviewModal } from './PreviewModal';
 import { CreateCampaignConfirmModal } from './CreateCampaignConfirmModal';
 import { ManualRecipientsPicker, type ManualRecipient } from '@/components/molecules/ManualRecipientsPicker/ManualRecipientsPicker';
+import { CsvRecipientsUploader } from './CsvRecipientsUploader';
+import type { CsvContact } from './parseRecipientsCsv';
 import { hasRecipients } from './segmentCriteria';
 import styles from './CampaignComposer.module.css';
 
@@ -64,6 +66,15 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   // manual-recipients-fe — lista manual (metadata FE-only para los chips). El
   // contrato con el BE es `manualClientIds: string[]`, derivado abajo.
   const [manualRecipients, setManualRecipients] = useState<ManualRecipient[]>([]);
+  // bulk-csv-recipients (CSV-FE-5) — dueño único de los contactos VÁLIDOS del
+  // CSV cargado (molde `manualRecipients`). `csvFileName` alimenta el
+  // fingerprint ESTABLE del debounce (NO un `join` de hasta 5000 items).
+  const [csvContacts, setCsvContacts] = useState<CsvContact[]>([]);
+  const [csvFileName, setCsvFileName] = useState<string | null>(null);
+  // Bump tras crear la campaña (CSV-FE-5.5) para remontar el uploader (molde
+  // `resetKey` de `ManualRecipientsPicker`/`CustomerPicker`) — limpia también
+  // el resumen/detalle interno del archivo, no sólo el estado del composer.
+  const [csvResetKey, setCsvResetKey] = useState(0);
   const [campaignName, setCampaignName] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   // messaging-bulk-v11 FE apply chunk 2 — el modal completo (mensaje real +
@@ -78,13 +89,27 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
 
   // manual-recipients-fe — ids de la lista manual (el shape que espera el BE).
   const manualClientIds = manualRecipients.map((r) => r.id);
-  // El gate ahora combina el segmento con la lista manual (COMP-1): una lista
-  // manual no vacía habilita el preview/create aunque el segmento esté vacío.
-  const criteriaPresent = hasRecipients(segment, manualClientIds);
+  // El gate ahora combina el segmento con la lista manual (COMP-1) Y el CSV
+  // (bulk-csv-recipients CSV-FE-5): una lista manual o un CSV no vacíos
+  // habilitan el preview/create aunque el segmento esté vacío.
+  const criteriaPresent = hasRecipients(segment, manualClientIds, csvContacts.length > 0);
+  // Fingerprint ESTABLE del archivo para el dep-array del debounce (CSV-FE-5)
+  // — NO un `join` de hasta 5000 contactos: sólo cambia cuando el ARCHIVO
+  // cambia (nombre nuevo) o su cantidad de filas válidas cambia.
+  const csvFingerprint = `${csvFileName ?? ''}:${csvContacts.length}`;
 
-  /** Input del preview/segmento: se OMITE `manualClientIds` cuando está vacío (cero cambio en el payload del flujo por-segmento). */
-  function buildSegmentInput() {
-    return manualClientIds.length > 0 ? { ...segment, manualClientIds } : segment;
+  /** Input del preview/segmento: se OMITEN `manualClientIds`/`manualContacts` cuando están vacíos (cero cambio en el payload del flujo por-segmento). */
+  function buildRecipientsInput() {
+    return {
+      ...segment,
+      ...(manualClientIds.length > 0 ? { manualClientIds } : {}),
+      ...(csvContacts.length > 0 ? { manualContacts: csvContacts } : {}),
+    };
+  }
+
+  function handleCsvChange(contacts: CsvContact[], fileName: string | null) {
+    setCsvContacts(contacts);
+    setCsvFileName(fileName);
   }
 
   // SEG (composer) — preview automático con debounce ~500ms al cambiar el
@@ -102,11 +127,18 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
     resetPreview();
     if (!criteriaPresent) return;
     const timer = setTimeout(() => {
-      preview(buildSegmentInput());
+      preview(buildRecipientsInput());
     }, PREVIEW_DEBOUNCE_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deps primitivas a propósito, ver comentario de arriba
-  }, [segment.statuses.join(','), segment.balanceMin, segment.balanceMax, manualClientIds.join(','), criteriaPresent]);
+  }, [
+    segment.statuses.join(','),
+    segment.balanceMin,
+    segment.balanceMax,
+    manualClientIds.join(','),
+    csvFingerprint,
+    criteriaPresent,
+  ]);
 
   function handleSelectTemplate(template: TemplateSummaryDto | null) {
     setSelectedTemplate(template);
@@ -161,6 +193,9 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         // manual-recipients-fe — PARALELO a `segment`, se OMITE cuando la lista
         // está vacía (cero cambio en el payload del flujo por-segmento).
         ...(manualClientIds.length > 0 ? { manualClientIds } : {}),
+        // bulk-csv-recipients (CSV-FE-5) — PARALELO a `manualClientIds`, se
+        // OMITE cuando no hay CSV cargado.
+        ...(csvContacts.length > 0 ? { manualContacts: csvContacts } : {}),
       });
       showToast(`Campaña "${name}" creada — ${output.total} destinatario${output.total === 1 ? '' : 's'}.`);
       onCampaignCreated(output.campaignId);
@@ -169,6 +204,9 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
       setVariablesMap({});
       setSegment(EMPTY_SEGMENT);
       setManualRecipients([]);
+      setCsvContacts([]);
+      setCsvFileName(null);
+      setCsvResetKey((k) => k + 1);
       setCampaignName('');
       resetPreview();
     } catch {
@@ -243,6 +281,8 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
           invalidIds={missingRecipientsError?.missingClientIds}
         />
 
+        <CsvRecipientsUploader key={csvResetKey} onChange={handleCsvChange} />
+
         <div className={styles.nameField}>
           <label htmlFor={NAME_INPUT_ID}>Nombre de la campaña</label>
           <input
@@ -311,9 +351,10 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         segment={segment}
         templateBody={selectedTemplate?.body}
         variablesMap={variablesMap}
-        // FIX 2 — el modal SOLO consulta el segmento; le pasamos el conteo de
-        // manuales para que muestre el aviso y no contradiga/oculte el envío.
-        manualCount={manualClientIds.length}
+        // bulk-csv-recipients (CSV-FE-6) — el modal pide la UNIÓN completa
+        // (segmento + manuales + CSV), ya no sólo el segmento con un aviso.
+        manualClientIds={manualClientIds}
+        manualContacts={csvContacts}
       />
 
       {/* #5 — doble-confirmación con resumen de impacto. Todo el contenido sale
@@ -325,6 +366,7 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         templateName={selectedTemplate?.friendlyName ?? ''}
         total={previewCount}
         manualCount={manualClientIds.length}
+        csvCount={csvContacts.length}
         statusCounts={previewData?.statusCounts ?? {}}
         skipped={previewData?.skipped}
         onConfirm={handleConfirmCreate}

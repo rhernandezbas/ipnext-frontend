@@ -49,6 +49,13 @@ interface CreateCampaignConfirmModalProps {
    * que una parte se agregó a mano. Opcional (default 0 = campaña sólo por segmento).
    */
   manualCount?: number;
+  /**
+   * bulk-csv-recipients (CSV-FE-9) — cuántos contactos vinieron del archivo
+   * CSV cargado (`csvContacts.length`, crudo del FE — igual criterio que
+   * `manualCount`: el `total` real es la unión dedup del BE, esto sólo suma
+   * la línea "del archivo" al resumen). Opcional (default 0 = sin CSV).
+   */
+  csvCount?: number;
   /** `previewData.statusCounts` — desglose de matcheados por estado. */
   statusCounts: Record<string, number>;
   /** `previewData.skipped` — excluidos del envío (opt-out / duplicado / inválido). Opcional. */
@@ -79,6 +86,7 @@ export function CreateCampaignConfirmModal({
   templateName,
   total,
   manualCount = 0,
+  csvCount = 0,
   statusCounts,
   skipped,
   onConfirm,
@@ -186,9 +194,27 @@ export function CreateCampaignConfirmModal({
                   {' '}(incluye hasta {manualCount} agregado{manualCount === 1 ? '' : 's'} manualmente)
                 </span>
               )}
+              {csvCount > 0 && (
+                // bulk-csv-recipients (CSV-FE-9) — mismo criterio "hasta N" que
+                // `manualCount`: `csvCount` es el largo CRUDO del archivo, `total`
+                // es la unión dedup real.
+                <span className={styles.manualNote}>
+                  {' '}(incluye hasta {csvCount} del archivo CSV)
+                </span>
+              )}
             </dd>
           </div>
         </dl>
+
+        {/* bulk-csv-recipients (CSV-FE-9) — conteo explícito de clientes de baja
+            (flag NO-excluyente, D7): `statusCounts.baja` ya viaja en el desglose
+            genérico de abajo, pero acá se nombra en una frase legible sin que el
+            operador tenga que sumar la fila del desglose él mismo. */}
+        {(statusCounts.baja ?? 0) > 0 && (
+          <p className={styles.bajaNote}>
+            {statusCounts.baja} cliente{statusCounts.baja === 1 ? '' : 's'} de baja
+          </p>
+        )}
 
         {/* Scope adicional (root cause confirmado con el usuario 2026-07-16):
             el `lead` de arriba ya dice "todavía no se envía nada", pero un

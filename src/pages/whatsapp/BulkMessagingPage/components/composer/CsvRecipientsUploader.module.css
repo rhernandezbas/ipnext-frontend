@@ -1,0 +1,167 @@
+/*
+ * CsvRecipientsUploader.module.css — mismo lenguaje tokenizado que
+ * `ManualRecipientsPicker.module.css`/`CampaignComposer.module.css` (CERO
+ * hex/px crudo). Motion: `.summary` entra con la MISMA firma que `.chip`
+ * (`ManualRecipientsPicker`) — fadeIn+translateY corto, ease-out, con guard
+ * `prefers-reduced-motion`.
+ *
+ * Contraste (AA, texto ≥4.5:1) — mismos pairings YA validados en el resto del
+ * composer (comentarios de referencia en `PreviewModal.module.css`/
+ * `ManualRecipientsPicker.module.css`):
+ *  - .subtitle / .fileName / .counts = --color-gray-600 (#495057) sobre el
+ *    fondo real de la página (--color-gray-50 #f8f9fa) → 7.76:1.
+ *  - .error = --badge-late-fg (#991b1b) sobre --badge-late-bg (#fee2e2) → ~7:1
+ *    (mismo pairing que `.error`/`.emptyResult` de `PreviewModal.module.css`).
+ *  - .invalidItem = --color-text-primary (#212529) sobre --color-surface-hover
+ *    (#f0f0f5) → muy alto.
+ */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.title {
+  margin: 0;
+  padding: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-600);
+}
+
+.fileLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.fileInput {
+  font: inherit;
+  color: var(--color-text-primary);
+}
+
+.error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--badge-late-fg);
+  background: var(--badge-late-bg);
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-hover);
+  /* Motion: mismo timing/easing que `.chip` (chipIn) — entrada física, ease-out, 180ms. */
+  animation: summaryIn 180ms ease-out;
+}
+
+.fileName {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.counts {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+}
+
+.detail {
+  width: 100%;
+}
+
+.detailSummary {
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+}
+
+.detailSummary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.invalidList {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  /* Con archivos grandes (5000 filas) la lista puede ser larga — cap + scroll interno (mismo criterio que `.chipList`). */
+  max-height: 12.5rem;
+  overflow-y: auto;
+}
+
+.invalidItem {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+/* Touch target ≥44px. */
+.removeBtn {
+  min-height: var(--space-11);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.removeBtn:hover {
+  background: var(--color-gray-100);
+  color: var(--color-text-primary);
+}
+
+.removeBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@keyframes summaryIn {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-1));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .summary {
+    animation: none;
+  }
+  .removeBtn {
+    transition: none;
+  }
+}

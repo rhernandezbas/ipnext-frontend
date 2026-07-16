@@ -122,6 +122,22 @@
   color: var(--color-gray-600);
 }
 
+/* bulk-csv-recipients (CSV-FE-9) — conteo explícito de bajas, flag
+   NO-excluyente (texto + no sólo color, mismo criterio que StatusBadge).
+   Acento izquierdo informativo (mismo molde que `.manualNote` de
+   `PreviewModal.module.css`) — --color-gray-600 (#495057) sobre
+   --color-surface-hover (#f0f0f5, bg heredado del dialog) da ~7.2:1 (AA). */
+.bajaNote {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border-left: var(--space-1) solid var(--badge-late-fg);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-gray-600);
+  background: var(--color-surface-hover);
+}
+
 .breakdown {
   display: flex;
   flex-direction: column;

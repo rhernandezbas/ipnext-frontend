@@ -1,9 +1,9 @@
 import axiosClient from './axios-client';
 import type {
-  CampaignSegment,
   CampaignSummaryDto,
   CreateCampaignInput,
   CreateCampaignOutput,
+  ExcludedRecipientsOutput,
   GetCampaignOutput,
   GetCampaignQuery,
   PaginatedQuery,
@@ -54,20 +54,35 @@ export const previewSegment = (input: PreviewSegmentInput): Promise<PreviewSegme
  * envelope que `previewSegment` (FLAT, sin `{data}` de por medio — el `data`
  * de acá es el campo real del `PaginatedResult`, no un envelope).
  *
- * El BE también expone el GET equivalente (deep-links) — el composer sigue
- * siendo de 1-página sin deep-linking, así que acá solo se cablea el POST
- * (mismo criterio documentado arriba para `previewSegment`).
+ * bulk-csv-recipients (CSV-FE-6, D11) — el `query` es el input COMPLETO
+ * (segmento + `manualClientIds`? + `manualContacts`? + página/límite): a
+ * diferencia de la v1.1 anterior (sólo segmento), `PreviewModal` ahora pide
+ * la UNIÓN completa de las 3 fuentes en una sola llamada — un objeto, no
+ * argumentos posicionales (mismo molde que `previewSegment`).
+ *
+ * El BE también expone el GET equivalente (deep-links, SOLO segmento — ver
+ * design D11) — el composer sigue siendo de 1-página sin deep-linking, así
+ * que acá solo se cablea el POST (mismo criterio documentado arriba para
+ * `previewSegment`).
  */
-export const listSegmentRecipients = (
-  segment: CampaignSegment,
-  page?: number,
-  limit?: number,
-): Promise<SegmentRecipientsOutput> => {
-  const body: SegmentRecipientsQuery = { ...segment };
-  if (page) body.page = page;
-  if (limit) body.limit = limit;
-  return axiosClient.post<SegmentRecipientsOutput>(`${BASE}/segment/recipients`, body).then((r) => r.data);
-};
+export const listSegmentRecipients = (query: SegmentRecipientsQuery): Promise<SegmentRecipientsOutput> =>
+  axiosClient.post<SegmentRecipientsOutput>(`${BASE}/segment/recipients`, query).then((r) => r.data);
+
+/**
+ * bulk-csv-recipients (CSV-FE-7, D11) — vista `excluded` del MISMO endpoint:
+ * lista PAGINADA de personas excluidas (nombre + teléfono + motivo + fuente),
+ * para que el operador corrija su CSV mirando QUIÉN quedó afuera y por qué.
+ * `view: 'excluded'` se fuerza acá (el caller no lo pasa) para que el tipo de
+ * retorno (`ExcludedRecipientsOutput`, shape de `data` distinto) sea correcto
+ * en compile-time — separado de `listSegmentRecipients` en vez de un union
+ * de output por la misma razón que el BE separa el shape por `view`.
+ */
+export const listExcludedRecipients = (
+  query: Omit<SegmentRecipientsQuery, 'view'>,
+): Promise<ExcludedRecipientsOutput> =>
+  axiosClient
+    .post<ExcludedRecipientsOutput>(`${BASE}/segment/recipients`, { ...query, view: 'excluded' })
+    .then((r) => r.data);
 
 export const createCampaign = (input: CreateCampaignInput): Promise<CreateCampaignOutput> =>
   axiosClient.post<CreateCampaignOutput>(`${BASE}/campaigns`, input).then((r) => r.data);

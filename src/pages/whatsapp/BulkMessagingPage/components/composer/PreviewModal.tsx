@@ -3,11 +3,19 @@ import { createPortal } from 'react-dom';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
+import { Tabs } from '@/components/molecules/Tabs/Tabs';
 import { Skeleton } from '@/pages/whatsapp/WhatsappInboxPage/components/Skeleton';
-import { useSegmentRecipients } from '@/hooks/useBulkMessaging';
-import { hasSegmentCriteria } from './segmentCriteria';
+import { useSegmentRecipients, useExcludedRecipients } from '@/hooks/useBulkMessaging';
+import { hasRecipients } from './segmentCriteria';
 import { renderPreviewMessage } from './previewMessage';
-import type { CampaignSegment, CampaignVariableSpec, SegmentRecipientDto } from '@/types/messagingBulk';
+import { InvalidRecipientsTable } from './InvalidRecipientsTable';
+import type {
+  CampaignSegment,
+  CampaignVariableSpec,
+  ManualContactInput,
+  SegmentRecipientDto,
+  SegmentRecipientsQuery,
+} from '@/types/messagingBulk';
 import styles from './PreviewModal.module.css';
 
 interface PreviewModalProps {
@@ -18,19 +26,20 @@ interface PreviewModalProps {
   templateBody: string | undefined;
   variablesMap: CampaignVariableSpec;
   /**
-   * manual-recipients-fe (fix wave FIX 2) — cuántos destinatarios manuales
-   * agregó el operador. La query de este modal (`useSegmentRecipients`) SOLO
-   * conoce el segmento: el BE aún NO extendió `/segment/recipients` con
-   * `manualClientIds` (deuda, ver design.md §9). Sin este dato, una campaña
-   * solo-manual mostraba "sin destinatarios" (engañoso) y una mixta un set
-   * distinto al count. Lo usamos para un aviso claro. Default 0 = sólo segmento.
+   * bulk-csv-recipients (CSV-FE-6) — reemplaza el viejo `manualCount`: ahora
+   * el modal pide la UNIÓN COMPLETA (segmento + manuales + CSV) a
+   * `/segment/recipients`, así que necesita los ids/contactos reales, no sólo
+   * un conteo para un aviso. El BE ya extendió el endpoint (deuda F4
+   * cerrada, D11) — la tabla de acá ES la unión, no hace falta ningún aviso.
    */
-  manualCount?: number;
+  manualClientIds?: string[];
+  /** bulk-csv-recipients (CSV-FE-6) — contactos crudos del CSV cargado. */
+  manualContacts?: ManualContactInput[];
 }
 
 const LIMIT = 20;
 
-/** `SegmentRecipientDto` no trae `id` (sólo `clientId`) — `DataTable<T>` lo exige para keys/selección. */
+/** `SegmentRecipientDto.clientId` puede ser `null` (contacto CSV crudo, D11) — `DataTable<T>` exige `id`: `clientId ?? phoneE164` es único dentro del set resuelto. */
 type RecipientRow = SegmentRecipientDto & { id: string };
 
 const TITLE_ID = 'bulk-preview-modal-title';
@@ -61,73 +70,108 @@ function isKnownStatus(status: string): status is KnownStatus {
   return (KNOWN_STATUSES as readonly string[]).includes(status);
 }
 
+/** bulk-csv-recipients (D3) — status SINTÉTICO de un contacto CSV crudo (sin vínculo a ningún Client). */
+const SYNTHETIC_STATUS_LABELS: Record<string, string> = {
+  no_cliente: 'No es cliente',
+};
+
 /** El status de un recipient/statusCount puede no estar en el union de `StatusBadge` — fallback a texto plano (nunca solo color, y nunca rompe). */
 function StatusCell({ status }: { status: string }) {
-  return isKnownStatus(status) ? <StatusBadge status={status} /> : <span className={styles.statusFallback}>{status}</span>;
+  if (isKnownStatus(status)) {
+    // CSV-FE-8 — `baja` es un flag NO-excluyente: se señala con texto explícito, no sólo el badge genérico.
+    return <StatusBadge status={status} label={status === 'baja' ? 'Cliente de baja' : undefined} />;
+  }
+  return <span className={styles.statusFallback}>{SYNTHETIC_STATUS_LABELS[status] ?? status}</span>;
 }
 
 /**
- * PreviewModal (messaging-bulk-v11 FE apply chunk 2) — vista COMPLETA del
- * envío antes de crear la campaña: el mensaje real (`template.body` con cada
- * `{{N}}` resuelto), el resumen (total + desglose por estado + skipped) y los
- * destinatarios PAGINADOS server-side (`useSegmentRecipients`, chunk 1 — a
- * diferencia de `usePreviewSegment`, que trunca a una muestra de 20).
+ * PreviewModal (messaging-bulk-v11 FE apply chunk 2; reescrito en
+ * bulk-csv-recipients FE, CSV-FE-6..CSV-FE-8) — vista COMPLETA del envío
+ * antes de crear la campaña: el mensaje real (`template.body` con cada
+ * `{{N}}` resuelto), el resumen (total + desglose por estado + skipped), los
+ * destinatarios PAGINADOS server-side de la UNIÓN completa (segmento +
+ * manuales + CSV, `useSegmentRecipients`) y una vista "Excluidos (N)"
+ * (`useExcludedRecipients`, `view=excluded`) para corregir el CSV mirando
+ * QUIÉN quedó afuera y por qué.
  *
- * Se abre desde `SegmentPreviewPanel` ("Ver preview"); la query recién se
- * dispara al abrir (`enabled: open`) — SegmentPreviewPanel ya muestra un
- * indicador liviano (el count de `usePreviewSegment`) sin necesidad de esta
- * query, así que acá no hay motivo para pedirla antes de que el operador la
- * pida explícitamente.
+ * CSV-FE-6 — la query ya NO es segment-only: pide el input COMPLETO y se
+ * habilita con `hasRecipients` (cualquier fuente con destinatarios), no
+ * `hasSegmentCriteria`. El viejo aviso `manualNote` ("el detalle muestra
+ * sólo el segmento") se ELIMINA — la tabla ES la unión (cierra la deuda F4).
  *
  * Shell de accesibilidad calcado de `ConfirmModal` (portal a `document.body`,
  * foco inicial + focus-trap cíclico con Tab/Shift+Tab, restauración de foco,
- * Esc/backdrop cierran, scroll-lock del body) — NO se reinventa, sólo se
- * adapta para contenido rico (no title+message+dos botones).
+ * Esc/backdrop cierran, scroll-lock del body) — NO se reinventa.
  */
-export function PreviewModal({ open, onClose, segment, templateBody, variablesMap, manualCount = 0 }: PreviewModalProps) {
+export function PreviewModal({
+  open,
+  onClose,
+  segment,
+  templateBody,
+  variablesMap,
+  manualClientIds = [],
+  manualContacts = [],
+}: PreviewModalProps) {
   const [page, setPage] = useState(1);
+  const [excludedPage, setExcludedPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<'recipients' | 'excluded'>('recipients');
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
-  // FIX 2 (gate) — la query SOLO corre si el segmento tiene criterio PROPIO
-  // (`hasSegmentCriteria`, NO `hasRecipients`). En una campaña solo-manual el
-  // segmento está vacío y el BE lo rechaza con 400 UNFILTERED_SEGMENT
-  // (`assertSegmentIsFiltered`); sin este gate, un preview VÁLIDO mostraría un
-  // error rojo. Con el gate, en solo-manual sólo se ve la nota de los manuales.
-  const segmentHasCriteria = hasSegmentCriteria(segment);
+  // CSV-FE-6 — gate REEMPLAZADO: cualquier fuente con destinatarios (segmento,
+  // manuales o CSV) habilita la query de la UNIÓN completa. Antes sólo el
+  // segmento (`hasSegmentCriteria`) — eso era la deuda F4 (el BE no aceptaba
+  // `manualClientIds` en este endpoint todavía).
+  const hasAnyRecipients = hasRecipients(segment, manualClientIds, manualContacts.length > 0);
+
+  function buildBaseQuery(): SegmentRecipientsQuery {
+    const query: SegmentRecipientsQuery = { ...segment };
+    if (manualClientIds.length > 0) query.manualClientIds = manualClientIds;
+    if (manualContacts.length > 0) query.manualContacts = manualContacts;
+    return query;
+  }
+
   const { data, isLoading, isError, isPlaceholderData } = useSegmentRecipients(
-    segment,
-    page,
-    LIMIT,
-    open && segmentHasCriteria,
+    { ...buildBaseQuery(), page, limit: LIMIT },
+    open && hasAnyRecipients,
+  );
+
+  const excluded = useExcludedRecipients(
+    { ...buildBaseQuery(), page: excludedPage, limit: LIMIT },
+    open && hasAnyRecipients && activeTab === 'excluded',
   );
 
   // FIX-1 — `keepPreviousData` mantiene la paginación SUAVE dentro del mismo
-  // segmento, pero al reabrir con OTRO segmento devolvería los destinatarios
-  // del segmento ANTERIOR como placeholder (con `isLoading=false`), y en un
-  // preview antes-de-enviar mostrar el segmento equivocado es PELIGROSO.
-  // Trackeamos el segmento cuya data ya "asentó" (no-placeholder); si el
-  // placeholder actual es de OTRO segmento, forzamos el skeleton en lugar de
-  // pintar data ajena. El `setState` condicional en render es el patrón
+  // input, pero al reabrir con OTRO input (segmento/manuales/CSV) devolvería
+  // los destinatarios ANTERIORES como placeholder (con `isLoading=false`), y
+  // en un preview antes-de-enviar mostrar el input equivocado es PELIGROSO.
+  // Trackeamos el fingerprint del input cuya data ya "asentó" (no-placeholder);
+  // si el placeholder actual es de OTRO input, forzamos el skeleton en lugar
+  // de pintar data ajena. El `setState` condicional en render es el patrón
   // oficial de React para "ajustar estado ante un cambio de prop" (no dispara
-  // loop: en el re-render la condición ya no se cumple) y NO rompe la
-  // paginación — el placeholder del MISMO segmento sí se sigue mostrando.
-  const segmentKey = JSON.stringify(segment);
-  const [settledSegmentKey, setSettledSegmentKey] = useState<string | null>(null);
-  if (!isPlaceholderData && data && settledSegmentKey !== segmentKey) {
-    setSettledSegmentKey(segmentKey);
+  // loop) y NO rompe la paginación — el placeholder del MISMO input sí se
+  // sigue mostrando.
+  const inputFingerprint = JSON.stringify({ segment, manualClientIds, manualContacts });
+  const [settledFingerprint, setSettledFingerprint] = useState<string | null>(null);
+  if (!isPlaceholderData && data && settledFingerprint !== inputFingerprint) {
+    setSettledFingerprint(inputFingerprint);
   }
-  const showStaleSegment = isPlaceholderData && settledSegmentKey !== segmentKey;
-  const showLoading = isLoading || showStaleSegment;
+  const showStaleInput = isPlaceholderData && settledFingerprint !== inputFingerprint;
+  const showLoading = isLoading || showStaleInput;
 
-  // FIX-5 — resetea la página a 1 al CERRAR (no al abrir). Reseteándolo en un
-  // effect al abrir, el PRIMER render ya habilitó la query con la página vieja
-  // → un fetch redundante que se vuelve a disparar al pasar a 1 (doble fetch).
-  // Al hacerlo en el cierre (query deshabilitada, `enabled: open`), la próxima
-  // apertura arranca en `page=1` sin fetch de más.
+  // FIX-5 — resetea la página (Y la vista) a su default al CERRAR (no al
+  // abrir). Reseteándolo en un effect al abrir, el PRIMER render ya habilitó
+  // la query con la página vieja → un fetch redundante que se vuelve a
+  // disparar al pasar a 1 (doble fetch). Al hacerlo en el cierre (query
+  // deshabilitada, `enabled: open`), la próxima apertura arranca limpia sin
+  // fetch de más.
   useEffect(() => {
-    if (!open) setPage(1);
+    if (!open) {
+      setPage(1);
+      setExcludedPage(1);
+      setActiveTab('recipients');
+    }
   }, [open]);
 
   // Foco inicial (al botón "Cerrar") + restauración al cerrar. Keyed SOLO en
@@ -184,16 +228,20 @@ export function PreviewModal({ open, onClose, segment, templateBody, variablesMa
 
   if (!open) return null;
 
-  const rows: RecipientRow[] = (data?.data ?? []).map((r) => ({ ...r, id: r.clientId }));
+  const rows: RecipientRow[] = (data?.data ?? []).map((r) => ({ ...r, id: r.clientId ?? r.phoneE164 }));
   const totalPages = data ? Math.max(1, Math.ceil(data.total / (data.limit || LIMIT))) : 1;
+  const excludedTotalPages = excluded.data
+    ? Math.max(1, Math.ceil(excluded.data.total / (excluded.data.limit || LIMIT)))
+    : 1;
+  // CSV-FE-7 — N sale de los contadores agregados YA PRESENTES en la vista de
+  // destinatarios (no hace falta pedir la vista `excluded` sólo para el label del tab).
+  const excludedCount = data ? data.skipped.optedOut + data.skipped.duplicatePhone + data.skipped.invalidPhone : 0;
 
   const columns: { label: string; key: string; render?: (row: RecipientRow) => JSX.Element }[] = [
     { label: 'Nombre', key: 'name' },
     { label: 'Teléfono', key: 'phoneE164' },
     { label: 'Estado', key: 'status', render: (row) => <StatusCell status={row.status} /> },
   ];
-
-  const hasSkipped = !!data && (data.skipped.optedOut > 0 || data.skipped.duplicatePhone > 0 || data.skipped.invalidPhone > 0);
 
   return createPortal(
     <div
@@ -223,90 +271,100 @@ export function PreviewModal({ open, onClose, segment, templateBody, variablesMa
             )}
           </section>
 
-          {/* FIX 2 — aviso de destinatarios manuales. La tabla de abajo sale de
-              `useSegmentRecipients` (SOLO segmento; el BE no extendió el endpoint
-              con `manualClientIds` — deuda, design.md §9), así que sin esto la
-              pantalla de revisión CONTRADIRÍA el count o esconderá a quién se le
-              envía. role=note (informativo, no bloquea nada). */}
-          {manualCount > 0 && (
-            <p className={styles.manualNote} role="note">
-              Sumaste {manualCount} destinatario{manualCount === 1 ? '' : 's'} manual
-              {manualCount === 1 ? '' : 'es'}. Se validan al enviar; el detalle de destinatarios de
-              abajo muestra solo el segmento.
-            </p>
-          )}
+          {hasAnyRecipients && (
+            <Tabs
+              activeTab={activeTab}
+              onTabChange={(id) => setActiveTab(id as 'recipients' | 'excluded')}
+              tabs={[
+                {
+                  id: 'recipients',
+                  label: 'Destinatarios',
+                  content: (
+                    <>
+                      {showLoading && (
+                        <div className={styles.loading} aria-busy="true">
+                          <p role="status" className={styles.srOnlyStatus}>Cargando destinatarios…</p>
+                          <Skeleton height={20} />
+                          <Skeleton height={20} width="70%" />
+                          <Skeleton height={20} width="50%" />
+                        </div>
+                      )}
 
-          {/* FIX 2 (gate) — TODO el bloque de resultados del SEGMENTO (loading /
-              error / empty / resumen+tabla) se gatea con `segmentHasCriteria`: en
-              solo-manual la query no corre y no hay data/loading/error/empty que
-              mostrar — queda sólo la nota de manuales de arriba. */}
-          {segmentHasCriteria && showLoading && (
-            <div className={styles.loading} aria-busy="true">
-              <p role="status" className={styles.srOnlyStatus}>Cargando destinatarios…</p>
-              <Skeleton height={20} />
-              <Skeleton height={20} width="70%" />
-              <Skeleton height={20} width="50%" />
-            </div>
-          )}
+                      {!showLoading && isError && (
+                        <p className={styles.error} role="alert">
+                          No se pudieron cargar los destinatarios. Reintentá.
+                        </p>
+                      )}
 
-          {segmentHasCriteria && !showLoading && isError && (
-            <p className={styles.error} role="alert">
-              No se pudieron cargar los destinatarios. Reintentá.
-            </p>
-          )}
+                      {/* role="status" (no "alert"): a diferencia del "0 destinatarios" de
+                          `SegmentPreviewPanel` (que SÍ bloquea "Crear campaña" y amerita
+                          assertive), acá es informativo — el gate real de creación ya vive
+                          afuera del modal. */}
+                      {!showLoading && !isError && data && data.total === 0 && (
+                        <p className={styles.emptyResult} role="status">
+                          Sin destinatarios para este segmento.
+                        </p>
+                      )}
 
-          {/* role="status" (no "alert"): a diferencia del "0 destinatarios" de
-              `SegmentPreviewPanel` (que SÍ bloquea "Crear campaña" y amerita
-              assertive), acá es informativo — el gate real de creación ya
-              vive afuera del modal. */}
-          {/* FIX 2 — cuando hay manuales, un total 0 del SEGMENTO NO es "sin
-              destinatarios": hay N manuales (los muestra el aviso de arriba).
-              Sólo mostramos el empty cuando NO hay manuales. */}
-          {segmentHasCriteria && !showLoading && !isError && data && data.total === 0 && manualCount === 0 && (
-            <p className={styles.emptyResult} role="status">
-              Sin destinatarios para este segmento.
-            </p>
-          )}
+                      {!showLoading && !isError && data && data.total > 0 && (
+                        <>
+                          <section aria-labelledby={SUMMARY_HEADING_ID}>
+                            <h3 id={SUMMARY_HEADING_ID} className={styles.sectionTitle}>Resumen</h3>
+                            <p className={styles.count} aria-live="polite">
+                              <strong>{data.total}</strong> destinatario{data.total === 1 ? '' : 's'} recibirán el mensaje
+                            </p>
 
-          {segmentHasCriteria && !showLoading && !isError && data && data.total > 0 && (
-            <>
-              <section aria-labelledby={SUMMARY_HEADING_ID}>
-                <h3 id={SUMMARY_HEADING_ID} className={styles.sectionTitle}>Resumen</h3>
-                <p className={styles.count} aria-live="polite">
-                  <strong>{data.total}</strong> destinatario{data.total === 1 ? '' : 's'} recibirán el mensaje
-                </p>
+                            {Object.keys(data.statusCounts).length > 0 && (
+                              <ul className={styles.statusList} aria-label="Desglose por estado">
+                                {Object.entries(data.statusCounts).map(([status, count]) => (
+                                  <li key={status} className={styles.statusItem}>
+                                    <StatusCell status={status} />
+                                    <span>{count}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
 
-                {Object.keys(data.statusCounts).length > 0 && (
-                  <ul className={styles.statusList} aria-label="Desglose por estado">
-                    {Object.entries(data.statusCounts).map(([status, count]) => (
-                      <li key={status} className={styles.statusItem}>
-                        <StatusCell status={status} />
-                        <span>{count}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                            {excludedCount > 0 && (
+                              <ul className={styles.skippedList} aria-label="Excluidos del envío">
+                                {data.skipped.optedOut > 0 && <li>Optaron por no recibir mensajes: {data.skipped.optedOut}</li>}
+                                {data.skipped.duplicatePhone > 0 && <li>Teléfono duplicado (colapsado): {data.skipped.duplicatePhone}</li>}
+                                {data.skipped.invalidPhone > 0 && <li>Teléfono ausente o inválido: {data.skipped.invalidPhone}</li>}
+                              </ul>
+                            )}
+                          </section>
 
-                {hasSkipped && (
-                  <ul className={styles.skippedList} aria-label="Excluidos del envío">
-                    {data.skipped.optedOut > 0 && <li>Optaron por no recibir mensajes: {data.skipped.optedOut}</li>}
-                    {data.skipped.duplicatePhone > 0 && <li>Teléfono duplicado (colapsado): {data.skipped.duplicatePhone}</li>}
-                    {data.skipped.invalidPhone > 0 && <li>Teléfono ausente o inválido: {data.skipped.invalidPhone}</li>}
-                  </ul>
-                )}
-              </section>
-
-              <section aria-labelledby={RECIPIENTS_HEADING_ID}>
-                <h3 id={RECIPIENTS_HEADING_ID} className={styles.sectionTitle}>Destinatarios</h3>
-                <DataTable<RecipientRow>
-                  columns={columns}
-                  data={rows}
-                  loading={false}
-                  emptyMessage="No hay destinatarios para este segmento."
-                />
-                <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
-              </section>
-            </>
+                          <section aria-labelledby={RECIPIENTS_HEADING_ID}>
+                            <h3 id={RECIPIENTS_HEADING_ID} className={styles.sectionTitle}>Destinatarios</h3>
+                            <DataTable<RecipientRow>
+                              columns={columns}
+                              data={rows}
+                              loading={false}
+                              emptyMessage="No hay destinatarios para este segmento."
+                            />
+                            <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+                          </section>
+                        </>
+                      )}
+                    </>
+                  ),
+                },
+                {
+                  id: 'excluded',
+                  label: `Excluidos (${excludedCount})`,
+                  content: (
+                    <InvalidRecipientsTable
+                      data={excluded.data?.data ?? []}
+                      isLoading={excluded.isLoading}
+                      isError={excluded.isError}
+                      page={excludedPage}
+                      totalPages={excludedTotalPages}
+                      onPageChange={setExcludedPage}
+                    />
+                  ),
+                },
+              ]}
+            />
           )}
         </div>
       </div>

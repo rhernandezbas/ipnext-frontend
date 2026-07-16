@@ -40,13 +40,27 @@ export interface CampaignSegment {
 }
 
 /**
- * Input del preview — el segmento (SEG-1) MÁS, opcionalmente, una lista manual
- * de clientes (manual-recipients-fe, TYPE-1). `manualClientIds` viaja FLAT
- * (junto a `statuses`) porque `previewSegment` postea el input directo; el BE
- * devuelve `count` = unión dedup del segmento y la lista. UUIDs como `string[]`.
+ * bulk-csv-recipients FE (TYPE-CSV-1) — un contacto CRUDO del CSV, PARALELO a
+ * `manualClientIds` (paralelo, NO anidado). Espejo de `CsvContact`
+ * (`parseRecipientsCsv.ts`) — el BE lo vincula por teléfono (match exacto,
+ * design D3) o lo persiste como fila "contact" (`clientId: null`).
+ */
+export interface ManualContactInput {
+  name: string;
+  phone: string;
+}
+
+/**
+ * Input del preview — el segmento (SEG-1) MÁS, opcionalmente, la lista manual
+ * de clientes (manual-recipients-fe, TYPE-1) Y los contactos crudos del CSV
+ * (bulk-csv-recipients, TYPE-CSV-1). Ambas listas viajan FLAT (junto a
+ * `statuses`) porque `previewSegment`/`listSegmentRecipients` postean el
+ * input directo; el BE devuelve `count` = unión dedup de las 3 fuentes.
+ * UUIDs como `string[]`.
  */
 export type PreviewSegmentInput = CampaignSegment & {
   manualClientIds?: string[];
+  manualContacts?: ManualContactInput[];
 };
 
 export interface PreviewSegmentSampleItemDto {
@@ -76,21 +90,62 @@ export interface PreviewSegmentOutput {
 
 // ─── Recipients paginados del segmento (v1.1, BE en PROD) ────────────────────
 
-/** Input de `/segment/recipients` — mismo shape que `CampaignSegment` + paginación. */
+/**
+ * Input de `/segment/recipients` — mismo shape que `PreviewSegmentInput`
+ * (segmento + `manualClientIds`? + `manualContacts`?, bulk-csv-recipients D11)
+ * MÁS paginación y la vista (`view`, default `'recipients'` server-side).
+ */
 export interface SegmentRecipientsQuery extends CampaignSegment {
+  manualClientIds?: string[];
+  manualContacts?: ManualContactInput[];
   page?: number;
   limit?: number;
+  /** `'recipients'` (default, tabla de destinatarios) | `'excluded'` (bulk-csv-recipients CSV-FE-7). */
+  view?: 'recipients' | 'excluded';
 }
 
 export interface SegmentRecipientDto {
-  clientId: string;
+  /**
+   * bulk-csv-recipients (D11) — `null` para un contacto CSV que NO matcheó
+   * ningún cliente (crudo). El FE keyea filas con `clientId ?? phoneE164`
+   * (CSV-FE-6).
+   */
+  clientId: string | null;
   name: string;
   phoneE164: string;
+  /** `'no_cliente'` (sintético) para un contacto CSV crudo — ver `statusLabel` en `PreviewModal`. */
   status: string;
+  /** bulk-csv-recipients (D11) — de qué fuente vino ('segment'|'manual'|'csv'). Opcional: no todos los BE lo mandan todavía. */
+  source?: 'segment' | 'manual' | 'csv';
 }
 
 export interface SegmentRecipientsOutput {
   data: SegmentRecipientDto[];
+  total: number;
+  page: number;
+  limit: number;
+  skipped: PreviewSegmentOutput['skipped'];
+  statusCounts: Record<string, number>;
+}
+
+// ─── Excluidos por persona (bulk-csv-recipients, CSV-FE-7, D7/D11) ───────────
+
+/** Motivo de exclusión POR PERSONA (BE, defensa en profundidad — el FE ya filtra `sin_nombre`/`sin_telefono` del CSV localmente). */
+export type ExcludedRecipientReason = 'sin_nombre' | 'sin_telefono' | 'telefono_invalido' | 'opt_out' | 'duplicado';
+
+export interface ExcludedRecipientDto {
+  name: string;
+  phone: string;
+  reason: ExcludedRecipientReason;
+  source?: 'segment' | 'manual' | 'csv';
+  /** Presente sólo si el excluido llegó a vincularse a un cliente (ej. `duplicado` de un manual ya en el segmento). */
+  clientId?: string | null;
+  status?: string;
+}
+
+/** `view: 'excluded'` de `/segment/recipients` — mismo sobre (`total/page/limit/skipped/statusCounts`) que la vista de destinatarios, `data` cambia de shape. */
+export interface ExcludedRecipientsOutput {
+  data: ExcludedRecipientDto[];
   total: number;
   page: number;
   limit: number;
@@ -128,6 +183,13 @@ export interface CreateCampaignInput {
    * de los flujos que sólo usan segmento). UUIDs como `string[]`.
    */
   manualClientIds?: string[];
+  /**
+   * bulk-csv-recipients (TYPE-CSV-1) — contactos crudos del CSV, PARALELO a
+   * `manualClientIds` (top-level, NO anidado). El BE los vincula por teléfono
+   * o los persiste como fila "contact" (`clientId: null`). Opcional: se OMITE
+   * cuando está vacío (cero cambio en los payloads que no usan CSV).
+   */
+  manualContacts?: ManualContactInput[];
   // NOTA: `createdById` NO viaja en el body — el BE lo deriva SIEMPRE del
   // usuario autenticado (`req.user.id`, ver `messagingBulk.routes.ts`), nunca
   // del cliente. Incluirlo acá sería un campo fantasma que el BE ignora.

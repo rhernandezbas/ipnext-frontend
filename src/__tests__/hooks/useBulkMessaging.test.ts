@@ -19,10 +19,13 @@
  *  MBH-6 useCampaigns(query): queryKey ['messagingBulk','campaigns',query],
  *        pollea cada 30s gateado por useDocumentVisible (Change A — el
  *        historial también se refresca solo)
- *  MBH-7 useSegmentRecipients(segment,page,limit,enabled) (v1.1, BE en PROD):
- *        queryKey ['messagingBulk','segmentRecipients',segment,page,limit],
- *        gateado por `enabled`; `keepPreviousData` para paginar SIN flash de
- *        loading entre páginas
+ *  MBH-7 useSegmentRecipients(query,enabled) (v1.1 BE en PROD; bulk-csv-recipients
+ *        CSV-FE-6 — `query` es el input COMPLETO, un solo objeto):
+ *        queryKey ['messagingBulk','segmentRecipients',query], gateado por
+ *        `enabled`; `keepPreviousData` para paginar SIN flash de loading
+ *        entre páginas
+ *  MBH-8 useExcludedRecipients(query,enabled) (bulk-csv-recipients CSV-FE-7):
+ *        misma query base, pero pega a `listExcludedRecipients` (view=excluded)
  *  MBH-9 campaignPollInterval(status,visible): función pura con la política
  *        de polling del detalle (extraída para testear todas las ramas)
  */
@@ -49,6 +52,7 @@ vi.mock('@/api/messagingBulk.api', () => ({
   getCampaign: vi.fn(),
   listCampaigns: vi.fn(),
   listSegmentRecipients: vi.fn(),
+  listExcludedRecipients: vi.fn(),
 }));
 
 vi.mock('@/hooks/useDocumentVisible', () => ({
@@ -63,6 +67,7 @@ import {
   getCampaign,
   listCampaigns,
   listSegmentRecipients,
+  listExcludedRecipients,
 } from '@/api/messagingBulk.api';
 import { useDocumentVisible } from '@/hooks/useDocumentVisible';
 import {
@@ -73,6 +78,7 @@ import {
   useCampaign,
   useCampaigns,
   useSegmentRecipients,
+  useExcludedRecipients,
   bulkTemplatesKey,
   bulkCampaignsKey,
   bulkCampaignKey,
@@ -840,7 +846,7 @@ describe('MBH-6: useCampaigns(query)', () => {
   });
 });
 
-describe('MBH-7: useSegmentRecipients (v1.1)', () => {
+describe('MBH-7: useSegmentRecipients (v1.1 + bulk-csv-recipients CSV-FE-6)', () => {
   const RECIPIENTS_OUTPUT: SegmentRecipientsOutput = {
     data: [{ clientId: 'cli-1', name: 'Juan Perez', phoneE164: '+5491100000000', status: 'late' }],
     total: 42,
@@ -850,21 +856,48 @@ describe('MBH-7: useSegmentRecipients (v1.1)', () => {
     statusCounts: { late: 42 },
   };
 
-  it('llama a listSegmentRecipients(segment,page,limit) y cachea el resultado', async () => {
+  it('llama a listSegmentRecipients con el query COMPLETO (un solo objeto) y cachea el resultado', async () => {
     vi.mocked(listSegmentRecipients).mockResolvedValue(RECIPIENTS_OUTPUT);
     const { wrapper } = makeWrapper();
 
-    const { result } = renderHook(() => useSegmentRecipients({ statuses: ['late'] }, 1, 20), { wrapper });
+    const { result } = renderHook(() => useSegmentRecipients({ statuses: ['late'], page: 1, limit: 20 }), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(listSegmentRecipients).toHaveBeenCalledWith({ statuses: ['late'] }, 1, 20);
+    expect(listSegmentRecipients).toHaveBeenCalledWith({ statuses: ['late'], page: 1, limit: 20 });
     expect(result.current.data).toEqual(RECIPIENTS_OUTPUT);
+  });
+
+  it('con manualClientIds + manualContacts los pasa tal cual (unión completa)', async () => {
+    vi.mocked(listSegmentRecipients).mockResolvedValue(RECIPIENTS_OUTPUT);
+    const { wrapper } = makeWrapper();
+
+    renderHook(
+      () =>
+        useSegmentRecipients({
+          statuses: [],
+          manualClientIds: ['c-1'],
+          manualContacts: [{ name: 'Ana', phone: '1123456789' }],
+          page: 1,
+          limit: 20,
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() =>
+      expect(listSegmentRecipients).toHaveBeenCalledWith({
+        statuses: [],
+        manualClientIds: ['c-1'],
+        manualContacts: [{ name: 'Ana', phone: '1123456789' }],
+        page: 1,
+        limit: 20,
+      }),
+    );
   });
 
   it('enabled:false NO dispara el fetch (ej. sin criterio de segmento todavía)', () => {
     const { wrapper } = makeWrapper();
 
-    const { result } = renderHook(() => useSegmentRecipients({ statuses: [] }, 1, 20, false), { wrapper });
+    const { result } = renderHook(() => useSegmentRecipients({ statuses: [], page: 1, limit: 20 }, false), { wrapper });
 
     expect(result.current.fetchStatus).toBe('idle');
     expect(listSegmentRecipients).not.toHaveBeenCalled();
@@ -874,10 +907,10 @@ describe('MBH-7: useSegmentRecipients (v1.1)', () => {
     vi.mocked(listSegmentRecipients).mockResolvedValueOnce(RECIPIENTS_OUTPUT);
     const { wrapper } = makeWrapper();
 
-    const { result, rerender } = renderHook(({ page }) => useSegmentRecipients({ statuses: ['late'] }, page, 20), {
-      wrapper,
-      initialProps: { page: 1 },
-    });
+    const { result, rerender } = renderHook(
+      ({ page }) => useSegmentRecipients({ statuses: ['late'], page, limit: 20 }),
+      { wrapper, initialProps: { page: 1 } },
+    );
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     let resolvePage2!: (v: SegmentRecipientsOutput) => void;
@@ -891,5 +924,36 @@ describe('MBH-7: useSegmentRecipients (v1.1)', () => {
     const page2Output: SegmentRecipientsOutput = { ...RECIPIENTS_OUTPUT, page: 2 };
     act(() => resolvePage2(page2Output));
     await waitFor(() => expect(result.current.data).toEqual(page2Output));
+  });
+});
+
+describe('MBH-8: useExcludedRecipients (bulk-csv-recipients CSV-FE-7)', () => {
+  const EXCLUDED_OUTPUT = {
+    data: [{ name: 'Ana', phone: '1123456789', reason: 'telefono_invalido' as const, source: 'csv' as const }],
+    total: 1,
+    page: 1,
+    limit: 20,
+    skipped: { optedOut: 0, duplicatePhone: 0, invalidPhone: 0 },
+    statusCounts: {},
+  };
+
+  it('llama a listExcludedRecipients con el query (sin view — lo fuerza el adapter) y cachea el resultado', async () => {
+    vi.mocked(listExcludedRecipients).mockResolvedValue(EXCLUDED_OUTPUT);
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useExcludedRecipients({ statuses: ['late'], page: 1, limit: 20 }), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(listExcludedRecipients).toHaveBeenCalledWith({ statuses: ['late'], page: 1, limit: 20 });
+    expect(result.current.data).toEqual(EXCLUDED_OUTPUT);
+  });
+
+  it('enabled:false NO dispara el fetch', () => {
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useExcludedRecipients({ statuses: [], page: 1, limit: 20 }, false), { wrapper });
+
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(listExcludedRecipients).not.toHaveBeenCalled();
   });
 });

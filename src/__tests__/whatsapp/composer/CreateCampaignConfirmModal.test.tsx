@@ -38,6 +38,7 @@ function renderModal(
     templateName: string;
     total: number;
     manualCount: number;
+    csvCount: number;
     statusCounts: Record<string, number>;
     skipped: Skipped;
     onConfirm: () => void;
@@ -53,6 +54,7 @@ function renderModal(
       templateName={props.templateName ?? 'Recordatorio de pago'}
       total={props.total ?? 42}
       manualCount={props.manualCount}
+      csvCount={props.csvCount}
       statusCounts={props.statusCounts ?? { late: 30, blocked: 12 }}
       skipped={'skipped' in props ? props.skipped : NO_SKIPPED}
       onConfirm={onConfirm}
@@ -235,5 +237,29 @@ describe('CCM-14: copy — próximo paso explícito (scope adicional, root cause
     // del lead (CCM-5), que ya existía antes de este scope.
     expect(screen.getByText('Pendiente')).toBeInTheDocument();
     expect(screen.getByText(/desde el detalle/i)).toBeInTheDocument();
+  });
+});
+
+describe('CSV-FE-9: resumen con CSV y bajas', () => {
+  it('con 10 del segmento + 5 del CSV (2 de ellos baja): total, línea del CSV y "2 clientes de baja"', () => {
+    renderModal({
+      total: 15,
+      csvCount: 5,
+      statusCounts: { late: 8, active: 5, baja: 2 },
+    });
+
+    expect(screen.getByText('15')).toBeInTheDocument();
+    expect(screen.getByText(/incluye hasta 5 del archivo csv/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 clientes de baja/i)).toBeInTheDocument();
+  });
+
+  it('sin CSV (csvCount 0/undefined) no muestra la línea del archivo', () => {
+    renderModal();
+    expect(screen.queryByText(/archivo csv/i)).not.toBeInTheDocument();
+  });
+
+  it('sin bajas (statusCounts.baja ausente o 0) no muestra la línea de bajas', () => {
+    renderModal({ statusCounts: { late: 30, blocked: 12 } });
+    expect(screen.queryByText(/cliente.*de baja/i)).not.toBeInTheDocument();
   });
 });

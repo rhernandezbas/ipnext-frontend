@@ -33,6 +33,25 @@ describe('hasRecipients', () => {
   });
 });
 
+describe('hasRecipients — 3er parámetro CSV (bulk-csv-recipients CSV-FE-5)', () => {
+  it('true con SÓLO CSV cargado (segmento vacío, sin manuales)', () => {
+    expect(hasRecipients(EMPTY, [], true)).toBe(true);
+  });
+
+  it('false sin CSV (3er parámetro explícito false), igual que antes', () => {
+    expect(hasRecipients(EMPTY, [], false)).toBe(false);
+  });
+
+  it('sin pasar el 3er parámetro, se comporta EXACTAMENTE igual que antes (backcompat)', () => {
+    expect(hasRecipients(EMPTY, [])).toBe(false);
+    expect(hasRecipients({ statuses: ['late'] }, [])).toBe(true);
+  });
+
+  it('true con las 3 fuentes combinadas', () => {
+    expect(hasRecipients({ statuses: ['late'] }, ['a'], true)).toBe(true);
+  });
+});
+
 describe('hasSegmentCriteria (intacto)', () => {
   it('sigue sin conocer la lista manual: segmento vacío → false', () => {
     expect(hasSegmentCriteria(EMPTY)).toBe(false);

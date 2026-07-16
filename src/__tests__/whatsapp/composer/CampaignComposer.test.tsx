@@ -34,13 +34,14 @@ vi.mock('@/api/messagingBulk.api', () => ({
   getCampaign: vi.fn(),
   listCampaigns: vi.fn(),
   listSegmentRecipients: vi.fn(),
+  listExcludedRecipients: vi.fn(),
 }));
 vi.mock('@/hooks/useMyPermissions');
 // El composer ahora monta `ManualRecipientsPicker` → `CustomerPicker`, que usa
 // `useClientList`. Se mockea a nivel hook (mismo seam que CustomerPicker.test).
 vi.mock('@/hooks/useCustomers', () => ({ useClientList: vi.fn() }));
 
-import { listBulkTemplates, previewSegment, createCampaign, listSegmentRecipients } from '@/api/messagingBulk.api';
+import { listBulkTemplates, previewSegment, createCampaign, listSegmentRecipients, listExcludedRecipients } from '@/api/messagingBulk.api';
 import { useClientList } from '@/hooks/useCustomers';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
@@ -156,6 +157,7 @@ beforeEach(() => {
   vi.mocked(previewSegment).mockResolvedValue(PREVIEW);
   vi.mocked(createCampaign).mockResolvedValue({ campaignId: 'camp-1', total: 42, status: 'pending' });
   vi.mocked(listSegmentRecipients).mockResolvedValue(EMPTY_RECIPIENTS);
+  vi.mocked(listExcludedRecipients).mockResolvedValue({ ...EMPTY_RECIPIENTS, data: [] });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useClientList
   vi.mocked(useClientList).mockReturnValue({ data: { data: CLIENTS, total: 2, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false } as any);
 });
@@ -164,6 +166,13 @@ beforeEach(() => {
 async function addManualRecipient(user: ReturnType<typeof userEvent.setup>, name = 'Juan García') {
   await user.type(screen.getByLabelText(/buscar cliente/i), 'a');
   await user.click(await screen.findByText(name));
+}
+
+/** bulk-csv-recipients (CSV-FE-5) — carga un CSV vía el `CsvRecipientsUploader` del composer. */
+function uploadCsv(csv: string, fileName = 'destinatarios.csv') {
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+  const file = new File([csv], fileName, { type: 'text/csv' });
+  fireEvent.change(input, { target: { files: [file] } });
 }
 
 afterEach(() => {
@@ -315,7 +324,7 @@ describe('CC-9: botón "Ver preview" abre el PreviewModal (messaging-bulk-v11 FE
 
     expect(screen.getByRole('dialog', { name: /preview del envío/i })).toBeInTheDocument();
     await waitFor(() =>
-      expect(listSegmentRecipients).toHaveBeenCalledWith({ statuses: ['late'] }, 1, 20),
+      expect(listSegmentRecipients).toHaveBeenCalledWith({ statuses: ['late'], page: 1, limit: 20 }),
     );
     // El indicador liviano de `SegmentPreviewPanel` sigue viniendo del debounce
     // automático (`previewSegment`), NO de este click — ver CC-5.
@@ -522,5 +531,95 @@ describe('CC-19: el modal de confirmación refleja los destinatarios manuales (C
 
     const dialog = await screen.findByRole('dialog', { name: /nueva campaña/i });
     expect(within(dialog).getByText(/1.*manual/i)).toBeInTheDocument();
+  });
+});
+
+describe('CC-20: preview se dispara al cargar un CSV válido (bulk-csv-recipients CSV-FE-5)', () => {
+  it('con el segmento vacío, cargar un CSV dispara previewSegment con manualContacts', async () => {
+    renderComposer();
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+    expect(previewSegment).not.toHaveBeenCalled();
+
+    uploadCsv('nombre;telefono\nAna;1123456789');
+
+    await waitFor(() =>
+      expect(previewSegment).toHaveBeenCalledWith({
+        statuses: [],
+        manualContacts: [{ name: 'Ana', phone: '1123456789' }],
+      }),
+    );
+  });
+});
+
+describe('CC-21: crear con SÓLO CSV (CSV-FE-5, scenario "solo-CSV habilita crear")', () => {
+  it('canCreate con sólo CSV; el body de create incluye manualContacts y SIN manualClientIds', async () => {
+    const user = userEvent.setup();
+    const onCampaignCreated = vi.fn();
+    renderComposer(onCampaignCreated);
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+    await selectTemplateAndMapVariables();
+    uploadCsv('nombre;telefono\nAna;1123456789');
+
+    // El preview automático (count 42) habilita el gate — sin segmento ni manuales.
+    await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
+    await user.type(screen.getByLabelText(/nombre de la campaña/i), 'Recordatorio julio');
+
+    const createButton = screen.getByRole('button', { name: /crear campaña/i });
+    await waitFor(() => expect(createButton).toBeEnabled());
+
+    await user.click(createButton);
+    const dialog = await screen.findByRole('dialog', { name: /nueva campaña/i });
+    await user.click(within(dialog).getByRole('button', { name: /confirmar y crear/i }));
+
+    await waitFor(() =>
+      expect(createCampaign).toHaveBeenCalledWith({
+        name: 'Recordatorio julio',
+        templateRef: 'HX123',
+        templateName: 'Recordatorio de pago',
+        segment: { statuses: [] },
+        variablesMap: { '1': { source: 'name', value: undefined }, '2': { source: 'balanceDue', value: undefined } },
+        manualContacts: [{ name: 'Ana', phone: '1123456789' }],
+      }),
+    );
+    expect(onCampaignCreated).toHaveBeenCalledWith('camp-1');
+  });
+});
+
+describe('CC-22: sin CSV, no-regresión (CSV-FE-5, scenario "payload omitido cuando no hay CSV")', () => {
+  it('el payload de create NO incluye la key manualContacts', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+    const createButton = await fillValidCampaign(user);
+    await confirmCreate(user, createButton);
+
+    await waitFor(() => expect(createCampaign).toHaveBeenCalled());
+    const payload = vi.mocked(createCampaign).mock.calls[0][0];
+    expect(payload).not.toHaveProperty('manualContacts');
+  });
+});
+
+describe('CC-23: resetea el CSV tras crear la campaña (CSV-FE-5.5)', () => {
+  it('tras crear OK, el uploader vuelve a idle (sin resumen del archivo anterior)', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+    await selectTemplateAndMapVariables();
+    uploadCsv('nombre;telefono\nAna;1123456789');
+    await screen.findByText(/1 destinatario del archivo/i);
+    await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
+    await user.type(screen.getByLabelText(/nombre de la campaña/i), 'Recordatorio julio');
+
+    const createButton = screen.getByRole('button', { name: /crear campaña/i });
+    await waitFor(() => expect(createButton).toBeEnabled());
+    await user.click(createButton);
+    const dialog = await screen.findByRole('dialog', { name: /nueva campaña/i });
+    await user.click(within(dialog).getByRole('button', { name: /confirmar y crear/i }));
+
+    await waitFor(() => expect(screen.queryByText(/destinatario.*del archivo/i)).not.toBeInTheDocument());
   });
 });

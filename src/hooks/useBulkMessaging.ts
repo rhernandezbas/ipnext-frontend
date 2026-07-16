@@ -3,7 +3,6 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import * as api from '@/api/messagingBulk.api';
 import { useDocumentVisible } from '@/hooks/useDocumentVisible';
 import type {
-  CampaignSegment,
   CampaignSendConflictBody,
   CampaignStatusDto,
   CreateCampaignInput,
@@ -13,6 +12,7 @@ import type {
   GetCampaignQuery,
   PaginatedQuery,
   PreviewSegmentInput,
+  SegmentRecipientsQuery,
 } from '@/types/messagingBulk';
 
 /**
@@ -36,8 +36,12 @@ export const bulkCampaignsKey = (query: PaginatedQuery) => ['messagingBulk', 'ca
 export const bulkCampaignKey = (id: string, query: GetCampaignQuery = {}) =>
   ['messagingBulk', 'campaign', id, query] as const;
 
-export const bulkSegmentRecipientsKey = (segment: CampaignSegment, page?: number, limit?: number) =>
-  ['messagingBulk', 'segmentRecipients', segment, page, limit] as const;
+export const bulkSegmentRecipientsKey = (query: SegmentRecipientsQuery) =>
+  ['messagingBulk', 'segmentRecipients', query] as const;
+
+/** bulk-csv-recipients (CSV-FE-7) — key separada de la de `recipients` (mismo query, otro `view`, otro shape de output). */
+export const bulkExcludedRecipientsKey = (query: Omit<SegmentRecipientsQuery, 'view'>) =>
+  ['messagingBulk', 'excludedRecipients', query] as const;
 
 /** TPL-1/TPL-2 — catálogo de templates. `enabled` lo ata el caller al permiso `messaging.templates`. */
 export function useTemplates(enabled: boolean = true) {
@@ -355,14 +359,35 @@ export function useCampaigns(query: PaginatedQuery, enabled: boolean = true, pol
  * on-demand — `enabled` lo ata el caller a si ya hay un criterio efectivo
  * (mismo gate que `useTemplates(enabled)`).
  *
+ * bulk-csv-recipients (CSV-FE-6) — `query` es el input COMPLETO (segmento +
+ * `manualClientIds`? + `manualContacts`? + página/límite), UN solo objeto
+ * (ya no `segment, page, limit` posicionales) — `PreviewModal` arma la unión
+ * completa de las 3 fuentes acá.
+ *
  * `keepPreviousData` (v5: `placeholderData`) — al cambiar de página, la
  * tabla sigue mostrando la página anterior (sin flash de loading) mientras
  * resuelve la nueva; `isFetching` distingue ese estado de `isPending`.
  */
-export function useSegmentRecipients(segment: CampaignSegment, page?: number, limit?: number, enabled: boolean = true) {
+export function useSegmentRecipients(query: SegmentRecipientsQuery, enabled: boolean = true) {
   return useQuery({
-    queryKey: bulkSegmentRecipientsKey(segment, page, limit),
-    queryFn: () => api.listSegmentRecipients(segment, page, limit),
+    queryKey: bulkSegmentRecipientsKey(query),
+    queryFn: () => api.listSegmentRecipients(query),
+    enabled,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * bulk-csv-recipients (CSV-FE-7) — vista "Excluidos (N)" del `PreviewModal`:
+ * misma query base que `useSegmentRecipients` (sin `view`, se fuerza en el
+ * adapter) pero apuntando al shape `ExcludedRecipientsOutput`. Query PROPIA
+ * (key distinta) — no comparte cache con la vista de destinatarios aunque el
+ * input sea el mismo, porque el `view` cambia el HTTP body real.
+ */
+export function useExcludedRecipients(query: Omit<SegmentRecipientsQuery, 'view'>, enabled: boolean = true) {
+  return useQuery({
+    queryKey: bulkExcludedRecipientsKey(query),
+    queryFn: () => api.listExcludedRecipients(query),
     enabled,
     placeholderData: keepPreviousData,
   });
