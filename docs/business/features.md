@@ -22,7 +22,10 @@ Preventa: convertir prospectos en clientes.
 
 - **Tickets**: dashboard, lista de abiertos, papelera/archivo, destinatarios.
 - **SLA**: acuerdos de nivel de servicio sobre tickets.
-- **Mensajes/Soporte**: bandeja de entrada, envío masivo, messengers, noticias.
+- **Comunicaciones** (`/admin/whatsapp/*`): bandeja de entrada WhatsApp (espejo Chatwoot),
+  configuración, envío masivo por campañas y templates. Reemplaza al viejo "Mensajes/Soporte"
+  legacy (bandeja mock, envío masivo, messengers, noticias), eliminado en el change
+  `sidebar-comunicaciones`.
 
 ## Finanzas
 

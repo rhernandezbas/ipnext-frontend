@@ -21,23 +21,32 @@
   - [x] Borrar `src/pages/support/{MassSendPage.tsx,MassSendPage.module.css,MessengersPage.tsx,NewsPage.tsx}`.
   - [x] `CustomerDetailPage.tsx` — botón "Enviar mensaje" ahora navega a `/admin/whatsapp` (antes
         `/admin/support/inbox`, ruta eliminada).
-  - [x] NO borrado (excepción documentada, ver proposal.md): `SupportInboxPage.tsx` +
-        `SupportInboxPage.module.css` + `SupportInboxPage.test.tsx`.
-- [x] `npx vitest run` sobre los 5 archivos tocados/relevantes — 166/166 tests verdes.
-- [x] `npx tsc --noEmit` — sin errores.
-- [x] `rg` de limpieza — CERO matches excepto la excepción documentada (`SupportInboxPage.*`).
-- [x] Crear artefactos openspec (`proposal.md`, `specs/support-legacy-removal.md`,
-      `specs/whatsapp-rename.md`, este `tasks.md`).
-- [ ] Commit local (conventional commits, sin push) — pendiente al momento de escribir este archivo.
+- [x] Primer commit `cd1c064d` — `feat(sidebar): eliminar Mensajes (Support legacy) y renombrar
+      WhatsApp a Comunicaciones` (con `SupportInboxPage` preservada pendiente de decisión).
 
-## Pendiente / seguimiento (fuera de scope de este change)
-- Decidir el destino final de `SupportInboxPage.tsx` (borrar en un follow-up vs. reutilizar/migrar
-  su lógica de `/messages` a Comunicaciones).
-- `src/pages/messages/MessagesPage.tsx` + `src/__tests__/messages/MensajesPage.test.tsx`: página
-  "Mensajes" completa (compose, tabs inbox/sent/draft) YA huérfana (sin ruta) antes de este change.
-  No se tocó — mencionar para una futura limpieza de dead code.
-- `src/hooks/useMessengers.ts` + `src/api/messenger.api.ts` y `src/hooks/useNews.ts` +
-  `src/api/news.api.ts` quedan sin consumidores tras borrar `MessengersPage`/`NewsPage` — candidatos
-  a limpieza en un follow-up (no borrados acá: fuera del scope explícito de la tarea).
-- `docs/business/features.md:25` sigue documentando "Mensajes/Soporte" como feature — desactualizado,
-  no tocado (fuera de scope; el grep de limpieza pedido era sobre `src/`).
+## Segundo commit — borrado total (decisión del usuario 2026-07-16: "se borra Mensajes TODO")
+
+- [x] Verificar consumidores de `useMessages`/`messages.api.ts` — únicos: `SupportInboxPage.tsx` y
+      `MessagesPage.tsx` (ambas huérfanas) + comentario en `src/types/whatsapp.ts`. Types
+      `message`/`messenger`/`news` también huérfanos (verificado).
+- [x] Borrar `src/pages/support/SupportInboxPage.tsx` + `.module.css` +
+      `src/__tests__/support/SupportInboxPage.test.tsx` → carpetas `pages/support/` y
+      `__tests__/support/` eliminadas (vacías).
+- [x] Borrar `src/pages/messages/MessagesPage.tsx` + `.module.css` +
+      `src/__tests__/messages/MensajesPage.test.tsx` → carpetas `pages/messages/` y
+      `__tests__/messages/` eliminadas.
+- [x] Borrar hooks: `src/hooks/{useMessages,useMessengers,useNews}.ts`.
+- [x] Borrar api clients: `src/api/{messages.api,messenger.api,news.api}.ts`.
+- [x] Borrar types huérfanos: `src/types/{message,messenger,news}.ts`.
+- [x] Actualizar comentario en `src/types/whatsapp.ts` (referenciaba `useMessages.ts`/`messages.api.ts`).
+- [x] Actualizar `docs/business/features.md` — "Mensajes/Soporte" → "Comunicaciones".
+- [x] Actualizar artefactos SDD (proposal/spec/este tasks.md) con la decisión final.
+- [x] Grep de limpieza ampliado
+      (`admin/support|support\.read|SupportInboxPage|MassSendPage|MessengersPage|NewsPage|useMessages|messages\.api|useMessengers|useNews`)
+      sobre `src/` → CERO matches.
+- [x] Tests afectados verdes + `npx tsc --noEmit` sin errores.
+- [x] Segundo commit local `chore(support): remove legacy messages feature completely`.
+
+## Deuda registrada (fuera de scope FE)
+- **BE**: el API `/messages` del backend (`ipnext-backend`) queda como dead code sin ningún
+  consumidor FE — limpiarlo en un change BE aparte.

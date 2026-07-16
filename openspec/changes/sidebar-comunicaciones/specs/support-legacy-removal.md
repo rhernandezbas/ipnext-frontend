@@ -7,10 +7,16 @@
 3. El redirect legacy `/admin/messages → /admin/support/inbox` se elimina (no hay target válido).
 4. `MassSendPage`, `MessengersPage`, `NewsPage` (páginas mock sin datos reales) se borran del
    filesystem junto con sus tests.
-5. `SupportInboxPage.tsx` (única página del grupo con lógica real conectada a `/messages` vía
-   axios) NO se borra — queda huérfana en disco (sin import ni ruta) hasta decisión explícita.
+5. Borrado total (decisión del usuario 2026-07-16, "se borra Mensajes TODO"): `SupportInboxPage.tsx`
+   (+ css + test), `MessagesPage.tsx` (+ css + test, ya huérfana pre-change), los hooks
+   `useMessages`/`useMessengers`/`useNews`, los api clients `messages.api`/`messenger.api`/`news.api`
+   y los types `message`/`messenger`/`news` se eliminan del filesystem. Las carpetas
+   `src/pages/support/`, `src/pages/messages/`, `src/__tests__/support/` y `src/__tests__/messages/`
+   quedan eliminadas.
 6. Ningún componente activo debe navegar a `/admin/support/*` (referencia rota) — el botón "Enviar
    mensaje" en `CustomerDetailPage` se redirige a `/admin/whatsapp`.
+7. El endpoint `/messages` del backend queda sin consumidores FE — dead code a limpiar en un change
+   BE aparte (fuera del scope de este change).
 
 ## Scenarios
 - Given el sidebar renderizado con cualquier permiso → no existe un botón/link con nombre accesible
@@ -21,7 +27,6 @@
   existe en `App.tsx`); cae en el catch-all.
 - Given el usuario abre el dropdown "Acciones" en `CustomerDetailPage` y clickea "Enviar mensaje" →
   navega a `/admin/whatsapp`, no a una ruta 404.
-- Given `rg -n "admin/support|support\.read|SupportInboxPage|MassSendPage|MessengersPage|NewsPage" src/`
-  → solo debe matchear `SupportInboxPage.tsx`/`SupportInboxPage.module.css`/
-  `SupportInboxPage.test.tsx` (excepción documentada); CERO matches de `admin/support`,
-  `support.read`, `MassSendPage`, `MessengersPage` o `NewsPage`.
+- Given
+  `rg -n "admin/support|support\.read|SupportInboxPage|MassSendPage|MessengersPage|NewsPage|useMessages|messages\.api|useMessengers|useNews" src/`
+  → CERO matches (limpieza total tras el segundo commit).

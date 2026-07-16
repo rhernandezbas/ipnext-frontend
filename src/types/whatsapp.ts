@@ -1,8 +1,9 @@
 /**
  * whatsapp (messaging-inbox F1, design §3) — espejo campo a campo del BE real
  * (`ipnext-backend/src/application/dto/messaging.ts` + `dto/pagination.ts`, NO el
- * boceto del design.md del BE). Naming `Whatsapp`-prefixed para no colisionar con
- * el módulo interno `Message` (`useMessages.ts`/`messages.api.ts`).
+ * boceto del design.md del BE). Naming `Whatsapp`-prefixed — históricamente para
+ * no colisionar con el módulo interno `Message` (Support legacy, eliminado en el
+ * change sidebar-comunicaciones); se mantiene por consistencia del dominio.
  *
  * Drift cerrado (design §3, spec.md LIST-1 enmendado): `ConversationListItemDto`
  * NO tiene `unreadCount` ni `canReply` — esos campos solo existen en el detalle
