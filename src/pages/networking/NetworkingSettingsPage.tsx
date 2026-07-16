@@ -3,6 +3,7 @@ import { UispSyncCard } from '@/components/settings/UispSyncCard';
 import { RadiusAccountingCard } from '@/components/settings/RadiusAccountingCard';
 import { RadiusAuthIngestCard } from '@/components/settings/RadiusAuthIngestCard';
 import { PppoeAutoMoveCard } from '@/components/settings/PppoeAutoMoveCard';
+import { RadiusAutoCureCard } from '@/components/settings/RadiusAutoCureCard';
 import { ContractNetworkAutoAssignCard } from '@/components/settings/ContractNetworkAutoAssignCard';
 import { UispNodeMappingBody } from '@/components/networking/UispNodeMappingBody';
 import { UispNodesList } from '@/components/networking/UispNodesList';
@@ -38,6 +39,7 @@ export default function NetworkingSettingsPage() {
         <Can permission="admin.flags" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
           <RadiusAccountingCard />
           <RadiusAuthIngestCard />
+          <RadiusAutoCureCard />
         </Can>
       </section>
 

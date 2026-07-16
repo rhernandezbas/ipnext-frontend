@@ -277,4 +277,22 @@ describe('NetworkingSettingsPage', () => {
       screen.queryByRole('heading', { name: /auto-asignación de nodo\/access point/i }),
     ).not.toBeInTheDocument();
   });
+
+  // ── RadiusAutoCureCard section (radius-auto-cure flag) ──────────────────
+
+  it('renders RadiusAutoCureCard when user has admin.flags', () => {
+    setupHooks(['uisp.read', 'admin.flags']);
+    renderPage();
+    expect(
+      screen.getByRole('heading', { name: /auto-cure de sesiones radius/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('does NOT render RadiusAutoCureCard when user lacks admin.flags', () => {
+    setupHooks(['uisp.read']);
+    renderPage();
+    expect(
+      screen.queryByRole('heading', { name: /auto-cure de sesiones radius/i }),
+    ).not.toBeInTheDocument();
+  });
 });
