@@ -28,6 +28,7 @@ import { applyTaskVariables } from './lib/taskVariables';
 import { TaskHeader } from './SchedulingTaskDetailPage/components/TaskHeader';
 import { TaskTabs } from './SchedulingTaskDetailPage/components/TaskTabs';
 import { CustomerSidebar } from './SchedulingTaskDetailPage/components/CustomerSidebar';
+import { ProvisionOnuSection } from './SchedulingTaskDetailPage/components/ProvisionOnuSection';
 import type { DatosFormValues } from './SchedulingTaskDetailPage/components/DatosForm';
 import { useTaskPriorities } from '@/hooks/useTaskPriorities';
 import type { WorkflowStage } from '@/types/workflow';
@@ -424,6 +425,17 @@ export default function SchedulingTaskDetailPage() {
 
       <div className={styles.layout}>
         <main className={styles.main}>
+          {/* K2-FE (smartolt-provision-fe) — aprovisionamiento de ONU fibra.
+              La tecnología viene del CONTRATO vinculado (la tarea no la lleva);
+              customerContracts ya está cacheado (misma query del sidebar). El
+              gate fino (permiso/categoría/tecnología) vive en la sección. */}
+          <ProvisionOnuSection
+            taskCategory={task.category}
+            contractId={task.contractId}
+            contractTechnology={
+              customerContracts.find(c => String(c.id) === task.contractId)?.technology
+            }
+          />
           <TaskTabs
             detailsProps={{
               datosForm: {

@@ -1080,4 +1080,24 @@ describe('SchedulingTaskDetailPage', () => {
 
     expect(captured.iclassAssignActive).toBe(false);
   });
+
+  // ── K2-FE: sección "Aprovisionar ONU" (smartolt-provision-fe) ───────────────
+  // La página monta ProvisionOnuSection en el main. Gate fino (permiso,
+  // categoría, tecnología del contrato) testeado en ProvisionOnuSection.test.tsx;
+  // acá solo el wiring: instalación CON contrato → botón visible; sin contrato
+  // (mockTask default) → nada.
+  it('muestra la sección Aprovisionar ONU en tareas de instalación con contrato (K2-FE)', async () => {
+    setupMocks({ taskData: { contractId: 'c-1' } });
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    expect(await screen.findByRole('button', { name: /aprovisionar onu/i })).toBeInTheDocument();
+  });
+
+  it('NO muestra la sección Aprovisionar ONU sin contrato asociado (K2-FE)', async () => {
+    setupMocks();
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => {
+      expect(screen.getByText('Instalación Cliente Pérez')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: /aprovisionar onu/i })).not.toBeInTheDocument();
+  });
 });
