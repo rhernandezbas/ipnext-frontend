@@ -253,4 +253,28 @@ describe('NetworkingSettingsPage', () => {
       screen.queryByRole('heading', { name: /auto-move de pppoe/i }),
     ).not.toBeInTheDocument();
   });
+
+  // ── ContractNetworkAutoAssignCard section (contract-node-ap-auto-assign Fase B) ─
+
+  it('renders Auto-asignación nodo/AP section heading', () => {
+    setupHooks(['uisp.read', 'admin.flags']);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /^auto-asignación nodo\/ap$/i })).toBeInTheDocument();
+  });
+
+  it('renders ContractNetworkAutoAssignCard when user has admin.flags', () => {
+    setupHooks(['uisp.read', 'admin.flags']);
+    renderPage();
+    expect(
+      screen.getByRole('heading', { name: /auto-asignación de nodo\/access point/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('does NOT render ContractNetworkAutoAssignCard when user lacks admin.flags', () => {
+    setupHooks(['uisp.read']);
+    renderPage();
+    expect(
+      screen.queryByRole('heading', { name: /auto-asignación de nodo\/access point/i }),
+    ).not.toBeInTheDocument();
+  });
 });

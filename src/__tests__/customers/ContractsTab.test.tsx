@@ -13,6 +13,13 @@ vi.mock('@/hooks/useCustomers', () => ({
     mutateAsync: vi.fn().mockResolvedValue({}),
     isPending: false,
   })),
+  // contract-node-ap-auto-assign (Fase B): ContractCard now also calls this hook
+  // unconditionally (mirrors useUpdateContractLocation) — stub it so it doesn't stay
+  // undefined here.
+  useSetContractNetworkAssignment: vi.fn(() => ({
+    mutateAsync: vi.fn().mockResolvedValue({}),
+    isPending: false,
+  })),
 }));
 vi.mock('@/hooks/useContractServices', () => ({
   useAddContractService: vi.fn(),
@@ -46,6 +53,11 @@ vi.mock('@/pages/customers/tabs/ServiceInventorySection', () => ({
 // existing tests that use getByRole('textbox') or getByText(/Instalación/i).
 vi.mock('@/components/molecules/GeoLocationEditor/GeoLocationEditor', () => ({
   GeoLocationEditor: () => <div data-testid="geo-location-editor-stub" />,
+}));
+// contract-node-ap-auto-assign (Fase B): ContractNetworkAssignmentPicker is now also embedded
+// in ContractCard, right after the geo editor. Stub it for the same reason as above.
+vi.mock('@/components/molecules/ContractNetworkAssignmentPicker/ContractNetworkAssignmentPicker', () => ({
+  ContractNetworkAssignmentPicker: () => <div data-testid="network-assignment-picker-stub" />,
 }));
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 

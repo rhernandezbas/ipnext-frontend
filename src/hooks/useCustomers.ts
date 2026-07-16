@@ -21,6 +21,7 @@ import {
   deleteCustomer,
   updateContractLocation,
 } from '../api/customers.api';
+import { setContractNetworkAssignment } from '../api/contracts.api';
 import type {
   ClientsQuery,
   LogsQuery,
@@ -31,6 +32,7 @@ import type {
   OnlineSession,
   ContractLocationPayload,
 } from '../api/customers.api';
+import type { SetContractNetworkAssignmentPayload } from '../api/contracts.api';
 import type { CreateCustomerData, UpdateCustomerData } from '../types/customer';
 
 export type {
@@ -242,6 +244,28 @@ export function useUpdateContractLocation(clientId: string) {
       contractId: string;
       data: ContractLocationPayload;
     }) => updateContractLocation(contractId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['client-contracts', clientId] });
+      qc.invalidateQueries({ queryKey: ['client', clientId] });
+    },
+  });
+}
+
+/**
+ * contract-node-ap-auto-assign (Fase B, picker manual) — PATCH del nodo/AP de un contrato desde
+ * la ficha del cliente. Molde EXACTO de `useUpdateContractLocation`: mismas queryKeys invalidadas
+ * (client-contracts, client) para que la ficha refleje el cambio sin refresh manual.
+ */
+export function useSetContractNetworkAssignment(clientId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      contractId,
+      data,
+    }: {
+      contractId: string;
+      data: SetContractNetworkAssignmentPayload;
+    }) => setContractNetworkAssignment(contractId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['client-contracts', clientId] });
       qc.invalidateQueries({ queryKey: ['client', clientId] });

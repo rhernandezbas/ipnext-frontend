@@ -12,7 +12,8 @@ import { GigaredPanel } from './GigaredPanel';
 import { InternetPanel } from './InternetPanel';
 import { ServiceHistoryModal } from '@/components/molecules/ServiceHistoryModal/ServiceHistoryModal';
 import { GeoLocationEditor } from '@/components/molecules/GeoLocationEditor/GeoLocationEditor';
-import { useUpdateContractLocation } from '@/hooks/useCustomers';
+import { ContractNetworkAssignmentPicker } from '@/components/molecules/ContractNetworkAssignmentPicker/ContractNetworkAssignmentPicker';
+import { useUpdateContractLocation, useSetContractNetworkAssignment } from '@/hooks/useCustomers';
 import { formatDateShort } from '@/utils/formatDate';
 import styles from './ContractCard.module.css';
 
@@ -52,6 +53,7 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
   const { can } = useMyPermissions();
   const canWrite = can('clients.write');
   const updateContractLocation = useUpdateContractLocation(clientId);
+  const setNetworkAssignment = useSetContractNetworkAssignment(clientId);
   const display = contract.name ?? contract.plan;
   const variant = badgeStatus(contract.status);
 
@@ -206,6 +208,17 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
         canEdit={canWrite}
         title="Ubicación GPS de la instalación"
         referenceAddress={contract.address ?? null}
+      />
+
+      {/* contract-node-ap-auto-assign (Fase B) — picker manual del nodo/AP. NO se pasan
+          currentNetworkSiteId/currentAccessPointId: hoy no existe ningún GET (ni este endpoint
+          de ficha de cliente ni ListContracts) que exponga la asignación persistida del
+          contrato — deuda documentada, ver ContractNetworkAssignmentPicker. El componente
+          declara el estado "no disponible" en vez de mentir un "Sin asignar". */}
+      <ContractNetworkAssignmentPicker
+        onSave={async (v) => {
+          await setNetworkAssignment.mutateAsync({ contractId: contract.id, data: v });
+        }}
       />
 
       {tvPanelOpen && (

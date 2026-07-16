@@ -25,6 +25,17 @@ vi.mock('@/hooks/useCustomers', () => ({
     mutate: vi.fn(),
     isPending: false,
   })),
+  // contract-node-ap-auto-assign (Fase B): ContractCard now also calls this hook
+  // unconditionally (mirrors useUpdateContractLocation).
+  useSetContractNetworkAssignment: vi.fn(() => ({
+    mutateAsync: vi.fn().mockResolvedValue({}),
+    isPending: false,
+  })),
+}));
+// contract-node-ap-auto-assign (Fase B): stub the picker itself — this suite only cares about
+// the TV chip/panel flow, not the network assignment UI.
+vi.mock('@/components/molecules/ContractNetworkAssignmentPicker/ContractNetworkAssignmentPicker', () => ({
+  ContractNetworkAssignmentPicker: () => <div data-testid="network-assignment-picker-stub" />,
 }));
 
 vi.mock('@/hooks/useContractServices', () => ({

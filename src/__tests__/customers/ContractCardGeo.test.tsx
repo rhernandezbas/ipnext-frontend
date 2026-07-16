@@ -18,6 +18,16 @@ vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/lib/geocode', () => ({
   reverseGeocode: vi.fn(),
 }));
 
+// contract-node-ap-auto-assign (Fase B) — ContractCard now also renders
+// ContractNetworkAssignmentPicker, which reads these catalogs. Mocked (not real
+// QueryClient fetches) so this GPS-focused suite stays isolated and silent.
+vi.mock('@/hooks/useNetworkSites', () => ({
+  useNetworkSites: vi.fn(() => ({ data: [], isLoading: false })),
+}));
+vi.mock('@/hooks/useAccessPoints', () => ({
+  useAssignableAccessPoints: vi.fn(() => ({ data: [], isLoading: false })),
+}));
+
 function makeQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
@@ -68,6 +78,12 @@ describe('ContractCard — GPS geolocation', () => {
       mutate: patchContractNameMock,
       isPending: false,
     } as unknown as ReturnType<typeof useCustomersModule.useUpdateContractName>);
+
+    // contract-node-ap-auto-assign (Fase B) — mutation behind ContractNetworkAssignmentPicker.
+    vi.mocked(useCustomersModule.useSetContractNetworkAssignment).mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue({ id: 'contract-uuid-1', networkSiteId: null, accessPointId: null }),
+      isPending: false,
+    } as unknown as ReturnType<typeof useCustomersModule.useSetContractNetworkAssignment>);
   });
 
   it('renders GeoLocationEditor inside the contract card', () => {
@@ -111,6 +127,60 @@ describe('ContractCard — GPS geolocation', () => {
           gpsLng: -58.38,
           gpsPlusCode: expect.any(String),
         }),
+      });
+    });
+  });
+});
+
+// contract-node-ap-auto-assign (Fase B) — wiring of ContractNetworkAssignmentPicker inside
+// ContractCard, next to the GeoLocationEditor (same "editable contract fields" panel).
+describe('ContractCard — network assignment picker (nodo/AP)', () => {
+  const networkMutateAsyncMock = vi.fn().mockResolvedValue({
+    id: 'contract-uuid-1',
+    networkSiteId: 'site-1',
+    accessPointId: 'ap-1',
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useCustomersModule.useUpdateContractLocation).mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue({}),
+      isPending: false,
+    } as unknown as ReturnType<typeof useCustomersModule.useUpdateContractLocation>);
+    vi.mocked(useCustomersModule.useUpdateContractName).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useCustomersModule.useUpdateContractName>);
+    networkMutateAsyncMock.mockResolvedValue({
+      id: 'contract-uuid-1',
+      networkSiteId: 'site-1',
+      accessPointId: 'ap-1',
+    });
+    vi.mocked(useCustomersModule.useSetContractNetworkAssignment).mockReturnValue({
+      mutateAsync: networkMutateAsyncMock,
+      isPending: false,
+    } as unknown as ReturnType<typeof useCustomersModule.useSetContractNetworkAssignment>);
+  });
+
+  it('renders ContractNetworkAssignmentPicker inside the contract card', () => {
+    renderCard();
+    expect(screen.getByRole('heading', { name: /nodo \/ access point/i })).toBeInTheDocument();
+  });
+
+  it('flags the current assignment as unknown (no GET endpoint wired yet — documented debt)', () => {
+    renderCard();
+    expect(screen.getByText(/estado actual no disponible/i)).toBeInTheDocument();
+  });
+
+  it('saving from the picker calls useSetContractNetworkAssignment.mutateAsync with the contract id', async () => {
+    const user = userEvent.setup();
+    renderCard();
+    await user.click(screen.getByTestId('network-assignment-save-button'));
+
+    await waitFor(() => {
+      expect(networkMutateAsyncMock).toHaveBeenCalledWith({
+        contractId: 'contract-uuid-1',
+        data: { networkSiteId: null, accessPointId: null },
       });
     });
   });
