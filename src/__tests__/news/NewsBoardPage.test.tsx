@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -239,5 +239,29 @@ describe('NewsBoardPage — detalle marca leída (NEWS-FE-BD-3)', () => {
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText('Sin leer bajo filtro')).toBeInTheDocument();
     expect(within(dialog).getByText('Cuerpo de la noticia.')).toBeInTheDocument();
+  });
+});
+
+describe('NewsBoardPage — re-review fix: seam M1xM3 (archivar cierra el drawer + toast visible)', () => {
+  it('archiving an active post from the drawer closes the drawer AND shows a visible success toast on the board', async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue({ id: 'post-arch', archivedAt: '2026-07-16T00:00:00.000Z' });
+    mockUseArchive.mockReturnValue({ mutateAsync, isPending: false });
+    mockList({ data: { items: [makePost({ id: 'post-arch', archivedAt: null })], unreadCount: 0 } });
+    renderPage();
+
+    // Open the drawer (post is already read, so no markRead noise).
+    await user.click(screen.getByRole('button', { name: /noticia de ejemplo/i }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^archivar$/i }));
+
+    // Before the fix: the drawer stayed open with the M1 frozen snapshot, so
+    // `isArchived = !!post.archivedAt` never picked up the change — the button kept
+    // saying "Archivar" instead of "Desarchivar". Fix: a successful archive/unarchive
+    // now closes the drawer (discarding the stale snapshot, molde `handleEdit`) AND
+    // surfaces the success message as a board-level toast so the feedback isn't lost.
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(await screen.findByRole('status')).toHaveTextContent(/archivad/i);
   });
 });

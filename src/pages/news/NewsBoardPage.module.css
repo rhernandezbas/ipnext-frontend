@@ -189,6 +189,26 @@
   100% { background-position: 0 50%; }
 }
 
+/* Re-review fix (seam M1xM3) — board-level toast, molde
+   `TicketsTableView.module.css` `.toast` (fixed bottom-right). Success-tinted
+   here (vs. that toast's neutral dark bg) since this one is single-purpose
+   (archivar/desarchivar feedback) — same tokens the drawer's now-removed
+   `.actionFeedbackSuccess` used, so the visual language doesn't shift. */
+.toast {
+  position: fixed;
+  bottom: var(--space-6);
+  right: var(--space-6);
+  z-index: 1100;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  box-shadow: var(--shadow-lg);
+  background: var(--color-success-bg);
+  border: 1px solid var(--color-success-strong);
+  color: var(--color-success-strong);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .skeletonLine {
     animation: none;

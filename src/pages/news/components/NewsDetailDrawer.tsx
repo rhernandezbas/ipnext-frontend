@@ -29,6 +29,18 @@ interface NewsDetailDrawerProps {
   onMarkRead: (id: string) => void;
   /** news.manage review fix (M3): opens NewsPostModal in edit mode with this post. */
   onEdit: (post: NewsPost) => void;
+  /**
+   * Re-review fix (seam M1xM3): called with a success message right after a
+   * successful archive/unarchive. `isArchived` reads `post.archivedAt` off the
+   * M1 frozen snapshot, which never updates once the drawer is open — if the
+   * drawer stayed open post-success, the "Archivar"/"Desarchivar" label would
+   * go stale. The drawer no longer owns success feedback locally: it delegates
+   * to the parent, which closes the drawer (molde `handleEdit`, discarding the
+   * stale snapshot) AND shows the message as a board-level toast so it stays
+   * visible even though the drawer itself unmounts. Failure feedback stays
+   * local (`role="alert"`) and keeps the drawer open, unchanged.
+   */
+  onArchived: (message: string) => void;
 }
 
 /**
@@ -44,7 +56,7 @@ interface NewsDetailDrawerProps {
  * BE support + spec BD-5 ("creación/edición"). "Editar"/"Archivar" live here
  * (gated `news.manage`), acting on the drawer's own post snapshot.
  */
-export function NewsDetailDrawer({ post, onClose, onMarkRead, onEdit }: NewsDetailDrawerProps) {
+export function NewsDetailDrawer({ post, onClose, onMarkRead, onEdit, onArchived }: NewsDetailDrawerProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -53,7 +65,10 @@ export function NewsDetailDrawer({ post, onClose, onMarkRead, onEdit }: NewsDeta
 
   const archiveMutation = useArchiveNewsPost();
   const confirm = useConfirm();
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // Only the FAILURE path keeps local feedback (drawer stays open, molde
+  // existing `role="alert"`). Success delegates to `onArchived` — see the prop
+  // doc above for why (re-review fix, seam M1xM3).
+  const [errorFeedback, setErrorFeedback] = useState<string | null>(null);
   const isArchived = !!post.archivedAt;
 
   async function handleArchive() {
@@ -66,15 +81,12 @@ export function NewsDetailDrawer({ post, onClose, onMarkRead, onEdit }: NewsDeta
       confirmLabel: nextArchived ? 'Archivar' : 'Restaurar',
     });
     if (!ok) return;
-    setFeedback(null);
+    setErrorFeedback(null);
     try {
       await archiveMutation.mutateAsync({ id: post.id, archived: nextArchived });
-      setFeedback({
-        type: 'success',
-        text: nextArchived ? 'Noticia archivada.' : 'Noticia restaurada al tablón activo.',
-      });
+      onArchived(nextArchived ? 'Noticia archivada.' : 'Noticia restaurada al tablón activo.');
     } catch {
-      setFeedback({ type: 'error', text: 'No se pudo archivar la noticia. Intentá de nuevo.' });
+      setErrorFeedback('No se pudo archivar la noticia. Intentá de nuevo.');
     }
   }
 
@@ -191,12 +203,9 @@ export function NewsDetailDrawer({ post, onClose, onMarkRead, onEdit }: NewsDeta
               {archiveMutation.isPending ? 'Guardando…' : isArchived ? 'Desarchivar' : 'Archivar'}
             </button>
           </div>
-          {feedback && (
-            <p
-              role={feedback.type === 'error' ? 'alert' : 'status'}
-              className={feedback.type === 'error' ? styles.actionFeedbackError : styles.actionFeedbackSuccess}
-            >
-              {feedback.text}
+          {errorFeedback && (
+            <p role="alert" className={styles.actionFeedbackError}>
+              {errorFeedback}
             </p>
           )}
         </Can>

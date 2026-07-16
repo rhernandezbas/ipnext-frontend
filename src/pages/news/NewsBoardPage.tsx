@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useNewsList, useNewsCategories, useMarkNewsRead } from '@/hooks/useNews';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
@@ -33,6 +33,12 @@ export default function NewsBoardPage() {
   const [openPost, setOpenPost] = useState<NewsPost | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingPost, setEditingPost] = useState<NewsPost | null>(null);
+  // Re-review fix (seam M1xM3): board-level toast, molde `TicketsTableView.tsx`
+  // (toast + toastTimer + showToast, 4s auto-dismiss). `handleArchived` below
+  // closes the drawer AND shows this toast, so the success message survives
+  // the drawer's unmount instead of living (and dying) inside it.
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filters = useMemo(
     () => ({ categoryId, unreadOnly, archived: canManage ? archived : false }),
@@ -57,6 +63,22 @@ export default function NewsBoardPage() {
   function handleEdit(post: NewsPost) {
     setEditingPost(post);
     setOpenPost(null);
+  }
+
+  function showToast(msg: string) {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 4000);
+  }
+
+  /** Passed to NewsDetailDrawer's `onArchived` — closes the drawer (molde
+   * `handleEdit`, discarding the M1 snapshot instead of leaving it stale) and
+   * surfaces the success message as a toast. The list already refetches from
+   * the ['news'] invalidation the mutation triggers, so the archived/restored
+   * post appears/disappears per the active filter on its own. */
+  function handleArchived(message: string) {
+    setOpenPost(null);
+    showToast(message);
   }
 
   return (
@@ -163,6 +185,7 @@ export default function NewsBoardPage() {
           onClose={() => setOpenPost(null)}
           onMarkRead={handleMarkRead}
           onEdit={handleEdit}
+          onArchived={handleArchived}
         />
       )}
 
@@ -175,6 +198,12 @@ export default function NewsBoardPage() {
             setEditingPost(null);
           }}
         />
+      )}
+
+      {toast && (
+        <div className={styles.toast} role="status" aria-live="polite" aria-atomic="true">
+          {toast}
+        </div>
       )}
     </div>
   );

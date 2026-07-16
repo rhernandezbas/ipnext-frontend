@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { NewsPost } from '@/types/news';
@@ -51,6 +51,7 @@ function renderDrawer(props: Partial<Parameters<typeof NewsDetailDrawer>[0]> = {
       onClose={vi.fn()}
       onMarkRead={vi.fn()}
       onEdit={vi.fn()}
+      onArchived={vi.fn()}
       {...props}
     />,
   );
@@ -142,16 +143,24 @@ describe('NewsDetailDrawer — manage actions (M3: editar/archivar wiring)', () 
     expect(onEdit).toHaveBeenCalledWith(post);
   });
 
-  it('"Archivar" confirms, then calls useArchiveNewsPost with {id, archived:true} and shows visible success feedback', async () => {
+  it('"Archivar" confirms, then calls useArchiveNewsPost with {id, archived:true} and notifies onArchived with a visible success message (re-review fix: seam M1xM3)', async () => {
     const user = userEvent.setup();
     const mutateAsync = vi.fn().mockResolvedValue(makePost({ archivedAt: '2026-07-16T00:00:00.000Z' }));
     mockUseArchive.mockReturnValue({ mutateAsync, isPending: false });
-    renderDrawer({ post: makePost({ id: 'post-arch', archivedAt: null }) });
+    const onArchived = vi.fn();
+    renderDrawer({ post: makePost({ id: 'post-arch', archivedAt: null }), onArchived });
 
     await user.click(screen.getByRole('button', { name: /^archivar$/i }));
 
     expect(mutateAsync).toHaveBeenCalledWith({ id: 'post-arch', archived: true });
-    expect(await screen.findByRole('status')).toHaveTextContent(/archivad/i);
+    // Re-review finding: `isArchived` reads the M1 frozen snapshot (`post.archivedAt`),
+    // which never updates after a successful archive — the "Archivar" label would go
+    // stale ("Archivar" instead of "Desarchivar") if the drawer stayed open. Fix: the
+    // drawer no longer owns success feedback locally — it delegates to the parent via
+    // `onArchived`, which closes the drawer (discarding the stale snapshot) AND shows
+    // the success message as a board-level toast (NewsBoardPage.tsx), so the message
+    // stays visible even though the drawer itself unmounts.
+    await waitFor(() => expect(onArchived).toHaveBeenCalledWith(expect.stringMatching(/archivad/i)));
   });
 
   it('an ALREADY-archived post shows "Desarchivar" and calls the mutation with archived:false', async () => {
