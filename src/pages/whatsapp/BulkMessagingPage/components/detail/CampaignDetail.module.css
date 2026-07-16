@@ -1,3 +1,7 @@
+/**
+ * CampaignDetail.module.css (rediseño bulk-redesign) — forma únicamente.
+ */
+
 .detail {
   display: flex;
   flex-direction: column;
@@ -6,6 +10,9 @@
 
 .back {
   align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   min-height: var(--space-11);
   padding: 0 var(--space-3);
   background: transparent;
@@ -15,9 +22,23 @@
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
 }
 .back:hover { background: var(--color-surface-hover); }
 .back:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* El leve translateX de "retroceso" es SÓLO para punteros finos con hover
+   real (`review-animations` STANDARDS.md §Accessibility) — en touch, un
+   :hover sin gatear se puede quedar "pegado" tras el tap (falso hover) y
+   dejar el label corrido hasta el próximo toque. */
+@media (hover: hover) and (pointer: fine) {
+  .back {
+    transition: background-color var(--transition-fast), transform 120ms var(--ease-out);
+  }
+  .back:hover {
+    transform: translateX(-2px);
+  }
+}
 
 /* FIX-3c/FIX-5 — banner de éxito persistente (sobrevive al cambio de estado
    que desmonta SendCampaignButton). Verde "al día" ya accesible del repo
@@ -30,6 +51,8 @@
   font-weight: var(--font-weight-medium);
   color: var(--badge-paid-fg);
   background: var(--badge-paid-bg);
+  border-left: 3px solid var(--badge-paid-fg);
+  animation: bannerIn 220ms var(--ease-out) both;
 }
 
 /* Scope adicional (root cause crear≠enviar) — banner "todavía no se envió"
@@ -47,6 +70,7 @@
   border-radius: var(--radius-md);
   color: var(--color-gray-700);
   background: var(--color-gray-100);
+  animation: bannerIn 220ms var(--ease-out) both;
 }
 
 .pendingIcon {
@@ -63,4 +87,22 @@
 
 .pendingText strong {
   font-weight: var(--font-weight-semibold);
+}
+
+@keyframes bannerIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .back {
+    transition: none;
+  }
+  .back:hover {
+    transform: none;
+  }
+  .sentBanner,
+  .pendingBanner {
+    animation: none;
+  }
 }

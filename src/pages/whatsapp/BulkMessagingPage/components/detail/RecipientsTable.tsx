@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
 import { Pagination } from '@/components/molecules/Pagination/Pagination';
+import { Select } from '@/components/molecules/Select/Select';
 import { useCampaign } from '@/hooks/useBulkMessaging';
 import { formatDateTimeShort } from '@/utils/formatDate';
 import type { CampaignRecipientDto, CampaignRecipientStatusDto } from '@/types/messagingBulk';
@@ -102,21 +103,19 @@ export function RecipientsTable({ campaignId, active = true }: RecipientsTablePr
   return (
     <div className={styles.wrapper}>
       <div className={styles.filterRow}>
-        <label htmlFor="recipients-status-filter" className={styles.filterLabel}>
-          Filtrar por estado
-        </label>
-        <select
+        {/* Rediseño (bulk-redesign) — regla innegociable "Select PROPIO
+            siempre": este era el ÚNICO `<select>` nativo de cara al operador
+            que quedaba en la page. Migrado al combobox propio (mismo que ya
+            usan `TemplateSelector`/`VariablesMapForm`). Comportamiento
+            IDÉNTICO: mismas opciones/valores, `handleStatusChange` resetea a
+            page 1 igual que antes. */}
+        <Select
           id="recipients-status-filter"
-          className={styles.filterSelect}
+          label="Filtrar por estado"
+          options={STATUS_OPTIONS}
           value={statusFilter}
-          onChange={(e) => handleStatusChange(e.target.value)}
-        >
-          {STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value || 'all'} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          onChange={handleStatusChange}
+        />
       </div>
 
       {isError ? (

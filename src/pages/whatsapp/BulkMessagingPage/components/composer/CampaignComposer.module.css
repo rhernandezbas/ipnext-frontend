@@ -2,6 +2,14 @@
  * CampaignComposer.module.css — layout de 2 columnas (controles | preview
  * live), decisión LOCKED del explore F2. Apila en <=860px (mismo breakpoint
  * que el resto del repo usa para mobile, ver `WhatsappInboxPage.module.css`).
+ *
+ * Rediseño (bulk-redesign) — forma únicamente, CERO cambio de comportamiento:
+ * cada sección hija de `.controls` (TemplateSelector/VariablesMapForm/
+ * SegmentBuilder/ManualRecipientsPicker/CsvRecipientsUploader) ya se ve como
+ * una card propia (ver sus respectivos `.module.css`); acá sólo se afina el
+ * ritmo vertical entre cards + el nombre/CTA final. Motion: entrada suave del
+ * layout completo al montar (una sola vez, `ease-out`, <300ms), guardada por
+ * `prefers-reduced-motion`.
  */
 
 .layout {
@@ -20,23 +28,30 @@
 .controls {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
   min-width: 0;
 }
 
 .preview {
   min-width: 0;
+  animation: previewIn 260ms var(--ease-out) both;
+  animation-delay: 60ms;
 }
 
 .nameField {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .nameField label {
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
@@ -48,11 +63,17 @@
   font: inherit;
   color: var(--color-text-primary);
   background: var(--color-surface);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.nameInput:hover {
+  border-color: var(--color-gray-400);
 }
 
 .nameInput:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: -2px;
+  border-color: var(--color-primary);
 }
 
 .serverError {
@@ -62,6 +83,8 @@
   font-size: var(--font-size-sm);
   color: var(--badge-late-fg);
   background: var(--badge-late-bg);
+  border-left: 3px solid var(--badge-late-fg);
+  animation: noticeIn 180ms var(--ease-out) both;
 }
 
 .createRow {
@@ -69,6 +92,7 @@
   flex-direction: column;
   gap: var(--space-2);
   align-items: flex-start;
+  padding-top: var(--space-1);
 }
 
 .hint {
@@ -82,6 +106,9 @@
   bottom: var(--space-6);
   right: var(--space-6);
   z-index: 1100;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   background: var(--color-gray-800);
   color: var(--color-white);
   padding: var(--space-3) var(--space-4);
@@ -89,4 +116,31 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   box-shadow: var(--shadow-lg);
+  animation: toastIn 220ms var(--ease-out) both;
+}
+
+@keyframes previewIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes noticeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview,
+  .serverError,
+  .toast {
+    animation: none;
+  }
+  .nameInput {
+    transition: none;
+  }
 }

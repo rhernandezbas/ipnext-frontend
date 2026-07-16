@@ -1,3 +1,9 @@
+/**
+ * SendCampaignButton.module.css (rediseño bulk-redesign) — forma únicamente.
+ * Asimetría de timing (STANDARDS.md §Asymmetric timing): press feedback
+ * rápido (150ms), el resto de las transiciones dentro del budget UI <300ms.
+ */
+
 .wrapper {
   display: flex;
   flex-direction: column;
@@ -16,13 +22,14 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-white);
-  background: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   border: none;
   border-radius: var(--radius-button);
   cursor: pointer;
-  transition: transform 150ms ease-out, filter var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+  transition: transform 150ms ease-out, filter var(--transition-fast), box-shadow var(--transition-fast);
 }
-.sendButton:hover:not(:disabled) { filter: brightness(0.95); }
+.sendButton:hover:not(:disabled) { filter: brightness(1.05); box-shadow: var(--shadow-md); }
 .sendButton:active:not(:disabled) { transform: scale(0.97); }
 .sendButton:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
@@ -33,6 +40,7 @@
   font-size: var(--font-size-sm);
   color: var(--badge-late-fg);
   background: var(--badge-late-bg);
+  border-left: 3px solid var(--badge-late-fg);
 }
 
 /* FIX-3a — fallo de envío que NO es el 409 (red/500): antes caía silencioso. */
@@ -43,6 +51,7 @@
   font-size: var(--font-size-sm);
   color: var(--badge-late-fg);
   background: var(--badge-late-bg);
+  border-left: 3px solid var(--badge-late-fg);
 }
 
 .toast {
@@ -52,11 +61,21 @@
   font-size: var(--font-size-sm);
   color: var(--badge-paid-fg);
   background: var(--badge-paid-bg);
+  border-left: 3px solid var(--badge-paid-fg);
+  animation: toastIn 200ms var(--ease-out) both;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .sendButton:active:not(:disabled) {
     transform: none;
     transition: none;
+  }
+  .toast {
+    animation: none;
   }
 }

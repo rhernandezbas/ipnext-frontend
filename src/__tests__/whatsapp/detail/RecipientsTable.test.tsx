@@ -148,7 +148,12 @@ describe('RT-6: filtro de estado', () => {
     renderTable();
 
     await screen.findByText('+5491100000000');
-    await user.selectOptions(screen.getByRole('combobox', { name: /filtrar por estado/i }), 'opted-out');
+    // Rediseño (bulk-redesign) — el filtro migró del <select> nativo al
+    // Select propio (regla "Select PROPIO siempre"): ya no es un elemento
+    // seleccionable con `selectOptions` (eso sólo funciona sobre un
+    // `<select>` real), se abre el combobox y se clickea la opción.
+    await user.click(screen.getByRole('combobox', { name: /filtrar por estado/i }));
+    await user.click(screen.getByRole('option', { name: /opt-out/i }));
 
     await waitFor(() =>
       expect(getCampaign).toHaveBeenCalledWith(

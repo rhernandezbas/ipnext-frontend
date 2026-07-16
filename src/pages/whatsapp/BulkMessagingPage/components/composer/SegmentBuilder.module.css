@@ -1,24 +1,36 @@
+/**
+ * SegmentBuilder.module.css (rediseño bulk-redesign) — card propia, chips de
+ * estado con feedback visual de "elegido" (`:has(:checked)`, progressive
+ * enhancement — sin soporte, sigue siendo un checkbox+badge perfectamente
+ * usable, sólo pierde el tinte de fondo). `.hint` INTACTO (mismo pairing
+ * gray-600/surface-hover validado en `bulkA11y.test.ts` FIX-6a).
+ */
+
 .fieldset {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
   margin: 0;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  animation: cardIn 220ms var(--ease-out) both;
+  animation-delay: 80ms;
 }
 
 .legend {
   padding: 0 var(--space-1);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
 .statusGroup {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .statusOption {
@@ -26,7 +38,30 @@
   align-items: center;
   gap: var(--space-2);
   min-height: var(--space-11); /* 44px touch target */
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   cursor: pointer;
+  background: var(--color-surface);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), transform 120ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .statusOption:hover {
+    border-color: var(--color-gray-400);
+  }
+}
+
+.statusOption:active {
+  transform: scale(0.98);
+}
+
+/* Progressive enhancement — resalta el chip cuando su checkbox está tildado.
+   El indicador NUNCA depende sólo de esto: el checkbox nativo (tick) y el
+   StatusBadge de color ya comunican el estado sin `:has()`. */
+.statusOption:has(.checkbox:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-surface-hover);
 }
 
 .checkbox {
@@ -67,11 +102,17 @@
   font: inherit;
   color: var(--color-text-primary);
   background: var(--color-surface);
+  transition: border-color var(--transition-fast);
+}
+
+.balanceInput:hover {
+  border-color: var(--color-gray-400);
 }
 
 .balanceInput:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: -2px;
+  border-color: var(--color-primary);
 }
 
 .hint {
@@ -79,7 +120,28 @@
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   font-size: var(--font-size-xs);
-  /* FIX-6a — gray-600 (~7.2:1) sobre surface-hover; text-secondary daba 4.13:1. */
+  /* FIX-6a — gray-600 (~7.2:1) sobre surface-hover; text-secondary daba 4.13:1. INTACTO. */
   color: var(--color-gray-600);
   background: var(--color-surface-hover);
+  animation: noticeIn 180ms var(--ease-out) both;
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes noticeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fieldset,
+  .hint {
+    animation: none;
+  }
+  .statusOption {
+    transition: none;
+  }
 }

@@ -1,20 +1,25 @@
 /**
- * PreviewModal.module.css — mismo lenguaje visual que `ConfirmModal.module.css`
- * (backdrop/dialog/animations/reduced-motion), ancho GENEROSO porque acá
- * adentro vive una vista de datos (tabla paginada), no un simple confirm.
+ * PreviewModal.module.css (rediseño bulk-redesign) — mismo lenguaje visual
+ * que `ConfirmModal.module.css` (backdrop/dialog/reduced-motion), ancho
+ * GENEROSO porque acá adentro vive una vista de datos (tabla paginada), no un
+ * simple confirm. Modal = EXENTO de origin-aware (queda centrado, `STANDARDS.md`
+ * §Physicality) — se mantiene centrado/con slide-up corto (200-500ms, budget
+ * de modal). `.messageBubble` se rediseña con una "cola" de burbuja de chat
+ * (temática WhatsApp) vía `::after` — puramente decorativo.
  */
 
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: flex-start;
   justify-content: center;
   z-index: 1000;
   padding: var(--space-6) var(--space-4);
   overflow-y: auto;
-  animation: fadeIn 0.2s ease-out;
+  animation: fadeIn 200ms var(--ease-out);
 }
 
 .dialog {
@@ -26,7 +31,7 @@
   max-height: calc(100vh - var(--space-6) * 2);
   display: flex;
   flex-direction: column;
-  animation: slideUp 0.22s ease-out;
+  animation: slideUp 240ms var(--ease-out);
 }
 
 .header {
@@ -55,8 +60,9 @@
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
 }
-.closeBtn:hover { background: var(--color-surface-hover); }
+.closeBtn:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
 .closeBtn:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
@@ -85,8 +91,12 @@
   letter-spacing: 0.02em;
 }
 
+/* Burbuja de chat con "cola" — temática WhatsApp, refuerza que esto es
+   EXACTAMENTE lo que el cliente recibe. Decorativo (::after), no cambia el
+   texto/estructura del mensaje. */
 .messageBubble {
-  margin: 0;
+  position: relative;
+  margin: 0 0 0 var(--space-2);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-lg);
   background: var(--color-surface-hover);
@@ -94,6 +104,18 @@
   font-size: var(--font-size-md);
   line-height: 1.5;
   white-space: pre-wrap;
+  max-width: 32rem;
+}
+
+.messageBubble::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: var(--space-3);
+  width: 12px;
+  height: 12px;
+  background: var(--color-surface-hover);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
 }
 
 .notice {
@@ -112,6 +134,7 @@
   font-size: var(--font-size-sm);
   color: var(--badge-late-fg);
   background: var(--badge-late-bg);
+  border-left: 3px solid var(--badge-late-fg);
 }
 
 /* FIX 2 — aviso de destinatarios manuales. Acento izquierdo (--space-1 = 4px)
@@ -211,6 +234,9 @@
 @media (prefers-reduced-motion: reduce) {
   .backdrop, .dialog {
     animation: none;
+  }
+  .closeBtn {
+    transition: none;
   }
 }
 

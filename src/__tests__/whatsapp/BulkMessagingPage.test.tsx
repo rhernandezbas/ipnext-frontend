@@ -248,7 +248,11 @@ describe('BMP-8: cambio de campaña resetea el estado local del detalle (FIX-4)'
     await screen.findByRole('button', { name: /volver al historial/i });
 
     // el operador filtra por "Fallido" en la tabla de destinatarios de camp-1
-    await user.selectOptions(await screen.findByLabelText(/filtrar por estado/i), 'failed');
+    // (rediseño bulk-redesign — el filtro migró del <select> nativo al Select
+    // propio, un combobox: se abre y se clickea la opción, molde ya usado en
+    // BMP-5 para el template picker).
+    await user.click(await screen.findByRole('combobox', { name: /filtrar por estado/i }));
+    await user.click(screen.getByRole('option', { name: /^fallido$/i }));
     await waitFor(() =>
       expect(getCampaign).toHaveBeenCalledWith('camp-1', expect.objectContaining({ status: 'failed' })),
     );

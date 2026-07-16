@@ -1,21 +1,21 @@
 /**
- * CreateCampaignConfirmModal.module.css — mismo lenguaje visual que
- * `ConfirmModal.module.css` (backdrop/dialog/animations/reduced-motion), ancho
- * intermedio: más que un confirm pelado (acá vive un resumen con desglose),
- * menos que el `PreviewModal` (que aloja una tabla paginada).
+ * CreateCampaignConfirmModal.module.css (rediseño bulk-redesign) — mismo
+ * lenguaje visual que `ConfirmModal.module.css` (backdrop/dialog/reduced-motion),
+ * ancho intermedio. Modal = EXENTO de origin-aware (centrado, budget 200-500ms).
  */
 
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: var(--space-4);
   overflow-y: auto;
-  animation: fadeIn 0.16s ease-out;
+  animation: fadeIn 180ms var(--ease-out);
 }
 
 .dialog {
@@ -30,7 +30,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  animation: slideUp 0.2s ease-out;
+  animation: slideUp 220ms var(--ease-out);
 }
 
 .title {
@@ -57,7 +57,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface-hover);
@@ -93,9 +93,9 @@
 }
 
 .total {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
 }
 
 /* Scope adicional (root cause crear≠enviar) — próximo paso explícito al
@@ -104,6 +104,10 @@
    en el repo. */
 .nextStep {
   margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-surface-hover);
   font-size: var(--font-size-xs);
   line-height: 1.5;
   color: var(--color-gray-600);
@@ -211,6 +215,12 @@
   border-radius: var(--radius-button);
   border: 1px solid transparent;
   cursor: pointer;
+  transition: filter var(--transition-fast), background-color var(--transition-fast), transform 120ms var(--ease-out);
+}
+
+.cancel:active,
+.confirm:active {
+  transform: scale(0.98);
 }
 
 .cancel {
@@ -248,6 +258,12 @@
 @media (prefers-reduced-motion: reduce) {
   .backdrop, .dialog {
     animation: none;
+  }
+  .cancel, .confirm {
+    transition: none;
+  }
+  .cancel:active, .confirm:active {
+    transform: none;
   }
 }
 

@@ -1,12 +1,33 @@
+/**
+ * CampaignStatusPill.module.css (rediseño bulk-redesign) — nombres de clase
+ * INTACTOS (`CampaignStatusPill.test.tsx` CSP-2 hace
+ * `toHaveClass('pending'|'running'|...)`, atado al literal). Se agrega un
+ * "dot" de estado (`::before`) — decorativo, el TEXTO sigue siendo la fuente
+ * de verdad (WCAG 1.4.1, nunca sólo color). El estado "running" pulsa
+ * suavemente (indicador de proceso EN VIVO, justificado — "esto está
+ * pasando ahora"): sólo `opacity`, GPU-only, guardado por reduced-motion.
+ */
+
 .pill {
-  display: inline-block;
-  padding: 3px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   border-radius: var(--radius-full);
   text-transform: uppercase;
   letter-spacing: 0.02em;
   white-space: nowrap;
+}
+
+.pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+  flex: 0 0 auto;
 }
 
 .pending { background-color: var(--color-gray-100); color: var(--color-gray-700); }
@@ -14,3 +35,18 @@
 .paused  { background-color: var(--badge-paused-bg); color: var(--badge-paused-fg); }
 .done    { background-color: var(--badge-paid-bg);   color: var(--badge-paid-fg); }
 .failed  { background-color: var(--badge-late-bg);   color: var(--badge-late-fg); }
+
+.running::before {
+  animation: pulse 1.6s var(--ease-in-out) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .running::before {
+    animation: none;
+  }
+}

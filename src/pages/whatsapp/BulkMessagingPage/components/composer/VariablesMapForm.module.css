@@ -1,17 +1,35 @@
+/**
+ * VariablesMapForm.module.css (rediseño bulk-redesign) — card propia,
+ * consistente con `TemplateSelector`/`SegmentBuilder`.
+ *
+ * FIX (incidente CSS conocido) — el comentario de `.highlight` tenía la
+ * secuencia de cierre de comentario embebida en el texto plano (el token
+ * negativo seguido, sin espacio, del token con el que se comparaba), lo que
+ * cerraba el bloque `/star ... star/` antes de tiempo y basureaba el resto
+ * del archivo como reglas sueltas sin comentar. Se espacia esa secuencia en
+ * el comentario de abajo — misma lección que ya se aplicó en `variables.css`
+ * (ver commit 660f6f8c). OJO al editar este bloque: no reintroducir un
+ * asterisco pegado a una barra dentro de un comentario CSS.
+ */
+
 .fieldset {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
   margin: 0;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  animation: cardIn 220ms var(--ease-out) both;
+  animation-delay: 40ms;
 }
 
 .legend {
   padding: 0 var(--space-1);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
@@ -33,7 +51,7 @@
   padding: 0 4px;
   border-radius: var(--radius-sm);
   /* Neutral (gray-100/gray-800, ~13:1) — a propósito NO reusa un token semántico
-     (--color-note-*/--badge-*): esto resalta un TÉRMINO dentro de texto plano,
+     (--color-note-* / --badge-*): esto resalta un TÉRMINO dentro de texto plano,
      no es un estado ni una nota, sería una mentira semántica pedirle prestado
      el color a otro significado (mismo criterio que el comentario de
      --color-note-* en tokens/variables.css). Se usa un <span> (no <mark>) para
@@ -55,12 +73,14 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+  transition: background-color var(--transition-fast);
 }
 
 .row[data-missing] {
   padding: var(--space-2);
   border-radius: var(--radius-md);
   background: var(--badge-late-bg);
+  animation: shake 280ms var(--ease-out);
 }
 
 .literalInput {
@@ -73,11 +93,17 @@
   font: inherit;
   color: var(--color-text-primary);
   background: var(--color-surface);
+  transition: border-color var(--transition-fast);
+}
+
+.literalInput:hover {
+  border-color: var(--color-gray-400);
 }
 
 .literalInput:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: -2px;
+  border-color: var(--color-primary);
 }
 
 .error {
@@ -97,4 +123,30 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Feedback de rechazo del servidor (422 MISSING_TEMPLATE_VARIABLES) — un
+   quiebre lateral sutil, NUNCA en un elemento de alta frecuencia (esto ocurre
+   una vez por intento de creación fallido, no por keystroke). */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fieldset {
+    animation: none;
+  }
+  .row[data-missing] {
+    animation: none;
+  }
+  .literalInput {
+    transition: none;
+  }
 }

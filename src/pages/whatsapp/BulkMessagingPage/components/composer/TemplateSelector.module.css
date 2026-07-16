@@ -1,7 +1,37 @@
+/**
+ * TemplateSelector.module.css (rediseño bulk-redesign) — card propia con
+ * ícono de "documento" (SVG vía `::before` + mask, decorativo — no agrega
+ * ningún nodo/texto nuevo al DOM, cero riesgo para tests). Contraste de
+ * `.notice`/`.error`/`.variablesList` INTACTO (mismos tokens ya validados en
+ * `bulkA11y.test.ts` — FIX-6a): sólo se toca layout/superficie, nunca el
+ * pairing fg/bg de esas 3 clases.
+ */
+
 .section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  animation: cardIn 220ms var(--ease-out) both;
+}
+
+.section::before {
+  content: '';
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-5);
+  width: var(--space-5);
+  height: var(--space-5);
+  background: var(--color-accent);
+  opacity: 0.85;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cpath d='M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z'/%3E%3Cpath d='M14 3v6h6'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cpath d='M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z'/%3E%3Cpath d='M14 3v6h6'/%3E%3C/svg%3E") center / contain no-repeat;
+  pointer-events: none;
 }
 
 .label {
@@ -30,7 +60,7 @@
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
-  /* FIX-6a — gray-600 (~7.2:1) sobre surface-hover; text-secondary daba 4.13:1. */
+  /* FIX-6a — gray-600 (~7.2:1) sobre surface-hover; text-secondary daba 4.13:1. INTACTO. */
   color: var(--color-gray-600);
   background: var(--color-surface-hover);
 }
@@ -42,6 +72,7 @@
   font-size: var(--font-size-sm);
   color: var(--badge-late-fg);
   background: var(--badge-late-bg);
+  border-left: 3px solid var(--badge-late-fg);
 }
 
 .details {
@@ -52,6 +83,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface-hover);
+  animation: detailsIn 180ms var(--ease-out) both;
 }
 
 .templateName {
@@ -63,6 +95,23 @@
 .variablesList {
   margin: 0;
   font-size: var(--font-size-sm);
-  /* FIX-6a — vive sobre el .details tintado (surface-hover); gray-600 = ~7.2:1. */
+  /* FIX-6a — vive sobre el .details tintado (surface-hover); gray-600 = ~7.2:1. INTACTO. */
   color: var(--color-gray-600);
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes detailsIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section,
+  .details {
+    animation: none;
+  }
 }

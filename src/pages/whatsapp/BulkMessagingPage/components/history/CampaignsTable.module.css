@@ -1,3 +1,8 @@
+/**
+ * CampaignsTable.module.css (rediseño bulk-redesign) — `.nameLink` con
+ * `min-height: var(--space-11)` INTACTO (`bulkA11y.test.ts` FIX-7b lo mide).
+ */
+
 .wrapper {
   display: flex;
   flex-direction: column;
@@ -20,15 +25,17 @@
   text-align: left;
   text-decoration: underline;
   text-underline-offset: 2px;
+  transition: color var(--transition-fast);
 }
 .nameLink:hover { color: var(--color-accent-hover); }
 .nameLink:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
 .error {
   margin: 0;
-  padding: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   color: var(--badge-late-fg);
   background: var(--badge-late-bg);
+  border-left: 3px solid var(--badge-late-fg);
 }

@@ -55,23 +55,23 @@ export function CampaignHeader({ campaignId, active = true }: CampaignHeaderProp
       </div>
 
       <dl className={styles.counters}>
-        <div className={styles.counter}>
+        <div className={`${styles.counter} ${styles.counterTotal}`}>
           <dt>Total</dt>
           <dd>{c.total}</dd>
         </div>
-        <div className={styles.counter}>
+        <div className={`${styles.counter} ${styles.counterSent}`}>
           <dt>Enviados</dt>
           <dd>{c.sentCount}</dd>
         </div>
-        <div className={styles.counter}>
+        <div className={`${styles.counter} ${styles.counterFailed}`}>
           <dt>Fallidos</dt>
           <dd>{c.failedCount}</dd>
         </div>
-        <div className={styles.counter}>
+        <div className={`${styles.counter} ${styles.counterSkipped}`}>
           <dt>Omitidos</dt>
           <dd>{c.skippedCount}</dd>
         </div>
-        <div className={styles.counter}>
+        <div className={`${styles.counter} ${styles.counterOptedOut}`}>
           <dt>Opt-out</dt>
           <dd>{c.optedOutCount}</dd>
         </div>
@@ -79,7 +79,13 @@ export function CampaignHeader({ campaignId, active = true }: CampaignHeaderProp
 
       <div className={styles.progressWrapper} role="status" aria-live="polite">
         <div className={styles.progressTrack} aria-hidden="true">
-          <div className={styles.progressFill} style={{ width: `${progressPct}%` }} />
+          {/*
+           * Rediseño (bulk-redesign) — perf: `scaleX` + `transform-origin:left`
+           * en vez de animar `width` (layout property, fuerza reflow en cada
+           * tick del poll). `transform` es GPU-only (STANDARDS.md §Performance).
+           * Mismo resultado visual que `width: ${pct}%`, sin tocar el layout.
+           */}
+          <div className={styles.progressFill} style={{ transform: `scaleX(${progressPct / 100})` }} />
         </div>
         <span className={styles.progressLabel}>
           {progressPct}% procesado — {processed} de {c.total}

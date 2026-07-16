@@ -86,8 +86,26 @@ export default function BulkMessagingPage() {
     <div className={styles.page}>
       <div className={styles.header}>
         <div className={styles.headerLeft}>
-          <span className={styles.breadcrumb}>WhatsApp /</span>
-          <h1 className={styles.title}>Envío masivo</h1>
+          {/* Decorativo — aria-hidden, vive AFUERA del <h1> a propósito: el
+              nombre accesible del heading (BMP-1: getByRole('heading', {name:
+              'Envío masivo'}), match EXACTO) tiene que seguir siendo
+              exactamente "Envío masivo", sin el ícono contaminando el accname. */}
+          <span className={styles.headerIcon} aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M3 20l1.7-4.6A8.5 8.5 0 1 1 8 18.7L3 20Z"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path d="M8.5 10.5c.3 2 2.3 4 4.3 4.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </span>
+          <div className={styles.headerText}>
+            <span className={styles.breadcrumb}>WhatsApp</span>
+            <h1 className={styles.title}>Envío masivo</h1>
+          </div>
         </div>
       </div>
 

@@ -1,9 +1,11 @@
 /*
- * CsvRecipientsUploader.module.css — mismo lenguaje tokenizado que
- * `ManualRecipientsPicker.module.css`/`CampaignComposer.module.css` (CERO
- * hex/px crudo). Motion: `.summary` entra con la MISMA firma que `.chip`
- * (`ManualRecipientsPicker`) — fadeIn+translateY corto, ease-out, con guard
- * `prefers-reduced-motion`.
+ * CsvRecipientsUploader.module.css (rediseño bulk-redesign) — card propia +
+ * "dropzone" visual alrededor del <input type="file"> nativo (se mantiene el
+ * input real, sólo se le da un `::file-selector-button` tokenizado — cero
+ * cambio de comportamiento, `document.querySelector('input[type="file"]')`
+ * de los tests sigue encontrando el mismo elemento). Motion: `.summary` entra
+ * con la MISMA firma que `.chip` (`ManualRecipientsPicker`) — fadeIn+translateY
+ * corto, ease-out, con guard `prefers-reduced-motion`.
  *
  * Contraste (AA, texto ≥4.5:1) — mismos pairings YA validados en el resto del
  * composer (comentarios de referencia en `PreviewModal.module.css`/
@@ -19,11 +21,16 @@
 .wrap {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
   min-width: 0;
   margin: 0;
-  padding: 0;
-  border: 0;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  animation: cardIn 220ms var(--ease-out) both;
+  animation-delay: 120ms;
 }
 
 .title {
@@ -46,9 +53,46 @@
   color: var(--color-text-primary);
 }
 
+/* "Dropzone" visual — el input real sigue siendo el único punto de
+   interacción (drag&drop nativo del browser + click), sólo se tokeniza su
+   borde/padding y el botón nativo `::file-selector-button`. */
 .fileInput {
   font: inherit;
   color: var(--color-text-primary);
+  width: 100%;
+  padding: var(--space-3);
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-hover);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.fileInput:hover {
+  border-color: var(--color-primary);
+}
+
+.fileInput:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.fileInput::file-selector-button {
+  margin-right: var(--space-3);
+  min-height: var(--space-9);
+  padding: var(--space-1) var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-white);
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.fileInput::file-selector-button:hover {
+  background: var(--color-primary-hover);
 }
 
 .error {
@@ -58,6 +102,8 @@
   font-size: var(--font-size-sm);
   color: var(--badge-late-fg);
   background: var(--badge-late-bg);
+  border-left: 3px solid var(--badge-late-fg);
+  animation: summaryIn 180ms var(--ease-out) both;
 }
 
 .summary {
@@ -70,7 +116,7 @@
   border-radius: var(--radius-md);
   background: var(--color-surface-hover);
   /* Motion: mismo timing/easing que `.chip` (chipIn) — entrada física, ease-out, 180ms. */
-  animation: summaryIn 180ms ease-out;
+  animation: summaryIn 180ms var(--ease-out) both;
 }
 
 .fileName {
@@ -146,6 +192,11 @@
   outline-offset: 2px;
 }
 
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes summaryIn {
   from {
     opacity: 0;
@@ -158,10 +209,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .summary {
+  .wrap,
+  .summary,
+  .error {
     animation: none;
   }
-  .removeBtn {
+  .removeBtn,
+  .fileInput,
+  .fileInput::file-selector-button {
     transition: none;
   }
 }

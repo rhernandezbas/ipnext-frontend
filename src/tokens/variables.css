@@ -109,6 +109,15 @@
   --transition-normal: 200ms ease;
   --transition-slow: 300ms ease;
 
+  /* bulk-redesign — curvas de easing REUTILIZABLES para entradas/salidas de
+     UI (Emil Kowalski, animations.dev): las easings nativas del browser
+     (`ease`/`ease-out`) son débiles; estas curvas cubic-bezier dan una
+     sensación más "premium" sin salirse del budget <300ms de UI. NUNCA
+     `ease-in` en algo que el operador está mirando entrar — arranca lento y
+     demora justo el momento que más se nota. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
   /* ------------------------------------------------------------------ */
   /* Component tokens                                                     */
   /* ------------------------------------------------------------------ */

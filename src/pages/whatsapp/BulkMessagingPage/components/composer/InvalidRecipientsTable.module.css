@@ -1,8 +1,8 @@
 /*
- * InvalidRecipientsTable.module.css — mismos tokens/pairings AA que
- * `PreviewModal.module.css` (.loading/.error/.emptyResult son una copia
- * intencional del mismo lenguaje visual, para que la vista "Excluidos" se
- * lea como parte del MISMO modal, no un componente ajeno).
+ * InvalidRecipientsTable.module.css (rediseño bulk-redesign) — mismos
+ * tokens/pairings AA que `PreviewModal.module.css` (.loading/.error/.emptyResult
+ * son una copia intencional del mismo lenguaje visual, para que la vista
+ * "Excluidos" se lea como parte del MISMO modal, no un componente ajeno).
  */
 
 .loading {
@@ -30,6 +30,7 @@
   font-size: var(--font-size-sm);
   color: var(--badge-late-fg);
   background: var(--badge-late-bg);
+  border-left: 3px solid var(--badge-late-fg);
 }
 
 .emptyResult {

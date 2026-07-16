@@ -1,11 +1,20 @@
+/**
+ * CampaignHeader.module.css (rediseño bulk-redesign) — los 5 contadores pasan
+ * de una fila de `<dl>` plana a "stat tiles" con acento de color por
+ * categoría (mismos tokens de badge YA usados en el resto del feature — cero
+ * paleta nueva). La barra de progreso usa `transform: scaleX()` (ver
+ * `CampaignHeader.tsx`) — GPU-only, se anima con `--ease-out`.
+ */
+
 .header {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: var(--space-4);
+  padding: var(--space-5);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .titleRow {
@@ -23,9 +32,9 @@
 }
 
 .counters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-5);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: var(--space-3);
   margin: 0;
 }
 
@@ -33,6 +42,11 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--counter-accent, var(--color-border));
+  background: var(--color-surface-hover);
 }
 
 .counter dt {
@@ -45,10 +59,18 @@
 
 .counter dd {
   margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
+
+/* Acentos por categoría — reusan tokens de badge YA definidos y validados en
+   `tokens/variables.css` (cero color nuevo). */
+.counterTotal    { --counter-accent: var(--color-primary); }
+.counterSent     { --counter-accent: var(--badge-paid-fg); }
+.counterFailed   { --counter-accent: var(--badge-late-fg); }
+.counterSkipped  { --counter-accent: var(--color-gray-400); }
+.counterOptedOut { --counter-accent: var(--badge-baja-fg); }
 
 .progressWrapper {
   display: flex;
@@ -65,9 +87,19 @@
 
 .progressFill {
   height: 100%;
-  background: var(--color-primary);
+  width: 100%;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
   border-radius: var(--radius-full);
-  transition: width var(--transition-slow);
+  transform: scaleX(0);
+  transform-origin: left;
+  /* FIX (self-review, review-animations bar) — `var(--transition-slow)` YA
+     expande a "300ms ease" (duration+timing en un solo token); encadenarle
+     `var(--ease-out)` atrás agregaba un CUARTO componente a la shorthand
+     (`transform 300ms ease cubic-bezier(...)`), sintaxis inválida que el
+     browser descarta entera (la barra dejaba de animar, sin error visible).
+     Duración explícita (300ms, misma semántica que --transition-slow) +
+     UNA sola timing-function. */
+  transition: transform 300ms var(--ease-out);
 }
 
 .progressLabel {
@@ -82,6 +114,7 @@
   font-size: var(--font-size-sm);
   color: var(--badge-late-fg);
   background: var(--badge-late-bg);
+  border-left: 3px solid var(--badge-late-fg);
 }
 
 @media (prefers-reduced-motion: reduce) {

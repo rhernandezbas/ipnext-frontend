@@ -1,3 +1,11 @@
+/**
+ * RecipientsTable.module.css (rediseño bulk-redesign) — `.filterLabel`/
+ * `.filterSelect` del viejo `<select>` nativo se van: el `Select` propio
+ * (`@/components/molecules/Select/Select`) trae su propio label+trigger
+ * tokenizados. `.filterRow` sólo acota su ancho para que no ocupe todo el
+ * ancho de la card en desktop.
+ */
+
 .wrapper {
   display: flex;
   flex-direction: column;
@@ -5,29 +13,7 @@
 }
 
 .filterRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.filterLabel {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
-.filterSelect {
-  min-height: var(--space-11);
-  padding: 0 var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  background: var(--color-surface);
-  color: var(--color-text-primary);
-}
-.filterSelect:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  max-width: 16rem;
 }
 
 .error {
@@ -37,4 +23,5 @@
   font-size: var(--font-size-sm);
   color: var(--badge-late-fg);
   background: var(--badge-late-bg);
+  border-left: 3px solid var(--badge-late-fg);
 }
