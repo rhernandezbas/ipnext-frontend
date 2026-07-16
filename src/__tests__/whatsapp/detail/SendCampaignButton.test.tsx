@@ -11,12 +11,14 @@
  *  SCB-4 confirmar el 1ro abre el 2do (irreversible, tone danger)
  *  SCB-5 cancelar cualquiera de los dos cierra sin llamar a sendCampaign
  *  SCB-6 confirmar el 2do llama a sendCampaign(id), toast de éxito + onSent
- *  SCB-7 409 CAMPAIGN_SEND_IN_PROGRESS → mensaje de OTRA campaña, nunca "tu campaña"
+ *  SCB-7 409 CAMPAIGN_SEND_IN_PROGRESS → mensaje claro de envío en curso en
+ *        el servidor, PERSISTENTE (no se auto-oculta como el toast), nunca
+ *        "tu campaña" (bulk-detail-polling-fe Change A)
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ReactNode } from 'react';
 import { AxiosError, AxiosHeaders } from 'axios';
 
@@ -74,6 +76,10 @@ function renderButton(overrides: { status?: CampaignStatusDto; total?: number; o
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('SCB-1: status distinto de pending', () => {
@@ -146,8 +152,8 @@ describe('SCB-6: confirmar el segundo modal', () => {
   });
 });
 
-describe('SCB-7: 409 CAMPAIGN_SEND_IN_PROGRESS', () => {
-  it('muestra un mensaje de OTRA campaña en curso, nunca "tu campaña"', async () => {
+describe('SCB-7: 409 CAMPAIGN_SEND_IN_PROGRESS (bulk-detail-polling-fe Change A — wording más claro)', () => {
+  it('muestra un mensaje claro de envío en curso en el servidor, nunca "tu campaña"', async () => {
     vi.mocked(sendCampaign).mockRejectedValue(makeConflictError());
     const user = userEvent.setup();
     renderButton();
@@ -157,9 +163,29 @@ describe('SCB-7: 409 CAMPAIGN_SEND_IN_PROGRESS', () => {
     await user.click(screen.getByRole('button', { name: /sí, enviar/i }));
 
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(/ya hay una campaña enviándose/i);
+    expect(alert).toHaveTextContent(/ya hay un envío en curso en el servidor/i);
+    expect(alert).toHaveTextContent(/reintentá/i);
     expect(alert.textContent?.toLowerCase()).not.toMatch(/tu campaña/);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('el mensaje es PERSISTENTE — sigue en pantalla mucho después de la ventana del toast (4s)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(sendCampaign).mockRejectedValue(makeConflictError());
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderButton();
+
+    await user.click(screen.getByRole('button', { name: /enviar campaña/i }));
+    await user.click(screen.getByRole('button', { name: /continuar/i }));
+    await user.click(screen.getByRole('button', { name: /sí, enviar/i }));
+    await screen.findByRole('alert');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TOAST_MS + 1000);
+    });
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/ya hay un envío en curso en el servidor/i);
+    vi.useRealTimers();
   });
 });
 

@@ -23,12 +23,13 @@ const TOAST_DURATION_MS = 4000;
  * danger) tiene la advertencia MÁS fuerte ("irreversible" + costo) — evita
  * que un click accidental dispare un envío real.
  *
- * 409 CAMPAIGN_SEND_IN_PROGRESS (lock GLOBAL — puede ser OTRA campaña
- * enviándose, FIX-15) se muestra con wording explícito de "otra campaña",
- * NUNCA "tu campaña" — el lock es del sistema entero, no de esta campaña.
- * Otros errores (red/500) caen silenciosos, mismo criterio ya establecido
- * en `CampaignComposer` para errores sin superficie propia — el botón
- * queda disponible para reintentar.
+ * 409 CAMPAIGN_SEND_IN_PROGRESS (lock GLOBAL, FIX-15) y cualquier otro error
+ * (red/500) se muestran SIEMPRE con `role="alert"` y PERSISTEN en pantalla
+ * (a diferencia del toast de éxito, que se auto-oculta a los 4s) — el
+ * usuario no puede quedarse pensando "no pasó nada" (bulk-detail-polling-fe
+ * Change A, motivado por un lock stuck en prod). El wording del 409 habla de
+ * "el servidor", NUNCA "tu campaña" — el lock es del sistema entero, no de
+ * esta campaña.
  */
 export function SendCampaignButton({ campaignId, status, total, onSent }: SendCampaignButtonProps) {
   const [step, setStep] = useState<ConfirmStep>('idle');
@@ -86,7 +87,7 @@ export function SendCampaignButton({ campaignId, status, total, onSent }: SendCa
 
       {conflict && (
         <p className={styles.conflict} role="alert">
-          Ya hay una campaña enviándose — es una a la vez en todo el sistema. Reintentá cuando termine.
+          Ya hay un envío en curso en el servidor. Reintentá en unos minutos — si persiste, avisá al administrador.
         </p>
       )}
 

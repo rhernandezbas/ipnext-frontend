@@ -5,6 +5,7 @@ import { useDocumentVisible } from '@/hooks/useDocumentVisible';
 import type {
   CampaignSegment,
   CampaignSendConflictBody,
+  CampaignStatusDto,
   CreateCampaignInput,
   CreateCampaignManualRecipientsNotFoundBody,
   CreateCampaignMissingVariablesBody,
@@ -227,11 +228,26 @@ export function useSendCampaign() {
 }
 
 /**
- * HIST-2/HIST-3 — detalle de una campaña. Poll ~5s SOLO mientras
- * `campaign.status === 'running'` (progreso en vivo del envío) Y la pestaña
- * está visible (`useDocumentVisible`, mismo gate que `useWhatsapp.ts`) —
- * `pending`/`paused`/`done`/`failed` son estables o esperan una acción
- * explícita, no hace falta pollear.
+ * bulk-detail-polling-fe (Change A) — política de polling del detalle,
+ * extraída a función PURA para poder testearla sin montar el hook. Antes
+ * `pending`/`paused` devolvían `false` (página muerta: el usuario tenía que
+ * F5 a mano para ver que el envío arrancó o se reanudó). Ahora:
+ *  - pestaña oculta            → false (nunca pollear en background)
+ *  - `running`                 → 5_000 (progreso en vivo del envío)
+ *  - `pending` | `paused`      → 30_000 (se refresca solo, sin F5)
+ *  - `done` | `failed` | undefined → false (terminal / sin data todavía)
+ */
+export function campaignPollInterval(status: CampaignStatusDto | undefined, visible: boolean): number | false {
+  if (!visible) return false;
+  if (status === 'running') return 5_000;
+  if (status === 'pending' || status === 'paused') return 30_000;
+  return false;
+}
+
+/**
+ * HIST-2/HIST-3 — detalle de una campaña. Polling gobernado por
+ * `campaignPollInterval` (arriba) + `useDocumentVisible` (mismo gate que
+ * `useWhatsapp.ts`).
  */
 export function useCampaign(id: string, query: GetCampaignQuery = {}) {
   const visible = useDocumentVisible();
@@ -240,16 +256,14 @@ export function useCampaign(id: string, query: GetCampaignQuery = {}) {
     queryKey: bulkCampaignKey(id, query),
     queryFn: () => api.getCampaign(id, query),
     enabled: !!id,
-    refetchInterval: (q) => {
-      if (!visible) return false;
-      return q.state.data?.campaign.status === 'running' ? 5_000 : false;
-    },
+    refetchInterval: (q) => campaignPollInterval(q.state.data?.campaign.status, visible),
   });
 }
 
 /**
- * HIST-1 — historial paginado de campañas. Sin polling (refresco manual/on-mount,
- * molde `useAssignableUsers`).
+ * HIST-1 — historial paginado de campañas. bulk-detail-polling-fe (Change A):
+ * pollea cada 30s (gateado por `useDocumentVisible`, mismo criterio que
+ * `useCampaign`) — la tabla de campañas también debe reflejar avance sin F5.
  *
  * `enabled` (messaging-bulk-inbox Change 2) — el caller lo ata a un permiso
  * (mismo patrón que `useTemplates(enabled)`): el filtro de campaña del inbox
@@ -259,10 +273,13 @@ export function useCampaign(id: string, query: GetCampaignQuery = {}) {
  * fetcheando igual que antes).
  */
 export function useCampaigns(query: PaginatedQuery, enabled: boolean = true) {
+  const visible = useDocumentVisible();
+
   return useQuery({
     queryKey: bulkCampaignsKey(query),
     queryFn: () => api.listCampaigns(query),
     enabled,
+    refetchInterval: visible ? 30_000 : false,
   });
 }
 

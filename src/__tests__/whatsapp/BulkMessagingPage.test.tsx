@@ -35,7 +35,7 @@ vi.mock('@/api/messagingBulk.api', () => ({
 }));
 vi.mock('@/hooks/useMyPermissions');
 
-import { listBulkTemplates, previewSegment, createCampaign, listCampaigns, getCampaign } from '@/api/messagingBulk.api';
+import { listBulkTemplates, previewSegment, createCampaign, listCampaigns, getCampaign, sendCampaign } from '@/api/messagingBulk.api';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
 import BulkMessagingPage from '@/pages/whatsapp/BulkMessagingPage';
@@ -196,6 +196,20 @@ function CampaignSwitcher() {
     </button>
   );
 }
+
+describe('BMP-9: envío de campaña — click-through completo desde la page real (repro bug prod)', () => {
+  it('con mountMode="all" (ambos tabs montados) + router real, confirmar el 2do modal SÍ llama a sendCampaign(id)', async () => {
+    vi.mocked(sendCampaign).mockResolvedValue({ campaignId: 'camp-1', accepted: true });
+    const user = userEvent.setup();
+    renderPage(['/admin/whatsapp/bulk?campaign=camp-1']);
+
+    await user.click(await screen.findByRole('button', { name: /enviar campaña/i }));
+    await user.click(screen.getByRole('button', { name: /continuar/i }));
+    await user.click(screen.getByRole('button', { name: /sí, enviar/i }));
+
+    await waitFor(() => expect(sendCampaign).toHaveBeenCalledWith('camp-1'));
+  });
+});
 
 describe('BMP-8: cambio de campaña resetea el estado local del detalle (FIX-4)', () => {
   it('al pasar de camp-1 a camp-2, RecipientsTable arranca sin el filtro de estado de camp-1', async () => {
