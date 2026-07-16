@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
+import { useNewsUnreadCount } from '@/hooks/useNews';
 import styles from './Sidebar.module.css';
 
 interface SubItem {
@@ -431,6 +432,8 @@ interface SidebarProps {
 export function Sidebar({ open = true, onToggle }: SidebarProps) {
   const { can, isLoading } = useMyPermissions();
   const location = useLocation();
+  // internal-news — badge de no-leídas del ítem "Noticias" (NEWS-FE-SB-2).
+  const { data: newsUnreadCount = 0 } = useNewsUnreadCount();
 
   /**
    * Returns true if a child item should be rendered.
@@ -551,14 +554,30 @@ export function Sidebar({ open = true, onToggle }: SidebarProps) {
           >
             Monitoreo
           </NavLink>
-          <NavLink
-            to="/admin/notifications"
-            className={({ isActive }) =>
-              isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink
-            }
-          >
-            Notificaciones
-          </NavLink>
+          {/* internal-news (NEWS-FE-SB-1) — reemplaza el ítem "Notificaciones":
+              la ruta /admin/notifications + su page + la campanita del Navbar
+              quedan intactas (target del footer de la campanita), solo cambia
+              este link del sidebar. Gated news.read (a diferencia de los otros
+              navTop, sin gate) — mientras carga se muestra (sin layout shift,
+              convención de canSee/canSeeChild de abajo). */}
+          {(isLoading || can('news.read')) && (
+            <NavLink
+              to="/admin/news"
+              className={({ isActive }) =>
+                isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink
+              }
+            >
+              <span>Noticias</span>
+              {newsUnreadCount > 0 && (
+                <span
+                  className={styles.navBadge}
+                  aria-label={`${newsUnreadCount} noticias sin leer`}
+                >
+                  {newsUnreadCount > 99 ? '99+' : newsUnreadCount}
+                </span>
+              )}
+            </NavLink>
+          )}
         </div>
 
         {/* Level 1 — section accordions (single-open). Informes is now a

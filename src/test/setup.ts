@@ -102,3 +102,22 @@ vi.mock('@/context/ConfirmContext', () => ({
   useConfirm: vi.fn(() => vi.fn().mockResolvedValue(true)),
   ConfirmProvider: ({ children }: { children: ReactNode }) => children,
 }));
+
+// Default safe mock for useNewsUnreadCount (internal-news FE apply, sidebar batch).
+// Sidebar.tsx calls this hook unconditionally for the "Noticias" badge — it is a
+// REAL react-query useQuery under the hood, so every one of the ~12 existing test
+// files that render <Sidebar/> WITHOUT a QueryClientProvider (they only ever needed
+// MemoryRouter, mirroring the useMyPermissions treatment above) would throw "No
+// QueryClient set" once Sidebar starts calling it. Other exports of the module
+// (useNewsList, mutations, ...) stay real via importOriginal — only the one hook
+// pervasively invoked by Sidebar gets a safe default. Tests that care about the
+// badge itself override with vi.mocked(useNewsUnreadCount).mockReturnValue(...);
+// src/__tests__/hooks/useNews.test.ts opts out entirely via vi.unmock to exercise
+// the real polling implementation.
+vi.mock('@/hooks/useNews', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/hooks/useNews')>();
+  return {
+    ...actual,
+    useNewsUnreadCount: vi.fn(() => ({ data: 0, isLoading: false, isError: false })),
+  };
+});

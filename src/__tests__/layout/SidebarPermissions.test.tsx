@@ -105,12 +105,35 @@ describe('Sidebar — permission filtering', () => {
     expect(screen.getAllByRole('button', { name: /clientes/i }).length).toBeGreaterThan(0);
   });
 
-  it('SP6 — top-level links (dashboard, monitoring, notifications) always visible (no permission guard on links)', () => {
-    // The singleton top links (Panel de control etc) are always shown — no permission guard
+  it('SP6 — top-level links (dashboard, monitoring) always visible (no permission guard on links)', () => {
+    // The singleton top links (Panel de control, Monitoreo) are always shown — no
+    // permission guard. "Noticias" (internal-news) is DIFFERENT: it IS gated by
+    // news.read (see SP10/SP11 below), so it's intentionally excluded here.
     mockPerms({ permissions: [], can: () => false });
     renderSidebar();
     // They are NavLinks (not collapsible groups), no permission filter needed per design
     expect(screen.getByRole('link', { name: /panel de control/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^noticias$/i })).not.toBeInTheDocument();
+  });
+
+  it('SP10 — internal-news: has news.read → "Noticias" link renders, pointing to /admin/news', () => {
+    mockPerms({
+      permissions: ['news.read'],
+      can: (p) => {
+        const perm = Array.isArray(p) ? p[0] : p;
+        return perm === 'news.read';
+      },
+    });
+    renderSidebar();
+    const link = screen.getByRole('link', { name: /noticias/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/admin/news');
+  });
+
+  it('SP11 — internal-news: without news.read, "Noticias" link is hidden', () => {
+    mockPerms({ permissions: [], can: () => false });
+    renderSidebar();
+    expect(screen.queryByRole('link', { name: /noticias/i })).not.toBeInTheDocument();
   });
 
   it('SP7 — has clients.read + contracts.read: Contratos child renders under Clientes', async () => {

@@ -239,11 +239,14 @@ describe('Sidebar', () => {
     expect(link).toHaveAttribute('href', '/admin/tariffs/huawei-groups');
   });
 
-  // Fix 2: Notificaciones link
-  it('renders Notificaciones link pointing to /admin/notifications', () => {
-    renderSidebar('/admin/notifications');
-    const link = screen.getByRole('link', { name: /notificaciones/i });
+  // internal-news (NEWS-FE-SB-1) — "Notificaciones" was replaced by "Noticias".
+  // /admin/notifications itself (the page + campanita target) is untouched —
+  // just no longer linked from this navTop item.
+  it('renders Noticias link pointing to /admin/news, no Notificaciones link', () => {
+    renderSidebar('/admin/news');
+    const link = screen.getByRole('link', { name: /^noticias$/i });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/admin/notifications');
+    expect(link).toHaveAttribute('href', '/admin/news');
+    expect(screen.queryByRole('link', { name: /^notificaciones$/i })).not.toBeInTheDocument();
   });
 });
