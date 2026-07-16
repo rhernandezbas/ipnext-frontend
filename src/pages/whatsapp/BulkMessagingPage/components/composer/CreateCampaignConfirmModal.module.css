@@ -98,6 +98,22 @@
   color: var(--color-text-primary);
 }
 
+/* Scope adicional (root cause crear≠enviar) — próximo paso explícito al
+   final del resumen. Mismo tono que .manualNote (aclaración secundaria, no
+   grita), gray-600 sobre el fondo del dialog (--color-surface) ya accesible
+   en el repo. */
+.nextStep {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  color: var(--color-gray-600);
+}
+
+.nextStep strong {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
 /* manual-recipients-fe (CONF-1) — aclaración de cuántos son manuales.
    --color-gray-600 (#495057) sobre el bg gris de .summary (--color-surface-hover
    #f0f0f5) da ~7:1 (mismo criterio que .summaryTerm). */

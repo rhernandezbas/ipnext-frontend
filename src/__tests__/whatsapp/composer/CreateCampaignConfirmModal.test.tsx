@@ -18,6 +18,8 @@
  *  CCM-7  Esc y click en el backdrop → onCancel
  *  CCM-8  a11y: role=dialog + aria-modal + foco inicial DENTRO del diálogo
  *  CCM-10 focus-trap cíclico (Tab en el último → primero; Shift+Tab en el primero → último)
+ *  CCM-14 (scope adicional, root cause crear≠enviar) el final del resumen
+ *         aclara que el envío se dispara DESPUÉS, DESDE EL DETALLE
  */
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -217,5 +219,21 @@ describe('CCM-13: subtítulos del desglose como headings (fix wave #5)', () => {
   it('"Excluidos del envío" es un heading cuando hay excluidos', () => {
     renderModal({ skipped: { optedOut: 1, duplicatePhone: 0, invalidPhone: 0 } });
     expect(screen.getByRole('heading', { name: /excluidos del envío/i })).toBeInTheDocument();
+  });
+});
+
+// scope adicional (root cause confirmado con el usuario 2026-07-16): crear la
+// campaña ≠ enviarla. El `lead` de arriba (CCM-5) ya dice "todavía no se envía
+// nada", pero un operador puede pasarlo por alto — la campaña queda "pending"
+// y el detalle donde aterriza NO tenía (hasta este scope) ningún aviso
+// explícito, así que el usuario creía que ya se había enviado. Se agrega una
+// línea EXPLÍCITA al final del resumen que nombra el próximo paso concreto.
+describe('CCM-14: copy — próximo paso explícito (scope adicional, root cause crear≠enviar)', () => {
+  it('el resumen aclara que la campaña queda "Pendiente" y el envío se dispara después, desde el detalle', () => {
+    renderModal();
+    // "Pendiente" (mayúscula, resaltado) — distinto del "pendiente" en minúscula
+    // del lead (CCM-5), que ya existía antes de este scope.
+    expect(screen.getByText('Pendiente')).toBeInTheDocument();
+    expect(screen.getByText(/desde el detalle/i)).toBeInTheDocument();
   });
 });

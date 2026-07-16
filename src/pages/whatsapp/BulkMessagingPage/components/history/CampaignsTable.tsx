@@ -11,6 +11,14 @@ const LIMIT = 20;
 
 interface CampaignsTableProps {
   onViewDetail: (campaignId: string) => void;
+  /**
+   * Fix Wave (HIGH-1/MEDIUM-2, review adversarial) — true si el tab
+   * "Historial" está ACTIVO en `BulkMessagingPage`. Gatea el poll de 30s:
+   * con `Tabs mountMode="all"` esta tabla queda montada detrás de "Nueva
+   * campaña" y no tiene sentido pollearla oculta. Default `true` (standalone/
+   * tests que no lo pasan se comportan como siempre se comportaron).
+   */
+  active?: boolean;
 }
 
 /**
@@ -24,10 +32,15 @@ interface CampaignsTableProps {
  * se agregó un `onRowClick` a `DataTable` — es un organism compartido por
  * ~40 páginas y ampliar su superficie para este chunk no vale el
  * blast-radius; el nombre clickeable cubre el mismo caso de uso.
+ *
+ * HIGH-1 (Fix Wave) — `CampaignsTable` es el ÚNICO caller que activa el poll
+ * de 30s de `useCampaigns` (`poll:true`), combinado con `active` (MEDIUM-2):
+ * `useCampaigns({...}, true, active)`. Cualquier otro caller (ej.
+ * `WhatsappInboxPage` para el dropdown de filtro) sigue sin pollear.
  */
-export function CampaignsTable({ onViewDetail }: CampaignsTableProps) {
+export function CampaignsTable({ onViewDetail, active = true }: CampaignsTableProps) {
   const [page, setPage] = useState(1);
-  const { data, isLoading, isError } = useCampaigns({ page, limit: LIMIT });
+  const { data, isLoading, isError } = useCampaigns({ page, limit: LIMIT }, true, active);
 
   if (isError) {
     return (

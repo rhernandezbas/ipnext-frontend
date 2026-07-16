@@ -11,11 +11,13 @@
  *  CT-5 click en el nombre llama a onViewDetail(id)
  *  CT-6 click en la acción "Ver detalle" (kebab) llama a onViewDetail(id)
  *  CT-7 paginación server-side: cambiar de página llama a listCampaigns con el page nuevo
+ *  CT-8 (Fix Wave HIGH-1/MEDIUM-2) active:true (default) → pollea cada 30s;
+ *       active:false (tab "Historial" no activo) → NO pollea
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ReactNode } from 'react';
 
 vi.mock('@/api/messagingBulk.api', () => ({
@@ -53,16 +55,23 @@ function makePage(
   return { data, total: data.length, page: 1, limit: 20, ...overrides };
 }
 
-function renderTable(onViewDetail = vi.fn()) {
+function renderTable(onViewDetail = vi.fn(), active?: boolean) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={qc}>{children}</QueryClientProvider>
   );
-  return { ...render(<CampaignsTable onViewDetail={onViewDetail} />, { wrapper }), onViewDetail };
+  return {
+    ...render(<CampaignsTable onViewDetail={onViewDetail} active={active} />, { wrapper }),
+    onViewDetail,
+  };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('CT-1: loading', () => {
@@ -141,5 +150,47 @@ describe('CT-7: paginación server-side', () => {
     await user.click(screen.getByRole('button', { name: '2' }));
 
     await waitFor(() => expect(listCampaigns).toHaveBeenCalledWith({ page: 2, limit: 20 }));
+  });
+});
+
+describe('CT-8: poll wiring (Fix Wave HIGH-1/MEDIUM-2)', () => {
+  it('active:true (default) → pollea cada 30s', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(listCampaigns).mockResolvedValue(makePage([CAMPAIGN]));
+
+    render(<CampaignsTable onViewDetail={vi.fn()} />, {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          {children}
+        </QueryClientProvider>
+      ),
+    });
+
+    await vi.waitFor(() => expect(listCampaigns).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(listCampaigns).toHaveBeenCalledTimes(2);
+  });
+
+  it('active:false (tab "Historial" NO activo, ej. detrás de "Nueva campaña" con mountMode="all") → NO pollea', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(listCampaigns).mockResolvedValue(makePage([CAMPAIGN]));
+
+    render(<CampaignsTable onViewDetail={vi.fn()} active={false} />, {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          {children}
+        </QueryClientProvider>
+      ),
+    });
+
+    await vi.waitFor(() => expect(listCampaigns).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(listCampaigns).toHaveBeenCalledTimes(1);
   });
 });

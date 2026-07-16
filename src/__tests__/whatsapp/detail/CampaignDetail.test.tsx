@@ -8,11 +8,16 @@
  *  CD-3 status pending → monta SendCampaignButton
  *  CD-4 status running → NO monta SendCampaignButton
  *  CD-5 siempre monta RecipientsTable (fetchea destinatarios)
+ *  CD-7 (Fix Wave MEDIUM-2) active:false (tab "Historial" no activo) → el
+ *       detalle NO pollea aunque el status sea running/pending/paused
+ *  CD-8 (scope adicional, root cause crear≠enviar confirmado con el usuario
+ *       2026-07-16) status pending → banner explícito "todavía no se envió";
+ *       desaparece en running/paused/done/failed
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ReactNode } from 'react';
 
 vi.mock('@/api/messagingBulk.api', () => ({
@@ -48,7 +53,7 @@ function makeCampaign(overrides: Partial<CampaignDto> = {}): CampaignDto {
   };
 }
 
-function renderDetail(campaign: CampaignDto, onBack = vi.fn()) {
+function renderDetail(campaign: CampaignDto, onBack = vi.fn(), active?: boolean) {
   vi.mocked(getCampaign).mockImplementation((_id: string, query: GetCampaignQuery = {}) =>
     Promise.resolve({
       campaign,
@@ -59,11 +64,18 @@ function renderDetail(campaign: CampaignDto, onBack = vi.fn()) {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={qc}>{children}</QueryClientProvider>
   );
-  return { ...render(<CampaignDetail campaignId="camp-1" onBack={onBack} />, { wrapper }), onBack };
+  return {
+    ...render(<CampaignDetail campaignId="camp-1" onBack={onBack} active={active} />, { wrapper }),
+    onBack,
+  };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('CD-1: volver al historial', () => {
@@ -139,5 +151,82 @@ describe('CD-6: feedback de envío persistente (FIX-3c / FIX-5)', () => {
       expect(screen.queryByRole('button', { name: /enviar campaña/i })).not.toBeInTheDocument(),
     );
     expect(screen.getByText(/se inició|envío.*curso|enviándose/i)).toBeInTheDocument();
+  });
+});
+
+describe('CD-7: tab-gating del poll (Fix Wave MEDIUM-2)', () => {
+  it('active:false (tab "Historial" no activo) → NO refetchea aunque pase el tiempo, status "running"', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderDetail(makeCampaign({ status: 'running' }), vi.fn(), false);
+
+    await vi.waitFor(() => expect(getCampaign).toHaveBeenCalled());
+    const callsBefore = vi.mocked(getCampaign).mock.calls.length;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(vi.mocked(getCampaign).mock.calls.length).toBe(callsBefore);
+  });
+
+  it('active:true (default) + status "running" → SÍ sigue refetcheando a los 5s', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderDetail(makeCampaign({ status: 'running' }));
+
+    await vi.waitFor(() => expect(getCampaign).toHaveBeenCalled());
+    const callsBefore = vi.mocked(getCampaign).mock.calls.length;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(vi.mocked(getCampaign).mock.calls.length).toBeGreaterThan(callsBefore);
+  });
+});
+
+// El texto del banner tiene un `<strong>` en el medio ("todavía **no se
+// envió**") — `screen.getByText` NO matchea texto partido entre nodos por un
+// tag anidado (limitación conocida de RTL, matchea por nodo de texto, no por
+// `textContent` concatenado del ancestro). Se busca sobre los `role="status"`
+// y se compara `textContent` crudo (que SÍ concatena los hijos) para evitar
+// falsos negativos.
+function findPendingBanner(): HTMLElement | undefined {
+  return screen.queryAllByRole('status').find((el) => /todavía[\s\S]*no se envi[oó]/i.test(el.textContent ?? ''));
+}
+
+describe('CD-8: banner de pending explícito (scope adicional, root cause crear≠enviar — confirmado con el usuario 2026-07-16)', () => {
+  it('status pending → banner visible avisando que todavía no se envió, con role=status', async () => {
+    renderDetail(makeCampaign({ status: 'pending' }));
+    await screen.findByText('Recordatorio julio');
+
+    const banner = await waitFor(() => {
+      const found = findPendingBanner();
+      expect(found).toBeTruthy();
+      return found!;
+    });
+    // role="status" (nunca solo color) + ícono SVG aria-hidden.
+    expect(banner.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+  });
+
+  it('status running → el banner NO se muestra', async () => {
+    renderDetail(makeCampaign({ status: 'running' }));
+    await screen.findByText('Recordatorio julio');
+    expect(findPendingBanner()).toBeUndefined();
+  });
+
+  it('status paused → el banner NO se muestra', async () => {
+    renderDetail(makeCampaign({ status: 'paused' }));
+    await screen.findByText('Recordatorio julio');
+    expect(findPendingBanner()).toBeUndefined();
+  });
+
+  it('status done → el banner NO se muestra', async () => {
+    renderDetail(makeCampaign({ status: 'done' }));
+    await screen.findByText('Recordatorio julio');
+    expect(findPendingBanner()).toBeUndefined();
+  });
+
+  it('status failed → el banner NO se muestra', async () => {
+    renderDetail(makeCampaign({ status: 'failed' }));
+    await screen.findByText('Recordatorio julio');
+    expect(findPendingBanner()).toBeUndefined();
   });
 });

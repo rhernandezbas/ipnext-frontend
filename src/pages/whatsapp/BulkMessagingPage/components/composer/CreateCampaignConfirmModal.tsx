@@ -190,6 +190,18 @@ export function CreateCampaignConfirmModal({
           </div>
         </dl>
 
+        {/* Scope adicional (root cause confirmado con el usuario 2026-07-16):
+            el `lead` de arriba ya dice "todavía no se envía nada", pero un
+            operador se puede quedar con la sensación de que este modal es la
+            confirmación de ENVÍO (por el resumen de impacto tipo "vas a
+            afectar a N clientes"). Esta línea nombra el PRÓXIMO PASO concreto
+            — sin esto, el usuario creaba la campaña, aterrizaba en "pending"
+            y creía que ya estaba enviada; nunca clickeaba "Enviar campaña". */}
+        <p className={styles.nextStep}>
+          La campaña se crea en estado <strong>Pendiente</strong> — el envío se dispara después, desde el
+          detalle, con el botón «Enviar campaña».
+        </p>
+
         {statusEntries.length > 0 && (
           <div className={styles.breakdown}>
             <h3 className={styles.breakdownTitle} id="bulk-create-confirm-breakdown">Desglose por estado</h3>

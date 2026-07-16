@@ -52,6 +52,23 @@ No se aplicó ningún "fix" especulativo sobre el flujo del botón — el códig
 capas de test lo demuestran. Se deja `BMP-9` como guardia permanente y esta nota para que el
 equipo audite las hipótesis de infra listadas arriba.
 
+### Actualización — root cause confirmado (2026-07-16, scope adicional)
+
+Cerrado EN VIVO con el usuario: **el "bug" era UX, no código.** El operador creaba la campaña —
+`CreateCampaignConfirmModal` ya muestra un resumen de impacto ("vas a afectar a N clientes") que
+SE SIENTE como una confirmación de envío — aterrizaba en el detalle con status `pending` y creía
+que la campaña ya estaba enviada. Nunca clickeaba "Enviar campaña". Si el dueño del producto se
+confundió, cualquier operador se iba a confundir igual. Las hipótesis de bundle stale / extensión
+de browser / CSP quedaron DESCARTADAS: 3 repros Playwright contra prod emitieron el POST `/send`
+perfecto cuando se ejecutó la acción real (click en "Enviar campaña").
+
+Fixes aplicados (ver `tasks.md` sección "Root cause del incidente de prod"):
+- Banner explícito en `CampaignDetail` cuando `status==='pending'` ("todavía no se envió").
+- Línea de próximo paso al final del resumen de `CreateCampaignConfirmModal` ("se crea en estado
+  Pendiente — el envío se dispara después, desde el detalle").
+
+Ver `specs/bulk-detail-polling/spec.md` — Capability "crear ≠ enviar es explícito" (UX-1/UX-2).
+
 ## Scope
 
 ### In Scope
@@ -106,6 +123,25 @@ equipo audite las hipótesis de infra listadas arriba.
 | `src/__tests__/whatsapp/detail/SendCampaignButton.test.tsx` | Modified | Wording actualizado en SCB-7 + nuevo test de persistencia |
 | `src/__tests__/whatsapp/BulkMessagingPage.test.tsx` | Modified | +`BMP-9` (regresión del click-through completo de envío) |
 
+### Fix Wave (review adversarial, 2026-07-16)
+
+| Area | Impact | Description |
+|------|--------|--------------|
+| `src/hooks/useBulkMessaging.ts` | Modified | `useCampaigns` gana `poll` (3er param, opt-in, default `false`); `useCampaign` gana `active` (3er param, tab-gating) y deriva `heavy` de `query.includeRecipients`; `campaignPollInterval` gana `{heavy}` |
+| `src/pages/whatsapp/BulkMessagingPage.tsx` | Modified | Propaga `active={activeTab==='history'}` a `CampaignsTable`/`CampaignDetail` |
+| `src/pages/whatsapp/BulkMessagingPage/components/history/CampaignsTable.tsx` | Modified | Prop `active`; activa `poll:true` en `useCampaigns` (único caller) |
+| `src/pages/whatsapp/BulkMessagingPage/components/detail/CampaignDetail.tsx` | Modified | Prop `active`, re-propagada a `CampaignHeader`/`RecipientsTable`; **+banner "todavía no se envió" en `pending`** (root cause crear≠enviar) |
+| `src/pages/whatsapp/BulkMessagingPage/components/detail/CampaignHeader.tsx` | Modified | Prop `active` |
+| `src/pages/whatsapp/BulkMessagingPage/components/detail/RecipientsTable.tsx` | Modified | Prop `active` |
+| `src/pages/whatsapp/BulkMessagingPage/components/composer/CreateCampaignConfirmModal.tsx` | Modified | +línea de próximo paso al final del resumen (root cause crear≠enviar) |
+| `src/__tests__/hooks/useBulkMessaging.test.ts` | Modified | +12 tests (opt-in, active, heavy) |
+| `src/__tests__/whatsapp/history/CampaignsTable.test.tsx` | Modified | +CT-8 (poll wiring) |
+| `src/__tests__/whatsapp/detail/CampaignDetail.test.tsx` | Modified | +CD-7 (tab-gating), +CD-8 (banner pending) |
+| `src/__tests__/whatsapp/composer/CreateCampaignConfirmModal.test.tsx` | Modified | +CCM-14 (copy próximo paso) |
+| `src/__tests__/whatsapp/BulkMessagingPage.test.tsx` | Modified | BMP-9 renombrado + asserts de cardinalidad; +BMP-10 (integración tab-gating) |
+| `openspec/changes/bulk-detail-polling-fe/tasks.md` | Modified | Secciones "Fix Wave", "Root cause", "Deudas" |
+| `openspec/changes/bulk-detail-polling-fe/specs/bulk-detail-polling/spec.md` | Modified | +POLL-4/POLL-5/POLL-6, +Capability "crear ≠ enviar es explícito" (UX-1/UX-2) |
+
 ## Risks
 
 | Risk | Likelihood | Mitigation |
@@ -129,3 +165,10 @@ reversible en el FE.
 - [x] La invalidación post-success cubre la key con `includeRecipients` (prefijo de query key).
 - [x] Investigación del bug "POST nunca sale": reproducido/descartado con test a 3 niveles,
       documentado, `BMP-9` como guardia permanente.
+- [x] (Fix Wave) `useCampaigns` NO pollea sin `poll:true` explícito — el inbox no hereda el poll.
+- [x] (Fix Wave) El poll se apaga cuando el tab que lo contiene no está activo (`active` prop).
+- [x] (Fix Wave) La variante pesada (`includeRecipients`) NO pollea en `pending`/`paused`.
+- [x] (Fix Wave) BMP-9 documenta honestamente su alcance (guardia de wiring, no repro de prod) y
+      tiene asserts de cardinalidad.
+- [x] (Root cause, scope adicional) El detalle en `pending` muestra un aviso explícito; el modal
+      de creación nombra el próximo paso.

@@ -236,10 +236,25 @@ export function useSendCampaign() {
  *  - `running`                 → 5_000 (progreso en vivo del envío)
  *  - `pending` | `paused`      → 30_000 (se refresca solo, sin F5)
  *  - `done` | `failed` | undefined → false (terminal / sin data todavía)
+ *
+ * MEDIUM-3 (Fix Wave, review adversarial) — 3er parámetro `{ heavy }`: la
+ * variante PESADA de la query (`includeRecipients:true`, la usa
+ * `RecipientsTable`) trae el payload completo de destinatarios. Los
+ * recipients de una campaña `pending`/`paused` son INMUTABLES (el envío
+ * todavía no arrancó / está pausado) — pollear ese payload pesado cada 30s
+ * es desperdicio. La key LIVIANA (`CampaignHeader`, sin `includeRecipients`)
+ * ya detecta la transición a `running` con SU propio poll de 30s; recién ahí
+ * la variante pesada arranca su poll de 5s. `heavy` default `false` (misma
+ * política de siempre para la variante liviana).
  */
-export function campaignPollInterval(status: CampaignStatusDto | undefined, visible: boolean): number | false {
+export function campaignPollInterval(
+  status: CampaignStatusDto | undefined,
+  visible: boolean,
+  opts: { heavy?: boolean } = {},
+): number | false {
   if (!visible) return false;
   if (status === 'running') return 5_000;
+  if (opts.heavy) return false;
   if (status === 'pending' || status === 'paused') return 30_000;
   return false;
 }
@@ -248,22 +263,32 @@ export function campaignPollInterval(status: CampaignStatusDto | undefined, visi
  * HIST-2/HIST-3 — detalle de una campaña. Polling gobernado por
  * `campaignPollInterval` (arriba) + `useDocumentVisible` (mismo gate que
  * `useWhatsapp.ts`).
+ *
+ * `active` (3er parámetro, default `true`, MEDIUM-2 Fix Wave) — gatea el
+ * poll independientemente de la visibilidad del DOCUMENTO: con
+ * `Tabs mountMode="all"` (`BulkMessagingPage`), `CampaignDetail` (y sus
+ * hijos `CampaignHeader`/`RecipientsTable`) siguen MONTADOS detrás del tab
+ * "Nueva campaña" — la pestaña del BROWSER puede estar visible mientras el
+ * TAB de la page no lo está. `visible && active` combina ambos gates sin
+ * ensuciar `campaignPollInterval` (que solo conoce `visible`).
+ *
+ * `heavy` se deriva de `query.includeRecipients` — no hace falta que el
+ * caller lo pase aparte, ya viene en la misma query que arma el payload.
  */
-export function useCampaign(id: string, query: GetCampaignQuery = {}) {
+export function useCampaign(id: string, query: GetCampaignQuery = {}, active: boolean = true) {
   const visible = useDocumentVisible();
+  const heavy = !!query.includeRecipients;
 
   return useQuery({
     queryKey: bulkCampaignKey(id, query),
     queryFn: () => api.getCampaign(id, query),
     enabled: !!id,
-    refetchInterval: (q) => campaignPollInterval(q.state.data?.campaign.status, visible),
+    refetchInterval: (q) => campaignPollInterval(q.state.data?.campaign.status, visible && active, { heavy }),
   });
 }
 
 /**
- * HIST-1 — historial paginado de campañas. bulk-detail-polling-fe (Change A):
- * pollea cada 30s (gateado por `useDocumentVisible`, mismo criterio que
- * `useCampaign`) — la tabla de campañas también debe reflejar avance sin F5.
+ * HIST-1 — historial paginado de campañas.
  *
  * `enabled` (messaging-bulk-inbox Change 2) — el caller lo ata a un permiso
  * (mismo patrón que `useTemplates(enabled)`): el filtro de campaña del inbox
@@ -271,15 +296,25 @@ export function useCampaign(id: string, query: GetCampaignQuery = {}) {
  * lo requiere; sin permiso sería un 403). Default `true` (cero regresión:
  * Historial y cualquier caller previo que llame sin el 2do argumento sigue
  * fetcheando igual que antes).
+ *
+ * `poll` (3er parámetro, default `false`, HIGH-1 Fix Wave) — el polling de
+ * 30s es OPT-IN. Antes `refetchInterval: visible ? 30_000 : false` estaba
+ * SIEMPRE activo acá (hook COMPARTIDO): cualquier caller heredaba el poll
+ * sin pedirlo — `WhatsappInboxPage` lo usa para poblar el dropdown de filtro
+ * de campaña del inbox, y con el inbox abierto eso sumaba ~2880 requests/día
+ * nuevos por agente. Ahora SOLO pollea si el caller pasa `poll:true`
+ * explícitamente — lo hace `CampaignsTable` (tab "Historial", HIST-1), que
+ * además lo combina con si su tab está activo (MEDIUM-2). El inbox queda
+ * EXACTAMENTE como estaba (fetch on-mount + invalidación, sin poll).
  */
-export function useCampaigns(query: PaginatedQuery, enabled: boolean = true) {
+export function useCampaigns(query: PaginatedQuery, enabled: boolean = true, poll: boolean = false) {
   const visible = useDocumentVisible();
 
   return useQuery({
     queryKey: bulkCampaignsKey(query),
     queryFn: () => api.listCampaigns(query),
     enabled,
-    refetchInterval: visible ? 30_000 : false,
+    refetchInterval: poll && visible ? 30_000 : false,
   });
 }
 

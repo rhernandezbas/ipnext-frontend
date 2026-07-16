@@ -19,11 +19,11 @@
  * resueltos al `beforeEach` — ambos tabs se montan siempre
  * (`Tabs mountMode="all"`), así que Historial fetchea desde el primer render.
  */
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useSearchParams } from 'react-router-dom';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('@/api/messagingBulk.api', () => ({
   listBulkTemplates: vi.fn(),
@@ -101,6 +101,10 @@ beforeEach(() => {
   vi.mocked(createCampaign).mockResolvedValue({ campaignId: 'camp-1', total: 10, status: 'pending' });
   vi.mocked(listCampaigns).mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 });
   vi.mocked(getCampaign).mockResolvedValue({ campaign: CAMPAIGN_DTO });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('BMP-1: header + tabs', () => {
@@ -197,17 +201,33 @@ function CampaignSwitcher() {
   );
 }
 
-describe('BMP-9: envío de campaña — click-through completo desde la page real (repro bug prod)', () => {
-  it('con mountMode="all" (ambos tabs montados) + router real, confirmar el 2do modal SÍ llama a sendCampaign(id)', async () => {
+// MEDIUM-4 (Fix Wave, review adversarial) — este test es una GUARDIA DE
+// WIRING del doble-confirm → `sendCampaign` a nivel `BulkMessagingPage`
+// (router real + `Tabs mountMode="all"`, la composición real de prod). NO es
+// un repro del bug de prod "el POST /send nunca sale": acá la api layer está
+// mockeada (`vi.mock('@/api/messagingBulk.api')`), sin lazy import ni
+// permisos reales, así que no puede reproducir un bundle stale servido por
+// el browser ni un bloqueo client-side (extensión/adblocker/CSP). El bug de
+// prod se cerró por otra vía: Playwright contra prod emitió el POST
+// perfecto, evidenciando que era un bloqueo client-side en el browser del
+// operador, no un problema del wiring de componentes — ver proposal.md
+// ("Investigación adicional") y `openspec/changes/bulk-detail-polling-fe/`.
+describe('BMP-9: guardia de wiring del doble-confirm → sendCampaign (NO repro del bug de prod)', () => {
+  it('con mountMode="all" (ambos tabs montados) + router real, confirmar el 2do modal SÍ llama a sendCampaign(id) exactamente una vez', async () => {
     vi.mocked(sendCampaign).mockResolvedValue({ campaignId: 'camp-1', accepted: true });
     const user = userEvent.setup();
     renderPage(['/admin/whatsapp/bulk?campaign=camp-1']);
 
     await user.click(await screen.findByRole('button', { name: /enviar campaña/i }));
     await user.click(screen.getByRole('button', { name: /continuar/i }));
+    // LOW-5 — todavía no se confirmó el 2do modal: sendCampaign NO debe haberse llamado.
+    expect(sendCampaign).not.toHaveBeenCalled();
+
     await user.click(screen.getByRole('button', { name: /sí, enviar/i }));
 
     await waitFor(() => expect(sendCampaign).toHaveBeenCalledWith('camp-1'));
+    // LOW-5 — un solo click en el 2do modal = una sola llamada, ni cero ni duplicada.
+    expect(sendCampaign).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -241,5 +261,34 @@ describe('BMP-8: cambio de campaña resetea el estado local del detalle (FIX-4)'
       expect(getCampaign).toHaveBeenCalledWith('camp-2', expect.objectContaining({ includeRecipients: true })),
     );
     expect(getCampaign).not.toHaveBeenCalledWith('camp-2', expect.objectContaining({ status: 'failed' }));
+  });
+});
+
+describe('BMP-10: tab-gating detiene el poll del historial/detalle oculto (Fix Wave MEDIUM-2)', () => {
+  it('con mountMode="all", cambiar a "Nueva campaña" apaga el poll del CampaignDetail que queda montado detrás', async () => {
+    vi.mocked(getCampaign).mockResolvedValue({
+      campaign: CAMPAIGN_DTO, // status: 'pending' (30s de poll cuando active)
+      recipients: { data: [], total: 0, page: 1, limit: 20 },
+    });
+    const user = userEvent.setup();
+    renderPage(['/admin/whatsapp/bulk?campaign=camp-1']);
+
+    // arranca en "Historial" (hay ?campaign=), CampaignDetail visible y activo
+    await screen.findByRole('button', { name: /volver al historial/i });
+    expect(screen.getByRole('tab', { name: 'Historial' })).toHaveAttribute('aria-selected', 'true');
+
+    // el operador cambia a "Nueva campaña" — CampaignDetail sigue MONTADO
+    // (mountMode="all") pero ya no es el tab activo
+    await user.click(screen.getByRole('tab', { name: 'Nueva campaña' }));
+    await waitFor(() => expect(getCampaign).toHaveBeenCalled());
+    const callsAtTabSwitch = vi.mocked(getCampaign).mock.calls.length;
+
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+
+    // sin el gate, "pending" pollea a los 30s — con el gate, cero llamadas nuevas
+    expect(vi.mocked(getCampaign).mock.calls.length).toBe(callsAtTabSwitch);
   });
 });

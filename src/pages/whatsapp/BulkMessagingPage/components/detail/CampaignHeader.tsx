@@ -5,6 +5,8 @@ import styles from './CampaignHeader.module.css';
 
 interface CampaignHeaderProps {
   campaignId: string;
+  /** Fix Wave (MEDIUM-2) — propagado a `useCampaign`; gatea el poll cuando el tab "Historial" no está activo. Default `true`. */
+  active?: boolean;
 }
 
 /**
@@ -21,8 +23,8 @@ interface CampaignHeaderProps {
  *     de progreso (`role="status" aria-live="polite"`, HIST-2) — % sobre
  *     `total` de `sent+failed+skipped+optedOut` (blindado contra total=0).
  */
-export function CampaignHeader({ campaignId }: CampaignHeaderProps) {
-  const { data, isLoading, isError } = useCampaign(campaignId);
+export function CampaignHeader({ campaignId, active = true }: CampaignHeaderProps) {
+  const { data, isLoading, isError } = useCampaign(campaignId, {}, active);
 
   if (isLoading) {
     return (

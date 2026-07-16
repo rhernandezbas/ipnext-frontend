@@ -31,3 +31,36 @@
   color: var(--badge-paid-fg);
   background: var(--badge-paid-bg);
 }
+
+/* Scope adicional (root cause crear≠enviar) — banner "todavía no se envió"
+   en pending. Tono neutro/informativo (NO "al día", NO error) — MISMO par
+   gray-100/gray-700 que ya usa el pill "pendiente" de esta feature
+   (`CampaignStatusPill.module.css` .pending) y el fallback de estado de
+   `CreateCampaignConfirmModal.module.css` .statusFallback.
+   gray-700 (#495057) sobre gray-100 (#f1f3f5) ≈ 8.9:1. */
+.pendingBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  color: var(--color-gray-700);
+  background: var(--color-gray-100);
+}
+
+.pendingIcon {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: currentColor;
+}
+
+.pendingText {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.pendingText strong {
+  font-weight: var(--font-weight-semibold);
+}

@@ -558,6 +558,110 @@ describe('MBH-5: useCampaign(id)', () => {
     });
     expect(getCampaign).toHaveBeenCalledTimes(1);
   });
+
+  // MEDIUM-2 (Fix Wave, review adversarial) — `active` (3er parámetro,
+  // default `true`) gatea el poll independientemente de `useDocumentVisible`:
+  // con `Tabs mountMode="all"` el detalle sigue MONTADO detrás de "Nueva
+  // campaña" (pestaña del BROWSER visible, pero el TAB de la page no está
+  // activo) — sin este gate seguía pollenado cada 30s/5s en segundo plano.
+  it('status "running" + pestaña visible pero active:false (tab no activo) → NO refetchea', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(getCampaign).mockResolvedValue({ campaign: makeCampaignDto({ status: 'running' }) });
+    vi.mocked(useDocumentVisible).mockReturnValue(true);
+    const { wrapper } = makeWrapper();
+
+    renderHook(() => useCampaign('camp-1', {}, false), { wrapper });
+    await vi.waitFor(() => expect(getCampaign).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(getCampaign).toHaveBeenCalledTimes(1);
+  });
+
+  it('status "pending" + pestaña visible pero active:false → NO refetchea a los 30s', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(getCampaign).mockResolvedValue({ campaign: makeCampaignDto({ status: 'pending' }) });
+    vi.mocked(useDocumentVisible).mockReturnValue(true);
+    const { wrapper } = makeWrapper();
+
+    renderHook(() => useCampaign('camp-1', {}, false), { wrapper });
+    await vi.waitFor(() => expect(getCampaign).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(getCampaign).toHaveBeenCalledTimes(1);
+  });
+
+  it('active:true (default) explícito se comporta igual que omitirlo — refetchea a los 5s en running', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(getCampaign).mockResolvedValue({ campaign: makeCampaignDto({ status: 'running' }) });
+    vi.mocked(useDocumentVisible).mockReturnValue(true);
+    const { wrapper } = makeWrapper();
+
+    renderHook(() => useCampaign('camp-1', {}, true), { wrapper });
+    await vi.waitFor(() => expect(getCampaign).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(getCampaign).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('MBH-10: useCampaign con includeRecipients (variante PESADA, MEDIUM-3 Fix Wave)', () => {
+  // MEDIUM-3 (Fix Wave, review adversarial) — la variante con
+  // `includeRecipients:true` (usada por `RecipientsTable`) es el payload
+  // PESADO. Los recipients de una campaña `pending`/`paused` son INMUTABLES
+  // (todavía no arrancó/está pausado el envío) — pollearlos cada 30s es
+  // desperdicio; la key LIVIANA del header (`CampaignHeader`, sin
+  // `includeRecipients`) ya detecta la transición a `running` con SU propio
+  // poll de 30s, momento en el que la variante pesada arranca su poll de 5s.
+  it('status "pending" + includeRecipients:true + visible → NO refetchea a los 30s (payload pesado inmutable)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(getCampaign).mockResolvedValue({ campaign: makeCampaignDto({ status: 'pending' }) });
+    vi.mocked(useDocumentVisible).mockReturnValue(true);
+    const { wrapper } = makeWrapper();
+
+    renderHook(() => useCampaign('camp-1', { includeRecipients: true }), { wrapper });
+    await vi.waitFor(() => expect(getCampaign).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(getCampaign).toHaveBeenCalledTimes(1);
+  });
+
+  it('status "paused" + includeRecipients:true + visible → NO refetchea a los 30s', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(getCampaign).mockResolvedValue({ campaign: makeCampaignDto({ status: 'paused' }) });
+    vi.mocked(useDocumentVisible).mockReturnValue(true);
+    const { wrapper } = makeWrapper();
+
+    renderHook(() => useCampaign('camp-1', { includeRecipients: true }), { wrapper });
+    await vi.waitFor(() => expect(getCampaign).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(getCampaign).toHaveBeenCalledTimes(1);
+  });
+
+  it('status "running" + includeRecipients:true + visible → SÍ refetchea a los 5s (progreso en vivo)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(getCampaign).mockResolvedValue({ campaign: makeCampaignDto({ status: 'running' }) });
+    vi.mocked(useDocumentVisible).mockReturnValue(true);
+    const { wrapper } = makeWrapper();
+
+    renderHook(() => useCampaign('camp-1', { includeRecipients: true }), { wrapper });
+    await vi.waitFor(() => expect(getCampaign).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(getCampaign).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('MBH-9: campaignPollInterval (pura, bulk-detail-polling-fe Change A)', () => {
@@ -590,6 +694,31 @@ describe('MBH-9: campaignPollInterval (pura, bulk-detail-polling-fe Change A)', 
   it('status undefined (sin data todavía) + visible → false', () => {
     expect(campaignPollInterval(undefined, true)).toBe(false);
   });
+
+  // MEDIUM-3 (Fix Wave, review adversarial) — 3er parámetro `{ heavy }`:
+  // la variante PESADA (`includeRecipients:true`) solo pollea en `running`;
+  // en `pending`/`paused` (recipients inmutables todavía) NO pollea, a
+  // diferencia de la variante liviana que sí pollea esos dos estados a 30s.
+  it('heavy:true + "running" + visible → 5_000 (igual que la variante liviana)', () => {
+    expect(campaignPollInterval('running', true, { heavy: true })).toBe(5_000);
+  });
+
+  it('heavy:true + "pending" + visible → false (payload pesado inmutable, NO pollea)', () => {
+    expect(campaignPollInterval('pending', true, { heavy: true })).toBe(false);
+  });
+
+  it('heavy:true + "paused" + visible → false', () => {
+    expect(campaignPollInterval('paused', true, { heavy: true })).toBe(false);
+  });
+
+  it('heavy:true + pestaña no visible → false', () => {
+    expect(campaignPollInterval('running', false, { heavy: true })).toBe(false);
+  });
+
+  it('heavy omitido (default) se comporta igual que heavy:false — "pending" + visible → 30_000', () => {
+    expect(campaignPollInterval('pending', true, {})).toBe(30_000);
+    expect(campaignPollInterval('pending', true, { heavy: false })).toBe(30_000);
+  });
 });
 
 describe('MBH-6: useCampaigns(query)', () => {
@@ -606,10 +735,14 @@ describe('MBH-6: useCampaigns(query)', () => {
     expect(qc.getQueryData(bulkCampaignsKey(query))).toEqual(CAMPAIGNS_PAGE);
   });
 
-  // bulk-detail-polling-fe (Change A) — el historial también refleja avance
-  // sin F5: pollea cada 30s, gateado por `useDocumentVisible` (mismo criterio
-  // que `useCampaign`).
-  it('pestaña visible → pollea cada 30s', async () => {
+  // HIGH-1 (Fix Wave, review adversarial) — el polling es OPT-IN vía el 3er
+  // parámetro (`poll`, default `false`). Antes `refetchInterval: visible ?
+  // 30_000 : false` estaba SIEMPRE activo en el hook compartido: cualquier
+  // caller (ej. `WhatsappInboxPage` pidiendo el catálogo para un dropdown)
+  // heredaba el poll de 30s sin pedirlo — ~2880 req/día extra por agente con
+  // el inbox abierto. Ahora SOLO pollea si el caller pasa `poll:true`
+  // explícitamente (lo hace `CampaignsTable`, ver `CampaignsTable.test.tsx`).
+  it('sin poll (default) → NO pollea aunque la pestaña esté visible y pase el tiempo', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.mocked(listCampaigns).mockResolvedValue(CAMPAIGNS_PAGE);
     vi.mocked(useDocumentVisible).mockReturnValue(true);
@@ -621,16 +754,31 @@ describe('MBH-6: useCampaigns(query)', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(30_000);
     });
+    expect(listCampaigns).toHaveBeenCalledTimes(1);
+  });
+
+  it('poll:true + pestaña visible → pollea cada 30s', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(listCampaigns).mockResolvedValue(CAMPAIGNS_PAGE);
+    vi.mocked(useDocumentVisible).mockReturnValue(true);
+    const { wrapper } = makeWrapper();
+
+    renderHook(() => useCampaigns({}, true, true), { wrapper });
+    await vi.waitFor(() => expect(listCampaigns).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
     expect(listCampaigns).toHaveBeenCalledTimes(2);
   });
 
-  it('pestaña OCULTA → NO pollea (gate useDocumentVisible)', async () => {
+  it('poll:true + pestaña OCULTA → NO pollea (gate useDocumentVisible)', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.mocked(listCampaigns).mockResolvedValue(CAMPAIGNS_PAGE);
     vi.mocked(useDocumentVisible).mockReturnValue(false);
     const { wrapper } = makeWrapper();
 
-    renderHook(() => useCampaigns({}), { wrapper });
+    renderHook(() => useCampaigns({}, true, true), { wrapper });
     await vi.waitFor(() => expect(listCampaigns).toHaveBeenCalledTimes(1));
 
     await act(async () => {

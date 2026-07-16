@@ -18,7 +18,17 @@ type BulkMessagingTabId = 'new' | 'history';
  * `Tabs` usa `mountMode="all"` (default) — AMBOS tabs se montan siempre
  * (solo se oculta con CSS), así que `CampaignsTable`/`CampaignDetail`
  * fetchean apenas se monta la página, sin esperar el click en "Historial"
- * — mismo comportamiento ya establecido para `CampaignComposer` (BMP-4).
+ * — mismo comportamiento ya establecido para `CampaignComposer` (BMP-4). El
+ * fetch on-mount inicial NO cambia con el Fix Wave de abajo.
+ *
+ * MEDIUM-2 (Fix Wave, review adversarial) — con `mountMode="all"`,
+ * `CampaignsTable`/`CampaignDetail` quedan MONTADOS incluso cuando el tab
+ * activo es "Nueva campaña" — sin gating, seguían polleando cada 30s/5s en
+ * segundo plano detrás de un tab que el operador ni está mirando. Se les
+ * propaga `active={activeTab === 'history'}`: ambos combinan ese flag con
+ * `useDocumentVisible` en el gate del poll (`useCampaigns`/`useCampaign`,
+ * `src/hooks/useBulkMessaging.ts`) — el fetch inicial al montar sigue
+ * ocurriendo igual, solo el POLLING se apaga mientras el tab no está activo.
  *
  * El tab inicial se deriva del `?campaign=<id>` de la URL: si al MONTAR ya
  * hay un id (reload/bookmark de un detalle, o llegada desde otra vista), el
@@ -30,6 +40,8 @@ export default function BulkMessagingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const campaignId = searchParams.get('campaign');
   const [activeTab, setActiveTab] = useState<BulkMessagingTabId>(campaignId ? 'history' : 'new');
+  // MEDIUM-2 (Fix Wave) — gate de poll compartido por CampaignsTable/CampaignDetail.
+  const isHistoryActive = activeTab === 'history';
 
   function handleCampaignCreated(newCampaignId: string) {
     setSearchParams({ campaign: newCampaignId });
@@ -58,9 +70,14 @@ export default function BulkMessagingPage() {
         // ?campaign= (sin remount), RecipientsTable conservaba page/statusFilter
         // de la anterior (lección `inbox-key-por-conversacion`). El key fuerza el
         // reset del estado local del detalle al cambiar de campaña.
-        <CampaignDetail key={campaignId} campaignId={campaignId} onBack={handleBackToHistory} />
+        <CampaignDetail
+          key={campaignId}
+          campaignId={campaignId}
+          onBack={handleBackToHistory}
+          active={isHistoryActive}
+        />
       ) : (
-        <CampaignsTable onViewDetail={handleViewDetail} />
+        <CampaignsTable onViewDetail={handleViewDetail} active={isHistoryActive} />
       ),
     },
   ];
