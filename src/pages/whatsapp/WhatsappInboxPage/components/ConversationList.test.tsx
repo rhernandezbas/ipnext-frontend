@@ -7,7 +7,7 @@
  * `useWhatsappConversations`); dueño SOLO del filtro de búsqueda local (UI
  * state, no hay `search` en el contrato del BE — design §3).
  */
-import { render, screen, within, act } from '@testing-library/react';
+import { render, screen, within, act, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ConversationList } from './ConversationList';
@@ -331,6 +331,67 @@ describe('ConversationList — MOTION-1 (transición de salida)', () => {
       vi.advanceTimersByTime(300);
     });
     expect(screen.getByText('Beto')).toBeInTheDocument();
+  });
+
+  it('LOW 1.1 (review adversarial, fix wave) — reentrada instantánea (sin avanzar ningún timer): la fila re-agregada nunca se renderiza con data-exiting stale ni duplicada', () => {
+    vi.useFakeTimers();
+    const convs = [mk({ id: 'a', contactName: 'Ana', status: 'open' }), mk({ id: 'b', contactName: 'Beto', status: 'open' })];
+    const { rerender } = render(
+      <ConversationList conversations={convs} isLoading={false} selectedId={null} onSelect={vi.fn()} status="open" onStatusChange={vi.fn()} />,
+    );
+
+    const resolved = [mk({ id: 'a', contactName: 'Ana', status: 'open' }), mk({ id: 'b', contactName: 'Beto', status: 'resolved' })];
+    rerender(<ConversationList conversations={resolved} isLoading={false} selectedId={null} onSelect={vi.fn()} status="open" onStatusChange={vi.fn()} />);
+    expect(screen.getByText('Beto').closest('li')).toHaveAttribute('data-exiting', 'true');
+
+    // rollback/undo INMEDIATO — cero ms transcurridos entre el mark-exiting
+    // y la reentrada (ni un solo `act(() => vi.advanceTimersByTime(...))`
+    // de por medio): el caso más agresivo de "volver a visible dentro de
+    // los 220ms" (LOW 1.1). La limpieza de exitingId/timer/ghost tiene que
+    // quedar sincronizada con la reentrada en el bucket, no depender de que
+    // el efecto de limpieza ya haya corrido.
+    rerender(<ConversationList conversations={convs} isLoading={false} selectedId={null} onSelect={vi.fn()} status="open" onStatusChange={vi.fn()} />);
+
+    // La derivación de `exiting` ahora sale de la membresía real en
+    // `visible` (recalculada del lado del RENDER, a partir de las props
+    // actuales) en vez de depender de `exitingIds` (estado que puede quedar
+    // stale un render) — la fila NUNCA debe cargar `data-exiting` mientras
+    // genuinamente forma parte del bucket activo, y debe aparecer UNA sola
+    // vez (no un duplicado real+ghost, que delataría que el mismo id quedó
+    // registrado dos veces en `rows`).
+    const rows = screen.getAllByText('Beto');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.closest('li')).not.toHaveAttribute('data-exiting');
+  });
+});
+
+describe('ConversationList — LOW 4.2 (review adversarial, fix wave): empty-de-búsqueda no coexiste con un ghost animando', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('si la búsqueda filtra todo pero hay un ghost saliendo, se muestra el ghost SIN el empty-state de búsqueda', () => {
+    vi.useFakeTimers();
+    const convs = [mk({ id: 'a', contactName: 'Ana', status: 'open' }), mk({ id: 'b', contactName: 'Beto', status: 'open' })];
+    const { rerender } = render(
+      <ConversationList conversations={convs} isLoading={false} selectedId={null} onSelect={vi.fn()} status="open" onStatusChange={vi.fn()} />,
+    );
+
+    // Beto sale del bucket (resolver optimista) — queda "ghost" animando su
+    // salida (todavía dentro de los 220ms de EXIT_DURATION_MS).
+    const resolved = [mk({ id: 'a', contactName: 'Ana', status: 'open' }), mk({ id: 'b', contactName: 'Beto', status: 'resolved' })];
+    rerender(<ConversationList conversations={resolved} isLoading={false} selectedId={null} onSelect={vi.fn()} status="open" onStatusChange={vi.fn()} />);
+    expect(screen.getByText('Beto').closest('li')).toHaveAttribute('data-exiting', 'true');
+
+    // el agente busca algo que NO matchea a Ana (la única fila REAL del
+    // bucket activo) — el ghost de Beto (que ignora el filtro de búsqueda a
+    // propósito, no se lo puede "buscar afuera" mid-animación) sigue
+    // montado. Antes del fix, el empty-state de búsqueda ("No se
+    // encontraron…") se mostraba IGUAL, superpuesto con la fila ghost.
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'zzz-no-existe' } });
+
+    expect(screen.getByText('Beto')).toBeInTheDocument();
+    expect(screen.queryByText(/no se encontraron conversaciones/i)).toBeNull();
   });
 });
 

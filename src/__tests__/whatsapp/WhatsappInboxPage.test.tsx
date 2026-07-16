@@ -726,8 +726,51 @@ describe('WhatsappInboxPage — inbox-resolve (UNDO-1): resolver directo + toast
     await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
     await user.click(screen.getByRole('button', { name: /^resolver/i }));
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/resuelta/i);
+    expect(screen.getByText('Conversación resuelta')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /deshacer/i })).toBeInTheDocument();
+  });
+
+  it('MEDIUM 5.1 (review adversarial, fix wave) — el toast de undo usa role="status" + aria-live="polite" (no interrumpe un éxito rutinario)', async () => {
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus: vi.fn(),
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup();
+    const { container } = renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: /^resolver/i }));
+
+    // `getByRole('status', {name})` no sirve acá: el role="status" NO admite
+    // "name from content" (accname spec) y, además, `Composer` YA monta su
+    // propio `role="status"` sr-only (anuncia el modo Responder/Nota) apenas
+    // hay conversación seleccionada — escopeamos por `data-kind` (atributo
+    // que YA distingue error/undo en la implementación) en vez de pelear
+    // con el cómputo de accessible name.
+    const toast = container.querySelector('[data-kind="undo"]');
+    expect(toast).not.toBeNull();
+    expect(toast).toHaveAttribute('role', 'status');
+    expect(toast).toHaveAttribute('aria-live', 'polite');
+  });
+
+  it('MEDIUM 5.1 (review adversarial, fix wave) — el foco se mueve al botón "Deshacer" al aparecer el toast (teclado/lector puede accionarlo sin tabular toda la página)', async () => {
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus: vi.fn(),
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: /^resolver/i }));
+
+    expect(screen.getByRole('button', { name: /deshacer/i })).toHaveFocus();
   });
 
   it('reabrir (next="open") NO muestra el toast de Deshacer (UNDO-1 es solo para resolver)', async () => {
@@ -739,12 +782,17 @@ describe('WhatsappInboxPage — inbox-resolve (UNDO-1): resolver directo + toast
       error: null,
     } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
     const user = userEvent.setup();
-    renderPage();
+    const { container } = renderPage();
 
     await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
     await user.click(screen.getByRole('button', { name: /reabrir/i }));
 
     expect(screen.queryByRole('alert')).toBeNull();
+    // `container.querySelector` (no `getByRole('status')`): `Composer` ya
+    // monta su propio `role="status"` sr-only (anuncia el modo
+    // Responder/Nota) — sin escopear por `data-kind`, este chequeo sería
+    // ajeno al toast de undo.
+    expect(container.querySelector('[data-kind="undo"]')).toBeNull();
   });
 
   it('click en "Deshacer" despacha setStatus("open") para el convId capturado al resolver', async () => {
@@ -769,7 +817,78 @@ describe('WhatsappInboxPage — inbox-resolve (UNDO-1): resolver directo + toast
     expect(screen.queryByRole('button', { name: /deshacer/i })).toBeNull();
   });
 
+  it('MEDIUM 5.1 (review adversarial, fix wave) — al hacer click en "Deshacer", el foco vuelve al elemento que lo tenía antes (no queda huérfano tras desmontarse el botón)', async () => {
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus: vi.fn(),
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    const resolverButton = screen.getByRole('button', { name: /^resolver/i });
+    await user.click(resolverButton);
+    const undoButton = screen.getByRole('button', { name: /deshacer/i });
+    expect(undoButton).toHaveFocus();
+
+    await user.click(undoButton);
+
+    expect(resolverButton).toHaveFocus();
+  });
+
   it('el toast de Deshacer expira a los ~5s sin dejar timer colgado', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus: vi.fn(),
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const { container } = renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: /^resolver/i }));
+    expect(screen.getByRole('button', { name: /deshacer/i })).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(screen.queryByRole('button', { name: /deshacer/i })).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(container.querySelector('[data-kind="undo"]')).toBeNull();
+  });
+
+  it('MEDIUM 5.1 (review adversarial, fix wave) — al expirar el toast de undo (5s), el foco se restaura al elemento que lo tenía antes', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus: vi.fn(),
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    const resolverButton = screen.getByRole('button', { name: /^resolver/i });
+    await user.click(resolverButton);
+    expect(screen.getByRole('button', { name: /deshacer/i })).toHaveFocus();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(resolverButton).toHaveFocus();
+  });
+
+  it('MEDIUM 5.1 (review adversarial, fix wave) — NO le roba el foco al agente si ya lo movió a otro elemento (ej. empezó a tipear en el Composer) antes de que el toast expire', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
     vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
@@ -783,14 +902,17 @@ describe('WhatsappInboxPage — inbox-resolve (UNDO-1): resolver directo + toast
 
     await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
     await user.click(screen.getByRole('button', { name: /^resolver/i }));
-    expect(screen.getByRole('button', { name: /deshacer/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /deshacer/i })).toHaveFocus();
+
+    const textarea = screen.getByRole('textbox', { name: /mensaje/i });
+    await user.click(textarea);
+    expect(textarea).toHaveFocus();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5000);
     });
 
-    expect(screen.queryByRole('button', { name: /deshacer/i })).toBeNull();
-    expect(screen.queryByRole('alert')).toBeNull();
+    expect(textarea).toHaveFocus();
   });
 
   it('el toast de Deshacer se descarta al cambiar de conversación (misma disciplina que el toast de error — inbox-key-por-conversacion)', async () => {
@@ -802,7 +924,7 @@ describe('WhatsappInboxPage — inbox-resolve (UNDO-1): resolver directo + toast
       error: null,
     } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
     const user = userEvent.setup();
-    renderPage();
+    const { container } = renderPage();
 
     await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
     await user.click(screen.getByRole('button', { name: /^resolver/i }));
@@ -812,6 +934,7 @@ describe('WhatsappInboxPage — inbox-resolve (UNDO-1): resolver directo + toast
 
     expect(screen.queryByRole('button', { name: /deshacer/i })).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
+    expect(container.querySelector('[data-kind="undo"]')).toBeNull();
   });
 
   it('si el POST de resolver falla (async, simulando latencia real), el toast de ERROR reemplaza al de Deshacer (prioridad, UNDO-1)', async () => {
@@ -827,7 +950,7 @@ describe('WhatsappInboxPage — inbox-resolve (UNDO-1): resolver directo + toast
       error: null,
     } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
     const user = userEvent.setup();
-    renderPage();
+    const { container } = renderPage();
 
     await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
     await user.click(screen.getByRole('button', { name: /^resolver/i }));
@@ -840,7 +963,33 @@ describe('WhatsappInboxPage — inbox-resolve (UNDO-1): resolver directo + toast
     });
 
     expect(screen.getByRole('alert')).toHaveTextContent(/no se pudo/i);
+    expect(container.querySelector('[data-kind="undo"]')).toBeNull();
     expect(screen.queryByRole('button', { name: /deshacer/i })).toBeNull();
+  });
+
+  // MEDIUM #3 (review adversarial F1.5-C, ya cubierto arriba en el describe
+  // dedicado) confirma que el toast de ERROR mantiene role="alert" +
+  // aria-live="assertive" — acá se agrega el chequeo explícito de
+  // aria-live, que ese test original no verificaba (MEDIUM 5.1, fix wave).
+  it('MEDIUM 5.1 (review adversarial, fix wave) — el toast de ERROR mantiene role="alert" + aria-live="assertive" (SÍ debe interrumpir)', async () => {
+    const setStatus = vi.fn((_next: string, opts?: { onError?: (err: unknown) => void }) => {
+      opts?.onError?.(new Error('503 chatwoot caído'));
+    });
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: /^resolver/i }));
+
+    const toast = screen.getByRole('alert');
+    expect(toast).toHaveAttribute('aria-live', 'assertive');
   });
 });
 

@@ -212,6 +212,32 @@ export default function WhatsappInboxPage() {
   const [inboxToast, setInboxToast] = useState<InboxToast | null>(null);
   const inboxToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /**
+   * MEDIUM 5.1 (review adversarial, fix wave) — el toast de undo tiene un
+   * control ACCIONABLE ("Deshacer") dentro de un contenedor que antes era
+   * `role="alert"`/`aria-live="assertive"`: eso interrumpía la lectura de
+   * pantalla para un ÉXITO RUTINARIO (correcto solo para el toast de ERROR,
+   * que sigue siendo `alert`/`assertive` más abajo) y, más grave, el botón
+   * era efectivamente mouse-only — nada movía el foco ni para teclado ni
+   * para lector de pantalla, así que "Deshacer" quedaba inalcanzable sin
+   * tabular manualmente toda la página dentro de los 5s de vida del toast.
+   *
+   * `undoButtonRef` — el botón "Deshacer" en sí (destino del foco al
+   * aparecer). `previousFocusRef` — el elemento que tenía el foco ANTES de
+   * mostrarse el toast (típicamente el botón "Resolver" que lo disparó),
+   * destino de la restauración al cerrarse. `undoButtonHasFocusRef` — NO se
+   * puede chequear `document.activeElement === undoButtonRef.current`
+   * DENTRO del cleanup del efecto de abajo: para cuando ese cleanup corre,
+   * React ya desmontó el botón (limpió el ref a `null`) como parte del
+   * commit que le precede — comparar contra un ref ya nuleado nunca
+   * matchearía. Se trackea con `onFocus`/`onBlur` nativos en el propio
+   * botón, que sí sobreviven al unmount (mismo patrón que Radix/Reach UI
+   * para "restore focus on close").
+   */
+  const undoButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const undoButtonHasFocusRef = useRef(false);
+
   function dismissInboxToast() {
     setInboxToast(null);
     if (inboxToastTimer.current) {
@@ -239,6 +265,40 @@ export default function WhatsappInboxPage() {
     if (inboxToastTimer.current) clearTimeout(inboxToastTimer.current);
     inboxToastTimer.current = setTimeout(() => setInboxToast(null), UNDO_TOAST_DURATION_MS);
   }
+
+  /**
+   * MEDIUM 5.1 (review adversarial, fix wave) — foco management del toast de
+   * undo. Se dispara únicamente en la transición HACIA `kind:'undo'` (dep
+   * `[inboxToast]`, que solo cambia de referencia cuando `setInboxToast` se
+   * llama de nuevo — mostrar/descartar/reemplazar-por-error, nunca en un
+   * re-render espurio): captura qué tenía el foco justo antes (típicamente
+   * el botón "Resolver" que disparó el toast — el click todavía no movió el
+   * foco a esta altura) y lo mueve al botón "Deshacer", que recién se montó.
+   *
+   * Mover el foco acá es seguro/esperado (no "roba" foco de forma molesta):
+   * el ÚNICO disparador de `showUndoToast` es el click en el botón de
+   * header "Resolver" (`handleToggleStatus`) — el foco YA estaba en un
+   * botón del header, nunca en el Composer, así que no hay draft de
+   * mensaje que interrumpir. El moveimiento es UNA sola vez al aparecer, no
+   * se repite en cada render mientras el toast sigue montado.
+   *
+   * El cleanup restaura el foco SOLO si sigue estando en el botón "Deshacer"
+   * al momento de desmontarse (timeout de 5s / click en "Deshacer" / cambio
+   * de conversación) — si el agente ya lo movió a otro lado (ej. empezó a
+   * tipear en el Composer mientras el toast seguía visible), no se lo
+   * robamos de vuelta.
+   */
+  useEffect(() => {
+    if (inboxToast?.kind !== 'undo') return;
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    undoButtonRef.current?.focus();
+    return () => {
+      if (undoButtonHasFocusRef.current) {
+        previousFocusRef.current?.focus();
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mismo criterio que el resto de los efectos de este archivo (refs estables, no van en deps).
+  }, [inboxToast]);
 
   function handleToggleStatus(next: WhatsappConversationStatus) {
     // Capturado AL DISPATCH — nunca `selectedId` al momento del click en
@@ -455,15 +515,36 @@ export default function WhatsappInboxPage() {
           TicketsTableView/RecaptacionPage/SchedulingTaskDetailPage — no hay
           un ToastContext/useToast global en el repo). Cubre status/assignee/
           area (kind:'error') y UNDO-1 (kind:'undo', inbox-resolve) — ver
-          `inboxToast` arriba. */}
+          `inboxToast` arriba.
+
+          MEDIUM 5.1 (review adversarial, fix wave) — role/aria-live AHORA
+          dependen del `kind`: el toast de ERROR sigue siendo
+          `role="alert"`/`aria-live="assertive"` (correcto — debe interrumpir,
+          es una falla real). El de UNDO pasa a `role="status"`/
+          `aria-live="polite"` (éxito RUTINARIO — no debe interrumpir la
+          lectura de pantalla); el control accionable ("Deshacer") se vuelve
+          alcanzable vía foco programático (ver el efecto de arriba), no vía
+          `aria-live="assertive"`. */}
       {inboxToast && (
-        <div className={styles.statusToast} data-kind={inboxToast.kind} role="alert" aria-live="assertive">
+        <div
+          className={styles.statusToast}
+          data-kind={inboxToast.kind}
+          role={inboxToast.kind === 'error' ? 'alert' : 'status'}
+          aria-live={inboxToast.kind === 'error' ? 'assertive' : 'polite'}
+        >
           <span>{inboxToast.message}</span>
           {inboxToast.kind === 'undo' && (
             <button
+              ref={undoButtonRef}
               type="button"
               className={styles.toastAction}
               onClick={() => handleUndoResolve(inboxToast.convId)}
+              onFocus={() => {
+                undoButtonHasFocusRef.current = true;
+              }}
+              onBlur={() => {
+                undoButtonHasFocusRef.current = false;
+              }}
             >
               Deshacer
             </button>

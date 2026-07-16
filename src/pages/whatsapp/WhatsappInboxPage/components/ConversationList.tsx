@@ -234,12 +234,36 @@ export function ConversationList({
     };
   }, []);
 
+  /**
+   * LOW 1.1 (review adversarial, fix wave) — `visibleIds` es la fuente de
+   * verdad SINCRÓNICA de "esta fila está genuinamente en el bucket activo
+   * AHORA" (deriva de `visible`, que a su vez sale de `bucketed`/`search` vía
+   * `useMemo` sobre las props del render actual — nunca queda un render
+   * atrás). Antes, el prop `exiting` de cada fila salía directo de
+   * `exitingIds.has(id)` (estado React) — cuando un id volvía al bucket
+   * (rollback del patch optimista, o UNDO-1 reabriendo), `exitingIds` seguía
+   * cargando ese id durante EL RENDER que la reincorpora (recién se limpia un
+   * render después, en el `useEffect` de abajo) — ese frame intermedio pinta
+   * la fila YA REAL con `data-exiting="true"` (dispara el keyframe de colapso
+   * sobre un elemento que sigue siendo el mismo `<li>`, montado
+   * continuamente) y el efecto lo corrige un instante después con un
+   * snap-back abrupto (sin transición de vuelta — colapso ~30% + snap,
+   * reportado en el review). Derivar `exiting` de `!visibleIds.has(id)` en
+   * vez de `exitingIds.has(id)` elimina la dependencia de timing por
+   * completo: una fila que YA está en `visible` (per las props actuales)
+   * jamás se marca `exiting`, sin importar qué tan stale esté todavía
+   * `exitingIds`/`ghostsRef` (esos siguen existiendo para la limpieza
+   * asincrónica de bookkeeping — timers/refs — que ya no es responsable de
+   * la corrección VISUAL).
+   */
+  const visibleIds = useMemo(() => new Set(visible.map((c) => c.id)), [visible]);
+
   const rows = useMemo(() => {
     const ghostItems = Array.from(exitingIds)
       .map((id) => ghostsRef.current.get(id))
-      .filter((c): c is WhatsappConversationListItem => !!c && !visible.some((v) => v.id === c.id));
+      .filter((c): c is WhatsappConversationListItem => !!c && !visibleIds.has(c.id));
     return [...visible, ...ghostItems].sort((a, b) => timeValue(b.lastMessageAt) - timeValue(a.lastMessageAt));
-  }, [visible, exitingIds]);
+  }, [visible, visibleIds, exitingIds]);
 
   return (
     <div className={styles.panel}>
@@ -295,7 +319,15 @@ export function ConversationList({
         </p>
       )}
 
-      {!isLoading && !isError && bucketed.length > 0 && visible.length === 0 && (
+      {/* LOW 4.2 (review adversarial, fix wave) — antes esta condición chequeaba
+          `visible.length === 0`: si la búsqueda filtraba todo pero había un
+          ghost MOTION-1 todavía animando su salida, `rows` seguía teniendo ese
+          ghost (bypassea el filtro de búsqueda a propósito — ver comentario de
+          `rows` de abajo) y el bloque de acá abajo (`rows.length > 0`) TAMBIÉN
+          renderizaba, mostrando el empty-state de búsqueda superpuesto con la
+          fila fantasma. Chequear `rows.length === 0` (que incluye ghosts)
+          hace que este mensaje y la lista sean mutuamente excluyentes. */}
+      {!isLoading && !isError && bucketed.length > 0 && rows.length === 0 && (
         <p className={styles.emptyState}>No se encontraron conversaciones para “{search}”.</p>
       )}
 
@@ -307,7 +339,7 @@ export function ConversationList({
               conversation={conv}
               selected={conv.id === selectedId}
               onClick={() => onSelect(conv.id)}
-              exiting={exitingIds.has(conv.id)}
+              exiting={!visibleIds.has(conv.id)}
             />
           ))}
         </ul>
