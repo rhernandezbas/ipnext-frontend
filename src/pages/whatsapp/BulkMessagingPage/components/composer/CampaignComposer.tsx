@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Can } from '@/components/auth/Can';
 import { Button } from '@/components/atoms/Button/Button';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
@@ -102,7 +102,14 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   // mismo N) no cambiaba el fingerprint → el preview debounceado no se
   // re-disparaba y `previewData.count`/`canCreate` quedaban STALE contra los
   // `csvContacts` FRESCOS que sí viajan en `handleCreate`.
-  const csvFingerprint = `${csvFileName ?? ''}:${JSON.stringify(csvContacts)}`;
+  // Memoizado: el JSON.stringify de hasta 5000 contactos corría en CADA render
+  // (cada keystroke del nombre de campaña) — inofensivo pero desperdiciado. Con
+  // useMemo se recomputa SOLO cuando cambia `csvContacts` (identidad estable
+  // entre cargas: solo `setCsvContacts` la reemplaza). Mismo string, cacheado.
+  const csvFingerprint = useMemo(
+    () => `${csvFileName ?? ''}:${JSON.stringify(csvContacts)}`,
+    [csvFileName, csvContacts],
+  );
 
   /** Input del preview/segmento: se OMITEN `manualClientIds`/`manualContacts` cuando están vacíos (cero cambio en el payload del flujo por-segmento). */
   function buildRecipientsInput() {
