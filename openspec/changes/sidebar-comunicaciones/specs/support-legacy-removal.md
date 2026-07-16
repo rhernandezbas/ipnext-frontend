@@ -17,6 +17,10 @@
    mensaje" en `CustomerDetailPage` se redirige a `/admin/whatsapp`.
 7. El endpoint `/messages` del backend queda sin consumidores FE — dead code a limpiar en un change
    BE aparte (fuera del scope de este change).
+8. El botón "Enviar mensaje" en `CustomerDetailPage` requiere el permiso `messaging.read` (gateado
+   con `<Can>`, igual que "Bloquear cliente" con `clients.write` y "Eliminar cliente" con
+   `clients.delete`) — un usuario sin ese permiso no debe ver un botón que lo lleva a un dead-end de
+   permisos (review L1).
 
 ## Scenarios
 - Given el sidebar renderizado con cualquier permiso → no existe un botón/link con nombre accesible
@@ -27,6 +31,9 @@
   existe en `App.tsx`); cae en el catch-all.
 - Given el usuario abre el dropdown "Acciones" en `CustomerDetailPage` y clickea "Enviar mensaje" →
   navega a `/admin/whatsapp`, no a una ruta 404.
+- Given un usuario SIN `messaging.read` → el botón "Enviar mensaje" en el dropdown "Acciones" de
+  `CustomerDetailPage` NO se renderiza; el resto del dropdown ("Bloquear cliente", "Crear ticket",
+  "Eliminar cliente") sigue visible según sus propios gates.
 - Given
   `rg -n "admin/support|support\.read|SupportInboxPage|MassSendPage|MessengersPage|NewsPage|useMessages|messages\.api|useMessengers|useNews" src/`
   → CERO matches (limpieza total tras el segundo commit).

@@ -50,3 +50,23 @@
 ## Deuda registrada (fuera de scope FE)
 - **BE**: el API `/messages` del backend (`ipnext-backend`) queda como dead code sin ningún
   consumidor FE — limpiarlo en un change BE aparte.
+
+## Review fixes (adversarial review — sin CRITICAL/HIGH)
+
+- [x] **M1** — Faltaba el test del `navigate` del botón "Enviar mensaje" (la spec ya lo exigía en el
+      escenario de `support-legacy-removal.md` pero no había test). Agregado
+      `src/__tests__/customers/CustomerDetailPage.test.tsx` — "clicking 'Enviar mensaje' navigates to
+      /admin/whatsapp (review M1)", con mock de `useNavigate` (patrón `NoPermissionPage.test.tsx` /
+      `SchedulingProjectsPage.test.tsx`). TDD honrado: primero se aserto un destino falso
+      (`/admin/support/inbox`) para confirmar rojo, luego se corrigió al destino real
+      (`/admin/whatsapp`) — verde.
+- [x] **L1** — El botón "Enviar mensaje" no tenía gate de permiso (dead-end para usuarios sin
+      `messaging.read`, a diferencia de sus hermanos "Bloquear"/"Eliminar"). Rojo primero: test "hides
+      'Enviar mensaje' when the user lacks messaging.read (review L1)" con `useMyPermissions.can`
+      denegando solo `messaging.read` — falló porque el botón no estaba gateado. Fix:
+      `CustomerDetailPage.tsx` — envuelto en `<Can permission="messaging.read">`, igual patrón que
+      "Bloquear cliente" (`clients.write`) y "Eliminar cliente" (`clients.delete`). Verde.
+- [x] **L2** — Pineado el comportamiento post-borrado: `src/__tests__/routing/App.routing.test.tsx` —
+      agregado el caso `{ url: '/admin/messages', marker: '[PAGE:NotFound]' }` a `directCases`.
+- [x] Suites tocadas verdes (`CustomerDetailPage.test.tsx` 21/21, `App.routing.test.tsx` 101/101) +
+      `npx tsc --noEmit` sin errores.

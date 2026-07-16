@@ -256,12 +256,14 @@ export default function CustomerDetailPage() {
                     {isBlocked ? 'Desbloquear cliente' : 'Bloquear cliente'}
                   </button>
                 </Can>
-                <button
-                  className={styles.dropdownItem}
-                  onClick={() => { navigate('/admin/whatsapp'); setAccionesOpen(false); }}
-                >
-                  Enviar mensaje
-                </button>
+                <Can permission="messaging.read">
+                  <button
+                    className={styles.dropdownItem}
+                    onClick={() => { navigate('/admin/whatsapp'); setAccionesOpen(false); }}
+                  >
+                    Enviar mensaje
+                  </button>
+                </Can>
                 <button
                   className={styles.dropdownItem}
                   onClick={() => { navigate('/admin/tickets/new'); setAccionesOpen(false); }}

@@ -447,6 +447,9 @@ const directCases: Array<{ url: string; marker: string }> = [
   { url: '/admin/profile', marker: '[PAGE:Profile]' },
   // Not found
   { url: '/totally-unknown-path', marker: '[PAGE:NotFound]' },
+  // sidebar-comunicaciones — legacy /admin/messages redirect was removed along
+  // with the Support feature (review L2); pin the post-removal behavior.
+  { url: '/admin/messages', marker: '[PAGE:NotFound]' },
 ];
 
 // Redirect cases: navigating to `url` should land on `marker`

@@ -18,7 +18,14 @@ vi.mock('@/hooks/useServiceInventory', () => ({
   useClientInstalledItems: vi.fn(() => ({ data: [], isLoading: false })),
 }));
 
-import { useCan } from '@/hooks/useMyPermissions';
+// Mock useNavigate so "Enviar mensaje" navigation can be asserted (review M1).
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return { ...actual, useNavigate: () => mockNavigate };
+});
+
+import { useCan, useMyPermissions } from '@/hooks/useMyPermissions';
 import { mockMutation, mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 function makeQueryClient() {
@@ -267,5 +274,34 @@ describe('CustomerDetailPage', () => {
     const ticketsBtn = screen.getByRole('button', { name: /^Tickets \(\d+\)/ });
     await user.click(ticketsBtn);
     // Navigation is triggered; no error thrown = success
+  });
+
+  it('clicking "Enviar mensaje" navigates to /admin/whatsapp (review M1)', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+    await user.click(screen.getByRole('button', { name: /acciones/i }));
+    await user.click(screen.getByRole('button', { name: 'Enviar mensaje' }));
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/whatsapp');
+  });
+
+  it('hides "Enviar mensaje" when the user lacks messaging.read (review L1)', async () => {
+    const user = userEvent.setup();
+    vi.mocked(useMyPermissions).mockReturnValue({
+      user: null,
+      roles: [],
+      permissions: [],
+      isLoading: false,
+      isError: false,
+      can: (permission: string | string[]) => {
+        const perms = Array.isArray(permission) ? permission : [permission];
+        return !perms.includes('messaging.read');
+      },
+    });
+    renderDetail();
+    await user.click(screen.getByRole('button', { name: /acciones/i }));
+    expect(screen.queryByRole('button', { name: 'Enviar mensaje' })).not.toBeInTheDocument();
+    // The rest of the dropdown (ungated items) must still render.
+    expect(screen.getByRole('button', { name: 'Bloquear cliente' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Crear ticket' })).toBeInTheDocument();
   });
 });
