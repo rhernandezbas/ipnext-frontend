@@ -89,9 +89,13 @@
   font-weight: var(--font-weight-semibold);
 }
 
+/* HOTFIX bulk-dropdown-z — `to` en `transform: none` (no `translateY(0)`):
+   mismo criterio que `TemplateSelector.module.css` (ver comentario ahí —
+   root cause del solapamiento del dropdown de Template) — evita un stacking
+   context permanente retenido por `fill-mode: both`. */
 @keyframes bannerIn {
   from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

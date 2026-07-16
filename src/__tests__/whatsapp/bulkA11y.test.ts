@@ -133,3 +133,114 @@ describe('FIX-8c: ConfirmModal :focus-visible en cancel/confirm', () => {
     expect(css).toMatch(/\.(cancel|confirm)[^{]*:focus-visible/);
   });
 });
+
+/**
+ * HOTFIX bulk-dropdown-z (EN PROD, screenshot del usuario) — en
+ * `/admin/whatsapp/bulk`, al abrir el `Select` de Template el dropdown
+ * quedaba SUPERPUESTO con la card "Segmento de destinatarios": el título se
+ * dibujaba ENCIMA/entre las opciones abiertas.
+ *
+ * Causa raíz CONFIRMADA: el rediseño (b84869a9) le puso a cada card del
+ * composer una entrada `cardIn ... both` cuyo keyframe final deja
+ * `transform: translateY(0)` — con `fill-mode: both` ese valor NO se limpia
+ * al terminar la animación (a diferencia del fill-mode `none` default), así
+ * que la card queda con un `transform` != `none` PARA SIEMPRE. Cualquier
+ * `transform` != `none` crea un stacking context (CSS Position L3 §Creating
+ * a stacking context), aunque `position: relative` + `z-index: auto` por sí
+ * solos NO lo hacen. Con la card1 (TemplateSelector) atrapada en su propio
+ * stacking context permanente, el `z-index: 30` de su `.listbox` (Select) ya
+ * no compite al nivel de la raíz: se compara SOLO contra hermanos DENTRO de
+ * esa card. La card2 siguiente (SegmentBuilder), al no tener z-index propio
+ * pero SER un hermano posterior en el mismo stacking context padre, se
+ * pinta ENCIMA de la card1 completa (con su dropdown adentro) — de ahí el
+ * solapamiento reportado. Mismo bug, segunda instancia real confirmada:
+ * `ManualRecipientsPicker` envuelve a `CustomerPicker` (dropdown propio,
+ * `position: absolute; z-index: 20`, SIN portal) bajo la MISMA animación
+ * `cardIn ... both`.
+ *
+ * Fix (robusto, no parche puntual):
+ *  1) Todo keyframe de entrada de card con fill-mode `both` debe terminar en
+ *     `transform: none` (no `translateY(0)`) — visualmente IDÉNTICO en reposo
+ *     (translateY(0) y none son la misma matriz identidad), pero el valor
+ *     RETENIDO tras `both` ya no crea un stacking context permanente.
+ *  2) Cinturón y tirantes: la card que contiene un combobox propio (trigger
+ *     enfocable) sube su propia prioridad de apilado con
+ *     `:focus-within { position: relative; z-index: 1 }` — cubre el caso
+ *     "dropdown abierto DURANTE los ~220ms de la animación de entrada"
+ *     (un transform no-`none` en un frame intermedio TAMBIÉN crea stacking
+ *     context, fix #1 no alcanza a cubrir ese instante) y cualquier otro
+ *     stacking context que aparezca a futuro (ej. una lib nueva que agregue
+ *     `transform`/`filter`/`will-change` a la card).
+ */
+
+/** Extrae el bloque completo de un `@keyframes` por nombre, contando llaves
+ * anidadas (`from { … } to { … }`) — el `[^}]*` de `ruleTokens`/`readCss`
+ * de arriba NO alcanza acá porque el bloque tiene sub-reglas con sus propias
+ * llaves. */
+function keyframesBlock(relPath: string, name: string): string {
+  const css = readCss(relPath);
+  const marker = `@keyframes ${name}`;
+  const start = css.indexOf(marker);
+  expect(start, `@keyframes ${name} en ${relPath}`).toBeGreaterThanOrEqual(0);
+  const braceStart = css.indexOf('{', start);
+  let depth = 0;
+  let i = braceStart;
+  for (; i < css.length; i++) {
+    if (css[i] === '{') depth++;
+    else if (css[i] === '}') {
+      depth--;
+      if (depth === 0) {
+        i++;
+        break;
+      }
+    }
+  }
+  return css.slice(braceStart, i);
+}
+
+const MOLECULES = 'src/components/molecules';
+
+describe('HOTFIX bulk-dropdown-z: animation-fill-mode "both" nunca retiene un transform residual', () => {
+  // Cada archivo del rediseño del composer (+ ManualRecipientsPicker, molecule
+  // consumido EXCLUSIVAMENTE por el composer) que declara al menos una
+  // `animation: <keyframe> … both`.
+  const filesToScan = [
+    `${COMPOSER}/CampaignComposer.module.css`,
+    `${COMPOSER}/TemplateSelector.module.css`,
+    `${COMPOSER}/SegmentBuilder.module.css`,
+    `${COMPOSER}/VariablesMapForm.module.css`,
+    `${COMPOSER}/CsvRecipientsUploader.module.css`,
+    `${COMPOSER}/SegmentPreviewPanel.module.css`,
+    'src/pages/whatsapp/BulkMessagingPage/components/detail/CampaignDetail.module.css',
+    'src/pages/whatsapp/BulkMessagingPage/components/detail/SendCampaignButton.module.css',
+    `${MOLECULES}/ManualRecipientsPicker/ManualRecipientsPicker.module.css`,
+  ];
+
+  it.each(filesToScan)('%s', (relPath) => {
+    const css = readCss(relPath);
+    const usedWithBoth = [...css.matchAll(/animation:\s*([\w-]+)\s+[^;]*\bboth\b/g)].map((m) => m[1]);
+    expect(usedWithBoth.length, `esperaba >=1 "animation: … both" en ${relPath}`).toBeGreaterThan(0);
+
+    for (const name of new Set(usedWithBoth)) {
+      const block = keyframesBlock(relPath, name);
+      const toBlock = block.match(/(?:to|100%)\s*\{([^}]*)\}/)?.[1] ?? '';
+      if (/transform\s*:/.test(toBlock)) {
+        expect(toBlock, `@keyframes ${name} (${relPath}) — el estado final NO debe retener transform != none`).toMatch(
+          /transform:\s*none\s*;/,
+        );
+      }
+    }
+  });
+});
+
+describe('HOTFIX bulk-dropdown-z: :focus-within sube la prioridad de apilado de la card con combobox propio', () => {
+  it('TemplateSelector .section — contiene el Select de Template', () => {
+    const css = readCss(`${COMPOSER}/TemplateSelector.module.css`);
+    expect(css).toMatch(/\.section:focus-within\s*\{[^}]*z-index/);
+  });
+
+  it('ManualRecipientsPicker .wrap — contiene el CustomerPicker (dropdown propio, sin portal)', () => {
+    const css = readCss(`${MOLECULES}/ManualRecipientsPicker/ManualRecipientsPicker.module.css`);
+    expect(css).toMatch(/\.wrap:focus-within\s*\{[^}]*z-index/);
+  });
+});

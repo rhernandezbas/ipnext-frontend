@@ -20,6 +20,18 @@
   animation: cardIn 220ms var(--ease-out) both;
 }
 
+/* HOTFIX bulk-dropdown-z — mientras el `Select` de Template (adentro) tiene
+   el foco (trigger clickeado -> listbox abierto), esta card gana prioridad
+   de apilado explícita sobre la card siguiente del composer (SegmentBuilder,
+   hermano posterior sin z-index propio). Cinturón y tirantes: cubre el caso
+   "dropdown abierto DURANTE los ~220ms de `cardIn`" (un frame intermedio con
+   transform != none TAMBIÉN crea stacking context) y cualquier stacking
+   context futuro no relacionado con el fix del keyframe de abajo. */
+.section:focus-within {
+  position: relative;
+  z-index: 1;
+}
+
 .section::before {
   content: '';
   position: absolute;
@@ -99,14 +111,22 @@
   color: var(--color-gray-600);
 }
 
+/* HOTFIX bulk-dropdown-z — el `to` termina en `transform: none` (no
+   `translateY(0)`): con `fill-mode: both` el valor final queda RETENIDO para
+   siempre tras la animación, y cualquier transform != none crea un stacking
+   context PERMANENTE en `.section`/`.details`. Eso atrapaba el `z-index: 30`
+   del `Select` (Template) dentro del stacking context de esta card, sin
+   poder competir contra la card siguiente del composer (que la pintaba
+   encima). `none` es la misma matriz identidad que `translateY(0)` en
+   reposo — cero cambio visual, pero no deja stacking context colgado. */
 @keyframes cardIn {
   from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 
 @keyframes detailsIn {
   from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

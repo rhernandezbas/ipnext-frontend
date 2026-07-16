@@ -192,9 +192,16 @@
   outline-offset: 2px;
 }
 
+/* HOTFIX bulk-dropdown-z — `to` en `transform: none` (no `translateY(0)`):
+   con `fill-mode: both` el valor final queda retenido para siempre y
+   cualquier transform != none crea un stacking context permanente en
+   `.wrap`/`.error`/`.summary`. Mismo criterio que `TemplateSelector.module.css`
+   (ver comentario ahí — root cause del solapamiento del dropdown de
+   Template). `none` == misma matriz identidad que `translateY(0)` en
+   reposo, cero cambio visual. */
 @keyframes cardIn {
   from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 
 @keyframes summaryIn {
@@ -204,7 +211,7 @@
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 

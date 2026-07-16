@@ -41,9 +41,29 @@
   animation-delay: 100ms;
 }
 
+/* HOTFIX bulk-dropdown-z — mientras el `CustomerPicker` de adentro tiene el
+   foco (input de búsqueda enfocado -> su `.dropdown` propio, `position:
+   absolute; z-index: 20`, SIN portal, abierto), esta card gana prioridad de
+   apilado explícita sobre la card siguiente del composer (CsvRecipientsUploader,
+   hermano posterior sin z-index propio). Segunda instancia real del MISMO
+   bug que `TemplateSelector.module.css` (ver comentario ahí — root cause
+   confirmado con el Select de Template). Cinturón y tirantes: cubre el caso
+   "dropdown abierto DURANTE los ~220ms de `cardIn`" y cualquier stacking
+   context futuro no relacionado con el fix del keyframe de abajo. */
+.wrap:focus-within {
+  position: relative;
+  z-index: 1;
+}
+
+/* HOTFIX bulk-dropdown-z — `to` en `transform: none` (no `translateY(0)`):
+   con `fill-mode: both` el valor final queda retenido para siempre y
+   cualquier transform != none crea un stacking context permanente en
+   `.wrap`. Root cause del solapamiento (ver comentario largo arriba y en
+   `TemplateSelector.module.css`). `none` == misma matriz identidad que
+   `translateY(0)` en reposo, cero cambio visual. */
 @keyframes cardIn {
   from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 
 /* <legend> (FIX 7) — reset del padding-inline default del legend. */

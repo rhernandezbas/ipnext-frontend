@@ -113,9 +113,15 @@
   background: var(--badge-late-bg);
 }
 
+/* HOTFIX bulk-dropdown-z — `to` en `transform: none` (no `translateY(0)`):
+   mismo criterio que `TemplateSelector.module.css` (ver comentario ahí —
+   root cause del solapamiento del dropdown de Template). `.count` no aloja
+   ningún overlay, pero un transform != none retenido por `fill-mode: both`
+   igual crea un stacking context permanente en `.panel` (sticky en
+   desktop) sin ningún beneficio — se normaliza por consistencia/robustez. */
 @keyframes countIn {
   from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -119,19 +119,26 @@
   animation: toastIn 220ms var(--ease-out) both;
 }
 
+/* HOTFIX bulk-dropdown-z — los 3 `to` terminan en `transform: none` (no
+   `translateY(...)`/`scale(...)`): con `fill-mode: both` el valor final
+   queda retenido para siempre y cualquier transform != none crea un
+   stacking context permanente en `.preview`/`.serverError`/`.toast`. Mismo
+   criterio que `TemplateSelector.module.css` (ver comentario ahí — root
+   cause del solapamiento del dropdown de Template). `none` == misma matriz
+   identidad que el estado de reposo anterior, cero cambio visual. */
 @keyframes previewIn {
   from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 
 @keyframes noticeIn {
   from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 
 @keyframes toastIn {
   from { opacity: 0; transform: translateY(10px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
