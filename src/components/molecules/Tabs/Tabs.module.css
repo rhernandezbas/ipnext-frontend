@@ -10,6 +10,9 @@
 }
 
 .tab {
+  /* Touch target >=44px (rediseño bulk-elegant, WCAG 2.5.8) — beneficia a
+     TODOS los consumidores de Tabs, no solo al composer del bulk. */
+  min-height: var(--space-11);
   padding: 0.625rem 1.25rem;
   background: none;
   border: none;
@@ -21,6 +24,14 @@
   color: var(--color-text-secondary);
   white-space: nowrap;
   transition: color 0.15s, border-color 0.15s;
+}
+
+/* Anillo de foco para navegación por teclado (rediseño bulk-elegant) —
+   offset negativo para que no lo recorte el overflow del contenedor. */
+.tab:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
 }
 
 /* Compact: tighter padding + smaller type so a long tab strip (e.g. 7 tabs)

@@ -4,11 +4,12 @@
  * convención). Todo por tokens `var(--*)`.
  *
  * Contraste calculado (WCAG 2.1, AA texto ≥4.5:1):
- *  - .subtitle / .counter = --color-gray-600 (#495057) sobre el fondo REAL de la
- *    página (AdminLayout .content = --color-gray-50 #f8f9fa) → 7.76:1. OJO (fix
- *    wave FIX 1): --color-text-secondary (#6c757d) sobre ese mismo #f8f9fa da
- *    4.45:1 y FALLA el 4.5:1 (texto 12px). El comentario anterior afirmaba
- *    "sobre #ffffff → 4.84:1, pasa" — era FALSO: el fondo no es blanco.
+ *  - .subtitle / .counter = --color-gray-600 (#495057). Rediseño bulk-elegant:
+ *    ahora se apoyan en la card blanca del composer (--color-surface #ffffff)
+ *    → ~8.9:1. En el peor fondo del repo (--color-gray-50 #f8f9fa) daba
+ *    7.76:1 — pasa en ambos. OJO (fix wave FIX 1): --color-text-secondary
+ *    (#6c757d) da 4.45:1 sobre #f8f9fa y FALLA el 4.5:1 (texto 12px) — no
+ *    volver a ese token acá.
  *  - .chipName  = --color-text-primary (#212529) sobre chip bg --color-surface-hover
  *    (#f0f0f5) → muy alto.
  *  - .chipPhone = --color-gray-600 (#495057) sobre --color-surface-hover (#f0f0f5)
@@ -20,11 +21,13 @@
 /* FIX 7 — ahora es un <fieldset>: reset de sus defaults (border/margin/padding)
    para conservar exactamente el mismo layout que tenía como <section>.
  *
- * Rediseño (bulk-redesign) — SÓLO consumido por `CampaignComposer` (no hay
- * otro caller en el repo hoy), así que se lo trata como card propia del
- * composer, consistente con `TemplateSelector`/`SegmentBuilder`/
- * `CsvRecipientsUploader`. Si en el futuro se reusa en otra page, revisar
- * este wrapper primero.
+ * Rediseño (bulk-elegant) — APLANADO: SÓLO consumido por `CampaignComposer`
+ * (no hay otro caller en el repo hoy) como panel del tab "Manuales" de la
+ * card "Destinatarios" — la superficie la pone la card del composer. Si en
+ * el futuro se reusa en otra page, revisar este wrapper primero.
+ *
+ * Motion: `panelIn` corre al montar Y en cada cambio de tab (display none→
+ * flex regenera la box) — transición de tabs sutil e interrumpible.
  */
 .wrap {
   display: flex;
@@ -32,13 +35,9 @@
   gap: var(--space-2);
   min-width: 0;
   margin: 0;
-  padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
-  animation: cardIn 220ms var(--ease-out) backwards;
-  animation-delay: 100ms;
+  padding: 0;
+  border: 0;
+  animation: panelIn 180ms var(--ease-out) backwards;
 }
 
 /* HOTFIX bulk-dropdown-z — mientras el `CustomerPicker` de adentro tiene el
@@ -61,18 +60,24 @@
 /* HOTFIX bulk-z-root — `backwards` (no `both`, ver root cause completo en
    `TemplateSelector.module.css`). `to` sigue en `transform: none` (misma
    matriz identidad que `translateY(0)` en reposo, cero cambio visual). */
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(8px); }
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: none; }
 }
 
-/* <legend> (FIX 7) — reset del padding-inline default del legend. */
+/* <legend> (FIX 7) — sr-only (rediseño bulk-elegant): el tab "Manuales" ya
+   nombra la sección visualmente; el fieldset conserva su accessible name
+   ("Destinatarios manuales", pineado en ManualRecipientsPicker.test.tsx). */
 .title {
-  margin: 0;
+  position: absolute;
+  width: 1px;
+  height: 1px;
   padding: 0;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .subtitle {

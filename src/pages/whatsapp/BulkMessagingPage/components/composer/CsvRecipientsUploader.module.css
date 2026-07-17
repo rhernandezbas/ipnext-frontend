@@ -1,17 +1,21 @@
 /*
- * CsvRecipientsUploader.module.css (rediseño bulk-redesign) — card propia +
- * "dropzone" visual alrededor del <input type="file"> nativo (se mantiene el
- * input real, sólo se le da un `::file-selector-button` tokenizado — cero
- * cambio de comportamiento, `document.querySelector('input[type="file"]')`
- * de los tests sigue encontrando el mismo elemento). Motion: `.summary` entra
- * con la MISMA firma que `.chip` (`ManualRecipientsPicker`) — fadeIn+translateY
- * corto, ease-out, con guard `prefers-reduced-motion`.
+ * CsvRecipientsUploader.module.css (rediseño bulk-elegant) — APLANADO: ya no
+ * es una card propia; es el panel del tab "CSV" de la card "Destinatarios"
+ * (`CampaignComposer` pone la superficie). Se mantiene la "dropzone" visual
+ * alrededor del <input type="file"> nativo (input real intacto, sólo un
+ * `::file-selector-button` tokenizado — cero cambio de comportamiento,
+ * `document.querySelector('input[type="file"]')` de los tests sigue
+ * encontrando el mismo elemento). Motion: `.summary` entra con la MISMA firma
+ * que `.chip` (`ManualRecipientsPicker`) — fadeIn+translateY corto, ease-out,
+ * con guard `prefers-reduced-motion`; `panelIn` corre al montar Y en cada
+ * cambio de tab (display none→flex regenera la box).
  *
  * Contraste (AA, texto ≥4.5:1) — mismos pairings YA validados en el resto del
  * composer (comentarios de referencia en `PreviewModal.module.css`/
  * `ManualRecipientsPicker.module.css`):
- *  - .subtitle / .fileName / .counts = --color-gray-600 (#495057) sobre el
- *    fondo real de la página (--color-gray-50 #f8f9fa) → 7.76:1.
+ *  - .subtitle / .fileName / .counts = --color-gray-600 (#495057), ahora sobre
+ *    la card blanca (--color-surface #ffffff) → ~8.9:1 (sobre el peor fondo
+ *    del repo, --color-gray-50 #f8f9fa, daba 7.76:1 — pasa en ambos).
  *  - .error = --badge-late-fg (#991b1b) sobre --badge-late-bg (#fee2e2) → ~7:1
  *    (mismo pairing que `.error`/`.emptyResult` de `PreviewModal.module.css`).
  *  - .invalidItem = --color-text-primary (#212529) sobre --color-surface-hover
@@ -24,21 +28,23 @@
   gap: var(--space-3);
   min-width: 0;
   margin: 0;
-  padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
-  animation: cardIn 220ms var(--ease-out) backwards;
-  animation-delay: 120ms;
+  padding: 0;
+  border: 0;
+  animation: panelIn 180ms var(--ease-out) backwards;
 }
 
+/* <legend> — sr-only (rediseño bulk-elegant): el tab "CSV" ya nombra la
+   sección visualmente; el fieldset conserva su accessible name. */
 .title {
-  margin: 0;
+  position: absolute;
+  width: 1px;
+  height: 1px;
   padding: 0;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .subtitle {
@@ -195,8 +201,8 @@
 /* HOTFIX bulk-z-root — `backwards` (no `both`, ver root cause completo en
    `TemplateSelector.module.css`). `to` sigue en `transform: none` (misma
    matriz identidad que `translateY(0)` en reposo, cero cambio visual). */
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(8px); }
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: none; }
 }
 

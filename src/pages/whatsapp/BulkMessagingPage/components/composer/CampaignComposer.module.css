@@ -1,15 +1,23 @@
 /**
- * CampaignComposer.module.css — layout de 2 columnas (controles | preview
- * live), decisión LOCKED del explore F2. Apila en <=860px (mismo breakpoint
- * que el resto del repo usa para mobile, ver `WhatsappInboxPage.module.css`).
+ * CampaignComposer.module.css — rediseño bulk-elegant: el composer pasa de 5
+ * cards apiladas a 2 cards + barra de acción (misma funcionalidad EXACTA):
  *
- * Rediseño (bulk-redesign) — forma únicamente, CERO cambio de comportamiento:
- * cada sección hija de `.controls` (TemplateSelector/VariablesMapForm/
- * SegmentBuilder/ManualRecipientsPicker/CsvRecipientsUploader) ya se ve como
- * una card propia (ver sus respectivos `.module.css`); acá sólo se afina el
- * ritmo vertical entre cards + el nombre/CTA final. Motion: entrada suave del
- * layout completo al montar (una sola vez, `ease-out`, <300ms), guardada por
- * `prefers-reduced-motion`.
+ *   Card "Mensaje"        → TemplateSelector + VariablesMapForm
+ *   Card "Destinatarios"  → tabs Segmento / Manuales / CSV (Tabs del repo,
+ *                           los 3 paneles siempre montados)
+ *   Barra de acción       → nombre + "Crear campaña" + hint del gate
+ *
+ * Los hijos (TemplateSelector/VariablesMapForm/SegmentBuilder/
+ * ManualRecipientsPicker/CsvRecipientsUploader) se APLANARON (perdieron su
+ * chrome de card propio) — la superficie la pone la card contenedora de acá.
+ *
+ * Layout de 2 columnas (controles | preview live sticky) — decisión LOCKED
+ * del explore F2, INTACTA. Apila en <=860px (mismo breakpoint del repo).
+ *
+ * Motion: entrada de cards con stagger corto (220ms ease-out, delays <=120ms),
+ * SIEMPRE `backwards` (JAMÁS `both` — retiene stacking context en Chrome, ver
+ * HOTFIX bulk-z-root abajo) y keyframes que terminan en `transform: none`.
+ * Todo guardado por `prefers-reduced-motion`.
  */
 
 .layout {
@@ -33,29 +41,88 @@
 }
 
 /* HOTFIX bulk-z-root — cinturón GENÉRICO (no por-card): mientras CUALQUIER
-   sección hija (TemplateSelector/VariablesMapForm/SegmentBuilder/
-   ManualRecipientsPicker/CsvRecipientsUploader, presente o futura) tiene el
-   foco adentro (un combobox propio abierto), sube su propia prioridad de
-   apilado sobre el hermano siguiente. Root cause real (ver detalle en
-   `TemplateSelector.module.css`): el parche puntual `:focus-within` en
-   `.section`/`.wrap` sólo cubría las 2 cards que en su momento tenían
-   combobox — `SegmentBuilder` (Select de Nodo/AP, `node-segment-fe`) se sumó
-   después SIN el parche y quedó enterrada bajo `ManualRecipientsPicker`. Esta
-   regla, en el contenedor de TODAS las secciones, cierra el whack-a-mole: no
-   depende de que cada card nueva agregue su propia regla. Las 2 reglas
-   por-card existentes quedan (no molestan, son redundantes con ésta). */
+   hijo directo (hoy: card Mensaje / card Destinatarios / barra de acción;
+   mañana: lo que venga) tiene el foco adentro (un combobox propio abierto),
+   sube su propia prioridad de apilado sobre el hermano siguiente. Root cause
+   real en `TemplateSelector.module.css`: en Chrome una animación con
+   fill-mode `both` MANTIENE el stacking context aunque el keyframe final sea
+   `transform: none`; el fix por-card era whack-a-mole. Esta regla en el
+   contenedor cierra el bug de raíz para toda card presente o futura.
+   REGLA DURA del repo: si se reestructura este contenedor, MIGRAR el
+   cinturón — hay tests que lo pinean (`bulkA11y.test.ts`). */
 .controls > :focus-within {
   position: relative;
   z-index: 1;
 }
 
-.preview {
-  min-width: 0;
-  animation: previewIn 260ms var(--ease-out) backwards;
+/* ── Cards contenedoras ─────────────────────────────────────────────── */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  animation: cardIn 220ms var(--ease-out) backwards;
+}
+
+/* Stagger sutil: la segunda card entra 60ms después de la primera. */
+.controls > .card:nth-of-type(2) {
   animation-delay: 60ms;
 }
 
-.nameField {
+.cardHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.cardSubtitle {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  /* gray-600 (#495057) sobre la card blanca (--color-surface #fff) ≈ 8.9:1 —
+     pinneado en bulkA11y ("Rediseño bulk-elegant"). text-secondary NO llega. */
+  color: var(--color-gray-600);
+}
+
+/* ── Tabs de la card Destinatarios ──────────────────────────────────── */
+
+.tabLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Contador-chip del tab — se ve qué origen tiene algo cargado sin abrirlo. */
+.tabChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--space-5);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  /* Pairing validado en FIX-6a: gray-600 sobre surface-hover ≈ 7.2:1. */
+  color: var(--color-gray-600);
+  background: var(--color-surface-hover);
+  animation: chipPop 180ms var(--ease-out) backwards;
+}
+
+/* ── Barra de acción (nombre + CTA) ─────────────────────────────────── */
+
+.actionBar {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -64,6 +131,24 @@
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
+  animation: cardIn 220ms var(--ease-out) backwards;
+  animation-delay: 120ms;
+}
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.nameField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+  /* rem (no px crudo) — debajo de esto el wrap manda el CTA a su propia fila. */
+  min-width: 14rem;
 }
 
 .nameField label {
@@ -93,6 +178,15 @@
   border-color: var(--color-primary);
 }
 
+.hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  /* Sobre la card blanca de la barra de acción — gray-600 ≈ 8.9:1. */
+  color: var(--color-gray-600);
+}
+
+/* ── Errores de servidor + toast (sin cambios de comportamiento) ────── */
+
 .serverError {
   margin: 0;
   padding: var(--space-2) var(--space-3);
@@ -104,18 +198,10 @@
   animation: noticeIn 180ms var(--ease-out) backwards;
 }
 
-.createRow {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  align-items: flex-start;
-  padding-top: var(--space-1);
-}
-
-.hint {
-  margin: 0;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+.preview {
+  min-width: 0;
+  animation: previewIn 260ms var(--ease-out) backwards;
+  animation-delay: 60ms;
 }
 
 .toast {
@@ -137,14 +223,23 @@
 }
 
 /* HOTFIX bulk-z-root — `backwards` (no `both`): mantiene el estado `from`
-   (opacity 0) SOLO durante el `animation-delay` del stagger, que es para lo
-   que estaba el fill acá — pero NO retiene el estado final tras terminar la
-   animación real, así que el stacking context muere ahí (a diferencia de
-   `both`, que en Chrome lo mantiene mientras el fill siga aplicado, aunque el
-   keyframe final ya sea `transform: none`; ver root cause completo en
-   `TemplateSelector.module.css`). Los 3 `to` siguen en `transform: none`
-   (misma matriz identidad que el estado de reposo anterior, cero cambio
-   visual) — visualmente IDÉNTICO con `backwards`. */
+   (opacity 0) SOLO durante el `animation-delay` del stagger, pero NO retiene
+   el estado final tras terminar, así que el stacking context muere ahí (a
+   diferencia de `both`, que en Chrome lo mantiene mientras el fill siga
+   aplicado, aunque el keyframe final ya sea `transform: none`; root cause
+   completo en `TemplateSelector.module.css`). Todos los `to` terminan en
+   `transform: none` (misma matriz identidad que el reposo, cero cambio
+   visual) — ambas cosas pineadas en `bulkA11y.test.ts`. */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes chipPop {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: none; }
+}
+
 @keyframes previewIn {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
@@ -161,6 +256,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .card,
+  .actionBar,
+  .tabChip,
   .preview,
   .serverError,
   .toast {

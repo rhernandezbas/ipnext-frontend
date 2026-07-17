@@ -1,7 +1,7 @@
 /**
- * TemplateSelector.module.css (rediseño bulk-redesign) — card propia con
- * ícono de "documento" (SVG vía `::before` + mask, decorativo — no agrega
- * ningún nodo/texto nuevo al DOM, cero riesgo para tests). Contraste de
+ * TemplateSelector.module.css (rediseño bulk-elegant) — APLANADO: ya no es
+ * una card propia; vive DENTRO de la card "Mensaje" del composer
+ * (`CampaignComposer.module.css` pone la superficie). Contraste de
  * `.notice`/`.error`/`.variablesList` INTACTO (mismos tokens ya validados en
  * `bulkA11y.test.ts` — FIX-6a): sólo se toca layout/superficie, nunca el
  * pairing fg/bg de esas 3 clases.
@@ -11,65 +11,20 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
+  min-width: 0;
   position: relative;
-  animation: cardIn 220ms var(--ease-out) backwards;
 }
 
 /* HOTFIX bulk-dropdown-z — mientras el `Select` de Template (adentro) tiene
-   el foco (trigger clickeado -> listbox abierto), esta card gana prioridad
-   de apilado explícita sobre la card siguiente del composer (SegmentBuilder,
-   hermano posterior sin z-index propio). Cinturón y tirantes: cubre el caso
-   "dropdown abierto DURANTE los ~220ms de `cardIn`" (un frame intermedio con
-   transform != none TAMBIÉN crea stacking context) y cualquier stacking
-   context futuro no relacionado con el fix del keyframe de abajo.
-   HOTFIX bulk-z-root — este parche puntual se queda (no molesta), pero DEJÓ
-   DE SER la única protección: `CampaignComposer.module.css` (`.controls >
-   :focus-within`) ahora cubre TODAS las cards del composer genéricamente —
-   por eso `SegmentBuilder` (sin este parche) quedó enterrada bajo
-   `ManualRecipientsPicker` en la 3ra aparición del incidente. */
+   el foco (trigger clickeado -> listbox abierto), esta sección gana prioridad
+   de apilado explícita sobre el hermano siguiente (VariablesMapForm, dentro
+   de la misma card). Cinturón y tirantes: el genérico `.controls >
+   :focus-within` de `CampaignComposer.module.css` cubre la card ENTERA contra
+   sus hermanas; éste cubre la competencia INTERNA de la card. Pineado en
+   `bulkA11y.test.ts` — no borrar. */
 .section:focus-within {
   position: relative;
   z-index: 1;
-}
-
-.section::before {
-  content: '';
-  position: absolute;
-  top: var(--space-4);
-  right: var(--space-5);
-  width: var(--space-5);
-  height: var(--space-5);
-  background: var(--color-accent);
-  opacity: 0.85;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cpath d='M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z'/%3E%3Cpath d='M14 3v6h6'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cpath d='M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z'/%3E%3Cpath d='M14 3v6h6'/%3E%3C/svg%3E") center / contain no-repeat;
-  pointer-events: none;
-}
-
-.label {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-}
-
-.select {
-  min-height: var(--space-11); /* 44px — touch target */
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font: inherit;
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-}
-
-.select:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -2px;
 }
 
 .notice {
@@ -116,46 +71,21 @@
   color: var(--color-gray-600);
 }
 
-/* HOTFIX bulk-dropdown-z (fix parcial) — el `to` termina en `transform: none`
-   (no `translateY(0)`): la hipótesis original era que con `fill-mode: both`
-   el valor final quedaba RETENIDO para siempre tras la animación, y que
-   normalizar el keyframe a `transform: none` alcanzaba para matar el
-   stacking context permanente.
-   HOTFIX bulk-z-root (root cause REAL, 3ra aparición del incidente) — esa
-   hipótesis era INCOMPLETA: en Chrome, una animación con `fill-mode: both`
-   MANTIENE el stacking context de su elemento MIENTRAS el fill siga
-   aplicado, AUNQUE el keyframe final sea `transform: none` (CSS Position
-   L3 §Creating a stacking context — el fill "both" cuenta como que la
-   animación sigue "activa" a efectos de stacking, no sólo el valor de
-   `transform` en reposo). O sea: el fix de este keyframe NO era lo que
-   protegía contra el solapamiento — lo que protegía de verdad era el
-   `:focus-within` de abajo (que sólo estaba en ESTA card y en
-   `ManualRecipientsPicker`). `SegmentBuilder` (Select de Nodo/AP,
-   `node-segment-fe`) se sumó después sin ese parche puntual y quedó
-   enterrada — mismo bug, whack-a-mole confirmado.
-   Fix raíz (ver `cardIn`/`detailsIn` arriba y `CampaignComposer.module.css`):
-   1) fill-mode `both` → `backwards` en TODAS las animaciones de entrada del
-      bulk — `backwards` sólo mantiene el `from` durante el `animation-delay`
-      del stagger (para lo que estaba el fill), pero NO retiene el estado
-      final, así que el stacking context muere cuando la animación de verdad
-      termina. Los `to` siguen en `transform: none` (misma matriz identidad
-      que `translateY(0)` en reposo, cero cambio visual) — eso sigue siendo
-      correcto, sólo que ya no es lo que arregla el bug por sí solo.
-   2) cinturón GENÉRICO — `.controls > :focus-within` en `CampaignComposer`
-      cubre CUALQUIER card (presente o futura) con combobox propio, no sólo
-      las que tengan su propio parche puntual. */
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: none; }
-}
-
+/* HOTFIX bulk-z-root — `backwards` (JAMÁS `both`: en Chrome una animación con
+   fill-mode `both` MANTIENE el stacking context de su elemento mientras el
+   fill siga aplicado, AUNQUE el keyframe final sea `transform: none` — CSS
+   Position L3 §Creating a stacking context. `backwards` sólo mantiene el
+   `from` durante el `animation-delay` y suelta el estado al terminar, así el
+   stacking context muere ahí). El `to` termina en `transform: none` (misma
+   matriz identidad que `translateY(0)` en reposo, cero cambio visual). Ambas
+   cosas pineadas en `bulkA11y.test.ts`. El cinturón genérico vive en
+   `CampaignComposer.module.css` (`.controls > :focus-within`). */
 @keyframes detailsIn {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .section,
   .details {
     animation: none;
   }

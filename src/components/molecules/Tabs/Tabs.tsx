@@ -3,7 +3,12 @@ import styles from './Tabs.module.css';
 
 interface TabDef {
   id: string;
-  label: string;
+  /**
+   * Texto o contenido enriquecido (ej. label + contador-chip, rediseño
+   * bulk-elegant). El accessible name del tab sale de acá — si es ReactNode,
+   * cuidar que el texto visible siga nombrando el tab.
+   */
+  label: ReactNode;
   content: ReactNode;
 }
 

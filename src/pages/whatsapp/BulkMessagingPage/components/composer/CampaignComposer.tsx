@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Can } from '@/components/auth/Can';
 import { Button } from '@/components/atoms/Button/Button';
+import { Tabs } from '@/components/molecules/Tabs/Tabs';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { useTemplates, usePreviewSegment, useCreateCampaign } from '@/hooks/useBulkMessaging';
 import { useNetworkSites } from '@/hooks/useNetworkSites';
@@ -29,6 +30,15 @@ const EMPTY_SEGMENT: CampaignSegment = { statuses: [] };
 const NAME_INPUT_ID = 'bulk-campaign-name';
 
 /**
+ * Rediseño bulk-elegant — los 3 orígenes de destinatarios viven en UNA card
+ * con tabs (`Tabs` del repo, `mountMode="all"` default: los 3 paneles quedan
+ * SIEMPRE montados y solo se ocultan con CSS — el estado de cada origen
+ * sobrevive al cambio de tab, lección `inbox-key-por-conversacion`; además el
+ * uploader de CSV guarda estado LOCAL del archivo, desmontarlo lo perdería).
+ */
+type RecipientsTabId = 'segment' | 'manual' | 'csv';
+
+/**
  * CampaignComposer (F2 apply chunk 2; wiring del `PreviewModal` en
  * messaging-bulk-v11 FE apply chunk 2) — container-fino del tab "Nueva
  * campaña" de `BulkMessagingPage`. Orquesta los 3 hooks de datos
@@ -36,6 +46,13 @@ const NAME_INPUT_ID = 'bulk-campaign-name';
  * chunk 1) + los presentacionales del composer (`TemplateSelector`/
  * `VariablesMapForm`/`SegmentBuilder`/`SegmentPreviewPanel`/`PreviewModal`) —
  * layout de 2 columnas (controles | preview live, decisión LOCKED del explore).
+ *
+ * Rediseño bulk-elegant — la columna de controles pasó de 5 cards apiladas a:
+ * card "Mensaje" (template + variables), card "Destinatarios" (tabs Segmento/
+ * Manuales/CSV con contador-chip por origen, `Tabs` del repo con
+ * `mountMode="all"` — los 3 paneles siempre montados, cambiar de tab no
+ * pierde estado) y una barra de acción (nombre + CTA). FORMA únicamente:
+ * hooks, gates, payloads, debounce y doble-confirm quedaron IDÉNTICOS.
  *
  * El fetch de templates está gateado a `messaging.templates` (TPL-1) — un
  * permiso PROPIO, independiente del `messaging.bulk` que ya gatea la ruta
@@ -87,6 +104,10 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   // dispara `createAsync` directo: abre este modal con el resumen de impacto,
   // y recién el confirm de ADENTRO llama a `handleCreate`.
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Rediseño bulk-elegant — tab activo de la card "Destinatarios". Estado de
+  // UI puro: cambiarlo NO toca segment/manualRecipients/csvContacts (los 3
+  // orígenes siguen combinándose igual en preview/create).
+  const [recipientsTab, setRecipientsTab] = useState<RecipientsTabId>('segment');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // manual-recipients-fe — ids de la lista manual (el shape que espera el BE).
@@ -284,52 +305,111 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
               ? 'Ingresá un nombre para la campaña.'
               : null;
 
-  return (
-    <div className={styles.layout}>
-      <div className={styles.controls}>
-        {canUseTemplates && (
-          <Can permission="messaging.templates">
-            <TemplateSelector
-              templates={templatesQuery.data ?? []}
-              isLoading={templatesQuery.isLoading}
-              isError={templatesQuery.isError}
-              selected={selectedTemplate}
-              onSelect={handleSelectTemplate}
-            />
-          </Can>
+  // Rediseño bulk-elegant — contador-chip por tab: se VE qué origen tiene
+  // algo cargado sin abrir cada tab. Para Segmento el número honesto es la
+  // cantidad de FILTROS activos (el count de destinatarios del preview es la
+  // UNIÓN de los 3 orígenes — atribuírselo al segmento sería mentir).
+  const segmentFilterCount =
+    segment.statuses.length +
+    (segment.balanceMin !== undefined || segment.balanceMax !== undefined ? 1 : 0) +
+    (segment.networkSiteId ? 1 : 0) +
+    (segment.accessPointId ? 1 : 0);
+
+  /** Label de tab con contador-chip opcional (el accname del tab incluye el número). */
+  function tabLabel(text: string, count: number, unit?: string) {
+    return (
+      <span className={styles.tabLabel}>
+        {text}
+        {count > 0 && (
+          <span className={styles.tabChip}>
+            {unit ? `${count} ${unit}${count === 1 ? '' : 's'}` : count}
+          </span>
         )}
+      </span>
+    );
+  }
 
-        {selectedTemplate && (
-          <VariablesMapForm
-            variables={selectedTemplate.variables}
-            value={variablesMap}
-            onChange={setVariablesMap}
-            missingVariables={missingVariables}
-            templateBody={selectedTemplate.body}
-          />
-        )}
-
-        <SegmentBuilder value={segment} onChange={setSegment} />
-
+  const recipientTabs = [
+    {
+      id: 'segment',
+      label: tabLabel('Segmento', segmentFilterCount, 'filtro'),
+      content: <SegmentBuilder value={segment} onChange={setSegment} />,
+    },
+    {
+      id: 'manual',
+      label: tabLabel('Manuales', manualRecipients.length),
+      content: (
         <ManualRecipientsPicker
           value={manualRecipients}
           onChange={setManualRecipients}
           invalidIds={missingRecipientsError?.missingClientIds}
         />
+      ),
+    },
+    {
+      id: 'csv',
+      label: tabLabel('CSV', csvContacts.length),
+      content: <CsvRecipientsUploader key={csvResetKey} onChange={handleCsvChange} />,
+    },
+  ];
 
-        <CsvRecipientsUploader key={csvResetKey} onChange={handleCsvChange} />
+  return (
+    <div className={styles.layout}>
+      <div className={styles.controls}>
+        {/* Card 1 — Mensaje: template + variables en una sola card (antes eran
+            2 apiladas). Sin el permiso messaging.templates la card entera no
+            se monta (mismo gate de siempre — selectedTemplate solo puede
+            setearse desde el selector, así que VariablesMapForm tampoco). */}
+        {canUseTemplates && (
+          <Can permission="messaging.templates">
+            <section className={styles.card} aria-labelledby="bulk-card-message-title">
+              <header className={styles.cardHeader}>
+                <h2 id="bulk-card-message-title" className={styles.cardTitle}>
+                  Mensaje
+                </h2>
+                <p className={styles.cardSubtitle}>Elegí el template aprobado y completá sus variables.</p>
+              </header>
 
-        <div className={styles.nameField}>
-          <label htmlFor={NAME_INPUT_ID}>Nombre de la campaña</label>
-          <input
-            id={NAME_INPUT_ID}
-            type="text"
-            className={styles.nameInput}
-            value={campaignName}
-            onChange={(e) => setCampaignName(e.target.value)}
-            placeholder="Ej: Recordatorio julio"
+              <TemplateSelector
+                templates={templatesQuery.data ?? []}
+                isLoading={templatesQuery.isLoading}
+                isError={templatesQuery.isError}
+                selected={selectedTemplate}
+                onSelect={handleSelectTemplate}
+              />
+
+              {selectedTemplate && (
+                <VariablesMapForm
+                  variables={selectedTemplate.variables}
+                  value={variablesMap}
+                  onChange={setVariablesMap}
+                  missingVariables={missingVariables}
+                  templateBody={selectedTemplate.body}
+                />
+              )}
+            </section>
+          </Can>
+        )}
+
+        {/* Card 2 — Destinatarios: los 3 orígenes (Segmento/Manuales/CSV) en
+            tabs. mountMode="all" (default): los 3 paneles SIEMPRE montados —
+            cambiar de tab no pierde el estado de los otros. */}
+        <section className={styles.card} aria-labelledby="bulk-card-recipients-title">
+          <header className={styles.cardHeader}>
+            <h2 id="bulk-card-recipients-title" className={styles.cardTitle}>
+              Destinatarios
+            </h2>
+            <p className={styles.cardSubtitle}>
+              Segmento, lista manual y CSV se combinan en un único envío, sin duplicados.
+            </p>
+          </header>
+
+          <Tabs
+            tabs={recipientTabs}
+            activeTab={recipientsTab}
+            onTabChange={(id) => setRecipientsTab(id as RecipientsTabId)}
           />
-        </div>
+        </section>
 
         {missingVariables.length > 0 && (
           <p className={styles.serverError} role="alert">
@@ -357,12 +437,28 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
           </p>
         )}
 
-        <div className={styles.createRow}>
-          {/* #5 — el gate `canCreate` sigue siendo la precondición para ABRIR
-              el modal; el confirm de adentro dispara la creación real. */}
-          <Button type="button" variant="primary" loading={isCreating} disabled={!canCreate} onClick={() => setConfirmOpen(true)}>
-            Crear campaña
-          </Button>
+        {/* Barra de acción — nombre + CTA en una sola fila limpia al final
+            (rediseño bulk-elegant; antes eran una card de nombre + una fila
+            suelta de botón). El hint del gate vive acá, pegado al CTA. */}
+        <div className={styles.actionBar}>
+          <div className={styles.actionRow}>
+            <div className={styles.nameField}>
+              <label htmlFor={NAME_INPUT_ID}>Nombre de la campaña</label>
+              <input
+                id={NAME_INPUT_ID}
+                type="text"
+                className={styles.nameInput}
+                value={campaignName}
+                onChange={(e) => setCampaignName(e.target.value)}
+                placeholder="Ej: Recordatorio julio"
+              />
+            </div>
+            {/* #5 — el gate `canCreate` sigue siendo la precondición para ABRIR
+                el modal; el confirm de adentro dispara la creación real. */}
+            <Button type="button" variant="primary" loading={isCreating} disabled={!canCreate} onClick={() => setConfirmOpen(true)}>
+              Crear campaña
+            </Button>
+          </div>
           {disabledReason && (
             <p className={styles.hint} role="status">
               {disabledReason}

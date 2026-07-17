@@ -108,6 +108,31 @@ describe('Rediseño C: stat tiles del detalle sobre fondo tintado >= 4.5:1', () 
   });
 });
 
+describe('Rediseño bulk-elegant: cards del composer — subtítulos y chips de tabs >= 4.5:1', () => {
+  it('CampaignComposer .cardSubtitle (sobre la card blanca --color-surface)', () => {
+    expect(
+      ruleContrast(`${COMPOSER}/CampaignComposer.module.css`, 'cardSubtitle', '--color-surface'),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('CampaignComposer .tabChip (contador del tab, fg/bg propios)', () => {
+    expect(ruleContrast(`${COMPOSER}/CampaignComposer.module.css`, 'tabChip')).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('Rediseño bulk-elegant: Tabs compartidas — focus ring + touch target', () => {
+  it('Tabs .tab declara un anillo :focus-visible', () => {
+    const css = readCss('src/components/molecules/Tabs/Tabs.module.css');
+    expect(css).toMatch(/\.tab:focus-visible\s*\{[^}]*outline/);
+  });
+
+  it('Tabs .tab tiene min-height de 44px (var(--space-11))', () => {
+    const css = readCss('src/components/molecules/Tabs/Tabs.module.css');
+    const body = css.match(/\.tab\s*\{([^}]*)\}/)?.[1] ?? '';
+    expect(body).toMatch(/min-height:\s*var\(--space-11\)/);
+  });
+});
+
 describe('FIX-6b: StatusBadge .inactive >= 4.5:1 (token compartido)', () => {
   it('badge-inactive-fg sobre badge-inactive-bg', () => {
     expect(

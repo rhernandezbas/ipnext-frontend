@@ -1,30 +1,42 @@
 /**
- * SegmentBuilder.module.css (rediseño bulk-redesign) — card propia, chips de
- * estado con feedback visual de "elegido" (`:has(:checked)`, progressive
- * enhancement — sin soporte, sigue siendo un checkbox+badge perfectamente
- * usable, sólo pierde el tinte de fondo). `.hint` INTACTO (mismo pairing
- * gray-600/surface-hover validado en `bulkA11y.test.ts` FIX-6a).
+ * SegmentBuilder.module.css (rediseño bulk-elegant) — APLANADO: ya no es una
+ * card propia; es el panel del tab "Segmento" de la card "Destinatarios"
+ * (`CampaignComposer` pone la superficie). El <legend> queda sr-only: el tab
+ * ya nombra la sección visualmente, pero el fieldset conserva su accessible
+ * name (role=group). Chips de estado con feedback visual de "elegido"
+ * (`:has(:checked)`, progressive enhancement — sin soporte, sigue siendo un
+ * checkbox+badge perfectamente usable, sólo pierde el tinte de fondo).
+ * `.hint` INTACTO (mismo pairing gray-600/surface-hover validado en
+ * `bulkA11y.test.ts` FIX-6a).
+ *
+ * Motion: `panelIn` corre al montar Y en cada cambio de tab (display none→
+ * flex regenera la box y reinicia la animación) — transición de tabs sutil e
+ * interrumpible (180ms, ease-out, sin animación de salida que bloquee).
  */
 
 .fieldset {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4) var(--space-5);
+  gap: var(--space-4);
+  border: 0;
+  padding: 0;
   margin: 0;
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
-  animation: cardIn 220ms var(--ease-out) backwards;
-  animation-delay: 80ms;
+  min-width: 0;
+  animation: panelIn 180ms var(--ease-out) backwards;
 }
 
+/* sr-only — el nombre accesible del grupo se conserva sin duplicar el label
+   visible del tab activo ("Segmento"). */
 .legend {
-  padding: 0 var(--space-1);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .statusGroup {
@@ -162,14 +174,15 @@
 }
 
 /* HOTFIX bulk-z-root — `backwards` (no `both`, ver root cause completo en
-   `TemplateSelector.module.css`): esta card (`.fieldset`) es justamente la
+   `TemplateSelector.module.css`): esta sección (`.fieldset`) es justamente la
    que quedó SIN el parche puntual `:focus-within` cuando `node-segment-fe`
    le agregó el Select de Nodo/AP — el `.controls > :focus-within` genérico
-   de `CampaignComposer.module.css` es lo que la cubre ahora. Los `to` siguen
-   en `transform: none` (misma matriz identidad que `translateY(0)` en
-   reposo, cero cambio visual). */
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(8px); }
+   de `CampaignComposer.module.css` es lo que la cubre ahora (levanta la card
+   Destinatarios entera mientras un combobox de adentro tiene el foco). Los
+   `to` siguen en `transform: none` (misma matriz identidad que
+   `translateY(0)` en reposo, cero cambio visual). */
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: none; }
 }
 

@@ -175,14 +175,24 @@ beforeEach(() => {
   vi.mocked(useClientList).mockReturnValue({ data: { data: CLIENTS, total: 2, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false } as any);
 });
 
-/** Agrega un destinatario manual vía el typeahead del `ManualRecipientsPicker`. */
+/**
+ * Agrega un destinatario manual vía el typeahead del `ManualRecipientsPicker`.
+ * Rediseño bulk-elegant — el picker vive en el tab "Manuales" de la card
+ * Destinatarios: la interacción legítima activa el tab ANTES de tipear.
+ */
 async function addManualRecipient(user: ReturnType<typeof userEvent.setup>, name = 'Juan García') {
+  await user.click(screen.getByRole('tab', { name: /manuales/i }));
   await user.type(screen.getByLabelText(/buscar cliente/i), 'a');
   await user.click(await screen.findByText(name));
 }
 
-/** bulk-csv-recipients (CSV-FE-5) — carga un CSV vía el `CsvRecipientsUploader` del composer. */
+/**
+ * bulk-csv-recipients (CSV-FE-5) — carga un CSV vía el `CsvRecipientsUploader`
+ * del composer. Rediseño bulk-elegant — el uploader vive en el tab "CSV": la
+ * interacción legítima activa el tab ANTES de tocar el input de archivo.
+ */
 function uploadCsv(csv: string, fileName = 'destinatarios.csv') {
+  fireEvent.click(screen.getByRole('tab', { name: /csv/i }));
   const input = document.querySelector('input[type="file"]') as HTMLInputElement;
   const file = new File([csv], fileName, { type: 'text/csv' });
   fireEvent.change(input, { target: { files: [file] } });
