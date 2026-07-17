@@ -295,4 +295,28 @@ describe('NetworkingSettingsPage', () => {
       screen.queryByRole('heading', { name: /auto-cure de sesiones radius/i }),
     ).not.toBeInTheDocument();
   });
+
+  // ── FiberAutoProvisionCard section (fiber-serial-fe K3) ──────────────────
+
+  it('renders Fibra section heading', () => {
+    setupHooks(['uisp.read', 'admin.flags']);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /^fibra$/i })).toBeInTheDocument();
+  });
+
+  it('renders FiberAutoProvisionCard when user has admin.flags', () => {
+    setupHooks(['uisp.read', 'admin.flags']);
+    renderPage();
+    expect(
+      screen.getByRole('heading', { name: /aprovisionamiento automático de onus \(watcher\)/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('does NOT render FiberAutoProvisionCard when user lacks admin.flags', () => {
+    setupHooks(['uisp.read']);
+    renderPage();
+    expect(
+      screen.queryByRole('heading', { name: /aprovisionamiento automático de onus/i }),
+    ).not.toBeInTheDocument();
+  });
 });

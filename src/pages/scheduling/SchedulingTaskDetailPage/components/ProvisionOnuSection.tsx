@@ -13,6 +13,13 @@ export interface ProvisionOnuSectionProps {
    * `undefined` = contrato todavía no resuelto/cargado; `null` = sin tecnología.
    */
   contractTechnology?: string | null;
+  /**
+   * K3-FE (fiber-serial-fe) — serial de ONU cargado en la tarea. Con serial
+   * seteado la sección muestra el banner de modo auto. Copy condicional SUAVE:
+   * NO se fetchea el flag `fiber-auto-provision-watcher` para esto (por eso el
+   * "si el watcher automático está activo"). Optional para back-compat.
+   */
+  onuSerial?: string | null;
 }
 
 /**
@@ -37,6 +44,7 @@ export function ProvisionOnuSection({
   taskCategory,
   contractId,
   contractTechnology,
+  onuSerial,
 }: ProvisionOnuSectionProps) {
   const canManage = useCan('network.manage');
   // M1 (fix wave) — LATCH del modal: guardamos el contractId con el que se
@@ -78,6 +86,14 @@ export function ProvisionOnuSection({
           Aprovisionar ONU
         </button>
       </div>
+      {/* K3-FE — aviso de modo auto: con serial cargado, el watcher (si está
+          activo) aprovisiona solo. role="note" (informativo, no interrumpe). */}
+      {!!onuSerial && (
+        <p className={styles.autoBanner} role="note">
+          <strong>Serial cargado</strong> — si el watcher automático está activo, esta ONU se
+          aprovisionará sola al conectarse. El botón manual sigue disponible.
+        </p>
+      )}
       {/* Montado solo abierto: cada apertura arranca el wizard limpio y la
           query de ONUs no corre de fondo en la página. El modal usa el
           contractId LATCHEADO al abrir, inmune a cambios del task en vivo. */}

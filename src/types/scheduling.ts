@@ -200,6 +200,16 @@ export interface ScheduledTask {
   archivedAt: string | null;
 
   /**
+   * Serial de la ONU cargado por el técnico (K3 fiber-serial). El BE lo
+   * normaliza al guardar (UPPERCASE sin espacios, 8-24 alfanumérico) y el
+   * watcher `fiber-auto-provision-watcher` usa este campo para aprovisionar
+   * sola la ONU cuando aparece en SmartOLT. En el PUT: string = setear,
+   * null = limpiar, omitido = no tocar. Optional para back-compat con
+   * fixtures/DTOs previos al K3.
+   */
+  onuSerial?: string | null;
+
+  /**
    * Estado actual de la OS en IClass (iclass-status-sync).
    * Presente cuando la tarea tiene una OS en IClass Y el estado fue capturado
    * por el sistema de auto-discovery. `label = displayLabel ?? iclassLabel`.

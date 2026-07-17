@@ -132,4 +132,29 @@ describe('ProvisionOnuSection — gate', () => {
     );
     expect(screen.getByRole('dialog', { name: /aprovisionar onu/i })).toBeInTheDocument();
   });
+
+  // ── K3-FE (fiber-serial-fe) — banner de modo auto ──────────────────────────
+  // Con onuSerial cargado en la tarea, la sección avisa que el watcher (si está
+  // activo) la aprovisiona sola. Copy condicional SUAVE — NO se fetchea el flag
+  // para esto (por eso el "si … está activo").
+
+  it('K3: con onuSerial seteado muestra el banner de modo auto (sin fetchear el flag)', () => {
+    renderSection({ onuSerial: 'HWTC11112222' });
+    expect(screen.getByText(/serial cargado/i)).toBeInTheDocument();
+    expect(screen.getByText(/se aprovisionará sola al conectarse/i)).toBeInTheDocument();
+    expect(screen.getByText(/el botón manual sigue disponible/i)).toBeInTheDocument();
+    // El botón manual efectivamente sigue ahí.
+    expect(screen.getByRole('button', { name: /aprovisionar onu/i })).toBeInTheDocument();
+  });
+
+  it('K3: sin onuSerial NO hay banner de modo auto', () => {
+    renderSection({ onuSerial: null });
+    expect(screen.queryByText(/serial cargado/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/se aprovisionará sola/i)).not.toBeInTheDocument();
+  });
+
+  it('K3: onuSerial omitido (back-compat de callers viejos) → sin banner', () => {
+    renderSection();
+    expect(screen.queryByText(/serial cargado/i)).not.toBeInTheDocument();
+  });
 });

@@ -1114,6 +1114,39 @@ describe('SchedulingTaskDetailPage', () => {
     expect(screen.queryByRole('button', { name: /aprovisionar onu/i })).not.toBeInTheDocument();
   });
 
+  // ── K3-FE: serial de ONU en la tarea (fiber-serial-fe) ──────────────────────
+  // La página monta el campo Serial ONU junto a la sección Aprovisionar ONU y
+  // le pasa onuSerial también a la sección (banner de modo auto). Gate fino
+  // (permiso de edición, categoría, tecnología) testeado en
+  // OnuSerialField.test.tsx; acá solo el wiring.
+  it('muestra el campo Serial ONU en instalación con contrato (K3-FE)', async () => {
+    setupMocks({ taskData: { contractId: 'c-1' } });
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    expect(await screen.findByLabelText(/serial onu/i)).toBeInTheDocument();
+  });
+
+  it('NO muestra el campo Serial ONU sin contrato asociado (K3-FE)', async () => {
+    setupMocks();
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => {
+      expect(screen.getByText('Instalación Cliente Pérez')).toBeInTheDocument();
+    });
+    expect(screen.queryByLabelText(/serial onu/i)).not.toBeInTheDocument();
+  });
+
+  it('con onuSerial en la tarea, la sección Aprovisionar ONU muestra el banner de modo auto (K3-FE)', async () => {
+    setupMocks({ taskData: { contractId: 'c-1', onuSerial: 'HWTC11112222' } });
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    expect(await screen.findByText(/se aprovisionará sola al conectarse/i)).toBeInTheDocument();
+  });
+
+  it('sin onuSerial NO hay banner de modo auto (K3-FE)', async () => {
+    setupMocks({ taskData: { contractId: 'c-1' } });
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    expect(await screen.findByRole('button', { name: /aprovisionar onu/i })).toBeInTheDocument();
+    expect(screen.queryByText(/se aprovisionará sola/i)).not.toBeInTheDocument();
+  });
+
   // ── H1 (K2-FE fix wave) — lost-update de la descripción ─────────────────────
   // El BE appendea el bloque de aprovisionamiento a la descripción (taskUpdated)
   // y la invalidación refetchea el task. Si el operador tenía la descripción

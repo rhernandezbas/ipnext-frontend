@@ -56,3 +56,16 @@
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
+
+/* K3-FE — banner de modo auto (serial cargado). Familia azul informativa
+ * (tokens badge-active): #1e40af sobre #dbeafe = 7.15:1 (WCAG, calculado). */
+.autoBanner {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  background: var(--badge-active-bg);
+  color: var(--badge-active-fg);
+  border: 1px solid #bfdbfe; /* blue-200, borde de la misma familia */
+}

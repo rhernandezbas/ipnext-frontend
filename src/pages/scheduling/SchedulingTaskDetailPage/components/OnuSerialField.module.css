@@ -1,0 +1,168 @@
+/* fiber-serial-fe (K3-FE) — campo "Serial ONU" del detalle de tarea.
+ * Mismo lenguaje visual que ProvisionOnuSection. Contrastes (WCAG 2.1,
+ * calculados):
+ *  - título #212529 sobre #fff        = 16.10:1
+ *  - hint #6c757d sobre #fff          =  4.69:1 (secondary SOLO sobre surface)
+ *  - CTA blanco sobre #6f42c1         =  6.33:1
+ *  - error #991b1b sobre #fef2f2      =  7.60:1
+ *  - éxito #166534 sobre #fff         =  7.13:1
+ *  - Limpiar #495057 sobre #fff       =  7.46:1
+ */
+
+.section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.hint {
+  margin: var(--space-1) 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.input {
+  min-height: var(--space-11); /* 44px touch */
+  flex: 1 1 220px;
+  max-width: 320px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  text-transform: uppercase; /* preview visual del normalizado; el BE es la fuente */
+}
+
+.input::placeholder {
+  color: var(--color-text-secondary);
+  text-transform: none;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+  border-color: var(--color-primary);
+}
+
+.input:disabled {
+  background: var(--color-gray-50);
+  cursor: not-allowed;
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.btnSave {
+  min-height: var(--space-11); /* 44px touch */
+  padding: 0 var(--space-5);
+  border: none;
+  border-radius: var(--radius-button);
+  background: var(--color-accent);
+  color: var(--color-white);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background-color var(--transition-normal);
+  flex-shrink: 0;
+}
+
+.btnSave:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.btnSave:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.btnSave:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btnClear {
+  min-height: var(--space-11); /* 44px touch */
+  padding: 0 var(--space-4);
+  background: transparent;
+  color: var(--color-gray-600); /* #495057 sobre #fff = 7.46:1 */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background-color var(--transition-normal);
+  flex-shrink: 0;
+}
+
+.btnClear:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.btnClear:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.btnClear:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.error {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  background: #fef2f2;
+  color: #991b1b; /* 7.60:1 sobre #fef2f2 */
+  border: 1px solid #fecaca;
+}
+
+.success {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: #166534; /* 7.13:1 sobre #fff (--badge-paid-fg) */
+}
+
+.readonly {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.serialValue {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: 0.04em;
+}
