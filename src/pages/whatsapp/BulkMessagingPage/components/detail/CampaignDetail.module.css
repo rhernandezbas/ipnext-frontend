@@ -52,7 +52,7 @@
   color: var(--badge-paid-fg);
   background: var(--badge-paid-bg);
   border-left: 3px solid var(--badge-paid-fg);
-  animation: bannerIn 220ms var(--ease-out) both;
+  animation: bannerIn 220ms var(--ease-out) backwards;
 }
 
 /* Scope adicional (root cause crear≠enviar) — banner "todavía no se envió"
@@ -70,7 +70,7 @@
   border-radius: var(--radius-md);
   color: var(--color-gray-700);
   background: var(--color-gray-100);
-  animation: bannerIn 220ms var(--ease-out) both;
+  animation: bannerIn 220ms var(--ease-out) backwards;
 }
 
 .pendingIcon {
@@ -89,10 +89,9 @@
   font-weight: var(--font-weight-semibold);
 }
 
-/* HOTFIX bulk-dropdown-z — `to` en `transform: none` (no `translateY(0)`):
-   mismo criterio que `TemplateSelector.module.css` (ver comentario ahí —
-   root cause del solapamiento del dropdown de Template) — evita un stacking
-   context permanente retenido por `fill-mode: both`. */
+/* HOTFIX bulk-z-root — `backwards` (no `both`, ver root cause completo en
+   `TemplateSelector.module.css`). `to` sigue en `transform: none` (misma
+   matriz identidad que `translateY(0)` en reposo, cero cambio visual). */
 @keyframes bannerIn {
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: none; }

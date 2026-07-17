@@ -22,7 +22,7 @@
   margin: 0;
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
-  animation: cardIn 220ms var(--ease-out) both;
+  animation: cardIn 220ms var(--ease-out) backwards;
   animation-delay: 40ms;
 }
 
@@ -125,13 +125,9 @@
   border: 0;
 }
 
-/* HOTFIX bulk-dropdown-z — `to` en `transform: none` (no `translateY(0)`):
-   con `fill-mode: both` el valor final queda retenido para siempre y
-   cualquier transform != none crea un stacking context permanente en
-   `.fieldset`. Mismo criterio que `TemplateSelector.module.css` (ver
-   comentario ahí — root cause del solapamiento del dropdown de Template).
-   `none` == misma matriz identidad que `translateY(0)` en reposo, cero
-   cambio visual. */
+/* HOTFIX bulk-z-root — `backwards` (no `both`, ver root cause completo en
+   `TemplateSelector.module.css`). `to` sigue en `transform: none` (misma
+   matriz identidad que `translateY(0)` en reposo, cero cambio visual). */
 @keyframes cardIn {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: none; }

@@ -16,7 +16,7 @@
   margin: 0;
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
-  animation: cardIn 220ms var(--ease-out) both;
+  animation: cardIn 220ms var(--ease-out) backwards;
   animation-delay: 80ms;
 }
 
@@ -158,16 +158,16 @@
   /* FIX-6a — gray-600 (~7.2:1) sobre surface-hover; text-secondary daba 4.13:1. INTACTO. */
   color: var(--color-gray-600);
   background: var(--color-surface-hover);
-  animation: noticeIn 180ms var(--ease-out) both;
+  animation: noticeIn 180ms var(--ease-out) backwards;
 }
 
-/* HOTFIX bulk-dropdown-z — `to` en `transform: none` (no `translateY(0)`):
-   con `fill-mode: both` el valor final queda retenido para siempre y
-   cualquier transform != none crea un stacking context permanente en
-   `.fieldset`/`.hint`. Mismo criterio que `TemplateSelector.module.css`
-   (ver comentario ahí — root cause del solapamiento del dropdown de
-   Template). `none` == misma matriz identidad que `translateY(0)` en
-   reposo, cero cambio visual. */
+/* HOTFIX bulk-z-root — `backwards` (no `both`, ver root cause completo en
+   `TemplateSelector.module.css`): esta card (`.fieldset`) es justamente la
+   que quedó SIN el parche puntual `:focus-within` cuando `node-segment-fe`
+   le agregó el Select de Nodo/AP — el `.controls > :focus-within` genérico
+   de `CampaignComposer.module.css` es lo que la cubre ahora. Los `to` siguen
+   en `transform: none` (misma matriz identidad que `translateY(0)` en
+   reposo, cero cambio visual). */
 @keyframes cardIn {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: none; }

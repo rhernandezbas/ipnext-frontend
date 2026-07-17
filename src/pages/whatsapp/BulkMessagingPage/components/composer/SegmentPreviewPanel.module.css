@@ -91,7 +91,7 @@
   margin: 0;
   font-size: var(--font-size-md);
   color: var(--color-text-primary);
-  animation: countIn 220ms var(--ease-out) both;
+  animation: countIn 220ms var(--ease-out) backwards;
 }
 
 .count strong {
@@ -113,12 +113,11 @@
   background: var(--badge-late-bg);
 }
 
-/* HOTFIX bulk-dropdown-z — `to` en `transform: none` (no `translateY(0)`):
-   mismo criterio que `TemplateSelector.module.css` (ver comentario ahí —
-   root cause del solapamiento del dropdown de Template). `.count` no aloja
-   ningún overlay, pero un transform != none retenido por `fill-mode: both`
-   igual crea un stacking context permanente en `.panel` (sticky en
-   desktop) sin ningún beneficio — se normaliza por consistencia/robustez. */
+/* HOTFIX bulk-z-root — `backwards` (no `both`, ver root cause completo en
+   `TemplateSelector.module.css`). `.count` no aloja ningún overlay, pero se
+   normaliza igual por consistencia/robustez con el resto del composer. `to`
+   sigue en `transform: none` (misma matriz identidad que `translateY(0)` en
+   reposo, cero cambio visual). */
 @keyframes countIn {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: none; }

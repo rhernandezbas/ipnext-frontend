@@ -17,7 +17,7 @@
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
   position: relative;
-  animation: cardIn 220ms var(--ease-out) both;
+  animation: cardIn 220ms var(--ease-out) backwards;
 }
 
 /* HOTFIX bulk-dropdown-z — mientras el `Select` de Template (adentro) tiene
@@ -26,7 +26,12 @@
    hermano posterior sin z-index propio). Cinturón y tirantes: cubre el caso
    "dropdown abierto DURANTE los ~220ms de `cardIn`" (un frame intermedio con
    transform != none TAMBIÉN crea stacking context) y cualquier stacking
-   context futuro no relacionado con el fix del keyframe de abajo. */
+   context futuro no relacionado con el fix del keyframe de abajo.
+   HOTFIX bulk-z-root — este parche puntual se queda (no molesta), pero DEJÓ
+   DE SER la única protección: `CampaignComposer.module.css` (`.controls >
+   :focus-within`) ahora cubre TODAS las cards del composer genéricamente —
+   por eso `SegmentBuilder` (sin este parche) quedó enterrada bajo
+   `ManualRecipientsPicker` en la 3ra aparición del incidente. */
 .section:focus-within {
   position: relative;
   z-index: 1;
@@ -95,7 +100,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface-hover);
-  animation: detailsIn 180ms var(--ease-out) both;
+  animation: detailsIn 180ms var(--ease-out) backwards;
 }
 
 .templateName {
@@ -111,14 +116,34 @@
   color: var(--color-gray-600);
 }
 
-/* HOTFIX bulk-dropdown-z — el `to` termina en `transform: none` (no
-   `translateY(0)`): con `fill-mode: both` el valor final queda RETENIDO para
-   siempre tras la animación, y cualquier transform != none crea un stacking
-   context PERMANENTE en `.section`/`.details`. Eso atrapaba el `z-index: 30`
-   del `Select` (Template) dentro del stacking context de esta card, sin
-   poder competir contra la card siguiente del composer (que la pintaba
-   encima). `none` es la misma matriz identidad que `translateY(0)` en
-   reposo — cero cambio visual, pero no deja stacking context colgado. */
+/* HOTFIX bulk-dropdown-z (fix parcial) — el `to` termina en `transform: none`
+   (no `translateY(0)`): la hipótesis original era que con `fill-mode: both`
+   el valor final quedaba RETENIDO para siempre tras la animación, y que
+   normalizar el keyframe a `transform: none` alcanzaba para matar el
+   stacking context permanente.
+   HOTFIX bulk-z-root (root cause REAL, 3ra aparición del incidente) — esa
+   hipótesis era INCOMPLETA: en Chrome, una animación con `fill-mode: both`
+   MANTIENE el stacking context de su elemento MIENTRAS el fill siga
+   aplicado, AUNQUE el keyframe final sea `transform: none` (CSS Position
+   L3 §Creating a stacking context — el fill "both" cuenta como que la
+   animación sigue "activa" a efectos de stacking, no sólo el valor de
+   `transform` en reposo). O sea: el fix de este keyframe NO era lo que
+   protegía contra el solapamiento — lo que protegía de verdad era el
+   `:focus-within` de abajo (que sólo estaba en ESTA card y en
+   `ManualRecipientsPicker`). `SegmentBuilder` (Select de Nodo/AP,
+   `node-segment-fe`) se sumó después sin ese parche puntual y quedó
+   enterrada — mismo bug, whack-a-mole confirmado.
+   Fix raíz (ver `cardIn`/`detailsIn` arriba y `CampaignComposer.module.css`):
+   1) fill-mode `both` → `backwards` en TODAS las animaciones de entrada del
+      bulk — `backwards` sólo mantiene el `from` durante el `animation-delay`
+      del stagger (para lo que estaba el fill), pero NO retiene el estado
+      final, así que el stacking context muere cuando la animación de verdad
+      termina. Los `to` siguen en `transform: none` (misma matriz identidad
+      que `translateY(0)` en reposo, cero cambio visual) — eso sigue siendo
+      correcto, sólo que ya no es lo que arregla el bug por sí solo.
+   2) cinturón GENÉRICO — `.controls > :focus-within` en `CampaignComposer`
+      cubre CUALQUIER card (presente o futura) con combobox propio, no sólo
+      las que tengan su propio parche puntual. */
 @keyframes cardIn {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: none; }

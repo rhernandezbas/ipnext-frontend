@@ -32,9 +32,26 @@
   min-width: 0;
 }
 
+/* HOTFIX bulk-z-root — cinturón GENÉRICO (no por-card): mientras CUALQUIER
+   sección hija (TemplateSelector/VariablesMapForm/SegmentBuilder/
+   ManualRecipientsPicker/CsvRecipientsUploader, presente o futura) tiene el
+   foco adentro (un combobox propio abierto), sube su propia prioridad de
+   apilado sobre el hermano siguiente. Root cause real (ver detalle en
+   `TemplateSelector.module.css`): el parche puntual `:focus-within` en
+   `.section`/`.wrap` sólo cubría las 2 cards que en su momento tenían
+   combobox — `SegmentBuilder` (Select de Nodo/AP, `node-segment-fe`) se sumó
+   después SIN el parche y quedó enterrada bajo `ManualRecipientsPicker`. Esta
+   regla, en el contenedor de TODAS las secciones, cierra el whack-a-mole: no
+   depende de que cada card nueva agregue su propia regla. Las 2 reglas
+   por-card existentes quedan (no molestan, son redundantes con ésta). */
+.controls > :focus-within {
+  position: relative;
+  z-index: 1;
+}
+
 .preview {
   min-width: 0;
-  animation: previewIn 260ms var(--ease-out) both;
+  animation: previewIn 260ms var(--ease-out) backwards;
   animation-delay: 60ms;
 }
 
@@ -84,7 +101,7 @@
   color: var(--badge-late-fg);
   background: var(--badge-late-bg);
   border-left: 3px solid var(--badge-late-fg);
-  animation: noticeIn 180ms var(--ease-out) both;
+  animation: noticeIn 180ms var(--ease-out) backwards;
 }
 
 .createRow {
@@ -116,16 +133,18 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   box-shadow: var(--shadow-lg);
-  animation: toastIn 220ms var(--ease-out) both;
+  animation: toastIn 220ms var(--ease-out) backwards;
 }
 
-/* HOTFIX bulk-dropdown-z — los 3 `to` terminan en `transform: none` (no
-   `translateY(...)`/`scale(...)`): con `fill-mode: both` el valor final
-   queda retenido para siempre y cualquier transform != none crea un
-   stacking context permanente en `.preview`/`.serverError`/`.toast`. Mismo
-   criterio que `TemplateSelector.module.css` (ver comentario ahí — root
-   cause del solapamiento del dropdown de Template). `none` == misma matriz
-   identidad que el estado de reposo anterior, cero cambio visual. */
+/* HOTFIX bulk-z-root — `backwards` (no `both`): mantiene el estado `from`
+   (opacity 0) SOLO durante el `animation-delay` del stagger, que es para lo
+   que estaba el fill acá — pero NO retiene el estado final tras terminar la
+   animación real, así que el stacking context muere ahí (a diferencia de
+   `both`, que en Chrome lo mantiene mientras el fill siga aplicado, aunque el
+   keyframe final ya sea `transform: none`; ver root cause completo en
+   `TemplateSelector.module.css`). Los 3 `to` siguen en `transform: none`
+   (misma matriz identidad que el estado de reposo anterior, cero cambio
+   visual) — visualmente IDÉNTICO con `backwards`. */
 @keyframes previewIn {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }

@@ -200,10 +200,11 @@ function keyframesBlock(relPath: string, name: string): string {
 
 const MOLECULES = 'src/components/molecules';
 
-describe('HOTFIX bulk-dropdown-z: animation-fill-mode "both" nunca retiene un transform residual', () => {
+describe('HOTFIX bulk-dropdown-z / bulk-z-root: animación de entrada nunca retiene un transform residual', () => {
   // Cada archivo del rediseño del composer (+ ManualRecipientsPicker, molecule
   // consumido EXCLUSIVAMENTE por el composer) que declara al menos una
-  // `animation: <keyframe> … both`.
+  // `animation: <keyframe> … backwards` (post bulk-z-root — antes era `both`,
+  // ver describe "ninguna animación … retiene both" más abajo).
   const filesToScan = [
     `${COMPOSER}/CampaignComposer.module.css`,
     `${COMPOSER}/TemplateSelector.module.css`,
@@ -218,10 +219,10 @@ describe('HOTFIX bulk-dropdown-z: animation-fill-mode "both" nunca retiene un tr
 
   it.each(filesToScan)('%s', (relPath) => {
     const css = readCss(relPath);
-    const usedWithBoth = [...css.matchAll(/animation:\s*([\w-]+)\s+[^;]*\bboth\b/g)].map((m) => m[1]);
-    expect(usedWithBoth.length, `esperaba >=1 "animation: … both" en ${relPath}`).toBeGreaterThan(0);
+    const usedWithBackwards = [...css.matchAll(/animation:\s*([\w-]+)\s+[^;]*\bbackwards\b/g)].map((m) => m[1]);
+    expect(usedWithBackwards.length, `esperaba >=1 "animation: … backwards" en ${relPath}`).toBeGreaterThan(0);
 
-    for (const name of new Set(usedWithBoth)) {
+    for (const name of new Set(usedWithBackwards)) {
       const block = keyframesBlock(relPath, name);
       const toBlock = block.match(/(?:to|100%)\s*\{([^}]*)\}/)?.[1] ?? '';
       if (/transform\s*:/.test(toBlock)) {
@@ -242,5 +243,58 @@ describe('HOTFIX bulk-dropdown-z: :focus-within sube la prioridad de apilado de 
   it('ManualRecipientsPicker .wrap — contiene el CustomerPicker (dropdown propio, sin portal)', () => {
     const css = readCss(`${MOLECULES}/ManualRecipientsPicker/ManualRecipientsPicker.module.css`);
     expect(css).toMatch(/\.wrap:focus-within\s*\{[^}]*z-index/);
+  });
+});
+
+/**
+ * HOTFIX bulk-z-root (3ra aparición, EN PROD, screenshot del usuario) — el
+ * dropdown de `Select` de Nodo/AP (`SegmentBuilder`, agregado por
+ * `node-segment-fe`) queda enterrado bajo la card siguiente
+ * ("Destinatarios manuales" / `ManualRecipientsPicker`). Root cause REAL
+ * (no el de `bulk-dropdown-z`): en Chrome, una animación con
+ * `fill-mode: both` MANTIENE el stacking context mientras el fill sigue
+ * aplicado, AUNQUE el keyframe final sea `transform: none` — el fix de
+ * keyframes de `bulk-dropdown-z` NO mataba el stacking context; lo que
+ * protegía era el `:focus-within` por-card, que `SegmentBuilder` nunca tuvo.
+ * El fix por-card es whack-a-mole (cada card nueva con combobox renace el
+ * bug) — acá va la prueba RAÍZ, en dos capas:
+ *
+ *  (a) NINGÚN `.module.css` del bulk usa `animation-fill-mode: both` ni el
+ *      shorthand `animation: … both` — `backwards` mantiene el fill SOLO
+ *      durante el delay del stagger (para lo que estaba) pero no retiene el
+ *      estado final, así que el stacking context muere cuando la animación
+ *      de verdad termina.
+ *  (b) existe un cinturón GENÉRICO — `:focus-within { … z-index }` en el
+ *      contenedor de secciones del composer (`.controls`, `CampaignComposer`)
+ *      — que cubre CUALQUIER card (presente o futura) con un combobox
+ *      propio, no sólo las dos que ya tenían el parche puntual.
+ */
+describe('HOTFIX bulk-z-root: ninguna animación de entrada del bulk retiene "both" (mata el stacking context de raíz)', () => {
+  // Mismos 9 archivos que HOTFIX bulk-dropdown-z arriba (composer completo +
+  // detail + ManualRecipientsPicker) — la lista COMPLETA de `.module.css` del
+  // bulk que declaran animación de entrada con fill.
+  const BULK_ANIMATED_CSS_FILES = [
+    `${COMPOSER}/CampaignComposer.module.css`,
+    `${COMPOSER}/TemplateSelector.module.css`,
+    `${COMPOSER}/SegmentBuilder.module.css`,
+    `${COMPOSER}/VariablesMapForm.module.css`,
+    `${COMPOSER}/CsvRecipientsUploader.module.css`,
+    `${COMPOSER}/SegmentPreviewPanel.module.css`,
+    'src/pages/whatsapp/BulkMessagingPage/components/detail/CampaignDetail.module.css',
+    'src/pages/whatsapp/BulkMessagingPage/components/detail/SendCampaignButton.module.css',
+    `${MOLECULES}/ManualRecipientsPicker/ManualRecipientsPicker.module.css`,
+  ];
+
+  it.each(BULK_ANIMATED_CSS_FILES)('%s no declara fill-mode "both"', (relPath) => {
+    const css = readCss(relPath);
+    expect(css, `"animation-fill-mode: both" en ${relPath}`).not.toMatch(/animation-fill-mode:\s*both\b/);
+    expect(css, `shorthand "animation: … both" en ${relPath}`).not.toMatch(/animation:\s*[^;]*\bboth\b/);
+  });
+});
+
+describe('HOTFIX bulk-z-root: cinturón GENÉRICO — :focus-within en el contenedor de secciones del composer', () => {
+  it('CampaignComposer .controls sube la prioridad de apilado de CUALQUIER sección enfocada (presente o futura)', () => {
+    const css = readCss(`${COMPOSER}/CampaignComposer.module.css`);
+    expect(css).toMatch(/\.controls[^{]*:focus-within[^{]*\{[^}]*z-index/);
   });
 });
