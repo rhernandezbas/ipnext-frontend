@@ -1,15 +1,21 @@
 /* smartolt-provision-fe (K2-FE) — modal multi-paso "Aprovisionar ONU".
  *
- * Contrastes CALCULADOS (WCAG 2.1, sobre --color-surface #fff salvo nota):
- *  - texto primario  #212529 / #fff        = 16.10:1
- *  - texto secundario #6c757d / #fff       =  4.69:1  (>=4.5 — JAMÁS sobre surface-hover)
+ * Contrastes CALCULADOS (WCAG 2.1, sobre --color-surface #fff salvo nota)
+ * — números corregidos en la fix wave M4 (los originales estaban mal):
+ *  - texto primario   #212529 / #fff       = 16.10:1
+ *  - texto secundario #6c757d / #fff       =  4.69:1  (>=4.5 SOLO sobre surface
+ *    blanco — sobre surface-hover/gray-50 FALLA: 4.13/4.45 → ahí va gray-600)
+ *  - onuMeta          #495057 / #f0f0f5    =  7.20:1 en hover (gray-600; sobre
+ *    #fff 8.18:1, sobre gray-50 7.76:1)
+ *  - dt de summary    #495057 / #f8f9fa    =  7.76:1 (gray-600)
+ *  - error/impacto    #991b1b / #fff0f1    =  7.51:1 (badge-late-fg — el
+ *    #dc3545 original daba 4.09:1, FALLABA)
  *  - danger btn       #fff / #dc3545       =  4.53:1
  *  - primary btn      #fff / #6f42c1       =  6.33:1
- *  - ok badge         #166534 / #dcfce7    ≈  7.0:1  (tokens --badge-paid-*, ya verificados)
+ *  - ok badge         #166534 / #dcfce7    ≈  7.0:1  (tokens --badge-paid-*)
  *  - failed badge     #991b1b / #fee2e2    ≈  7.4:1  (tokens --badge-late-*)
  *  - skipped badge    #5f6772 / #f3f4f6    ≈  5.2:1  (tokens --badge-inactive-*, FIX-6b)
- *  - warning          #92400e / #fef3c7    =  6.39:1 (tokens --color-warning-*, verificados N2)
- *  - danger text      #dc3545 / #fff       =  4.53:1
+ *  - warning          #92400e / #fef3c7    =  6.39:1 (tokens --color-warning-*, N2)
  */
 
 .backdrop {
@@ -156,7 +162,9 @@
   background: var(--color-danger-bg-hover);
   border: 1px solid var(--color-danger);
   border-radius: var(--radius-md);
-  color: var(--color-danger); /* 4.53:1 sobre blanco; el bg #fff0f1 apenas lo baja pero sigue >=4.5 (L bg ≈ 0.89) */
+  /* M4 — #dc3545 sobre #fff0f1 daba 4.09:1 (FALLA). #991b1b (badge-late-fg,
+     mismo rojo-800 del repo) = 7.51:1. */
+  color: var(--badge-late-fg);
   font-size: var(--font-size-sm);
 }
 
@@ -204,6 +212,12 @@
   background: var(--color-gray-50);
 }
 
+/* L5 — una fila deshabilitada NO debe insinuar interactividad en hover:
+   mantiene su gris base (declarado después de .onuRow:hover para ganar). */
+.onuRowDisabled:hover {
+  background: var(--color-gray-50);
+}
+
 .onuRadio {
   width: 18px;
   height: 18px;
@@ -232,7 +246,9 @@
 
 .onuMeta {
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  /* M4 — la fila se apoya en surface-hover (hover) y gray-50 (disabled), donde
+     text-secondary da 4.13:1/4.45:1 (FALLA). gray-600 = 7.20:1 / 7.76:1. */
+  color: var(--color-gray-600);
 }
 
 /* El motivo del disable usa la familia warning (superficie PROPIA, 6.39:1) —
@@ -313,9 +329,9 @@
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  /* #6c757d sobre #f8f9fa (gray-50): L(bg) ≈ 0.945 → 4.55:1 — pasa, y NO es
-     surface-hover (#f0f0f5), que es la superficie vetada para secondary. */
-  color: var(--color-text-secondary);
+  /* M4 — text-secondary sobre gray-50 daba 4.45:1 (FALLA, el comentario
+     original decía 4.55 y mentía). gray-600 #495057 / #f8f9fa = 7.76:1. */
+  color: var(--color-gray-600);
   margin: 0 0 var(--space-1);
 }
 
@@ -378,7 +394,8 @@
   border: 1px solid var(--color-danger);
   border-radius: var(--radius-md);
   background: var(--color-danger-bg-hover);
-  color: var(--color-danger);
+  /* M4 — #dc3545/#fff0f1 = 4.09:1 (FALLA) → badge-late-fg = 7.51:1. */
+  color: var(--badge-late-fg);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
 }
@@ -445,6 +462,27 @@
   color: var(--color-text-secondary);
   flex-basis: 100%;
   padding-left: calc(var(--space-4) + var(--space-2));
+}
+
+/* M2 — estado real por credencial WiFi (superficie propia, tokens verificados:
+   paid 7.0:1, warning 6.39:1). */
+.wifiStatusOk {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-full);
+  padding: 0 var(--space-2);
+  background: var(--badge-paid-bg);
+  color: var(--badge-paid-fg);
+}
+
+.wifiStatusPending {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-full);
+  padding: 0 var(--space-2);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-warning-fg);
 }
 
 .credGrid {

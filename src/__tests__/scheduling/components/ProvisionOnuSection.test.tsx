@@ -93,4 +93,43 @@ describe('ProvisionOnuSection — gate', () => {
     await user.click(screen.getByRole('button', { name: /aprovisionar onu/i }));
     expect(screen.getByRole('dialog', { name: /aprovisionar onu/i })).toBeInTheDocument();
   });
+
+  // M1 (fix wave) — latch: una vez abierto el modal, un cambio de señal
+  // (contrato que resuelve a wireless, contrato que se desasocia) NO puede
+  // desmontar el modal a mitad de una ejecución. El gate re-aplica al cerrarlo.
+  it('M1: con el modal abierto, un cambio de señal NO desmonta el modal (latch)', async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderSection({ contractTechnology: 'FTTH' });
+    await user.click(screen.getByRole('button', { name: /aprovisionar onu/i }));
+    expect(screen.getByRole('dialog', { name: /aprovisionar onu/i })).toBeInTheDocument();
+
+    // La señal cambia a wireless con el modal abierto → el modal sobrevive
+    rerender(
+      <ProvisionOnuSection
+        taskCategory="installation"
+        contractId="c-1"
+        contractTechnology="Wireless"
+      />,
+    );
+    expect(screen.getByRole('dialog', { name: /aprovisionar onu/i })).toBeInTheDocument();
+
+    // Al cerrar el modal, el gate vuelve a mandar: la sección desaparece
+    await user.click(screen.getByRole('button', { name: /^cancelar$/i }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /aprovisionar onu/i })).not.toBeInTheDocument();
+  });
+
+  it('M1: el contrato que se desasocia con el modal abierto tampoco lo desmonta', async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderSection({ contractTechnology: 'FTTH' });
+    await user.click(screen.getByRole('button', { name: /aprovisionar onu/i }));
+    rerender(
+      <ProvisionOnuSection
+        taskCategory="installation"
+        contractId={null}
+        contractTechnology="FTTH"
+      />,
+    );
+    expect(screen.getByRole('dialog', { name: /aprovisionar onu/i })).toBeInTheDocument();
+  });
 });

@@ -22,6 +22,13 @@
   --c-accent: #2563EB;
   --c-accent-hover: #1D4ED8;
   --c-danger: #DC2626;
+  /* H1 (K2-FE fix wave) — familia warning LOCAL para el banner de conflicto de
+     descripcion (no mezclar con los tokens globales: esta pagina define su
+     propio sistema). Misma rampa ambar verificada del repo:
+     #92400E sobre #FEF3C7 = 6.39:1 (>=4.5). */
+  --c-warning-bg: #FEF3C7;
+  --c-warning-fg: #92400E;
+  --c-warning-border: #FDE68A;
 
   --c-stage-nuevo-bg: #DBEAFE;
   --c-stage-nuevo-fg: #1E40AF;
@@ -275,4 +282,18 @@
   .toast {
     animation: none;
   }
+}
+
+/* H1 (K2-FE fix wave) — banner de conflicto de descripcion: el servidor tiene
+   contenido (bloque de aprovisionamiento) que NO esta en la copia local dirty.
+   Contraste calculado: #92400E / #FEF3C7 = 6.39:1. */
+.conflictBanner {
+  margin: var(--sp-3) var(--sp-6) 0;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--c-warning-bg);
+  border: 1px solid var(--c-warning-border);
+  border-radius: 8px;
+  color: var(--c-warning-fg);
+  font-size: var(--fs-sm);
+  font-weight: 500;
 }

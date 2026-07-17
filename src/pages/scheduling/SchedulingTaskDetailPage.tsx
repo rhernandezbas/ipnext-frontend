@@ -141,6 +141,20 @@ export default function SchedulingTaskDetailPage() {
   // updateTask call. Initialised lazily by handleDescChange when the editor
   // fires its first onChange (no need to sync from task here).
   const [descriptionHtml, setDescriptionHtml] = useState<string>('');
+  // H1 (K2-FE fix wave) — protección contra lost-update de la descripción.
+  // El BE appendea el bloque de aprovisionamiento a la descripción y la
+  // invalidación refetchea el task, pero TipTap se inicializa UNA vez: si el
+  // operador tenía la descripción dirty y guardaba, su HTML local (SIN el
+  // bloque) PISABA las credenciales en el servidor.
+  //  - lastSyncedDescRef: última descripción del servidor con la que el editor
+  //    está alineado (baseline).
+  //  - descResyncNonce: bump → DescriptionEditor reemplaza su contenido por el
+  //    de servidor (solo cuando NO hay edición local).
+  //  - descConflict: hay edición local Y el servidor cambió → banner + el
+  //    guardado exige confirm explícito.
+  const lastSyncedDescRef = useRef<string | null | undefined>(undefined);
+  const [descResyncNonce, setDescResyncNonce] = useState(0);
+  const [descConflict, setDescConflict] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -166,6 +180,30 @@ export default function SchedulingTaskDetailPage() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [isDirty]);
+
+  // H1 — vigila la descripción del servidor contra el baseline del editor:
+  //  · primera carga → fija el baseline;
+  //  · cambio de servidor SIN edición local → resync silencioso del editor;
+  //  · cambio de servidor CON edición local → conflicto (banner + confirm al guardar).
+  // Nota (edge aceptado): si el operador revierte su edición a mano DESPUÉS del
+  // conflicto, el próximo run (descDirty→false) dispara el resync limpio.
+  const serverDesc = task?.description;
+  useEffect(() => {
+    if (serverDesc === undefined) return; // el task todavía no cargó
+    if (lastSyncedDescRef.current === undefined) {
+      lastSyncedDescRef.current = serverDesc;
+      return;
+    }
+    if (serverDesc === lastSyncedDescRef.current) return;
+    if (!descDirty) {
+      lastSyncedDescRef.current = serverDesc;
+      setDescriptionHtml(serverDesc ?? '');
+      setDescResyncNonce(n => n + 1);
+      setDescConflict(false);
+    } else {
+      setDescConflict(true);
+    }
+  }, [serverDesc, descDirty]);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToastMsg(msg);
@@ -263,6 +301,22 @@ export default function SchedulingTaskDetailPage() {
 
   const handleFormSubmit = useCallback(async (values: DatosFormValues) => {
     if (!task) return;
+    // H1 — la descripción local va a PISAR una versión del servidor que el
+    // operador no vio (p. ej. el bloque de aprovisionamiento de la ONU con las
+    // credenciales). Guardar exige un confirm explícito que lo diga.
+    if (descDirty && descConflict) {
+      const ok = await confirm({
+        title: 'La descripción cambió en el servidor',
+        message:
+          'Mientras editabas, la descripción de la tarea cambió en el servidor ' +
+          '(p. ej. el bloque de aprovisionamiento de la ONU con sus credenciales) ' +
+          'y ese contenido NO está en tu copia local. Si guardás, tu versión PISA ' +
+          'la del servidor y ese contenido se pierde.',
+        confirmLabel: 'Guardar y pisar',
+        tone: 'danger',
+      });
+      if (!ok) return;
+    }
     const loc = locationOverride ?? { address: task.address, coordinates: task.coordinates };
     // Build the payload from Datos values, and ONLY add description when the
     // user actually edited it. Sending it unchanged would be a noisy write for
@@ -304,6 +358,12 @@ export default function SchedulingTaskDetailPage() {
       setFormDirty(false);
       setDescDirty(false);
       setLocationOverride(null);
+      // H1 — lo que acabamos de guardar ES ahora la versión del servidor:
+      // mover el baseline y limpiar el conflicto (si lo hubo, fue confirmado).
+      if (data.description !== undefined) {
+        lastSyncedDescRef.current = data.description;
+        setDescConflict(false);
+      }
       showToast('Cambios guardados');
     } catch (err) {
       // Surface the API error to the user instead of producing an unhandled
@@ -312,7 +372,7 @@ export default function SchedulingTaskDetailPage() {
       // preserved so the user can correct and retry without losing input.
       showToast(mapError(err), 'error');
     }
-  }, [task, updateTask, locationOverride, descDirty, descriptionHtml, customerDetail, customerContracts]);
+  }, [task, updateTask, locationOverride, descDirty, descConflict, confirm, descriptionHtml, customerDetail, customerContracts]);
 
   const handleWatcherChange = useCallback(async (nextIds: string[]) => {
     if (!task) return;
@@ -423,6 +483,15 @@ export default function SchedulingTaskDetailPage() {
         isSaving={isSaving}
       />
 
+      {/* H1 — conflicto de descripción: el servidor tiene contenido (p. ej. el
+          bloque de aprovisionamiento) que NO está en la copia local dirty. */}
+      {descConflict && (
+        <div className={styles.conflictBanner} role="alert">
+          La descripción cambió en el servidor — el bloque de aprovisionamiento
+          NO está en tu copia local. Si guardás, pisás la versión del servidor.
+        </div>
+      )}
+
       <div className={styles.layout}>
         <main className={styles.main}>
           {/* K2-FE (smartolt-provision-fe) — aprovisionamiento de ONU fibra.
@@ -461,6 +530,9 @@ export default function SchedulingTaskDetailPage() {
               descriptionEditor: {
                 initialHtml: task.description,
                 onChange: handleDescChange,
+                // H1 — bump cuando el servidor cambió la descripción y no hay
+                // edición local: el editor reemplaza su contenido.
+                resyncNonce: descResyncNonce,
               },
               checklistSection: {
                 taskId: id!,

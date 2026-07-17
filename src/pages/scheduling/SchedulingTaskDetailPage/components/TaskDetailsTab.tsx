@@ -39,6 +39,9 @@ export interface TaskDetailsTabProps {
     /** Fires on every edit. The unified bottom Guardar persists this together
      *  with the rest of the Datos form in one updateTask call. */
     onChange: (html: string, isDirty: boolean) => void;
+    /** H1 — bump del padre para resincronizar el editor con initialHtml
+     *  (refetch del servidor sin edición local). Opcional (back-compat). */
+    resyncNonce?: number;
   };
   checklistSection: {
     taskId: string;
@@ -59,6 +62,7 @@ export function TaskDetailsTab({
       <DescriptionEditor
         initialHtml={descriptionEditor.initialHtml}
         onChange={descriptionEditor.onChange}
+        resyncNonce={descriptionEditor.resyncNonce}
       />
 
       <hr className={styles.divider} />

@@ -10,7 +10,7 @@ import type {
   PppoeStaleReason,
   UnconfiguredOnu,
 } from '@/types/fiber';
-import { mapFiberError } from './fiberProvisionErrors';
+import { mapFiberError, EXECUTION_UNCERTAIN_PREFIX } from './fiberProvisionErrors';
 import styles from './ProvisionOnuModal.module.css';
 
 /** Elementos tabulables dentro del diálogo (focus-trap — patrón ConfirmModal). */
@@ -70,18 +70,57 @@ interface ProvisionOnuModalProps {
   onClose: () => void;
 }
 
-/** Botón copiar con feedback accesible — para claves WiFi/PPPoE. */
-function CopyButton({ value, label }: { value: string; label: string }) {
-  const [copied, setCopied] = useState(false);
-  async function handleCopy() {
-    try {
-      await navigator.clipboard?.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Sin clipboard (contexto inseguro / permiso denegado) → no rompemos el flujo.
-    }
+/**
+ * M5 — fallback legacy de copiado para contextos sin Clipboard API (HTTP plano):
+ * textarea efímero + execCommand('copy'). Devuelve si el copy REALMENTE pasó.
+ * (El style inline es del nodo transitorio del fallback, no un style de React.)
+ */
+function legacyCopy(text: string): boolean {
+  if (typeof document.execCommand !== 'function') return false;
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try {
+    ok = document.execCommand('copy');
+  } catch {
+    ok = false;
   }
+  document.body.removeChild(ta);
+  return ok;
+}
+
+/**
+ * Botón copiar con feedback accesible — para claves WiFi/PPPoE.
+ * M5 — JAMÁS confirmar lo que no pasó: `navigator.clipboard` ausente (contexto
+ * no seguro) NO es un copy exitoso. Se intenta el fallback legacy y si tampoco
+ * anda, se le dice al operador que copie a mano (el valor es seleccionable).
+ */
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  function flash(msg: string) {
+    setFeedback(msg);
+    setTimeout(() => setFeedback(null), 2000);
+  }
+
+  async function handleCopy() {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(value);
+        flash('Copiado');
+        return;
+      } catch {
+        // permiso denegado / clipboard roto → probamos el fallback legacy
+      }
+    }
+    flash(legacyCopy(value) ? 'Copiado' : 'Copiá manualmente');
+  }
+
   return (
     <span className={styles.copyWrap}>
       <button
@@ -93,7 +132,7 @@ function CopyButton({ value, label }: { value: string; label: string }) {
         Copiar
       </button>
       <span role="status" aria-live="polite" className={styles.copyFeedback}>
-        {copied ? 'Copiado' : ''}
+        {feedback ?? ''}
       </span>
     </span>
   );
@@ -241,6 +280,13 @@ export function ProvisionOnuModal({ contractId, onClose }: ProvisionOnuModalProp
       if (res.dryRun) {
         setPlan(res);
         setStep('plan');
+      } else {
+        // L2 — eco dryRun inesperado: el server contestó como EJECUCIÓN a un
+        // pedido de dry-run. Error visible, jamás drop silencioso.
+        setPostError(
+          'Respuesta inesperada del servidor: contestó como ejecución a un pedido de dry-run. ' +
+            'Verificá el estado real en SmartOLT antes de seguir.',
+        );
       }
     } catch (err) {
       setPostError(mapFiberError(err));
@@ -261,9 +307,16 @@ export function ProvisionOnuModal({ contractId, onClose }: ProvisionOnuModalProp
       if (!res.dryRun) {
         setResult(res);
         setStep('result');
+      } else {
+        // L2 — eco dryRun inesperado en la ejecución: no sabemos qué pasó
+        // server-side → misma honestidad que un error de ejecución.
+        setPostError(
+          `${EXECUTION_UNCERTAIN_PREFIX} El servidor devolvió una respuesta inesperada (eco de dry-run).`,
+        );
       }
     } catch (err) {
-      setPostError(mapFiberError(err));
+      // H2a — la cadena es serial: el error puede llegar con pasos YA aplicados.
+      setPostError(`${EXECUTION_UNCERTAIN_PREFIX} ${mapFiberError(err)}`);
     } finally {
       setBusy(false);
     }
@@ -297,7 +350,8 @@ export function ProvisionOnuModal({ contractId, onClose }: ProvisionOnuModalProp
           </div>
         ) : onusQuery.isError ? (
           <div className={styles.errorBlock}>
-            <p role="alert" className={styles.errorText}>{mapFiberError(onusQuery.error)}</p>
+            {/* L1 — el GET exige network.read (el manage es solo del POST) */}
+            <p role="alert" className={styles.errorText}>{mapFiberError(onusQuery.error, 'network.read')}</p>
             <button
               type="button"
               className={styles.btnSecondary}
@@ -313,31 +367,41 @@ export function ProvisionOnuModal({ contractId, onClose }: ProvisionOnuModalProp
           </p>
         ) : (
           <ul className={styles.onuList}>
-            {onus.map(onu => (
-              <li key={onu.sn} className={styles.onuItem}>
-                <label className={`${styles.onuRow} ${!onu.huawei ? styles.onuRowDisabled : ''}`}>
-                  <input
-                    type="radio"
-                    name="provision-onu-sn"
-                    className={styles.onuRadio}
-                    checked={selectedSn === onu.sn}
-                    disabled={!onu.huawei}
-                    onChange={() => handleSelect(onu.sn)}
-                    aria-label={`ONU ${onu.sn}`}
-                  />
-                  <span className={styles.onuInfo}>
-                    <span className={styles.onuSn}>{onu.sn}</span>
-                    <span className={styles.onuMeta}>{onu.onuTypeName ?? 'Tipo desconocido'}</span>
-                    <span className={styles.onuMeta}>
-                      OLT {onu.oltName ?? onu.oltId} · board {onu.board ?? '?'} / port {onu.port ?? '?'}
+            {onus.map(onu => {
+              // M3 — el BE expone `authorizable` exactamente para esto: sin la
+              // acción authorize de SmartOLT el POST 409ea sí o sí.
+              const disabled = !onu.huawei || !onu.authorizable;
+              const disabledReason = !onu.huawei
+                ? 'solo Huawei se auto-aprovisiona'
+                : !onu.authorizable
+                  ? 'no autorizable — revisar en SmartOLT'
+                  : null;
+              return (
+                <li key={onu.sn} className={styles.onuItem}>
+                  <label className={`${styles.onuRow} ${disabled ? styles.onuRowDisabled : ''}`}>
+                    <input
+                      type="radio"
+                      name="provision-onu-sn"
+                      className={styles.onuRadio}
+                      checked={selectedSn === onu.sn}
+                      disabled={disabled}
+                      onChange={() => handleSelect(onu.sn)}
+                      aria-label={`ONU ${onu.sn}`}
+                    />
+                    <span className={styles.onuInfo}>
+                      <span className={styles.onuSn}>{onu.sn}</span>
+                      <span className={styles.onuMeta}>{onu.onuTypeName ?? 'Tipo desconocido'}</span>
+                      <span className={styles.onuMeta}>
+                        OLT {onu.oltName ?? onu.oltId} · board {onu.board ?? '?'} / port {onu.port ?? '?'}
+                      </span>
+                      {disabledReason && (
+                        <span className={styles.onuDisabledReason}>{disabledReason}</span>
+                      )}
                     </span>
-                    {!onu.huawei && (
-                      <span className={styles.onuDisabledReason}>solo Huawei se auto-aprovisiona</span>
-                    )}
-                  </span>
-                </label>
-              </li>
-            ))}
+                  </label>
+                </li>
+              );
+            })}
           </ul>
         )}
 
@@ -568,8 +632,29 @@ export function ProvisionOnuModal({ contractId, onClose }: ProvisionOnuModalProp
     }
   }
 
+  /** M2 — estado real de un paso wifi; paso ausente = no corrió = no ok. */
+  function wifiStepStatus(name: ProvisionStepName): ProvisionStepResult['status'] {
+    return result?.steps.find(s => s.step === name)?.status ?? 'skipped';
+  }
+
+  /** M2 — jamás presentar como configurada una clave que no se escribió. */
+  function renderWifiStatus(band: '24' | '5', status: ProvisionStepResult['status']) {
+    return status === 'ok' ? (
+      <span data-testid={`wifi-status-${band}`} className={styles.wifiStatusOk}>
+        configurada ✓
+      </span>
+    ) : (
+      <span data-testid={`wifi-status-${band}`} className={styles.wifiStatusPending}>
+        NO configurada {STATUS_SYMBOLS[status]} — configurar manualmente
+      </span>
+    );
+  }
+
   function renderResult() {
     if (!result) return null;
+    const wifi24Status = wifiStepStatus('wifi_24');
+    const wifi5Status = wifiStepStatus('wifi_5');
+    const wifiPartial = wifi24Status !== 'ok' || wifi5Status !== 'ok';
     return (
       <>
         <h3 className={styles.blockTitle}>Pasos ejecutados</h3>
@@ -588,15 +673,25 @@ export function ProvisionOnuModal({ contractId, onClose }: ProvisionOnuModalProp
           ))}
         </ul>
 
-        <h3 className={styles.blockTitle}>WiFi configurada</h3>
+        <h3 className={styles.blockTitle}>WiFi</h3>
+        {wifiPartial && (
+          <p className={styles.warnBox}>
+            Aprovisionamiento PARCIAL — no todos los pasos WiFi completaron.
+            Configurá a mano lo marcado abajo usando estas credenciales.
+          </p>
+        )}
         <dl className={styles.summaryGrid}>
           <div className={styles.summaryItem}>
             <dt>SSID 2.4 GHz</dt>
-            <dd>{result.wifi.ssid24}</dd>
+            <dd>
+              {result.wifi.ssid24} {renderWifiStatus('24', wifi24Status)}
+            </dd>
           </div>
           <div className={styles.summaryItem}>
             <dt>SSID 5 GHz</dt>
-            <dd>{result.wifi.ssid5}</dd>
+            <dd>
+              {result.wifi.ssid5} {renderWifiStatus('5', wifi5Status)}
+            </dd>
           </div>
           <div className={styles.summaryItem}>
             <dt>Clave WiFi</dt>

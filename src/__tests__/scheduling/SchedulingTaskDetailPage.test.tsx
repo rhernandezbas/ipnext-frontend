@@ -85,49 +85,12 @@ vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskHeader', () 
 // Mock TaskTabs — renders a stub with 7 role=tab elements (main tabs)
 // Wrapped in vi.fn so individual tests can override the implementation to
 // capture the props the page hands down (e.g. #122 datosForm wiring).
+// NOTE: the real stub implementation is `defaultTaskTabsImpl` (defined below),
+// restored in beforeEach — same pattern as TaskHeader — so per-test overrides
+// (#122 capture stubs) don't leak into subsequent tests (H1 relies on the
+// desc-change-btn / datos-save-btn buttons of the default stub).
 vi.mock('@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs', () => ({
-  TaskTabs: vi.fn(({ detailsProps, commentsTaskId, reviewedByInventory, onInventoryToggle }: {
-    detailsProps: Record<string, unknown>;
-    commentsTaskId: string;
-    reviewedByInventory: boolean;
-    onInventoryToggle: (v: boolean) => void;
-  }) => (
-    <div data-testid="task-tabs" data-comments-id={commentsTaskId} data-inventory={String(reviewedByInventory)}>
-      {/* Stub 7 tabs so tests can assert tab presence */}
-      {['Detalles', 'Adjuntos', 'Comentarios', 'Relacionado', 'Inventory', 'Registro de trabajo', 'Actividad'].map(label => (
-        <button key={label} role="tab" aria-selected={label === 'Detalles' ? 'true' : 'false'}>{label}</button>
-      ))}
-      {/* Expose description change for integration tests — the editor is now
-          controlled (controlled API: onChange(html, isDirty)), so editing it
-          only updates parent state. The actual save happens via datos-save-btn. */}
-      <button
-        data-testid="desc-change-btn"
-        onClick={() => {
-          const onChange = (detailsProps.descriptionEditor as { onChange?: (h: string, dirty: boolean) => void })?.onChange;
-          onChange?.('<p>updated</p>', true);
-        }}
-      >
-        Change Desc
-      </button>
-      {/* Expose datos form save for integration test */}
-      <button
-        data-testid="datos-save-btn"
-        onClick={() => {
-          const onSubmit = (detailsProps.datosForm as { onSubmit?: (v: Record<string, unknown>) => Promise<void> })?.onSubmit;
-          const initial = (detailsProps.datosForm as { initial?: Record<string, unknown> })?.initial ?? {};
-          void onSubmit?.(initial);
-        }}
-      >
-        Save Datos
-      </button>
-      <button
-        data-testid="inventory-toggle-btn"
-        onClick={() => onInventoryToggle(!reviewedByInventory)}
-      >
-        Toggle Inventory
-      </button>
-    </div>
-  )),
+  TaskTabs: vi.fn(),
 }));
 
 // Mock CustomerSidebar — renders a stub with 3 role=tab elements (sidebar tabs)
@@ -204,6 +167,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/useMyPermissions';
 import { TaskHeader } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskHeader';
+import { TaskTabs } from '@/pages/scheduling/SchedulingTaskDetailPage/components/TaskTabs';
 
 import { mockMutation, mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 const mockTask: ScheduledTask = {
@@ -365,6 +329,52 @@ const defaultTaskHeaderImpl = ({ task, onStageMove: _onStageMove, onSetStatus, o
   </div>
 );
 
+// Default TaskTabs stub — restored in beforeEach (same rationale as
+// defaultTaskHeaderImpl: the #122 tests override the implementation with a
+// capture stub and would otherwise leak it into every test after them).
+const defaultTaskTabsImpl = ({ detailsProps, commentsTaskId, reviewedByInventory, onInventoryToggle }: {
+  detailsProps: Record<string, unknown>;
+  commentsTaskId: string;
+  reviewedByInventory: boolean;
+  onInventoryToggle: (v: boolean) => void;
+}) => (
+  <div data-testid="task-tabs" data-comments-id={commentsTaskId} data-inventory={String(reviewedByInventory)}>
+    {/* Stub 7 tabs so tests can assert tab presence */}
+    {['Detalles', 'Adjuntos', 'Comentarios', 'Relacionado', 'Inventory', 'Registro de trabajo', 'Actividad'].map(label => (
+      <button key={label} role="tab" aria-selected={label === 'Detalles' ? 'true' : 'false'}>{label}</button>
+    ))}
+    {/* Expose description change for integration tests — the editor is now
+        controlled (controlled API: onChange(html, isDirty)), so editing it
+        only updates parent state. The actual save happens via datos-save-btn. */}
+    <button
+      data-testid="desc-change-btn"
+      onClick={() => {
+        const onChange = (detailsProps.descriptionEditor as { onChange?: (h: string, dirty: boolean) => void })?.onChange;
+        onChange?.('<p>updated</p>', true);
+      }}
+    >
+      Change Desc
+    </button>
+    {/* Expose datos form save for integration test */}
+    <button
+      data-testid="datos-save-btn"
+      onClick={() => {
+        const onSubmit = (detailsProps.datosForm as { onSubmit?: (v: Record<string, unknown>) => Promise<void> })?.onSubmit;
+        const initial = (detailsProps.datosForm as { initial?: Record<string, unknown> })?.initial ?? {};
+        void onSubmit?.(initial);
+      }}
+    >
+      Save Datos
+    </button>
+    <button
+      data-testid="inventory-toggle-btn"
+      onClick={() => onInventoryToggle(!reviewedByInventory)}
+    >
+      Toggle Inventory
+    </button>
+  </div>
+);
+
 describe('SchedulingTaskDetailPage', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -373,6 +383,9 @@ describe('SchedulingTaskDetailPage', () => {
     // Restore TaskHeader default so per-test mockImplementation overrides don't leak
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(TaskHeader).mockImplementation(defaultTaskHeaderImpl as any);
+    // Restore TaskTabs default (the #122 capture stubs override it per-test)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(TaskTabs).mockImplementation(defaultTaskTabsImpl as any);
     // Restore feature flag defaults (flag OFF, teams empty) so tests that call
     // enableIclassAssign() don't leak state into subsequent tests.
     const { useFeatureFlag } = await import('@/hooks/useFeatureFlags');
@@ -1099,5 +1112,94 @@ describe('SchedulingTaskDetailPage', () => {
       expect(screen.getByText('Instalación Cliente Pérez')).toBeInTheDocument();
     });
     expect(screen.queryByRole('button', { name: /aprovisionar onu/i })).not.toBeInTheDocument();
+  });
+
+  // ── H1 (K2-FE fix wave) — lost-update de la descripción ─────────────────────
+  // El BE appendea el bloque de aprovisionamiento a la descripción (taskUpdated)
+  // y la invalidación refetchea el task. Si el operador tenía la descripción
+  // dirty, guardar mandaría su HTML local SIN el bloque → pisaría las
+  // credenciales. Camino limpio: resync silencioso. Camino dirty: banner de
+  // conflicto + confirm explícito antes de pisar.
+  const SERVER_DESC_WITH_BLOCK = '<p>Descripción de prueba</p><p>── Aprovisionamiento ONU ──</p>';
+
+  it('H1: descripción dirty + cambio en el servidor → banner de conflicto y confirm antes de pisar', async () => {
+    const { fireEvent: fe } = await import('@testing-library/react');
+    const { useConfirm } = await import('@/context/ConfirmContext');
+    const confirmFn = vi.fn().mockResolvedValue(true);
+    vi.mocked(useConfirm).mockReturnValue(confirmFn);
+    setupMocks();
+    const updateMutate = vi.fn().mockResolvedValue({});
+    vi.mocked(useUpdateTask).mockReturnValue(mockMutation({ mutateAsync: updateMutate }));
+
+    const { rerender } = render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByText('Instalación Cliente Pérez')).toBeInTheDocument());
+
+    // 1. El operador edita la descripción (queda dirty)
+    fe.click(screen.getByTestId('desc-change-btn'));
+
+    // 2. El servidor refetchea con el bloque appendeado
+    vi.mocked(useTask).mockReturnValue(mockQuery({
+      data: { ...mockTask, description: SERVER_DESC_WITH_BLOCK },
+    }));
+    rerender(<SchedulingTaskDetailPage />);
+
+    // 3. Banner de conflicto visible
+    expect(await screen.findByText(/no está en tu copia local/i)).toBeInTheDocument();
+
+    // 4. Guardar exige confirm explícito que nombre el conflicto
+    fe.click(screen.getByTestId('datos-save-btn'));
+    await waitFor(() => expect(confirmFn).toHaveBeenCalled());
+    expect(String((confirmFn.mock.calls[0]![0] as { message: string }).message)).toMatch(/aprovisionamiento/i);
+    // confirm aceptado → el guardado procede
+    await waitFor(() => expect(updateMutate).toHaveBeenCalled());
+  });
+
+  it('H1: confirm rechazado → NO se guarda (la copia del servidor no se pisa)', async () => {
+    const { fireEvent: fe } = await import('@testing-library/react');
+    const { useConfirm } = await import('@/context/ConfirmContext');
+    const confirmFn = vi.fn().mockResolvedValue(false);
+    vi.mocked(useConfirm).mockReturnValue(confirmFn);
+    setupMocks();
+    const updateMutate = vi.fn().mockResolvedValue({});
+    vi.mocked(useUpdateTask).mockReturnValue(mockMutation({ mutateAsync: updateMutate }));
+
+    const { rerender } = render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByText('Instalación Cliente Pérez')).toBeInTheDocument());
+
+    fe.click(screen.getByTestId('desc-change-btn'));
+    vi.mocked(useTask).mockReturnValue(mockQuery({
+      data: { ...mockTask, description: SERVER_DESC_WITH_BLOCK },
+    }));
+    rerender(<SchedulingTaskDetailPage />);
+    expect(await screen.findByText(/no está en tu copia local/i)).toBeInTheDocument();
+
+    fe.click(screen.getByTestId('datos-save-btn'));
+    await waitFor(() => expect(confirmFn).toHaveBeenCalled());
+    expect(updateMutate).not.toHaveBeenCalled();
+  });
+
+  it('H1: SIN edición local, el refetch con descripción nueva resincroniza sin banner ni confirm', async () => {
+    const { fireEvent: fe } = await import('@testing-library/react');
+    const { useConfirm } = await import('@/context/ConfirmContext');
+    const confirmFn = vi.fn().mockResolvedValue(true);
+    vi.mocked(useConfirm).mockReturnValue(confirmFn);
+    setupMocks();
+    const updateMutate = vi.fn().mockResolvedValue({});
+    vi.mocked(useUpdateTask).mockReturnValue(mockMutation({ mutateAsync: updateMutate }));
+
+    const { rerender } = render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByText('Instalación Cliente Pérez')).toBeInTheDocument());
+
+    // Refetch del servidor SIN edición local previa
+    vi.mocked(useTask).mockReturnValue(mockQuery({
+      data: { ...mockTask, description: SERVER_DESC_WITH_BLOCK },
+    }));
+    rerender(<SchedulingTaskDetailPage />);
+
+    expect(screen.queryByText(/no está en tu copia local/i)).not.toBeInTheDocument();
+    // Guardar (sin descripción dirty) no pide confirm de conflicto
+    fe.click(screen.getByTestId('datos-save-btn'));
+    await waitFor(() => expect(updateMutate).toHaveBeenCalled());
+    expect(confirmFn).not.toHaveBeenCalled();
   });
 });

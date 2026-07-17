@@ -39,12 +39,22 @@ export function ProvisionOnuSection({
   contractTechnology,
 }: ProvisionOnuSectionProps) {
   const canManage = useCan('network.manage');
-  const [modalOpen, setModalOpen] = useState(false);
-
-  if (!canManage || taskCategory !== 'installation' || !contractId) return null;
+  // M1 (fix wave) — LATCH del modal: guardamos el contractId con el que se
+  // abrió. Mientras esté abierto, un cambio de señal (contrato que refetchea a
+  // wireless, contrato que se desasocia de la tarea) NO desmonta la sección —
+  // matar el modal a mitad de una ejecución dejaría al operador sin las
+  // credenciales ni el resultado por paso. El gate se re-aplica al cerrarlo.
+  const [openContractId, setOpenContractId] = useState<string | null>(null);
 
   const family = contractTechnology ? technologyFamily(contractTechnology) : 'other';
-  if (family === 'wireless' || family === 'cable') return null;
+  const gateOk =
+    canManage &&
+    taskCategory === 'installation' &&
+    !!contractId &&
+    family !== 'wireless' &&
+    family !== 'cable';
+
+  if (!gateOk && openContractId === null) return null;
 
   return (
     <section className={styles.section} aria-labelledby="provision-onu-section-title">
@@ -58,14 +68,24 @@ export function ProvisionOnuSection({
             SmartOLT, con plan de aprobación previo (dry-run).
           </p>
         </div>
-        <button type="button" className={styles.cta} onClick={() => setModalOpen(true)}>
+        <button
+          type="button"
+          className={styles.cta}
+          onClick={() => {
+            if (contractId) setOpenContractId(contractId);
+          }}
+        >
           Aprovisionar ONU
         </button>
       </div>
       {/* Montado solo abierto: cada apertura arranca el wizard limpio y la
-          query de ONUs no corre de fondo en la página. */}
-      {modalOpen && (
-        <ProvisionOnuModal contractId={contractId} onClose={() => setModalOpen(false)} />
+          query de ONUs no corre de fondo en la página. El modal usa el
+          contractId LATCHEADO al abrir, inmune a cambios del task en vivo. */}
+      {openContractId !== null && (
+        <ProvisionOnuModal
+          contractId={openContractId}
+          onClose={() => setOpenContractId(null)}
+        />
       )}
     </section>
   );

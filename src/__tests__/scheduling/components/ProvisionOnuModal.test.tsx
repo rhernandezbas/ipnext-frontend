@@ -55,6 +55,21 @@ const onuNoHuawei: UnconfiguredOnu = {
   vlanRequired: false,
 };
 
+// M3 — Huawei detectada pero SmartOLT no ofrece authorize (authorizable:false).
+const onuNotAuthorizable: UnconfiguredOnu = {
+  sn: 'HWTCFFEE0011',
+  onuTypeName: 'HG8145V5',
+  oltId: 'olt-1',
+  oltName: 'OLT CENTRO',
+  board: '0',
+  port: '4',
+  ponType: 'gpon',
+  huawei: true,
+  authorizable: false,
+  serviceVlanDefault: 100,
+  vlanRequired: false,
+};
+
 const onuChivilcoy: UnconfiguredOnu = {
   sn: 'HWTCAABBCC01',
   onuTypeName: 'HG8145V5',
@@ -179,6 +194,21 @@ describe('ProvisionOnuModal — paso 1 (picker)', () => {
     expect(radio).toBeDisabled();
     const row = radio.closest('li')!;
     expect(within(row).getByText(/solo huawei se auto-aprovisiona/i)).toBeInTheDocument();
+  });
+
+  it('M3: las no autorizables (authorizable:false) van DESHABILITADAS con su motivo', () => {
+    setupHooks({ onus: [onuHuawei, onuNotAuthorizable] });
+    renderModal();
+    const radio = screen.getByRole('radio', { name: /HWTCFFEE0011/ });
+    expect(radio).toBeDisabled();
+    const row = radio.closest('li')!;
+    expect(within(row).getByText(/no autorizable — revisar en smartolt/i)).toBeInTheDocument();
+  });
+
+  it('L1: 403 en la lista → el copy menciona network.read (no manage)', () => {
+    setupHooks({ isError: true, error: apiError(403, 'FORBIDDEN') });
+    renderModal();
+    expect(screen.getByRole('alert')).toHaveTextContent(/network\.read/);
   });
 
   it('estado loading: skeleton accesible', () => {
@@ -383,9 +413,27 @@ describe('ProvisionOnuModal — paso 2 (dry-run)', () => {
     renderModal();
     await user.click(screen.getByRole('radio', { name: /HWTC12345678/ }));
     await user.click(screen.getByRole('button', { name: /ver plan/i }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(/no tiene vlan default — ingresá la vlan/i);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/no tiene vlan default — ingresá la vlan/i);
+    // H2 — el dry-run NO tiene side-effects: jamás asustar con "a medias" acá.
+    expect(alert).not.toHaveTextContent(/a medias/i);
     // sigue en el picker, reintentable
     expect(screen.getByRole('button', { name: /ver plan/i })).toBeEnabled();
+  });
+
+  it('L2: el dry-run responde con eco dryRun:false → error visible, NO avanza al plan', async () => {
+    const user = userEvent.setup();
+    // El server contesta como EJECUCIÓN a un pedido de dry-run (eco inesperado).
+    const mutateAsync = vi.fn().mockResolvedValue(
+      executedFixture({ status: 'existing', username: 'jperez4821' }),
+    );
+    setupHooks({ mutateAsync });
+    renderModal();
+    await user.click(screen.getByRole('radio', { name: /HWTC12345678/ }));
+    await user.click(screen.getByRole('button', { name: /ver plan/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/respuesta inesperada/i);
+    // No hay plan aprobable: no debe existir el botón de ejecutar.
+    expect(screen.queryByRole('button', { name: /ejecutar aprovisionamiento/i })).not.toBeInTheDocument();
   });
 });
 
@@ -532,5 +580,81 @@ describe('ProvisionOnuModal — paso 3 (ejecución)', () => {
       'El aprovisionamiento automático está apagado — se prende desde el flag fiber-auto-provision',
     );
     expect(screen.getByRole('button', { name: /ejecutar aprovisionamiento/i })).toBeEnabled();
+  });
+
+  it('H2: el error de la ejecución avisa que pudo quedar A MEDIAS (side-effects inciertos)', async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockImplementation((p: { dryRun?: boolean }) =>
+      p.dryRun ? Promise.resolve(planFixture) : Promise.reject(apiError(502, 'SMARTOLT_UNREACHABLE')));
+    setupHooks({ mutateAsync });
+    renderModal();
+    await goToPlan(user);
+    await user.click(screen.getByRole('button', { name: /ejecutar aprovisionamiento/i }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/pudo quedar a medias/i);
+    expect(alert).toHaveTextContent(/verificá el estado real en smartolt antes de reintentar/i);
+    // El detalle del código sigue presente
+    expect(alert).toHaveTextContent(/no se pudo contactar a smartolt/i);
+  });
+
+  it('M2: wifi parcial → banner PARCIAL + estado real junto a cada credencial', async () => {
+    const user = userEvent.setup();
+    // fixture default: wifi_24 ok, wifi_5 skipped
+    setupHooks();
+    renderModal();
+    await execute(user);
+    expect(screen.getByText(/aprovisionamiento parcial/i)).toBeInTheDocument();
+    expect(screen.getByTestId('wifi-status-24')).toHaveTextContent('configurada ✓');
+    expect(screen.getByTestId('wifi-status-5')).toHaveTextContent(/no configurada/i);
+    expect(screen.getByTestId('wifi-status-5')).toHaveTextContent(/configurar manualmente/i);
+  });
+
+  it('M2: todos los pasos wifi ok → sin banner parcial y ambas marcadas configuradas', async () => {
+    const user = userEvent.setup();
+    const allOk: ProvisionExecutedResult = {
+      ...executedFixture({ status: 'existing', username: 'jperez4821' }),
+      steps: [
+        { step: 'authorize', status: 'ok' },
+        { step: 'mgmt_ip', status: 'ok' },
+        { step: 'tr069', status: 'ok' },
+        { step: 'remote_wan', status: 'ok' },
+        { step: 'wifi_24', status: 'ok' },
+        { step: 'wifi_5', status: 'ok' },
+      ],
+    };
+    const mutateAsync = vi.fn().mockImplementation((p: { dryRun?: boolean }) =>
+      Promise.resolve(p.dryRun ? planFixture : allOk));
+    setupHooks({ mutateAsync });
+    renderModal();
+    await execute(user);
+    expect(screen.queryByText(/aprovisionamiento parcial/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId('wifi-status-24')).toHaveTextContent('configurada ✓');
+    expect(screen.getByTestId('wifi-status-5')).toHaveTextContent('configurada ✓');
+  });
+
+  it('M5: sin navigator.clipboard NO miente "Copiado" — fallback honesto', async () => {
+    const user = userEvent.setup();
+    setupHooks();
+    // Contexto no seguro: clipboard API ausente y execCommand también falla.
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+    document.execCommand = vi.fn(() => false) as unknown as typeof document.execCommand;
+    renderModal();
+    await execute(user);
+    await user.click(screen.getByRole('button', { name: /copiar clave wifi/i }));
+    expect(screen.queryByText('Copiado')).not.toBeInTheDocument();
+    expect(screen.getByText(/copiá manualmente/i)).toBeInTheDocument();
+  });
+
+  it('M5: fallback execCommand exitoso → confirma Copiado', async () => {
+    const user = userEvent.setup();
+    setupHooks();
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+    const execCommand = vi.fn(() => true);
+    document.execCommand = execCommand as unknown as typeof document.execCommand;
+    renderModal();
+    await execute(user);
+    await user.click(screen.getByRole('button', { name: /copiar clave wifi/i }));
+    expect(execCommand).toHaveBeenCalledWith('copy');
+    expect(screen.getByText('Copiado')).toBeInTheDocument();
   });
 });
