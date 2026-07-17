@@ -120,6 +120,29 @@ describe('Rediseño bulk-elegant: cards del composer — subtítulos y chips de 
   });
 });
 
+/**
+ * Micro-fix M1 (review del rediseño) — per HTML rendering spec, los
+ * pseudo-elementos de un <fieldset> caen en su CONTENT BOX, DESPUÉS del
+ * <legend> renderizado: un `::before` divisor en el fieldset de
+ * VariablesMapForm quedaba DEBAJO del título "Variables del template" (como
+ * subrayado del heading) en browsers reales — no entre el TemplateSelector y
+ * la sección, que era el intent. jsdom no renderiza pseudo-elementos, así que
+ * ningún test de comportamiento lo veía; se pinea acá a nivel CSS: el divisor
+ * vive en la card contenedora (`.messageCard`, CampaignComposer.module.css),
+ * nunca en un pseudo-elemento del fieldset.
+ */
+describe('Micro-fix M1: el divisor de la card Mensaje NO vive en un pseudo-elemento del fieldset', () => {
+  it('VariablesMapForm .fieldset no declara ::before/::after', () => {
+    const css = readCss(`${COMPOSER}/VariablesMapForm.module.css`);
+    expect(css).not.toMatch(/\.fieldset::(before|after)/);
+  });
+
+  it('CampaignComposer .messageCard declara el divisor entre secciones (border-top)', () => {
+    const css = readCss(`${COMPOSER}/CampaignComposer.module.css`);
+    expect(css).toMatch(/\.messageCard[^{]*\{[^}]*border-top/);
+  });
+});
+
 describe('Rediseño bulk-elegant: Tabs compartidas — focus ring + touch target', () => {
   it('Tabs .tab declara un anillo :focus-visible', () => {
     const css = readCss('src/components/molecules/Tabs/Tabs.module.css');

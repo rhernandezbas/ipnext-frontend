@@ -74,6 +74,22 @@
   animation-delay: 60ms;
 }
 
+/* Micro-fix M1 — divisor entre las secciones de CONTENIDO de la card Mensaje
+   (a partir de la 2da: `* + * + *` = todo hijo con al menos dos hermanos
+   previos, así ni el header ni la primera sección lo llevan, y sin template
+   elegido la card tiene 2 hijos → cero bordes colgantes). Vive ACÁ y NO en un
+   pseudo-elemento del fieldset de VariablesMapForm: per HTML rendering spec,
+   los ::before/::after de un <fieldset> caen en su CONTENT BOX, DESPUÉS del
+   <legend> renderizado — en browsers reales el divisor quedaba DEBAJO del
+   título "Variables del template" (como subrayado), no entre el selector y la
+   sección. jsdom no renderiza pseudo-elementos, así que ningún test de
+   comportamiento lo veía — pineado a nivel CSS en `bulkA11y.test.ts`
+   ("Micro-fix M1"). */
+.messageCard > * + * + * {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-4);
+}
+
 .cardHeader {
   display: flex;
   flex-direction: column;

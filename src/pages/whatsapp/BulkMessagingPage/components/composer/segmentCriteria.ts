@@ -32,11 +32,22 @@ function isNetworkFilter(value: string | null | undefined): boolean {
 export function hasSegmentCriteria(segment: CampaignSegment): boolean {
   return (
     segment.statuses.length > 0 ||
-    isEffectiveBalance(segment.balanceMin) ||
-    isEffectiveBalance(segment.balanceMax) ||
+    hasEffectiveBalanceFilter(segment) ||
     isNetworkFilter(segment.networkSiteId) ||
     isNetworkFilter(segment.accessPointId)
   );
+}
+
+/**
+ * Micro-fix L1 (rediseño bulk-elegant) — "¿hay un filtro de deuda EFECTIVO?"
+ * (>0, finito), el MISMO criterio que usa `hasSegmentCriteria` arriba — una
+ * sola fuente de verdad. Exportado para el contador-chip del tab "Segmento"
+ * (`CampaignComposer`): contar una deuda de $0/negativa como "1 filtro"
+ * contradecía al hint del SegmentBuilder ("no filtra a nadie") y al gate, que
+ * ya la tratan como no-criterio.
+ */
+export function hasEffectiveBalanceFilter(segment: CampaignSegment): boolean {
+  return isEffectiveBalance(segment.balanceMin) || isEffectiveBalance(segment.balanceMax);
 }
 
 /**

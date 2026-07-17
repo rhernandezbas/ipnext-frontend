@@ -17,7 +17,7 @@
  *  SC-6 balanceMin/Max negativo o NaN → false        [FIX-1]
  */
 import { describe, it, expect } from 'vitest';
-import { hasSegmentCriteria } from '@/pages/whatsapp/BulkMessagingPage/components/composer/segmentCriteria';
+import { hasSegmentCriteria, hasEffectiveBalanceFilter } from '@/pages/whatsapp/BulkMessagingPage/components/composer/segmentCriteria';
 
 describe('SC-1: sin criterio', () => {
   it('statuses vacío y sin balances → false', () => {
@@ -92,5 +92,39 @@ describe('SC-7: filtro de red nodo/AP (node-segment-fe)', () => {
 
   it('string vacío NO cuenta como criterio', () => {
     expect(hasSegmentCriteria({ statuses: [], networkSiteId: '' })).toBe(false);
+  });
+});
+
+/**
+ * Micro-fix L1 (rediseño bulk-elegant) — `hasEffectiveBalanceFilter`, el
+ * criterio de deuda EFECTIVA (>0, finito) exportado para el contador-chip del
+ * tab "Segmento". MISMA regla que usa `hasSegmentCriteria` adentro — una sola
+ * fuente de verdad: si divergen, el chip vuelve a mentir ("1 filtro" con una
+ * deuda de $0 que el gate y el hint tratan como no-criterio).
+ */
+describe('L1: hasEffectiveBalanceFilter — mismo criterio efectivo que hasSegmentCriteria', () => {
+  it('sin balances → false', () => {
+    expect(hasEffectiveBalanceFilter({ statuses: [] })).toBe(false);
+  });
+
+  it('balanceMin > 0 → true', () => {
+    expect(hasEffectiveBalanceFilter({ statuses: [], balanceMin: 100 })).toBe(true);
+  });
+
+  it('balanceMax > 0 → true', () => {
+    expect(hasEffectiveBalanceFilter({ statuses: [], balanceMax: 500 })).toBe(true);
+  });
+
+  it('balanceMin = 0 (no filtra a nadie) → false', () => {
+    expect(hasEffectiveBalanceFilter({ statuses: [], balanceMin: 0 })).toBe(false);
+  });
+
+  it('negativo o NaN → false', () => {
+    expect(hasEffectiveBalanceFilter({ statuses: [], balanceMin: -50 })).toBe(false);
+    expect(hasEffectiveBalanceFilter({ statuses: [], balanceMax: Number.NaN })).toBe(false);
+  });
+
+  it('los statuses NO influyen (es SOLO el filtro de deuda)', () => {
+    expect(hasEffectiveBalanceFilter({ statuses: ['late'] })).toBe(false);
   });
 });

@@ -1,8 +1,17 @@
 /**
  * VariablesMapForm.module.css (rediseño bulk-elegant) — APLANADO: ya no es
- * una card propia; es la SEGUNDA sección de la card "Mensaje" del composer,
- * separada del selector por un divisor sutil (`::before` — NO border-top en
- * el fieldset: el <legend> nativo se anclaría SOBRE la línea del borde).
+ * una card propia; es la SEGUNDA sección de la card "Mensaje" del composer.
+ *
+ * Micro-fix M1 — el divisor respecto del selector NO vive acá: vive en la
+ * card contenedora (`.messageCard > * + * + *`, CampaignComposer.module.css).
+ * NUNCA usar un pseudo-elemento del fieldset para eso: per HTML rendering
+ * spec, los ::before/::after de un <fieldset> caen en su CONTENT BOX,
+ * DESPUÉS del <legend> renderizado — en browsers reales quedaba como
+ * subrayado del título "Variables del template", no como separador de
+ * secciones (jsdom no renderiza pseudo-elementos, los tests de comportamiento
+ * no lo ven — pineado a nivel CSS en `bulkA11y.test.ts`). Un border-top
+ * directo en el fieldset tampoco: el <legend> nativo se ancla SOBRE la línea
+ * del borde.
  *
  * FIX (incidente CSS conocido) — el comentario de `.highlight` tenía la
  * secuencia de cierre de comentario embebida en el texto plano (el token
@@ -23,14 +32,6 @@
   margin: 0;
   /* Aparece al elegir template — entrada corta, ease-out, `backwards`. */
   animation: sectionIn 200ms var(--ease-out) backwards;
-}
-
-/* Divisor sutil respecto del selector de template (primer flex-item). */
-.fieldset::before {
-  content: '';
-  height: 1px;
-  background: var(--color-border);
-  margin-bottom: var(--space-1);
 }
 
 .legend {

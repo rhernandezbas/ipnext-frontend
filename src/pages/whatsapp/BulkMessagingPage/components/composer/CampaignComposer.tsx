@@ -16,7 +16,7 @@ import { CreateCampaignConfirmModal } from './CreateCampaignConfirmModal';
 import { ManualRecipientsPicker, type ManualRecipient } from '@/components/molecules/ManualRecipientsPicker/ManualRecipientsPicker';
 import { CsvRecipientsUploader } from './CsvRecipientsUploader';
 import type { CsvContact } from './parseRecipientsCsv';
-import { hasRecipients } from './segmentCriteria';
+import { hasRecipients, hasEffectiveBalanceFilter } from './segmentCriteria';
 import styles from './CampaignComposer.module.css';
 
 interface CampaignComposerProps {
@@ -309,9 +309,13 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   // algo cargado sin abrir cada tab. Para Segmento el número honesto es la
   // cantidad de FILTROS activos (el count de destinatarios del preview es la
   // UNIÓN de los 3 orígenes — atribuírselo al segmento sería mentir).
+  // Micro-fix L1 — la deuda cuenta con el MISMO criterio EFECTIVO que el
+  // gate/hint (`hasEffectiveBalanceFilter`, >0 finito): una deuda de $0
+  // tipeada NO es un filtro (el hint dice "no filtra a nadie" y el gate la
+  // ignora) — contar "1 filtro" ahí era una contradicción visible.
   const segmentFilterCount =
     segment.statuses.length +
-    (segment.balanceMin !== undefined || segment.balanceMax !== undefined ? 1 : 0) +
+    (hasEffectiveBalanceFilter(segment) ? 1 : 0) +
     (segment.networkSiteId ? 1 : 0) +
     (segment.accessPointId ? 1 : 0);
 
@@ -362,7 +366,7 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
             setearse desde el selector, así que VariablesMapForm tampoco). */}
         {canUseTemplates && (
           <Can permission="messaging.templates">
-            <section className={styles.card} aria-labelledby="bulk-card-message-title">
+            <section className={`${styles.card} ${styles.messageCard}`} aria-labelledby="bulk-card-message-title">
               <header className={styles.cardHeader}>
                 <h2 id="bulk-card-message-title" className={styles.cardTitle}>
                   Mensaje

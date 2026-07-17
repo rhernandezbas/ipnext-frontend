@@ -195,6 +195,23 @@ describe('TAB-3: contador-chip en el label del tab cuando su origen tiene algo c
     expect(screen.getByRole('tab', { name: /csv/i })).toHaveTextContent(/2/);
   });
 
+  it('L1: una deuda de $0 NO cuenta como filtro (mismo criterio efectivo que el gate/hint)', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    // El operador tipea $0 — el hint del SegmentBuilder ya avisa que "no
+    // filtra a nadie" y el gate lo trata como no-criterio: el chip NO puede
+    // contradecirlos mostrando "1 filtro".
+    const minInput = await screen.findByLabelText(/deuda mínima/i);
+    await user.type(minInput, '0');
+    expect(screen.getByRole('tab', { name: /segmento/i })).not.toHaveTextContent(/\d/);
+
+    // Con una deuda que SÍ filtra (>0), el chip aparece.
+    await user.clear(minInput);
+    await user.type(minInput, '100');
+    expect(screen.getByRole('tab', { name: /segmento/i })).toHaveTextContent(/1 filtro/i);
+  });
+
   it('quitar lo cargado hace desaparecer el contador (no queda un "0" colgado)', async () => {
     const user = userEvent.setup();
     renderComposer();
