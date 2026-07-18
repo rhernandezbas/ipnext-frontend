@@ -233,6 +233,118 @@ describe('ConversationListItem — chip de campaña (messaging-bulk-inbox Change
   });
 });
 
+describe('ConversationListItem — chips de etiqueta (Ola 5 labels)', () => {
+  it('con labels, muestra un chip por cada una con su nombre', () => {
+    render(
+      <ConversationListItem
+        conversation={conv({ labels: [{ id: 'l1', name: 'Urgente', color: '#dc3545' }] })}
+        selected={false}
+        onClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Urgente')).toBeInTheDocument();
+    expect(screen.getByTestId('conversation-label')).toBeInTheDocument();
+  });
+
+  it('el chip pinta el color hex de la label como fondo (dato del BE, inline)', () => {
+    render(
+      <ConversationListItem
+        conversation={conv({ labels: [{ id: 'l1', name: 'Urgente', color: '#dc3545' }] })}
+        selected={false}
+        onClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('conversation-label')).toHaveStyle({ backgroundColor: '#dc3545' });
+  });
+
+  it('sobre un color oscuro el texto va claro (contraste calculado, readableTextColor)', () => {
+    render(
+      <ConversationListItem
+        conversation={conv({ labels: [{ id: 'l1', name: 'Urgente', color: '#111827' }] })}
+        selected={false}
+        onClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('conversation-label')).toHaveStyle({ color: '#ffffff' });
+  });
+
+  it('sobre un color claro el texto va oscuro (contraste calculado)', () => {
+    render(
+      <ConversationListItem
+        conversation={conv({ labels: [{ id: 'l1', name: 'Ventas', color: '#fde68a' }] })}
+        selected={false}
+        onClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('conversation-label')).toHaveStyle({ color: '#111827' });
+  });
+
+  it('con labels vacío ([]), no muestra ningún chip de etiqueta', () => {
+    render(<ConversationListItem conversation={conv({ labels: [] })} selected={false} onClick={vi.fn()} />);
+    expect(screen.queryByTestId('conversation-label')).toBeNull();
+  });
+
+  it('sin el campo labels (undefined — fixture previo), no crashea ni muestra chip', () => {
+    render(<ConversationListItem conversation={conv()} selected={false} onClick={vi.fn()} />);
+    expect(screen.getByRole('button')).toBeInTheDocument();
+    expect(screen.queryByTestId('conversation-label')).toBeNull();
+  });
+
+  it('con muchas labels, muestra las primeras 2 + "+N" (N = resto), sin listar todas', () => {
+    render(
+      <ConversationListItem
+        conversation={conv({
+          labels: [
+            { id: 'l1', name: 'Uno', color: '#dc3545' },
+            { id: 'l2', name: 'Dos', color: '#28a745' },
+            { id: 'l3', name: 'Tres', color: '#0d6efd' },
+            { id: 'l4', name: 'Cuatro', color: '#6f42c1' },
+          ],
+        })}
+        selected={false}
+        onClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Uno')).toBeInTheDocument();
+    expect(screen.getByText('Dos')).toBeInTheDocument();
+    expect(screen.queryByText('Tres')).toBeNull();
+    expect(screen.getByTestId('label-more')).toHaveTextContent('+2');
+  });
+
+  it('con exactamente 2 labels, NO muestra el "+N"', () => {
+    render(
+      <ConversationListItem
+        conversation={conv({
+          labels: [
+            { id: 'l1', name: 'Uno', color: '#dc3545' },
+            { id: 'l2', name: 'Dos', color: '#28a745' },
+          ],
+        })}
+        selected={false}
+        onClick={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId('label-more')).toBeNull();
+  });
+
+  it('el "+N" expone un nombre accesible (no un "+2" críptico solo visual)', () => {
+    render(
+      <ConversationListItem
+        conversation={conv({
+          labels: [
+            { id: 'l1', name: 'Uno', color: '#dc3545' },
+            { id: 'l2', name: 'Dos', color: '#28a745' },
+            { id: 'l3', name: 'Tres', color: '#0d6efd' },
+          ],
+        })}
+        selected={false}
+        onClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('label-more')).toHaveAccessibleName(/1 etiqueta más/i);
+  });
+});
+
 describe('ConversationListItem — indicador de notas internas (internal-notes F1.5)', () => {
   it('con internalNoteCount > 0, muestra el indicador con el número', () => {
     render(<ConversationListItem conversation={conv({ internalNoteCount: 3 })} selected={false} onClick={vi.fn()} />);

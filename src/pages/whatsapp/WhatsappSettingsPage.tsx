@@ -1,6 +1,7 @@
 import { Can } from '@/components/auth/Can';
 import { ChatMediaDownloadCard } from '@/components/settings/ChatMediaDownloadCard';
 import { CannedResponsesSection } from '@/components/settings/cannedResponses/CannedResponsesSection';
+import { MessagingLabelsBody } from './settings/MessagingLabelsBody';
 import styles from './WhatsappSettingsPage.module.css';
 
 /**
@@ -46,6 +47,19 @@ export default function WhatsappSettingsPage() {
           <CannedResponsesSection />
         </section>
       </Can>
+
+      {/* Ola 5 (labels) — catálogo de etiquetas de conversación. Solo
+          `messaging.manage` (el ABM del catálogo); un usuario con solo
+          `messaging.read` no ve esta sección. */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionHeading}>Etiquetas</h2>
+        <p className={styles.sectionDescription}>
+          Etiquetas de color para clasificar conversaciones. Se asignan desde el hilo y se pueden filtrar en la bandeja.
+        </p>
+        <Can permission="messaging.manage" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
+          <MessagingLabelsBody />
+        </Can>
+      </section>
     </div>
   );
 }

@@ -40,6 +40,22 @@ export interface WhatsappCampaignTag {
   name: string;
 }
 
+/**
+ * Etiqueta de conversación (Ola 5 — labels) — espejo del catálogo
+ * `GET /messaging/labels` (`[{id,name,color}]`) y del sub-DTO `labels[]` que el
+ * BE agrega a `ConversationListItemDto`. A diferencia de `WhatsappCampaignTag`
+ * (color de token), la label SÍ trae `color` propio (hex del catálogo, editable
+ * por el operador) — el chip lo pinta inline como fondo con texto de contraste
+ * (`readableTextColor`), mismo criterio que un chip de label de Chatwoot.
+ * Mismo shape que `WhatsappArea` ({id,name,color}) pero dominio distinto (una
+ * conversación tiene UNA área y N labels), por eso NO se reusa el tipo.
+ */
+export interface WhatsappLabel {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export type ConversationAssignment = 'all' | 'mine' | 'unassigned';
 
 export interface WhatsappConversationListItem {
@@ -69,6 +85,16 @@ export interface WhatsappConversationListItem {
    * `conversation.campaigns?.length` (mismo patrón falsy que `attachments`).
    */
   campaigns?: WhatsappCampaignTag[];
+  /**
+   * Aditivo (Ola 5 — labels) — etiquetas ASIGNADAS a esta conversación
+   * (`ConversationListItemDto.labels`, ya en prod). El BE lo manda SIEMPRE
+   * (array vacío `[]` cuando no hay ninguna, nunca `undefined`); opcional acá
+   * — mismo criterio defensivo que `campaigns`/`assignee`/`area` — para no
+   * romper los fixtures previos a esta tanda, que construyen el DTO sin este
+   * campo. El FE lo consume con `conversation.labels?.length` (falsy si
+   * ausente/vacío). El chip de cada label pinta su `color` inline.
+   */
+  labels?: WhatsappLabel[];
   /**
    * Aditivo (internal-notes F1.5 — INDICADOR EN LA FILA) — mirror EXACTO del
    * wire (`ConversationListItemDto.internalNoteCount`, ya en prod): cantidad
@@ -384,6 +410,14 @@ export interface WhatsappPaginatedQuery {
    * viene definido (ausente = "Todas las campañas").
    */
   campaignId?: string;
+  /**
+   * Ola 5 (labels) — filtro server-side por etiqueta
+   * (`GET /messaging/conversations?labelId=<id>`). Eje PROPIO, ORTOGONAL a
+   * `assignment`/`campaignId`/`view`/`status` (combina con todos ellos, mismo
+   * criterio: solo se manda cuando viene definido; ausente = "Todas las
+   * etiquetas").
+   */
+  labelId?: string;
   /**
    * inbox-resolve (API-1) — filtro server-side por ciclo de vida, espejo del
    * contrato BE (`GET /messaging/conversations?status=open|resolved`).

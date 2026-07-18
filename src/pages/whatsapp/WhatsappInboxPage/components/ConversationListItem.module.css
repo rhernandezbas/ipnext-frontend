@@ -286,3 +286,30 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-note-fg);
 }
+
+/*
+ * Ola 5 (labels) — chip de etiqueta. A diferencia de `.campaignChip`/`.areaChip`
+ * (superficie de token / dot de acento), el fondo Y el texto del chip de label
+ * son DATA-DRIVEN (hex del catálogo + `readableTextColor`, seteados inline en
+ * el TSX) — no hay token de color acá porque cada label trae el suyo. El chip
+ * comparte la forma (pill, tamaño, tope de ancho, ellipsis) con los otros para
+ * mantener la coherencia visual de la metaRow.
+ */
+.labelChip {
+  flex-shrink: 0;
+  max-width: 120px;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.labelMore {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-secondary);
+}

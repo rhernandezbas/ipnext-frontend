@@ -7,6 +7,7 @@ import type {
   WhatsappConversationStatus,
   WhatsappInboxClientContext,
   WhatsappInboxViewCounts,
+  WhatsappLabel,
   WhatsappMessage,
   WhatsappPaginatedQuery,
   WhatsappPaginatedResult,
@@ -47,6 +48,9 @@ export const listWhatsappConversations = (
   // (JOIN Conversation×CampaignRecipient) — mismo criterio que assignment,
   // solo se manda cuando viene definido.
   if (query.campaignId) params['campaignId'] = query.campaignId;
+  // Ola 5 (labels): 'labelId' filtra server-side por etiqueta — mismo criterio
+  // que campaignId/assignment, solo se manda cuando viene definido.
+  if (query.labelId) params['labelId'] = query.labelId;
   // inbox-resolve (API-1): 'status' filtra server-side por bucket
   // (open|resolved, design.md D2) — mismo criterio, solo se manda cuando
   // viene definido.
@@ -274,3 +278,48 @@ export interface SendWhatsappTemplateInput {
 
 export const sendWhatsappTemplate = (id: string, input: SendWhatsappTemplateInput): Promise<WhatsappMessage> =>
   axiosClient.post<WhatsappMessage>(`${BASE}/conversations/${id}/send-template`, input).then(r => r.data);
+
+/**
+ * Etiquetas de conversación (Ola 5 — labels). Contrato BE (ya en prod):
+ *
+ * - `GET /messaging/labels` (gate `messaging:read`): catálogo, responde el
+ *   ARRAY PLANO `[{id,name,color}]` (SIN envelope `{data}` — a diferencia de
+ *   `/messaging/areas`/`/messaging/assignable-users`; verificado contra el
+ *   contrato de la tarea). Alimenta chips de fila, control de asignación y
+ *   filtro de la lista.
+ * - `POST /messaging/labels` (gate `messaging:manage`): crea con `{name,color}`,
+ *   devuelve la label creada FLAT. 409 CONVERSATION_LABEL_NAME_CONFLICT / 400.
+ * - `PUT /messaging/labels/:id` (gate `messaging:manage`): edita `{name?,color?}`,
+ *   devuelve la label actualizada FLAT. 409 / 404 CONVERSATION_LABEL_NOT_FOUND / 400.
+ * - `DELETE /messaging/labels/:id` (gate `messaging:manage`): elimina (el BE la
+ *   quita de las conversaciones que la tuvieran). 404.
+ */
+export const listMessagingLabels = (): Promise<WhatsappLabel[]> =>
+  axiosClient.get<WhatsappLabel[]>(`${BASE}/labels`).then(r => r.data);
+
+export const createMessagingLabel = (data: { name: string; color: string }): Promise<WhatsappLabel> =>
+  axiosClient.post<WhatsappLabel>(`${BASE}/labels`, data).then(r => r.data);
+
+export const updateMessagingLabel = (
+  id: string,
+  data: { name?: string; color?: string },
+): Promise<WhatsappLabel> =>
+  axiosClient.put<WhatsappLabel>(`${BASE}/labels/${id}`, data).then(r => r.data);
+
+export const deleteMessagingLabel = (id: string): Promise<void> =>
+  axiosClient.delete(`${BASE}/labels/${id}`).then(() => undefined);
+
+/**
+ * setConversationLabels (Ola 5 — labels) — `PATCH .../labels` con
+ * `{labelIds: string[]}` REEMPLAZA el set completo (`[]` limpia todas),
+ * devuelve la conversación actualizada (shape de LISTA, mismo criterio que
+ * `setConversationArea` — WAPI-8: SIN `canReply`/`clientContext`, pero CON
+ * `labels` ya poblado). Gate `messaging:send`.
+ */
+export const setConversationLabels = (
+  id: string,
+  labelIds: string[],
+): Promise<WhatsappConversationListItem> =>
+  axiosClient
+    .patch<WhatsappConversationListItem>(`${BASE}/conversations/${id}/labels`, { labelIds })
+    .then(r => r.data);

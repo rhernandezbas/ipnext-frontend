@@ -36,6 +36,7 @@ import type {
   WhatsappConversationDetail,
   WhatsappInboxClientContext,
   WhatsappInboxViewCounts,
+  WhatsappLabel,
   WhatsappMessage,
   WhatsappPaginatedResult,
 } from '@/types/whatsapp';
@@ -269,6 +270,17 @@ function setHooks({
   vi.mocked(useWhatsappModule.useMessagingAreas).mockReturnValue(
     mockQuery<WhatsappArea[]>({ data: [], isLoading: false }),
   );
+  // Ola 5 (labels) — catálogo + mutation. Defaults neutros (catálogo vacío →
+  // sin filtro de etiqueta ni chips; cada test que lo necesite los sobreescribe).
+  vi.mocked(useWhatsappModule.useMessagingLabels).mockReturnValue(
+    mockQuery<WhatsappLabel[]>({ data: [], isLoading: false }),
+  );
+  vi.mocked(useWhatsappModule.useSetConversationLabels).mockReturnValue({
+    setLabels: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+  } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationLabels>);
   // inbox-views Ola 1 — counts del sub-menú (ver el comment de `viewCounts`).
   vi.mocked(useWhatsappModule.useInboxViewCounts).mockReturnValue(
     mockQuery<WhatsappInboxViewCounts>({ data: viewCounts, isLoading: false }),

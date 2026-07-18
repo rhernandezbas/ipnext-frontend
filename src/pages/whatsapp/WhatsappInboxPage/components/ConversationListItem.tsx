@@ -1,9 +1,18 @@
 import { formatTimeShort } from '@/utils/formatDate';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
+import { readableTextColor } from '@/utils/contrastColor';
 import { CONVERSATION_STATUS_VARIANT, CONVERSATION_STATUS_LABEL } from './conversationStatus';
 import { IconNote } from './mediaIcons';
 import type { WhatsappConversationListItem } from '@/types/whatsapp';
 import styles from './ConversationListItem.module.css';
+
+/**
+ * Ola 5 (labels) — tope de chips de etiqueta visibles en la fila. Con más, se
+ * muestran los primeros MAX + un "+N" (mismo criterio de truncado que el chip
+ * de campaña: no ensanchar la fila listando todas). El resto SIEMPRE queda
+ * anunciado por el aria-label del "+N".
+ */
+const MAX_VISIBLE_LABELS = 2;
 
 interface ConversationListItemProps {
   conversation: WhatsappConversationListItem;
@@ -60,6 +69,18 @@ export function ConversationListItem({ conversation, selected, onClick, exiting 
   const noteCountDisplay = internalNoteCount > 99 ? '99+' : String(internalNoteCount);
   const noteCountLabel = `${internalNoteCount} ${internalNoteCount === 1 ? 'nota interna' : 'notas internas'}`;
 
+  // Ola 5 (labels) — etiquetas asignadas. A diferencia del chip de área (que
+  // usa el hex SOLO como acento/dot por el hallazgo MEDIUM #3), el chip de
+  // label SÍ pinta el hex como fondo con `readableTextColor` para el texto
+  // (contrato de la tarea: "el color de la label es dato, va inline como
+  // background del chip con texto legible") — es la identidad visual de la
+  // label (mismo criterio que los labels de Chatwoot/GitHub). El NOMBRE es
+  // igual el canal accesible (texto real del chip, nunca solo-color). Se
+  // muestran las primeras `MAX_VISIBLE_LABELS` + un "+N" del resto.
+  const labels = conversation.labels ?? [];
+  const visibleLabels = labels.slice(0, MAX_VISIBLE_LABELS);
+  const extraLabels = Math.max(0, labels.length - MAX_VISIBLE_LABELS);
+
   return (
     <li className={styles.item} data-exiting={exiting ? 'true' : undefined}>
       <button
@@ -110,7 +131,7 @@ export function ConversationListItem({ conversation, selected, onClick, exiting 
            * largo NO empuje el layout de la fila — mismo criterio que ya
            * aplica `.assigneeName`.
            */}
-          {(conversation.assignee || conversation.area || primaryCampaign || hasInternalNotes) && (
+          {(conversation.assignee || conversation.area || primaryCampaign || hasInternalNotes || labels.length > 0) && (
             <span className={styles.metaRow}>
               {conversation.assignee && (
                 <span className={styles.assigneeName}>{conversation.assignee.name}</span>
@@ -162,6 +183,31 @@ export function ConversationListItem({ conversation, selected, onClick, exiting 
                   <span className={styles.noteCountValue} aria-hidden="true">
                     {noteCountDisplay}
                   </span>
+                </span>
+              )}
+              {/*
+               * Ola 5 (labels) — chips de etiqueta. El hex es DATO (fondo inline
+               * + texto de contraste), no un hardcode; el NOMBRE es el canal
+               * accesible (texto real). El "+N" del resto lleva su propio
+               * aria-label para no ser un "+2" críptico solo-visual.
+               */}
+              {visibleLabels.map((label) => (
+                <span
+                  key={label.id}
+                  className={styles.labelChip}
+                  data-testid="conversation-label"
+                  style={{ backgroundColor: label.color, color: readableTextColor(label.color) }}
+                >
+                  {label.name}
+                </span>
+              ))}
+              {extraLabels > 0 && (
+                <span
+                  className={styles.labelMore}
+                  data-testid="label-more"
+                  aria-label={`y ${extraLabels} ${extraLabels === 1 ? 'etiqueta' : 'etiquetas'} más`}
+                >
+                  +{extraLabels}
                 </span>
               )}
             </span>

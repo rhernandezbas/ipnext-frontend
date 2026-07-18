@@ -4,8 +4,9 @@ import { MessageBubble } from './MessageBubble';
 import { Skeleton } from './Skeleton';
 import { ConversationStatusToggle } from './ConversationStatusToggle';
 import { ConversationAssignmentControls } from './ConversationAssignmentControls';
+import { ConversationLabelsControl } from './ConversationLabelsControl';
 import { IconUser } from './statusIcons';
-import type { PendingSend, WhatsappArea, WhatsappAssignee, WhatsappConversationStatus, WhatsappMessage } from '@/types/whatsapp';
+import type { PendingSend, WhatsappArea, WhatsappAssignee, WhatsappConversationStatus, WhatsappLabel, WhatsappMessage } from '@/types/whatsapp';
 import styles from './MessageThread.module.css';
 
 /**
@@ -155,6 +156,18 @@ interface MessageThreadProps {
   isAssigneePending?: boolean;
   isAreaPending?: boolean;
   /**
+   * Ola 5 (labels) — mismo criterio que assignee/area: `WhatsappInboxPage`
+   * orquesta `useSetConversationLabels` + `useMessagingLabels`, acá solo se
+   * consume. `labels` = catálogo completo; `selectedLabelIds` = ids asignados a
+   * la conversación; `onLabelsChange` recibe el set COMPLETO de objetos
+   * elegidos. `onLabelsChange` ausente → no se monta el control (cero regresión
+   * para call sites previos, mismo patrón que `onAssigneeChange`).
+   */
+  labels?: WhatsappLabel[];
+  selectedLabelIds?: string[];
+  onLabelsChange?: (next: WhatsappLabel[]) => void;
+  isLabelsPending?: boolean;
+  /**
    * F1.5 spec #1 (panel de contexto COLAPSABLE, estilo Chatwoot) — dumb
    * button + callback, mismo criterio que `onToggleStatus`/`onBack`:
    * `WhatsappInboxPage` es quien tiene el estado real (`contextCollapsed`,
@@ -211,6 +224,10 @@ export function MessageThread({
   onAreaChange,
   isAssigneePending = false,
   isAreaPending = false,
+  labels = [],
+  selectedLabelIds = [],
+  onLabelsChange,
+  isLabelsPending = false,
   contextCollapsed = false,
   onToggleContext,
   onEditNote,
@@ -435,19 +452,31 @@ export function MessageThread({
            * gate `messaging.send` que el toggle de status: `PATCH
            * .../assignee`/`.../area` piden el mismo permiso que `POST .../status`.
            */}
-          {(onAssigneeChange || onAreaChange) && (
+          {(onAssigneeChange || onAreaChange || onLabelsChange) && (
             <Can permission="messaging.send">
               <div className={styles.headerAssignRow}>
-                <ConversationAssignmentControls
-                  assignee={assignee}
-                  area={area}
-                  users={assignableUsers}
-                  areas={areas}
-                  onAssigneeChange={onAssigneeChange}
-                  onAreaChange={onAreaChange}
-                  isAssigneePending={isAssigneePending}
-                  isAreaPending={isAreaPending}
-                />
+                {(onAssigneeChange || onAreaChange) && (
+                  <ConversationAssignmentControls
+                    assignee={assignee}
+                    area={area}
+                    users={assignableUsers}
+                    areas={areas}
+                    onAssigneeChange={onAssigneeChange}
+                    onAreaChange={onAreaChange}
+                    isAssigneePending={isAssigneePending}
+                    isAreaPending={isAreaPending}
+                  />
+                )}
+                {/* Ola 5 (labels) — control multi-select de etiquetas, junto a
+                    assignee/área (mismo gate messaging.send). */}
+                {onLabelsChange && (
+                  <ConversationLabelsControl
+                    labels={labels}
+                    selectedIds={selectedLabelIds}
+                    onChange={onLabelsChange}
+                    isPending={isLabelsPending}
+                  />
+                )}
               </div>
             </Can>
           )}

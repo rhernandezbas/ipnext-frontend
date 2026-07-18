@@ -132,6 +132,61 @@ describe('ConversationList — inbox-views Ola 1: los filtros viejos SE VAN de l
   });
 });
 
+describe('ConversationList — filtro de etiqueta (Ola 5 labels)', () => {
+  it('con catálogo de labels, monta el filtro de etiqueta (eje ortogonal a la campaña)', () => {
+    render(
+      <ConversationList
+        conversations={[]}
+        isLoading={false}
+        selectedId={null}
+        onSelect={vi.fn()}
+        status="open"
+        labels={[{ id: 'l1', name: 'Urgente', color: '#dc3545' }]}
+      />,
+    );
+    expect(screen.getByRole('combobox', { name: /etiqueta/i })).toBeInTheDocument();
+  });
+
+  it('sin catálogo de labels, NO monta el filtro de etiqueta', () => {
+    render(<ConversationList conversations={[]} isLoading={false} selectedId={null} onSelect={vi.fn()} status="open" />);
+    expect(screen.queryByRole('combobox', { name: /etiqueta/i })).toBeNull();
+  });
+
+  it('campaña y etiqueta conviven (dos filtros ortogonales arriba de la lista)', () => {
+    render(
+      <ConversationList
+        conversations={[]}
+        isLoading={false}
+        selectedId={null}
+        onSelect={vi.fn()}
+        status="open"
+        campaigns={[{ id: 'camp-1', name: 'Recordatorio Julio' }]}
+        labels={[{ id: 'l1', name: 'Urgente', color: '#dc3545' }]}
+      />,
+    );
+    expect(screen.getByRole('combobox', { name: /campaña/i })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /etiqueta/i })).toBeInTheDocument();
+  });
+
+  it('elegir una etiqueta dispara onLabelChange con su id', async () => {
+    const onLabelChange = vi.fn();
+    render(
+      <ConversationList
+        conversations={[]}
+        isLoading={false}
+        selectedId={null}
+        onSelect={vi.fn()}
+        status="open"
+        labels={[{ id: 'l1', name: 'Urgente', color: '#dc3545' }]}
+        onLabelChange={onLabelChange}
+      />,
+    );
+    await userEvent.click(screen.getByRole('combobox', { name: /etiqueta/i }));
+    await userEvent.click(screen.getByRole('option', { name: /urgente/i }));
+    expect(onLabelChange).toHaveBeenCalledWith('l1');
+  });
+});
+
 describe('ConversationList — empty states por bucket (TAB-4) + emptyMessage por vista (inbox-views)', () => {
   it('bucket Abiertas sin conversaciones → "No hay conversaciones abiertas." (default por status)', () => {
     render(<ConversationList conversations={[]} isLoading={false} selectedId={null} onSelect={vi.fn()} status="open" />);

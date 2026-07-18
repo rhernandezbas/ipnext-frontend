@@ -8,8 +8,10 @@ import {
   useSetConversationStatus,
   useSetConversationAssignee,
   useSetConversationArea,
+  useSetConversationLabels,
   useAssignableUsers,
   useMessagingAreas,
+  useMessagingLabels,
   useInboxViewCounts,
   usePendingSends,
   useEditWhatsappNote,
@@ -30,6 +32,7 @@ import type {
   WhatsappArea,
   WhatsappAssignee,
   WhatsappConversationStatus,
+  WhatsappLabel,
   WhatsappPaginatedQuery,
 } from '@/types/whatsapp';
 import styles from './WhatsappInboxPage.module.css';
@@ -65,6 +68,9 @@ const STATUS_ERROR_MESSAGE = 'No se pudo actualizar el estado de la conversació
 // fallar por las mismas razones (403/500/503) sin ningún indicio hoy.
 const ASSIGNEE_ERROR_MESSAGE = 'No se pudo actualizar el agente asignado. Reintentá.';
 const AREA_ERROR_MESSAGE = 'No se pudo actualizar el área. Reintentá.';
+// Ola 5 (labels) — mismo mecanismo de toast que assignee/area (mismo gate
+// messaging.send, mismo endpoint-family PATCH); puede fallar por 403/500/503.
+const LABELS_ERROR_MESSAGE = 'No se pudieron actualizar las etiquetas. Reintentá.';
 const INBOX_TOAST_DURATION_MS = 4000;
 // inbox-resolve (UNDO-1, design.md D6) — "Conversación resuelta — Deshacer"
 // vive ~5s (más que el toast de error: es una ACCIÓN ofrecida, no solo un
@@ -167,6 +173,9 @@ export default function WhatsappInboxPage() {
   // en `MessageThread.tsx`), leído acá vía `useMyPermissions()` directamente.
   const { setAssignee, isPending: isAssigneePending } = useSetConversationAssignee(selectedId ?? '');
   const { setArea, isPending: isAreaPending } = useSetConversationArea(selectedId ?? '');
+  // Ola 5 (labels): mismo criterio que assignee/area (instancia PROPIA atada al
+  // selectedId; keys de cache derivadas del convId capturado AL DISPATCH).
+  const { setLabels, isPending: isLabelsPending } = useSetConversationLabels(selectedId ?? '');
   // internal-notes F1.5 (EDITAR/ELIMINAR NOTA): mismo criterio que el resto de
   // las mutations de esta página (instancia PROPIA atada al selectedId; las
   // keys de cache se derivan del convId capturado AL DISPATCH, ver
@@ -178,6 +187,11 @@ export default function WhatsappInboxPage() {
   const canAssign = can('messaging.send');
   const { data: assignableUsers = [] } = useAssignableUsers(canAssign);
   const { data: messagingAreas = [] } = useMessagingAreas(canAssign);
+  // Ola 5 (labels): catálogo de PÁGINA (chips de fila + control de asignación +
+  // filtro de la lista). Gate `messaging.read` = el MISMO de la página, así que
+  // se fetchea incondicionalmente (a diferencia de assignee/area, gateados por
+  // messaging.send: leer el catálogo de labels no requiere poder asignar).
+  const { data: messagingLabels = [] } = useMessagingLabels();
 
   // messaging-bulk-inbox Change 2 (filtro de campaña): catálogo de PÁGINA
   // (no por-conversación) que alimenta el `ConversationCampaignFilter` de la
@@ -357,6 +371,16 @@ export default function WhatsappInboxPage() {
   }
 
   /**
+   * Ola 5 (labels) — asignar/quitar etiquetas de la conversación (reemplaza el
+   * set completo). Mismo mecanismo de toast que assignee/area. `setLabels`
+   * parchea el optimista (chips de fila + header) y en `onSettled` invalida
+   * detalle+lista.
+   */
+  function handleLabelsChange(next: WhatsappLabel[]) {
+    setLabels(next, { onError: () => showInboxToast(LABELS_ERROR_MESSAGE) });
+  }
+
+  /**
    * internal-notes F1.5 — editar/eliminar una nota interna del hilo. El error
    * se traduce por CÓDIGO (`mapNoteError`: 403 "no tenés permiso…", 409 "ya
    * fue eliminada", etc.) y se muestra en el mismo toast local que el resto de
@@ -382,7 +406,9 @@ export default function WhatsappInboxPage() {
    */
   function handleViewChange(next: InboxViewId) {
     setActiveView(next);
-    setQuery((q) => ({ ...INBOX_VIEW_PRESETS[next], campaignId: q.campaignId }));
+    // Preserva los ejes ORTOGONALES a las vistas (dueños: los filtros de la
+    // lista) — campañas y etiquetas (Ola 5) — al cambiar de preset.
+    setQuery((q) => ({ ...INBOX_VIEW_PRESETS[next], campaignId: q.campaignId, labelId: q.labelId }));
   }
 
   /**
@@ -394,6 +420,16 @@ export default function WhatsappInboxPage() {
    */
   function handleCampaignChange(next: string | undefined) {
     setQuery((q) => ({ ...q, campaignId: next }));
+  }
+
+  /**
+   * Ola 5 (labels) — cambia el filtro server-side por etiqueta. `undefined`
+   * cuando se vuelve a "Todas las etiquetas" (mismo criterio que
+   * `handleCampaignChange`: React Query dropea las keys `undefined` al hashear).
+   * Eje ORTOGONAL: combina con vistas y campaña, no las pisa.
+   */
+  function handleLabelChange(next: string | undefined) {
+    setQuery((q) => ({ ...q, labelId: next }));
   }
 
   /**
@@ -441,6 +477,10 @@ export default function WhatsappInboxPage() {
   // selección). Se usa como fallback SOLO mientras `detail` no trae el dato.
   const selectedListItem = conversations.find((c) => c.id === selectedId) ?? null;
   const contactNameFallback = detail?.contactName ?? selectedListItem?.contactName ?? selectedListItem?.contactPhone ?? null;
+  // Ola 5 (labels) — ids asignados a la conversación abierta. Mismo fallback que
+  // status/assignee/area: el detalle (fetch-on-open) gana; mientras carga, el
+  // list-item ya trae `labels` (viene de `useWhatsappConversations`).
+  const selectedLabelIds = (detail?.labels ?? selectedListItem?.labels ?? []).map((l) => l.id);
 
   return (
     <div
@@ -472,6 +512,9 @@ export default function WhatsappInboxPage() {
           campaigns={campaigns}
           campaignId={query.campaignId}
           onCampaignChange={handleCampaignChange}
+          labels={messagingLabels}
+          labelId={query.labelId}
+          onLabelChange={handleLabelChange}
         />
       </div>
 
@@ -499,6 +542,10 @@ export default function WhatsappInboxPage() {
             onAreaChange={handleAreaChange}
             isAssigneePending={isAssigneePending}
             isAreaPending={isAreaPending}
+            labels={messagingLabels}
+            selectedLabelIds={selectedLabelIds}
+            onLabelsChange={handleLabelsChange}
+            isLabelsPending={isLabelsPending}
             contextCollapsed={contextCollapsed}
             onToggleContext={toggleContext}
             onEditNote={handleEditNote}

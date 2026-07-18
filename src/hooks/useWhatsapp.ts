@@ -11,6 +11,7 @@ import type {
   WhatsappConversationListItem,
   WhatsappConversationStatus,
   WhatsappInboxClientContext,
+  WhatsappLabel,
   WhatsappMessage,
   WhatsappPaginatedQuery,
   WhatsappPaginatedResult,
@@ -51,6 +52,9 @@ export const whatsappClientContextKey = (conversationId: string, clientId: strin
 /** messaging-inbox-assignment F1.5-C2 — catálogos (agentes asignables / áreas). */
 export const whatsappAssignableUsersKey = ['whatsapp', 'assignableUsers'] as const;
 export const whatsappAreasKey = ['whatsapp', 'areas'] as const;
+
+/** Ola 5 (labels) — catálogo de etiquetas de conversación (`GET /messaging/labels`). */
+export const whatsappLabelsKey = ['whatsapp', 'labels'] as const;
 
 /**
  * inbox-views (Ola 1) — contadores por vista del sub-menú (`GET
@@ -669,6 +673,166 @@ export function useMessagingAreas(enabled: boolean = true) {
     queryFn: api.getMessagingAreas,
     staleTime: 60_000,
     enabled,
+  });
+}
+
+/**
+ * useMessagingLabels(enabled) (Ola 5 — labels) — catálogo de etiquetas
+ * (`GET /messaging/labels`, gate `messaging:read`). Molde `useMessagingAreas`:
+ * `staleTime` alto (el catálogo cambia poco — solo con el ABM de labels), sin
+ * polling. Alimenta los chips de fila, el control de asignación del header y el
+ * filtro de la lista. Gate `messaging:read` = el MISMO de la página del inbox,
+ * así que se fetchea sin `enabled` extra por defecto (cualquier usuario que ve
+ * el inbox puede leer el catálogo). `enabled` queda expuesto por consistencia
+ * (default `true`, cero regresión).
+ */
+export function useMessagingLabels(enabled: boolean = true) {
+  return useQuery({
+    queryKey: whatsappLabelsKey,
+    queryFn: api.listMessagingLabels,
+    staleTime: 60_000,
+    enabled,
+  });
+}
+
+/**
+ * useSetConversationLabels(id) (Ola 5 — labels) — CLON estructural de
+ * `useSetConversationArea` (arriba), pero el campo es `labels: WhatsappLabel[]`
+ * (array, no `WhatsappArea | null`). `PATCH .../labels` con `{labelIds}`
+ * REEMPLAZA el set completo. Optimistic UI: parchea `labels` en el detalle
+ * cacheado Y en TODAS las páginas cacheadas de la lista que contengan esa
+ * conversación, ANTES de que la red resuelva — así los chips de la fila y del
+ * header se actualizan al instante.
+ *
+ * El caller (`ConversationLabelsControl` vía `WhatsappInboxPage`) pasa los
+ * objetos `WhatsappLabel[]` COMPLETOS (no solo los ids) para poder pintar el
+ * optimista con name/color correctos; el wire solo necesita los ids
+ * (`labels.map(l => l.id)`).
+ *
+ * Rollback FIELD-SCOPED (mismo criterio que area/assignee): `onMutate`
+ * snapshotea SOLO `labels` (detalle + cada página, por convId), `onError`
+ * restaura ESE campo preservando todo lo demás. El sentinel de "no había
+ * snapshot" es `undefined` (chequeado con `!== undefined`) — un `[]` es un
+ * valor VÁLIDO ("sin etiquetas") a restaurar.
+ *
+ * Bug CRÍTICO #1 defensa (memoria `inbox-key-por-conversacion`): todas las
+ * keys se derivan de `vars.convId` capturado en `setLabels` AL DISPATCH, nunca
+ * del closure `id`.
+ */
+type SetLabelsVars = { labels: WhatsappLabel[]; convId: string };
+type SetLabelsContext = {
+  convId: string;
+  previousDetailLabels: WhatsappLabel[] | undefined;
+  previousListLabels: Array<[readonly unknown[], WhatsappLabel[] | undefined]>;
+};
+
+export function useSetConversationLabels(id: string) {
+  const qc = useQueryClient();
+
+  const mutation = useMutation<WhatsappConversationListItem, unknown, SetLabelsVars, SetLabelsContext>({
+    mutationFn: (vars) => api.setConversationLabels(vars.convId, vars.labels.map((l) => l.id)),
+
+    onMutate: async (vars) => {
+      const detailKey = whatsappConversationKey(vars.convId);
+      await qc.cancelQueries({ queryKey: detailKey });
+      await qc.cancelQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+
+      const previousDetailLabels = qc.getQueryData<WhatsappConversationDetail>(detailKey)?.labels;
+      qc.setQueryData<WhatsappConversationDetail>(detailKey, (old) =>
+        old ? { ...old, labels: vars.labels } : old,
+      );
+
+      const previousLists = qc.getQueriesData<WhatsappPaginatedResult<WhatsappConversationListItem>>({
+        queryKey: WHATSAPP_CONVERSATIONS_ROOT,
+      });
+      const previousListLabels: SetLabelsContext['previousListLabels'] = previousLists.map(([key, data]) => [
+        key,
+        data?.data.find((c) => c.id === vars.convId)?.labels,
+      ]);
+      qc.setQueriesData<WhatsappPaginatedResult<WhatsappConversationListItem>>(
+        { queryKey: WHATSAPP_CONVERSATIONS_ROOT },
+        (old) =>
+          old
+            ? { ...old, data: old.data.map((c) => (c.id === vars.convId ? { ...c, labels: vars.labels } : c)) }
+            : old,
+      );
+
+      return { convId: vars.convId, previousDetailLabels, previousListLabels };
+    },
+
+    onError: (_err, _vars, context) => {
+      if (!context) return;
+      qc.setQueryData<WhatsappConversationDetail>(whatsappConversationKey(context.convId), (current) =>
+        current && context.previousDetailLabels !== undefined
+          ? { ...current, labels: context.previousDetailLabels }
+          : current,
+      );
+      context.previousListLabels.forEach(([key, previousLabels]) => {
+        if (previousLabels === undefined) return; // la fila no estaba en esta página al momento del optimista
+        qc.setQueryData<WhatsappPaginatedResult<WhatsappConversationListItem>>(key, (old) =>
+          old
+            ? { ...old, data: old.data.map((c) => (c.id === context.convId ? { ...c, labels: previousLabels } : c)) }
+            : old,
+        );
+      });
+    },
+
+    onSettled: (_data, _err, vars) => {
+      void qc.invalidateQueries({ queryKey: whatsappConversationKey(vars.convId) });
+      void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+    },
+  });
+
+  const setLabels = (
+    labels: WhatsappLabel[],
+    opts?: { onError?: (error: unknown) => void },
+  ) => mutation.mutate({ labels, convId: id }, opts);
+
+  return {
+    setLabels,
+    isPending: mutation.isPending && mutation.variables?.convId === id,
+    isError: mutation.isError,
+    error: mutation.error,
+  };
+}
+
+/**
+ * useCreateMessagingLabel / useUpdateMessagingLabel / useDeleteMessagingLabel
+ * (Ola 5 — labels, ABM del catálogo, gate `messaging:manage`) — molde
+ * `useTicketAreas` (mutation → invalidate del catálogo). Además de
+ * `whatsappLabelsKey`, `update`/`delete` invalidan `WHATSAPP_CONVERSATIONS_ROOT`
+ * porque el `labels[]` de las filas ya cacheadas queda stale (un rename/recolor
+ * o un borrado se tienen que reflejar en los chips) — `create` NO toca chips
+ * existentes, así que no invalida la lista.
+ */
+export function useCreateMessagingLabel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; color: string }) => api.createMessagingLabel(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: whatsappLabelsKey }),
+  });
+}
+
+export function useUpdateMessagingLabel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; color?: string } }) =>
+      api.updateMessagingLabel(id, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: whatsappLabelsKey });
+      void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+    },
+  });
+}
+
+export function useDeleteMessagingLabel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteMessagingLabel(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: whatsappLabelsKey });
+      void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+    },
   });
 }
 

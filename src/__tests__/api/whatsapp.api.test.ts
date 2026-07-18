@@ -36,6 +36,7 @@ vi.mock('@/api/axios-client', () => ({
   default: {
     get: vi.fn(),
     post: vi.fn(),
+    put: vi.fn(),
     patch: vi.fn(),
     delete: vi.fn(),
   },
@@ -55,7 +56,13 @@ import {
   getMessagingAreas,
   editWhatsappNote,
   deleteWhatsappNote,
+  listMessagingLabels,
+  createMessagingLabel,
+  updateMessagingLabel,
+  deleteMessagingLabel,
+  setConversationLabels,
 } from '@/api/whatsapp.api';
+import type { WhatsappLabel } from '@/types/whatsapp';
 
 const LIST_ITEM: WhatsappConversationListItem = {
   id: 'conv-1',
@@ -212,6 +219,38 @@ describe('API-1 (inbox-resolve): listWhatsappConversations con status', () => {
 
     expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations', {
       params: { status: 'open', assignment: 'mine', campaignId: 'camp-1' },
+    });
+  });
+});
+
+describe('Ola 5 (labels): listWhatsappConversations con labelId', () => {
+  it('con labelId manda params.labelId (filtro server-side por etiqueta)', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: PAGINATED });
+
+    await listWhatsappConversations({ labelId: 'lab-1' });
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations', {
+      params: { labelId: 'lab-1' },
+    });
+  });
+
+  it('sin labelId no manda el param (cero regresión, mismo criterio que campaignId)', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: PAGINATED });
+
+    await listWhatsappConversations({ campaignId: 'camp-1' });
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations', {
+      params: { campaignId: 'camp-1' },
+    });
+  });
+
+  it('combina labelId con campaignId, assignment y status (ejes ortogonales)', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: PAGINATED });
+
+    await listWhatsappConversations({ labelId: 'lab-1', campaignId: 'camp-1', assignment: 'mine', status: 'open' });
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations', {
+      params: { campaignId: 'camp-1', labelId: 'lab-1', status: 'open', assignment: 'mine' },
     });
   });
 });
@@ -576,5 +615,76 @@ describe('WAPI-16 (internal-notes F1.5): deleteWhatsappNote', () => {
     expect(result).toEqual(TOMBSTONE);
     expect(result.deleted).toBe(true);
     expect(result.content).toBe('');
+  });
+});
+
+describe('Ola 5 (labels): catálogo GET /messaging/labels', () => {
+  const LABELS: WhatsappLabel[] = [
+    { id: 'lab-1', name: 'Urgente', color: '#dc3545' },
+    { id: 'lab-2', name: 'Ventas', color: '#28a745' },
+  ];
+
+  it('GETs /messaging/labels y devuelve el array PLANO (sin envelope {data})', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: LABELS });
+
+    const result = await listMessagingLabels();
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/labels');
+    expect(result).toEqual(LABELS);
+  });
+});
+
+describe('Ola 5 (labels): ABM del catálogo', () => {
+  const LABEL: WhatsappLabel = { id: 'lab-1', name: 'Urgente', color: '#dc3545' };
+
+  it('createMessagingLabel POSTea /messaging/labels con {name,color} y devuelve la label creada', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: LABEL });
+
+    const result = await createMessagingLabel({ name: 'Urgente', color: '#dc3545' });
+
+    expect(axiosClient.post).toHaveBeenCalledWith('/messaging/labels', { name: 'Urgente', color: '#dc3545' });
+    expect(result).toEqual(LABEL);
+  });
+
+  it('updateMessagingLabel PUTea /messaging/labels/:id con {name?,color?} y devuelve la actualizada', async () => {
+    const updated = { ...LABEL, name: 'Muy urgente' };
+    vi.mocked(axiosClient.put).mockResolvedValue({ data: updated });
+
+    const result = await updateMessagingLabel('lab-1', { name: 'Muy urgente' });
+
+    expect(axiosClient.put).toHaveBeenCalledWith('/messaging/labels/lab-1', { name: 'Muy urgente' });
+    expect(result).toEqual(updated);
+  });
+
+  it('deleteMessagingLabel DELETEa /messaging/labels/:id', async () => {
+    vi.mocked(axiosClient.delete).mockResolvedValue({ data: undefined });
+
+    await deleteMessagingLabel('lab-1');
+
+    expect(axiosClient.delete).toHaveBeenCalledWith('/messaging/labels/lab-1');
+  });
+});
+
+describe('Ola 5 (labels): setConversationLabels', () => {
+  const LABELED_ITEM: WhatsappConversationListItem = {
+    ...LIST_ITEM,
+    labels: [{ id: 'lab-1', name: 'Urgente', color: '#dc3545' }],
+  };
+
+  it('PATCHea /messaging/conversations/:id/labels con {labelIds} y devuelve la conversación (con labels)', async () => {
+    vi.mocked(axiosClient.patch).mockResolvedValue({ data: LABELED_ITEM });
+
+    const result = await setConversationLabels('conv-1', ['lab-1']);
+
+    expect(axiosClient.patch).toHaveBeenCalledWith('/messaging/conversations/conv-1/labels', { labelIds: ['lab-1'] });
+    expect(result).toEqual(LABELED_ITEM);
+  });
+
+  it('labelIds:[] limpia el set completo', async () => {
+    vi.mocked(axiosClient.patch).mockResolvedValue({ data: { ...LIST_ITEM, labels: [] } });
+
+    await setConversationLabels('conv-1', []);
+
+    expect(axiosClient.patch).toHaveBeenCalledWith('/messaging/conversations/conv-1/labels', { labelIds: [] });
   });
 });

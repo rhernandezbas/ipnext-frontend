@@ -5,6 +5,14 @@ export interface SelectOption {
   value: string;
   label: string;
   disabled?: boolean;
+  /**
+   * Aditivo — color hex OPCIONAL renderizado como un dot antes del label (en la
+   * opción y en el trigger cuando esa opción está elegida). Data-driven (no un
+   * token): lo usan filtros cuyo catálogo trae color propio, ej. el filtro de
+   * etiquetas del inbox (Ola 5). Ausente → sin dot (cero cambio para los
+   * callers previos, ej. el filtro de campaña).
+   */
+  swatch?: string;
 }
 
 interface SelectProps {
@@ -243,7 +251,12 @@ export function Select({
         aria-describedby={ariaDescribedBy}
         data-placeholder={!selectedOption || undefined}
       >
-        <span className={styles.value}>{selectedOption ? selectedOption.label : placeholder}</span>
+        <span className={styles.value}>
+          {selectedOption?.swatch && (
+            <span className={styles.swatch} style={{ backgroundColor: selectedOption.swatch }} aria-hidden="true" />
+          )}
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
         <span className={styles.caret} aria-hidden="true">
           ▾
         </span>
@@ -266,6 +279,9 @@ export function Select({
               <span className={styles.check} aria-hidden="true">
                 {opt.value === value ? '✓' : ''}
               </span>
+              {opt.swatch && (
+                <span className={styles.swatch} style={{ backgroundColor: opt.swatch }} aria-hidden="true" />
+              )}
               <span className={styles.optionLabel}>{opt.label}</span>
             </li>
           ))}

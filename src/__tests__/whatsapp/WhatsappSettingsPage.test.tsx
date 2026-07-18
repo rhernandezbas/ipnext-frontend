@@ -33,6 +33,12 @@ vi.mock('@/api/cannedResponses.api', () => ({
   updateCannedResponse: vi.fn(),
   deleteCannedResponse: vi.fn(),
 }));
+// Ola 5 (labels) — el ABM de etiquetas tiene su propio test (react-query +
+// ConfirmProvider). Acá solo importa el WIRING/gating de la sección, así que se
+// stubbea el body para no arrastrar sus providers.
+vi.mock('@/pages/whatsapp/settings/MessagingLabelsBody', () => ({
+  MessagingLabelsBody: () => <div>catálogo de etiquetas</div>,
+}));
 
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
 import { useMyPermissions, useCan } from '@/hooks/useMyPermissions';
@@ -99,7 +105,10 @@ describe('WhatsappSettingsPage', () => {
   it('renders fallback when user lacks messaging.read', () => {
     setupHooks([]);
     renderPage();
-    expect(screen.getByText(/no tenés permiso/i)).toBeInTheDocument();
+    // Ola 5 (labels) — ahora hay 2 secciones gateadas (Media por messaging.read,
+    // Etiquetas por messaging.manage): sin ninguno de los dos permisos, ambas
+    // muestran el fallback "No tenés permiso…".
+    expect(screen.getAllByText(/no tenés permiso/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText(/descarga de media de whatsapp/i)).not.toBeInTheDocument();
   });
 
@@ -114,5 +123,22 @@ describe('WhatsappSettingsPage', () => {
     setupHooks(['messaging.read']);
     renderPage();
     expect(screen.queryByRole('heading', { name: /respuestas r[aá]pidas/i })).not.toBeInTheDocument();
+  });
+
+  // ── Ola 5: catálogo de etiquetas (gate messaging.manage) ──────────────────
+  it('Ola 5 (labels) — con messaging.manage, monta el ABM de etiquetas', () => {
+    setupHooks(['messaging.read', 'messaging.manage']);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /^etiquetas$/i })).toBeInTheDocument();
+    expect(screen.getByText(/catálogo de etiquetas/i)).toBeInTheDocument();
+  });
+
+  it('Ola 5 (labels) — sin messaging.manage, la sección Etiquetas queda en fallback', () => {
+    setupHooks(['messaging.read']);
+    renderPage();
+    // La sección Media SÍ (tiene read); la de Etiquetas NO (falta manage).
+    expect(screen.getByText(/descarga de media de whatsapp/i)).toBeInTheDocument();
+    expect(screen.getByText(/no tenés permiso/i)).toBeInTheDocument();
+    expect(screen.queryByText(/catálogo de etiquetas/i)).not.toBeInTheDocument();
   });
 });

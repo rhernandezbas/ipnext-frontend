@@ -41,6 +41,10 @@ vi.mock('@/api/whatsapp.api', () => ({
   // inbox-views Ola 1: la page ahora también llama a `useInboxViewCounts`
   // (badges del sub-menú de vistas) — mismo criterio que el comment de arriba.
   getInboxViewCounts: vi.fn(),
+  // Ola 5 (labels): la page ahora llama a `useMessagingLabels` (catálogo para
+  // chips/filtro/control) y arma `useSetConversationLabels` — mismo criterio.
+  listMessagingLabels: vi.fn(),
+  setConversationLabels: vi.fn(),
 }));
 vi.mock('@/hooks/useMyPermissions');
 
@@ -134,6 +138,7 @@ beforeEach(() => {
   vi.mocked(whatsappApi.getInboxClientContext).mockResolvedValue(NEUTRAL_RICH_CONTEXT);
   vi.mocked(whatsappApi.getAssignableUsers).mockResolvedValue([]);
   vi.mocked(whatsappApi.getMessagingAreas).mockResolvedValue([]);
+  vi.mocked(whatsappApi.listMessagingLabels).mockResolvedValue([]);
   vi.mocked(whatsappApi.getInboxViewCounts).mockResolvedValue({ mine: 0, unattended: 0, all: 1, unassigned: 0, resolved: 0 });
 });
 

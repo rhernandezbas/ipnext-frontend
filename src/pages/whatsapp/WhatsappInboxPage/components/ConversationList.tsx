@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Input } from '@/components/atoms/Input/Input';
 import { ConversationListItem } from './ConversationListItem';
 import { ConversationCampaignFilter } from './ConversationCampaignFilter';
+import { ConversationLabelFilter } from './ConversationLabelFilter';
 import { Skeleton } from './Skeleton';
-import type { WhatsappCampaignTag, WhatsappConversationListItem, WhatsappPaginatedQuery } from '@/types/whatsapp';
+import type { WhatsappCampaignTag, WhatsappConversationListItem, WhatsappLabel, WhatsappPaginatedQuery } from '@/types/whatsapp';
 import styles from './ConversationList.module.css';
 
 /**
@@ -53,6 +54,17 @@ interface ConversationListProps {
   campaigns?: WhatsappCampaignTag[];
   campaignId?: string;
   onCampaignChange?: (next: string | undefined) => void;
+  /**
+   * Ola 5 (labels) — filtro de etiqueta SERVER-SIDE (mismo molde que el filtro
+   * de campaña: `WhatsappInboxPage` orquesta `useWhatsappConversations` con
+   * `labelId` en el `query`). El catálogo (`labels`) viene de
+   * `useMessagingLabels` (gate `messaging.read`); vacío → el filtro no se
+   * monta. Eje ORTOGONAL a la campaña/vistas, no las reemplaza. Opcionales con
+   * default para no romper call sites/tests previos.
+   */
+  labels?: WhatsappLabel[];
+  labelId?: string;
+  onLabelChange?: (next: string | undefined) => void;
 }
 
 const SKELETON_ROWS = 5;
@@ -128,6 +140,9 @@ export function ConversationList({
   campaigns = [],
   campaignId,
   onCampaignChange = () => {},
+  labels = [],
+  labelId,
+  onLabelChange = () => {},
 }: ConversationListProps) {
   const [search, setSearch] = useState('');
 
@@ -279,9 +294,15 @@ export function ConversationList({
           es la única fuente de status/assignment/view). Queda SOLO el filtro
           de campaña (eje ortogonal a las vistas), que sigue montándose solo
           si hay campañas en el catálogo (sin ellas no hay nada que filtrar). */}
-      {campaigns.length > 0 && (
+      {(campaigns.length > 0 || labels.length > 0) && (
         <div className={styles.filterWrapper}>
-          <ConversationCampaignFilter campaigns={campaigns} value={campaignId} onChange={onCampaignChange} />
+          {campaigns.length > 0 && (
+            <ConversationCampaignFilter campaigns={campaigns} value={campaignId} onChange={onCampaignChange} />
+          )}
+          {/* Ola 5 (labels) — filtro de etiqueta, eje ortogonal a la campaña. */}
+          {labels.length > 0 && (
+            <ConversationLabelFilter labels={labels} value={labelId} onChange={onLabelChange} />
+          )}
         </div>
       )}
 
