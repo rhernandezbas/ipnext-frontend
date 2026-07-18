@@ -73,6 +73,18 @@ describe('ClientContextPanel — CONTEXT-1 (matched)', () => {
     expect(screen.getByText('Juan Perez')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /ver perfil/i })).toHaveAttribute('href', '/admin/customers/view/42');
   });
+
+  it('reenvía `conversations` (TOP-LEVEL del contexto, sibling de `client`) a INTERACCIONES', () => {
+    mockRich({ data: { ...RICH_MATCHED, conversations: { total: 3, open: 1, resolved: 2 } } });
+    renderPanel({ status: 'matched', clients: [{ id: '42', name: 'Juan Perez', status: 'active' }] });
+    expect(screen.getByText('3 conversaciones · 1 abierta · 2 resueltas')).toBeInTheDocument();
+  });
+
+  it('sin `conversations` (backcompat — BE aún no lo manda) cae al empty state, no rompe', () => {
+    mockRich({ data: RICH_MATCHED });
+    renderPanel({ status: 'matched', clients: [{ id: '42', name: 'Juan Perez', status: 'active' }] });
+    expect(screen.getByText(/sin conversaciones previas/i)).toBeInTheDocument();
+  });
 });
 
 describe('ClientContextPanel — bug MEDIO a11y (4 landmarks anidados en un panel de 320px)', () => {

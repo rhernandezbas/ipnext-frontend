@@ -76,6 +76,10 @@ export function ClientContextPanel({ conversationId, lightContext }: ClientConte
         // no de la query PRIMARIA — `richQuery.isError` es de la primaria y
         // dispara falsos positivos/negativos cruzados.
         hasStaleError={richQuery.balanceRefreshFailed}
+        // Contador de conversaciones — TOP-LEVEL del contexto (sibling de
+        // `client`, no un campo suyo). Opcional/backcompat: puede faltar si
+        // el FE deployó antes que el BE lo agregue.
+        conversations={richQuery.data.conversations}
       />
     );
   } else {

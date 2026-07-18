@@ -1,4 +1,4 @@
-import type { WhatsappInboxClientSummary } from '@/types/whatsapp';
+import type { WhatsappInboxClientSummary, WhatsappInboxConversationsSummary } from '@/types/whatsapp';
 import { IdentityHeader } from './IdentityHeader';
 import { FinancialSection } from './FinancialSection';
 import { ServiceSection } from './ServiceSection';
@@ -11,6 +11,12 @@ interface MatchedClientViewProps {
   /** `isError && hay cache previa` (design §4, tabla de estados) — no rompe el
    * contenido, solo muestra un chip sutil "no se pudo actualizar". */
   hasStaleError?: boolean;
+  /**
+   * Aditivo (contador de conversaciones) — TOP-LEVEL del contexto
+   * (`WhatsappInboxClientContext.conversations`), NO un campo de `client`.
+   * Se reenvía tal cual a `InteractionsSection` (opcional, backcompat).
+   */
+  conversations?: WhatsappInboxConversationsSummary;
 }
 
 /**
@@ -20,7 +26,7 @@ interface MatchedClientViewProps {
  * compartido), keyed por `client.id` para re-disparar la animación al
  * cambiar de cliente (el wrapper de contenido cambia de identidad en React).
  */
-export function MatchedClientView({ client, isRefreshingBalance, hasStaleError }: MatchedClientViewProps) {
+export function MatchedClientView({ client, isRefreshingBalance, hasStaleError, conversations }: MatchedClientViewProps) {
   return (
     <div key={client.id} className={styles['st-matched']}>
       {hasStaleError && (
@@ -38,7 +44,7 @@ export function MatchedClientView({ client, isRefreshingBalance, hasStaleError }
         <ServiceSection contracts={client.contracts} />
       </div>
       <div className={styles['st-section3']}>
-        <InteractionsSection client={client} />
+        <InteractionsSection client={client} conversations={conversations} />
       </div>
     </div>
   );

@@ -1,11 +1,19 @@
 import { Link } from 'react-router-dom';
-import type { WhatsappInboxClientSummary } from '@/types/whatsapp';
+import type { WhatsappInboxClientSummary, WhatsappInboxConversationsSummary } from '@/types/whatsapp';
 import { formatDateShort } from '@/utils/formatDate';
 import { IconCheck } from '../statusIcons';
 import styles from '../ClientContextPanel.module.css';
 
 interface InteractionsSectionProps {
   client: WhatsappInboxClientSummary;
+  /**
+   * Aditivo (contador de conversaciones) — TOP-LEVEL del contexto
+   * (`WhatsappInboxClientContext.conversations`), NO un campo de `client`
+   * (ver el tipo). Opcional para no romper los fixtures existentes de este
+   * componente (backcompat: deploy FE puede llegar antes que un refetch que
+   * traiga el campo nuevo) — se renderiza defensivo con ceros si falta.
+   */
+  conversations?: WhatsappInboxConversationsSummary;
 }
 
 /**
@@ -16,6 +24,25 @@ interface InteractionsSectionProps {
  */
 function closedCounterLabel(word: 'Cerrados' | 'Cerradas', total: number, shown: number): string {
   return total > shown ? `${word}: ${total} · mostrando ${shown}` : `${word}: ${total}`;
+}
+
+/**
+ * Etiqueta del bloque "Conversaciones" (contador de interacciones — cuántas
+ * veces el cliente abrió una conversación; abierta + resuelta/cerrada = 1
+ * interacción, contrato BE `conversations: {total, open, resolved}` TOP-LEVEL
+ * en `GET .../client-context`). Se llama solo con `total > 0` — el caso
+ * `total === 0` tiene su propio empty state positivo en el render ("Sin
+ * conversaciones previas"), igual que "Sin tickets abiertos". Omite la parte
+ * en 0 del detalle (p. ej. total=1/open=1/resolved=0 ⇒ "1 conversación · 1
+ * abierta", sin "· 0 resueltas") y usa singular/plural correcto en las 3
+ * unidades (conversación/es, abierta/s, resuelta/s).
+ */
+function conversationsSummaryLabel(total: number, open: number, resolved: number): string {
+  const parts: string[] = [];
+  if (open > 0) parts.push(`${open} ${open === 1 ? 'abierta' : 'abiertas'}`);
+  if (resolved > 0) parts.push(`${resolved} ${resolved === 1 ? 'resuelta' : 'resueltas'}`);
+  const detail = parts.length > 0 ? ` · ${parts.join(' · ')}` : '';
+  return `${total} ${total === 1 ? 'conversación' : 'conversaciones'}${detail}`;
 }
 
 /**
@@ -43,7 +70,7 @@ function closedCounterLabel(word: 'Cerrados' | 'Cerradas', total: number, shown:
  * heading se CLAMPEA a `Math.max(count, array.length)` — nunca puede mostrar
  * un número menor a la cantidad de ítems listados.
  */
-export function InteractionsSection({ client }: InteractionsSectionProps) {
+export function InteractionsSection({ client, conversations }: InteractionsSectionProps) {
   const {
     openTicketsCount,
     recentTickets,
@@ -73,6 +100,12 @@ export function InteractionsSection({ client }: InteractionsSectionProps) {
   const hasClosedTasks = closedTasks.length > 0;
   const closedTasksTotal = Math.max(closedTasksCount ?? 0, closedTasks.length);
   const logs = recentLogs ?? [];
+  // Fix backcompat (contador de conversaciones): `conversations` es TOP-LEVEL
+  // del contexto, opcional — un deploy FE puede llegar antes que un refetch
+  // que traiga el campo nuevo. Ceros por defecto, nunca undefined/NaN.
+  const conversationsTotal = conversations?.total ?? 0;
+  const conversationsOpen = conversations?.open ?? 0;
+  const conversationsResolved = conversations?.resolved ?? 0;
 
   return (
     // Fix bug MEDIO a11y (review adversarial): sub-sección SIN landmark
@@ -174,6 +207,23 @@ export function InteractionsSection({ client }: InteractionsSectionProps) {
               ))}
             </ul>
           </div>
+        )}
+      </div>
+
+      {/* Conversaciones — contador de interacciones (cuántas veces el
+          cliente abrió una conversación; abierta + resuelta/cerrada = 1
+          interacción). Mismo patrón visual que tickets/tareas (línea
+          prominente con el mismo tratamiento de color), SIN link "Ver
+          todos" — no hay vista filtrada por cliente. */}
+      <div className={styles['int-block']}>
+        {conversationsTotal === 0 ? (
+          <p className={styles['int-empty']}>Sin conversaciones previas</p>
+        ) : (
+          <span
+            className={conversationsOpen > 0 ? styles['int-ticketsCountOpen'] : styles['int-ticketsCount']}
+          >
+            {conversationsSummaryLabel(conversationsTotal, conversationsOpen, conversationsResolved)}
+          </span>
         )}
       </div>
 

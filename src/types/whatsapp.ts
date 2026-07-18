@@ -244,12 +244,35 @@ export interface WhatsappInboxClientSummary {
   recentLogs: WhatsappInboxLog[];
 }
 
+/**
+ * Aditivo (contador de conversaciones en INTERACCIONES) — espejo de
+ * `conversations` TOP-LEVEL en `GET /messaging/conversations/:id/client-context`
+ * (sibling de `client`, NO un campo de `WhatsappInboxClientSummary`): cuántas
+ * veces el cliente abrió una conversación (abierta + resuelta/cerrada = 1
+ * interacción). El BE lo manda en los 3 estados del contexto
+ * (matched|ambiguous|unknown); ante un fallo interno manda ceros. Invariante
+ * `total = open + resolved`.
+ */
+export interface WhatsappInboxConversationsSummary {
+  total: number;
+  open: number;
+  resolved: number;
+}
+
 export interface WhatsappInboxClientContext {
   status: WhatsappInboxClientContextStatus;
   /** solo `ambiguous` sin `clientId` elegido — NO agrega datos hasta elegir. */
   candidates?: WhatsappClientContextClient[];
   /** `matched`, o el candidato ya elegido en `ambiguous`. */
   client?: WhatsappInboxClientSummary;
+  /**
+   * Aditivo — ver `WhatsappInboxConversationsSummary`. Opcional para no
+   * romper los fixtures existentes (ClientContextPanel/MatchedClientView/
+   * InteractionsSection tests, anteriores a esta tanda) que construyen el
+   * contexto sin este campo — el FE renderiza defensivo con ceros si falta
+   * (deploy FE puede llegar antes que un refetch que traiga el campo nuevo).
+   */
+  conversations?: WhatsappInboxConversationsSummary;
 }
 
 // ─── Envío de media (messaging-inbox-v2-media F1.5 fase A, Tanda 2 — ENVIAR)

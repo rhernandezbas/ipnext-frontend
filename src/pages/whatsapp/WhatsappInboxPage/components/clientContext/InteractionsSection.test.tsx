@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect } from 'vitest';
 import { InteractionsSection } from './InteractionsSection';
-import type { WhatsappInboxClientSummary } from '@/types/whatsapp';
+import type { WhatsappInboxClientSummary, WhatsappInboxConversationsSummary } from '@/types/whatsapp';
 
 const BASE: WhatsappInboxClientSummary = {
   id: '1',
@@ -26,10 +26,10 @@ const BASE: WhatsappInboxClientSummary = {
   recentLogs: [],
 };
 
-function renderSection(client: WhatsappInboxClientSummary) {
+function renderSection(client: WhatsappInboxClientSummary, conversations?: WhatsappInboxConversationsSummary) {
   return render(
     <MemoryRouter>
-      <InteractionsSection client={client} />
+      <InteractionsSection client={client} conversations={conversations} />
     </MemoryRouter>,
   );
 }
@@ -280,6 +280,41 @@ describe('InteractionsSection (messaging-inbox-v2 F1.5, design §5.4)', () => {
         openTasksCount: undefined as unknown as WhatsappInboxClientSummary['openTasksCount'],
       });
       expect(screen.getByText(/0 tareas abiertas/i)).toBeInTheDocument();
+    });
+  });
+
+  // ─── Conversaciones — contador de interacciones (contrato TOP-LEVEL BE:
+  // `GET .../client-context` → `conversations: {total, open, resolved}`,
+  // presente en los 3 estados matched|ambiguous|unknown; ante fallo interno
+  // el BE manda ceros. Invariante total = open + resolved). ───────────────
+
+  describe('conversations — bloque "Conversaciones" (mismo patrón visual que tickets/tareas, sin link "Ver todos")', () => {
+    it('total 0 muestra "Sin conversaciones previas"', () => {
+      renderSection(BASE, { total: 0, open: 0, resolved: 0 });
+      expect(screen.getByText(/sin conversaciones previas/i)).toBeInTheDocument();
+    });
+
+    it('campo ausente (backcompat — deploy FE antes de un refetch) cae a ceros, no rompe', () => {
+      renderSection(BASE, undefined);
+      expect(screen.getByText(/sin conversaciones previas/i)).toBeInTheDocument();
+    });
+
+    it('3 total / 1 abierta / 2 resueltas muestra el texto completo', () => {
+      renderSection(BASE, { total: 3, open: 1, resolved: 2 });
+      expect(screen.getByText('3 conversaciones · 1 abierta · 2 resueltas')).toBeInTheDocument();
+    });
+
+    it('1 total / 1 abierta / 0 resueltas usa singular y omite la parte en cero', () => {
+      renderSection(BASE, { total: 1, open: 1, resolved: 0 });
+      expect(screen.getByText('1 conversación · 1 abierta')).toBeInTheDocument();
+      expect(screen.queryByText(/resuelta/i)).not.toBeInTheDocument();
+    });
+
+    it('sin link "Ver todos"/"Ver todas" dentro del bloque de conversaciones (no hay vista filtrada por cliente)', () => {
+      renderSection(BASE, { total: 3, open: 1, resolved: 2 });
+      const block = screen.getByText('3 conversaciones · 1 abierta · 2 resueltas').closest('div');
+      expect(block).not.toBeNull();
+      expect(within(block!).queryByRole('link')).not.toBeInTheDocument();
     });
   });
 });

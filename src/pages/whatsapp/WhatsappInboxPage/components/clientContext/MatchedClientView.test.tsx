@@ -49,4 +49,14 @@ describe('MatchedClientView (messaging-inbox-v2 F1.5, design §1 — composició
     renderView();
     expect(screen.queryByText(/no se pudo actualizar/i)).not.toBeInTheDocument();
   });
+
+  it('reenvía `conversations` (TOP-LEVEL del contexto) a InteractionsSection', () => {
+    renderView({ conversations: { total: 3, open: 1, resolved: 2 } });
+    expect(screen.getByText('3 conversaciones · 1 abierta · 2 resueltas')).toBeInTheDocument();
+  });
+
+  it('sin `conversations` (backcompat) cae al empty state, no rompe', () => {
+    renderView();
+    expect(screen.getByText(/sin conversaciones previas/i)).toBeInTheDocument();
+  });
 });
