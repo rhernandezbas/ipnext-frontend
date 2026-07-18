@@ -122,6 +122,10 @@ const CRM_ITEMS: NavParentItem[] = [
     requiredPermission: 'messaging.read',
     children: [
       { to: '/admin/whatsapp', label: 'Bandeja de entrada' },
+      // Ola 3 (Reports Overview) — dashboard de Informes del inbox. Sin gate
+      // PROPIO: hereda messaging.read del padre (mismo criterio que Bandeja de
+      // entrada / Configuración; leer las métricas = leer el inbox).
+      { to: '/admin/whatsapp/reports', label: 'Informes' },
       { to: '/admin/whatsapp/settings', label: 'Configuración' },
       // F2 (Bulk Messaging) — gate PROPIO messaging.bulk (independiente del
       // messaging.read del padre, mismo criterio que Recaptación/Mis

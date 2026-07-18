@@ -191,3 +191,27 @@ describe('SBW-7 (Change 3): sin messaging.templates no hay "Templates"', () => {
     expect(screen.getByRole('link', { name: 'Configuración' })).toBeInTheDocument();
   });
 });
+
+describe('SBW-8 (Ola 3): "Informes" hereda messaging.read', () => {
+  it('linkea "Informes" a /admin/whatsapp/reports con messaging.read', async () => {
+    mockPerms({
+      permissions: ['messaging.read'],
+      can: (p) => (Array.isArray(p) ? p : [p]).includes('messaging.read'),
+    });
+    renderSidebar();
+    await openCrm();
+    await openWhatsapp();
+    const link = screen.getByRole('link', { name: 'Informes' });
+    expect(link).toHaveAttribute('href', '/admin/whatsapp/reports');
+  });
+
+  it('sin messaging.read tampoco aparece "Informes" (grupo oculto)', async () => {
+    mockPerms({
+      permissions: ['clients.read'],
+      can: (p) => (Array.isArray(p) ? p : [p]).includes('clients.read'),
+    });
+    renderSidebar('/admin/customers/list');
+    await openCrm();
+    expect(screen.queryByRole('link', { name: 'Informes' })).not.toBeInTheDocument();
+  });
+});

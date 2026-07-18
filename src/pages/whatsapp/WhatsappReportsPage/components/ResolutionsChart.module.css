@@ -1,0 +1,79 @@
+.wrap {
+  /* single-series blue (dataviz categorical slot 1), mapped to a named prop */
+  --chart-bar: #2a78d6;
+  --chart-bar-soft: #cde2fb;
+  margin: 0;
+  min-width: 0;
+}
+
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-1);
+  height: 220px;
+  padding-top: var(--space-2);
+  overflow-x: auto;
+}
+
+.bar {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 18px;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  height: 100%;
+}
+
+.barTrack {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  background: var(--color-gray-50);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.barFill {
+  width: 70%;
+  min-height: 2px;
+  background: var(--chart-bar);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transition: height var(--transition-normal) var(--ease-out);
+}
+
+.bar:hover .barFill {
+  background: var(--color-primary-hover);
+}
+
+.barTick {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-hover);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
