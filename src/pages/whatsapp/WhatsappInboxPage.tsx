@@ -490,6 +490,10 @@ export default function WhatsappInboxPage() {
             // respuesta en curso. Solo es un error "real" para el composer
             // cuando NO hay data previa a la que aferrarse.
             isDetailError={detailQuery.isError && !detailQuery.data}
+            // FUENTES (TemplateSendPanel): el MISMO contexto light que
+            // alimenta a ClientContextPanel — decide si las variables del
+            // template pueden resolverse con datos del cliente.
+            lightContext={detail?.clientContext}
           />
         )}
       </div>

@@ -4,17 +4,26 @@
  * disparado desde el CTA "Enviar template" del composer (ventana expirada).
  *
  *  PICK-1 catálogo: 4 ramas (loading/error/empty/success), SOLO sendable
- *  VAR-1  variables como inputs planos + preview vivo, variable vacía
- *         señalizada como pendiente; template sin variables → confirm directo
+ *  VAR-1  variables con FUENTES (patrón `VariablesMapForm` del bulk): un Select
+ *         propio por variable ("Elegí una fuente…" / "Nombre del cliente" /
+ *         "Monto de deuda" / "Valor fijo") + input de texto SOLO al elegir
+ *         Valor fijo; preview vivo, variable sin resolver señalizada pendiente;
+ *         template sin variables → confirm directo
+ *  FUENTES resolución CLIENT-SIDE con los datos del contexto del cliente
+ *         (`useInboxClientContext`, MISMA query key/cache que
+ *         `ClientContextPanel` — jamás un fetch propio): valor resuelto
+ *         readonly al lado del Select, burbuja interpolada YA RESUELTA,
+ *         payload con strings resueltos (shape actual intacto); sin cliente
+ *         (unknown/ambiguous) → opciones de datos deshabilitadas + hint
  *  SEND-1 gate de confirm, envío feliz (POST + append vía el hook + cierre +
  *         foco de vuelta), doble click no duplica, remount limpio por conv
  *  ERR-1  errores mapeados inline (role=alert), panel queda abierto
  *  A11Y-1 dialog/aria-modal/aria-labelledby, foco inicial, Esc, backdrop,
  *         restauración de foco
  *
- * `useSendableTemplates`/`useSendWhatsappTemplate` (`@/hooks/useWhatsapp`) se
- * mockean a nivel HOOK (ya testeados unitariamente en
- * `useWhatsapp.templateSend.test.ts`) — acá se verifica el WIRING/UI.
+ * `useSendableTemplates`/`useSendWhatsappTemplate`/`useInboxClientContext`
+ * (`@/hooks/useWhatsapp`) se mockean a nivel HOOK (ya testeados unitariamente
+ * en sus propias suites) — acá se verifica el WIRING/UI.
  */
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -26,7 +35,7 @@ import * as useWhatsappModule from '@/hooks/useWhatsapp';
 import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 import { TemplateSendPanel } from './TemplateSendPanel';
 import type { TemplateSummaryDto } from '@/types/messagingBulk';
-import type { WhatsappMessage } from '@/types/whatsapp';
+import type { WhatsappClientContext, WhatsappInboxClientContext, WhatsappMessage } from '@/types/whatsapp';
 
 const APPROVED: TemplateSummaryDto = {
   contentSid: 'HX123',
@@ -76,6 +85,58 @@ const SENT: WhatsappMessage = {
   sentAt: '2026-07-16T12:00:00.000Z',
 };
 
+// ─── Contexto del cliente (FUENTES) — mismos shapes que ClientContextPanel ───
+
+const DEBT_DUE = 25759.69;
+/** MISMO formateo que `formatMoney` (panel de contexto / FinancialSection) —
+ * calculado acá con el mismo Intl para no acoplarse a un literal con NBSP. */
+const EXPECTED_DEBT = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(DEBT_DUE);
+
+const LIGHT_MATCHED: WhatsappClientContext = {
+  status: 'matched',
+  clients: [{ id: '42', name: 'HERNANDEZ RONALD', status: 'active' }],
+};
+
+const LIGHT_UNKNOWN: WhatsappClientContext = { status: 'unknown', clients: [] };
+
+const LIGHT_AMBIGUOUS: WhatsappClientContext = {
+  status: 'ambiguous',
+  clients: [
+    { id: '1', name: 'HERNANDEZ RONALD', status: 'active' },
+    { id: '2', name: 'HERNANDEZ R.', status: 'active' },
+  ],
+};
+
+const RICH_CONTEXT: WhatsappInboxClientContext = {
+  status: 'matched',
+  client: {
+    id: '42',
+    name: 'HERNANDEZ RONALD',
+    email: null,
+    phone: null,
+    status: 'active',
+    fichaClientId: '42',
+    balance: { due: DEBT_DUE, currency: 'ARS', isDebtor: true, stale: false, lastRefreshedAt: null },
+    lastInvoice: null,
+    nextDueDate: null,
+    contracts: [],
+    openTicketsCount: 0,
+    recentTickets: [],
+    recentTasks: [],
+    recentLogs: [],
+  },
+};
+
+/** Mock del contexto RICO — mismo molde que `ClientContextPanel.test.tsx:mockRich`. */
+function mockClientContext(overrides: Partial<ReturnType<typeof useWhatsappModule.useInboxClientContext>> = {}) {
+  vi.mocked(useWhatsappModule.useInboxClientContext).mockReturnValue({
+    ...mockQuery<WhatsappInboxClientContext>({ data: undefined, isLoading: false, isError: false }),
+    isRefreshingBalance: false,
+    balanceRefreshFailed: false,
+    ...overrides,
+  } as ReturnType<typeof useWhatsappModule.useInboxClientContext>);
+}
+
 function mockSendTemplate(overrides: Partial<ReturnType<typeof defaultSendTemplateReturn>> = {}) {
   const merged = { ...defaultSendTemplateReturn(), ...overrides };
   vi.mocked(useWhatsappModule.useSendWhatsappTemplate).mockReturnValue(merged);
@@ -113,6 +174,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockTemplates([APPROVED]);
   mockSendTemplate();
+  mockClientContext();
 });
 
 function renderPanel(props: Partial<React.ComponentProps<typeof TemplateSendPanel>> = {}) {
@@ -122,6 +184,27 @@ function renderPanel(props: Partial<React.ComponentProps<typeof TemplateSendPane
     <TemplateSendPanel conversationId="conv-1" onClose={onClose} onSent={onSent} {...props} />,
   );
   return { ...utils, onClose, onSent };
+}
+
+type User = ReturnType<typeof userEvent.setup>;
+
+async function pickApproved(user: User) {
+  await user.click(screen.getByRole('combobox', { name: /template/i }));
+  await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
+}
+
+/** Elige una fuente en el Select propio de la variable `{{N}}`. */
+async function pickSource(user: User, variable: string, optionName: RegExp) {
+  await user.click(screen.getByRole('combobox', { name: `{{${variable}}}` }));
+  await user.click(screen.getByRole('option', { name: optionName }));
+}
+
+/** Flujo de texto libre bajo FUENTES: "Valor fijo" en el Select de la variable
+ * hace aparecer el input (label sr-only `Valor fijo para {{N}}`) y se tipea ahí
+ * — reemplaza el input plano histórico. */
+async function fillLiteral(user: User, variable: string, text: string) {
+  await pickSource(user, variable, /valor fijo/i);
+  await user.type(screen.getByLabelText(`Valor fijo para {{${variable}}}`), text);
 }
 
 describe('PICK-1: catálogo — 4 ramas', () => {
@@ -168,36 +251,36 @@ describe('PICK-1: catálogo — 4 ramas', () => {
   });
 });
 
-describe('VAR-1: variables + preview vivo', () => {
-  async function pickApproved(user: ReturnType<typeof userEvent.setup>) {
-    await user.click(screen.getByRole('combobox', { name: /template/i }));
-    await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
-  }
-
-  it('renderiza un input por variable con label {{N}} visible', async () => {
+describe('VAR-1: variables con fuentes + preview vivo', () => {
+  it('renderiza un Select de fuente por variable con label {{N}} visible; el input de texto SOLO aparece al elegir "Valor fijo"', async () => {
     const user = userEvent.setup();
     renderPanel();
     await pickApproved(user);
 
-    expect(screen.getByLabelText('{{1}}')).toBeInTheDocument();
-    expect(screen.getByLabelText('{{2}}')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '{{1}}' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '{{2}}' })).toBeInTheDocument();
+    // Sin fuente elegida todavía: NO hay input de texto libre.
+    expect(screen.queryByLabelText('Valor fijo para {{1}}')).not.toBeInTheDocument();
+
+    await pickSource(user, '1', /valor fijo/i);
+    expect(screen.getByLabelText('Valor fijo para {{1}}')).toBeInTheDocument();
   });
 
-  it('preview vivo: tipear {{1}} y dejar {{2}} vacío muestra el resto resuelto + {{2}} señalizado pendiente', async () => {
+  it('preview vivo: {{1}} con valor fijo tipeado y {{2}} sin resolver muestra el resto resuelto + {{2}} señalizado pendiente', async () => {
     const user = userEvent.setup();
     renderPanel();
     await pickApproved(user);
 
-    await user.type(screen.getByLabelText('{{1}}'), 'Juan');
+    await fillLiteral(user, '1', 'Juan');
 
     expect(screen.getByText(/hola juan/i)).toBeInTheDocument();
-    // La variable 2 sigue sin tipear: debe quedar señalizada (marcada como
+    // La variable 2 sigue sin resolver: debe quedar señalizada (marcada como
     // pendiente), nunca como un `{{2}}` crudo sin indicación.
     const pending = screen.getByTestId('template-preview-pending-2');
     expect(pending).toBeInTheDocument();
   });
 
-  it('template SIN variables muestra el body tal cual y NO renderiza inputs de variables', async () => {
+  it('template SIN variables muestra el body tal cual y NO renderiza controles de variables', async () => {
     const user = userEvent.setup();
     mockTemplates([APPROVED_NO_VARS]);
     renderPanel();
@@ -207,6 +290,7 @@ describe('VAR-1: variables + preview vivo', () => {
 
     expect(screen.getByText(/bienvenido a ipnext/i)).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: /\{\{/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /\{\{/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /confirmar y enviar/i })).toBeEnabled();
   });
 });
@@ -220,10 +304,9 @@ describe('SEND-1: gate de confirm + envío', () => {
   it('confirm deshabilitado con template elegido pero variables incompletas', async () => {
     const user = userEvent.setup();
     renderPanel();
-    await user.click(screen.getByRole('combobox', { name: /template/i }));
-    await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
-    await user.type(screen.getByLabelText('{{1}}'), 'Juan');
-    // {{2}} sigue vacío.
+    await pickApproved(user);
+    await fillLiteral(user, '1', 'Juan');
+    // {{2}} sigue sin fuente ni valor.
     expect(screen.getByRole('button', { name: /confirmar y enviar/i })).toBeDisabled();
   });
 
@@ -240,10 +323,9 @@ describe('SEND-1: gate de confirm + envío', () => {
     mockSendTemplate({ sendTemplate });
     const { onSent } = renderPanel();
 
-    await user.click(screen.getByRole('combobox', { name: /template/i }));
-    await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
-    await user.type(screen.getByLabelText('{{1}}'), 'Juan');
-    await user.type(screen.getByLabelText('{{2}}'), '$5.000');
+    await pickApproved(user);
+    await fillLiteral(user, '1', 'Juan');
+    await fillLiteral(user, '2', '$5.000');
 
     const confirmBtn = screen.getByRole('button', { name: /confirmar y enviar/i });
     expect(confirmBtn).toBeEnabled();
@@ -292,10 +374,9 @@ describe('SEND-1: gate de confirm + envío', () => {
     // mutation (acá simulado re-mockeando el hook a isPending:true y
     // re-renderizando, sin desmontar — mismo componente, nuevo resultado del
     // hook, molde de cómo TanStack Query re-renderiza en la vida real).
-    await user.click(screen.getByRole('combobox', { name: /template/i }));
-    await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
-    await user.type(screen.getByLabelText('{{1}}'), 'Juan');
-    await user.type(screen.getByLabelText('{{2}}'), '$5.000');
+    await pickApproved(user);
+    await fillLiteral(user, '1', 'Juan');
+    await fillLiteral(user, '2', '$5.000');
 
     mockSendTemplate({ isPending: true });
     rerender(<TemplateSendPanel conversationId="conv-1" onClose={onClose} onSent={onSent} />);
@@ -310,15 +391,15 @@ describe('SEND-1: gate de confirm + envío', () => {
       <TemplateSendPanel key="conv-a" conversationId="conv-a" onClose={vi.fn()} onSent={vi.fn()} />,
     );
 
-    await user.click(screen.getByRole('combobox', { name: /template/i }));
-    await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
-    await user.type(screen.getByLabelText('{{1}}'), 'Juan');
-    expect(screen.getByLabelText('{{1}}')).toHaveValue('Juan');
+    await pickApproved(user);
+    await fillLiteral(user, '1', 'Juan');
+    expect(screen.getByLabelText('Valor fijo para {{1}}')).toHaveValue('Juan');
 
     rerender(<TemplateSendPanel key="conv-b" conversationId="conv-b" onClose={vi.fn()} onSent={vi.fn()} />);
 
-    // Select vuelve al placeholder — sin template elegido, sin inputs de variable.
-    expect(screen.queryByLabelText('{{1}}')).not.toBeInTheDocument();
+    // Select vuelve al placeholder — sin template elegido, sin controles de variable.
+    expect(screen.queryByRole('combobox', { name: '{{1}}' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Valor fijo para {{1}}')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /confirmar y enviar/i })).toBeDisabled();
   });
 });
@@ -337,10 +418,9 @@ describe('EDGE de contrato (review adversarial, arreglado): cambiar de template 
     renderPanel();
 
     // Elige A (con variables) y confirma.
-    await user.click(screen.getByRole('combobox', { name: /template/i }));
-    await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
-    await user.type(screen.getByLabelText('{{1}}'), 'Juan');
-    await user.type(screen.getByLabelText('{{2}}'), '$5.000');
+    await pickApproved(user);
+    await fillLiteral(user, '1', 'Juan');
+    await fillLiteral(user, '2', '$5.000');
     await user.click(screen.getByRole('button', { name: /confirmar y enviar/i }));
     const keyA = sendTemplate.mock.calls[0][0].idempotencyKey;
 
@@ -423,20 +503,14 @@ describe('ERR-1: errores del envío mapeados inline, panel abierto', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent(/reintentá en unos minutos/i);
 
-    await user.click(screen.getByRole('combobox', { name: /template/i }));
-    await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
-    await user.type(screen.getByLabelText('{{1}}'), 'Juan');
-    await user.type(screen.getByLabelText('{{2}}'), '$5.000');
+    await pickApproved(user);
+    await fillLiteral(user, '1', 'Juan');
+    await fillLiteral(user, '2', '$5.000');
     expect(screen.getByRole('button', { name: /confirmar y enviar/i })).toBeEnabled();
   });
 });
 
 describe('Rediseño card (inbox-template-card): header con subtítulo + preview burbuja', () => {
-  async function pickApproved(user: ReturnType<typeof userEvent.setup>) {
-    await user.click(screen.getByRole('combobox', { name: /template/i }));
-    await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
-  }
-
   it('header: subtítulo de contexto visible ("ventana de 24h") + dialog aria-describedby apunta a él', () => {
     renderPanel();
     const dialog = screen.getByRole('dialog');
@@ -468,12 +542,12 @@ describe('Rediseño card (inbox-template-card): header con subtítulo + preview 
     expect(screen.getByRole('heading', { name: /vista previa/i })).toBeInTheDocument();
   });
 
-  it('interpolación EN VIVO dentro de la burbuja: tipear una variable actualiza el texto de la card', async () => {
+  it('interpolación EN VIVO dentro de la burbuja: resolver una variable actualiza el texto de la card', async () => {
     const user = userEvent.setup();
     renderPanel();
     await pickApproved(user);
 
-    await user.type(screen.getByLabelText('{{1}}'), 'Juan');
+    await fillLiteral(user, '1', 'Juan');
 
     const bubble = screen.getByTestId('template-preview-bubble');
     expect(bubble).toHaveTextContent(/hola juan/i);
@@ -486,6 +560,178 @@ describe('Rediseño card (inbox-template-card): header con subtítulo + preview 
     renderPanel();
     expect(screen.queryByTestId('template-preview-placeholder')).not.toBeInTheDocument();
     expect(screen.queryByTestId('template-preview-bubble')).not.toBeInTheDocument();
+  });
+});
+
+describe('FUENTES: opciones de datos del contexto + texto libre (patrón VariablesMapForm, resolución client-side)', () => {
+  it('fuente "Nombre del cliente": valor resuelto visible al lado (readonly) + burbuja interpolada YA RESUELTA', async () => {
+    const user = userEvent.setup();
+    mockClientContext({ data: RICH_CONTEXT });
+    renderPanel({ lightContext: LIGHT_MATCHED });
+    await pickApproved(user);
+
+    await pickSource(user, '1', /nombre del cliente/i);
+
+    const resolved = screen.getByTestId('template-var-resolved-1');
+    expect(resolved.textContent).toContain('HERNANDEZ RONALD');
+    // La burbuja interpola el valor YA RESUELTO — el operador ve el mensaje
+    // final EXACTO, no un placeholder "Nombre del cliente".
+    const bubble = screen.getByTestId('template-preview-bubble');
+    expect(bubble).toHaveTextContent(/hola hernandez ronald/i);
+    expect(screen.queryByTestId('template-preview-pending-1')).not.toBeInTheDocument();
+  });
+
+  it('fuente "Monto de deuda": resuelve el monto formateado EXACTAMENTE como el panel de contexto (mismo Intl es-AR)', async () => {
+    const user = userEvent.setup();
+    mockClientContext({ data: RICH_CONTEXT });
+    renderPanel({ lightContext: LIGHT_MATCHED });
+    await pickApproved(user);
+
+    await pickSource(user, '2', /monto de deuda/i);
+
+    expect(screen.getByTestId('template-var-resolved-2').textContent).toContain(EXPECTED_DEBT);
+    expect(screen.getByTestId('template-preview-bubble').textContent).toContain(EXPECTED_DEBT);
+  });
+
+  it('payload del envío: viajan los VALORES RESUELTOS como strings — el shape actual NO cambia', async () => {
+    const user = userEvent.setup();
+    const sendTemplate = vi.fn(
+      (
+        _input: { templateRef: string; variables: Record<string, string>; idempotencyKey: string },
+        opts?: { onSuccess?: (message: WhatsappMessage) => void },
+      ) => {
+        opts?.onSuccess?.(SENT);
+      },
+    );
+    mockSendTemplate({ sendTemplate });
+    mockClientContext({ data: RICH_CONTEXT });
+    renderPanel({ lightContext: LIGHT_MATCHED });
+    await pickApproved(user);
+
+    await pickSource(user, '1', /nombre del cliente/i);
+    await pickSource(user, '2', /monto de deuda/i);
+    await user.click(screen.getByRole('button', { name: /confirmar y enviar/i }));
+
+    expect(sendTemplate).toHaveBeenCalledTimes(1);
+    const [input] = sendTemplate.mock.calls[0];
+    expect(input.variables).toEqual({ '1': 'HERNANDEZ RONALD', '2': EXPECTED_DEBT });
+  });
+
+  it('sin cliente asociado (unknown): opciones de datos DESHABILITADAS + hint; "Valor fijo" sigue utilizable', async () => {
+    const user = userEvent.setup();
+    renderPanel({ lightContext: LIGHT_UNKNOWN });
+    await pickApproved(user);
+
+    expect(screen.getByText(/sin cliente asociado — usá valor fijo/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('combobox', { name: '{{1}}' }));
+    expect(screen.getByRole('option', { name: /nombre del cliente/i })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('option', { name: /monto de deuda/i })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('option', { name: /valor fijo/i })).not.toHaveAttribute('aria-disabled');
+
+    // Clickear la opción deshabilitada NO elige nada (guard del Select propio).
+    await user.click(screen.getByRole('option', { name: /nombre del cliente/i }));
+    expect(screen.queryByTestId('template-var-resolved-1')).not.toBeInTheDocument();
+  });
+
+  it('ambiguous (sin candidato elegido en este panel): mismas opciones de datos deshabilitadas + hint', async () => {
+    const user = userEvent.setup();
+    renderPanel({ lightContext: LIGHT_AMBIGUOUS });
+    await pickApproved(user);
+
+    expect(screen.getByText(/sin cliente asociado — usá valor fijo/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('combobox', { name: '{{1}}' }));
+    expect(screen.getByRole('option', { name: /nombre del cliente/i })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('option', { name: /monto de deuda/i })).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('cache compartida: matched → useInboxClientContext(conversationId, null) — la MISMA key que ClientContextPanel, jamás un fetch propio', () => {
+    mockClientContext({ data: RICH_CONTEXT });
+    renderPanel({ lightContext: LIGHT_MATCHED });
+    expect(vi.mocked(useWhatsappModule.useInboxClientContext)).toHaveBeenCalledWith('conv-1', null);
+  });
+
+  it('cache: sin cliente (unknown) → el hook se llama con conversationId null (enabled:false — NO dispara un fetch que el panel de contexto nunca hizo)', () => {
+    renderPanel({ lightContext: LIGHT_UNKNOWN });
+    expect(vi.mocked(useWhatsappModule.useInboxClientContext)).toHaveBeenCalledWith(null, null);
+    expect(vi.mocked(useWhatsappModule.useInboxClientContext)).not.toHaveBeenCalledWith('conv-1', null);
+  });
+
+  it('deuda NO disponible (due:null): "Monto de deuda" deshabilitada aunque haya cliente; "Nombre del cliente" sigue habilitada', async () => {
+    const user = userEvent.setup();
+    mockClientContext({
+      data: {
+        ...RICH_CONTEXT,
+        client: {
+          ...RICH_CONTEXT.client!,
+          balance: { ...RICH_CONTEXT.client!.balance, due: null, isDebtor: false },
+        },
+      },
+    });
+    renderPanel({ lightContext: LIGHT_MATCHED });
+    await pickApproved(user);
+
+    await user.click(screen.getByRole('combobox', { name: '{{1}}' }));
+    expect(screen.getByRole('option', { name: /monto de deuda/i })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('option', { name: /nombre del cliente/i })).not.toHaveAttribute('aria-disabled');
+  });
+
+  it('gate: {{1}} resuelta por fuente pero {{2}} en "Valor fijo" VACÍO → confirm disabled; tipear habilita', async () => {
+    const user = userEvent.setup();
+    mockClientContext({ data: RICH_CONTEXT });
+    renderPanel({ lightContext: LIGHT_MATCHED });
+    await pickApproved(user);
+
+    await pickSource(user, '1', /nombre del cliente/i);
+    await pickSource(user, '2', /valor fijo/i);
+    expect(screen.getByRole('button', { name: /confirmar y enviar/i })).toBeDisabled();
+
+    await user.type(screen.getByLabelText('Valor fijo para {{2}}'), EXPECTED_DEBT);
+    expect(screen.getByRole('button', { name: /confirmar y enviar/i })).toBeEnabled();
+  });
+
+  it('a11y: el combobox de la variable queda descripto por el valor resuelto (aria-describedby, legible por SR)', async () => {
+    const user = userEvent.setup();
+    mockClientContext({ data: RICH_CONTEXT });
+    renderPanel({ lightContext: LIGHT_MATCHED });
+    await pickApproved(user);
+
+    await pickSource(user, '1', /nombre del cliente/i);
+
+    const combo = screen.getByRole('combobox', { name: '{{1}}' });
+    const descId = combo.getAttribute('aria-describedby');
+    expect(descId).toBeTruthy();
+    const desc = document.getElementById(descId!);
+    expect(desc).toHaveTextContent(/valor resuelto/i);
+    expect(desc).toHaveTextContent('HERNANDEZ RONALD');
+  });
+
+  it('PIN idempotencia SAGRADA: cambiar la FUENTE de una variable NO regenera la key (mismo template = misma intención)', async () => {
+    const user = userEvent.setup();
+    const sendTemplate = vi.fn(
+      (_input: { templateRef: string; variables: Record<string, string>; idempotencyKey: string }) => {
+        // Sin onSuccess: el panel sigue abierto (timeout ambiguo) y el
+        // operador cambia la fuente antes de reintentar.
+      },
+    );
+    mockSendTemplate({ sendTemplate });
+    mockClientContext({ data: RICH_CONTEXT });
+    renderPanel({ lightContext: LIGHT_MATCHED });
+    await pickApproved(user);
+
+    await fillLiteral(user, '1', 'Juan');
+    await fillLiteral(user, '2', '$5.000');
+    await user.click(screen.getByRole('button', { name: /confirmar y enviar/i }));
+    const key1 = sendTemplate.mock.calls[0][0].idempotencyKey;
+
+    // Cambia la FUENTE de {{1}} (literal → dato del cliente) y reintenta.
+    await pickSource(user, '1', /nombre del cliente/i);
+    await user.click(screen.getByRole('button', { name: /confirmar y enviar/i }));
+    const key2 = sendTemplate.mock.calls[1][0].idempotencyKey;
+
+    expect(key2).toBe(key1);
+    // Y el reintento viaja con el valor RE-resuelto de la fuente nueva.
+    expect(sendTemplate.mock.calls[1][0].variables['1']).toBe('HERNANDEZ RONALD');
   });
 });
 

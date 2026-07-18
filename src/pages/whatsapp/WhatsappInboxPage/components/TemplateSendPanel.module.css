@@ -162,8 +162,12 @@
 /* CLIP-1 — cap del listbox del Select DENTRO de este modal (descendiente por
    atributo: la clase real de Select.module.css está hasheada). Con el canvas
    de preview reservando cap + space-6 debajo, el dropdown abierto SIEMPRE cae
-   dentro de la caja scrolleable del body: nunca se recorta. */
-.selectorSection [role='listbox'] {
+   dentro de la caja scrolleable del body: nunca se recorta.
+   FUENTES: el cap aplica TAMBIÉN a los Selects de fuente por variable
+   (viven en .variablesSection) — su dropdown (4 opciones ≈ 176px) entra
+   holgado en el cap (192px) y el aire del canvas de abajo lo sigue cubriendo. */
+.selectorSection [role='listbox'],
+.variablesSection [role='listbox'] {
   max-height: var(--template-listbox-cap);
 }
 
@@ -200,10 +204,24 @@
   gap: var(--space-1);
 }
 
-.variableLabel {
-  font-size: var(--font-size-xs);
+/* CLIP-2 (FUENTES) — mismo cinturón :focus-within que .selectorSection: cada
+   fila con su Select de fuente gana prioridad de apilado mientras el combobox
+   tiene el foco (el listbox abierto nunca queda enterrado bajo una fila
+   hermana ni bajo la card de preview). */
+.variableRow:focus-within {
+  position: relative;
+  z-index: 1;
+}
+
+/* FUENTES — valor resuelto de una fuente de datos ("→ HERNANDEZ RONALD"),
+   readonly al lado del Select. text-primary sobre surface = 16.10:1 (pineado
+   en templateSendCardCss.test.ts). */
+.resolvedValue {
+  margin: 0;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
 }
 
 .variableInput {

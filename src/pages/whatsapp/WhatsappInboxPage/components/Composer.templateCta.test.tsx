@@ -32,7 +32,7 @@ import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
 import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 import { Composer } from './Composer';
 import type { TemplateSummaryDto } from '@/types/messagingBulk';
-import type { WhatsappMessage } from '@/types/whatsapp';
+import type { WhatsappInboxClientContext, WhatsappMessage } from '@/types/whatsapp';
 
 const APPROVED: TemplateSummaryDto = {
   contentSid: 'HX123',
@@ -88,6 +88,14 @@ function setupWhatsappMocks() {
     error: null,
     reset: vi.fn(),
   });
+  // El panel (FUENTES) consulta el contexto del cliente vía el MISMO hook que
+  // ClientContextPanel — acá sin cliente (data undefined): las opciones de
+  // datos quedan deshabilitadas, irrelevantes para estos tests de wiring.
+  vi.mocked(useWhatsappModule.useInboxClientContext).mockReturnValue({
+    ...mockQuery<WhatsappInboxClientContext>({ data: undefined, isLoading: false, isError: false }),
+    isRefreshingBalance: false,
+    balanceRefreshFailed: false,
+  } as ReturnType<typeof useWhatsappModule.useInboxClientContext>);
 }
 
 beforeEach(() => {

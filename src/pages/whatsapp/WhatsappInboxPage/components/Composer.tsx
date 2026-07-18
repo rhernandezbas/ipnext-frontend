@@ -11,6 +11,7 @@ import type { ComposeMode } from './ComposeModeToggle';
 import { TemplateSendPanel } from './TemplateSendPanel';
 import { MAX_FILES } from '@/utils/validateAttachment';
 import { mapSendError } from '@/utils/mapSendError';
+import type { WhatsappClientContext } from '@/types/whatsapp';
 import styles from './Composer.module.css';
 
 interface ComposerProps {
@@ -41,6 +42,14 @@ interface ComposerProps {
    * `canReply:true`. Ver el guard en `disabled` más abajo.
    */
   isDetailError?: boolean;
+  /**
+   * Contexto LIGHT del detalle (`detail.clientContext`, F1) — threadeado tal
+   * cual a `TemplateSendPanel` (FUENTES): decide si las opciones de datos
+   * ("Nombre del cliente"/"Monto de deuda") están disponibles en las
+   * variables del template. `Composer` NO lo usa para nada más. Opcional:
+   * sin él, el panel se comporta como "sin cliente" (solo Valor fijo).
+   */
+  lightContext?: WhatsappClientContext | null;
 }
 
 const WINDOW_EXPIRED_NOTICE = 'Ventana de 24h expirada — se necesita un template';
@@ -77,7 +86,7 @@ const VERIFY_WINDOW_ERROR_NOTICE =
  * vive en la burbuja, no acá — por eso `disabled`/`canSend` YA NO dependen
  * de ningún `isPending` (el hook nuevo ni lo expone).
  */
-export function Composer({ conversationId, canReply, isDetailLoading = false, isDetailError = false }: ComposerProps) {
+export function Composer({ conversationId, canReply, isDetailLoading = false, isDetailError = false, lightContext }: ComposerProps) {
   const [content, setContent] = useState('');
   // messaging-inbox-notes F1.5 fase D (design §3.1): 'reply' es el default —
   // cero cambio de comportamiento al abrir el composer.
@@ -391,6 +400,7 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
           conversationId={conversationId}
           onClose={() => setTemplatePanelOpen(false)}
           onSent={handleTemplateSent}
+          lightContext={lightContext}
         />
       )}
     </Can>

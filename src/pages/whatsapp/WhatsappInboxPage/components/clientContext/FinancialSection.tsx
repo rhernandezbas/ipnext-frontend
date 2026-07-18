@@ -1,6 +1,7 @@
 import type { WhatsappInboxClientSummary, WhatsappInboxInvoice } from '@/types/whatsapp';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
 import { formatDateShort } from '@/utils/formatDate';
+import { formatMoney } from '@/utils/formatMoney';
 import styles from '../ClientContextPanel.module.css';
 
 interface FinancialSectionProps {
@@ -20,21 +21,9 @@ const INVOICE_STATUS_LABEL: Record<WhatsappInboxInvoice['status'], string> = {
   vencida: 'Vencida',
 };
 
-const ISO_4217_CODE = /^[A-Z]{3}$/;
-
-/**
- * ARS money, consistente con `BillingTab.tsx` ("$ 1.234,56").
- *
- * Fix bug BAJO (review adversarial): `currency ?? 'ARS'` solo cubría
- * `null`/`undefined` — un `""` o un código no-ISO (mirror del BE desalineado)
- * llegaba crudo a `Intl.NumberFormat`, que tira `RangeError: Invalid currency
- * code` y rompe el render del HERO entero. Se valida el shape (3 letras
- * mayúsculas) antes de confiar en el valor; cualquier otra cosa cae a ARS.
- */
-function formatMoney(amount: number, currency: string | null): string {
-  const safeCurrency = currency && ISO_4217_CODE.test(currency) ? currency : 'ARS';
-  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: safeCurrency }).format(amount);
-}
+// `formatMoney` vive en `@/utils/formatMoney` (extraído de acá): el
+// `TemplateSendPanel` (FUENTES) necesita resolver "Monto de deuda" con el
+// MISMO formateo que este HERO muestra — una sola fuente de verdad.
 
 /**
  * FinancialSection — HERO del panel (messaging-inbox-v2 F1.5, design §5.2):

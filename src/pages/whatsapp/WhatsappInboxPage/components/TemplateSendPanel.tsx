@@ -1,9 +1,11 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Select, type SelectOption } from '@/components/molecules/Select/Select';
-import { useSendableTemplates, useSendWhatsappTemplate } from '@/hooks/useWhatsapp';
+import { useInboxClientContext, useSendableTemplates, useSendWhatsappTemplate } from '@/hooks/useWhatsapp';
 import { mapSendError } from '@/utils/mapSendError';
+import { formatMoney } from '@/utils/formatMoney';
 import type { TemplateSummaryDto } from '@/types/messagingBulk';
+import type { WhatsappClientContext } from '@/types/whatsapp';
 import styles from './TemplateSendPanel.module.css';
 
 /** Elementos tabulables dentro del diálogo (para el focus-trap) — mismo criterio que `ConfirmModal`/`PreviewModal`. */
@@ -23,7 +25,18 @@ function getFocusable(container: HTMLElement | null): HTMLElement[] {
 
 const TITLE_ID = 'template-send-panel-title';
 const SUBTITLE_ID = 'template-send-panel-subtitle';
+const SOURCES_HINT_ID = 'template-send-sources-hint';
 const EMPTY_VALUE = '';
+
+/**
+ * FUENTES (variables con opciones + texto libre) — espejo CONCEPTUAL de
+ * `VariablesMapForm.SOURCE_OPTIONS` (bulk): `name`/`balanceDue`/`literal` con
+ * los MISMOS labels. Diferencia clave de contrato: en el bulk la resolución la
+ * hace el BE por destinatario (viaja el `source`); acá el endpoint de envío
+ * recibe VALORES literales — la resolución es CLIENT-SIDE al confirmar, con
+ * los datos de la cache del contexto del cliente (los mismos en pantalla).
+ */
+type VariableSource = 'name' | 'balanceDue' | 'literal';
 
 /** Bug BAJO #13c precedent (`useWhatsapp.ts:makeTempId`) — `crypto.randomUUID` puede faltar (contexto no-seguro/browser viejo). */
 function makeIdempotencyKey(): string {
@@ -55,6 +68,19 @@ interface TemplateSendPanelProps {
   onClose: () => void;
   /** Envío OK — el padre cierra el panel Y anuncia "Template enviado" (design SEND-1; el panel ya se desmonta, el announcement vive en `Composer`). */
   onSent: () => void;
+  /**
+   * Contexto LIGHT del detalle de la conversación (F1) — llega threadeado
+   * `WhatsappInboxPage → Composer → acá` (mismo dato que alimenta a
+   * `ClientContextPanel`). Decide si las FUENTES de datos están disponibles:
+   * SOLO `matched` con candidatos habilita "Nombre del cliente"/"Monto de
+   * deuda" (y dispara el fetch RICO con la MISMA key que el panel de contexto
+   * — `useInboxClientContext(conversationId, null)`, cache compartida).
+   * `unknown`/`ambiguous`/ausente → opciones de datos deshabilitadas + hint,
+   * solo "Valor fijo" (jamás adivinamos de quién son los datos — mismo
+   * criterio CTX-1 del panel). Opcional/backcompat: sin el prop se comporta
+   * como "sin cliente".
+   */
+  lightContext?: WhatsappClientContext | null;
 }
 
 /**
@@ -93,13 +119,20 @@ interface TemplateSendPanelProps {
  * key de A, el server lo dedupea contra A y B nunca sale). El PRIMER pick
  * (null → algo) NO regenera — reusa la key de montaje, porque todavía no
  * hubo ningún intento de envío con ella. Cambiar SOLO variables (mismo
- * template) tampoco regenera — un reintento con vars corregidas del MISMO
- * template sigue protegido contra doble-cargo. Un UUID nuevo, además, sale
- * de un remount real (cerrar+abrir el panel, o cambiar de conversación).
+ * template) tampoco regenera — y con FUENTES eso incluye cambiar la FUENTE
+ * de una variable (literal ↔ dato del cliente): un reintento con vars
+ * corregidas del MISMO template sigue protegido contra doble-cargo. Un UUID
+ * nuevo, además, sale de un remount real (cerrar+abrir el panel, o cambiar
+ * de conversación).
  */
-export function TemplateSendPanel({ conversationId, onClose, onSent }: TemplateSendPanelProps) {
+export function TemplateSendPanel({ conversationId, onClose, onSent, lightContext }: TemplateSendPanelProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateSummaryDto | null>(null);
-  const [variables, setVariables] = useState<Record<string, string>>({});
+  // FUENTES: por variable, la fuente elegida ('' = "Elegí una fuente…") + el
+  // texto tipeado para "Valor fijo". Dos mapas separados a propósito: cambiar
+  // de fuente y volver a "Valor fijo" NO pierde lo tipeado (el valor SOLO
+  // cuenta cuando la fuente activa es `literal` — ver `resolveVariable`).
+  const [variableSources, setVariableSources] = useState<Record<string, VariableSource | ''>>({});
+  const [literalValues, setLiteralValues] = useState<Record<string, string>>({});
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() => makeIdempotencyKey());
 
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -108,6 +141,37 @@ export function TemplateSendPanel({ conversationId, onClose, onSent }: TemplateS
 
   const templatesQuery = useSendableTemplates(true);
   const { sendTemplate, isPending, isError, error, reset } = useSendWhatsappTemplate(conversationId);
+
+  // FUENTES — contexto RICO del cliente, con la MISMA query key que
+  // `ClientContextPanel` usa en `matched` (`whatsappClientContextKey(convId,
+  // null)`): cache compartida, jamás un fetch paralelo propio. El gate
+  // `clientMatched` replica el `shouldFetchRich` del panel para `matched`
+  // (status matched + candidatos no vacíos — un `matched` sin clients es dato
+  // malformado y cae a "sin cliente"). En `unknown`/`ambiguous` se pasa
+  // `null` → `enabled:false`: NUNCA disparamos un fetch que el panel de
+  // contexto no hizo (CTX-1: sin candidato resuelto no se agregan datos de
+  // nadie — la desambiguación vive en el panel, no acá).
+  const clientMatched = lightContext?.status === 'matched' && (lightContext?.clients.length ?? 0) > 0;
+  const contextQuery = useInboxClientContext(clientMatched ? conversationId : null, null);
+  const contextClient = clientMatched ? contextQuery.data?.client : undefined;
+
+  // Valores resueltos de las fuentes de datos — client-side, con lo que hay
+  // EN PANTALLA (la cache): sin dato ⇒ '' ⇒ la opción queda deshabilitada y
+  // el gate del confirm bloquea. La deuda usa el MISMO `formatMoney` que el
+  // HERO del panel de contexto — el operador ve el mismo número en ambos lados.
+  const resolvedName = (contextClient?.name ?? '').trim();
+  const resolvedDebt =
+    contextClient && contextClient.balance.due != null
+      ? formatMoney(contextClient.balance.due, contextClient.balance.currency)
+      : '';
+
+  function resolveVariable(variable: string): string {
+    const source = variableSources[variable] ?? '';
+    if (source === 'name') return resolvedName;
+    if (source === 'balanceDue') return resolvedDebt;
+    if (source === 'literal') return literalValues[variable] ?? '';
+    return '';
+  }
 
   // Foco inicial (al botón "Cerrar") + restauración al desmontar — molde
   // `PreviewModal`, pero keyed en `[]` (corre una vez al montar) porque este
@@ -174,26 +238,41 @@ export function TemplateSendPanel({ conversationId, onClose, onSent }: TemplateS
       setIdempotencyKey(makeIdempotencyKey());
     }
     setSelectedTemplate(next);
-    setVariables({});
+    setVariableSources({});
+    setLiteralValues({});
     // PICK-1/ERR-1: elegir OTRO template limpia un error de envío previo — no
     // tiene sentido que un error del template A siga colgado sobre el B recién elegido.
     reset();
   }
 
-  function handleVariableChange(variable: string, value: string) {
-    setVariables((prev) => ({ ...prev, [variable]: value }));
+  // Idempotencia SAGRADA: cambiar la FUENTE (o el texto) de una variable NUNCA
+  // toca `idempotencyKey` — mismo template = misma intención de envío (igual
+  // que el histórico "cambiar solo variables no regenera"). Solo cambiar de
+  // TEMPLATE regenera (`handleSelectTemplate`, arriba).
+  function handleSourceChange(variable: string, source: VariableSource | '') {
+    setVariableSources((prev) => ({ ...prev, [variable]: source }));
   }
 
-  const allVariablesFilled = !!selectedTemplate && selectedTemplate.variables.every((v) => (variables[v] ?? '').trim().length > 0);
-  const canConfirm = !!selectedTemplate && allVariablesFilled && !isPending;
+  function handleLiteralChange(variable: string, value: string) {
+    setLiteralValues((prev) => ({ ...prev, [variable]: value }));
+  }
+
+  // Gate del confirm, extendido a fuentes: TODAS las variables con valor
+  // RESUELTO no-vacío (fuente con dato, o "Valor fijo" no-vacío).
+  const allVariablesResolved =
+    !!selectedTemplate && selectedTemplate.variables.every((v) => resolveVariable(v).trim().length > 0);
+  const canConfirm = !!selectedTemplate && allVariablesResolved && !isPending;
 
   function handleConfirm() {
     if (!selectedTemplate || !canConfirm) return;
     // D8 (wire): SIEMPRE el shape completo derivado de `template.variables` —
     // un template sin variables manda `variables:{}` (contrato explícito,
     // spec.md WAPI-1 "variables ausentes viajan como objeto vacío").
+    // FUENTES: el shape del payload NO cambia — viajan los valores RESUELTOS
+    // como strings, resueltos ACÁ con la cache del contexto (los mismos datos
+    // que el operador ve en pantalla — sin re-fetch sorpresa al confirmar).
     const payloadVariables: Record<string, string> = {};
-    for (const v of selectedTemplate.variables) payloadVariables[v] = variables[v] ?? '';
+    for (const v of selectedTemplate.variables) payloadVariables[v] = resolveVariable(v);
 
     sendTemplate(
       { templateRef: selectedTemplate.contentSid, variables: payloadVariables, idempotencyKey },
@@ -204,6 +283,17 @@ export function TemplateSendPanel({ conversationId, onClose, onSent }: TemplateS
   const templateOptions: SelectOption[] = [
     { value: EMPTY_VALUE, label: 'Seleccioná un template…' },
     ...sendableTemplates.map((t) => ({ value: t.contentSid, label: t.friendlyName })),
+  ];
+
+  // Opciones de fuente por variable (mismas para todas las filas). Las de
+  // DATOS se deshabilitan cuando su valor resuelto está vacío — cubre de una
+  // "sin cliente" (unknown/ambiguous/sin contexto), "todavía cargando" y
+  // "dato ausente" (ej. `balance.due: null` ⇒ deuda no disponible).
+  const sourceSelectOptions: SelectOption[] = [
+    { value: '', label: 'Elegí una fuente…' },
+    { value: 'name', label: 'Nombre del cliente', disabled: resolvedName.length === 0 },
+    { value: 'balanceDue', label: 'Monto de deuda', disabled: resolvedDebt.length === 0 },
+    { value: 'literal', label: 'Valor fijo' },
   ];
 
   return createPortal(
@@ -281,19 +371,64 @@ export function TemplateSendPanel({ conversationId, onClose, onSent }: TemplateS
                       <fieldset> caen DESPUÉS del legend en browsers reales). */}
                   <fieldset className={styles.fieldset}>
                     <legend className={styles.legend}>Variables del template</legend>
+                    {/* FUENTES — hint cuando no hay cliente asociado (unknown/
+                        ambiguous/sin contexto): las opciones de datos quedan
+                        deshabilitadas; referenciado por aria-describedby de
+                        cada Select para que un SR explique el porqué. */}
+                    {!clientMatched && (
+                      <p id={SOURCES_HINT_ID} className={styles.notice}>
+                        Sin cliente asociado — usá valor fijo.
+                      </p>
+                    )}
                     {selectedTemplate.variables.map((variable) => {
-                      const inputId = `template-send-variable-${variable}`;
+                      const selectId = `template-send-variable-${variable}-source`;
+                      const literalId = `template-send-variable-${variable}`;
+                      const resolvedId = `template-send-variable-${variable}-resolved`;
+                      const source = variableSources[variable] ?? '';
+                      const isDataSource = source === 'name' || source === 'balanceDue';
                       return (
                         <div key={variable} className={styles.variableRow}>
-                          <label htmlFor={inputId} className={styles.variableLabel}>{`{{${variable}}}`}</label>
-                          <input
-                            id={inputId}
-                            type="text"
-                            className={styles.variableInput}
-                            value={variables[variable] ?? ''}
-                            onChange={(e) => handleVariableChange(variable, e.target.value)}
+                          <Select
+                            id={selectId}
+                            label={`{{${variable}}}`}
+                            options={sourceSelectOptions}
+                            value={source}
+                            onChange={(next) => handleSourceChange(variable, next as VariableSource | '')}
+                            placeholder="Elegí una fuente…"
                             disabled={isPending}
+                            aria-describedby={!clientMatched ? SOURCES_HINT_ID : isDataSource ? resolvedId : undefined}
                           />
+                          {/* Valor resuelto de la fuente de datos — readonly,
+                              al lado del Select; el prefijo sr-only lo hace
+                              legible por SR ("Valor resuelto: …") y el
+                              aria-describedby de arriba lo ata al combobox. */}
+                          {isDataSource && (
+                            <p
+                              id={resolvedId}
+                              className={styles.resolvedValue}
+                              data-testid={`template-var-resolved-${variable}`}
+                            >
+                              <span aria-hidden="true">→ </span>
+                              <span className={styles.srOnly}>Valor resuelto: </span>
+                              {resolveVariable(variable)}
+                            </p>
+                          )}
+                          {source === 'literal' && (
+                            <>
+                              <label htmlFor={literalId} className={styles.srOnly}>
+                                {`Valor fijo para {{${variable}}}`}
+                              </label>
+                              <input
+                                id={literalId}
+                                type="text"
+                                className={styles.variableInput}
+                                value={literalValues[variable] ?? ''}
+                                onChange={(e) => handleLiteralChange(variable, e.target.value)}
+                                placeholder="Valor…"
+                                disabled={isPending}
+                              />
+                            </>
+                          )}
                         </div>
                       );
                     })}
@@ -323,8 +458,11 @@ export function TemplateSendPanel({ conversationId, onClose, onSent }: TemplateS
                     >
                       {splitTemplateBody(selectedTemplate.body).map((part, i) => {
                         if (!('variable' in part)) return <Fragment key={i}>{part.text}</Fragment>;
-                        const value = (variables[part.variable] ?? '').trim();
-                        if (value.length > 0) return <Fragment key={i}>{variables[part.variable]}</Fragment>;
+                        // FUENTES: la burbuja interpola el valor YA RESUELTO
+                        // (dato del cliente o texto libre) — el operador ve el
+                        // mensaje final EXACTO que va a recibir el cliente.
+                        const resolved = resolveVariable(part.variable);
+                        if (resolved.trim().length > 0) return <Fragment key={i}>{resolved}</Fragment>;
                         return (
                           <span
                             key={i}

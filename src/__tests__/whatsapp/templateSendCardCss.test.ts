@@ -122,6 +122,18 @@ describe('CLIP-1: el dropdown del Select no se recorta dentro del modal', () => 
   });
 });
 
+describe('CLIP-1b (FUENTES): los Selects de fuente por variable heredan los cinturones del modal', () => {
+  it('el cap del listbox aplica TAMBIÉN dentro de la sección de variables (los dropdowns de fuente viven ahí)', () => {
+    const css = readCss(PANEL_CSS);
+    expect(css).toMatch(/\.variablesSection\s+\[role='listbox'\]\s*\{[^}]*max-height:\s*var\(--template-listbox-cap\)/);
+  });
+
+  it('.variableRow sube su prioridad de apilado con :focus-within (mismo cinturón que la sección del selector)', () => {
+    const css = readCss(PANEL_CSS);
+    expect(css).toMatch(/\.variableRow:focus-within\s*\{[^}]*z-index/);
+  });
+});
+
 describe('CLIP-2: cinturón anti-stacking-context (lección bulk-dropdown-z / bulk-z-root)', () => {
   it('la sección del combobox sube su prioridad de apilado con :focus-within', () => {
     const css = readCss(PANEL_CSS);
@@ -180,6 +192,14 @@ describe('A11Y: contrastes calculados >= 4.5:1 del rediseño', () => {
 
   it('.pending (chip de variable pendiente) fg/bg propios', () => {
     expect(ruleContrast(PANEL_CSS, 'pending')).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('.resolvedValue (valor resuelto de la fuente, FUENTES) sobre la surface del dialog', () => {
+    expect(ruleContrast(PANEL_CSS, 'resolvedValue', '--color-surface')).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('.notice (hint "sin cliente asociado" y avisos del catálogo) fg/bg propios', () => {
+    expect(ruleContrast(PANEL_CSS, 'notice')).toBeGreaterThanOrEqual(4.5);
   });
 
   it('la cola de la burbuja (::before) usa el MISMO fondo que la burbuja (cola nunca de otro color)', () => {
