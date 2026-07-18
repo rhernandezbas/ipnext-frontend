@@ -62,9 +62,11 @@ describe('BroadcastNocSection', () => {
   beforeEach(() => {
     vi.mocked(useCan).mockReturnValue(true);
     mutateAsync = vi.fn().mockResolvedValue({ sent: true, link: 'https://app/x' });
-    vi.mocked(useBroadcastTaskToNoc).mockReturnValue(mockMutation({ mutateAsync }));
+    vi.mocked(useBroadcastTaskToNoc).mockReturnValue(
+      mockMutation({ mutateAsync: mutateAsync as unknown as (...a: unknown[]) => unknown }),
+    );
     confirmFn = vi.fn().mockResolvedValue(true);
-    vi.mocked(useConfirm).mockReturnValue(confirmFn);
+    vi.mocked(useConfirm).mockReturnValue(confirmFn as unknown as ReturnType<typeof useConfirm>);
   });
 
   // ── Visibilidad ────────────────────────────────────────────────────────────
@@ -170,7 +172,10 @@ describe('BroadcastNocSection', () => {
   // ── Anti doble-envío ─────────────────────────────────────────────────────────
   it('deshabilitado mientras el POST está en vuelo (isPending)', () => {
     vi.mocked(useBroadcastTaskToNoc).mockReturnValue(
-      mockMutation({ mutateAsync, isPending: true }),
+      mockMutation({
+        mutateAsync: mutateAsync as unknown as (...a: unknown[]) => unknown,
+        isPending: true,
+      }),
     );
     renderSection();
     expect(screen.getByRole('button', { name: /enviar al noc/i })).toBeDisabled();
