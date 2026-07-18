@@ -22,6 +22,7 @@ function getFocusable(container: HTMLElement | null): HTMLElement[] {
 }
 
 const TITLE_ID = 'template-send-panel-title';
+const SUBTITLE_ID = 'template-send-panel-subtitle';
 const EMPTY_VALUE = '';
 
 /** Bug BAJO #13c precedent (`useWhatsapp.ts:makeTempId`) — `crypto.randomUUID` puede faltar (contexto no-seguro/browser viejo). */
@@ -214,10 +215,19 @@ export function TemplateSendPanel({ conversationId, onClose, onSent }: TemplateS
       role="dialog"
       aria-modal="true"
       aria-labelledby={TITLE_ID}
+      aria-describedby={SUBTITLE_ID}
     >
       <div className={styles.dialog} ref={dialogRef}>
         <div className={styles.header}>
-          <h2 id={TITLE_ID} className={styles.title}>Enviar template</h2>
+          <div className={styles.headerText}>
+            <h2 id={TITLE_ID} className={styles.title}>Enviar template</h2>
+            {/* Rediseño card: subtítulo de contexto — explica POR QUÉ el agente
+                está acá (la ventana de 24h expiró) sin que tenga que volver al
+                composer a releer el aviso. `aria-describedby` del dialog. */}
+            <p id={SUBTITLE_ID} className={styles.subtitle}>
+              La ventana de 24h expiró — solo se puede enviar un template aprobado.
+            </p>
+          </div>
           <button ref={closeRef} type="button" className={styles.closeBtn} onClick={onClose} aria-label="Cerrar">
             ×
           </button>
@@ -249,56 +259,91 @@ export function TemplateSendPanel({ conversationId, onClose, onSent }: TemplateS
 
           {!templatesQuery.isLoading && !templatesQuery.isError && sendableTemplates.length > 0 && (
             <>
-              <Select
-                label="Template"
-                options={templateOptions}
-                value={selectedTemplate?.contentSid ?? EMPTY_VALUE}
-                onChange={handleSelectTemplate}
-                placeholder="Seleccioná un template…"
-                disabled={isPending}
-              />
+              {/* Rediseño card — la sección del combobox lleva su propio
+                  wrapper: (a) cinturón `:focus-within` anti-stacking-context
+                  (lección bulk-dropdown-z/bulk-z-root) y (b) ancla del cap
+                  local del listbox (CLIP-1, ver la CSS Module). */}
+              <div className={styles.selectorSection}>
+                <Select
+                  label="Template"
+                  options={templateOptions}
+                  value={selectedTemplate?.contentSid ?? EMPTY_VALUE}
+                  onChange={handleSelectTemplate}
+                  placeholder="Seleccioná un template…"
+                  disabled={isPending}
+                />
+              </div>
 
               {selectedTemplate && selectedTemplate.variables.length > 0 && (
-                <fieldset className={styles.fieldset}>
-                  <legend className={styles.legend}>Variables del template</legend>
-                  {selectedTemplate.variables.map((variable) => {
-                    const inputId = `template-send-variable-${variable}`;
-                    return (
-                      <div key={variable} className={styles.variableRow}>
-                        <label htmlFor={inputId} className={styles.variableLabel}>{`{{${variable}}}`}</label>
-                        <input
-                          id={inputId}
-                          type="text"
-                          className={styles.variableInput}
-                          value={variables[variable] ?? ''}
-                          onChange={(e) => handleVariableChange(variable, e.target.value)}
-                          disabled={isPending}
-                        />
-                      </div>
-                    );
-                  })}
-                </fieldset>
+                <div className={styles.variablesSection}>
+                  {/* Divisor en el CONTENEDOR, jamás en un pseudo-elemento del
+                      fieldset (lección M1 del bulk: los ::before de un
+                      <fieldset> caen DESPUÉS del legend en browsers reales). */}
+                  <fieldset className={styles.fieldset}>
+                    <legend className={styles.legend}>Variables del template</legend>
+                    {selectedTemplate.variables.map((variable) => {
+                      const inputId = `template-send-variable-${variable}`;
+                      return (
+                        <div key={variable} className={styles.variableRow}>
+                          <label htmlFor={inputId} className={styles.variableLabel}>{`{{${variable}}}`}</label>
+                          <input
+                            id={inputId}
+                            type="text"
+                            className={styles.variableInput}
+                            value={variables[variable] ?? ''}
+                            onChange={(e) => handleVariableChange(variable, e.target.value)}
+                            disabled={isPending}
+                          />
+                        </div>
+                      );
+                    })}
+                  </fieldset>
+                </div>
               )}
 
-              {selectedTemplate && (
-                <p className={styles.preview}>
-                  {splitTemplateBody(selectedTemplate.body).map((part, i) => {
-                    if (!('variable' in part)) return <Fragment key={i}>{part.text}</Fragment>;
-                    const value = (variables[part.variable] ?? '').trim();
-                    if (value.length > 0) return <Fragment key={i}>{variables[part.variable]}</Fragment>;
-                    return (
-                      <span
-                        key={i}
-                        className={styles.pending}
-                        data-testid={`template-preview-pending-${part.variable}`}
-                      >
-                        {`{{${part.variable}}}`}
-                        <span className={styles.srOnly}> (pendiente)</span>
-                      </span>
-                    );
-                  })}
-                </p>
-              )}
+              {/* Card de preview (el pedido del rediseño): burbuja estilo chat
+                  WhatsApp — patrón visual del PreviewModal del bulk (cola
+                  ::before) — con las variables interpoladas EN VIVO. SIEMPRE
+                  montada en la rama success: el canvas con placeholder también
+                  es el "aire" que garantiza que el listbox capado del Select
+                  nunca se pase de la caja scrolleable del body (CLIP-1).
+                  Sin live region a propósito: re-anunciar el body ENTERO en
+                  cada tecleo de variable sería ruido para lectores de pantalla
+                  — el pendiente ya se señala inline con texto sr-only. */}
+              <section className={styles.previewSection} aria-labelledby="template-send-preview-title">
+                <h3 id="template-send-preview-title" className={styles.previewTitle}>Vista previa</h3>
+                <div className={styles.previewCanvas}>
+                  {selectedTemplate ? (
+                    <p
+                      /* keyed por template: cambiar de template remonta la
+                         burbuja y replay-a la entrada (motion 200ms backwards). */
+                      key={selectedTemplate.contentSid}
+                      className={styles.previewBubble}
+                      data-testid="template-preview-bubble"
+                    >
+                      {splitTemplateBody(selectedTemplate.body).map((part, i) => {
+                        if (!('variable' in part)) return <Fragment key={i}>{part.text}</Fragment>;
+                        const value = (variables[part.variable] ?? '').trim();
+                        if (value.length > 0) return <Fragment key={i}>{variables[part.variable]}</Fragment>;
+                        return (
+                          <span
+                            key={i}
+                            className={styles.pending}
+                            data-testid={`template-preview-pending-${part.variable}`}
+                          >
+                            {`{{${part.variable}}}`}
+                            <span className={styles.srOnly}> (pendiente)</span>
+                          </span>
+                        );
+                      })}
+                    </p>
+                  ) : (
+                    <p className={styles.previewPlaceholder} data-testid="template-preview-placeholder">
+                      Elegí un template para ver acá cómo lo va a recibir el cliente.
+                    </p>
+                  )}
+                </div>
+              </section>
 
               {/* BAJO/aceptado (review adversarial): el 422 MISSING_TEMPLATE_VARIABLES
                   trae un `missing[]` con los nombres puntuales — acá NO se usa para

@@ -431,6 +431,64 @@ describe('ERR-1: errores del envío mapeados inline, panel abierto', () => {
   });
 });
 
+describe('Rediseño card (inbox-template-card): header con subtítulo + preview burbuja', () => {
+  async function pickApproved(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('combobox', { name: /template/i }));
+    await user.click(screen.getByRole('option', { name: /recordatorio de pago/i }));
+  }
+
+  it('header: subtítulo de contexto visible ("ventana de 24h") + dialog aria-describedby apunta a él', () => {
+    renderPanel();
+    const dialog = screen.getByRole('dialog');
+    const descId = dialog.getAttribute('aria-describedby');
+    expect(descId).toBeTruthy();
+    expect(document.getElementById(descId!)).toHaveTextContent(/ventana de 24\s?h/i);
+  });
+
+  it('sin template elegido: card placeholder de preview visible, SIN burbuja', () => {
+    renderPanel();
+    expect(screen.getByTestId('template-preview-placeholder')).toBeInTheDocument();
+    expect(screen.queryByTestId('template-preview-bubble')).not.toBeInTheDocument();
+  });
+
+  it('al elegir template: la burbuja renderiza el body interpolado y reemplaza al placeholder', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await pickApproved(user);
+
+    const bubble = screen.getByTestId('template-preview-bubble');
+    expect(bubble).toHaveTextContent(/hola/i);
+    expect(screen.queryByTestId('template-preview-placeholder')).not.toBeInTheDocument();
+  });
+
+  it('la sección de preview tiene heading "Vista previa" (estructura de card, no un <p> pelado)', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await pickApproved(user);
+    expect(screen.getByRole('heading', { name: /vista previa/i })).toBeInTheDocument();
+  });
+
+  it('interpolación EN VIVO dentro de la burbuja: tipear una variable actualiza el texto de la card', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await pickApproved(user);
+
+    await user.type(screen.getByLabelText('{{1}}'), 'Juan');
+
+    const bubble = screen.getByTestId('template-preview-bubble');
+    expect(bubble).toHaveTextContent(/hola juan/i);
+    // {{2}} sigue pendiente — el marcador vive DENTRO de la burbuja.
+    expect(bubble).toContainElement(screen.getByTestId('template-preview-pending-2'));
+  });
+
+  it('las 4 ramas del catálogo NO montan la card de preview (loading/error/empty sin canvas)', () => {
+    mockTemplates([], { isLoading: true, data: undefined });
+    renderPanel();
+    expect(screen.queryByTestId('template-preview-placeholder')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('template-preview-bubble')).not.toBeInTheDocument();
+  });
+});
+
 describe('A11Y-1: modal completo', () => {
   it('role=dialog, aria-modal, aria-labelledby al título', () => {
     renderPanel();

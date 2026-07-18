@@ -1,9 +1,27 @@
 /**
- * TemplateSendPanel.module.css — inbox-template-send (design D11, A11Y-1).
- * Mismo lenguaje visual que `ConfirmModal.module.css`/`PreviewModal.module.css`
- * (backdrop dim, dialog card, fadeIn+slideUp, reduced-motion neutraliza SOLO
- * el movimiento, nunca la opacidad — memoria de motion del repo, ver el
- * comentario de `Composer.module.css`).
+ * TemplateSendPanel.module.css — inbox-template-send (design D11, A11Y-1) +
+ * rediseño card (inbox-template-card). Mismo lenguaje visual que
+ * `ConfirmModal.module.css`/`PreviewModal.module.css` (backdrop dim, dialog
+ * card, fadeIn+slideUp, reduced-motion neutraliza SOLO el movimiento, nunca la
+ * opacidad — memoria de motion del repo).
+ *
+ * CLIP-1 (root cause del recorte EN PROD): `.body` scrollea (`overflow-y:
+ * auto`) y por spec eso computa `overflow-x` a `auto` también → la caja del
+ * body RECORTA cualquier `position: absolute` que se pase de ella. El listbox
+ * del `Select` (absolute, max-height 280px global) se pasaba de largo en el
+ * estado "todavía sin template" (body cortito) y quedaba cortado contra el
+ * borde del modal. Fix en dos piezas atadas al MISMO token local:
+ *  1) cap del listbox DENTRO de este modal: `--template-listbox-cap`
+ *     (4 × space-12 = 192px ≈ 4 opciones de 44px; scrollea adentro si hay más)
+ *  2) el canvas de preview (SIEMPRE montado en la rama success, con
+ *     placeholder o burbuja) reserva `min-height: cap + space-6` → el aire
+ *     debajo del trigger SIEMPRE supera al listbox capado, en TODOS los
+ *     estados. Invariante pineado en `templateSendCardCss.test.ts`.
+ *
+ * CLIP-2 (lección bulk-dropdown-z / bulk-z-root): cero fill "both" en este
+ * archivo (retiene transform → stacking context permanente que entierra
+ * dropdowns) + cinturón `:focus-within` en la sección del combobox. Todos los
+ * keyframes con transform terminan en `transform: none`.
  */
 
 .backdrop {
@@ -19,6 +37,9 @@
 }
 
 .dialog {
+  /* CLIP-1: cap local del listbox del Select — ver doc comment de arriba. */
+  --template-listbox-cap: calc(var(--space-12) * 4);
+
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
@@ -30,13 +51,22 @@
   animation: slideUp 0.18s ease-out;
 }
 
+/* ── Header: título + subtítulo de contexto ─────────────────────────────── */
+
 .header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--color-border);
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 .title {
@@ -46,7 +76,17 @@
   color: var(--color-text-primary);
 }
 
+/* gray-600 (#495057) sobre surface (#fff) = 8.18:1 (>= 4.5:1, calculado en
+   templateSendCardCss.test.ts) — text-secondary daría 4.69:1, sin margen. */
+.subtitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  color: var(--color-gray-600);
+}
+
 .closeBtn {
+  flex: 0 0 auto;
   min-width: var(--space-11);
   min-height: var(--space-11);
   border: 1px solid var(--color-border);
@@ -102,6 +142,41 @@
 }
 .retryBtn:hover { background: var(--color-surface-hover); }
 
+/* ── Sección selector ───────────────────────────────────────────────────── */
+
+.selectorSection {
+  display: flex;
+  flex-direction: column;
+}
+
+/* CLIP-2 — cinturón anti-stacking-context (patrón TemplateSelector/
+   CampaignComposer del bulk, pineado): mientras el combobox tiene el foco
+   (el foco vive en el trigger TODO el tiempo que el listbox está abierto —
+   patrón APG select-only), la sección gana prioridad de apilado sobre
+   cualquier hermano que a futuro cree su propio stacking context. */
+.selectorSection:focus-within {
+  position: relative;
+  z-index: 1;
+}
+
+/* CLIP-1 — cap del listbox del Select DENTRO de este modal (descendiente por
+   atributo: la clase real de Select.module.css está hasheada). Con el canvas
+   de preview reservando cap + space-6 debajo, el dropdown abierto SIEMPRE cae
+   dentro de la caja scrolleable del body: nunca se recorta. */
+.selectorSection [role='listbox'] {
+  max-height: var(--template-listbox-cap);
+}
+
+/* ── Sección variables ──────────────────────────────────────────────────── */
+
+/* Divisor en el CONTENEDOR (no en pseudo-elemento del fieldset — lección M1
+   del bulk: los ::before de un <fieldset> caen en su content box, después del
+   legend, en browsers reales). */
+.variablesSection {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-4);
+}
+
 .fieldset {
   margin: 0;
   padding: 0;
@@ -132,6 +207,7 @@
 }
 
 .variableInput {
+  min-height: var(--space-11); /* 44px — touch target */
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -149,20 +225,90 @@
   background: var(--color-surface-hover);
 }
 
-.preview {
+/* ── Card de preview: canvas de chat + burbuja WhatsApp ─────────────────── */
+
+.previewSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-4);
+}
+
+/* gray-600 sobre surface = 8.18:1 — mismo criterio que .subtitle. */
+.previewTitle {
   margin: 0;
-  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Canvas tintado estilo "fondo de chat". El min-height NO es decorativo:
+   es la mitad estructural del fix CLIP-1 (aire >= cap del listbox). */
+.previewCanvas {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: calc(var(--template-listbox-cap) + var(--space-6));
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface-hover);
+}
+
+/* Burbuja — patrón visual del PreviewModal del bulk (cola ::before con
+   clip-path, decorativa), invertido de superficie: burbuja BLANCA sobre el
+   canvas tintado (como un mensaje sobre el fondo del chat).
+   text-primary (#212529) sobre surface (#fff) = 16.10:1. */
+.previewBubble {
+  position: relative;
+  margin: 0 0 0 var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
   color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
   font-size: var(--font-size-md);
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
   white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 100%;
+  /* Entrada al elegir template (remount keyed por contentSid): 200ms, fill
+     backwards — JAMÁS "both" (CLIP-2) — y keyframe que termina en
+     transform: none (cero stacking context residual). */
+  animation: templateBubbleIn 200ms var(--ease-out) backwards;
+}
+
+/* Cola de la burbuja — misma geometría que el bulk (12px, -6px), tokenizada.
+   MISMO fondo que la burbuja (pineado: cola nunca de otro color). */
+.previewBubble::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--space-3) / 2);
+  top: var(--space-3);
+  width: var(--space-3);
+  height: var(--space-3);
+  background: var(--color-surface);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+/* Hint centrado en el canvas vacío — gray-600 (#495057) sobre surface-hover
+   (#f0f0f5) = 7.20:1 (pairing ya validado house-wide, FIX-6a del bulk). */
+.previewPlaceholder {
+  margin: auto;
+  max-width: 26ch;
+  text-align: center;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  color: var(--color-gray-600);
+  background: var(--color-surface-hover);
 }
 
 .pending {
-  padding: 0 4px;
-  border-radius: var(--radius-sm, 4px);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
   background: var(--badge-blocked-bg);
   color: var(--badge-blocked-fg);
   font-size: 0.9em;
@@ -179,6 +325,8 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* ── Footer ─────────────────────────────────────────────────────────────── */
 
 .actions {
   display: flex;
@@ -221,17 +369,25 @@
   outline-offset: 2px;
 }
 
+/* ── Motion ─────────────────────────────────────────────────────────────── */
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+/* Final en transform: none (no translateY(0)) — misma matriz identidad,
+   pero el valor retenible jamás crea un stacking context (lección bulk). */
 @keyframes slideUp {
   from { transform: translateY(8px); opacity: 0; }
-  to   { transform: translateY(0); opacity: 1; }
+  to   { transform: none; opacity: 1; }
+}
+@keyframes templateBubbleIn {
+  from { transform: translateY(var(--space-2)); opacity: 0; }
+  to   { transform: none; opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .backdrop, .dialog {
+  .backdrop, .dialog, .previewBubble {
     animation: none;
   }
 }
