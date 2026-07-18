@@ -4,6 +4,7 @@ import { RadiusAccountingCard } from '@/components/settings/RadiusAccountingCard
 import { RadiusAuthIngestCard } from '@/components/settings/RadiusAuthIngestCard';
 import { PppoeAutoMoveCard } from '@/components/settings/PppoeAutoMoveCard';
 import { RadiusAutoCureCard } from '@/components/settings/RadiusAutoCureCard';
+import { FiberProvisionEnabledCard } from '@/components/settings/FiberProvisionEnabledCard';
 import { FiberAutoProvisionCard } from '@/components/settings/FiberAutoProvisionCard';
 import { ContractNetworkAutoAssignCard } from '@/components/settings/ContractNetworkAutoAssignCard';
 import { UispNodeMappingBody } from '@/components/networking/UispNodeMappingBody';
@@ -60,6 +61,7 @@ export default function NetworkingSettingsPage() {
           Automatizaciones del aprovisionamiento de ONUs de fibra vía SmartOLT.
         </p>
         <Can permission="admin.flags" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
+          <FiberProvisionEnabledCard />
           <FiberAutoProvisionCard />
         </Can>
       </section>

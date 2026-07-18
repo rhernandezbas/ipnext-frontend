@@ -319,4 +319,35 @@ describe('NetworkingSettingsPage', () => {
       screen.queryByRole('heading', { name: /aprovisionamiento automático de onus/i }),
     ).not.toBeInTheDocument();
   });
+
+  // ── FiberProvisionEnabledCard section (fiber-auto-provision K2 — motor/botón) ─
+
+  it('renders FiberProvisionEnabledCard (motor / botón) when user has admin.flags', () => {
+    setupHooks(['uisp.read', 'admin.flags']);
+    renderPage();
+    expect(
+      screen.getByRole('heading', { name: /aprovisionamiento de onus \(motor \/ botón\)/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('does NOT render FiberProvisionEnabledCard when user lacks admin.flags', () => {
+    setupHooks(['uisp.read']);
+    renderPage();
+    expect(
+      screen.queryByRole('heading', { name: /aprovisionamiento de onus \(motor \/ botón\)/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders the engine/button card BEFORE the watcher card in the Fibra section', () => {
+    setupHooks(['uisp.read', 'admin.flags']);
+    renderPage();
+    const engine = screen.getByRole('heading', {
+      name: /aprovisionamiento de onus \(motor \/ botón\)/i,
+    });
+    const watcher = screen.getByRole('heading', {
+      name: /aprovisionamiento automático de onus \(watcher\)/i,
+    });
+    // engine card must come first in document order (logical order: engine → watcher)
+    expect(engine.compareDocumentPosition(watcher) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });
