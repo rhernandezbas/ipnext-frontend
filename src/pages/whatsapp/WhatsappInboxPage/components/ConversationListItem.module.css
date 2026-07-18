@@ -256,3 +256,33 @@
   font-weight: var(--font-weight-bold);
   color: var(--color-campaign-fg);
 }
+
+/*
+ * internal-notes F1.5 — indicador de notas internas (📝 + contador). Misma
+ * receta que `.campaignChip`: SUPERFICIE PROPIA con tokens dedicados de nota
+ * (`--color-note-*`), así el contraste es determinístico sin importar el
+ * estado de la fila (surface / hover / seleccionada). El texto --color-note-fg
+ * sobre --color-note-bg = 8.15:1 (verificado en tokens/variables.css). El
+ * ícono usa --color-note-accent (4.51:1 sobre el fondo, >= 3:1 para UI/ícono).
+ */
+.noteCountChip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-note-bg);
+  border: 1px solid var(--color-note-accent);
+}
+
+.noteCountIcon {
+  flex-shrink: 0;
+  color: var(--color-note-accent);
+}
+
+.noteCountValue {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-note-fg);
+}

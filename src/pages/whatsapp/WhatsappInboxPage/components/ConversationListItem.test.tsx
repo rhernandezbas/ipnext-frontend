@@ -233,6 +233,54 @@ describe('ConversationListItem — chip de campaña (messaging-bulk-inbox Change
   });
 });
 
+describe('ConversationListItem — indicador de notas internas (internal-notes F1.5)', () => {
+  it('con internalNoteCount > 0, muestra el indicador con el número', () => {
+    render(<ConversationListItem conversation={conv({ internalNoteCount: 3 })} selected={false} onClick={vi.fn()} />);
+    const indicator = screen.getByTestId('internal-note-count');
+    expect(indicator).toBeInTheDocument();
+    expect(indicator).toHaveTextContent('3');
+  });
+
+  it('el indicador expone un aria-label accesible ("3 notas internas") — NO solo un número críptico', () => {
+    render(<ConversationListItem conversation={conv({ internalNoteCount: 3 })} selected={false} onClick={vi.fn()} />);
+    expect(screen.getByTestId('internal-note-count')).toHaveAccessibleName(/3 notas internas/i);
+  });
+
+  it('con exactamente 1, el aria-label va en singular ("1 nota interna")', () => {
+    render(<ConversationListItem conversation={conv({ internalNoteCount: 1 })} selected={false} onClick={vi.fn()} />);
+    expect(screen.getByTestId('internal-note-count')).toHaveAccessibleName(/1 nota interna\b/i);
+  });
+
+  it('lleva un ícono SVG aria-hidden (design-system: nunca emoji), no un carácter suelto', () => {
+    render(<ConversationListItem conversation={conv({ internalNoteCount: 2 })} selected={false} onClick={vi.fn()} />);
+    const indicator = screen.getByTestId('internal-note-count');
+    expect(indicator.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+  });
+
+  it('con internalNoteCount 0, NO muestra el indicador', () => {
+    render(<ConversationListItem conversation={conv({ internalNoteCount: 0 })} selected={false} onClick={vi.fn()} />);
+    expect(screen.queryByTestId('internal-note-count')).toBeNull();
+  });
+
+  it('sin el campo internalNoteCount (undefined — fixture previo a esta tanda), no crashea ni muestra indicador', () => {
+    render(<ConversationListItem conversation={conv()} selected={false} onClick={vi.fn()} />);
+    expect(screen.getByRole('button')).toBeInTheDocument();
+    expect(screen.queryByTestId('internal-note-count')).toBeNull();
+  });
+
+  it('con > 99, muestra "99+" pero el aria-label conserva el número real para el lector', () => {
+    render(<ConversationListItem conversation={conv({ internalNoteCount: 100 })} selected={false} onClick={vi.fn()} />);
+    const indicator = screen.getByTestId('internal-note-count');
+    expect(indicator).toHaveTextContent('99+');
+    expect(indicator).toHaveAccessibleName(/100 notas internas/i);
+  });
+
+  it('con exactamente 99, muestra "99" (no "99+")', () => {
+    render(<ConversationListItem conversation={conv({ internalNoteCount: 99 })} selected={false} onClick={vi.fn()} />);
+    expect(screen.getByTestId('internal-note-count')).toHaveTextContent(/^99$/);
+  });
+});
+
 describe('ConversationListItem — selección (design §7: background-color, sin transform)', () => {
   it('marca el item seleccionado con aria-current', () => {
     render(<ConversationListItem conversation={conv()} selected onClick={vi.fn()} />);

@@ -128,6 +128,37 @@ export const sendWhatsappMessage = (id: string, input: SendMessageInput): Promis
 };
 
 /**
+ * editWhatsappNote / deleteWhatsappNote (internal-notes F1.5 — EDITAR/ELIMINAR
+ * NOTA) — mutaciones de una nota interna EXISTENTE del hilo. Contrato BE (ya
+ * en prod):
+ *
+ * - `PATCH /messaging/conversations/:id/messages/:messageId` body `{content}`
+ *   (no vacío) → 200 `ChatMessageDto` editada (FLAT, sin envelope — mismo
+ *   criterio que `setConversationStatus`/`getWhatsappConversation`).
+ * - `DELETE /messaging/conversations/:id/messages/:messageId` → 200
+ *   `ChatMessageDto` con `deleted:true` + `content:""` (TOMBSTONE — la fila
+ *   sigue en el hilo, el BE la devuelve igual, no la borra del array).
+ *
+ * Errores reales (`errorHandler.ts`, body `{error,code}`, mapeados por
+ * `mapNoteError`): 404 INTERNAL_NOTE_NOT_FOUND, 422 NOT_AN_INTERNAL_NOTE, 409
+ * INTERNAL_NOTE_ALREADY_DELETED, 403 INTERNAL_NOTE_FORBIDDEN, 403
+ * PERMISSION_DENIED.
+ */
+export const editWhatsappNote = (
+  conversationId: string,
+  messageId: string,
+  content: string,
+): Promise<WhatsappMessage> =>
+  axiosClient
+    .patch<WhatsappMessage>(`${BASE}/conversations/${conversationId}/messages/${messageId}`, { content })
+    .then(r => r.data);
+
+export const deleteWhatsappNote = (conversationId: string, messageId: string): Promise<WhatsappMessage> =>
+  axiosClient
+    .delete<WhatsappMessage>(`${BASE}/conversations/${conversationId}/messages/${messageId}`)
+    .then(r => r.data);
+
+/**
  * getInboxClientContext (messaging-inbox-v2 F1.5, RICH-1..6, design §3.3,
  * tasks F1) — GET del agregador rico. `clientId` desambigua un `ambiguous`
  * (validado server-side contra los candidatos, RICH-1). `opts.refreshBalance`

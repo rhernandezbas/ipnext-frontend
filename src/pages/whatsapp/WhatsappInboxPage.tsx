@@ -12,8 +12,11 @@ import {
   useMessagingAreas,
   useInboxViewCounts,
   usePendingSends,
+  useEditWhatsappNote,
+  useDeleteWhatsappNote,
   whatsappMessagesKey,
 } from '@/hooks/useWhatsapp';
+import { mapNoteError } from '@/utils/mapNoteError';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { useCampaigns } from '@/hooks/useBulkMessaging';
 import { ConversationList } from './WhatsappInboxPage/components/ConversationList';
@@ -164,6 +167,13 @@ export default function WhatsappInboxPage() {
   // en `MessageThread.tsx`), leído acá vía `useMyPermissions()` directamente.
   const { setAssignee, isPending: isAssigneePending } = useSetConversationAssignee(selectedId ?? '');
   const { setArea, isPending: isAreaPending } = useSetConversationArea(selectedId ?? '');
+  // internal-notes F1.5 (EDITAR/ELIMINAR NOTA): mismo criterio que el resto de
+  // las mutations de esta página (instancia PROPIA atada al selectedId; las
+  // keys de cache se derivan del convId capturado AL DISPATCH, ver
+  // `useWhatsapp.ts`). El error se surfacea por CÓDIGO (`mapNoteError`) en el
+  // MISMO toast local que status/assignee/area (`onError` de acá abajo).
+  const { editNote } = useEditWhatsappNote(selectedId ?? '');
+  const { deleteNote } = useDeleteWhatsappNote(selectedId ?? '');
   const { can } = useMyPermissions();
   const canAssign = can('messaging.send');
   const { data: assignableUsers = [] } = useAssignableUsers(canAssign);
@@ -347,6 +357,21 @@ export default function WhatsappInboxPage() {
   }
 
   /**
+   * internal-notes F1.5 — editar/eliminar una nota interna del hilo. El error
+   * se traduce por CÓDIGO (`mapNoteError`: 403 "no tenés permiso…", 409 "ya
+   * fue eliminada", etc.) y se muestra en el mismo toast local que el resto de
+   * las mutations. `editNote`/`deleteNote` ya invalidan hilo+listado en su
+   * `onSuccess` (el `internalNoteCount` de la fila baja al eliminar).
+   */
+  function handleEditNote(messageId: string, content: string) {
+    editNote(messageId, content, { onError: (err) => showInboxToast(mapNoteError(err)) });
+  }
+
+  function handleDeleteNote(messageId: string) {
+    deleteNote(messageId, { onError: (err) => showInboxToast(mapNoteError(err)) });
+  }
+
+  /**
    * inbox-views (Ola 1) — cambio de vista del sub-menú. El preset REEMPLAZA
    * los 3 ejes que el sub-menú gobierna (status/assignment/view — spread del
    * preset entero, sin arrastrar los del preset anterior: los presets son
@@ -476,6 +501,8 @@ export default function WhatsappInboxPage() {
             isAreaPending={isAreaPending}
             contextCollapsed={contextCollapsed}
             onToggleContext={toggleContext}
+            onEditNote={handleEditNote}
+            onDeleteNote={handleDeleteNote}
           />
         </div>
 

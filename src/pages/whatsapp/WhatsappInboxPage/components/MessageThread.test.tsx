@@ -47,6 +47,55 @@ const msg = (over: Partial<WhatsappMessage> = {}): WhatsappMessage => ({
   ...over,
 });
 
+describe('MessageThread — passthrough de editar/eliminar nota (internal-notes F1.5)', () => {
+  const note = (over: Partial<WhatsappMessage> = {}): WhatsappMessage =>
+    msg({ id: 'note-1', direction: 'outbound', private: true, content: 'Cliente moroso', canEdit: true, canDelete: true, ...over });
+
+  it('threadea onEditNote hacia la burbuja de la nota (Editar → onEditNote(id, content))', async () => {
+    const onEditNote = vi.fn();
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[note()]}
+        isLoading={false}
+        onEditNote={onEditNote}
+        onDeleteNote={vi.fn()}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Editar nota' }));
+    const box = screen.getByRole('textbox');
+    await userEvent.clear(box);
+    await userEvent.type(box, 'al día');
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    expect(onEditNote).toHaveBeenCalledWith('note-1', 'al día');
+  });
+
+  it('threadea onDeleteNote hacia la burbuja (Eliminar → confirm → onDeleteNote(id))', async () => {
+    const onDeleteNote = vi.fn();
+    render(
+      <MessageThread
+        conversationId="c1"
+        contactName="Juan"
+        messages={[note()]}
+        isLoading={false}
+        onEditNote={vi.fn()}
+        onDeleteNote={onDeleteNote}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Eliminar nota' }));
+    const dialog = screen.getByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Eliminar' }));
+    expect(onDeleteNote).toHaveBeenCalledWith('note-1');
+  });
+
+  it('sin los callbacks, las burbujas de nota no muestran acciones (cero regresión de call sites previos)', () => {
+    render(<MessageThread conversationId="c1" contactName="Juan" messages={[note()]} isLoading={false} />);
+    expect(screen.queryByRole('button', { name: 'Editar nota' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Eliminar nota' })).toBeNull();
+  });
+});
+
 describe('MessageThread — sin conversación seleccionada', () => {
   it('muestra un estado neutro, sin pegar el thread ni la lista', () => {
     render(<MessageThread conversationId={null} contactName={null} messages={[]} isLoading={false} />);

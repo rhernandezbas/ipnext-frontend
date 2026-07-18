@@ -7,7 +7,7 @@
  * juntas en el open del thread no tiene propósito, ver
  * .agents/skills/improve-animations/AUDIT.md §1).
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { MessageBubble } from './MessageBubble';
@@ -299,6 +299,132 @@ describe('MessageBubble — variante nota (messaging-inbox-notes F1.5 fase D —
     expect(screen.getByTestId('message-bubble-row')).toHaveClass('note');
     await userEvent.click(screen.getByRole('button', { name: /reintentar/i }));
     expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('MessageBubble — editar/eliminar nota (internal-notes F1.5)', () => {
+  const note = (over: Partial<WhatsappMessage> = {}): WhatsappMessage =>
+    msg({ direction: 'outbound', private: true, content: 'Cliente moroso', senderName: 'Agente Rocío', ...over });
+
+  it('nota con canEdit + onEditNote → muestra la acción "Editar nota"', () => {
+    render(<MessageBubble message={note({ canEdit: true })} onEditNote={vi.fn()} onDeleteNote={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Editar nota' })).toBeInTheDocument();
+  });
+
+  it('nota con canDelete + onDeleteNote → muestra la acción "Eliminar nota"', () => {
+    render(<MessageBubble message={note({ canDelete: true })} onEditNote={vi.fn()} onDeleteNote={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Eliminar nota' })).toBeInTheDocument();
+  });
+
+  it('canEdit:false → sin acción de editar', () => {
+    render(<MessageBubble message={note({ canEdit: false, canDelete: true })} onEditNote={vi.fn()} onDeleteNote={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Editar nota' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Eliminar nota' })).toBeInTheDocument();
+  });
+
+  it('canDelete:false → sin acción de eliminar', () => {
+    render(<MessageBubble message={note({ canEdit: true, canDelete: false })} onEditNote={vi.fn()} onDeleteNote={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Eliminar nota' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Editar nota' })).toBeInTheDocument();
+  });
+
+  it('ambos flags false → sin ninguna acción', () => {
+    render(<MessageBubble message={note({ canEdit: false, canDelete: false })} onEditNote={vi.fn()} onDeleteNote={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Editar nota' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Eliminar nota' })).toBeNull();
+  });
+
+  it('mensaje NO-nota (private falsy) nunca muestra acciones, aunque llegue canEdit true', () => {
+    render(<MessageBubble message={msg({ direction: 'outbound', private: false, canEdit: true, canDelete: true })} onEditNote={vi.fn()} onDeleteNote={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Editar nota' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Eliminar nota' })).toBeNull();
+  });
+
+  it('sin los callbacks (presentacional puro, sin wiring), no muestra acciones aunque los flags sean true', () => {
+    render(<MessageBubble message={note({ canEdit: true, canDelete: true })} />);
+    expect(screen.queryByRole('button', { name: 'Editar nota' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Eliminar nota' })).toBeNull();
+  });
+
+  it('edited:true → muestra "(editado)"', () => {
+    render(<MessageBubble message={note({ edited: true })} />);
+    expect(screen.getByText(/\(editado\)/i)).toBeInTheDocument();
+  });
+
+  it('edited falsy → NO muestra "(editado)"', () => {
+    render(<MessageBubble message={note({ edited: false })} />);
+    expect(screen.queryByText(/\(editado\)/i)).toBeNull();
+  });
+
+  it('click en "Editar nota" abre el edit inline con un textbox precargado con el content', async () => {
+    render(<MessageBubble message={note({ canEdit: true, content: 'Cliente moroso' })} onEditNote={vi.fn()} onDeleteNote={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Editar nota' }));
+    const box = screen.getByRole('textbox');
+    expect(box).toHaveValue('Cliente moroso');
+    // el content de sólo-lectura ya no está (se está editando)
+    expect(screen.queryByTestId('message-bubble-content')).toBeNull();
+  });
+
+  it('editar → Guardar dispara onEditNote(id, nuevoContent)', async () => {
+    const onEditNote = vi.fn();
+    render(<MessageBubble message={note({ id: 'n-9', canEdit: true, content: 'viejo' })} onEditNote={onEditNote} onDeleteNote={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Editar nota' }));
+    const box = screen.getByRole('textbox');
+    await userEvent.clear(box);
+    await userEvent.type(box, 'corregido');
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    expect(onEditNote).toHaveBeenCalledWith('n-9', 'corregido');
+  });
+
+  it('editar → Guardar queda deshabilitado si el textbox queda vacío (el BE exige content no vacío)', async () => {
+    render(<MessageBubble message={note({ canEdit: true, content: 'algo' })} onEditNote={vi.fn()} onDeleteNote={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Editar nota' }));
+    await userEvent.clear(screen.getByRole('textbox'));
+    expect(screen.getByRole('button', { name: /guardar/i })).toBeDisabled();
+  });
+
+  it('editar → Cancelar cierra el edit sin llamar onEditNote', async () => {
+    const onEditNote = vi.fn();
+    render(<MessageBubble message={note({ canEdit: true, content: 'original' })} onEditNote={onEditNote} onDeleteNote={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Editar nota' }));
+    await userEvent.click(screen.getByRole('button', { name: /cancelar/i }));
+    expect(onEditNote).not.toHaveBeenCalled();
+    expect(screen.getByTestId('message-bubble-content')).toHaveTextContent('original');
+  });
+
+  it('eliminar → confirm suave; confirmar dispara onDeleteNote(id)', async () => {
+    const onDeleteNote = vi.fn();
+    render(<MessageBubble message={note({ id: 'n-3', canDelete: true })} onEditNote={vi.fn()} onDeleteNote={onDeleteNote} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Eliminar nota' }));
+    // aparece un diálogo de confirmación accesible
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+    // el botón de confirmar del diálogo (nombre distinto al de la acción de la burbuja)
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Eliminar' }));
+    expect(onDeleteNote).toHaveBeenCalledWith('n-3');
+  });
+
+  it('eliminar → cancelar el confirm NO dispara onDeleteNote', async () => {
+    const onDeleteNote = vi.fn();
+    render(<MessageBubble message={note({ canDelete: true })} onEditNote={vi.fn()} onDeleteNote={onDeleteNote} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Eliminar nota' }));
+    const dialog = screen.getByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /cancelar/i }));
+    expect(onDeleteNote).not.toHaveBeenCalled();
+  });
+
+  it('nota BORRADA (deleted:true) → tombstone "Nota eliminada", sin content, sin acciones', () => {
+    render(<MessageBubble message={note({ deleted: true, content: '', canEdit: true, canDelete: true })} onEditNote={vi.fn()} onDeleteNote={vi.fn()} />);
+    expect(screen.getByText(/nota eliminada/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('message-bubble-content')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Editar nota' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Eliminar nota' })).toBeNull();
+  });
+
+  it('el tombstone lleva un ícono SVG (design-system: nunca emoji)', () => {
+    render(<MessageBubble message={note({ deleted: true, content: '' })} />);
+    const tombstone = screen.getByText(/nota eliminada/i);
+    expect(tombstone.closest('[data-testid="note-tombstone"]')?.querySelector('svg')).not.toBeNull();
   });
 });
 

@@ -247,6 +247,163 @@
   color: var(--color-note-accent);
 }
 
+/* ── internal-notes F1.5 — acciones Editar/Eliminar de la nota. Reveladas   */
+/* en hover/focus-within de la burbuja (progressive enhancement), pero        */
+/* SIEMPRE en el DOM y focusables (teclado/lector). `margin-left:auto` las    */
+/* empuja al extremo derecho del header.                                      */
+.noteActions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* Sólo con hover real (mouse/trackpad): atenúa las acciones hasta que el
+   puntero entra en la burbuja. En touch (sin hover) quedan siempre visibles
+   — no hay "hover" para revelarlas, ocultarlas las volvería inalcanzables. */
+@media (hover: hover) and (pointer: fine) {
+  .noteActions {
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+  .note .bubble:hover .noteActions,
+  .note .bubble:focus-within .noteActions {
+    opacity: 1;
+  }
+}
+
+.noteActionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* A11Y-1 touch target 44px (var(--space-11)) — el ícono es 14px, el padding
+     completa el área táctil sin ensanchar visualmente el header. */
+  min-width: var(--space-11);
+  min-height: var(--space-11);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-note-accent);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .noteActionButton:hover {
+    background: rgb(0 0 0 / 6%);
+  }
+}
+
+.noteActionButton:focus-visible {
+  outline: 2px solid var(--color-note-accent);
+  outline-offset: -2px;
+}
+
+.noteActionIcon {
+  flex-shrink: 0;
+}
+
+/* ── internal-notes F1.5 — "(editado)" junto al timestamp. Mismo de-énfasis  */
+/* que `.time` (hereda su opacity del contenedor); tamaño heredado.           */
+.editedTag {
+  font-style: italic;
+}
+
+/* ── internal-notes F1.5 — edición INLINE. Textarea sobre la superficie de   */
+/* la nota, botones Cancelar/Guardar debajo alineados a la derecha.           */
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.editTextarea {
+  width: 100%;
+  resize: vertical;
+  padding: var(--space-2);
+  border: 1px solid var(--color-note-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-white);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+.editTextarea:focus-visible {
+  outline: 2px solid var(--color-note-accent);
+  outline-offset: 1px;
+}
+
+.editActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.editCancel,
+.editSave {
+  min-height: var(--space-11);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: none;
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.editCancel {
+  background: transparent;
+  color: var(--color-note-fg);
+  text-decoration: underline;
+}
+
+.editSave {
+  background: var(--color-note-accent);
+  color: var(--color-white);
+}
+
+.editSave:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editCancel:focus-visible,
+.editSave:focus-visible {
+  outline: 2px solid var(--color-note-accent);
+  outline-offset: 2px;
+}
+
+/* ── internal-notes F1.5 — TOMBSTONE (nota borrada). Superficie "apagada":   */
+/* gris neutro, texto secundario, ícono tenue. NO reusa los tokens de nota    */
+/* (ya no es una nota viva — sería una mentira semántica el amber).           */
+.tombstoneRow {
+  justify-content: stretch;
+}
+
+.bubble.tombstone {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  width: 100%;
+  background-color: var(--color-gray-100);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-gray-300);
+  font-style: italic;
+}
+
+.tombstoneIcon {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.bubble.tombstone .time {
+  margin-top: 0;
+  margin-left: auto;
+}
+
 /* Riesgo explícito (design §6): `.deliveryFailed` NO fija `color` propio —
    hereda por cascada de `.note .bubble` (--color-note-fg, oscuro) en vez de
    --color-white (heredado del caso outbound) — cero código extra necesario

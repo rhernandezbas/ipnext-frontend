@@ -249,6 +249,20 @@ function setHooks({
     isError: false,
     error: null,
   } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationArea>);
+  // internal-notes F1.5 (EDITAR/ELIMINAR NOTA): defaults neutros — cada test
+  // que necesite espiar `editNote`/`deleteNote` los sobreescribe.
+  vi.mocked(useWhatsappModule.useEditWhatsappNote).mockReturnValue({
+    editNote: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+  } as unknown as ReturnType<typeof useWhatsappModule.useEditWhatsappNote>);
+  vi.mocked(useWhatsappModule.useDeleteWhatsappNote).mockReturnValue({
+    deleteNote: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+  } as unknown as ReturnType<typeof useWhatsappModule.useDeleteWhatsappNote>);
   vi.mocked(useWhatsappModule.useAssignableUsers).mockReturnValue(
     mockQuery<WhatsappAssignee[]>({ data: [], isLoading: false }),
   );
@@ -715,6 +729,75 @@ describe('WhatsappInboxPage — hallazgo MEDIUM #3 (review adversarial: surface 
     // como que la conversación ACTUAL falló cuando fue otra).
     await user.click(screen.getByRole('button', { name: /Conversación con Juan Perez/i }));
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('WhatsappInboxPage — internal-notes F1.5: wiring de editar/eliminar nota + error por código', () => {
+  const NOTE: WhatsappMessage = {
+    id: 'note-x',
+    direction: 'outbound',
+    content: 'ojo, cliente moroso',
+    senderName: 'Agente',
+    sentAt: '2026-07-12T12:00:00.000Z',
+    private: true,
+    canEdit: true,
+    canDelete: true,
+  };
+
+  it('useEditWhatsappNote/useDeleteWhatsappNote se llaman con el selectedId', async () => {
+    setHooks({});
+    const user = userEvent.setup();
+    renderPage();
+    // sin selección → ''
+    expect(useWhatsappModule.useEditWhatsappNote).toHaveBeenCalledWith('');
+    expect(useWhatsappModule.useDeleteWhatsappNote).toHaveBeenCalledWith('');
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    expect(useWhatsappModule.useEditWhatsappNote).toHaveBeenLastCalledWith('conv-b');
+    expect(useWhatsappModule.useDeleteWhatsappNote).toHaveBeenLastCalledWith('conv-b');
+  });
+
+  it('si el DELETE de la nota falla, el toast muestra el mensaje mapeado por código (409 → "ya fue eliminada")', async () => {
+    const deleteNote = vi.fn((_id: string, opts?: { onError?: (err: unknown) => void }) => {
+      opts?.onError?.({ response: { data: { code: 'INTERNAL_NOTE_ALREADY_DELETED' } } });
+    });
+    setHooks({ detail: DETAIL_B, messages: [NOTE] });
+    vi.mocked(useWhatsappModule.useDeleteWhatsappNote).mockReturnValue({
+      deleteNote,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useDeleteWhatsappNote>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: 'Eliminar nota' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Eliminar' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/ya fue eliminada/i);
+  });
+
+  it('si el PATCH de edición falla con 403, el toast dice "no tenés permiso para editar esta nota"', async () => {
+    const editNote = vi.fn((_id: string, _content: string, opts?: { onError?: (err: unknown) => void }) => {
+      opts?.onError?.({ response: { data: { code: 'INTERNAL_NOTE_FORBIDDEN' } } });
+    });
+    setHooks({ detail: DETAIL_B, messages: [NOTE] });
+    vi.mocked(useWhatsappModule.useEditWhatsappNote).mockReturnValue({
+      editNote,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useEditWhatsappNote>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: 'Editar nota' }));
+    await user.click(screen.getByRole('button', { name: /guardar/i }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/no ten[eé]s permiso.*nota/i);
   });
 });
 

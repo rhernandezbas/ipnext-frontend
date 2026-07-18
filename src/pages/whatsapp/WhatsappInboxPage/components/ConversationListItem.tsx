@@ -1,6 +1,7 @@
 import { formatTimeShort } from '@/utils/formatDate';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
 import { CONVERSATION_STATUS_VARIANT, CONVERSATION_STATUS_LABEL } from './conversationStatus';
+import { IconNote } from './mediaIcons';
 import type { WhatsappConversationListItem } from '@/types/whatsapp';
 import styles from './ConversationListItem.module.css';
 
@@ -46,6 +47,18 @@ export function ConversationListItem({ conversation, selected, onClick, exiting 
   const campaigns = conversation.campaigns ?? [];
   const primaryCampaign = campaigns[0] ?? null;
   const extraCampaigns = Math.max(0, campaigns.length - 1);
+
+  // internal-notes F1.5 (INDICADOR EN LA FILA) — 📝 + contador cuando la
+  // conversación tiene notas internas vivas. El número real viaja en el
+  // aria-label (lo que ANUNCIA el lector); el display se trunca a "99+" para
+  // no ensanchar la fila (mismo criterio de "no romper el layout" que el chip
+  // de campaña/área). Ícono SVG (`IconNote`, el MISMO de la burbuja de nota,
+  // design-system: nunca emoji) — el vínculo visual "esta fila → esas notas
+  // amarillas del hilo" es intencional.
+  const internalNoteCount = conversation.internalNoteCount ?? 0;
+  const hasInternalNotes = internalNoteCount > 0;
+  const noteCountDisplay = internalNoteCount > 99 ? '99+' : String(internalNoteCount);
+  const noteCountLabel = `${internalNoteCount} ${internalNoteCount === 1 ? 'nota interna' : 'notas internas'}`;
 
   return (
     <li className={styles.item} data-exiting={exiting ? 'true' : undefined}>
@@ -97,7 +110,7 @@ export function ConversationListItem({ conversation, selected, onClick, exiting 
            * largo NO empuje el layout de la fila — mismo criterio que ya
            * aplica `.assigneeName`.
            */}
-          {(conversation.assignee || conversation.area || primaryCampaign) && (
+          {(conversation.assignee || conversation.area || primaryCampaign || hasInternalNotes) && (
             <span className={styles.metaRow}>
               {conversation.assignee && (
                 <span className={styles.assigneeName}>{conversation.assignee.name}</span>
@@ -131,6 +144,24 @@ export function ConversationListItem({ conversation, selected, onClick, exiting 
                       +{extraCampaigns}
                     </span>
                   )}
+                </span>
+              )}
+              {/*
+               * internal-notes F1.5 — indicador de notas internas. El
+               * `aria-label` con el número REAL es el nombre accesible (el
+               * texto visible "99+" es una abreviación); `IconNote` va
+               * aria-hidden (decorativo, el label ya dice "notas internas").
+               */}
+              {hasInternalNotes && (
+                <span
+                  className={styles.noteCountChip}
+                  data-testid="internal-note-count"
+                  aria-label={noteCountLabel}
+                >
+                  <IconNote className={styles.noteCountIcon} />
+                  <span className={styles.noteCountValue} aria-hidden="true">
+                    {noteCountDisplay}
+                  </span>
                 </span>
               )}
             </span>

@@ -166,6 +166,14 @@ interface MessageThreadProps {
    */
   contextCollapsed?: boolean;
   onToggleContext?: () => void;
+  /**
+   * internal-notes F1.5 (EDITAR/ELIMINAR NOTA) — passthrough hacia cada
+   * `MessageBubble` (mismo criterio que `onRetryAttachment`: `WhatsappInboxPage`
+   * es quien tiene `queryClient`+`conversationId` para las mutaciones, acá solo
+   * se threadea). Ausentes → las burbujas de nota no muestran acciones.
+   */
+  onEditNote?: (messageId: string, content: string) => void;
+  onDeleteNote?: (messageId: string) => void;
 }
 
 /**
@@ -205,6 +213,8 @@ export function MessageThread({
   isAreaPending = false,
   contextCollapsed = false,
   onToggleContext,
+  onEditNote,
+  onDeleteNote,
 }: MessageThreadProps) {
   // Merge server + pending (design §6.3): los pending van DESPUÉS (son los
   // más nuevos, aún sin confirmar). `pendingById` permite recuperar el
@@ -485,6 +495,11 @@ export function MessageThread({
                   uploadProgress={pending?.progress}
                   onRetry={pending ? () => onRetryPending?.(pending) : undefined}
                   onDiscard={pending ? () => onDiscardPending?.(pending) : undefined}
+                  // internal-notes F1.5 — un row optimista (pending) todavía
+                  // no existe en el BE: no puede editarse/borrarse. Solo los
+                  // mensajes reales del server reciben los callbacks.
+                  onEditNote={pending ? undefined : onEditNote}
+                  onDeleteNote={pending ? undefined : onDeleteNote}
                 />
               );
             })}

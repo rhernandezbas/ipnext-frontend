@@ -824,3 +824,97 @@ export function useSendWhatsappTemplate(id: string) {
     reset: mutation.reset,
   };
 }
+
+/**
+ * replaceMessageInThread — helper compartido por edit/delete: reemplaza IN
+ * PLACE el mensaje editado/borrado en el cache del hilo con el DTO devuelto
+ * por el BE. NO lo saca del array (una nota borrada es un TOMBSTONE: sigue en
+ * el hilo con `deleted:true`+`content:""`). Si el hilo no está cacheado (edge
+ * raro: mutación sin el thread abierto), no crea una entrada fantasma.
+ */
+function replaceMessageInThread(qc: ReturnType<typeof useQueryClient>, convId: string, message: WhatsappMessage) {
+  qc.setQueryData<WhatsappMessage[]>(whatsappMessagesKey(convId), (old) =>
+    old ? old.map((m) => (m.id === message.id ? message : m)) : old,
+  );
+}
+
+/**
+ * useEditWhatsappNote(id) / useDeleteWhatsappNote(id) (internal-notes F1.5 —
+ * EDITAR/ELIMINAR NOTA) — mutaciones de una nota interna existente del hilo.
+ *
+ * `onSuccess` asienta el resultado en 2 pasos:
+ * 1. REEMPLAZA la nota en el cache del hilo (`whatsappMessagesKey`) con el DTO
+ *    del BE (content editado / tombstone `deleted:true`) → la burbuja cambia
+ *    AL INSTANTE, sin esperar el poll de 5s (design: "el estado final debe
+ *    reflejar el content editado").
+ * 2. INVALIDA el hilo Y el listado (`WHATSAPP_CONVERSATIONS_ROOT`): el
+ *    `internalNoteCount` de la fila BAJA al eliminar, así que la lista tiene
+ *    que refetchear (el indicador 📝+contador es parte del DTO de lista).
+ *
+ * Bug CRÍTICO #1 defensa (memoria `inbox-key-por-conversacion`, mismo criterio
+ * que `useSendWhatsappMessage`/`useSetConversationStatus`): TODAS las keys se
+ * derivan de `vars.convId` capturado en `editNote`/`deleteNote` AL DISPATCH,
+ * NUNCA del closure `id` del hook — si el agente cambia de conversación
+ * mientras la mutación sigue en vuelo, el resultado aterriza en el slice de la
+ * conversación que ORIGINÓ la edición/borrado, no en la seleccionada ahora.
+ *
+ * `opts.onError` se reenvía tal cual al `mutate` (mismo patrón que
+ * `setStatus`) — el caller (`WhatsappInboxPage`) lo usa para surfacear el
+ * error por CÓDIGO (`mapNoteError`) en el toast, sin un `useEffect` aparte.
+ */
+export function useEditWhatsappNote(id: string) {
+  const qc = useQueryClient();
+
+  type EditNoteVars = { messageId: string; content: string; convId: string };
+
+  const mutation = useMutation({
+    mutationFn: (vars: EditNoteVars) => api.editWhatsappNote(vars.convId, vars.messageId, vars.content),
+
+    onSuccess: (message: WhatsappMessage, vars: EditNoteVars) => {
+      replaceMessageInThread(qc, vars.convId, message);
+      void qc.invalidateQueries({ queryKey: whatsappMessagesKey(vars.convId) });
+      void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+    },
+  });
+
+  const editNote = (
+    messageId: string,
+    content: string,
+    opts?: { onSuccess?: (message: WhatsappMessage) => void; onError?: (error: unknown) => void },
+  ) => mutation.mutate({ messageId, content, convId: id }, opts);
+
+  return {
+    editNote,
+    isPending: mutation.isPending && mutation.variables?.convId === id,
+    isError: mutation.isError,
+    error: mutation.error,
+  };
+}
+
+export function useDeleteWhatsappNote(id: string) {
+  const qc = useQueryClient();
+
+  type DeleteNoteVars = { messageId: string; convId: string };
+
+  const mutation = useMutation({
+    mutationFn: (vars: DeleteNoteVars) => api.deleteWhatsappNote(vars.convId, vars.messageId),
+
+    onSuccess: (message: WhatsappMessage, vars: DeleteNoteVars) => {
+      replaceMessageInThread(qc, vars.convId, message);
+      void qc.invalidateQueries({ queryKey: whatsappMessagesKey(vars.convId) });
+      void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+    },
+  });
+
+  const deleteNote = (
+    messageId: string,
+    opts?: { onSuccess?: (message: WhatsappMessage) => void; onError?: (error: unknown) => void },
+  ) => mutation.mutate({ messageId, convId: id }, opts);
+
+  return {
+    deleteNote,
+    isPending: mutation.isPending && mutation.variables?.convId === id,
+    isError: mutation.isError,
+    error: mutation.error,
+  };
+}

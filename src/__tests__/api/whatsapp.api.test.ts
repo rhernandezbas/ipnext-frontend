@@ -37,6 +37,7 @@ vi.mock('@/api/axios-client', () => ({
     get: vi.fn(),
     post: vi.fn(),
     patch: vi.fn(),
+    delete: vi.fn(),
   },
 }));
 
@@ -52,6 +53,8 @@ import {
   setConversationArea,
   getAssignableUsers,
   getMessagingAreas,
+  editWhatsappNote,
+  deleteWhatsappNote,
 } from '@/api/whatsapp.api';
 
 const LIST_ITEM: WhatsappConversationListItem = {
@@ -531,5 +534,47 @@ describe('WAPI-13 (messaging-inbox-assignment F1.5-C2): getMessagingAreas', () =
 
     expect(axiosClient.get).toHaveBeenCalledWith('/messaging/areas');
     expect(result).toEqual(AREAS);
+  });
+});
+
+describe('WAPI-15 (internal-notes F1.5): editWhatsappNote', () => {
+  const EDITED: WhatsappMessage = { ...MESSAGE, private: true, content: 'nota corregida', edited: true };
+
+  it('PATCHea /messaging/conversations/:id/messages/:messageId con {content} y devuelve la nota editada FLAT', async () => {
+    vi.mocked(axiosClient.patch).mockResolvedValue({ data: EDITED });
+
+    const result = await editWhatsappNote('conv-1', 'msg-1', 'nota corregida');
+
+    expect(axiosClient.patch).toHaveBeenCalledWith('/messaging/conversations/conv-1/messages/msg-1', {
+      content: 'nota corregida',
+    });
+    expect(result).toEqual(EDITED);
+    // Honestidad del contrato: flat, sin envelope.
+    expect('data' in (result as object)).toBe(false);
+  });
+
+  it('postea SOLO {content} (sin 3er argumento de config extra)', async () => {
+    vi.mocked(axiosClient.patch).mockResolvedValue({ data: EDITED });
+
+    await editWhatsappNote('conv-1', 'msg-1', 'x');
+
+    expect((vi.mocked(axiosClient.patch).mock.calls[0] as unknown[]).length).toBe(2);
+  });
+});
+
+describe('WAPI-16 (internal-notes F1.5): deleteWhatsappNote', () => {
+  // TOMBSTONE: el BE devuelve la nota con deleted:true + content:"" (la fila
+  // sigue en el hilo, no desaparece).
+  const TOMBSTONE: WhatsappMessage = { ...MESSAGE, private: true, content: '', deleted: true };
+
+  it('DELETEa /messaging/conversations/:id/messages/:messageId y devuelve el tombstone (deleted:true)', async () => {
+    vi.mocked(axiosClient.delete).mockResolvedValue({ data: TOMBSTONE });
+
+    const result = await deleteWhatsappNote('conv-1', 'msg-1');
+
+    expect(axiosClient.delete).toHaveBeenCalledWith('/messaging/conversations/conv-1/messages/msg-1');
+    expect(result).toEqual(TOMBSTONE);
+    expect(result.deleted).toBe(true);
+    expect(result.content).toBe('');
   });
 });

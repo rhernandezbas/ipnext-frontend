@@ -69,6 +69,17 @@ export interface WhatsappConversationListItem {
    * `conversation.campaigns?.length` (mismo patrón falsy que `attachments`).
    */
   campaigns?: WhatsappCampaignTag[];
+  /**
+   * Aditivo (internal-notes F1.5 — INDICADOR EN LA FILA) — mirror EXACTO del
+   * wire (`ConversationListItemDto.internalNoteCount`, ya en prod): cantidad
+   * de notas internas VIVAS (no borradas) de la conversación. El BE lo manda
+   * SIEMPRE (0 cuando no hay ninguna, nunca `undefined`); opcional acá — mismo
+   * criterio defensivo que `campaigns`/`assignee`/`area` — para no romper los
+   * fixtures previos a esta tanda. El FE lo consume con
+   * `(conversation.internalNoteCount ?? 0) > 0` (ConversationListItem): 0 o
+   * ausente = sin indicador.
+   */
+  internalNoteCount?: number;
 }
 
 export interface WhatsappClientContextClient {
@@ -145,6 +156,27 @@ export interface WhatsappMessage {
    * expone).
    */
   private?: boolean;
+  /**
+   * Aditivo (internal-notes F1.5 — EDITAR/ELIMINAR NOTA) — mirror EXACTO del
+   * wire (`ChatMessageDto`, ya en prod). Todos OPCIONALES: no viajan en
+   * mensajes normales (reply/inbound) ni en fixtures previos a esta tanda —
+   * `undefined` degrada seguro a `false`/sin-acciones. Solo las notas internas
+   * (`private:true`) los traen poblados.
+   *
+   * - `authorId`: id del agente autor de la nota (o `null`). Base para que el
+   *   BE decida `canEdit`/`canDelete`; el FE NO lo compara (confía en los
+   *   flags resueltos por el BE, que ya conoce al usuario autenticado).
+   * - `edited`: la nota fue editada al menos una vez → burbuja muestra "(editado)".
+   * - `deleted`: TOMBSTONE — la nota fue borrada. Llega con `content:""`; la
+   *   fila SIGUE en el hilo (el BE la devuelve igual). Sin acciones sobre ella.
+   * - `canEdit`/`canDelete`: permiso YA resuelto por el BE para el usuario
+   *   autenticado — el FE solo muestra la acción correspondiente si es `true`.
+   */
+  authorId?: string | null;
+  edited?: boolean;
+  deleted?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
 // ─── Rich client context (messaging-inbox-v2 F1.5, RICH-1..6) — espejo de
