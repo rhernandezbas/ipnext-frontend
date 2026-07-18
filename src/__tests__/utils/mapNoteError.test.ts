@@ -47,3 +47,36 @@ describe('mapNoteError — códigos del contrato BE', () => {
     expect(mapNoteError(new Error('network'))).toMatch(/no se pudo/i);
   });
 });
+
+describe('mapNoteError — verbo según la acción (edit vs delete)', () => {
+  it('sin action explícita, default "edit" (compat con call sites de 1 arg)', () => {
+    expect(mapNoteError(axiosErr('INTERNAL_NOTE_FORBIDDEN'))).toMatch(/editar/i);
+  });
+
+  it('403 en flujo DELETE → copy con "eliminar", NO "editar"', () => {
+    const msg = mapNoteError(axiosErr('INTERNAL_NOTE_FORBIDDEN'), 'delete');
+    expect(msg).toMatch(/no ten[eé]s permiso.*eliminar.*nota/i);
+    expect(msg).not.toMatch(/editar/i);
+  });
+
+  it('403 en flujo EDIT → copy con "editar"', () => {
+    const msg = mapNoteError(axiosErr('INTERNAL_NOTE_FORBIDDEN'), 'edit');
+    expect(msg).toMatch(/no ten[eé]s permiso.*editar.*nota/i);
+    expect(msg).not.toMatch(/eliminar/i);
+  });
+
+  it('NOT_AN_INTERNAL_NOTE usa el verbo de la acción', () => {
+    expect(mapNoteError(axiosErr('NOT_AN_INTERNAL_NOTE'), 'delete')).toMatch(/eliminar/i);
+    expect(mapNoteError(axiosErr('NOT_AN_INTERNAL_NOTE'), 'edit')).toMatch(/editar/i);
+  });
+
+  it('el genérico (código desconocido) usa el verbo de la acción', () => {
+    expect(mapNoteError(axiosErr('WHATEVER'), 'delete')).toMatch(/no se pudo eliminar/i);
+    expect(mapNoteError(axiosErr('WHATEVER'), 'edit')).toMatch(/no se pudo editar/i);
+  });
+
+  it('los códigos action-neutral no cambian con la acción (NOT_FOUND / ALREADY_DELETED)', () => {
+    expect(mapNoteError(axiosErr('INTERNAL_NOTE_NOT_FOUND'), 'delete')).toMatch(/ya no existe/i);
+    expect(mapNoteError(axiosErr('INTERNAL_NOTE_ALREADY_DELETED'), 'edit')).toMatch(/ya fue eliminada/i);
+  });
+});

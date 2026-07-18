@@ -842,14 +842,22 @@ function replaceMessageInThread(qc: ReturnType<typeof useQueryClient>, convId: s
  * useEditWhatsappNote(id) / useDeleteWhatsappNote(id) (internal-notes F1.5 —
  * EDITAR/ELIMINAR NOTA) — mutaciones de una nota interna existente del hilo.
  *
- * `onSuccess` asienta el resultado en 2 pasos:
- * 1. REEMPLAZA la nota en el cache del hilo (`whatsappMessagesKey`) con el DTO
- *    del BE (content editado / tombstone `deleted:true`) → la burbuja cambia
- *    AL INSTANTE, sin esperar el poll de 5s (design: "el estado final debe
- *    reflejar el content editado").
- * 2. INVALIDA el hilo Y el listado (`WHATSAPP_CONVERSATIONS_ROOT`): el
- *    `internalNoteCount` de la fila BAJA al eliminar, así que la lista tiene
- *    que refetchear (el indicador 📝+contador es parte del DTO de lista).
+ * `onSuccess` reemplaza la nota en el cache del hilo (`whatsappMessagesKey`)
+ * con el DTO del BE (content editado / tombstone `deleted:true`) → la burbuja
+ * cambia AL INSTANTE, sin esperar el poll de 5s (design: "el estado final debe
+ * reflejar el content editado").
+ *
+ * `onSettled` INVALIDA en éxito Y en error (mismo patrón que
+ * `useSetConversationStatus`/`useSetConversationAssignee`/`useSetConversationArea`):
+ * - hilo (`whatsappMessagesKey`): reconciliación post-error (MEDIUM review).
+ *   Un 409 ("otro ya borró la nota") NO dispara `onSuccess`, así que sin
+ *   invalidar acá la UI seguiría mostrando la nota VIVA con sus botones hasta
+ *   el poll de 5s — que está PAUSADO si la pestaña no tiene foco. Invalidar en
+ *   `onSettled` fuerza un refetch inmediato que trae el tombstone real.
+ * - listado (`WHATSAPP_CONVERSATIONS_ROOT`, solo en delete): el
+ *   `internalNoteCount` de la fila BAJA al eliminar (el indicador 📝+contador
+ *   es parte del DTO de lista); en editar no cambia el conteo, así que el edit
+ *   NO invalida la lista.
  *
  * Bug CRÍTICO #1 defensa (memoria `inbox-key-por-conversacion`, mismo criterio
  * que `useSendWhatsappMessage`/`useSetConversationStatus`): TODAS las keys se
@@ -872,8 +880,15 @@ export function useEditWhatsappNote(id: string) {
 
     onSuccess: (message: WhatsappMessage, vars: EditNoteVars) => {
       replaceMessageInThread(qc, vars.convId, message);
+    },
+
+    // Reconciliación post-error (MEDIUM review): invalidar el hilo SIEMPRE
+    // (éxito o error) — un 409 no dispara `onSuccess`, y sin esto la nota
+    // "muerta" seguiría con sus botones hasta el poll (pausado sin foco).
+    // Editar NO toca el `internalNoteCount` de la lista (la nota sigue viva),
+    // así que NO invalida `WHATSAPP_CONVERSATIONS_ROOT` — a diferencia de delete.
+    onSettled: (_data, _err, vars) => {
       void qc.invalidateQueries({ queryKey: whatsappMessagesKey(vars.convId) });
-      void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
     },
   });
 
@@ -901,6 +916,14 @@ export function useDeleteWhatsappNote(id: string) {
 
     onSuccess: (message: WhatsappMessage, vars: DeleteNoteVars) => {
       replaceMessageInThread(qc, vars.convId, message);
+    },
+
+    // Reconciliación post-error (MEDIUM review): invalidar SIEMPRE (éxito o
+    // error) el hilo Y el listado. Un 409 ("otro ya la borró") no dispara
+    // `onSuccess` — sin esto la nota seguiría viva con botones hasta el poll
+    // pausado. Invalidar reconcilia a tombstone Y baja el `internalNoteCount`
+    // de la fila aunque el borrado real lo haya hecho otro agente.
+    onSettled: (_data, _err, vars) => {
       void qc.invalidateQueries({ queryKey: whatsappMessagesKey(vars.convId) });
       void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
     },

@@ -102,7 +102,7 @@ describe('useEditWhatsappNote(id).editNote', () => {
     expect(cached?.find((x) => x.id === 'msg-2')?.content).toBe('otra nota');
   });
 
-  it('onSuccess invalida el listado (internalNoteCount de la fila) y el hilo', async () => {
+  it('onSettled invalida el hilo (editar NO cambia el internalNoteCount, así que NO invalida el listado)', async () => {
     vi.mocked(editWhatsappNote).mockResolvedValue({ ...NOTE, edited: true });
     const { qc, wrapper } = makeWrapper();
     const spy = vi.spyOn(qc, 'invalidateQueries');
@@ -114,9 +114,12 @@ describe('useEditWhatsappNote(id).editNote', () => {
 
     await waitFor(() => {
       const keys = spy.mock.calls.map((c) => JSON.stringify(c[0]));
-      expect(keys.some((k) => k.includes('conversations'))).toBe(true);
       expect(keys.some((k) => k.includes('messages'))).toBe(true);
     });
+    // Editar una nota no toca el conteo de la fila → no hay razón para
+    // refetchear el listado entero.
+    const keys = spy.mock.calls.map((c) => JSON.stringify(c[0]));
+    expect(keys.some((k) => k.includes('conversations'))).toBe(false);
   });
 
   it('opts.onError se reenvía al fallar (para el toast por código)', async () => {
@@ -130,6 +133,22 @@ describe('useEditWhatsappNote(id).editNote', () => {
     });
 
     await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+  });
+
+  it('reconciliación post-error (MEDIUM review): un 409/error TAMBIÉN invalida el hilo (onSettled) — sin esto la nota "muerta" seguiría con botones hasta el poll pausado', async () => {
+    vi.mocked(editWhatsappNote).mockRejectedValue({ response: { data: { code: 'INTERNAL_NOTE_ALREADY_DELETED' } } });
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useEditWhatsappNote('conv-1'), { wrapper });
+
+    await act(async () => {
+      result.current.editNote('msg-1', 'x');
+    });
+
+    await waitFor(() => {
+      const keys = spy.mock.calls.map((c) => JSON.stringify(c[0]));
+      expect(keys.some((k) => k.includes('messages'))).toBe(true);
+    });
   });
 });
 
@@ -195,6 +214,23 @@ describe('useDeleteWhatsappNote(id).deleteNote', () => {
     });
 
     await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+  });
+
+  it('reconciliación post-error (MEDIUM review): un 409/error TAMBIÉN invalida hilo Y listado (onSettled) — reconcilia a tombstone + baja el internalNoteCount aunque el borrado real lo hizo otro', async () => {
+    vi.mocked(deleteWhatsappNote).mockRejectedValue({ response: { data: { code: 'INTERNAL_NOTE_ALREADY_DELETED' } } });
+    const { qc, wrapper } = makeWrapper();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useDeleteWhatsappNote('conv-1'), { wrapper });
+
+    await act(async () => {
+      result.current.deleteNote('msg-1');
+    });
+
+    await waitFor(() => {
+      const keys = spy.mock.calls.map((c) => JSON.stringify(c[0]));
+      expect(keys.some((k) => k.includes('messages'))).toBe(true);
+      expect(keys.some((k) => k.includes('conversations'))).toBe(true);
+    });
   });
 });
 

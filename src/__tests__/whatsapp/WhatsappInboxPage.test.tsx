@@ -797,7 +797,31 @@ describe('WhatsappInboxPage — internal-notes F1.5: wiring de editar/eliminar n
     await user.click(screen.getByRole('button', { name: 'Editar nota' }));
     await user.click(screen.getByRole('button', { name: /guardar/i }));
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/no ten[eé]s permiso.*nota/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/no ten[eé]s permiso.*editar.*nota/i);
+  });
+
+  it('LOW review: un 403 en el flujo DELETE dice "eliminar" (handleDeleteNote pasa action="delete"), NO "editar"', async () => {
+    const deleteNote = vi.fn((_id: string, opts?: { onError?: (err: unknown) => void }) => {
+      opts?.onError?.({ response: { data: { code: 'INTERNAL_NOTE_FORBIDDEN' } } });
+    });
+    setHooks({ detail: DETAIL_B, messages: [NOTE] });
+    vi.mocked(useWhatsappModule.useDeleteWhatsappNote).mockReturnValue({
+      deleteNote,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useDeleteWhatsappNote>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: 'Eliminar nota' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Eliminar' }));
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(/no ten[eé]s permiso.*eliminar.*nota/i);
+    expect(alert).not.toHaveTextContent(/editar/i);
   });
 });
 

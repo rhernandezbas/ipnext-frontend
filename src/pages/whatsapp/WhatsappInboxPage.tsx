@@ -364,11 +364,11 @@ export default function WhatsappInboxPage() {
    * `onSuccess` (el `internalNoteCount` de la fila baja al eliminar).
    */
   function handleEditNote(messageId: string, content: string) {
-    editNote(messageId, content, { onError: (err) => showInboxToast(mapNoteError(err)) });
+    editNote(messageId, content, { onError: (err) => showInboxToast(mapNoteError(err, 'edit')) });
   }
 
   function handleDeleteNote(messageId: string) {
-    deleteNote(messageId, { onError: (err) => showInboxToast(mapNoteError(err)) });
+    deleteNote(messageId, { onError: (err) => showInboxToast(mapNoteError(err, 'delete')) });
   }
 
   /**
