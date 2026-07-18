@@ -23,6 +23,7 @@ import {
   useSendWhatsappTemplate,
   whatsappMessagesKey,
   whatsappSendTemplatesKey,
+  whatsappViewCountsKey,
 } from '@/hooks/useWhatsapp';
 
 function makeWrapper() {
@@ -91,6 +92,9 @@ describe('useSendWhatsappTemplate(id).sendTemplate — onSuccess', () => {
       expect(qc.getQueryData<WhatsappMessage[]>(whatsappMessagesKey('conv-1'))).toEqual([SENT]);
     });
     expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ['whatsapp', 'conversations'] }));
+    // inbox-views (micro-fix review): enviar un template también es una
+    // respuesta saliente → saca la conversación de "Sin atender".
+    expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: whatsappViewCountsKey }));
   });
 
   it('dedup: si el mensaje ya está en el cache (mismo id), no lo duplica', async () => {

@@ -1037,7 +1037,7 @@ describe('WhatsappInboxPage — inbox-resolve: Reabrir funciona seleccionando de
 describe('WhatsappInboxPage — inbox-views Ola 1: sub-menú de vistas (pin del query por vista)', () => {
   it('por default la vista "Todas" está activa (aria-current) y llama a useWhatsappConversations con {status:"open"} — cero regresión del cache entry inicial', () => {
     renderPage();
-    expect(screen.getByRole('button', { name: 'Todas' })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('button', { name: 'Todas' })).toHaveAttribute('aria-current', 'page');
     expect(useWhatsappModule.useWhatsappConversations).toHaveBeenCalledWith({ status: 'open' });
   });
 
@@ -1096,7 +1096,7 @@ describe('WhatsappInboxPage — inbox-views Ola 1: sub-menú de vistas (pin del 
 
     await user.click(screen.getByRole('button', { name: 'Sin atender' }));
 
-    expect(screen.getByRole('button', { name: 'Sin atender' })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('button', { name: 'Sin atender' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('button', { name: 'Todas' })).not.toHaveAttribute('aria-current');
   });
 });
@@ -1160,7 +1160,7 @@ describe('WhatsappInboxPage — inbox-resolve (TAB-1, enmendado inbox-views): la
 
     await user.click(screen.getByRole('button', { name: 'Resueltas' }));
 
-    expect(screen.getByRole('button', { name: 'Resueltas' })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('button', { name: 'Resueltas' })).toHaveAttribute('aria-current', 'page');
     expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'resolved' });
   });
 

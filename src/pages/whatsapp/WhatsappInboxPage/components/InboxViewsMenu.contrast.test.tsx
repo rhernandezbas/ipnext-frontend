@@ -78,8 +78,8 @@ describe('InboxViewsMenu.module.css — tokens declarados (nunca hex sueltos en 
     expect(extractDeclValue(block, 'color')).toBe('var(--color-text-primary)');
   });
 
-  it(".item[aria-current='true'] usa la dupla --badge-active-bg/fg", () => {
-    const block = extractRule(menuCss, ".item[aria-current='true'] {");
+  it(".item[aria-current='page'] usa la dupla --badge-active-bg/fg", () => {
+    const block = extractRule(menuCss, ".item[aria-current='page'] {");
     expect(extractDeclValue(block, 'background')).toBe('var(--badge-active-bg)');
     expect(extractDeclValue(block, 'color')).toBe('var(--badge-active-fg)');
   });
@@ -91,7 +91,7 @@ describe('InboxViewsMenu.module.css — tokens declarados (nunca hex sueltos en 
   });
 
   it(".count del item activo invierte a --badge-active-fg de fondo con --color-white de texto", () => {
-    const block = extractRule(menuCss, ".item[aria-current='true'] .count {");
+    const block = extractRule(menuCss, ".item[aria-current='page'] .count {");
     expect(extractDeclValue(block, 'background')).toBe('var(--badge-active-fg)');
     expect(extractDeclValue(block, 'color')).toBe('var(--color-white)');
   });

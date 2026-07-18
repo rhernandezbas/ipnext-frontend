@@ -117,7 +117,7 @@ export function InboxViewsMenu({ active, counts, onSelect }: InboxViewsMenuProps
               <button
                 type="button"
                 className={styles.item}
-                aria-current={isActive ? 'true' : undefined}
+                aria-current={isActive ? 'page' : undefined}
                 aria-label={viewCountAriaLabel(view.label, count)}
                 title={view.label}
                 onClick={() => onSelect(view.id)}

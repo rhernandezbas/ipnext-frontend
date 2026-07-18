@@ -42,10 +42,10 @@ describe('InboxViewsMenu — estructura y a11y', () => {
     ]);
   });
 
-  it('marca aria-current="true" SOLO en la vista activa', () => {
+  it('marca aria-current="page" SOLO en la vista activa (valor preciso para navegación)', () => {
     renderMenu({ active: 'unattended' });
     const activeButton = screen.getByRole('button', { name: /sin atender/i });
-    expect(activeButton).toHaveAttribute('aria-current', 'true');
+    expect(activeButton).toHaveAttribute('aria-current', 'page');
 
     const rest = screen.getAllByRole('button').filter((b) => b !== activeButton);
     expect(rest).toHaveLength(4);

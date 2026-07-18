@@ -24,6 +24,7 @@ import {
   usePendingSends,
   whatsappPendingSendsKey,
   whatsappMessagesKey,
+  whatsappViewCountsKey,
 } from '@/hooks/useWhatsapp';
 
 function makeWrapper() {
@@ -156,6 +157,20 @@ describe('useSendWhatsappMessage(id).send — onSuccess', () => {
     });
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:a1');
     expect(qc.getQueryData<WhatsappMessage[]>(whatsappMessagesKey('conv-1'))).toEqual([SENT]);
+  });
+
+  it('inbox-views (micro-fix review): invalida el counts key — responder saca la conversación de "Sin atender" (último mensaje público pasa a outbound)', async () => {
+    vi.mocked(sendWhatsappMessage).mockResolvedValue(SENT);
+    const { qc, wrapper } = makeWrapper();
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(() => useSendWhatsappMessage('conv-1'), { wrapper });
+
+    await act(async () => {
+      result.current.send({ content: 'te respondo', files: [], drafts: [] });
+      await waitFor(() => expect(qc.getQueryData<PendingSend[]>(whatsappPendingSendsKey('conv-1'))).toEqual([]));
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: whatsappViewCountsKey }));
   });
 
   it('dedup: si el poll ya trajo el mensaje (mismo id) antes de onSuccess, no lo duplica', async () => {

@@ -246,6 +246,13 @@ export function useSendWhatsappMessage(id: string) {
         return [...list, message];
       });
       void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+      // inbox-views (Ola 1, micro-fix review): RESPONDER es la acción que
+      // saca una conversación de "Sin atender" (su último mensaje público
+      // pasa de inbound a outbound) — sin este invalidate el badge lageaba
+      // hasta el próximo poll de 30s. El counts key vive fuera del root de
+      // conversaciones (ver su comentario), así que el invalidate del root
+      // de arriba no lo cubre.
+      void qc.invalidateQueries({ queryKey: whatsappViewCountsKey });
     },
 
     onError: (error: unknown, vars: SendVars) => {
@@ -797,6 +804,10 @@ export function useSendWhatsappTemplate(id: string) {
         return [...list, message];
       });
       void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+      // inbox-views (Ola 1, micro-fix review): enviar un template también es
+      // una respuesta saliente → saca la conversación de "Sin atender".
+      // Mismo criterio que useSendWhatsappMessage.onSuccess.
+      void qc.invalidateQueries({ queryKey: whatsappViewCountsKey });
     },
   });
 

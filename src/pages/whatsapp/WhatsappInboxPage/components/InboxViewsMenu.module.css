@@ -68,7 +68,7 @@
   outline-offset: 2px;
 }
 
-.item[aria-current='true'] {
+.item[aria-current='page'] {
   background: var(--badge-active-bg);
   color: var(--badge-active-fg);
   font-weight: var(--font-weight-semibold);
@@ -100,7 +100,7 @@
   color: var(--color-gray-600);
 }
 
-.item[aria-current='true'] .count {
+.item[aria-current='page'] .count {
   background: var(--badge-active-fg);
   color: var(--color-white);
 }
