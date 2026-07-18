@@ -6,6 +6,7 @@ import type {
   WhatsappConversationListItem,
   WhatsappConversationStatus,
   WhatsappInboxClientContext,
+  WhatsappInboxViewCounts,
   WhatsappMessage,
   WhatsappPaginatedQuery,
   WhatsappPaginatedResult,
@@ -50,11 +51,28 @@ export const listWhatsappConversations = (
   // (open|resolved, design.md D2) — mismo criterio, solo se manda cuando
   // viene definido.
   if (query.status) params['status'] = query.status;
+  // inbox-views (Ola 1, VIEW-2): 'view=unattended' filtra server-side el
+  // bucket "Sin atender" (no-resuelta + último mensaje público inbound).
+  // Ortogonal a assignment (AND válido); GANA sobre status en el BE. Mismo
+  // criterio que el resto: solo se manda cuando viene definido.
+  if (query.view) params['view'] = query.view;
 
   return axiosClient
     .get<WhatsappPaginatedResult<WhatsappConversationListItem>>(`${BASE}/conversations`, { params })
     .then(r => r.data);
 };
+
+/**
+ * getInboxViewCounts (inbox-views Ola 1, COUNT-3) — contadores por vista para
+ * los badges del sub-menú (`GET /messaging/conversations/counts`). Respuesta
+ * FLAT (`res.json(result)`, SIN envelope `{data}` — mismo criterio que
+ * `getWhatsappConversation`, verificado contra el route handler real del
+ * worktree inbox-views-be). `mine` lo resuelve el BE del user AUTENTICADO
+ * (req.user.id) — jamás viaja un param. Gate `messaging:read` (mismo que el
+ * listado): un 403/503 acá lo degrada el hook (sub-menú sin números, no roto).
+ */
+export const getInboxViewCounts = (): Promise<WhatsappInboxViewCounts> =>
+  axiosClient.get<WhatsappInboxViewCounts>(`${BASE}/conversations/counts`).then(r => r.data);
 
 export const getWhatsappConversation = (id: string): Promise<WhatsappConversationDetail> =>
   axiosClient

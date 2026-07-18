@@ -63,9 +63,28 @@
   min-height: 0;
   overflow: hidden;
   display: grid;
-  grid-template-columns: 340px minmax(0, 1fr) 320px;
+  /* inbox-views (Ola 1) — 4 columnas: sub-menú de vistas (200px) | lista
+     (340px) | thread (flex) | contexto (320px). El sub-menú va a la
+     IZQUIERDA de la lista (paridad sidebar Chatwoot). */
+  grid-template-columns: 200px 340px minmax(0, 1fr) 320px;
   grid-template-rows: minmax(0, 1fr);
   background: var(--color-surface);
+}
+
+/* inbox-views (Ola 1) — columna del sub-menú de vistas (`InboxViewsMenu`).
+   Mismo contrato que las demás columnas: alto completo, scroll INTERNO del
+   componente (`.menu` declara overflow-y:auto). Colapso a rail de íconos:
+   AUTOMÁTICO por breakpoint (≤1200px → 56px, sincronizado a mano con el
+   media query de InboxViewsMenu.module.css que esconde los labels) — SIN
+   toggle manual, a diferencia del panel de contexto (decisión documentada
+   en InboxViewsMenu.module.css: un toggle sumaría estado+localStorage+botón
+   para esconder justamente el dashboard de counts que es la razón de ser
+   del panel). */
+.viewsCol {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--color-border);
 }
 
 .listCol {
@@ -100,11 +119,15 @@
   overflow: hidden;
 }
 
-/* >1200px: layout completo — lista (340px) + thread (flex) + contexto (320px). */
+/* >1200px: layout completo — vistas (200px) + lista (340px) + thread (flex)
+   + contexto (320px). */
 
+/* <=1200px: el contexto se oculta y el sub-menú de vistas colapsa a rail de
+   íconos (56px — InboxViewsMenu.module.css esconde los labels en el MISMO
+   breakpoint; ambos números se mueven juntos). */
 @media (max-width: 1200px) {
   .page {
-    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-columns: 56px 300px minmax(0, 1fr);
   }
 
   .contextCol {
@@ -122,11 +145,22 @@
  * renderiza en su header y llama `onBack` → `setSelectedId(null)`.
  */
 @media (max-width: 860px) {
+  /* inbox-views (Ola 1): sin selección se ve rail de vistas (56px) + lista;
+     con selección, thread-only (el rail también se esconde — en mobile el
+     thread necesita todo el ancho, y "volver" ya existe en el header). */
   .page {
+    grid-template-columns: 56px 1fr;
+  }
+
+  .page[data-has-selection='true'] {
     grid-template-columns: 1fr;
   }
 
   .page[data-has-selection='true'] .listCol {
+    display: none;
+  }
+
+  .page[data-has-selection='true'] .viewsCol {
     display: none;
   }
 
@@ -226,7 +260,7 @@
  */
 @media (min-width: 1201px) {
   .page[data-context-collapsed='true'] {
-    grid-template-columns: 340px minmax(0, 1fr);
+    grid-template-columns: 200px 340px minmax(0, 1fr);
   }
 
   .page[data-context-collapsed='true'] .contextCol {

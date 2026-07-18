@@ -38,6 +38,9 @@ vi.mock('@/api/whatsapp.api', () => ({
   // concedido (ver abajo), así que SÍ se disparan.
   getAssignableUsers: vi.fn(),
   getMessagingAreas: vi.fn(),
+  // inbox-views Ola 1: la page ahora también llama a `useInboxViewCounts`
+  // (badges del sub-menú de vistas) — mismo criterio que el comment de arriba.
+  getInboxViewCounts: vi.fn(),
 }));
 vi.mock('@/hooks/useMyPermissions');
 
@@ -131,6 +134,7 @@ beforeEach(() => {
   vi.mocked(whatsappApi.getInboxClientContext).mockResolvedValue(NEUTRAL_RICH_CONTEXT);
   vi.mocked(whatsappApi.getAssignableUsers).mockResolvedValue([]);
   vi.mocked(whatsappApi.getMessagingAreas).mockResolvedValue([]);
+  vi.mocked(whatsappApi.getInboxViewCounts).mockResolvedValue({ mine: 0, unattended: 0, all: 1, unassigned: 0, resolved: 0 });
 });
 
 describe('Retry de adjunto failed — bug crítico #1 (onRetry muerto, control sin cablear)', () => {

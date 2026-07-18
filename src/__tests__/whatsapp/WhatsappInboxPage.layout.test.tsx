@@ -59,30 +59,50 @@ describe('WhatsappInboxPage.module.css — bug #1 (banda de 48px al fondo: heigh
   });
 });
 
-describe('WhatsappInboxPage.module.css — breakpoint <=1200px (oculta el panel de contexto)', () => {
+describe('WhatsappInboxPage.module.css — inbox-views Ola 1: grid base de 4 columnas (vistas | lista | thread | contexto)', () => {
+  it('.page declara grid-template-columns: 200px 340px minmax(0, 1fr) 320px', () => {
+    const pageBlock = extractMediaBlock(cssText, '.page {');
+    expect(pageBlock).toMatch(/grid-template-columns:\s*200px\s+340px\s+minmax\(0,\s*1fr\)\s+320px/);
+  });
+
+  it('.viewsCol existe como columna con su propio scroll interno (mismo contrato que las otras columnas)', () => {
+    const block = extractMediaBlock(cssText, '.viewsCol {');
+    expect(block).toMatch(/height:\s*100%/);
+    expect(block).toMatch(/overflow:\s*hidden/);
+  });
+});
+
+describe('WhatsappInboxPage.module.css — breakpoint <=1200px (oculta contexto, colapsa vistas a rail de íconos)', () => {
   it('define @media (max-width: 1200px) con .contextCol en display:none', () => {
     const block = extractMediaBlock(cssText, '@media (max-width: 1200px)');
     expect(block).toMatch(/\.contextCol\s*\{[^}]*display:\s*none/);
   });
 
-  it('reduce la grilla a 2 columnas (lista + thread) en ese breakpoint', () => {
+  it('reduce la grilla a rail (56px) + lista + thread en ese breakpoint', () => {
     const block = extractMediaBlock(cssText, '@media (max-width: 1200px)');
-    expect(block).toMatch(/\.page\s*\{[^}]*grid-template-columns:/);
+    expect(block).toMatch(/\.page\s*\{[^}]*grid-template-columns:\s*56px\s+300px\s+minmax\(0,\s*1fr\)/);
   });
 });
 
-describe('WhatsappInboxPage.module.css — breakpoint <=860px (thread-only si hay selección)', () => {
-  it('define @media (max-width: 860px) con una sola columna', () => {
+describe('WhatsappInboxPage.module.css — breakpoint <=860px (thread-only si hay selección; rail + lista sin selección)', () => {
+  it('define @media (max-width: 860px) con rail + lista (56px 1fr) como base', () => {
     const block = extractMediaBlock(cssText, '@media (max-width: 860px)');
-    expect(block).toMatch(/\.page\s*\{[^}]*grid-template-columns:\s*1fr/);
+    expect(block).toMatch(/\.page\s*\{[^}]*grid-template-columns:\s*56px\s+1fr/);
   });
 
-  it('oculta .listCol SOLO cuando data-has-selection="true" (toggle vía selectedId, no oculto siempre)', () => {
+  it('con selección pasa a una sola columna (thread-only)', () => {
+    const block = extractMediaBlock(cssText, '@media (max-width: 860px)');
+    expect(block).toMatch(/\.page\[data-has-selection=['"]true['"]\]\s*\{[^}]*grid-template-columns:\s*1fr/);
+  });
+
+  it('oculta .listCol y .viewsCol SOLO cuando data-has-selection="true" (toggle vía selectedId, no ocultos siempre)', () => {
     const block = extractMediaBlock(cssText, '@media (max-width: 860px)');
     expect(block).toMatch(/\[data-has-selection=['"]true['"]\][^{]*\.listCol\s*\{[^}]*display:\s*none/);
-    // Sin selección, la lista NO debe estar en una regla incondicional de
-    // display:none (si lo estuviera, el usuario nunca podría ver la lista en mobile).
+    expect(block).toMatch(/\[data-has-selection=['"]true['"]\][^{]*\.viewsCol\s*\{[^}]*display:\s*none/);
+    // Sin selección, la lista/rail NO deben estar en una regla incondicional
+    // de display:none (el usuario nunca podría verlas en mobile).
     expect(block).not.toMatch(/^\s*\.listCol\s*\{[^}]*display:\s*none/m);
+    expect(block).not.toMatch(/^\s*\.viewsCol\s*\{[^}]*display:\s*none/m);
   });
 
   it('oculta thread + contexto cuando data-has-selection="false" (estado inicial, sin selección)', () => {
@@ -92,10 +112,10 @@ describe('WhatsappInboxPage.module.css — breakpoint <=860px (thread-only si ha
 });
 
 describe('WhatsappInboxPage.module.css — F1.5 spec #1 (panel de contexto COLAPSABLE, SOLO >1200px)', () => {
-  it('define @media (min-width: 1201px) con el grid a 2 columnas cuando data-context-collapsed="true"', () => {
+  it('define @media (min-width: 1201px) con el grid a 3 columnas (vistas + lista + thread) cuando data-context-collapsed="true"', () => {
     const block = extractMediaBlock(cssText, '@media (min-width: 1201px)');
     expect(block).toMatch(
-      /\.page\[data-context-collapsed=['"]true['"]\]\s*\{[^}]*grid-template-columns:\s*340px\s+minmax\(0,\s*1fr\)/,
+      /\.page\[data-context-collapsed=['"]true['"]\]\s*\{[^}]*grid-template-columns:\s*200px\s+340px\s+minmax\(0,\s*1fr\)/,
     );
   });
 
@@ -119,6 +139,6 @@ describe('WhatsappInboxPage.module.css — F1.5 spec #1 (panel de contexto COLAP
     const block1200 = extractMediaBlock(cssText, '@media (max-width: 1200px)');
     expect(block1200).toMatch(/\.contextCol\s*\{[^}]*display:\s*none/);
     const block860 = extractMediaBlock(cssText, '@media (max-width: 860px)');
-    expect(block860).toMatch(/\.page\s*\{[^}]*grid-template-columns:\s*1fr/);
+    expect(block860).toMatch(/\.page\s*\{[^}]*grid-template-columns:\s*56px\s+1fr/);
   });
 });

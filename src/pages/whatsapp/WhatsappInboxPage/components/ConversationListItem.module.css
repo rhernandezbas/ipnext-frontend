@@ -44,7 +44,7 @@
 
 /* Reduced motion: el timer JS (`ConversationList.tsx`) ya remueve la fila a
    0ms — esta regla es la 2da capa de defensa (belt-and-suspenders, mismo
-   criterio que `ConversationAssignmentFilter.module.css`) para el frame
+   criterio que `ConversationStatusToggle.module.css`) para el frame
    intermedio entre el mount del ghost y el timeout. */
 @media (prefers-reduced-motion: reduce) {
   .item[data-exiting='true'] {

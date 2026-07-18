@@ -315,6 +315,29 @@ export interface PendingSend {
   isPrivate: boolean;
 }
 
+/**
+ * inbox-views (Ola 1) — espejo EXACTO de `InboxViewCountsDto`
+ * (`ipnext-backend/src/application/dto/messaging.ts`, worktree inbox-views-be):
+ * contadores por VISTA del inbox para los badges del sub-menú lateral
+ * (`GET /messaging/conversations/counts`, respuesta FLAT sin envelope).
+ * `mine`/`unattended`/`all`/`unassigned` cuentan SOLO no-resueltas
+ * (`status != 'resolved'`, bucket LS-1); `resolved` va aparte (match exacto).
+ * NO confundir con `WhatsappInboxConversationsSummary` (interacciones de UN
+ * contacto, panel de contexto) — este es el agregado GLOBAL del inbox.
+ */
+export interface WhatsappInboxViewCounts {
+  /** No-resueltas asignadas al user autenticado. */
+  mine: number;
+  /** No-resueltas cuyo último mensaje público es inbound (Sin atender). */
+  unattended: number;
+  /** Todas las no-resueltas. */
+  all: number;
+  /** No-resueltas sin assignee. */
+  unassigned: number;
+  /** status === 'resolved' (bucket aparte, no solapa con los otros). */
+  resolved: number;
+}
+
 // ─── Pagination (espejo de `application/dto/pagination.ts`) ─────────────────
 
 export interface WhatsappPaginatedQuery {
@@ -339,6 +362,15 @@ export interface WhatsappPaginatedQuery {
    * default del CONTRATO (ausente = sin filtro) no cambia.
    */
   status?: 'open' | 'resolved';
+  /**
+   * inbox-views (Ola 1, VIEW-2) — bucket "Sin atender" server-side
+   * (`GET /messaging/conversations?view=unattended`): no-resuelta cuyo último
+   * mensaje público es del cliente. Eje PROPIO, ORTOGONAL a `assignment`
+   * (`view=unattended&assignment=mine` es un AND válido en el BE) y GANA
+   * sobre `status` (el bucket ya lleva su propio filtro de ciclo de vida).
+   * Mismo criterio que el resto: solo se manda cuando viene definido.
+   */
+  view?: 'unattended';
 }
 
 export interface WhatsappPaginatedResult<T> {

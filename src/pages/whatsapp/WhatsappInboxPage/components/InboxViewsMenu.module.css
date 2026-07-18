@@ -1,0 +1,140 @@
+/**
+ * InboxViewsMenu — sub-menú lateral de vistas (inbox-views Ola 1). Columna
+ * propia del grid de `WhatsappInboxPage` (`.viewsCol`, 200px a la IZQUIERDA
+ * de la lista); scrollea internamente igual que el resto de los paneles.
+ *
+ * COLAPSO (decisión de diseño, documentada también en
+ * WhatsappInboxPage.module.css): NO hay toggle manual (a diferencia del panel
+ * de contexto, F1.5 spec #1) — el colapso a rail de ÍCONOS es AUTOMÁTICO por
+ * breakpoint (≤1200px), sincronizado a mano con los anchos de columna del
+ * grid de la page (200px ↔ 56px). Un toggle manual sumaría estado +
+ * localStorage + botón para un panel de 200px cuyo contenido (los counts) es
+ * su única razón de ser — esconderlo a mano escondería el dashboard. En el
+ * rail, el `title` + `aria-label` del botón conservan el nombre de la vista
+ * y el badge numérico queda superpuesto al ícono (patrón sidebar Chatwoot).
+ *
+ * Contraste (ver InboxViewsMenu.contrast.test.tsx, ratios CALCULADOS):
+ * item reposo --color-text-primary/--color-surface; activo
+ * --badge-active-fg/--badge-active-bg (7.15:1); badge contador
+ * --color-gray-600/--color-gray-100 (6.9:1); badge activo
+ * --color-white/--badge-active-fg (8.7:1).
+ *
+ * Lecciones del repo aplicadas: cero `animation-fill-mode: both` (lección
+ * bulk-z-root: mantiene stacking contexts colgados); tokens SIEMPRE, ningún
+ * hex suelto; touch target min-height var(--space-11) = 44px (WCAG 2.5.8).
+ */
+
+.menu {
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-2);
+  background: var(--color-surface);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--space-11);
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.item:hover {
+  background: var(--color-surface-hover);
+}
+
+.item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.item[aria-current='true'] {
+  background: var(--badge-active-bg);
+  color: var(--badge-active-fg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.icon {
+  flex-shrink: 0;
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.count {
+  flex-shrink: 0;
+  min-width: 20px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  background: var(--color-gray-100);
+  color: var(--color-gray-600);
+}
+
+.item[aria-current='true'] .count {
+  background: var(--badge-active-fg);
+  color: var(--color-white);
+}
+
+/*
+ * ≤1200px — rail de ÍCONOS (colapso automático, ver header). Sincronizado con
+ * `WhatsappInboxPage.module.css` (`.viewsCol` pasa de 200px a 56px en el MISMO
+ * breakpoint). El label se esconde; el badge numérico se superpone a la
+ * esquina del botón (absolute) para que el count siga visible en el rail —
+ * los nombres de vista quedan en `title`/`aria-label`.
+ */
+@media (max-width: 1200px) {
+  .menu {
+    padding: var(--space-3) var(--space-1);
+  }
+
+  .item {
+    position: relative;
+    justify-content: center;
+    gap: 0;
+    padding: var(--space-2);
+  }
+
+  .label {
+    display: none;
+  }
+
+  .count {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    min-width: 16px;
+    line-height: 16px;
+    font-size: 10px;
+    padding: 0 3px;
+  }
+}

@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Input } from '@/components/atoms/Input/Input';
 import { ConversationListItem } from './ConversationListItem';
-import { ConversationStatusFilter } from './ConversationStatusFilter';
-import type { ConversationStatusFilterValue } from './ConversationStatusFilter';
-import { ConversationAssignmentFilter } from './ConversationAssignmentFilter';
 import { ConversationCampaignFilter } from './ConversationCampaignFilter';
 import { Skeleton } from './Skeleton';
-import type { ConversationAssignment, WhatsappCampaignTag, WhatsappConversationListItem } from '@/types/whatsapp';
+import type { WhatsappCampaignTag, WhatsappConversationListItem, WhatsappPaginatedQuery } from '@/types/whatsapp';
 import styles from './ConversationList.module.css';
+
+/**
+ * Bucket de ciclo de vida de la lista ('open' | 'resolved') — antes vivía en
+ * `ConversationStatusFilter` (`ConversationStatusFilterValue`); ese componente
+ * murió con inbox-views Ola 1 (el sub-menú de vistas de la page es la única
+ * fuente de status/assignment/view) y el tipo se re-ancla acá, derivado del
+ * contrato real (`WhatsappPaginatedQuery.status`).
+ */
+export type ConversationStatusBucket = NonNullable<WhatsappPaginatedQuery['status']>;
 
 interface ConversationListProps {
   conversations: WhatsappConversationListItem[];
@@ -16,30 +22,33 @@ interface ConversationListProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   /**
-   * inbox-resolve (TAB-1/TAB-4, design.md D5) — tabs de ciclo de vida
-   * Abiertas/Resueltas, SERVER-SIDE (mismo criterio que `assignment`:
-   * `WhatsappInboxPage` orquesta `useWhatsappConversations` con este valor
-   * en el `query`). Default `'open'` para no romper call sites/tests previos
-   * a esta tanda que no lo pasan — coincide con el default VISUAL de la page
-   * (design D5: estado inicial `{status:'open'}`).
+   * inbox-resolve (TAB-2/TAB-4, design.md D5) — bucket de ciclo de vida del
+   * cinturón CLIENT-SIDE (`matchesStatusBucket`) + del empty state default.
+   * inbox-views Ola 1: la lista YA NO monta el control que lo cambia (los
+   * tabs Abiertas/Resueltas murieron — el sub-menú de vistas de la page es
+   * la única fuente); el valor sigue llegando derivado del query de la page
+   * (`query.status ?? 'open'` — la vista "Sin atender" no manda status y cae
+   * en el bucket abierto, correcto: sus filas son todas no-resueltas).
+   * Default `'open'` para no romper call sites/tests previos.
    */
-  status?: ConversationStatusFilterValue;
-  onStatusChange?: (next: ConversationStatusFilterValue) => void;
+  status?: ConversationStatusBucket;
   /**
-   * messaging-inbox-assignment F1.5-C2 — filtro de asignación SERVER-SIDE
-   * (`WhatsappInboxPage` orquesta `useWhatsappConversations` con este valor en
-   * el `query`, design contrato). Opcionales con default 'all'/no-op para no
-   * romper los call sites/tests previos a esta tanda (que no lo pasan).
+   * inbox-views Ola 1 — empty state POR VISTA (la lista no conoce la vista
+   * activa; la page mapea `INBOX_VIEW_EMPTY_MESSAGES[activeView]`): "Mi
+   * bandeja" vacía con "No hay conversaciones abiertas." sería mentira si hay
+   * abiertas de otros agentes. Sin este prop, cae al default por `status`
+   * (compat con call sites/tests previos).
    */
-  assignment?: ConversationAssignment;
-  onAssignmentChange?: (next: ConversationAssignment) => void;
+  emptyMessage?: string;
   /**
    * messaging-bulk-inbox Change 2 — filtro de campaña SERVER-SIDE (mismo molde
-   * que `assignment`: `WhatsappInboxPage` orquesta `useWhatsappConversations`
-   * con `campaignId` en el `query`). El catálogo (`campaigns`) viene de
-   * `useCampaigns`, gateado por `messaging.bulk`; cuando está vacío el filtro
-   * ni se monta (nada útil que filtrar). Opcionales con default para no romper
-   * los call sites/tests previos a esta tanda.
+   * que el resto del query: `WhatsappInboxPage` orquesta
+   * `useWhatsappConversations` con `campaignId` en el `query`). El catálogo
+   * (`campaigns`) viene de `useCampaigns`, gateado por `messaging.bulk`;
+   * cuando está vacío el filtro ni se monta (nada útil que filtrar).
+   * Opcionales con default para no romper los call sites/tests previos.
+   * inbox-views Ola 1: este filtro y la búsqueda QUEDAN acá — son ejes
+   * ortogonales a las vistas, no los reemplaza el sub-menú.
    */
   campaigns?: WhatsappCampaignTag[];
   campaignId?: string;
@@ -64,7 +73,7 @@ function matchesSearch(conv: WhatsappConversationListItem, term: string): boolea
  * (que solo cambia `status` en el cache de la lista) saque/meta la fila del
  * bucket activo apenas corre `onMutate`, antes de que el POST resuelva.
  */
-function matchesStatusBucket(conv: WhatsappConversationListItem, status: ConversationStatusFilterValue): boolean {
+function matchesStatusBucket(conv: WhatsappConversationListItem, status: ConversationStatusBucket): boolean {
   return status === 'resolved' ? conv.status === 'resolved' : conv.status !== 'resolved';
 }
 
@@ -115,9 +124,7 @@ export function ConversationList({
   selectedId,
   onSelect,
   status = 'open',
-  onStatusChange = () => {},
-  assignment = 'all',
-  onAssignmentChange = () => {},
+  emptyMessage,
   campaigns = [],
   campaignId,
   onCampaignChange = () => {},
@@ -157,7 +164,7 @@ export function ConversationList({
   const ghostsRef = useRef<Map<string, WhatsappConversationListItem>>(new Map());
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const prevBucketedIdsRef = useRef<Set<string>>(new Set());
-  const prevStatusRef = useRef<ConversationStatusFilterValue>(status);
+  const prevStatusRef = useRef<ConversationStatusBucket>(status);
 
   useEffect(() => {
     const currentIds = new Set(bucketed.map((c) => c.id));
@@ -267,15 +274,16 @@ export function ConversationList({
 
   return (
     <div className={styles.panel}>
-      <div className={styles.filterWrapper}>
-        <ConversationStatusFilter value={status} onChange={onStatusChange} />
-        <ConversationAssignmentFilter value={assignment} onChange={onAssignmentChange} />
-        {/* messaging-bulk-inbox Change 2 — solo se monta si hay campañas en el
-            catálogo (sin ellas no hay nada que filtrar). */}
-        {campaigns.length > 0 && (
+      {/* inbox-views Ola 1: los filtros de estado/asignación SE FUERON de
+          esta barra (el sub-menú de vistas de la page — `InboxViewsMenu` —
+          es la única fuente de status/assignment/view). Queda SOLO el filtro
+          de campaña (eje ortogonal a las vistas), que sigue montándose solo
+          si hay campañas en el catálogo (sin ellas no hay nada que filtrar). */}
+      {campaigns.length > 0 && (
+        <div className={styles.filterWrapper}>
           <ConversationCampaignFilter campaigns={campaigns} value={campaignId} onChange={onCampaignChange} />
-        )}
-      </div>
+        </div>
+      )}
 
       <div className={styles.searchWrapper}>
         <Input
@@ -312,10 +320,13 @@ export function ConversationList({
           resueltas / tab Abiertas activa" debe mostrar "No hay conversaciones
           abiertas." aunque `conversations` traiga filas (todas resueltas), y
           NO debe mostrarse mientras la última fila resuelta todavía está
-          colapsando (MOTION-1) — recién cuando `rows` queda en 0. */}
+          colapsando (MOTION-1) — recién cuando `rows` queda en 0.
+          inbox-views Ola 1: `emptyMessage` (mapeado por la page desde la
+          vista activa) overridea el default por status — "Mi bandeja" vacía
+          no debe mentir "no hay abiertas". */}
       {!isLoading && !isError && rows.length === 0 && (
         <p className={styles.emptyState}>
-          {status === 'resolved' ? 'No hay conversaciones resueltas.' : 'No hay conversaciones abiertas.'}
+          {emptyMessage ?? (status === 'resolved' ? 'No hay conversaciones resueltas.' : 'No hay conversaciones abiertas.')}
         </p>
       )}
 

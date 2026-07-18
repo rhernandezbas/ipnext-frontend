@@ -10,17 +10,20 @@ import {
   useSetConversationArea,
   useAssignableUsers,
   useMessagingAreas,
+  useInboxViewCounts,
   usePendingSends,
   whatsappMessagesKey,
 } from '@/hooks/useWhatsapp';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { useCampaigns } from '@/hooks/useBulkMessaging';
 import { ConversationList } from './WhatsappInboxPage/components/ConversationList';
+import { InboxViewsMenu } from './WhatsappInboxPage/components/InboxViewsMenu';
+import { INBOX_VIEW_PRESETS, INBOX_VIEW_EMPTY_MESSAGES } from './WhatsappInboxPage/components/inboxViews';
+import type { InboxViewId } from './WhatsappInboxPage/components/inboxViews';
 import { MessageThread } from './WhatsappInboxPage/components/MessageThread';
 import { ClientContextPanel } from './WhatsappInboxPage/components/ClientContextPanel';
 import { Composer } from './WhatsappInboxPage/components/Composer';
 import type {
-  ConversationAssignment,
   WhatsappArea,
   WhatsappAssignee,
   WhatsappConversationStatus,
@@ -68,11 +71,12 @@ const UNDO_TOAST_DURATION_MS = 5000;
 
 /**
  * WhatsappInboxPage — container del inbox WhatsApp (messaging-inbox F1,
- * design §1/§2/§4, FB4). Orquesta los 4 hooks de `useWhatsapp.ts` (FB1) y
- * compone los 4 paneles presentacionales (FB2/FB3) vía props — este archivo
- * NO tiene lógica de negocio propia, solo wiring + el layout 3-paneles
- * full-height (`WhatsappInboxPage.module.css`, primer opt-out local del
- * padding de `AdminLayout` en el repo).
+ * design §1/§2/§4, FB4). Orquesta los hooks de `useWhatsapp.ts` (FB1) y
+ * compone los paneles presentacionales (FB2/FB3) vía props — este archivo
+ * NO tiene lógica de negocio propia, solo wiring + el layout full-height
+ * (`WhatsappInboxPage.module.css`, primer opt-out local del padding de
+ * `AdminLayout` en el repo). inbox-views Ola 1 lo llevó de 3 a 4 columnas:
+ * sub-menú de vistas (`InboxViewsMenu`) | lista | thread | contexto.
  *
  * `selectedId` es estado LOCAL (design §4, LIST-1): vive acá, no en la query
  * de conversaciones — el polling de `useWhatsappConversations` reemplaza el
@@ -89,19 +93,20 @@ const UNDO_TOAST_DURATION_MS = 5000;
  */
 export default function WhatsappInboxPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // messaging-inbox-assignment F1.5-C2: `query` ahora tiene setter — el
-  // filtro Todas/Mías/Sin asignar (`ConversationAssignmentFilter`, montado
-  // dentro de `ConversationList`) lo levanta hasta acá. `assignment` queda
-  // AUSENTE del objeto (no `'all'` explícito) cuando el filtro está en
-  // "Todas" — mismo criterio que `listWhatsappConversations` (solo manda el
-  // param cuando viene definido).
+  // inbox-views (Ola 1): la vista activa del sub-menú lateral (`InboxViewsMenu`)
+  // es la ÚNICA fuente de status/assignment/view del listado — reemplaza a los
+  // viejos tabs Abiertas/Resueltas + radios Todas/Mías/Sin asignar de la barra
+  // de la lista. Default `'all'` = preset `{status:'open'}`, IDÉNTICO al
+  // estado inicial histórico (mismo cache entry de React Query, cero regresión).
+  const [activeView, setActiveView] = useState<InboxViewId>('all');
+  // `query` sigue siendo el estado que viaja a `useWhatsappConversations` —
+  // las vistas lo SETEAN por preset (`INBOX_VIEW_PRESETS`, ver
+  // `handleViewChange`), el filtro de campaña lo complementa (eje ortogonal,
+  // `handleCampaignChange`) y la búsqueda queda client-side en la lista.
   //
-  // inbox-resolve (design.md D5): estado inicial AHORA `{status:'open'}`
-  // (antes `{}`) — a diferencia de `assignment`, `status` SIEMPRE viaja
-  // explícito (nunca se omite): el default del CONTRATO BE es "sin filtro"
-  // (D2), pero el default VISUAL del FE es la tab Abiertas, y eso requiere
-  // mandar `status=open` a propósito en cada fetch, no confiar en un default
-  // implícito del servidor.
+  // inbox-resolve (design.md D5): el preset de 'all' manda `status:'open'`
+  // explícito (default VISUAL del FE) — el default del CONTRATO BE sigue
+  // siendo "sin filtro" (D2), no se confía en un default implícito del server.
   const [query, setQuery] = useState<WhatsappPaginatedQuery>({ status: 'open' });
   const queryClient = useQueryClient();
 
@@ -127,6 +132,11 @@ export default function WhatsappInboxPage() {
   }
 
   const conversationsQuery = useWhatsappConversations(query);
+  // inbox-views (Ola 1): contadores por vista para los badges del sub-menú.
+  // Polling 30s + invalidación explícita en las mutations de status/assignee
+  // (ver `useWhatsapp.ts`). Si el GET falla (403 sin messaging:read / 503),
+  // `data` queda undefined y el sub-menú degrada a "sin números" — nunca roto.
+  const viewCountsQuery = useInboxViewCounts();
   const detailQuery = useWhatsappConversation(selectedId ?? '');
   const messagesQuery = useWhatsappMessages(selectedId ?? '');
   // messaging-inbox-v2-media F1.5 fase A, Tanda 2 (ENVIAR, design §6.3):
@@ -337,21 +347,17 @@ export default function WhatsappInboxPage() {
   }
 
   /**
-   * F1.5-C2 (ASIGNACIÓN) — cambia el filtro server-side de la lista.
-   * `undefined` cuando vuelve a "all": mantiene `{}` como identidad estable
-   * del estado inicial (mismo cache entry, ver comment de `query` arriba).
+   * inbox-views (Ola 1) — cambio de vista del sub-menú. El preset REEMPLAZA
+   * los 3 ejes que el sub-menú gobierna (status/assignment/view — spread del
+   * preset entero, sin arrastrar los del preset anterior: los presets son
+   * EXCLUYENTES, "Resueltas" después de "Mi bandeja" no queda "resueltas
+   * mías") y PRESERVA solo `campaignId` (eje ortogonal, dueño: el filtro de
+   * campaña de la lista). La búsqueda ni aparece acá — es client-side de
+   * `ConversationList`, el query nunca la conoció.
    */
-  function handleAssignmentChange(next: ConversationAssignment) {
-    setQuery((q) => ({ ...q, assignment: next === 'all' ? undefined : next }));
-  }
-
-  /**
-   * inbox-resolve (TAB-1, design.md D5) — cambia el filtro server-side de
-   * ciclo de vida. A diferencia de `handleAssignmentChange`, `status` NUNCA
-   * se omite (no hay tab "Todas" en v1 — dos buckets es el feature).
-   */
-  function handleStatusChange(next: WhatsappPaginatedQuery['status']) {
-    setQuery((q) => ({ ...q, status: next }));
+  function handleViewChange(next: InboxViewId) {
+    setActiveView(next);
+    setQuery((q) => ({ ...INBOX_VIEW_PRESETS[next], campaignId: q.campaignId }));
   }
 
   /**
@@ -417,6 +423,15 @@ export default function WhatsappInboxPage() {
       data-has-selection={selectedId !== null}
       data-context-collapsed={contextCollapsed}
     >
+      {/* inbox-views (Ola 1) — sub-menú lateral de vistas (columna propia,
+          la más angosta, a la IZQUIERDA de la lista — grid de 4 columnas, ver
+          WhatsappInboxPage.module.css). Colapsa a rail de íconos por CSS en
+          viewport angosto (automático, sin toggle manual — decisión
+          documentada en InboxViewsMenu.module.css). */}
+      <div className={styles.viewsCol}>
+        <InboxViewsMenu active={activeView} counts={viewCountsQuery.data} onSelect={handleViewChange} />
+      </div>
+
       <div className={styles.listCol}>
         <ConversationList
           conversations={conversations}
@@ -424,10 +439,11 @@ export default function WhatsappInboxPage() {
           isError={conversationsQuery.isError}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          // `query.status ?? 'open'`: la vista "Sin atender" no manda status
+          // (view gana en el BE) y cae en el bucket abierto del cinturón
+          // client-side — correcto, sus filas son todas no-resueltas.
           status={query.status ?? 'open'}
-          onStatusChange={handleStatusChange}
-          assignment={query.assignment ?? 'all'}
-          onAssignmentChange={handleAssignmentChange}
+          emptyMessage={INBOX_VIEW_EMPTY_MESSAGES[activeView]}
           campaigns={campaigns}
           campaignId={query.campaignId}
           onCampaignChange={handleCampaignChange}

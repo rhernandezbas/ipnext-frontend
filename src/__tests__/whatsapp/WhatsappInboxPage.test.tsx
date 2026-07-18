@@ -35,6 +35,7 @@ import type {
   WhatsappConversationListItem,
   WhatsappConversationDetail,
   WhatsappInboxClientContext,
+  WhatsappInboxViewCounts,
   WhatsappMessage,
   WhatsappPaginatedResult,
 } from '@/types/whatsapp';
@@ -179,6 +180,7 @@ function setHooks({
   messages = [],
   richContext,
   pendingSends = [],
+  viewCounts,
 }: {
   conversations?: WhatsappPaginatedResult<WhatsappConversationListItem>;
   detail?: WhatsappConversationDetail;
@@ -191,6 +193,11 @@ function setHooks({
   /** messaging-inbox-v2-media F1.5 fase A, Tanda 2 (ENVIAR) — envíos en
    * vuelo que `usePendingSends` devolvería para la conversación abierta. */
   pendingSends?: PendingSend[];
+  /** inbox-views Ola 1 — contadores del sub-menú. Default `undefined`
+   * (counts caídos/cargando): el sub-menú se pinta SIN números, así el
+   * accname de cada vista queda pelado ("Todas", "Resueltas", …) y el resto
+   * de la suite interactúa por nombre exacto sin acoplarse a los counts. */
+  viewCounts?: WhatsappInboxViewCounts;
 } = {}) {
   vi.mocked(useWhatsappModule.useWhatsappConversations).mockReturnValue(
     mockQuery({ data: conversations, isLoading: false }),
@@ -247,6 +254,10 @@ function setHooks({
   );
   vi.mocked(useWhatsappModule.useMessagingAreas).mockReturnValue(
     mockQuery<WhatsappArea[]>({ data: [], isLoading: false }),
+  );
+  // inbox-views Ola 1 — counts del sub-menú (ver el comment de `viewCounts`).
+  vi.mocked(useWhatsappModule.useInboxViewCounts).mockReturnValue(
+    mockQuery<WhatsappInboxViewCounts>({ data: viewCounts, isLoading: false }),
   );
   // messaging-bulk-inbox Change 2 — default vacío: sin campañas el filtro de
   // campaña no se monta (cada test que lo necesite llama a `setCampaigns`).
@@ -993,8 +1004,8 @@ describe('WhatsappInboxPage — inbox-resolve (UNDO-1): resolver directo + toast
   });
 });
 
-describe('WhatsappInboxPage — inbox-resolve: Reabrir funciona seleccionando desde la tab Resueltas', () => {
-  it('tab Resueltas → seleccionar una conversación resuelta → Reabrir llama a setStatus("open") (el toggle existente ya lo permite)', async () => {
+describe('WhatsappInboxPage — inbox-resolve: Reabrir funciona seleccionando desde la vista Resueltas', () => {
+  it('vista Resueltas → seleccionar una conversación resuelta → Reabrir llama a setStatus("open") (el toggle existente ya lo permite)', async () => {
     const CONV_RESOLVED: WhatsappConversationListItem = { ...CONV_B, id: 'conv-r', contactName: 'Resuelta Uno', status: 'resolved' };
     const setStatus = vi.fn();
     setHooks({
@@ -1011,7 +1022,7 @@ describe('WhatsappInboxPage — inbox-resolve: Reabrir funciona seleccionando de
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByRole('radio', { name: 'Resueltas' }));
+    await user.click(screen.getByRole('button', { name: 'Resueltas' }));
     expect(screen.getByRole('button', { name: /Conversación con Resuelta Uno/i })).toBeInTheDocument();
     // las abiertas no aparecen en esta tab.
     expect(screen.queryByRole('button', { name: /Conversación con Maria Gomez/i })).toBeNull();
@@ -1023,68 +1034,136 @@ describe('WhatsappInboxPage — inbox-resolve: Reabrir funciona seleccionando de
   });
 });
 
-describe('WhatsappInboxPage — F1.5-C2 (ASIGNACIÓN): filtro Todas/Mías/Sin asignar (server-side)', () => {
-  it('por default llama a useWhatsappConversations con {status:"open"} (sin assignment, inbox-resolve D5) — cero regresión del wiring existente', () => {
+describe('WhatsappInboxPage — inbox-views Ola 1: sub-menú de vistas (pin del query por vista)', () => {
+  it('por default la vista "Todas" está activa (aria-current) y llama a useWhatsappConversations con {status:"open"} — cero regresión del cache entry inicial', () => {
     renderPage();
+    expect(screen.getByRole('button', { name: 'Todas' })).toHaveAttribute('aria-current', 'true');
     expect(useWhatsappModule.useWhatsappConversations).toHaveBeenCalledWith({ status: 'open' });
   });
 
-  it('cambiar a la pestaña "Mías" pasa {status:"open",assignment:"mine"} a useWhatsappConversations', async () => {
+  it('"Mi bandeja" pasa {status:"open",assignment:"mine"} a useWhatsappConversations', async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByRole('radio', { name: 'Mías' }));
+    await user.click(screen.getByRole('button', { name: 'Mi bandeja' }));
 
     expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open', assignment: 'mine' });
   });
 
-  it('cambiar a "Sin asignar" pasa {status:"open",assignment:"unassigned"}', async () => {
+  it('"Sin atender" pasa {view:"unattended"} — SIN status ni assignment (view gana sobre status en el BE)', async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByRole('radio', { name: 'Sin asignar' }));
+    await user.click(screen.getByRole('button', { name: 'Sin atender' }));
+
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ view: 'unattended' });
+  });
+
+  it('"Sin asignar" pasa {status:"open",assignment:"unassigned"}', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Sin asignar' }));
 
     expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open', assignment: 'unassigned' });
   });
 
-  it('volver a "Todas" (desde "Mías") vuelve a {status:"open"} — mismo cache entry que el estado inicial', async () => {
+  it('volver a "Todas" (desde "Mi bandeja") vuelve a {status:"open"} — mismo cache entry que el estado inicial', async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByRole('radio', { name: 'Mías' }));
-    await user.click(screen.getByRole('radio', { name: 'Todas' }));
+    await user.click(screen.getByRole('button', { name: 'Mi bandeja' }));
+    await user.click(screen.getByRole('button', { name: 'Todas' }));
 
     expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open' });
   });
-});
 
-describe('WhatsappInboxPage — inbox-resolve (TAB-1): tabs Abiertas/Resueltas (server-side)', () => {
-  it('default: la tab Abiertas está seleccionada y el request lleva status=open', () => {
+  it('los presets NO acumulan ejes: Mi bandeja → Resueltas deja {status:"resolved"} SIN assignment', async () => {
+    const user = userEvent.setup();
     renderPage();
-    expect(screen.getByRole('radio', { name: 'Abiertas' })).toBeChecked();
-    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenCalledWith({ status: 'open' });
+
+    await user.click(screen.getByRole('button', { name: 'Mi bandeja' }));
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open', assignment: 'mine' });
+
+    await user.click(screen.getByRole('button', { name: 'Resueltas' }));
+
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'resolved' });
   });
 
+  it('aria-current acompaña a la vista activa (y deja a la anterior sin marcar)', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Sin atender' }));
+
+    expect(screen.getByRole('button', { name: 'Sin atender' })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('button', { name: 'Todas' })).not.toHaveAttribute('aria-current');
+  });
+});
+
+describe('WhatsappInboxPage — inbox-views Ola 1: counts del sub-menú (badges vivos)', () => {
+  const COUNTS: WhatsappInboxViewCounts = { mine: 4, unattended: 7, all: 23, unassigned: 0, resolved: 118 };
+
+  it('pide useInboxViewCounts y pinta el contador de cada vista (incluido el CERO — es información)', () => {
+    setHooks({ viewCounts: COUNTS });
+    renderPage();
+
+    expect(useWhatsappModule.useInboxViewCounts).toHaveBeenCalled();
+    const nav = screen.getByRole('navigation', { name: 'Vistas del inbox' });
+    expect(within(nav).getByRole('button', { name: 'Sin atender, 7 conversaciones' })).toBeInTheDocument();
+    expect(within(nav).getByRole('button', { name: 'Sin asignar, 0 conversaciones' })).toBeInTheDocument();
+    expect(within(nav).getByRole('button', { name: 'Resueltas, 118 conversaciones' })).toBeInTheDocument();
+  });
+
+  it('con >99 el badge visual muestra "99+" (el accname conserva el número real)', () => {
+    setHooks({ viewCounts: { ...COUNTS, all: 240 } });
+    renderPage();
+
+    const all = screen.getByRole('button', { name: 'Todas, 240 conversaciones' });
+    expect(within(all).getByText('99+')).toBeInTheDocument();
+  });
+
+  it('si el hook de counts falla (403 sin messaging:read / 503), el sub-menú queda SIN números pero 100% operable', async () => {
+    setHooks(); // viewCounts undefined = counts caídos
+    vi.mocked(useWhatsappModule.useInboxViewCounts).mockReturnValue(
+      mockQuery<WhatsappInboxViewCounts>({ data: undefined, isLoading: false, isError: true, error: new Error('403') }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const nav = screen.getByRole('navigation', { name: 'Vistas del inbox' });
+    // las 5 vistas presentes, con accname pelado (sin ", N conversaciones").
+    expect(within(nav).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Mi bandeja',
+      'Sin atender',
+      'Todas',
+      'Sin asignar',
+      'Resueltas',
+    ]);
+    // y sigue navegable: el click cambia el query igual.
+    await user.click(within(nav).getByRole('button', { name: 'Sin atender' }));
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ view: 'unattended' });
+  });
+});
+
+describe('WhatsappInboxPage — inbox-views Ola 1: los controles viejos se fueron de la barra de la lista', () => {
+  it('no queda NINGÚN radio (tabs Abiertas/Resueltas + radios Todas/Mías/Sin asignar murieron — el sub-menú es la única fuente)', () => {
+    renderPage();
+    expect(screen.queryAllByRole('radio')).toHaveLength(0);
+  });
+});
+
+describe('WhatsappInboxPage — inbox-resolve (TAB-1, enmendado inbox-views): la vista Resueltas filtra server-side', () => {
   it('cambiar a Resueltas pasa {status:"resolved"} a useWhatsappConversations', async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByRole('radio', { name: 'Resueltas' }));
+    await user.click(screen.getByRole('button', { name: 'Resueltas' }));
 
-    expect(screen.getByRole('radio', { name: 'Resueltas' })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Resueltas' })).toHaveAttribute('aria-current', 'true');
     expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'resolved' });
   });
 
-  it('combinable con filtros existentes: tab Abiertas + "Mías" manda {status:"open",assignment:"mine"} (los filtros NO se resetean al cambiar de tab)', async () => {
-    const user = userEvent.setup();
-    renderPage();
-
-    await user.click(screen.getByRole('radio', { name: 'Mías' }));
-    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open', assignment: 'mine' });
-
-    await user.click(screen.getByRole('radio', { name: 'Resueltas' }));
-    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'resolved', assignment: 'mine' });
-  });
 });
 
 describe('WhatsappInboxPage — inbox-resolve (TAB-3): selectedId/thread sobreviven al resolve y al cambio de tab', () => {
@@ -1110,7 +1189,7 @@ describe('WhatsappInboxPage — inbox-resolve (TAB-3): selectedId/thread sobrevi
     expect(useWhatsappModule.useWhatsappMessages).toHaveBeenLastCalledWith('conv-b');
   });
 
-  it('cambiar de tab (Abiertas → Resueltas) NO toca selectedId — el thread de la conversación seleccionada sigue montado', async () => {
+  it('cambiar de vista (Todas → Resueltas) NO toca selectedId — el thread de la conversación seleccionada sigue montado', async () => {
     setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
     const user = userEvent.setup();
     renderPage();
@@ -1118,7 +1197,7 @@ describe('WhatsappInboxPage — inbox-resolve (TAB-3): selectedId/thread sobrevi
     await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
     expect(screen.getByRole('textbox', { name: /mensaje/i })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('radio', { name: 'Resueltas' }));
+    await user.click(screen.getByRole('button', { name: 'Resueltas' }));
 
     expect(useWhatsappModule.useWhatsappConversation).toHaveBeenLastCalledWith('conv-b');
     expect(useWhatsappModule.useWhatsappMessages).toHaveBeenLastCalledWith('conv-b');
@@ -1179,18 +1258,32 @@ describe('WhatsappInboxPage — Change 2 (BULK): filtro de campaña (Select prop
     expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open' });
   });
 
-  it('el filtro de campaña y el de asignación coexisten (ambos server-side en el mismo query)', async () => {
+  it('el filtro de campaña y la vista activa coexisten (ambos server-side en el mismo query)', async () => {
     setCampaigns(CAMPAIGNS);
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByRole('radio', { name: 'Mías' }));
+    await user.click(screen.getByRole('button', { name: 'Mi bandeja' }));
     expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open', assignment: 'mine' });
 
     await user.click(screen.getByRole('combobox', { name: /campaña/i }));
     await user.click(screen.getByRole('option', { name: 'Black Friday' }));
 
     expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open', assignment: 'mine', campaignId: 'camp-2' });
+  });
+
+  it('cambiar de vista PRESERVA el filtro de campaña activo (los presets pisan status/assignment/view, jamás campaignId)', async () => {
+    setCampaigns(CAMPAIGNS);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('combobox', { name: /campaña/i }));
+    await user.click(screen.getByRole('option', { name: 'Black Friday' }));
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ status: 'open', campaignId: 'camp-2' });
+
+    await user.click(screen.getByRole('button', { name: 'Sin atender' }));
+
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ view: 'unattended', campaignId: 'camp-2' });
   });
 });
 

@@ -52,6 +52,17 @@ export const whatsappClientContextKey = (conversationId: string, clientId: strin
 export const whatsappAssignableUsersKey = ['whatsapp', 'assignableUsers'] as const;
 export const whatsappAreasKey = ['whatsapp', 'areas'] as const;
 
+/**
+ * inbox-views (Ola 1) — contadores por vista del sub-menú (`GET
+ * /messaging/conversations/counts`). FUERA de `WHATSAPP_CONVERSATIONS_ROOT`
+ * A PROPÓSITO: los optimistas de status/assignee/area hacen `setQueriesData`
+ * root-scoped asumiendo el shape paginado (`old.data.map(...)`) — un entry de
+ * counts colgado bajo ese root sería "parcheado" por esos updaters (crash u
+ * objeto corrupto). El precio es invalidarlo EXPLÍCITAMENTE en las mutations
+ * que mueven conversaciones entre vistas (status/assignee, ver `onSettled`).
+ */
+export const whatsappViewCountsKey = ['whatsapp', 'viewCounts'] as const;
+
 /** inbox-template-send (design D11) — catálogo de templates enviables desde el composer. */
 export const whatsappSendTemplatesKey = ['whatsapp', 'sendTemplates'] as const;
 
@@ -97,6 +108,28 @@ export function useWhatsappMessages(id: string) {
     queryFn: () => api.listWhatsappMessages(id),
     enabled: !!id,
     refetchInterval: visible ? 5_000 : false,
+  });
+}
+
+/**
+ * useInboxViewCounts (inbox-views Ola 1) — contadores por vista para los
+ * badges del sub-menú lateral (`InboxViewsMenu`). Polling 30s (más laxo que
+ * la lista de 15s: los badges son orientativos, la lista es la verdad) —
+ * mismo gate `useDocumentVisible` que el resto del archivo. Sin `enabled`
+ * por permiso: el endpoint pide `messaging:read`, el MISMO gate que el
+ * listado que esta página ya requiere para existir — si el GET falla igual
+ * (403/503), `data` queda undefined y el sub-menú degrada a "sin números"
+ * (nunca roto). Refresh inmediato post-mutación: `useSetConversationStatus`
+ * y `useSetConversationAssignee` invalidan `whatsappViewCountsKey` en su
+ * `onSettled` (resolver/reabrir/asignar mueven conversaciones entre vistas).
+ */
+export function useInboxViewCounts() {
+  const visible = useDocumentVisible();
+
+  return useQuery({
+    queryKey: whatsappViewCountsKey,
+    queryFn: api.getInboxViewCounts,
+    refetchInterval: visible ? 30_000 : false,
   });
 }
 
@@ -358,6 +391,13 @@ export function useSetConversationStatus(id: string) {
     onSettled: (_data, _err, vars) => {
       void qc.invalidateQueries({ queryKey: whatsappConversationKey(vars.convId) });
       void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+      // inbox-views (Ola 1): resolver/reabrir mueve la conversación entre
+      // vistas (all/mine/unattended/unassigned ↔ resolved) — refetch inmediato
+      // de los badges del sub-menú, sin esperar el poll de 30s. En error
+      // TAMBIÉN (onSettled): el counts key vive fuera del root de
+      // conversaciones (ver su comentario), así que ninguna otra invalidación
+      // lo cubre.
+      void qc.invalidateQueries({ queryKey: whatsappViewCountsKey });
     },
   });
 
@@ -500,6 +540,9 @@ export function useSetConversationAssignee(id: string) {
     onSettled: (_data, _err, vars) => {
       void qc.invalidateQueries({ queryKey: whatsappConversationKey(vars.convId) });
       void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+      // inbox-views (Ola 1): asignar/desasignar mueve la conversación entre
+      // "Mi bandeja"/"Sin asignar" — mismo criterio que useSetConversationStatus.
+      void qc.invalidateQueries({ queryKey: whatsappViewCountsKey });
     },
   });
 
