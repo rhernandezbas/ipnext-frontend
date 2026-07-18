@@ -4,6 +4,9 @@ import { formatDateTimeShort } from '@/utils/formatDate';
 import { useArchiveNewsPost } from '@/hooks/useNews';
 import { useConfirm } from '@/context/ConfirmContext';
 import { Can } from '@/components/auth/Can';
+import { SafeMarkdown } from '@/components/markdown/SafeMarkdown';
+import { NewsAttachmentGallery } from './NewsAttachmentGallery';
+import { NewsBroadcastButton } from './NewsBroadcastButton';
 import type { NewsPost } from '@/types/news';
 import styles from './NewsDetailDrawer.module.css';
 
@@ -48,8 +51,9 @@ interface NewsDetailDrawerProps {
  * portal + focus-trap + Esc, molde `ConfirmModal.tsx`. The caller MUST mount
  * this keyed by `post.id` (lección inbox: sin key, el estado local —acá el
  * guard de mark-read— contamina entre noticias distintas). Body renders as
- * plain `white-space: pre-wrap` text — React already escapes it, no HTML is
- * ever interpreted.
+ * MARKDOWN via `SafeMarkdown` (React nodes, never `dangerouslySetInnerHTML`; a
+ * body with `<script>` / `[x](javascript:)` can NOT execute). Attachments show
+ * as a gallery; the `news.manage` broadcast button lives in the manage block.
  *
  * Review fix M3: `NewsPostModal` (edit) and `useArchiveNewsPost` existed but
  * were never wired to any trigger — dead code, feature unreachable despite
@@ -208,9 +212,15 @@ export function NewsDetailDrawer({ post, onClose, onMarkRead, onEdit, onArchived
               {errorFeedback}
             </p>
           )}
+          <NewsBroadcastButton postId={post.id} lastBroadcastAt={post.lastBroadcastAt} />
         </Can>
 
-        <p className={styles.body}>{post.body}</p>
+        {/* Body is MARKDOWN (N2) — rendered to React nodes, never as HTML (no XSS). */}
+        <div className={styles.body}>
+          <SafeMarkdown source={post.body} />
+        </div>
+
+        <NewsAttachmentGallery attachments={post.attachments} />
       </div>
     </div>,
     document.body,

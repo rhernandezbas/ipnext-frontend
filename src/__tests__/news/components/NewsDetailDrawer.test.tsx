@@ -5,14 +5,17 @@ import type { NewsPost } from '@/types/news';
 
 vi.mock('@/hooks/useNews', () => ({
   useArchiveNewsPost: vi.fn(),
+  useBroadcastNewsPost: vi.fn(),
 }));
 
-import { useArchiveNewsPost } from '@/hooks/useNews';
+import { useArchiveNewsPost, useBroadcastNewsPost } from '@/hooks/useNews';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
+import type { NewsAttachment } from '@/types/news';
 import { NewsDetailDrawer } from '@/pages/news/components/NewsDetailDrawer';
 
 const mockUseArchive = useArchiveNewsPost as unknown as ReturnType<typeof vi.fn>;
+const mockUseBroadcast = useBroadcastNewsPost as unknown as ReturnType<typeof vi.fn>;
 
 function mockPerms(overrides: Partial<UseMyPermissionsResult>) {
   const base: UseMyPermissionsResult = {
@@ -38,8 +41,25 @@ function makePost(over: Partial<NewsPost> = {}): NewsPost {
     publishedAt: '2026-06-01T15:30:00.000Z',
     archivedAt: null,
     read: false,
+    attachments: [],
+    lastBroadcastAt: null,
     createdAt: '2026-06-01T15:30:00.000Z',
     updatedAt: '2026-06-01T15:30:00.000Z',
+    ...over,
+  };
+}
+
+function imageAtt(over: Partial<NewsAttachment> = {}): NewsAttachment {
+  return {
+    id: 'att-1',
+    kind: 'image',
+    filename: 'plano.png',
+    mimeType: 'image/png',
+    sizeBytes: 2048,
+    url: null,
+    fileUrl: '/api/news/attachments/att-1/file',
+    uploadedById: 'u1',
+    createdAt: '2026-06-01T15:30:00.000Z',
     ...over,
   };
 }
@@ -61,6 +81,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockPerms({});
   mockUseArchive.mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(makePost()), isPending: false });
+  mockUseBroadcast.mockReturnValue({
+    mutateAsync: vi.fn().mockResolvedValue({ sent: true, link: 'http://noc.test/admin/news?post=post-1' }),
+    isPending: false,
+  });
 });
 
 describe('NewsDetailDrawer', () => {
@@ -200,5 +224,51 @@ describe('NewsDetailDrawer — manage actions (M3: editar/archivar wiring)', () 
     await user.click(screen.getByRole('button', { name: /^archivar$/i }));
 
     expect(mutateAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('NewsDetailDrawer — markdown body (N2)', () => {
+  it('renders **bold** markdown as a <strong>, not literal asterisks', () => {
+    // The drawer content is portaled to document.body, so query the document.
+    renderDrawer({ post: makePost({ body: 'esto es **importante** che' }) });
+    const strong = document.querySelector('strong');
+    expect(strong).not.toBeNull();
+    expect(strong).toHaveTextContent('importante');
+  });
+
+  it('renders an http link in the body as a real anchor', () => {
+    renderDrawer({ post: makePost({ body: 'mirá [el panel](https://noc.example/x)' }) });
+    expect(screen.getByRole('link', { name: 'el panel' })).toHaveAttribute('href', 'https://noc.example/x');
+  });
+
+  it('does NOT execute a <script> in the body (rendered as literal text, no script element)', () => {
+    renderDrawer({ post: makePost({ body: 'hola <script>alert(1)</script>' }) });
+    expect(screen.getByRole('dialog').querySelector('script')).toBeNull();
+    expect(screen.getByText(/<script>alert\(1\)<\/script>/)).toBeInTheDocument();
+  });
+});
+
+describe('NewsDetailDrawer — attachments gallery (N2)', () => {
+  it('renders the attachment gallery images', () => {
+    renderDrawer({ post: makePost({ attachments: [imageAtt({ id: 'g1', filename: 'diagrama.png' })] }) });
+    expect(screen.getByRole('img', { name: /diagrama\.png/ })).toBeInTheDocument();
+  });
+});
+
+describe('NewsDetailDrawer — broadcast (N2, news.manage gate)', () => {
+  it('shows the "Difundir al NOC" button for a news.manage user', () => {
+    renderDrawer();
+    expect(screen.getByRole('button', { name: /difundir al noc/i })).toBeInTheDocument();
+  });
+
+  it('hides the broadcast button WITHOUT news.manage', () => {
+    mockPerms({ permissions: ['news.read'], can: (p) => (Array.isArray(p) ? p[0] === 'news.read' : p === 'news.read') });
+    renderDrawer();
+    expect(screen.queryByRole('button', { name: /difundir al noc/i })).not.toBeInTheDocument();
+  });
+
+  it('renders "Difundida el {AR date}" when lastBroadcastAt is set', () => {
+    renderDrawer({ post: makePost({ lastBroadcastAt: '2026-06-01T15:30:00.000Z' }) });
+    expect(screen.getByText(/difundida el 01 jun 2026 - 12:30/i)).toBeInTheDocument();
   });
 });

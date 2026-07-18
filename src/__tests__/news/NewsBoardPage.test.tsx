@@ -12,6 +12,8 @@ vi.mock('@/hooks/useNews', () => ({
   useMarkNewsRead: vi.fn(),
   // NewsDetailDrawer (rendered by this page) calls useArchiveNewsPost directly (M3 review fix).
   useArchiveNewsPost: vi.fn(),
+  // NewsDetailDrawer's broadcast button (N2) calls useBroadcastNewsPost directly.
+  useBroadcastNewsPost: vi.fn(),
 }));
 
 import {
@@ -19,6 +21,7 @@ import {
   useNewsCategories,
   useMarkNewsRead,
   useArchiveNewsPost,
+  useBroadcastNewsPost,
 } from '@/hooks/useNews';
 import NewsBoardPage from '@/pages/news/NewsBoardPage';
 
@@ -26,6 +29,7 @@ const mockUseNewsList = useNewsList as unknown as ReturnType<typeof vi.fn>;
 const mockUseNewsCategories = useNewsCategories as unknown as ReturnType<typeof vi.fn>;
 const mockUseMarkNewsRead = useMarkNewsRead as unknown as ReturnType<typeof vi.fn>;
 const mockUseArchive = useArchiveNewsPost as unknown as ReturnType<typeof vi.fn>;
+const mockUseBroadcast = useBroadcastNewsPost as unknown as ReturnType<typeof vi.fn>;
 
 const CATEGORY_RED: NewsCategory = { id: 'cat-red', name: 'Red/Infraestructura', color: '#6366f1' };
 const CATEGORY_COM: NewsCategory = { id: 'cat-com', name: 'Comercial', color: '#10b981' };
@@ -42,6 +46,8 @@ function makePost(over: Partial<NewsPost> = {}): NewsPost {
     publishedAt: '2026-07-01T12:00:00.000Z',
     archivedAt: null,
     read: false,
+    attachments: [],
+    lastBroadcastAt: null,
     createdAt: '2026-07-01T12:00:00.000Z',
     updatedAt: '2026-07-01T12:00:00.000Z',
     ...over,
@@ -84,6 +90,7 @@ beforeEach(() => {
   mockUseNewsCategories.mockReturnValue({ data: [CATEGORY_RED, CATEGORY_COM], isLoading: false });
   mockUseMarkNewsRead.mockReturnValue({ mutate: vi.fn(), mutateAsync: vi.fn() });
   mockUseArchive.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+  mockUseBroadcast.mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue({ sent: true, link: 'http://noc.test/x' }), isPending: false });
   mockList({ data: { items: [], unreadCount: 0 } });
 });
 

@@ -1,0 +1,67 @@
+.root {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-relaxed);
+  overflow-wrap: anywhere;
+}
+
+.paragraph {
+  margin: 0 0 var(--space-3);
+  white-space: pre-wrap;
+}
+
+.paragraph:last-child {
+  margin-bottom: 0;
+}
+
+.heading {
+  margin: var(--space-4) 0 var(--space-2);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
+}
+
+.heading:first-child {
+  margin-top: 0;
+}
+
+.list {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-6);
+}
+
+.list li {
+  margin-bottom: var(--space-1);
+}
+
+.blockquote {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-left: 3px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.link {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link:hover {
+  color: var(--color-primary-hover);
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.code {
+  padding: 0.1em 0.35em;
+  background: var(--color-gray-100);
+  border-radius: var(--radius-sm);
+  font-family: ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
+  font-size: 0.9em;
+}

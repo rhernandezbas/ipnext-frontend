@@ -16,10 +16,42 @@ export interface NewsCategory {
   color: string;
 }
 
+/**
+ * An attachment of a news post (N2 BE contract).
+ *  - binaries (`image` | `file`): `fileUrl` = BE-proxy path `/api/news/attachments/:id/file`;
+ *    `url` is null.
+ *  - `link`: `url` = the external URL; `fileUrl` is null.
+ */
+export type NewsAttachmentKind = 'image' | 'file' | 'link';
+
+export interface NewsAttachment {
+  id: string;
+  kind: NewsAttachmentKind;
+  filename: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  /** External URL — links only, null for binaries. */
+  url: string | null;
+  /** BE-proxy path to the binary — binaries only, null for links. Already includes `/api`. */
+  fileUrl: string | null;
+  uploadedById: string;
+  createdAt: string;
+}
+
+/** Result of POST /api/news/:id/broadcast — the WhatsApp NOC diffusion. */
+export interface NewsBroadcastResult {
+  sent: boolean;
+  /** The absolute deep link included in the broadcast message. */
+  link: string;
+}
+
 export interface NewsPost {
   id: string;
   title: string;
-  /** Plain multiline text (v1) — render with `white-space: pre-wrap`, never as HTML. */
+  /**
+   * MARKDOWN source (N2). Rendered via a safe React-node renderer
+   * (`SafeMarkdown`) — never `dangerouslySetInnerHTML`, no raw HTML interpreted.
+   */
   body: string;
   category: NewsCategory;
   authorId: string | null;
@@ -30,8 +62,18 @@ export interface NewsPost {
   archivedAt: string | null;
   /** Per-requesting-user read state. */
   read: boolean;
+  /** N2 — attachments (images/files/links). Present in GET /:id and each GET / item. */
+  attachments: NewsAttachment[];
+  /** N2 — ISO of the last NOC broadcast, or null if never broadcast. */
+  lastBroadcastAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Body for adding a LINK attachment (POST /api/news/:id/attachments, JSON branch). */
+export interface AddNewsLinkInput {
+  url: string;
+  filename?: string;
 }
 
 export interface ListNewsPostsResult {

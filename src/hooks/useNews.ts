@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { newsApi } from '@/api/news.api';
 import { useDocumentVisible } from '@/hooks/useDocumentVisible';
 import type {
+  AddNewsLinkInput,
   CreateNewsCategoryInput,
   CreateNewsPostInput,
   NewsListFilters,
@@ -116,5 +117,44 @@ export function useDeleteNewsCategory() {
   return useMutation({
     mutationFn: (id: string) => newsApi.deleteCategory(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: newsCategoriesKey }),
+  });
+}
+
+// ── N2: attachments + broadcast ──────────────────────────────────────────────
+
+/**
+ * Attachment/broadcast mutations invalidate the whole ['news'] root so the board
+ * list (and any open drawer re-opened afterwards) reflect the new attachments /
+ * lastBroadcastAt — the DTOs carry both fields in every list item and in GET /:id.
+ */
+export function useUploadNewsAttachments() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, files }: { id: string; files: File[] }) => newsApi.uploadAttachments(id, files),
+    onSuccess: () => qc.invalidateQueries({ queryKey: NEWS_ROOT }),
+  });
+}
+
+export function useAddNewsLinkAttachment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: AddNewsLinkInput }) => newsApi.addLinkAttachment(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: NEWS_ROOT }),
+  });
+}
+
+export function useDeleteNewsAttachment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (attachmentId: string) => newsApi.deleteAttachment(attachmentId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: NEWS_ROOT }),
+  });
+}
+
+export function useBroadcastNewsPost() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => newsApi.broadcast(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: NEWS_ROOT }),
   });
 }

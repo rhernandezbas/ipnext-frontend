@@ -16,6 +16,8 @@ function makePost(over: Partial<NewsPost> = {}): NewsPost {
     publishedAt: new Date().toISOString(),
     archivedAt: null,
     read: false,
+    attachments: [],
+    lastBroadcastAt: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...over,

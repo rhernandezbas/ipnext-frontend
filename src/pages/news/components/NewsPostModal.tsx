@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useCreateNewsPost, useUpdateNewsPost } from '@/hooks/useNews';
 import { Select } from '@/components/molecules/Select/Select';
+import { NewsAttachmentsManager } from './NewsAttachmentsManager';
 import type { NewsCategory, NewsPost } from '@/types/news';
 import styles from './NewsPostModal.module.css';
 
@@ -201,6 +202,17 @@ export function NewsPostModal({ categories, initial, onClose }: NewsPostModalPro
           <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
           Fijada (aparece siempre arriba del tablón)
         </label>
+
+        <div className={styles.attachmentsSection}>
+          <h3 className={styles.sectionHeading}>Adjuntos</h3>
+          {initial ? (
+            <NewsAttachmentsManager postId={initial.id} initialAttachments={initial.attachments} />
+          ) : (
+            <p className={styles.attachmentsHint}>
+              Vas a poder agregar imágenes, archivos y enlaces después de crear la noticia.
+            </p>
+          )}
+        </div>
 
         <div className={styles.actions}>
           <button type="button" className={styles.btnSecondary} onClick={onClose} disabled={saving}>

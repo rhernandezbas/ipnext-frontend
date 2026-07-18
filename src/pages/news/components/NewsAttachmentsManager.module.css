@@ -1,0 +1,230 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-gray-50);
+}
+
+.uploadBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--space-11);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.uploadBtn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.uploadBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.uploadBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.hint {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.linkBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.linkRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--space-11);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+  border-color: var(--color-primary);
+}
+
+.linkBtn {
+  min-height: var(--space-11);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.linkBtn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.linkBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.linkBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.feedbackError,
+.feedbackSuccess {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+.feedbackError {
+  background: var(--color-danger-bg-hover);
+  color: var(--color-danger);
+}
+
+.feedbackSuccess {
+  background: var(--color-success-bg);
+  color: var(--color-success-strong);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--space-11);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.itemIcon {
+  display: inline-flex;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.itemName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+}
+
+.itemSize {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  flex-shrink: 0;
+}
+
+.deleteBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-9);
+  height: var(--space-9);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.deleteBtn::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+}
+
+.deleteBtn:hover:not(:disabled) {
+  background: var(--color-danger-bg-hover);
+  color: var(--color-danger);
+}
+
+.deleteBtn:focus-visible {
+  outline: 2px solid var(--color-danger);
+  outline-offset: 1px;
+}
+
+.deleteBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

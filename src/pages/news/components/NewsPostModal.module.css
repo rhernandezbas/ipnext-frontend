@@ -163,6 +163,27 @@
   outline-offset: 2px;
 }
 
+.attachmentsSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.sectionHeading {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.attachmentsHint {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .overlay,
   .modal {
