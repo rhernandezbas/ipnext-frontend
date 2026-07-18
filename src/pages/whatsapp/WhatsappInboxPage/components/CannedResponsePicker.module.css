@@ -18,7 +18,14 @@
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
-  animation: cannedPickerIn 160ms var(--ease-out) both;
+  /* `backwards`, JAMÁS `both` (lección db18c0cf, 3 recurrencias en prod): en
+     Chrome `animation-fill-mode: both` RETIENE el stacking context del elemento
+     mientras el fill sigue aplicado, aunque el keyframe final sea transform:none
+     — y este popover es JUSTO la categoría que muerde el bug (position:absolute
+     + z-index + transform en el keyframe → dropdown enterrado). `backwards`
+     mata el contexto residual, visualmente idéntico (no hay delay). El keyframe
+     termina en `translateY(0)` (sin transform). */
+  animation: cannedPickerIn 160ms var(--ease-out) backwards;
 }
 
 .searchRow {
@@ -150,7 +157,10 @@
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    /* `none`, no `translateY(0)`: estado final sin transform residual (mismo
+       criterio que `waPreviewIn` del TemplateSendPanel — refuerza que ni
+       siquiera un futuro `forwards`/`both` retendría un stacking context). */
+    transform: none;
   }
 }
 
