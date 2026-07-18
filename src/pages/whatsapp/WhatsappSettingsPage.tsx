@@ -1,5 +1,6 @@
 import { Can } from '@/components/auth/Can';
 import { ChatMediaDownloadCard } from '@/components/settings/ChatMediaDownloadCard';
+import { NocBroadcastCard } from '@/components/settings/NocBroadcastCard';
 import { CannedResponsesSection } from '@/components/settings/cannedResponses/CannedResponsesSection';
 import { MessagingLabelsBody } from './settings/MessagingLabelsBody';
 import styles from './WhatsappSettingsPage.module.css';
@@ -60,6 +61,24 @@ export default function WhatsappSettingsPage() {
           <MessagingLabelsBody />
         </Can>
       </section>
+
+      {/* N1-FE — Difusión NOC (Evolution API en el Pi): conexión editable desde
+          UI (guardada en DB) que manda noticias/tareas de red al canal "noc
+          lider". Gate `messaging.manage` (equivalente FE del `messaging:manage`
+          del BE, que gatea el PUT/POST): SIN el permiso, ni la sección ni su
+          encabezado se renderizan (mismo criterio, sin fallback, que respuestas
+          rápidas). */}
+      <Can permission="messaging.manage">
+        <section className={styles.section}>
+          <h2 className={styles.sectionHeading}>Difusión NOC</h2>
+          <p className={styles.sectionDescription}>
+            Conexión con el WhatsApp dedicado (Evolution API en un Pi) que difunde noticias y tareas
+            de red al canal del NOC líder. Se configura y prueba desde acá; la config vive en la base
+            de datos.
+          </p>
+          <NocBroadcastCard />
+        </section>
+      </Can>
     </div>
   );
 }

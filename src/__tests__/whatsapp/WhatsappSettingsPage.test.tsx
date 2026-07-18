@@ -39,6 +39,12 @@ vi.mock('@/api/cannedResponses.api', () => ({
 vi.mock('@/pages/whatsapp/settings/MessagingLabelsBody', () => ({
   MessagingLabelsBody: () => <div>catálogo de etiquetas</div>,
 }));
+// N1-FE (Difusión NOC) — la card tiene su propio test (mockea sus hooks GET/PUT/
+// POST). Acá solo importa el WIRING/gating de la sección (gate messaging.manage),
+// así que se stubbea la card para no arrastrar sus hooks de red.
+vi.mock('@/components/settings/NocBroadcastCard', () => ({
+  NocBroadcastCard: () => <div>tarjeta difusión noc</div>,
+}));
 
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
 import { useMyPermissions, useCan } from '@/hooks/useMyPermissions';
@@ -140,5 +146,20 @@ describe('WhatsappSettingsPage', () => {
     expect(screen.getByText(/descarga de media de whatsapp/i)).toBeInTheDocument();
     expect(screen.getByText(/no tenés permiso/i)).toBeInTheDocument();
     expect(screen.queryByText(/catálogo de etiquetas/i)).not.toBeInTheDocument();
+  });
+
+  // ── N1-FE: Difusión NOC (Evolution API) — gate messaging.manage ────────────
+  it('Difusión NOC — con messaging.manage, monta la sección y la card', () => {
+    setupHooks(['messaging.read', 'messaging.manage']);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /difusión noc/i })).toBeInTheDocument();
+    expect(screen.getByText(/tarjeta difusión noc/i)).toBeInTheDocument();
+  });
+
+  it('Difusión NOC — sin messaging.manage, ni la sección ni su encabezado se renderizan', () => {
+    setupHooks(['messaging.read']);
+    renderPage();
+    expect(screen.queryByRole('heading', { name: /difusión noc/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/tarjeta difusión noc/i)).not.toBeInTheDocument();
   });
 });
