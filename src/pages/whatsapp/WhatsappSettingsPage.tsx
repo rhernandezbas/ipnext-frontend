@@ -1,5 +1,6 @@
 import { Can } from '@/components/auth/Can';
 import { ChatMediaDownloadCard } from '@/components/settings/ChatMediaDownloadCard';
+import { CannedResponsesSection } from '@/components/settings/cannedResponses/CannedResponsesSection';
 import styles from './WhatsappSettingsPage.module.css';
 
 /**
@@ -29,6 +30,22 @@ export default function WhatsappSettingsPage() {
           <ChatMediaDownloadCard />
         </Can>
       </section>
+
+      {/* Ola 4 (respuestas rápidas / macros) — gestión ABM, gateada por
+          `messaging.manage`: SIN el permiso, ni la sección ni su encabezado se
+          renderizan (sin fallback). `messaging.manage` es el equivalente FE
+          (convención de puntos del repo: `messaging.read`/`.send`/`.bulk`) del
+          gate BE `messaging:manage`. */}
+      <Can permission="messaging.manage">
+        <section className={styles.section}>
+          <h2 className={styles.sectionHeading}>Respuestas rápidas</h2>
+          <p className={styles.sectionDescription}>
+            Mensajes prearmados (macros) que los agentes insertan en el composer del inbox tipeando “/” o
+            con el botón dedicado. El atajo es lo que buscan; el contenido es lo que se inserta.
+          </p>
+          <CannedResponsesSection />
+        </section>
+      </Can>
     </div>
   );
 }

@@ -1,0 +1,118 @@
+/**
+ * CannedResponsesSection.module.css (Ola 4 — respuestas rápidas / macros).
+ * Mismo lenguaje visual que `WhatsappTemplatesPage.module.css` (primaryBtn /
+ * toast / errorState / emptyState / retryBtn) — tokens del repo, sin hex/px
+ * crudo.
+ */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.actionsRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.primaryBtn {
+  min-height: var(--space-11);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-button);
+  border: 1px solid transparent;
+  background: var(--color-accent);
+  color: var(--color-white);
+  cursor: pointer;
+  transition: filter var(--transition-fast);
+}
+.primaryBtn:hover {
+  filter: brightness(0.95);
+}
+.primaryBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.toast {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-success-bg);
+  color: var(--badge-paid-fg);
+  border: 1px solid var(--badge-paid-bg);
+  font-size: var(--font-size-sm);
+}
+
+.contentPreview {
+  display: block;
+  max-width: 48ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+}
+
+.errorState {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-bg-hover);
+  border: 1px solid var(--badge-late-bg);
+}
+
+.errorText {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--badge-late-fg);
+}
+
+.retryBtn {
+  min-height: var(--space-11);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-button);
+  border: 1px solid var(--badge-late-fg);
+  background: var(--color-surface);
+  color: var(--badge-late-fg);
+  cursor: pointer;
+}
+.retryBtn:hover {
+  background: var(--color-danger-bg-hover);
+}
+.retryBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-10) var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--color-border);
+  background: var(--color-surface-hover);
+  text-align: center;
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.emptyText {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  max-width: 42ch;
+}

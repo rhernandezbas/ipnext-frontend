@@ -12,7 +12,9 @@
  */
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import type { ReactNode } from 'react';
 
 vi.mock('@/hooks/useFeatureFlags', () => ({
   useFeatureFlag: vi.fn(),
@@ -21,6 +23,15 @@ vi.mock('@/hooks/useFeatureFlags', () => ({
 vi.mock('@/hooks/useMyPermissions', () => ({
   useMyPermissions: vi.fn(),
   useCan: vi.fn(),
+}));
+// Ola 4 — la sección de respuestas rápidas (gateada por `messaging.manage`)
+// usa `useCannedResponses` (useQuery real). Se mockea el api a nivel fetch para
+// que renderice sin red — solo importa cuando el permiso está presente.
+vi.mock('@/api/cannedResponses.api', () => ({
+  listCannedResponses: vi.fn().mockResolvedValue([]),
+  createCannedResponse: vi.fn(),
+  updateCannedResponse: vi.fn(),
+  deleteCannedResponse: vi.fn(),
 }));
 
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
@@ -56,11 +67,15 @@ function setupHooks(permissions: string[] = ['messaging.read']) {
 }
 
 function renderPage() {
-  return render(
-    <MemoryRouter>
-      <WhatsappSettingsPage />
-    </MemoryRouter>,
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={qc}>
+      <MemoryRouter>{children}</MemoryRouter>
+    </QueryClientProvider>
   );
+  return render(<WhatsappSettingsPage />, { wrapper });
 }
 
 describe('WhatsappSettingsPage', () => {
@@ -86,5 +101,18 @@ describe('WhatsappSettingsPage', () => {
     renderPage();
     expect(screen.getByText(/no tenés permiso/i)).toBeInTheDocument();
     expect(screen.queryByText(/descarga de media de whatsapp/i)).not.toBeInTheDocument();
+  });
+
+  // ── Ola 4: gestión de respuestas rápidas (gate messaging.manage) ──────────
+  it('renders the canned responses section when user has messaging.manage', () => {
+    setupHooks(['messaging.read', 'messaging.manage']);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /respuestas r[aá]pidas/i })).toBeInTheDocument();
+  });
+
+  it('hides the canned responses section (and its heading) without messaging.manage', () => {
+    setupHooks(['messaging.read']);
+    renderPage();
+    expect(screen.queryByRole('heading', { name: /respuestas r[aá]pidas/i })).not.toBeInTheDocument();
   });
 });

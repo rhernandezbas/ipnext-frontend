@@ -9,6 +9,7 @@ import { ComposerAttachmentTray } from './ComposerAttachmentTray';
 import { ComposeModeToggle } from './ComposeModeToggle';
 import type { ComposeMode } from './ComposeModeToggle';
 import { TemplateSendPanel } from './TemplateSendPanel';
+import { CannedResponsePicker } from './CannedResponsePicker';
 import { MAX_FILES } from '@/utils/validateAttachment';
 import { mapSendError } from '@/utils/mapSendError';
 import type { WhatsappClientContext } from '@/types/whatsapp';
@@ -109,6 +110,14 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
   // Fix: un contador incremental que fuerza que el TEXTO renderizado cambie
   // en cada envío exitoso (ver `templateAnnouncement` derivado más abajo).
   const [templateSentCount, setTemplateSentCount] = useState(0);
+  // Ola 4 (respuestas rápidas / macros) — estado LOCAL del picker de respuestas
+  // rápidas. `openedBySlash` recuerda si se abrió tipeando "/" al inicio del
+  // textarea vacío (vs. el botón 💬): al elegir, el "/" se REEMPLAZA por el
+  // content; abierto por botón, el content se INSERTA en el caret. El picker es
+  // hijo CONDICIONAL (solo montado al abrir) — su `useCannedResponses` no
+  // fetchea el catálogo hasta entonces (mismo criterio lazy que TemplateSendPanel).
+  const [cannedPickerOpen, setCannedPickerOpen] = useState(false);
+  const [cannedOpenedBySlash, setCannedOpenedBySlash] = useState(false);
   // Bug CRÍTICO #4: `feedback` estaba en el hook pero NUNCA se destructuraba
   // acá — cuando se elegían más de `MAX_FILES` archivos, los excedentes
   // desaparecían en silencio (el hook los recortaba, pero nadie mostraba el
@@ -169,6 +178,11 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
     if (next === 'note') {
       discardAll();
     }
+    // Ola 4: el picker de respuestas rápidas es exclusivo del modo reply — al
+    // cambiar de modo se cierra (no debe quedar colgado sobre el modo nota, ni
+    // arrastrar el flag "abierto por slash" a la próxima apertura en reply).
+    setCannedPickerOpen(false);
+    setCannedOpenedBySlash(false);
     setMode(next);
     setModeAnnouncement(next === 'note' ? 'Modo nota interna' : 'Modo respuesta');
     // El textarea es el MISMO nodo en ambos modos (nunca se remonta) — el
@@ -238,6 +252,53 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
   function handleTemplateSent() {
     setTemplatePanelOpen(false);
     setTemplateSentCount((count) => count + 1);
+  }
+
+  /**
+   * Ola 4 (respuestas rápidas) — onChange del textarea con detección del atajo
+   * "/": cuando el textarea estaba VACÍO y el nuevo valor es exactamente "/"
+   * (primer carácter tipeado), abre el picker marcándolo como "abierto por
+   * slash". Cualquier otro "/" (en medio del texto, o con contenido previo) NO
+   * dispara — el atajo es solo al inicio del composer vacío (patrón Chatwoot).
+   */
+  function handleContentChange(next: string) {
+    if (!cannedPickerOpen && mode === 'reply' && content === '' && next === '/') {
+      setCannedPickerOpen(true);
+      setCannedOpenedBySlash(true);
+    }
+    setContent(next);
+  }
+
+  function openCannedPicker() {
+    setCannedOpenedBySlash(false);
+    setCannedPickerOpen(true);
+  }
+
+  function closeCannedPicker() {
+    setCannedPickerOpen(false);
+    setCannedOpenedBySlash(false);
+    // El picker no es modal: al cerrar, el foco vuelve al textarea (mismo nodo,
+    // nunca se remonta entre modos) para seguir escribiendo sin un Tab extra.
+    textareaRef.current?.focus();
+  }
+
+  /**
+   * Ola 4 — insertar el `content` de la respuesta elegida. Abierto por "/": el
+   * textarea sólo tenía "/", se REEMPLAZA por el content. Abierto por botón: se
+   * INSERTA en la posición del caret (o al final si el ref no está disponible),
+   * preservando lo ya escrito. VARIABLES v1: si el content trae `{{variables}}`,
+   * viajan LITERALES (no se resuelven en v1 — contrato acordado).
+   */
+  function handleCannedSelect(text: string) {
+    if (cannedOpenedBySlash) {
+      setContent(text);
+    } else {
+      const el = textareaRef.current;
+      const start = el?.selectionStart ?? content.length;
+      const end = el?.selectionEnd ?? content.length;
+      setContent(content.slice(0, start) + text + content.slice(end));
+    }
+    closeCannedPicker();
   }
 
   // Deriva el texto del announcement a partir del contador — el 1er envío
@@ -346,6 +407,16 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
           />
         )}
 
+        {/* Ola 4 (respuestas rápidas / macros) — popover del picker, anclado
+            SOBRE el composer (position:absolute, bottom:100% — ver
+            Composer.module.css, `.composer` es el ancestro posicionado).
+            Montado CONDICIONALMENTE: solo existe mientras el agente abrió el
+            picker (botón 💬 o atajo "/"), así `useCannedResponses` no fetchea
+            el catálogo hasta entonces. Exclusivo de modo reply. */}
+        {mode === 'reply' && cannedPickerOpen && (
+          <CannedResponsePicker onSelect={handleCannedSelect} onClose={closeCannedPicker} />
+        )}
+
         <div className={styles.row}>
           {mode === 'reply' && (
             <ComposerAttachButton
@@ -357,6 +428,25 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
             />
           )}
 
+          {/* Ola 4 — botón dedicado del picker de respuestas rápidas (💬).
+              `aria-haspopup="listbox"` + `aria-expanded` describen el popover al
+              lector de pantalla. Solo en modo reply, deshabilitado con la
+              ventana cerrada (mismo gate que el resto de la fila de reply). */}
+          {mode === 'reply' && (
+            <button
+              type="button"
+              className={styles.cannedButton}
+              onClick={openCannedPicker}
+              disabled={windowDisabled}
+              aria-label="Respuestas rápidas"
+              aria-haspopup="listbox"
+              aria-expanded={cannedPickerOpen}
+              title="Respuestas rápidas"
+            >
+              <span aria-hidden="true">💬</span>
+            </button>
+          )}
+
           <label className={styles.srOnly} htmlFor="whatsapp-composer-input">
             {isNoteMode ? 'Nota interna' : 'Mensaje'}
           </label>
@@ -365,7 +455,7 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
             ref={textareaRef}
             className={styles.textarea}
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e) => handleContentChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={isNoteMode ? 'Escribí una nota interna…' : drafts.length > 0 ? 'Agregá un texto…' : 'Escribí un mensaje…'}
             disabled={windowDisabled}

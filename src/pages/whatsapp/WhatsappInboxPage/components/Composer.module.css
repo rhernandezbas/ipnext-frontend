@@ -6,6 +6,9 @@
 .composer {
   --wa-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 
+  /* Ola 4 — ancestro posicionado del popover de respuestas rápidas
+     (`.popover` absolute, bottom:100% → aparece SOBRE el composer). */
+  position: relative;
   flex-shrink: 0;
   border-top: 1px solid var(--color-border);
   padding: var(--space-3);
@@ -50,6 +53,44 @@
 .sendButton {
   min-height: var(--space-11);
   min-width: var(--space-11);
+}
+
+/* Ola 4 — botón 💬 del picker de respuestas rápidas. Touch target ≥44px
+   (mismo criterio que sendButton/attach), ícono centrado, sin borde de caja. */
+.cannedButton {
+  flex-shrink: 0;
+  min-height: var(--space-11);
+  min-width: var(--space-11);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cannedButton:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.cannedButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.cannedButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cannedButton[aria-expanded='true'] {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
 }
 
 /* Botón enviar :active (design §7 row 5): scale(0.97), feedback de press. */
