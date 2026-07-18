@@ -51,6 +51,17 @@ export function hasEffectiveBalanceFilter(segment: CampaignSegment): boolean {
 }
 
 /**
+ * network-filter-tab — cantidad de filtros de red activos (0/1/2) para el
+ * contador-chip del tab "Nodo/AP" (`CampaignComposer`). MISMO criterio
+ * `isNetworkFilter` que usa `hasSegmentCriteria` (id no vacío; `null`/`''`
+ * no filtran) — una sola fuente de verdad, igual que el chip de deuda con
+ * `hasEffectiveBalanceFilter`.
+ */
+export function networkFilterCount(segment: CampaignSegment): number {
+  return (isNetworkFilter(segment.networkSiteId) ? 1 : 0) + (isNetworkFilter(segment.accessPointId) ? 1 : 0);
+}
+
+/**
  * hasRecipients (manual-recipients-fe, CRIT-1; extendido en bulk-csv-recipients
  * CSV-FE-5 con un 3er parámetro) — gate de "hay destinatarios" del composer,
  * que combina el segmento por estado/deuda con la LISTA MANUAL y, ahora, con

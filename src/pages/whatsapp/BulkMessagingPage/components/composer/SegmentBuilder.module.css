@@ -127,40 +127,9 @@
   border-color: var(--color-primary);
 }
 
-/* node-segment-fe — fila de filtros de red (Nodo + Access Point), mismo
-   layout fluido que .balanceGroup. El Select propio ya trae label, trigger
-   de 44px (touch target) y focus-visible tokenizado. */
-.networkGroup {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-}
-
-.networkField {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  flex: 1;
-  min-width: 180px;
-}
-
-/* Error de catálogo caído — mismo pairing texto-safe badge-late-fg/bg que el
-   .error de SegmentPreviewPanel (>=4.5:1), NUNCA danger sobre danger-bg. */
-.fieldError {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-xs);
-  color: var(--badge-late-fg);
-  background: var(--badge-late-bg);
-}
-
-/* Catálogo vacío — gray-600 sobre el surface blanco de la card (>=7:1). */
-.fieldHint {
-  margin: 0;
-  font-size: var(--font-size-xs);
-  color: var(--color-gray-600);
-}
+/* network-filter-tab — los estilos de la fila de red (Nodo + Access Point:
+   .networkGroup/.networkField/.fieldError/.fieldHint) se MUDARON a
+   `NetworkFilterPanel.module.css` junto con el componente. */
 
 .hint {
   margin: 0;
@@ -174,13 +143,12 @@
 }
 
 /* HOTFIX bulk-z-root — `backwards` (no `both`, ver root cause completo en
-   `TemplateSelector.module.css`): esta sección (`.fieldset`) es justamente la
-   que quedó SIN el parche puntual `:focus-within` cuando `node-segment-fe`
-   le agregó el Select de Nodo/AP — el `.controls > :focus-within` genérico
-   de `CampaignComposer.module.css` es lo que la cubre ahora (levanta la card
-   Destinatarios entera mientras un combobox de adentro tiene el foco). Los
-   `to` siguen en `transform: none` (misma matriz identidad que
-   `translateY(0)` en reposo, cero cambio visual). */
+   `TemplateSelector.module.css`). Los Selects de Nodo/AP que motivaron el
+   hotfix hoy viven en `NetworkFilterPanel` (tab propio) — el
+   `.controls > :focus-within` genérico de `CampaignComposer.module.css` sigue
+   cubriendo la card Destinatarios ENTERA (este panel incluido). Los `to`
+   siguen en `transform: none` (misma matriz identidad que `translateY(0)` en
+   reposo, cero cambio visual). */
 @keyframes panelIn {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: none; }

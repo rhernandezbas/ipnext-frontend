@@ -82,6 +82,10 @@ describe('FIX-6a: notices/hints del bulk sobre fondo tintado >= 4.5:1', () => {
     expect(ruleContrast(`${COMPOSER}/SegmentBuilder.module.css`, 'hint')).toBeGreaterThanOrEqual(4.5);
   });
 
+  it('NetworkFilterPanel .hint (hint espejo del tab Nodo/AP, mismo pairing que SegmentBuilder)', () => {
+    expect(ruleContrast(`${COMPOSER}/NetworkFilterPanel.module.css`, 'hint')).toBeGreaterThanOrEqual(4.5);
+  });
+
   it('TemplateSelector .notice', () => {
     expect(ruleContrast(`${COMPOSER}/TemplateSelector.module.css`, 'notice')).toBeGreaterThanOrEqual(4.5);
   });
@@ -257,6 +261,9 @@ describe('HOTFIX bulk-dropdown-z / bulk-z-root: animación de entrada nunca reti
     `${COMPOSER}/CampaignComposer.module.css`,
     `${COMPOSER}/TemplateSelector.module.css`,
     `${COMPOSER}/SegmentBuilder.module.css`,
+    // network-filter-tab — el panel Nodo/AP heredó los selects (y la animación
+    // de entrada) del SegmentBuilder: mismas reglas anti stacking-context.
+    `${COMPOSER}/NetworkFilterPanel.module.css`,
     `${COMPOSER}/VariablesMapForm.module.css`,
     `${COMPOSER}/CsvRecipientsUploader.module.css`,
     `${COMPOSER}/SegmentPreviewPanel.module.css`,
@@ -325,6 +332,10 @@ describe('HOTFIX bulk-z-root: ninguna animación de entrada del bulk retiene "bo
     `${COMPOSER}/CampaignComposer.module.css`,
     `${COMPOSER}/TemplateSelector.module.css`,
     `${COMPOSER}/SegmentBuilder.module.css`,
+    // network-filter-tab — panel nuevo con combobox propio: el cinturón
+    // genérico `.controls > :focus-within` lo cubre, pero el fill "both"
+    // sigue prohibido acá también.
+    `${COMPOSER}/NetworkFilterPanel.module.css`,
     `${COMPOSER}/VariablesMapForm.module.css`,
     `${COMPOSER}/CsvRecipientsUploader.module.css`,
     `${COMPOSER}/SegmentPreviewPanel.module.css`,

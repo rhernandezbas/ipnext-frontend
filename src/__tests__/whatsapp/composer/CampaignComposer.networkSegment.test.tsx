@@ -1,5 +1,9 @@
 /**
- * CampaignComposer — integración del filtro de red Nodo/AP (node-segment-fe).
+ * CampaignComposer — integración del filtro de red Nodo/AP (node-segment-fe;
+ * change network-filter-tab: los selects se MUDARON al tab propio "Nodo/AP"
+ * de la card Destinatarios — los helpers activan ese tab antes de elegir,
+ * pero el PAYLOAD queda IDÉNTICO: `networkSiteId`/`accessPointId` DENTRO del
+ * `CampaignSegment`, pineado con `toHaveBeenLastCalledWith`).
  * Hooks REALES (`useNetworkSites`/`useAssignableAccessPoints` con las APIs
  * mockeadas a nivel fetch — mismo seam que `CampaignComposer.test.tsx` para
  * `messagingBulk.api`). Contrato BE FIJO: el segmento (preview + creación)
@@ -130,12 +134,19 @@ async function selectTemplate(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('option', { name: /aviso de corte/i }));
 }
 
+/** network-filter-tab — los selects de red viven en el tab "Nodo/AP" ahora: activarlo primero (idempotente si ya está activo). */
+function openNetworkTab() {
+  fireEvent.click(screen.getByRole('tab', { name: /nodo\/ap/i }));
+}
+
 async function selectNode(name: string | RegExp) {
+  openNetworkTab();
   fireEvent.click(screen.getByRole('combobox', { name: /^nodo$/i }));
   fireEvent.click(await screen.findByRole('option', { name }));
 }
 
 async function selectAp(name: string | RegExp) {
+  openNetworkTab();
   fireEvent.click(screen.getByRole('combobox', { name: /access point/i }));
   fireEvent.click(await screen.findByRole('option', { name }));
 }
@@ -150,8 +161,10 @@ describe('CNS-1: nodo SOLO ya es un segmento válido', () => {
 
     await selectNode('Nodo Centro');
 
+    // Pin duro del contrato: payload IDÉNTICO al de siempre (la mudanza del
+    // filtro a su propio tab es SOLO de UI).
     await waitFor(
-      () => expect(previewSegment).toHaveBeenCalledWith({ statuses: [], networkSiteId: 'site-1' }),
+      () => expect(previewSegment).toHaveBeenLastCalledWith({ statuses: [], networkSiteId: 'site-1' }),
       { timeout: 2000 },
     );
     await waitFor(() => expect(screen.getByText('42')).toBeInTheDocument());
@@ -175,7 +188,7 @@ describe('CNS-2: nodo + AP en el payload del preview', () => {
 
     await waitFor(
       () =>
-        expect(previewSegment).toHaveBeenCalledWith({
+        expect(previewSegment).toHaveBeenLastCalledWith({
           statuses: [],
           networkSiteId: 'site-1',
           accessPointId: 'ap-1',

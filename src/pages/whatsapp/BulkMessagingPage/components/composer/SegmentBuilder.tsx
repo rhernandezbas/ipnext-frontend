@@ -1,9 +1,4 @@
-import { useEffect } from 'react';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
-import { Select, type SelectOption } from '@/components/molecules/Select/Select';
-import { useMyPermissions } from '@/hooks/useMyPermissions';
-import { useNetworkSites } from '@/hooks/useNetworkSites';
-import { useAssignableAccessPoints } from '@/hooks/useAccessPoints';
 import type { CampaignSegment } from '@/types/messagingBulk';
 import { hasSegmentCriteria, hasIneffectiveBalance } from './segmentCriteria';
 import styles from './SegmentBuilder.module.css';
@@ -17,12 +12,6 @@ type ClientStatus = 'active' | 'late' | 'blocked' | 'inactive' | 'baja';
 
 const STATUS_OPTIONS: ClientStatus[] = ['active', 'late', 'blocked', 'inactive', 'baja'];
 
-/** Catálogos de red: staleTime alto (no cambian por minuto) — mismo criterio que `useAssignableAccessPoints` (30s). */
-const SITES_STALE_TIME_MS = 60_000;
-
-const NODE_ERROR_ID = 'bulk-segment-node-error';
-const AP_ERROR_ID = 'bulk-segment-ap-error';
-
 /** `''` (input vacío) → `undefined`, NUNCA `NaN` — un balance vacío es "sin filtro", no un número inválido. */
 function parseBalance(text: string): number | undefined {
   return text === '' ? undefined : Number(text);
@@ -30,22 +19,21 @@ function parseBalance(text: string): number | undefined {
 
 /**
  * SegmentBuilder (F2 apply chunk 2, SEG-1..SEG-5) — checkboxes de
- * `ClientStatus` + rango de deuda + filtro de red Nodo/AP (node-segment-fe).
- * Controlado 100% (`value`+`onChange`), sin estado propio de selección —
- * `CampaignComposer` es dueño del `CampaignSegment` (lo necesita para el
- * debounce de preview + `createCampaign`).
+ * `ClientStatus` + rango de deuda. Controlado 100% (`value`+`onChange`), sin
+ * estado propio de selección — `CampaignComposer` es dueño del
+ * `CampaignSegment` (lo necesita para el debounce de preview +
+ * `createCampaign`).
+ *
+ * Change network-filter-tab — el filtro de red Nodo/AP se MUDÓ a su propio
+ * tab de la card "Destinatarios" (`NetworkFilterPanel`, pedido del usuario).
+ * Mudanza de UI únicamente: `networkSiteId`/`accessPointId` siguen viviendo
+ * DENTRO del `CampaignSegment` (AND con estados/deuda), así que el hint de
+ * "sin criterio" de acá sigue mirando el segmento COMPLETO (un nodo elegido
+ * en la otra pestaña ES criterio) y su copy apunta a la pestaña Nodo/AP.
  *
  * Reusa `StatusBadge` (mismo átomo de Clientes/ClientStatsCards) junto a cada
  * checkbox — refuerzo visual del color por estado sin inventar una paleta
  * nueva acá.
- *
- * node-segment-fe — dos `Select` PROPIOS (Nodo + Access Point, el segundo
- * acotado al nodo elegido), mismo approach que
- * `ContractNetworkAssignmentPicker` (catálogos vía hooks propios,
- * `useNetworkSites`/`useAssignableAccessPoints` — cache compartida de
- * TanStack, cero fetch extra respecto del picker). Opción "Todos" para
- * limpiar cada filtro. Caso de uso: "aviso de corte a todos los clientes del
- * nodo X / AP Y" — nodo o AP SOLOS ya son un segmento válido (regla BE).
  */
 export function SegmentBuilder({ value, onChange }: SegmentBuilderProps) {
   const criteriaPresent = hasSegmentCriteria(value);
@@ -53,88 +41,11 @@ export function SegmentBuilder({ value, onChange }: SegmentBuilderProps) {
   // que no cuenta, en vez de dejarlo creer que ya hay criterio (dead-end 400).
   const ineffectiveBalance = hasIneffectiveBalance(value);
 
-  // M2 (fix wave) — mismatch RBAC: `GET /access-points` exige `network.read`
-  // (`/network-sites` es auth-only). Sin el permiso, la fila del AP no se
-  // renderiza NI se dispara la query (403 seguro que ningún "Reintentá" cura).
-  const { can, isLoading: permsLoading, isError: permsError } = useMyPermissions();
-  const canReadNetwork = can('network.read');
-
-  // M3 (micro fix wave) — misma clase de "filtro oculto" que M1, por otra
-  // puerta: si network.read se REVOCA a mitad de sesión (refetch de /me,
-  // staleTime 5min) con un AP ya elegido, el gate M2 esconde la fila pero
-  // `accessPointId` seguiría viajando en preview/create — un filtro que el
-  // operador no puede ver ni limpiar (y el confirm mostraría el uuid pelado,
-  // catálogo con query disabled). Se limpia SOLO con el permiso resuelto en
-  // false DEFINITIVO: el hook devuelve can()=false mientras carga
-  // (permissions=[]) y tras un fetch fallido — limpiar ahí le borraría el
-  // filtro a un usuario CON permiso. El nodo QUEDA (su endpoint es auth-only).
-  const revokedWithApSet = !permsLoading && !permsError && !canReadNetwork && !!value.accessPointId;
-  useEffect(() => {
-    if (!revokedWithApSet) return;
-    onChange({ ...value, accessPointId: undefined });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- gateado por el booleano derivado; value/onChange frescos al disparar
-  }, [revokedWithApSet]);
-
-  const sitesQuery = useNetworkSites({ staleTime: SITES_STALE_TIME_MS });
-  // El nodo elegido ACOTA el catálogo de APs (mismo patrón que el picker de
-  // contrato); sin nodo se pide el catálogo completo (elegir AP suelto es válido).
-  const apsQuery = useAssignableAccessPoints(value.networkSiteId ?? null, canReadNetwork);
-
-  const sites = sitesQuery.data ?? [];
-  const aps = apsQuery.data ?? [];
-
-  // M1 (fix wave) — la cache de TanStack v5 SOBREVIVE a un refetch fallido
-  // (`isError` con `data` del último success): las options se arman desde la
-  // cache igual, así el filtro elegido SIGUE visible y limpiable. Antes, en
-  // error se forzaba options=[] → el trigger caía al placeholder "Todos los
-  // nodos" MIENTRAS `networkSiteId` seguía viajando en el payload (filtro
-  // OCULTO: el operador creía mandar a toda la base). "No disponible" queda
-  // solo para data nunca cargada.
-  const sitesUnavailable = sitesQuery.isLoading || (sitesQuery.isError && sitesQuery.data === undefined);
-  const apsUnavailable = apsQuery.isLoading || (apsQuery.isError && apsQuery.data === undefined);
-  const sitesEmpty = !sitesUnavailable && sites.length === 0;
-  const apsEmpty = !apsUnavailable && aps.length === 0;
-
-  // 4 ramas por select (loading / error-sin-cache / empty / success-o-cache):
-  // sin catálogo usable el Select queda deshabilitado SIN opciones (el trigger
-  // muestra el placeholder de la rama); con catálogo (fresco O cacheado tras
-  // un refetch fallido, M1) se arma "Todos" + opciones y queda usable.
-  const siteOptions: SelectOption[] =
-    sitesUnavailable || sitesEmpty
-      ? []
-      : [{ value: '', label: 'Todos los nodos' }, ...sites.map((s) => ({ value: s.id, label: s.name }))];
-  const apOptions: SelectOption[] =
-    apsUnavailable || apsEmpty
-      ? []
-      : [{ value: '', label: 'Todos los APs' }, ...aps.map((a) => ({ value: a.id, label: a.name }))];
-
   function toggleStatus(status: ClientStatus) {
     const next = value.statuses.includes(status)
       ? value.statuses.filter((s) => s !== status)
       : [...value.statuses, status];
     onChange({ ...value, statuses: next });
-  }
-
-  function handleSiteChange(next: string) {
-    // Cambiar (o limpiar) el nodo re-scopea el catálogo de APs: el AP elegido
-    // antes puede no pertenecer al nodo nuevo — arranca la elección de nuevo
-    // (mismo criterio que el picker de contrato). `undefined` = sin filtro,
-    // la key se OMITE del payload (mismo criterio que un balance vacío).
-    onChange({ ...value, networkSiteId: next || undefined, accessPointId: undefined });
-  }
-
-  function handleApChange(next: string) {
-    if (!next) {
-      // "Todos los APs" limpia SOLO el AP — el nodo sigue filtrando.
-      onChange({ ...value, accessPointId: undefined });
-      return;
-    }
-    // Autocompleta el nodo del AP elegido (coherencia visual + el listado de
-    // APs queda scoped) — mismo comportamiento que el picker de contrato. Un
-    // AP sin nodo linkeado (`networkSiteId: null`) NO fuerza nada: AP solo
-    // también es un segmento válido (regla BE).
-    const ap = aps.find((a) => a.id === next);
-    onChange({ ...value, accessPointId: next, networkSiteId: ap?.networkSiteId ?? value.networkSiteId });
   }
 
   return (
@@ -184,65 +95,11 @@ export function SegmentBuilder({ value, onChange }: SegmentBuilderProps) {
         </div>
       </div>
 
-      <div className={styles.networkGroup}>
-        <div className={styles.networkField}>
-          <Select
-            id="bulk-segment-node"
-            label="Nodo"
-            value={value.networkSiteId ?? ''}
-            onChange={handleSiteChange}
-            options={siteOptions}
-            placeholder={
-              // LOW (fix wave) — en error sin cache, "Todos los nodos" se
-              // leería como valor aplicado: placeholder neutro.
-              sitesQuery.isLoading ? 'Cargando nodos…' : sitesQuery.isError ? 'No disponible' : 'Todos los nodos'
-            }
-            disabled={sitesUnavailable || sitesEmpty}
-            aria-describedby={sitesQuery.isError ? NODE_ERROR_ID : undefined}
-          />
-          {sitesQuery.isError && (
-            <p id={NODE_ERROR_ID} className={styles.fieldError} role="alert">
-              {sitesQuery.data
-                ? 'No se pudo actualizar el catálogo de nodos — se muestra la última versión cargada.'
-                : 'No se pudieron cargar los nodos. Reintentá.'}
-            </p>
-          )}
-          {sitesEmpty && <p className={styles.fieldHint}>No hay nodos disponibles.</p>}
-        </div>
-
-        {/* M2 (fix wave) — TODA la fila del AP detrás del gate: sin
-            network.read no hay select ni un alert de 403 incurable. */}
-        {canReadNetwork && (
-          <div className={styles.networkField}>
-            <Select
-              id="bulk-segment-ap"
-              label="Access Point"
-              value={value.accessPointId ?? ''}
-              onChange={handleApChange}
-              options={apOptions}
-              placeholder={
-                apsQuery.isLoading ? 'Cargando APs…' : apsQuery.isError ? 'No disponible' : 'Todos los APs'
-              }
-              disabled={apsUnavailable || apsEmpty}
-              aria-describedby={apsQuery.isError ? AP_ERROR_ID : undefined}
-            />
-            {apsQuery.isError && (
-              <p id={AP_ERROR_ID} className={styles.fieldError} role="alert">
-                {apsQuery.data
-                  ? 'No se pudo actualizar el catálogo de access points — se muestra la última versión cargada.'
-                  : 'No se pudieron cargar los access points. Reintentá.'}
-              </p>
-            )}
-            {apsEmpty && <p className={styles.fieldHint}>No hay access points disponibles.</p>}
-          </div>
-        )}
-      </div>
-
       {!criteriaPresent && (
         <p className={styles.hint} role="status">
           {ineffectiveBalance
-            ? 'Una deuda de $0 o menos no filtra a nadie — ingresá un monto mayor a 0 o elegí un estado o un nodo/AP.'
-            : 'Elegí al menos un estado, un rango de deuda o un nodo/AP.'}
+            ? 'Una deuda de $0 o menos no filtra a nadie — ingresá un monto mayor a 0, elegí un estado o definí un nodo/AP (pestaña Nodo/AP).'
+            : 'Elegí al menos un estado, un rango de deuda o un nodo/AP (pestaña Nodo/AP).'}
         </p>
       )}
     </fieldset>

@@ -10,13 +10,14 @@ import type { CampaignSegment, CampaignVariableSpec, TemplateSummaryDto } from '
 import { TemplateSelector } from './TemplateSelector';
 import { VariablesMapForm } from './VariablesMapForm';
 import { SegmentBuilder } from './SegmentBuilder';
+import { NetworkFilterPanel } from './NetworkFilterPanel';
 import { SegmentPreviewPanel } from './SegmentPreviewPanel';
 import { PreviewModal } from './PreviewModal';
 import { CreateCampaignConfirmModal } from './CreateCampaignConfirmModal';
 import { ManualRecipientsPicker, type ManualRecipient } from '@/components/molecules/ManualRecipientsPicker/ManualRecipientsPicker';
 import { CsvRecipientsUploader } from './CsvRecipientsUploader';
 import type { CsvContact } from './parseRecipientsCsv';
-import { hasRecipients, hasEffectiveBalanceFilter } from './segmentCriteria';
+import { hasRecipients, hasEffectiveBalanceFilter, networkFilterCount } from './segmentCriteria';
 import styles from './CampaignComposer.module.css';
 
 interface CampaignComposerProps {
@@ -30,13 +31,19 @@ const EMPTY_SEGMENT: CampaignSegment = { statuses: [] };
 const NAME_INPUT_ID = 'bulk-campaign-name';
 
 /**
- * Rediseño bulk-elegant — los 3 orígenes de destinatarios viven en UNA card
- * con tabs (`Tabs` del repo, `mountMode="all"` default: los 3 paneles quedan
+ * Rediseño bulk-elegant — los orígenes de destinatarios viven en UNA card
+ * con tabs (`Tabs` del repo, `mountMode="all"` default: los paneles quedan
  * SIEMPRE montados y solo se ocultan con CSS — el estado de cada origen
  * sobrevive al cambio de tab, lección `inbox-key-por-conversacion`; además el
  * uploader de CSV guarda estado LOCAL del archivo, desmontarlo lo perdería).
+ *
+ * Change network-filter-tab — el filtro de red Nodo/AP salió del panel
+ * Segmento a su PROPIO tab (segundo, pedido del usuario): Segmento | Nodo/AP
+ * | Manuales | CSV. `network` es un tab de UI, NO un origen nuevo:
+ * `networkSiteId`/`accessPointId` siguen DENTRO de `segment` (AND con
+ * estados/deuda, payload idéntico).
  */
-type RecipientsTabId = 'segment' | 'manual' | 'csv';
+type RecipientsTabId = 'segment' | 'network' | 'manual' | 'csv';
 
 /**
  * CampaignComposer (F2 apply chunk 2; wiring del `PreviewModal` en
@@ -49,10 +56,11 @@ type RecipientsTabId = 'segment' | 'manual' | 'csv';
  *
  * Rediseño bulk-elegant — la columna de controles pasó de 5 cards apiladas a:
  * card "Mensaje" (template + variables), card "Destinatarios" (tabs Segmento/
- * Manuales/CSV con contador-chip por origen, `Tabs` del repo con
- * `mountMode="all"` — los 3 paneles siempre montados, cambiar de tab no
+ * Nodo\/AP/Manuales/CSV con contador-chip por tab, `Tabs` del repo con
+ * `mountMode="all"` — los paneles siempre montados, cambiar de tab no
  * pierde estado) y una barra de acción (nombre + CTA). FORMA únicamente:
- * hooks, gates, payloads, debounce y doble-confirm quedaron IDÉNTICOS.
+ * hooks, gates, payloads, debounce y doble-confirm quedaron IDÉNTICOS
+ * (network-filter-tab agregó el tab Nodo/AP: mismos ids dentro de `segment`).
  *
  * El fetch de templates está gateado a `messaging.templates` (TPL-1) — un
  * permiso PROPIO, independiente del `messaging.bulk` que ya gatea la ruta
@@ -140,8 +148,8 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   // lookup sobre la cache compartida, cero fetch extra. Fallback al id crudo
   // si el catálogo todavía no resolvió (nunca ocultar que hay un filtro).
   // M2 (fix wave) — /access-points exige network.read: sin el permiso la query
-  // ni se dispara (SegmentBuilder tampoco renderiza la fila del AP, así que
-  // segment.accessPointId nunca se setea por esta vía).
+  // ni se dispara (NetworkFilterPanel tampoco renderiza la fila del AP, así
+  // que segment.accessPointId nunca se setea por esta vía).
   const { data: networkSitesCatalog } = useNetworkSites({ staleTime: 60_000 });
   const { data: accessPointsCatalog } = useAssignableAccessPoints(segment.networkSiteId ?? null, can('network.read'));
   const networkSiteName = segment.networkSiteId
@@ -308,16 +316,17 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   // Rediseño bulk-elegant — contador-chip por tab: se VE qué origen tiene
   // algo cargado sin abrir cada tab. Para Segmento el número honesto es la
   // cantidad de FILTROS activos (el count de destinatarios del preview es la
-  // UNIÓN de los 3 orígenes — atribuírselo al segmento sería mentir).
+  // UNIÓN de los orígenes — atribuírselo al segmento sería mentir).
   // Micro-fix L1 — la deuda cuenta con el MISMO criterio EFECTIVO que el
   // gate/hint (`hasEffectiveBalanceFilter`, >0 finito): una deuda de $0
   // tipeada NO es un filtro (el hint dice "no filtra a nadie" y el gate la
   // ignora) — contar "1 filtro" ahí era una contradicción visible.
-  const segmentFilterCount =
-    segment.statuses.length +
-    (hasEffectiveBalanceFilter(segment) ? 1 : 0) +
-    (segment.networkSiteId ? 1 : 0) +
-    (segment.accessPointId ? 1 : 0);
+  // network-filter-tab — mismo criterio de honestidad, por tab: el chip de
+  // Segmento cuenta SOLO lo que vive en su panel (estados + deuda efectiva);
+  // el filtro de red cuenta en el chip del tab Nodo/AP (`networkFilterCount`,
+  // 0/1/2) — contarlo en ambos duplicaría, contarlo en Segmento mentiría.
+  const segmentFilterCount = segment.statuses.length + (hasEffectiveBalanceFilter(segment) ? 1 : 0);
+  const networkChipCount = networkFilterCount(segment);
 
   /** Label de tab con contador-chip opcional (el accname del tab incluye el número). */
   function tabLabel(text: string, count: number, unit?: string) {
@@ -338,6 +347,14 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
       id: 'segment',
       label: tabLabel('Segmento', segmentFilterCount, 'filtro'),
       content: <SegmentBuilder value={segment} onChange={setSegment} />,
+    },
+    {
+      // network-filter-tab — tab SEGUNDO (orden pedido por el usuario). El
+      // panel edita el MISMO `segment` que el tab Segmento (nodo/AP viven
+      // dentro de `CampaignSegment`) — mudanza de UI, no de modelo.
+      id: 'network',
+      label: tabLabel('Nodo/AP', networkChipCount),
+      content: <NetworkFilterPanel value={segment} onChange={setSegment} />,
     },
     {
       id: 'manual',
@@ -395,8 +412,9 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
           </Can>
         )}
 
-        {/* Card 2 — Destinatarios: los 3 orígenes (Segmento/Manuales/CSV) en
-            tabs. mountMode="all" (default): los 3 paneles SIEMPRE montados —
+        {/* Card 2 — Destinatarios: tabs Segmento / Nodo/AP / Manuales / CSV
+            (network-filter-tab movió el filtro de red a su propio tab).
+            mountMode="all" (default): los 4 paneles SIEMPRE montados —
             cambiar de tab no pierde el estado de los otros. */}
         <section className={styles.card} aria-labelledby="bulk-card-recipients-title">
           <header className={styles.cardHeader}>
@@ -404,7 +422,8 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
               Destinatarios
             </h2>
             <p className={styles.cardSubtitle}>
-              Segmento, lista manual y CSV se combinan en un único envío, sin duplicados.
+              El segmento (con su filtro de nodo/AP), la lista manual y el CSV se combinan en un único envío, sin
+              duplicados.
             </p>
           </header>
 

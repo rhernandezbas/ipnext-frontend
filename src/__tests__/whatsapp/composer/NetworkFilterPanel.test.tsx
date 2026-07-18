@@ -1,9 +1,12 @@
 /**
- * SegmentBuilder — filtros de red Nodo/AP (change node-segment-fe).
- * Dos `Select` PROPIOS dentro de la card "Segmento de destinatarios", debajo
- * de deuda: "Nodo" y "Access Point" (el segundo acotado al nodo elegido,
- * mismo patrón que `ContractNetworkAssignmentPicker`). Opción "Todos" para
- * limpiar cada uno. Los ids viajan DENTRO del `CampaignSegment`
+ * NetworkFilterPanel — filtros de red Nodo/AP (change network-filter-tab;
+ * antes vivían DENTRO de `SegmentBuilder`, tests movidos ÍNTEGROS desde
+ * `SegmentBuilder.network.test.tsx` sin relajar aserciones).
+ * Dos `Select` PROPIOS en el panel del tab "Nodo/AP" de la card
+ * "Destinatarios": "Nodo" y "Access Point" (el segundo acotado al nodo
+ * elegido, mismo patrón que `ContractNetworkAssignmentPicker`). Opción
+ * "Todos" para limpiar cada uno. La SEMÁNTICA no cambió NI UN BIT: los ids
+ * siguen viajando DENTRO del `CampaignSegment`
  * (`networkSiteId`/`accessPointId`) — `undefined` = sin filtro (se OMITE del
  * payload, mismo criterio que `balanceMin` vacío).
  *
@@ -22,15 +25,18 @@
  *  NSB-10 rama error: mensaje accesible (role=alert) por catálogo caído
  *  NSB-11 rama empty: aviso "no hay nodos/APs disponibles"
  *  NSB-12 nodo o AP solos cuentan como criterio → sin nota; la nota vacía
- *         ahora menciona nodo/AP
+ *         menciona nodo/AP y apunta a la pestaña Segmento (hint espejo)
  *
- * Fix wave (review adversarial de b18e5769):
+ * Fix wave (review adversarial de b18e5769) — guards PINEADOS, mudados
+ * intactos junto con el componente:
  *  M1  refetch fallido con catálogo CACHEADO → el filtro elegido SIGUE
  *      visible y limpiable (options desde la cache, select habilitado) —
  *      antes el trigger caía al placeholder "Todos los nodos" MIENTRAS el
  *      id seguía viajando en el payload (filtro oculto)
  *  M2  /access-points exige network.read (mismatch RBAC con messaging.bulk):
  *      sin el permiso NO se renderiza la fila del AP ni se dispara la query
+ *  M3  revocación de network.read con AP elegido → auto-limpieza SOLO con el
+ *      permiso false DEFINITIVO (no durante loading/error de /me)
  *  LOW error sin data nunca cargada → placeholder neutro "No disponible"
  *      (no "Todos los nodos", que se lee como valor aplicado)
  */
@@ -42,7 +48,7 @@ import type { CampaignSegment } from '@/types/messagingBulk';
 
 vi.mock('@/hooks/useNetworkSites', () => ({ useNetworkSites: vi.fn() }));
 vi.mock('@/hooks/useAccessPoints', () => ({ useAssignableAccessPoints: vi.fn() }));
-// M2 — el builder gatea la fila del AP con can('network.read'); mock a nivel
+// M2 — el panel gatea la fila del AP con can('network.read'); mock a nivel
 // hook (useMyPermissions usa useQuery — sin mock no hay QueryClient acá).
 vi.mock('@/hooks/useMyPermissions');
 
@@ -50,7 +56,7 @@ import { useNetworkSites } from '@/hooks/useNetworkSites';
 import { useAssignableAccessPoints } from '@/hooks/useAccessPoints';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
-import { SegmentBuilder } from '@/pages/whatsapp/BulkMessagingPage/components/composer/SegmentBuilder';
+import { NetworkFilterPanel } from '@/pages/whatsapp/BulkMessagingPage/components/composer/NetworkFilterPanel';
 import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
 const EMPTY: CampaignSegment = { statuses: [] };
@@ -107,7 +113,7 @@ function setupCatalogs({
 /**
  * M2 — `network.read` togglable; el resto de los permisos siempre concedidos.
  * `isLoading`/`isError` overrideables (M3): el hook real devuelve `can()=false`
- * MIENTRAS carga (permissions=[]) — el builder no debe confundir ese estado
+ * MIENTRAS carga (permissions=[]) — el panel no debe confundir ese estado
  * transitorio con una revocación definitiva.
  */
 function mockPerms(canReadNetwork = true, opts: { isLoading?: boolean; isError?: boolean } = {}) {
@@ -132,14 +138,14 @@ beforeEach(() => {
 describe('NSB-1: combobox propios de Nodo y Access Point', () => {
   it('renderiza ambos selects con nombre accesible', () => {
     setupCatalogs();
-    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={EMPTY} onChange={vi.fn()} />);
     expect(screen.getByRole('combobox', { name: /^nodo$/i })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: /access point/i })).toBeInTheDocument();
   });
 
   it('NO usa <select> nativo (regla del repo: Select propio)', () => {
     setupCatalogs();
-    const { container } = render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+    const { container } = render(<NetworkFilterPanel value={EMPTY} onChange={vi.fn()} />);
     expect(container.querySelector('select')).toBeNull();
   });
 });
@@ -147,7 +153,7 @@ describe('NSB-1: combobox propios de Nodo y Access Point', () => {
 describe('NSB-2: opciones del select de nodo', () => {
   it('lista "Todos los nodos" + el catálogo de useNetworkSites', () => {
     setupCatalogs();
-    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={EMPTY} onChange={vi.fn()} />);
     fireEvent.click(screen.getByRole('combobox', { name: /^nodo$/i }));
     expect(screen.getByRole('option', { name: /todos los nodos/i })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Nodo Centro' })).toBeInTheDocument();
@@ -160,7 +166,7 @@ describe('NSB-3: elegir un nodo', () => {
     setupCatalogs();
     const onChange = vi.fn();
     render(
-      <SegmentBuilder
+      <NetworkFilterPanel
         value={{ statuses: [], networkSiteId: 'site-1', accessPointId: 'ap-1' }}
         onChange={onChange}
       />,
@@ -178,7 +184,7 @@ describe('NSB-3: elegir un nodo', () => {
 
   it('el trigger muestra el NOMBRE del nodo elegido', () => {
     setupCatalogs();
-    render(<SegmentBuilder value={{ statuses: [], networkSiteId: 'site-1' }} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={{ statuses: [], networkSiteId: 'site-1' }} onChange={vi.fn()} />);
     expect(screen.getByRole('combobox', { name: /^nodo$/i })).toHaveTextContent('Nodo Centro');
   });
 });
@@ -186,19 +192,19 @@ describe('NSB-3: elegir un nodo', () => {
 describe('NSB-4: el nodo elegido acota los APs', () => {
   it('pide los APs scoped al networkSiteId del value (query habilitada con network.read)', () => {
     setupCatalogs({ aps: APS_SITE_2 });
-    render(<SegmentBuilder value={{ statuses: [], networkSiteId: 'site-2' }} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={{ statuses: [], networkSiteId: 'site-2' }} onChange={vi.fn()} />);
     expect(useAssignableAccessPoints).toHaveBeenCalledWith('site-2', true);
   });
 
   it('sin nodo elegido pide el catálogo completo (null)', () => {
     setupCatalogs();
-    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={EMPTY} onChange={vi.fn()} />);
     expect(useAssignableAccessPoints).toHaveBeenCalledWith(null, true);
   });
 
   it('el select de AP lista las opciones del nodo', () => {
     setupCatalogs({ aps: APS_SITE_1 });
-    render(<SegmentBuilder value={{ statuses: [], networkSiteId: 'site-1' }} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={{ statuses: [], networkSiteId: 'site-1' }} onChange={vi.fn()} />);
     fireEvent.click(screen.getByRole('combobox', { name: /access point/i }));
     expect(screen.getByRole('option', { name: /todos los aps/i })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'AP Centro Torre' })).toBeInTheDocument();
@@ -210,7 +216,7 @@ describe('NSB-5: elegir un AP', () => {
   it('setea accessPointId y autocompleta el nodo del AP (coherencia con el picker de contrato)', () => {
     setupCatalogs({ aps: APS_SITE_2 });
     const onChange = vi.fn();
-    render(<SegmentBuilder value={EMPTY} onChange={onChange} />);
+    render(<NetworkFilterPanel value={EMPTY} onChange={onChange} />);
 
     fireEvent.click(screen.getByRole('combobox', { name: /access point/i }));
     fireEvent.click(screen.getByRole('option', { name: 'AP Norte Torre' }));
@@ -226,7 +232,7 @@ describe('NSB-6: AP sin nodo linkeado', () => {
   it('elegirlo es válido: accessPointId seteado, networkSiteId queda sin setear', () => {
     setupCatalogs({ aps: APS_NO_NODE });
     const onChange = vi.fn();
-    render(<SegmentBuilder value={EMPTY} onChange={onChange} />);
+    render(<NetworkFilterPanel value={EMPTY} onChange={onChange} />);
 
     fireEvent.click(screen.getByRole('combobox', { name: /access point/i }));
     fireEvent.click(screen.getByRole('option', { name: 'AP Suelto' }));
@@ -242,7 +248,7 @@ describe('NSB-7: "Todos los nodos" limpia el filtro de nodo', () => {
     setupCatalogs({ aps: APS_SITE_1 });
     const onChange = vi.fn();
     render(
-      <SegmentBuilder
+      <NetworkFilterPanel
         value={{ statuses: [], networkSiteId: 'site-1', accessPointId: 'ap-1' }}
         onChange={onChange}
       />,
@@ -262,7 +268,7 @@ describe('NSB-8: "Todos los APs" limpia solo el AP', () => {
     setupCatalogs({ aps: APS_SITE_1 });
     const onChange = vi.fn();
     render(
-      <SegmentBuilder
+      <NetworkFilterPanel
         value={{ statuses: [], networkSiteId: 'site-1', accessPointId: 'ap-1' }}
         onChange={onChange}
       />,
@@ -285,7 +291,7 @@ describe('NSB-9: rama loading', () => {
     vi.mocked(useAssignableAccessPoints).mockReturnValue(
       mockQuery({ data: undefined, isLoading: true, isPending: true, isSuccess: false, status: 'pending' }),
     );
-    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={EMPTY} onChange={vi.fn()} />);
 
     const nodeTrigger = screen.getByRole('combobox', { name: /^nodo$/i });
     const apTrigger = screen.getByRole('combobox', { name: /access point/i });
@@ -302,7 +308,7 @@ describe('NSB-10: rama error accesible', () => {
       mockQuery({ data: undefined, isError: true, error: new Error('boom'), isSuccess: false, status: 'error' }),
     );
     vi.mocked(useAssignableAccessPoints).mockReturnValue(mockQuery({ data: APS_SITE_1, isLoading: false }));
-    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={EMPTY} onChange={vi.fn()} />);
 
     const alerts = screen.getAllByRole('alert');
     expect(alerts.some((a) => /nodos/i.test(a.textContent ?? ''))).toBe(true);
@@ -314,7 +320,7 @@ describe('NSB-10: rama error accesible', () => {
     vi.mocked(useAssignableAccessPoints).mockReturnValue(
       mockQuery({ data: undefined, isError: true, error: new Error('boom'), isSuccess: false, status: 'error' }),
     );
-    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={EMPTY} onChange={vi.fn()} />);
 
     const alerts = screen.getAllByRole('alert');
     expect(alerts.some((a) => /access point/i.test(a.textContent ?? ''))).toBe(true);
@@ -326,14 +332,14 @@ describe('NSB-10: rama error accesible', () => {
 describe('NSB-11: rama empty', () => {
   it('catálogo de nodos vacío → aviso y select deshabilitado', () => {
     setupCatalogs({ sites: [] });
-    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={EMPTY} onChange={vi.fn()} />);
     expect(screen.getByText(/no hay nodos disponibles/i)).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: /^nodo$/i })).toBeDisabled();
   });
 
   it('sin APs para el nodo elegido → aviso y select de AP deshabilitado', () => {
     setupCatalogs({ aps: [] });
-    render(<SegmentBuilder value={{ statuses: [], networkSiteId: 'site-1' }} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={{ statuses: [], networkSiteId: 'site-1' }} onChange={vi.fn()} />);
     expect(screen.getByText(/no hay access points disponibles/i)).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: /access point/i })).toBeDisabled();
   });
@@ -347,7 +353,7 @@ describe('M1: refetch fallido con catálogo cacheado (fix wave)', () => {
       mockQuery({ data: SITES, isError: true, error: new Error('boom'), isSuccess: false, status: 'error' }),
     );
     vi.mocked(useAssignableAccessPoints).mockReturnValue(mockQuery({ data: APS_SITE_1, isLoading: false }));
-    render(<SegmentBuilder value={{ statuses: [], networkSiteId: 'site-1' }} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={{ statuses: [], networkSiteId: 'site-1' }} onChange={vi.fn()} />);
 
     const trigger = screen.getByRole('combobox', { name: /^nodo$/i });
     // Antes: options=[] → el trigger caía al placeholder "Todos los nodos"
@@ -362,7 +368,7 @@ describe('M1: refetch fallido con catálogo cacheado (fix wave)', () => {
       mockQuery({ data: APS_SITE_1, isError: true, error: new Error('boom'), isSuccess: false, status: 'error' }),
     );
     render(
-      <SegmentBuilder
+      <NetworkFilterPanel
         value={{ statuses: [], networkSiteId: 'site-1', accessPointId: 'ap-1' }}
         onChange={vi.fn()}
       />,
@@ -378,7 +384,7 @@ describe('M1: refetch fallido con catálogo cacheado (fix wave)', () => {
       mockQuery({ data: SITES, isError: true, error: new Error('boom'), isSuccess: false, status: 'error' }),
     );
     vi.mocked(useAssignableAccessPoints).mockReturnValue(mockQuery({ data: APS_SITE_1, isLoading: false }));
-    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={EMPTY} onChange={vi.fn()} />);
 
     const alerts = screen.getAllByRole('alert');
     expect(alerts.some((a) => /actualizar|última versión/i.test(a.textContent ?? ''))).toBe(true);
@@ -391,7 +397,7 @@ describe('LOW: placeholder neutro en error sin cache (fix wave)', () => {
       mockQuery({ data: undefined, isError: true, error: new Error('boom'), isSuccess: false, status: 'error' }),
     );
     vi.mocked(useAssignableAccessPoints).mockReturnValue(mockQuery({ data: APS_SITE_1, isLoading: false }));
-    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={EMPTY} onChange={vi.fn()} />);
 
     const trigger = screen.getByRole('combobox', { name: /^nodo$/i });
     expect(trigger).toHaveTextContent(/no disponible/i);
@@ -403,7 +409,7 @@ describe('M2: gate network.read del select de AP (fix wave)', () => {
   it('sin network.read NO renderiza el select de AP ni ningún alert; el de Nodo queda (auth-only)', () => {
     mockPerms(false);
     setupCatalogs();
-    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={EMPTY} onChange={vi.fn()} />);
 
     expect(screen.queryByRole('combobox', { name: /access point/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
@@ -413,7 +419,7 @@ describe('M2: gate network.read del select de AP (fix wave)', () => {
   it('sin network.read la query de APs queda deshabilitada (ni un 403 al aire)', () => {
     mockPerms(false);
     setupCatalogs();
-    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={EMPTY} onChange={vi.fn()} />);
 
     expect(useAssignableAccessPoints).toHaveBeenCalledWith(null, false);
   });
@@ -421,7 +427,7 @@ describe('M2: gate network.read del select de AP (fix wave)', () => {
   it('con network.read todo sigue igual (fila de AP presente)', () => {
     mockPerms(true);
     setupCatalogs();
-    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={EMPTY} onChange={vi.fn()} />);
 
     expect(screen.getByRole('combobox', { name: /access point/i })).toBeInTheDocument();
   });
@@ -438,7 +444,7 @@ describe('M3: revocación de network.read con AP ya elegido (micro fix wave)', (
     mockPerms(false);
     setupCatalogs();
     const onChange = vi.fn();
-    render(<SegmentBuilder value={WITH_AP} onChange={onChange} />);
+    render(<NetworkFilterPanel value={WITH_AP} onChange={onChange} />);
 
     expect(onChange).toHaveBeenCalledTimes(1);
     const next = onChange.mock.calls[0][0] as CampaignSegment;
@@ -454,7 +460,7 @@ describe('M3: revocación de network.read con AP ya elegido (micro fix wave)', (
     mockPerms(false, { isLoading: true });
     setupCatalogs();
     const onChange = vi.fn();
-    render(<SegmentBuilder value={WITH_AP} onChange={onChange} />);
+    render(<NetworkFilterPanel value={WITH_AP} onChange={onChange} />);
 
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -463,7 +469,7 @@ describe('M3: revocación de network.read con AP ya elegido (micro fix wave)', (
     mockPerms(false, { isError: true });
     setupCatalogs();
     const onChange = vi.fn();
-    render(<SegmentBuilder value={WITH_AP} onChange={onChange} />);
+    render(<NetworkFilterPanel value={WITH_AP} onChange={onChange} />);
 
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -472,7 +478,7 @@ describe('M3: revocación de network.read con AP ya elegido (micro fix wave)', (
     mockPerms(true);
     setupCatalogs();
     const onChange = vi.fn();
-    render(<SegmentBuilder value={WITH_AP} onChange={onChange} />);
+    render(<NetworkFilterPanel value={WITH_AP} onChange={onChange} />);
 
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -481,7 +487,7 @@ describe('M3: revocación de network.read con AP ya elegido (micro fix wave)', (
     mockPerms(false);
     setupCatalogs();
     const onChange = vi.fn();
-    render(<SegmentBuilder value={{ statuses: [], networkSiteId: 'site-1' }} onChange={onChange} />);
+    render(<NetworkFilterPanel value={{ statuses: [], networkSiteId: 'site-1' }} onChange={onChange} />);
 
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -490,19 +496,33 @@ describe('M3: revocación de network.read con AP ya elegido (micro fix wave)', (
 describe('NSB-12: nodo/AP como criterio del segmento', () => {
   it('con SOLO un nodo elegido NO muestra la nota de "sin criterio"', () => {
     setupCatalogs();
-    render(<SegmentBuilder value={{ statuses: [], networkSiteId: 'site-1' }} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={{ statuses: [], networkSiteId: 'site-1' }} onChange={vi.fn()} />);
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('con SOLO un AP elegido NO muestra la nota de "sin criterio"', () => {
     setupCatalogs();
-    render(<SegmentBuilder value={{ statuses: [], accessPointId: 'ap-1' }} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={{ statuses: [], accessPointId: 'ap-1' }} onChange={vi.fn()} />);
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('sin ningún criterio, la nota menciona también nodo/AP', () => {
     setupCatalogs();
-    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+    render(<NetworkFilterPanel value={EMPTY} onChange={vi.fn()} />);
     expect(screen.getByRole('status')).toHaveTextContent(/nodo\/ap/i);
+  });
+
+  // Hint espejo (network-filter-tab) — estados/deuda viven en OTRO tab ahora:
+  // la nota de este panel apunta a la pestaña Segmento sin mentir.
+  it('la nota vacía apunta a la pestaña Segmento (los estados/deuda viven allá)', () => {
+    setupCatalogs();
+    render(<NetworkFilterPanel value={EMPTY} onChange={vi.fn()} />);
+    expect(screen.getByRole('status')).toHaveTextContent(/pestaña segmento/i);
+  });
+
+  it('con un estado elegido en el OTRO tab (statuses en el value) NO muestra la nota', () => {
+    setupCatalogs();
+    render(<NetworkFilterPanel value={{ statuses: ['late'] }} onChange={vi.fn()} />);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });

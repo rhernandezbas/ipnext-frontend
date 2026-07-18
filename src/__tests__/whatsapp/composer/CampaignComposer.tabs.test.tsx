@@ -1,15 +1,24 @@
 /**
  * CampaignComposer — rediseño bulk-elegant: la card "Destinatarios" consolida
- * los 3 orígenes (Segmento / Manuales / CSV) en tabs accesibles (componente
- * `Tabs` del repo, mountMode="all" — los 3 paneles SIEMPRE montados, solo se
- * ocultan con CSS). CERO cambio de comportamiento: los orígenes se siguen
- * COMBINANDO (unión dedupeada) en preview y create.
+ * los orígenes en tabs accesibles (componente `Tabs` del repo, mountMode="all"
+ * — los paneles SIEMPRE montados, solo se ocultan con CSS). CERO cambio de
+ * comportamiento: los orígenes se siguen COMBINANDO (unión dedupeada) en
+ * preview y create.
  *
- *  TAB-1 estructura: tablist con Segmento/Manuales/CSV, Segmento activo por
- *        default, headings h2 "Mensaje" y "Destinatarios"
+ * Change network-filter-tab — el filtro de red Nodo/AP salió del panel
+ * Segmento a un TAB PROPIO (segundo): Segmento | Nodo/AP | Manuales | CSV.
+ * Mudanza de UI únicamente: `networkSiteId`/`accessPointId` siguen DENTRO de
+ * `CampaignSegment` (AND con estados/deuda, payload idéntico).
+ *
+ *  TAB-1 estructura: tablist con Segmento/Nodo\/AP/Manuales/CSV (en ese
+ *        orden), Segmento activo por default, headings h2 "Mensaje" y
+ *        "Destinatarios"; los selects de red viven en el tab Nodo/AP y NO
+ *        en Segmento
  *  TAB-2 cambiar de tab NO pierde el estado de los otros orígenes (lección
  *        `inbox-key-por-conversacion`) y la UNIÓN sigue viajando completa
- *  TAB-3 contador-chip en el label del tab cuando su origen tiene algo cargado
+ *  TAB-3 contador-chip en el label del tab cuando su origen tiene algo
+ *        cargado — el chip de Segmento cuenta SOLO estados+deuda efectiva;
+ *        el de Nodo/AP cuenta sus propios filtros (0/1/2)
  *  TAB-4 microcopy de la unión visible en la card (sin abrir cada tab)
  *
  * Mismos seams de mock que `CampaignComposer.test.tsx` (fetch-level para
@@ -44,6 +53,8 @@ import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
 import { CampaignComposer } from '@/pages/whatsapp/BulkMessagingPage/components/composer/CampaignComposer';
 import type { PreviewSegmentOutput, TemplateSummaryDto } from '@/types/messagingBulk';
+import type { NetworkSite } from '@/types/networkSite';
+import type { AccessPointOption } from '@/types/accessPoint';
 
 const TEMPLATE: TemplateSummaryDto = {
   contentSid: 'HX123',
@@ -64,6 +75,33 @@ const PREVIEW: PreviewSegmentOutput = {
 
 const CLIENTS = [
   { id: 'c-1', name: 'Juan García', email: 'juan@test.com', phone: '+5491111111111', status: 'active', balance: 0, category: '', tariffPlan: null, login: null, ipRanges: null, accessDevices: 0, createdAt: '' },
+];
+
+// network-filter-tab — catálogos de red para el tab Nodo/AP (fetch-level,
+// mismos seams que `CampaignComposer.networkSegment.test.tsx`).
+const SITES: NetworkSite[] = [
+  {
+    id: 'site-1',
+    siteNumber: 1,
+    fixedCode: 'NODO 1',
+    name: 'Nodo Centro',
+    address: 'Av. Siempreviva 742',
+    city: 'CABA',
+    coordinates: null,
+    type: 'nodo',
+    status: 'active',
+    deviceCount: 10,
+    clientCount: 100,
+    uplink: '1 Gbps',
+    parentSiteId: null,
+    description: '',
+    iclassNodeCode: null,
+    uispSiteId: null,
+  },
+];
+
+const APS: AccessPointOption[] = [
+  { id: 'ap-1', name: 'AP Centro Torre', mac: 'AA:BB:CC:DD:EE:01', networkSiteId: 'site-1' },
 ];
 
 function renderComposer() {
@@ -96,24 +134,52 @@ beforeEach(() => {
   vi.mocked(createCampaign).mockResolvedValue({ campaignId: 'camp-1', total: 42, status: 'pending' });
   vi.mocked(listSegmentRecipients).mockResolvedValue({ data: [], total: 0, page: 1, limit: 20, skipped: { optedOut: 0, duplicatePhone: 0, invalidPhone: 0 }, statusCounts: {} });
   vi.mocked(listExcludedRecipients).mockResolvedValue({ data: [], total: 0, page: 1, limit: 20, skipped: { optedOut: 0, duplicatePhone: 0, invalidPhone: 0 }, statusCounts: {} });
-  vi.mocked(getNetworkSites).mockResolvedValue([]);
-  vi.mocked(listAssignableAccessPoints).mockResolvedValue([]);
+  vi.mocked(getNetworkSites).mockResolvedValue(SITES);
+  // Scoping real: con networkSiteId devuelve SOLO los APs de ese nodo.
+  vi.mocked(listAssignableAccessPoints).mockImplementation((networkSiteId?: string) =>
+    Promise.resolve(networkSiteId ? APS.filter((a) => a.networkSiteId === networkSiteId) : APS),
+  );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useClientList
   vi.mocked(useClientList).mockReturnValue({ data: { data: CLIENTS, total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false } as any);
 });
 
-describe('TAB-1: la card Destinatarios consolida los 3 orígenes en tabs', () => {
-  it('tablist con Segmento/Manuales/CSV, Segmento activo por default y su panel visible', async () => {
+describe('TAB-1: la card Destinatarios consolida los orígenes en tabs', () => {
+  it('tablist con Segmento/Nodo\\/AP/Manuales/CSV en ese orden, Segmento activo por default y su panel visible', async () => {
     renderComposer();
 
     const segmentTab = await screen.findByRole('tab', { name: /segmento/i });
     expect(segmentTab).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: /nodo\/ap/i })).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByRole('tab', { name: /manuales/i })).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByRole('tab', { name: /csv/i })).toHaveAttribute('aria-selected', 'false');
+
+    // Orden pedido por el usuario: Segmento | Nodo/AP | Manuales | CSV.
+    const tabTexts = screen.getAllByRole('tab').map((t) => t.textContent ?? '');
+    expect(tabTexts).toHaveLength(4);
+    expect(tabTexts[0]).toMatch(/segmento/i);
+    expect(tabTexts[1]).toMatch(/nodo\/ap/i);
+    expect(tabTexts[2]).toMatch(/manuales/i);
+    expect(tabTexts[3]).toMatch(/csv/i);
 
     // El panel activo (Segmento) expone sus controles en el árbol de accesibilidad;
     // los paneles ocultos quedan fuera (display: none — getByRole los excluye).
     expect(screen.getByRole('checkbox', { name: /atrasado/i })).toBeInTheDocument();
+  });
+
+  it('los selects de Nodo/AP viven en el tab nuevo y NO en el panel Segmento', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    // Tab Segmento activo (default): NINGÚN combobox de red visible en su panel.
+    await screen.findByRole('tab', { name: /segmento/i });
+    expect(screen.queryByRole('combobox', { name: /^nodo$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /access point/i })).not.toBeInTheDocument();
+
+    // Tab Nodo/AP: ahí están los dos selects; los controles del Segmento se ocultan.
+    await user.click(screen.getByRole('tab', { name: /nodo\/ap/i }));
+    expect(screen.getByRole('combobox', { name: /^nodo$/i })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /access point/i })).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /atrasado/i })).not.toBeInTheDocument();
   });
 
   it('jerarquía de cards: headings h2 "Mensaje" y "Destinatarios" (h1 de la page → h2, sin saltos)', async () => {
@@ -125,12 +191,18 @@ describe('TAB-1: la card Destinatarios consolida los 3 orígenes en tabs', () =>
 });
 
 describe('TAB-2: cambiar de tab NO pierde el estado de los otros orígenes', () => {
-  it('segmento + manual + CSV sobreviven al ciclo completo de tabs y la UNIÓN viaja completa al preview', async () => {
+  it('segmento + nodo + manual + CSV sobreviven al ciclo completo por los 4 tabs y la UNIÓN viaja completa al preview', async () => {
     const user = userEvent.setup();
     renderComposer();
 
     // Segmento (tab default): tildar "atrasado".
     await user.click(await screen.findByRole('checkbox', { name: /atrasado/i }));
+
+    // Nodo/AP: elegir el nodo (el filtro de red vive DENTRO del segment igual
+    // que siempre — mudanza de UI, no de modelo).
+    await user.click(screen.getByRole('tab', { name: /nodo\/ap/i }));
+    fireEvent.click(screen.getByRole('combobox', { name: /^nodo$/i }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Nodo Centro' }));
 
     // Manuales: agregar a Juan.
     await user.click(screen.getByRole('tab', { name: /manuales/i }));
@@ -146,6 +218,10 @@ describe('TAB-2: cambiar de tab NO pierde el estado de los otros orígenes', () 
     await user.click(screen.getByRole('tab', { name: /segmento/i }));
     expect(screen.getByRole('checkbox', { name: /atrasado/i })).toBeChecked();
 
+    // Volver a Nodo/AP — el trigger sigue mostrando el nodo elegido.
+    await user.click(screen.getByRole('tab', { name: /nodo\/ap/i }));
+    expect(screen.getByRole('combobox', { name: /^nodo$/i })).toHaveTextContent('Nodo Centro');
+
     // Volver a Manuales — el chip de Juan sigue.
     await user.click(screen.getByRole('tab', { name: /manuales/i }));
     expect(screen.getByText(/1 destinatario manual/i)).toBeInTheDocument();
@@ -154,10 +230,13 @@ describe('TAB-2: cambiar de tab NO pierde el estado de los otros orígenes', () 
     await user.click(screen.getByRole('tab', { name: /csv/i }));
     expect(screen.getByText(/1 destinatario del archivo/i)).toBeInTheDocument();
 
-    // La UNIÓN de los 3 orígenes sigue viajando COMPLETA en el preview.
+    // La UNIÓN de los 4 orígenes de datos sigue viajando COMPLETA en el
+    // preview — payload IDÉNTICO al de siempre: networkSiteId adentro del
+    // segment (spread plano), NO en una key nueva.
     await waitFor(() =>
       expect(previewSegment).toHaveBeenLastCalledWith({
         statuses: ['late'],
+        networkSiteId: 'site-1',
         manualClientIds: ['c-1'],
         manualContacts: [{ name: 'Ana', phone: '1123456789' }],
       }),
@@ -170,8 +249,51 @@ describe('TAB-3: contador-chip en el label del tab cuando su origen tiene algo c
     renderComposer();
 
     expect(await screen.findByRole('tab', { name: /segmento/i })).not.toHaveTextContent(/\d/);
+    expect(screen.getByRole('tab', { name: /nodo\/ap/i })).not.toHaveTextContent(/\d/);
     expect(screen.getByRole('tab', { name: /manuales/i })).not.toHaveTextContent(/\d/);
     expect(screen.getByRole('tab', { name: /csv/i })).not.toHaveTextContent(/\d/);
+  });
+
+  it('el filtro de red cuenta en el chip del tab Nodo/AP (1 con nodo, 2 con nodo+AP) y NO en el de Segmento', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    // Elegir un nodo en su tab → chip "1" en Nodo/AP; Segmento sigue sin chip
+    // (su contador es honesto: cuenta SOLO estados+deuda, que viven ahí).
+    await user.click(await screen.findByRole('tab', { name: /nodo\/ap/i }));
+    fireEvent.click(screen.getByRole('combobox', { name: /^nodo$/i }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Nodo Centro' }));
+    expect(screen.getByRole('tab', { name: /nodo\/ap/i })).toHaveTextContent(/1/);
+    expect(screen.getByRole('tab', { name: /segmento/i })).not.toHaveTextContent(/\d/);
+
+    // Elegir también el AP → chip "2". El catálogo de APs se re-scopea al
+    // nodo recién elegido (query nueva) — esperar a que el select re-habilite.
+    const apTrigger = screen.getByRole('combobox', { name: /access point/i });
+    await waitFor(() => expect(apTrigger).toBeEnabled());
+    fireEvent.click(apTrigger);
+    fireEvent.click(await screen.findByRole('option', { name: 'AP Centro Torre' }));
+    expect(screen.getByRole('tab', { name: /nodo\/ap/i })).toHaveTextContent(/2/);
+    expect(screen.getByRole('tab', { name: /segmento/i })).not.toHaveTextContent(/\d/);
+
+    // Un estado tildado suma SOLO al chip de Segmento (no al de Nodo/AP).
+    await user.click(screen.getByRole('tab', { name: /segmento/i }));
+    await user.click(screen.getByRole('checkbox', { name: /atrasado/i }));
+    expect(screen.getByRole('tab', { name: /segmento/i })).toHaveTextContent(/1 filtro/i);
+    expect(screen.getByRole('tab', { name: /nodo\/ap/i })).toHaveTextContent(/2/);
+  });
+
+  it('limpiar el filtro de red hace desaparecer el chip de Nodo/AP (sin "0" colgado)', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    await user.click(await screen.findByRole('tab', { name: /nodo\/ap/i }));
+    fireEvent.click(screen.getByRole('combobox', { name: /^nodo$/i }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Nodo Centro' }));
+    expect(screen.getByRole('tab', { name: /nodo\/ap/i })).toHaveTextContent(/1/);
+
+    fireEvent.click(screen.getByRole('combobox', { name: /^nodo$/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /todos los nodos/i }));
+    expect(screen.getByRole('tab', { name: /nodo\/ap/i })).not.toHaveTextContent(/\d/);
   });
 
   it('Segmento muestra la cantidad de filtros activos; Manuales y CSV la cantidad de destinatarios', async () => {

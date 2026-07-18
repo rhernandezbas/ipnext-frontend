@@ -1,0 +1,109 @@
+/**
+ * NetworkFilterPanel.module.css (change network-filter-tab) — estilos del
+ * filtro de red Nodo/AP, EXTRAÍDOS de `SegmentBuilder.module.css` junto con
+ * el componente: ahora es el panel del tab "Nodo/AP" de la card
+ * "Destinatarios" (`CampaignComposer` pone la superficie). El <legend> queda
+ * sr-only: el tab ya nombra la sección visualmente, pero el fieldset conserva
+ * su accessible name (role=group).
+ *
+ * Motion: `panelIn` corre al montar Y en cada cambio de tab (display none→
+ * flex regenera la box y reinicia la animación) — mismas reglas duras que el
+ * resto del bulk (pineadas en `bulkA11y.test.ts`): fill `backwards` JAMÁS
+ * `both` (retiene stacking context en Chrome y entierra el dropdown del
+ * Select bajo la card siguiente — HOTFIX bulk-z-root) y keyframes que
+ * terminan en `transform: none`. El dropdown del Select queda protegido por
+ * el cinturón GENÉRICO `.controls > :focus-within` de
+ * `CampaignComposer.module.css` (cubre la card Destinatarios entera).
+ */
+
+.fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  animation: panelIn 180ms var(--ease-out) backwards;
+}
+
+/* sr-only — el nombre accesible del grupo se conserva sin duplicar el label
+   visible del tab activo ("Nodo/AP"). */
+.legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Fila de filtros de red (Nodo + Access Point), mismo layout fluido que el
+   .balanceGroup del panel Segmento. El Select propio ya trae label, trigger
+   de 44px (touch target) y focus-visible tokenizado. */
+.networkGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.networkField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 180px;
+}
+
+/* Error de catálogo caído — mismo pairing texto-safe badge-late-fg/bg que el
+   .error de SegmentPreviewPanel (>=4.5:1), NUNCA danger sobre danger-bg. */
+.fieldError {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  color: var(--badge-late-fg);
+  background: var(--badge-late-bg);
+}
+
+/* Catálogo vacío — gray-600 sobre el surface blanco de la card (>=7:1). */
+.fieldHint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-600);
+}
+
+.hint {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  /* FIX-6a — gray-600 (~7.2:1) sobre surface-hover; text-secondary daba 4.13:1.
+     Mismo pairing que el .hint del SegmentBuilder, pineado en bulkA11y. */
+  color: var(--color-gray-600);
+  background: var(--color-surface-hover);
+  animation: noticeIn 180ms var(--ease-out) backwards;
+}
+
+/* HOTFIX bulk-z-root — `backwards` (no `both`, ver root cause completo en
+   `TemplateSelector.module.css`) y `to` en `transform: none` (misma matriz
+   identidad que `translateY(0)` en reposo, cero cambio visual). */
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes noticeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fieldset,
+  .hint {
+    animation: none;
+  }
+}

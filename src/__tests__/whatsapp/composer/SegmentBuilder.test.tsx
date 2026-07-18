@@ -13,63 +13,16 @@
  */
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
-// node-segment-fe — el builder ahora monta los selects de Nodo/AP con
-// catálogos vía hooks propios; se mockean a nivel hook (misma convención que
-// `ContractNetworkAssignmentPicker.test.tsx`). Los escenarios de red viven en
-// `SegmentBuilder.network.test.tsx` — acá solo se neutralizan.
-vi.mock('@/hooks/useNetworkSites', () => ({ useNetworkSites: vi.fn() }));
-vi.mock('@/hooks/useAccessPoints', () => ({ useAssignableAccessPoints: vi.fn() }));
-// M2 (fix wave) — el builder gatea la fila del AP con can('network.read');
-// acá se concede todo (los escenarios RBAC viven en el .network.test).
-vi.mock('@/hooks/useMyPermissions');
-
-import { useNetworkSites } from '@/hooks/useNetworkSites';
-import { useAssignableAccessPoints } from '@/hooks/useAccessPoints';
-import { useMyPermissions } from '@/hooks/useMyPermissions';
-import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
+// network-filter-tab — los selects de Nodo/AP (y sus hooks de catálogo +
+// permisos) se MUDARON a `NetworkFilterPanel`: el builder volvió a ser puro
+// (estados + deuda, cero hooks) — ya no hay seams de red que neutralizar acá.
+// Los escenarios de red viven en `NetworkFilterPanel.test.tsx`.
 import { SegmentBuilder } from '@/pages/whatsapp/BulkMessagingPage/components/composer/SegmentBuilder';
-import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
-import type { NetworkSite } from '@/types/networkSite';
-import type { AccessPointOption } from '@/types/accessPoint';
 import type { CampaignSegment } from '@/types/messagingBulk';
 
 const EMPTY: CampaignSegment = { statuses: [] };
-
-const SITE: NetworkSite = {
-  id: 'site-1',
-  siteNumber: 1,
-  fixedCode: 'NODO 1',
-  name: 'Nodo Centro',
-  address: '',
-  city: '',
-  coordinates: null,
-  type: 'nodo',
-  status: 'active',
-  deviceCount: 0,
-  clientCount: 0,
-  uplink: '',
-  parentSiteId: null,
-  description: '',
-  iclassNodeCode: null,
-  uispSiteId: null,
-};
-
-const AP: AccessPointOption = { id: 'ap-1', name: 'AP Centro Torre', mac: null, networkSiteId: 'site-1' };
-
-beforeEach(() => {
-  vi.mocked(useNetworkSites).mockReturnValue(mockQuery({ data: [SITE], isLoading: false }));
-  vi.mocked(useAssignableAccessPoints).mockReturnValue(mockQuery({ data: [AP], isLoading: false }));
-  vi.mocked(useMyPermissions).mockReturnValue({
-    user: null,
-    roles: [],
-    permissions: [],
-    isLoading: false,
-    isError: false,
-    can: () => true,
-  } as UseMyPermissionsResult);
-});
 
 describe('SB-1: checkboxes de estado', () => {
   it('renderiza los 5 estados con label asociado', () => {
@@ -164,5 +117,27 @@ describe('SB-6/SB-7: nota de "al menos un criterio"', () => {
   it('con balanceMax negativo muestra la nota (no cuenta como criterio)', () => {
     render(<SegmentBuilder value={{ statuses: [], balanceMax: -50 }} onChange={vi.fn()} />);
     expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+});
+
+describe('network-filter-tab: los selects de red ya NO viven en el panel Segmento', () => {
+  it('no renderiza ningún combobox (Nodo/AP se mudaron a su propio tab)', () => {
+    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  it('el hint sin criterio sigue mencionando nodo/AP pero apunta a su pestaña (no miente)', () => {
+    render(<SegmentBuilder value={EMPTY} onChange={vi.fn()} />);
+    expect(screen.getByRole('status')).toHaveTextContent(/pestaña nodo\/ap/i);
+  });
+
+  it('el hint de deuda inefectiva ($0) también apunta a la pestaña Nodo/AP', () => {
+    render(<SegmentBuilder value={{ statuses: [], balanceMin: 0 }} onChange={vi.fn()} />);
+    expect(screen.getByRole('status')).toHaveTextContent(/pestaña nodo\/ap/i);
+  });
+
+  it('con un nodo elegido en el OTRO tab (networkSiteId en el value) NO muestra la nota — sigue siendo criterio del segmento', () => {
+    render(<SegmentBuilder value={{ statuses: [], networkSiteId: 'site-1' }} onChange={vi.fn()} />);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });
