@@ -15,7 +15,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  min-height: var(--space-8);
+  min-height: var(--space-11); /* 44px touch target (convención de la tanda — Composer/menuItem) */
   padding: 0 var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);

@@ -21,6 +21,11 @@ describe('CONVERSATION_STATUS_VARIANT / CONVERSATION_STATUS_LABEL', () => {
     expect(CONVERSATION_STATUS_LABEL['pending']).toBe('Pendiente');
     expect(CONVERSATION_STATUS_LABEL['resolved']).toBe('Resuelta');
   });
+
+  it('Ola 6: "snoozed" mapea a "Pospuesta" con variante ámbar (late), no al fallback gris + texto crudo', () => {
+    expect(CONVERSATION_STATUS_VARIANT['snoozed']).toBe('late');
+    expect(CONVERSATION_STATUS_LABEL['snoozed']).toBe('Pospuesta');
+  });
 });
 
 describe('nextConversationStatus — v1 SOLO alterna open↔resolved', () => {

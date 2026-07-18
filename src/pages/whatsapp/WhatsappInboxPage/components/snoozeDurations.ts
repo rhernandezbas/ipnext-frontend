@@ -1,9 +1,12 @@
+import { toArIsoDate, arDayStartUtc } from '@/utils/formatDate';
+
 /**
  * snoozeDurations (Ola 6 — snooze) — catálogo de duraciones del mini-selector
  * "Posponer" + el cálculo PURO del `snoozedUntil` ISO. El BE (`POST /snooze`)
  * exige una fecha FUTURA: todas las opciones producen un instante posterior a
- * `now` por construcción. "Mañana" ancla a las 9:00 LOCAL del día siguiente
- * (hora de oficina), el resto son offsets simples.
+ * `now` por construcción. "Mañana" ancla a las 9:00 de ARGENTINA (UTC-3, hora
+ * de oficina) del día siguiente — NO del host/UTC (guard `no-browser-tz`); el
+ * resto son offsets de milisegundos sobre el instante, TZ-independientes.
  */
 
 export type SnoozeDurationId = '1h' | '3h' | 'tomorrow' | '1w';
@@ -22,8 +25,10 @@ export const SNOOZE_DURATIONS: readonly SnoozeDurationDef[] = [
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-/** Hora de oficina a la que despierta un snooze de "Mañana". */
+/** Hora de oficina a la que despierta un snooze de "Mañana" (en ARGENTINA, UTC-3). */
 const TOMORROW_HOUR = 9;
+
+const pad2 = (n: number): string => String(n).padStart(2, '0');
 
 /**
  * ¿La conversación está pospuesta AHORA? Un `snoozedUntil` en el pasado (snooze
@@ -38,21 +43,20 @@ export function isFutureSnooze(snoozedUntil: string | null | undefined, now: Dat
 }
 
 export function computeSnoozedUntil(id: SnoozeDurationId, now: Date = new Date()): string {
-  const d = new Date(now.getTime());
   switch (id) {
     case '1h':
-      d.setTime(now.getTime() + HOUR_MS);
-      break;
+      return new Date(now.getTime() + HOUR_MS).toISOString();
     case '3h':
-      d.setTime(now.getTime() + 3 * HOUR_MS);
-      break;
-    case 'tomorrow':
-      d.setDate(d.getDate() + 1);
-      d.setHours(TOMORROW_HOUR, 0, 0, 0);
-      break;
+      return new Date(now.getTime() + 3 * HOUR_MS).toISOString();
     case '1w':
-      d.setTime(now.getTime() + 7 * DAY_MS);
-      break;
+      return new Date(now.getTime() + 7 * DAY_MS).toISOString();
+    case 'tomorrow': {
+      // Día AR de `now` (independiente del host) → medianoche AR de ese día
+      // (instante UTC) + 24h = medianoche AR de MAÑANA (AR es UTC-3 fijo, sin
+      // DST: sumar 24h nunca cruza mal). De ahí derivo el día AR de mañana y
+      // construyo las 09:00 AR con el offset -03:00 explícito.
+      const tomorrowArDay = toArIsoDate(new Date(arDayStartUtc(toArIsoDate(now)).getTime() + DAY_MS));
+      return new Date(`${tomorrowArDay}T${pad2(TOMORROW_HOUR)}:00:00.000-03:00`).toISOString();
+    }
   }
-  return d.toISOString();
 }

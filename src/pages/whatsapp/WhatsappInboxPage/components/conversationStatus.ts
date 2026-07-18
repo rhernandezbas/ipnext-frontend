@@ -7,16 +7,23 @@ import type { WhatsappConversationStatus } from '@/types/whatsapp';
  * RESOLVER/REABRIR, header del thread abierto). Un solo lugar para no
  * divergir el copy/color entre ambas superficies.
  */
-export const CONVERSATION_STATUS_VARIANT: Record<string, 'active' | 'blocked' | 'inactive'> = {
+export const CONVERSATION_STATUS_VARIANT: Record<string, 'active' | 'blocked' | 'inactive' | 'late'> = {
   open: 'active',
   pending: 'blocked',
   resolved: 'inactive',
+  // Ola 6 (snooze): 'snoozed' = pospuesta → variante ámbar/'late' (misma
+  // semántica de "en espera / va a volver", distinta del gris 'inactive' de
+  // resuelta y del rojo 'blocked' de pending). Sin esta entrada, la fila de la
+  // vista Pospuestas y las previas snoozed caían al fallback (texto crudo
+  // "snoozed" en inglés + badge gris genérico).
+  snoozed: 'late',
 };
 
 export const CONVERSATION_STATUS_LABEL: Record<string, string> = {
   open: 'Abierta',
   pending: 'Pendiente',
   resolved: 'Resuelta',
+  snoozed: 'Pospuesta',
 };
 
 /**

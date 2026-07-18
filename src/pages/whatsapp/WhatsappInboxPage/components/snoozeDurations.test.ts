@@ -6,6 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { SNOOZE_DURATIONS, computeSnoozedUntil, isFutureSnooze } from './snoozeDurations';
+import { arHour, arMinute, toArIsoDate } from '@/utils/formatDate';
 
 describe('SNOOZE_DURATIONS — catálogo del selector', () => {
   it('expone 1h / 3h / mañana / 1 semana en ese orden', () => {
@@ -16,11 +17,12 @@ describe('SNOOZE_DURATIONS — catálogo del selector', () => {
   });
 });
 
-describe('computeSnoozedUntil — siempre una fecha FUTURA (contrato BE)', () => {
-  // `now` LOCAL fijo y a media tarde para que "mañana 9am" caiga después.
-  const now = new Date(2026, 6, 18, 15, 30, 0, 0);
+describe('computeSnoozedUntil — siempre una fecha FUTURA (contrato BE), anclada a hora ARGENTINA', () => {
+  // `now` como INSTANTE UTC fijo (determinista sin importar el TZ del host/CI):
+  // 18:30 UTC = 15:30 en Argentina (UTC-3), miércoles 18/07/2026.
+  const now = new Date('2026-07-18T18:30:00.000Z');
 
-  it('1h → exactamente una hora después', () => {
+  it('1h → exactamente una hora después (offset de instante, TZ-independiente)', () => {
     expect(computeSnoozedUntil('1h', now)).toBe(new Date(now.getTime() + 60 * 60 * 1000).toISOString());
   });
 
@@ -32,11 +34,14 @@ describe('computeSnoozedUntil — siempre una fecha FUTURA (contrato BE)', () =>
     expect(computeSnoozedUntil('1w', now)).toBe(new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString());
   });
 
-  it('mañana → el día siguiente a las 9:00 (hora local)', () => {
-    const result = new Date(computeSnoozedUntil('tomorrow', now));
-    expect(result.getHours()).toBe(9);
-    expect(result.getMinutes()).toBe(0);
-    expect(result.getDate()).toBe(19);
+  it('mañana → 09:00 de ARGENTINA del día siguiente (15:30 AR del 18 → 09:00 AR del 19 = 12:00 UTC)', () => {
+    const result = computeSnoozedUntil('tomorrow', now);
+    // 09:00 AR (UTC-3) del 19/07 = 12:00 UTC del 19/07.
+    expect(result).toBe('2026-07-19T12:00:00.000Z');
+    // Y verificado vía los helpers AR (no getters del host): 09:00 AR, día AR = 19.
+    expect(arHour(result)).toBe(9);
+    expect(arMinute(result)).toBe(0);
+    expect(toArIsoDate(result)).toBe('2026-07-19');
   });
 
   it('todas las duraciones caen en el FUTURO respecto de `now`', () => {
