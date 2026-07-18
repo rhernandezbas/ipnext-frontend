@@ -40,6 +40,24 @@ describe('NewsBroadcastButton', () => {
     const status = await screen.findByRole('status');
     expect(status).toHaveTextContent(/difundido al canal/i);
     expect(status).toHaveTextContent('http://noc.test/admin/news?post=p1');
+    // The safe http(s) link IS a real anchor.
+    expect(status.querySelector('a')).toHaveAttribute('href', 'http://noc.test/admin/news?post=p1');
+  });
+
+  it('does NOT render a hostile (non-http) BE link as a clickable anchor — plain text instead (defense-in-depth)', async () => {
+    broadcastMutate.mockResolvedValue({ sent: true, link: 'javascript:alert(1)' });
+    const user = userEvent.setup();
+    renderButton();
+    await user.click(screen.getByRole('button', { name: /difundir al noc/i }));
+
+    const status = await screen.findByRole('status');
+    // The link text still shows (so the operator sees what came back)…
+    expect(status).toHaveTextContent('javascript:alert(1)');
+    // …but never as a live anchor: no <a> at all, and certainly none with a javascript: href.
+    expect(status.querySelector('a')).toBeNull();
+    for (const a of Array.from(status.querySelectorAll('a'))) {
+      expect(a.getAttribute('href') ?? '').not.toMatch(/javascript:/i);
+    }
   });
 
   it('does NOT broadcast if the confirmation is declined', async () => {

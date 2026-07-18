@@ -3,6 +3,7 @@ import { useBroadcastNewsPost } from '@/hooks/useNews';
 import { useConfirm } from '@/context/ConfirmContext';
 import { mapNewsBroadcastError } from '@/utils/mapNewsError';
 import { formatDateTimeShort } from '@/utils/formatDate';
+import { safeHref } from '@/utils/safeUrl';
 import styles from './NewsBroadcastButton.module.css';
 
 // ── Inline icons (SVG, never emoji — design-system rule) ──────────────────────
@@ -93,9 +94,17 @@ export function NewsBroadcastButton({ postId, lastBroadcastAt }: NewsBroadcastBu
           {feedback.link && (
             <>
               {' — '}
-              <a href={feedback.link} target="_blank" rel="noopener noreferrer" className={styles.link}>
-                {feedback.link}
-              </a>
+              {/* Defense-in-depth: the link comes from the BE (built off the
+                  configurable appPublicUrl). Route it through the SAME scheme
+                  allowlist as every other href in this feature — if it isn't
+                  http(s)/mailto/relative, show it as plain text, never a live anchor. */}
+              {safeHref(feedback.link) ? (
+                <a href={safeHref(feedback.link)!} target="_blank" rel="noopener noreferrer" className={styles.link}>
+                  {feedback.link}
+                </a>
+              ) : (
+                <span className={styles.link}>{feedback.link}</span>
+              )}
             </>
           )}
         </p>

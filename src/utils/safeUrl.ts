@@ -19,7 +19,12 @@ export function safeHref(raw: string | null | undefined): string | null {
   const url = raw.trim();
   if (!url || CONTROL_CHARS.test(url)) return null;
   if (ALLOWED_SCHEME.test(url)) return url;
-  if (!HAS_SCHEME.test(url)) return url; // relative path / fragment
+  // No explicit scheme -> relative path / fragment / protocol-relative (`//host`).
+  // A `//host` URL is NOT an XSS vector: it inherits the page's own scheme
+  // (always http(s) here), so it can only ever resolve to http(s). Treated as
+  // relative on purpose (documented LOW, non-blocking). javascript:/data:/etc.
+  // DO carry an explicit scheme and are rejected below.
+  if (!HAS_SCHEME.test(url)) return url;
   return null; // any other explicit scheme -> unsafe
 }
 
