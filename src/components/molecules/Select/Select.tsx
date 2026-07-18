@@ -255,7 +255,11 @@ export function Select({
           {selectedOption?.swatch && (
             <span className={styles.swatch} style={{ backgroundColor: selectedOption.swatch }} aria-hidden="true" />
           )}
-          {selectedOption ? selectedOption.label : placeholder}
+          {/* El TEXTO va en su propio span: `.value` es un flex wrapper (para
+              alinear el swatch opcional) y `text-overflow:ellipsis` NO aplica a
+              un flex container — el ellipsis (con min-width:0 para que el
+              flex-item pueda encogerse) vive en `.valueText`. */}
+          <span className={styles.valueText}>{selectedOption ? selectedOption.label : placeholder}</span>
         </span>
         <span className={styles.caret} aria-hidden="true">
           ▾

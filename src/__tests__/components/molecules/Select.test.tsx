@@ -384,3 +384,65 @@ describe('SEL-18: estado inválido (aditivo)', () => {
     expect(trigger).not.toHaveAttribute('aria-describedby');
   });
 });
+
+// SEL-19 (Ola 5 — labels): swatch opcional + estructura de ellipsis del value.
+// Al agregar el swatch, `.value` pasó a `display:flex` — `text-overflow:ellipsis`
+// NO aplica a un flex container, así que el TEXTO debe vivir en un span hijo
+// (`.valueText`) con su propio ellipsis (+ min-width:0 para que el flex-item
+// pueda encogerse). El caso SIN swatch debe quedar idéntico (ningún dot extra).
+describe('SEL-19: swatch opcional + ellipsis del value', () => {
+  const LONG = 'Opción con un nombre extremadamente largo que debería truncarse';
+  const SWATCHED: SelectOption[] = [
+    { value: 'a', label: LONG, swatch: '#dc3545' },
+    { value: 'b', label: 'Corta', swatch: '#28a745' },
+  ];
+  const PLAIN: SelectOption[] = [
+    { value: 'a', label: LONG },
+    { value: 'b', label: 'Corta' },
+  ];
+
+  it('el texto del value vive en su propio span (.valueText, donde el ellipsis SÍ aplica), anidado en el flex .value', () => {
+    render(<Select options={PLAIN} value="a" onChange={vi.fn()} label="Estado" />);
+    const text = screen.getByText(LONG);
+    expect(text).toHaveClass('valueText');
+    // el texto NO es hijo-texto directo del flex container: está en su span,
+    // dentro de `.value` (si volviera a ser texto directo de `.value`, el
+    // ellipsis se re-rompería).
+    expect(text.parentElement).toHaveClass('value');
+  });
+
+  it('el placeholder también va en .valueText (elipsable) cuando el value no matchea', () => {
+    render(
+      <Select
+        options={PLAIN}
+        value="zzz"
+        onChange={vi.fn()}
+        label="Estado"
+        placeholder="Placeholder también bastante largo para truncar"
+      />,
+    );
+    expect(screen.getByText('Placeholder también bastante largo para truncar')).toHaveClass('valueText');
+  });
+
+  it('con swatch, el trigger muestra el dot de color inline + el texto sigue en .valueText', () => {
+    render(<Select options={SWATCHED} value="a" onChange={vi.fn()} label="Estado" />);
+    const trigger = screen.getByRole('combobox', { name: 'Estado' });
+    const swatch = trigger.querySelector('.swatch');
+    expect(swatch).not.toBeNull();
+    expect(swatch).toHaveStyle({ backgroundColor: '#dc3545' });
+    expect(screen.getByText(LONG)).toHaveClass('valueText');
+  });
+
+  it('SIN swatch, el trigger NO renderiza ningún dot (cero cambio de layout vs. antes del swatch)', () => {
+    render(<Select options={PLAIN} value="a" onChange={vi.fn()} label="Estado" />);
+    const trigger = screen.getByRole('combobox', { name: 'Estado' });
+    expect(trigger.querySelector('.swatch')).toBeNull();
+  });
+
+  it('las opciones del listbox también muestran su swatch cuando lo traen', () => {
+    render(<Select options={SWATCHED} value="a" onChange={vi.fn()} label="Estado" />);
+    fireEvent.click(screen.getByRole('combobox', { name: 'Estado' }));
+    const option = screen.getByRole('option', { name: /extremadamente largo/ });
+    expect(option.querySelector('.swatch')).not.toBeNull();
+  });
+});

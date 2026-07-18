@@ -45,11 +45,22 @@
   outline-offset: -2px;
 }
 
+/* Wrapper flex (alinea el swatch opcional + el texto). El ellipsis NO va acá:
+   `text-overflow` no aplica a un flex container — vive en `.valueText`. */
 .value {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  overflow: hidden;
+}
+
+/* El texto del value: acá SÍ funciona el ellipsis (bloque inline con nowrap).
+   `min-width:0` es clave para que el flex-item pueda encogerse por debajo de su
+   contenido y recortar con "…" en vez de desbordar duro. */
+.valueText {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
