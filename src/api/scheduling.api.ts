@@ -158,3 +158,25 @@ export const resendTaskToIClass = (taskId: string, nodeCode: string) =>
   axiosClient
     .post<ScheduledTask>(`${BASE}/${taskId}/iclass/resend`, { nodeCode })
     .then(r => r.data);
+
+// ── Difusión al NOC por WhatsApp (N3-FE / task-broadcast-fe) ──────────────────
+
+/** Resultado de difundir una tarea de red al canal del NOC. */
+export interface BroadcastNocResult {
+  sent: boolean;
+  /** Deep-link a la tarea incluido en el mensaje enviado al canal. */
+  link: string;
+}
+
+/**
+ * Difunde una tarea de RED al canal del NOC por WhatsApp.
+ * POST /scheduling/:id/broadcast-noc (auth + scheduling.write, body vacío) →
+ * 200 { sent, link }. Errores tipados (mismo envelope { error, code }):
+ *   404 TASK_NOT_FOUND · 422 TASK_NOT_BROADCASTABLE (solo kind='network') ·
+ *   503 NOC_BROADCAST_NOT_CONFIGURED · 502 EVOLUTION_API_ERROR ·
+ *   422 NOC_BROADCAST_LINK_BASE_MISSING.
+ */
+export const broadcastTaskToNoc = (taskId: string) =>
+  axiosClient
+    .post<BroadcastNocResult>(`${BASE}/${taskId}/broadcast-noc`)
+    .then(r => r.data);

@@ -30,6 +30,7 @@ import { TaskTabs } from './SchedulingTaskDetailPage/components/TaskTabs';
 import { CustomerSidebar } from './SchedulingTaskDetailPage/components/CustomerSidebar';
 import { ProvisionOnuSection } from './SchedulingTaskDetailPage/components/ProvisionOnuSection';
 import { OnuSerialField } from './SchedulingTaskDetailPage/components/OnuSerialField';
+import { BroadcastNocSection } from './SchedulingTaskDetailPage/components/BroadcastNocSection';
 import type { DatosFormValues } from './SchedulingTaskDetailPage/components/DatosForm';
 import { useTaskPriorities } from '@/hooks/useTaskPriorities';
 import type { WorkflowStage } from '@/types/workflow';
@@ -520,6 +521,16 @@ export default function SchedulingTaskDetailPage() {
               customerContracts.find(c => String(c.id) === task.contractId)?.technology
             }
             onuSerial={task.onuSerial ?? null}
+          />
+          {/* N3-FE (task-broadcast-fe) — difundir la tarea al canal del NOC por
+              WhatsApp. Solo visible en tareas de RED (kind='network') con permiso
+              scheduling.write (gate dentro del componente). El resultado va por el
+              toast de la página (showToast). */}
+          <BroadcastNocSection
+            taskId={task.id}
+            taskKind={task.kind}
+            networkSiteName={task.networkSiteName}
+            onResult={showToast}
           />
           <TaskTabs
             detailsProps={{

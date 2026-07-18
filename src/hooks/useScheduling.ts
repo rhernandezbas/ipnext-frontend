@@ -319,3 +319,20 @@ export function useResendToIClass(taskId: string | undefined) {
     },
   });
 }
+
+// ── Difusión al NOC por WhatsApp (N3-FE / task-broadcast-fe) ──────────────────
+
+/**
+ * Difunde una tarea de RED al canal del NOC por WhatsApp
+ * (POST /scheduling/:id/broadcast-noc). La difusión NO muta el estado de la
+ * tarea (solo dispara un mensaje), así que no invalida ninguna query. El caller
+ * gestiona el confirm y el toast con el `{ sent, link }` o el error tipado.
+ */
+export function useBroadcastTaskToNoc(taskId: string | undefined) {
+  return useMutation({
+    mutationFn: () => {
+      if (!taskId) return Promise.reject(new Error('taskId is required'));
+      return api.broadcastTaskToNoc(taskId);
+    },
+  });
+}

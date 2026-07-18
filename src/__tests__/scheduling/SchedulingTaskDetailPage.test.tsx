@@ -23,6 +23,8 @@ vi.mock('@/hooks/useScheduling', () => ({
   useReorderChecklist: vi.fn(() => noopMutationFactory()),
   useAssignTemplateToTask: vi.fn(() => noopMutationFactory()),
   useClearChecklist: vi.fn(() => noopMutationFactory()),
+  // N3-FE (task-broadcast-fe) — BroadcastNocSection consume este hook.
+  useBroadcastTaskToNoc: vi.fn(() => noopMutationFactory()),
 }));
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -1209,6 +1211,26 @@ describe('SchedulingTaskDetailPage', () => {
     fe.click(screen.getByTestId('datos-save-btn'));
     await waitFor(() => expect(confirmFn).toHaveBeenCalled());
     expect(updateMutate).not.toHaveBeenCalled();
+  });
+
+  // ── N3-FE: botón "Enviar al NOC" en tareas de red (task-broadcast-fe) ────────
+  // La página monta BroadcastNocSection en el main y le pasa el kind + el nombre
+  // del nodo + el toast de la página. Gate fino (permiso, kind) testeado en
+  // BroadcastNocSection.test.tsx; acá solo el wiring: tarea de red → visible;
+  // tarea de cliente (mockTask default) → nada.
+  it('muestra el botón Enviar al NOC en tareas de red (N3-FE)', async () => {
+    setupMocks({ taskData: { kind: 'network', networkSiteName: 'Nodo Centro' } });
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    expect(await screen.findByRole('button', { name: /enviar al noc/i })).toBeInTheDocument();
+  });
+
+  it('NO muestra el botón Enviar al NOC en tareas de cliente (N3-FE)', async () => {
+    setupMocks();
+    render(<SchedulingTaskDetailPage />, { wrapper: createWrapper() });
+    await waitFor(() => {
+      expect(screen.getByText('Instalación Cliente Pérez')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: /enviar al noc/i })).not.toBeInTheDocument();
   });
 
   it('H1: SIN edición local, el refetch con descripción nueva resincroniza sin banner ni confirm', async () => {
