@@ -3,6 +3,7 @@ import { Can } from '@/components/auth/Can';
 import { MessageBubble } from './MessageBubble';
 import { Skeleton } from './Skeleton';
 import { ConversationStatusToggle } from './ConversationStatusToggle';
+import { ConversationSnoozeControl } from './ConversationSnoozeControl';
 import { ConversationAssignmentControls } from './ConversationAssignmentControls';
 import { ConversationLabelsControl } from './ConversationLabelsControl';
 import { IconUser } from './statusIcons';
@@ -139,6 +140,18 @@ interface MessageThreadProps {
   onToggleStatus?: (next: WhatsappConversationStatus) => void;
   isStatusPending?: boolean;
   /**
+   * Snooze (Ola 6) — mismo criterio que `status`/`onToggleStatus`:
+   * `WhatsappInboxPage` orquesta `useSnoozeConversation`, acá solo se consume.
+   * `snoozedUntil` (ISO o `null`) decide la cara del control (Posponer vs
+   * "Pospuesta hasta…"). `onReactivateSnooze` reabre la conversación (no hay
+   * endpoint de des-posponer — ver `ConversationSnoozeControl`). `onSnooze`
+   * ausente → el control NO se monta (cero regresión para call sites previos).
+   */
+  snoozedUntil?: string | null;
+  onSnooze?: (snoozedUntil: string) => void;
+  onReactivateSnooze?: () => void;
+  isSnoozePending?: boolean;
+  /**
    * Asignación (messaging-inbox-assignment F1.5-C2, design contract de la
    * tarea) — mismo criterio que `status`/`onToggleStatus`: `WhatsappInboxPage`
    * orquesta `useSetConversationAssignee`/`useSetConversationArea` +
@@ -216,6 +229,10 @@ export function MessageThread({
   status = null,
   onToggleStatus,
   isStatusPending = false,
+  snoozedUntil = null,
+  onSnooze,
+  onReactivateSnooze,
+  isSnoozePending = false,
   assignee = null,
   area = null,
   assignableUsers = [],
@@ -425,6 +442,21 @@ export function MessageThread({
               {onToggleStatus && (
                 <Can permission="messaging.send">
                   <ConversationStatusToggle status={status} onToggle={onToggleStatus} isPending={isStatusPending} />
+                </Can>
+              )}
+
+              {/* Snooze (Ola 6) — junto a Resolver/Reabrir, mismo gate
+                  `messaging.send` (el `POST /snooze` pide ese permiso, igual que
+                  status/assignee). `onReactivateSnooze` reabre (no hay
+                  des-posponer en el BE). */}
+              {onSnooze && (
+                <Can permission="messaging.send">
+                  <ConversationSnoozeControl
+                    snoozedUntil={snoozedUntil}
+                    onSnooze={onSnooze}
+                    onReactivate={onReactivateSnooze ?? (() => {})}
+                    isPending={isSnoozePending}
+                  />
                 </Can>
               )}
 

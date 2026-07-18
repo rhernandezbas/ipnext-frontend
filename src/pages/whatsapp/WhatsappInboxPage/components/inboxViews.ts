@@ -12,19 +12,34 @@ import type { WhatsappPaginatedQuery } from '@/types/whatsapp';
  * búsqueda quedan aparte (arriba de la lista) y NO participan del preset.
  */
 
-export type InboxViewId = 'mine' | 'unattended' | 'all' | 'unassigned' | 'resolved';
+export type InboxViewId =
+  | 'mine'
+  | 'unattended'
+  | 'mentioned'
+  | 'all'
+  | 'unassigned'
+  | 'snoozed'
+  | 'resolved';
 
 export interface InboxViewDef {
   id: InboxViewId;
   label: string;
 }
 
-/** Orden de la sidebar — paridad con Chatwoot (My Inbox primero, Resolved último). */
+/**
+ * Orden de la sidebar — paridad con Chatwoot (My Inbox primero, Resolved
+ * último). Ola 6 intercala las 2 vistas nuevas por afinidad semántica:
+ * "Menciones" junto a "Sin atender" (ambas son "esto te reclama a VOS"), y
+ * "Pospuestas" junto a "Sin asignar" (ambas son buckets de gestión del
+ * backlog, antes de "Resueltas").
+ */
 export const INBOX_VIEWS: readonly InboxViewDef[] = [
   { id: 'mine', label: 'Mi bandeja' },
   { id: 'unattended', label: 'Sin atender' },
+  { id: 'mentioned', label: 'Menciones' },
   { id: 'all', label: 'Todas' },
   { id: 'unassigned', label: 'Sin asignar' },
+  { id: 'snoozed', label: 'Pospuestas' },
   { id: 'resolved', label: 'Resueltas' },
 ] as const;
 
@@ -47,8 +62,19 @@ export const INBOX_VIEWS: readonly InboxViewDef[] = [
 export const INBOX_VIEW_PRESETS: Record<InboxViewId, Pick<WhatsappPaginatedQuery, 'status' | 'assignment' | 'view'>> = {
   mine: { status: 'open', assignment: 'mine' },
   unattended: { view: 'unattended' },
+  // Ola 6 (menciones): `view=mentioned` es un eje PROPIO del BE (conversaciones
+  // con una mención NO LEÍDA del user actual). A diferencia del resto de los
+  // buckets abiertos, MUESTRA RESUELTAS también (una mención te reclama aunque
+  // la conversación ya esté resuelta) — por eso NO manda `status` (no es un
+  // bucket de ciclo de vida) y el cinturón client-side de `ConversationList` se
+  // desactiva para esta vista (ver `filterByStatus` en `WhatsappInboxPage`).
+  mentioned: { view: 'mentioned' },
   all: { status: 'open' },
   unassigned: { status: 'open', assignment: 'unassigned' },
+  // Ola 6 (snooze): `view=snoozed` = pospuestas VIGENTES (`snoozedUntil` en el
+  // futuro). Eje PROPIO, sin `status`: son no-resueltas, caen naturalmente en
+  // el bucket abierto del cinturón client-side (mismo criterio que `unattended`).
+  snoozed: { view: 'snoozed' },
   resolved: { status: 'resolved' },
 };
 
@@ -60,8 +86,10 @@ export const INBOX_VIEW_PRESETS: Record<InboxViewId, Pick<WhatsappPaginatedQuery
 export const INBOX_VIEW_EMPTY_MESSAGES: Record<InboxViewId, string> = {
   mine: 'No hay conversaciones en tu bandeja.',
   unattended: 'No hay conversaciones sin atender.',
+  mentioned: 'No hay conversaciones donde te hayan mencionado.',
   all: 'No hay conversaciones abiertas.',
   unassigned: 'No hay conversaciones sin asignar.',
+  snoozed: 'No hay conversaciones pospuestas.',
   resolved: 'No hay conversaciones resueltas.',
 };
 

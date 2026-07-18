@@ -6,6 +6,7 @@ import { CandidatePicker } from './clientContext/CandidatePicker';
 import { ContextSkeleton } from './clientContext/ContextSkeleton';
 import { ContextError } from './clientContext/ContextError';
 import { MatchedClientView } from './clientContext/MatchedClientView';
+import { PreviousConversationsSection } from './clientContext/PreviousConversationsSection';
 import styles from './ClientContextPanel.module.css';
 
 interface ClientContextPanelProps {
@@ -15,6 +16,15 @@ interface ClientContextPanelProps {
    * `useWhatsappConversation`. Distinto del contexto RICO (F1.5) que este
    * container pide bajo demanda vía `useInboxClientContext`. */
   lightContext?: WhatsappClientContext | null;
+  /**
+   * Ola 6 (conversaciones previas) — saltar a otra conversación del mismo
+   * contacto desde la sección "Conversaciones previas" (la page mapea a
+   * `setSelectedId`). Ausente → la sección NO se monta (cero regresión para
+   * call sites/tests previos que no la pasan). Es del CONTACTO, no del cliente
+   * matcheado: se muestra siempre que haya una conversación abierta, sin
+   * importar el estado del contexto (matched/unknown/ambiguous).
+   */
+  onNavigateConversation?: (id: string) => void;
 }
 
 const HEADING_ID = 'wa-context-heading';
@@ -40,7 +50,7 @@ function Heading() {
  * malformado (el BE no debería mandarlo) — cae a neutro sin intentar el
  * fetch rico, preservando el contrato histórico de F1.
  */
-export function ClientContextPanel({ conversationId, lightContext }: ClientContextPanelProps) {
+export function ClientContextPanel({ conversationId, lightContext, onNavigateConversation }: ClientContextPanelProps) {
   const [chosenId, setChosenId] = useState<string | null>(null);
 
   const status = lightContext?.status;
@@ -93,6 +103,13 @@ export function ClientContextPanel({ conversationId, lightContext }: ClientConte
     <section className={styles.panel} aria-labelledby={HEADING_ID} aria-busy={richQuery.isLoading}>
       <Heading />
       {content}
+      {/* Ola 6 (conversaciones previas) — sección colapsable con las OTRAS
+          conversaciones del mismo contacto. Del CONTACTO (no del cliente
+          matcheado): se muestra siempre que haya conversación abierta + un
+          `onNavigateConversation`, ortogonal a la rama de contexto de arriba. */}
+      {conversationId && onNavigateConversation && (
+        <PreviousConversationsSection conversationId={conversationId} onNavigate={onNavigateConversation} />
+      )}
     </section>
   );
 }

@@ -240,6 +240,25 @@ describe('ConversationList — filtro client-side de cinturón (TAB-2)', () => {
     expect(screen.getByText('Beto')).toBeInTheDocument();
   });
 
+  it('con filterByStatus=false (vista Menciones), NO se filtra por bucket — se muestran abiertas Y resueltas tal como las trae el server', () => {
+    // Ola 6: la vista "Menciones" muestra resueltas también; el cinturón
+    // client-side (que asume "bucket abierto" con status='open') las borraría.
+    const convs = [mk({ id: 'a', contactName: 'Ana', status: 'open' }), mk({ id: 'b', contactName: 'Beto', status: 'resolved' })];
+    render(
+      <ConversationList
+        conversations={convs}
+        isLoading={false}
+        selectedId={null}
+        onSelect={vi.fn()}
+        status="open"
+        filterByStatus={false}
+      />,
+    );
+
+    expect(screen.getByText('Ana')).toBeInTheDocument();
+    expect(screen.getByText('Beto')).toBeInTheDocument();
+  });
+
   it('bucket Abiertas trata "pending" como NO resuelta (bucket, no match exacto — design.md D2)', () => {
     const convs = [mk({ id: 'a', contactName: 'Ana', status: 'pending' })];
     render(<ConversationList conversations={convs} isLoading={false} selectedId={null} onSelect={vi.fn()} status="open" />);

@@ -67,6 +67,9 @@ export const whatsappLabelsKey = ['whatsapp', 'labels'] as const;
  */
 export const whatsappViewCountsKey = ['whatsapp', 'viewCounts'] as const;
 
+/** Ola 6 (conversaciones previas) — otras conversaciones del mismo contacto (`GET /conversations/:id/previous`). Por conversación abierta. */
+export const whatsappPreviousConversationsKey = (id: string) => ['whatsapp', 'previousConversations', id] as const;
+
 /** inbox-template-send (design D11) — catálogo de templates enviables desde el composer. */
 export const whatsappSendTemplatesKey = ['whatsapp', 'sendTemplates'] as const;
 
@@ -1104,4 +1107,81 @@ export function useDeleteWhatsappNote(id: string) {
     isError: mutation.isError,
     error: mutation.error,
   };
+}
+
+/**
+ * useSnoozeConversation(id) (Ola 6 — snooze) — `POST /conversations/:id/snooze`
+ * con `{snoozedUntil}` (ISO futuro). NO hace optimistic update: el cinturón
+ * client-side de `ConversationList` filtra por status (open/resolved), no por
+ * `snoozedUntil` — así que "sacarla de Abiertas" no puede hacerse de fiado en
+ * el cache. `onSettled` invalida detalle + lista + counts (SIEMPRE, éxito o
+ * error, mismo criterio que status/assignee): el BE excluye las pospuestas
+ * vigentes de las vistas abiertas y las mueve a `view=snoozed`, el refetch lo
+ * refleja. `isPending` scopeado por `convId` capturado al dispatch (mismo bug
+ * ALTO #2 defensa que `useSetConversationStatus`). `opts.onError` ADITIVO para
+ * que la page toastee el fallo.
+ */
+type SnoozeVars = { snoozedUntil: string; convId: string };
+
+export function useSnoozeConversation(id: string) {
+  const qc = useQueryClient();
+
+  const mutation = useMutation<WhatsappConversationListItem, unknown, SnoozeVars>({
+    mutationFn: (vars) => api.snoozeConversation(vars.convId, vars.snoozedUntil),
+    onSettled: (_data, _err, vars) => {
+      void qc.invalidateQueries({ queryKey: whatsappConversationKey(vars.convId) });
+      void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+      void qc.invalidateQueries({ queryKey: whatsappViewCountsKey });
+    },
+  });
+
+  const snooze = (snoozedUntil: string, opts?: { onError?: (error: unknown) => void }) =>
+    mutation.mutate({ snoozedUntil, convId: id }, opts);
+
+  return {
+    snooze,
+    isPending: mutation.isPending && mutation.variables?.convId === id,
+    isError: mutation.isError,
+    error: mutation.error,
+  };
+}
+
+/**
+ * useMarkMentionsRead() (Ola 6 — menciones) — `POST /conversations/:id/mentions/
+ * read`. Marca leídas las menciones del user en esa conversación → la saca de
+ * `view=mentioned` y baja el count `mentioned`. `onSettled` invalida lista +
+ * counts. Best-effort: la page lo dispara al abrir una conversación desde la
+ * vista Menciones; un fallo no molesta al usuario (no hay toast) — es una
+ * conveniencia de housekeeping, no una acción explícita del agente.
+ */
+export function useMarkMentionsRead() {
+  const qc = useQueryClient();
+
+  const mutation = useMutation<void, unknown, string>({
+    mutationFn: (convId) => api.markConversationMentionsRead(convId),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: [...WHATSAPP_CONVERSATIONS_ROOT] });
+      void qc.invalidateQueries({ queryKey: whatsappViewCountsKey });
+    },
+  });
+
+  return { markRead: (convId: string) => mutation.mutate(convId) };
+}
+
+/**
+ * usePreviousConversations(id, enabled) (Ola 6 — conversaciones previas) —
+ * OTRAS conversaciones del mismo contacto (`GET /conversations/:id/previous`).
+ * `enabled` gatea el fetch: el panel de contexto lo pide SOLO al expandir la
+ * sección colapsable (o cuando hay conversación abierta) — mismo criterio lazy
+ * que `useCannedResponses`/`useInboxClientContext`. Sin polling: la lista de
+ * conversaciones previas de un contacto cambia poco durante una sesión de chat;
+ * el `staleTime` alto evita refetchear al colapsar/expandir.
+ */
+export function usePreviousConversations(id: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: whatsappPreviousConversationsKey(id ?? ''),
+    queryFn: () => api.getPreviousConversations(id ?? ''),
+    enabled: enabled && !!id,
+    staleTime: 60_000,
+  });
 }

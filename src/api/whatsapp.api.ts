@@ -11,6 +11,7 @@ import type {
   WhatsappMessage,
   WhatsappPaginatedQuery,
   WhatsappPaginatedResult,
+  WhatsappPreviousConversation,
 } from '@/types/whatsapp';
 import type { TemplateSummaryDto } from '@/types/messagingBulk';
 
@@ -296,6 +297,38 @@ export const sendWhatsappTemplate = (id: string, input: SendWhatsappTemplateInpu
  */
 export const listMessagingLabels = (): Promise<WhatsappLabel[]> =>
   axiosClient.get<WhatsappLabel[]>(`${BASE}/labels`).then(r => r.data);
+
+/**
+ * Ola 6 — snooze / menciones / conversaciones previas. Contrato BE (ya en prod):
+ *
+ * - `POST /messaging/conversations/:id/snooze` (gate `messaging:send`): pospone
+ *   con `{snoozedUntil: ISO}` (DEBE ser futuro — el BE rechaza fechas pasadas).
+ *   Devuelve la conversación actualizada FLAT (shape de LISTA, mismo criterio
+ *   que `setConversationStatus`). NO hay endpoint de "des-posponer": reactivar
+ *   una pospuesta = reabrirla (`setConversationStatus` a `'open'`), documentado
+ *   en `ConversationSnoozeControl`/`WhatsappInboxPage`.
+ * - `POST /messaging/conversations/:id/mentions/read` (gate `messaging:read`):
+ *   marca leídas las menciones del user autenticado en esa conversación (la
+ *   saca de `view=mentioned`). Sin body; respuesta ignorada (solo el efecto).
+ * - `GET /messaging/conversations/:id/previous` (gate `messaging:read`): OTRAS
+ *   conversaciones del mismo contacto. Envelope `{data}` — se desenvuelve acá
+ *   (mismo criterio que `listWhatsappMessages`/`getAssignableUsers`).
+ */
+export const snoozeConversation = (
+  id: string,
+  snoozedUntil: string,
+): Promise<WhatsappConversationListItem> =>
+  axiosClient
+    .post<WhatsappConversationListItem>(`${BASE}/conversations/${id}/snooze`, { snoozedUntil })
+    .then(r => r.data);
+
+export const markConversationMentionsRead = (id: string): Promise<void> =>
+  axiosClient.post(`${BASE}/conversations/${id}/mentions/read`).then(() => undefined);
+
+export const getPreviousConversations = (id: string): Promise<WhatsappPreviousConversation[]> =>
+  axiosClient
+    .get<{ data: WhatsappPreviousConversation[] }>(`${BASE}/conversations/${id}/previous`)
+    .then(r => r.data.data);
 
 export const createMessagingLabel = (data: { name: string; color: string }): Promise<WhatsappLabel> =>
   axiosClient.post<WhatsappLabel>(`${BASE}/labels`, data).then(r => r.data);

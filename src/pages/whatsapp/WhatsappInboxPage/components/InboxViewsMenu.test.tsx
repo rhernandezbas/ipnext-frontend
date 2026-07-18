@@ -15,7 +15,15 @@ import { describe, it, expect, vi } from 'vitest';
 import { InboxViewsMenu } from './InboxViewsMenu';
 import type { WhatsappInboxViewCounts } from '@/types/whatsapp';
 
-const COUNTS: WhatsappInboxViewCounts = { mine: 4, unattended: 7, all: 23, unassigned: 0, resolved: 118 };
+const COUNTS: WhatsappInboxViewCounts = {
+  mine: 4,
+  unattended: 7,
+  mentioned: 2,
+  all: 23,
+  unassigned: 0,
+  snoozed: 5,
+  resolved: 118,
+};
 
 function renderMenu(over: Partial<Parameters<typeof InboxViewsMenu>[0]> = {}) {
   const onSelect = vi.fn();
@@ -29,15 +37,17 @@ describe('InboxViewsMenu — estructura y a11y', () => {
     expect(screen.getByRole('navigation', { name: 'Vistas del inbox' })).toBeInTheDocument();
   });
 
-  it('renderiza las 5 vistas en orden Chatwoot con su contador en el nombre accesible', () => {
+  it('renderiza las 7 vistas en orden Chatwoot con su contador en el nombre accesible', () => {
     renderMenu();
     const nav = screen.getByRole('navigation', { name: 'Vistas del inbox' });
     const buttons = within(nav).getAllByRole('button');
     expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
       'Mi bandeja, 4 conversaciones',
       'Sin atender, 7 conversaciones',
+      'Menciones, 2 conversaciones',
       'Todas, 23 conversaciones',
       'Sin asignar, 0 conversaciones',
+      'Pospuestas, 5 conversaciones',
       'Resueltas, 118 conversaciones',
     ]);
   });
@@ -48,7 +58,7 @@ describe('InboxViewsMenu — estructura y a11y', () => {
     expect(activeButton).toHaveAttribute('aria-current', 'page');
 
     const rest = screen.getAllByRole('button').filter((b) => b !== activeButton);
-    expect(rest).toHaveLength(4);
+    expect(rest).toHaveLength(6);
     for (const button of rest) {
       expect(button).not.toHaveAttribute('aria-current');
     }
@@ -78,8 +88,10 @@ describe('InboxViewsMenu — contadores (badge visual)', () => {
     expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
       'Mi bandeja',
       'Sin atender',
+      'Menciones',
       'Todas',
       'Sin asignar',
+      'Pospuestas',
       'Resueltas',
     ]);
     expect(within(nav).queryByText(/^\d+\+?$/)).toBeNull();

@@ -39,6 +39,7 @@ import type {
   WhatsappLabel,
   WhatsappMessage,
   WhatsappPaginatedResult,
+  WhatsappPreviousConversation,
 } from '@/types/whatsapp';
 
 function campaign(over: Partial<CampaignSummaryDto> & { id: string; name: string }): CampaignSummaryDto {
@@ -281,6 +282,22 @@ function setHooks({
     isError: false,
     error: null,
   } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationLabels>);
+  // Ola 6 (snooze / menciones / previas) — defaults neutros. Cada test que
+  // necesite espiar `snooze`/`markRead` los sobreescribe. `usePreviousConversations`
+  // lo llama `PreviousConversationsSection` (dentro del panel) sin importar si
+  // está expandida — sin este default crashearía leyendo `.data` de undefined.
+  vi.mocked(useWhatsappModule.useSnoozeConversation).mockReturnValue({
+    snooze: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+  } as unknown as ReturnType<typeof useWhatsappModule.useSnoozeConversation>);
+  vi.mocked(useWhatsappModule.useMarkMentionsRead).mockReturnValue({
+    markRead: vi.fn(),
+  } as unknown as ReturnType<typeof useWhatsappModule.useMarkMentionsRead>);
+  vi.mocked(useWhatsappModule.usePreviousConversations).mockReturnValue(
+    mockQuery<WhatsappPreviousConversation[]>({ data: [], isLoading: false }),
+  );
   // inbox-views Ola 1 — counts del sub-menú (ver el comment de `viewCounts`).
   vi.mocked(useWhatsappModule.useInboxViewCounts).mockReturnValue(
     mockQuery<WhatsappInboxViewCounts>({ data: viewCounts, isLoading: false }),
@@ -1251,17 +1268,120 @@ describe('WhatsappInboxPage — inbox-views Ola 1: counts del sub-menú (badges 
     renderPage();
 
     const nav = screen.getByRole('navigation', { name: 'Vistas del inbox' });
-    // las 5 vistas presentes, con accname pelado (sin ", N conversaciones").
+    // las 7 vistas presentes, con accname pelado (sin ", N conversaciones").
     expect(within(nav).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
       'Mi bandeja',
       'Sin atender',
+      'Menciones',
       'Todas',
       'Sin asignar',
+      'Pospuestas',
       'Resueltas',
     ]);
     // y sigue navegable: el click cambia el query igual.
     await user.click(within(nav).getByRole('button', { name: 'Sin atender' }));
     expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ view: 'unattended' });
+  });
+});
+
+describe('WhatsappInboxPage — Ola 6: vistas Menciones / Pospuestas + snooze + menciones read', () => {
+  it('cambiar a Menciones pasa {view:"mentioned"} a useWhatsappConversations', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Menciones' }));
+
+    expect(screen.getByRole('button', { name: 'Menciones' })).toHaveAttribute('aria-current', 'page');
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ view: 'mentioned' });
+  });
+
+  it('cambiar a Pospuestas pasa {view:"snoozed"} a useWhatsappConversations', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Pospuestas' }));
+
+    expect(useWhatsappModule.useWhatsappConversations).toHaveBeenLastCalledWith({ view: 'snoozed' });
+  });
+
+  it('abrir una conversación DESDE la vista Menciones marca leídas sus menciones (POST /mentions/read)', async () => {
+    const markRead = vi.fn();
+    vi.mocked(useWhatsappModule.useMarkMentionsRead).mockReturnValue({
+      markRead,
+    } as unknown as ReturnType<typeof useWhatsappModule.useMarkMentionsRead>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Menciones' }));
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+
+    expect(markRead).toHaveBeenCalledWith('conv-b');
+  });
+
+  it('en una vista que NO es Menciones, abrir una conversación NO marca menciones leídas', async () => {
+    const markRead = vi.fn();
+    vi.mocked(useWhatsappModule.useMarkMentionsRead).mockReturnValue({
+      markRead,
+    } as unknown as ReturnType<typeof useWhatsappModule.useMarkMentionsRead>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+
+    expect(markRead).not.toHaveBeenCalled();
+  });
+
+  it('posponer una conversación abierta llama a snooze con un ISO futuro', async () => {
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    const snooze = vi.fn();
+    // Override DESPUÉS de setHooks (que fija el default de useSnoozeConversation).
+    vi.mocked(useWhatsappModule.useSnoozeConversation).mockReturnValue({
+      snooze,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSnoozeConversation>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    await user.click(screen.getByRole('button', { name: /posponer conversación/i }));
+    await user.click(screen.getByRole('menuitem', { name: /1 hora/i }));
+
+    expect(snooze).toHaveBeenCalledTimes(1);
+    const iso = snooze.mock.calls[0][0] as string;
+    expect(new Date(iso).getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('reactivar una conversación pospuesta la REABRE (setStatus "open") — no hay endpoint de des-posponer', async () => {
+    const future = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+    setHooks({ detail: { ...DETAIL_B, snoozedUntil: future }, messages: MESSAGES_B });
+    const setStatus = vi.fn();
+    // Override DESPUÉS de setHooks (que fija el default de useSetConversationStatus).
+    vi.mocked(useWhatsappModule.useSetConversationStatus).mockReturnValue({
+      setStatus,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useWhatsappModule.useSetConversationStatus>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+    expect(screen.getByText(/pospuesta hasta/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /reactivar/i }));
+
+    expect(setStatus).toHaveBeenCalledWith('open', expect.any(Object));
+  });
+
+  it('el panel de contexto ofrece la sección "Conversaciones previas" al abrir una conversación', async () => {
+    setHooks({ detail: DETAIL_B, messages: MESSAGES_B });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Conversación con Maria Gomez/i }));
+
+    expect(screen.getByRole('button', { name: /conversaciones previas/i })).toBeInTheDocument();
   });
 });
 

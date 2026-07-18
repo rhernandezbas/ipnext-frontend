@@ -34,6 +34,16 @@ interface ConversationListProps {
    */
   status?: ConversationStatusBucket;
   /**
+   * Ola 6 (menciones) — cuando es `false`, el cinturón de bucket client-side
+   * (`matchesStatusBucket`) se DESACTIVA: la lista muestra las conversaciones
+   * tal cual las trae el server, sin filtrar por ciclo de vida. Necesario para
+   * la vista "Menciones", que MUESTRA RESUELTAS también (el `view=mentioned`
+   * del BE ya define el set exacto — no hay un bucket open/resolved que aplicar
+   * encima; el belt las borraría al asumir el bucket abierto). Default `true`
+   * (cero regresión para el resto de las vistas y los call sites/tests previos).
+   */
+  filterByStatus?: boolean;
+  /**
    * inbox-views Ola 1 — empty state POR VISTA (la lista no conoce la vista
    * activa; la page mapea `INBOX_VIEW_EMPTY_MESSAGES[activeView]`): "Mi
    * bandeja" vacía con "No hay conversaciones abiertas." sería mentira si hay
@@ -136,6 +146,7 @@ export function ConversationList({
   selectedId,
   onSelect,
   status = 'open',
+  filterByStatus = true,
   emptyMessage,
   campaigns = [],
   campaignId,
@@ -150,8 +161,8 @@ export function ConversationList({
   // bucket (resolver/reabrir optimista) desaparece sin importar el término
   // de búsqueda activo.
   const bucketed = useMemo(
-    () => conversations.filter((c) => matchesStatusBucket(c, status)),
-    [conversations, status],
+    () => (filterByStatus ? conversations.filter((c) => matchesStatusBucket(c, status)) : conversations),
+    [conversations, status, filterByStatus],
   );
 
   const visible = useMemo(

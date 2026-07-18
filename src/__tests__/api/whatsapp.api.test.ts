@@ -61,8 +61,11 @@ import {
   updateMessagingLabel,
   deleteMessagingLabel,
   setConversationLabels,
+  snoozeConversation,
+  markConversationMentionsRead,
+  getPreviousConversations,
 } from '@/api/whatsapp.api';
-import type { WhatsappLabel } from '@/types/whatsapp';
+import type { WhatsappLabel, WhatsappPreviousConversation } from '@/types/whatsapp';
 
 const LIST_ITEM: WhatsappConversationListItem = {
   id: 'conv-1',
@@ -686,5 +689,52 @@ describe('Ola 5 (labels): setConversationLabels', () => {
     await setConversationLabels('conv-1', []);
 
     expect(axiosClient.patch).toHaveBeenCalledWith('/messaging/conversations/conv-1/labels', { labelIds: [] });
+  });
+});
+
+describe('Ola 6 (snooze): snoozeConversation', () => {
+  it('POSTea /messaging/conversations/:id/snooze con {snoozedUntil} y devuelve la conversación (shape de LISTA)', async () => {
+    const SNOOZED = { ...LIST_ITEM, snoozedUntil: '2026-07-20T09:00:00.000Z' };
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: SNOOZED });
+
+    const result = await snoozeConversation('conv-1', '2026-07-20T09:00:00.000Z');
+
+    expect(axiosClient.post).toHaveBeenCalledWith('/messaging/conversations/conv-1/snooze', {
+      snoozedUntil: '2026-07-20T09:00:00.000Z',
+    });
+    expect(result).toEqual(SNOOZED);
+  });
+});
+
+describe('Ola 6 (menciones): markConversationMentionsRead', () => {
+  it('POSTea /messaging/conversations/:id/mentions/read (sin body) y no devuelve nada útil', async () => {
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: { ok: true } });
+
+    const result = await markConversationMentionsRead('conv-1');
+
+    expect(axiosClient.post).toHaveBeenCalledWith('/messaging/conversations/conv-1/mentions/read');
+    expect(result).toBeUndefined();
+  });
+});
+
+describe('Ola 6 (conversaciones previas): getPreviousConversations', () => {
+  it('GETea /messaging/conversations/:id/previous y DESENVUELVE el {data}', async () => {
+    const PREV: WhatsappPreviousConversation[] = [
+      {
+        id: 'conv-2',
+        status: 'resolved',
+        lastMessageAt: '2026-07-01T12:00:00.000Z',
+        lastMessagePreview: 'gracias',
+        assigneeName: 'Ana',
+        unread: false,
+        labels: [],
+      },
+    ];
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: { data: PREV } });
+
+    const result = await getPreviousConversations('conv-1');
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/conversations/conv-1/previous');
+    expect(result).toEqual(PREV);
   });
 });

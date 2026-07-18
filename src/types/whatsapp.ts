@@ -106,6 +106,16 @@ export interface WhatsappConversationListItem {
    * ausente = sin indicador.
    */
   internalNoteCount?: number;
+  /**
+   * Aditivo (Ola 6 — snooze) — mirror del wire (`ConversationListItemDto.
+   * snoozedUntil`, ya en prod): timestamp ISO hasta el que la conversación
+   * está POSPUESTA, o `null` si no está pospuesta. El BE lo manda siempre
+   * (`null` cuando no hay snooze); opcional acá — mismo criterio defensivo que
+   * `campaigns`/`labels` — para no romper los fixtures previos a esta tanda. El
+   * FE lo consume con `isFutureSnooze(snoozedUntil)` (una fecha pasada = snooze
+   * ya expirado, se trata como no-pospuesta).
+   */
+  snoozedUntil?: string | null;
 }
 
 export interface WhatsappClientContextClient {
@@ -122,6 +132,25 @@ export interface WhatsappClientContext {
 export interface WhatsappConversationDetail extends WhatsappConversationListItem {
   canReply: boolean;
   clientContext: WhatsappClientContext;
+}
+
+/**
+ * WhatsappPreviousConversation (Ola 6 — conversaciones previas) — espejo del
+ * item de `GET /messaging/conversations/:id/previous` (`{data:[…]}`): OTRAS
+ * conversaciones del MISMO contacto (distintas de la abierta). Shape más
+ * chico que `WhatsappConversationListItem` — solo lo que el panel de contexto
+ * lista (id + preview + estado con color + labels + fecha + si tiene no
+ * leídos). `assigneeName` viene ya aplanado a string (el BE resuelve el nombre
+ * del agente asignado, o `null` si no hay).
+ */
+export interface WhatsappPreviousConversation {
+  id: string;
+  status: string;
+  lastMessageAt: string | null;
+  lastMessagePreview: string | null;
+  assigneeName: string | null;
+  unread: boolean;
+  labels: WhatsappLabel[];
 }
 
 /**
@@ -394,6 +423,19 @@ export interface WhatsappInboxViewCounts {
   unassigned: number;
   /** status === 'resolved' (bucket aparte, no solapa con los otros). */
   resolved: number;
+  /**
+   * Ola 6 (menciones) — conversaciones con una mención NO LEÍDA del user
+   * autenticado (incluye resueltas, mismo criterio que `view=mentioned`). El BE
+   * lo agregó al DTO de counts; opcional acá para no romper los fixtures
+   * previos a esta tanda (degrada a "sin número" en el badge, como cualquier
+   * count ausente).
+   */
+  mentioned?: number;
+  /**
+   * Ola 6 (snooze) — pospuestas vigentes (`snoozedUntil` en el futuro). Mismo
+   * criterio de opcionalidad/backcompat que `mentioned`.
+   */
+  snoozed?: number;
 }
 
 // ─── Pagination (espejo de `application/dto/pagination.ts`) ─────────────────
@@ -435,8 +477,14 @@ export interface WhatsappPaginatedQuery {
    * (`view=unattended&assignment=mine` es un AND válido en el BE) y GANA
    * sobre `status` (el bucket ya lleva su propio filtro de ciclo de vida).
    * Mismo criterio que el resto: solo se manda cuando viene definido.
+   *
+   * Ola 6 amplía el eje con 2 buckets propios más:
+   * - `mentioned`: conversaciones con una mención NO LEÍDA del user actual.
+   *   MUESTRA RESUELTAS también (a diferencia de `unattended`/`snoozed`) — una
+   *   mención te reclama aunque la conversación ya esté resuelta.
+   * - `snoozed`: pospuestas VIGENTES (`snoozedUntil` en el futuro).
    */
-  view?: 'unattended';
+  view?: 'unattended' | 'mentioned' | 'snoozed';
 }
 
 export interface WhatsappPaginatedResult<T> {

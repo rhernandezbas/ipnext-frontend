@@ -1,0 +1,82 @@
+/**
+ * MentionPopover (Ola 6 — @menciones en la nota interna). Popover anclado sobre
+ * el composer (`.composer` es el ancestro posicionado, igual que
+ * `CannedResponsePicker`). Tokens del repo — sin hex/px crudo.
+ */
+
+.popover {
+  position: absolute;
+  bottom: calc(100% + var(--space-2));
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  /* `backwards`, JAMÁS `both` (lección db18c0cf): en Chrome `fill-mode: both`
+     retiene el stacking context mientras el fill sigue aplicado — y este popover
+     es justo la categoría que muerde el bug (position:absolute + z-index +
+     transform en el keyframe). `backwards` es visualmente idéntico sin ese
+     residuo. El keyframe termina en `transform: none`. */
+  animation: mentionPopoverIn 140ms var(--ease-out) backwards;
+}
+
+.listbox {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-1);
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--space-11); /* 44px touch target */
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.option[data-active] {
+  background: var(--color-surface-hover);
+}
+
+.optionName {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notice {
+  margin: 0;
+  padding: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+@keyframes mentionPopoverIn {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-1));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover {
+    animation: none;
+  }
+}

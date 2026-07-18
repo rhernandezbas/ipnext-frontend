@@ -9,6 +9,8 @@ import {
   useSetConversationAssignee,
   useSetConversationArea,
   useSetConversationLabels,
+  useSnoozeConversation,
+  useMarkMentionsRead,
   useAssignableUsers,
   useMessagingAreas,
   useMessagingLabels,
@@ -71,6 +73,10 @@ const AREA_ERROR_MESSAGE = 'No se pudo actualizar el área. Reintentá.';
 // Ola 5 (labels) — mismo mecanismo de toast que assignee/area (mismo gate
 // messaging.send, mismo endpoint-family PATCH); puede fallar por 403/500/503.
 const LABELS_ERROR_MESSAGE = 'No se pudieron actualizar las etiquetas. Reintentá.';
+// Ola 6 (snooze) — mismo mecanismo de toast que status/assignee/area (mismo
+// gate messaging.send). El POST /snooze puede fallar por 403/422 (fecha no
+// futura)/503.
+const SNOOZE_ERROR_MESSAGE = 'No se pudo posponer la conversación. Reintentá.';
 const INBOX_TOAST_DURATION_MS = 4000;
 // inbox-resolve (UNDO-1, design.md D6) — "Conversación resuelta — Deshacer"
 // vive ~5s (más que el toast de error: es una ACCIÓN ofrecida, no solo un
@@ -176,6 +182,12 @@ export default function WhatsappInboxPage() {
   // Ola 5 (labels): mismo criterio que assignee/area (instancia PROPIA atada al
   // selectedId; keys de cache derivadas del convId capturado AL DISPATCH).
   const { setLabels, isPending: isLabelsPending } = useSetConversationLabels(selectedId ?? '');
+  // Ola 6 (snooze): mismo criterio que el resto (instancia PROPIA atada al
+  // selectedId; keys derivadas del convId al dispatch). `useMarkMentionsRead`
+  // es de PÁGINA (no por-conversación): se dispara al abrir una conversación
+  // desde la vista Menciones para sacarla de ahí + bajar el count.
+  const { snooze, isPending: isSnoozePending } = useSnoozeConversation(selectedId ?? '');
+  const { markRead: markMentionsRead } = useMarkMentionsRead();
   // internal-notes F1.5 (EDITAR/ELIMINAR NOTA): mismo criterio que el resto de
   // las mutations de esta página (instancia PROPIA atada al selectedId; las
   // keys de cache se derivan del convId capturado AL DISPATCH, ver
@@ -381,6 +393,39 @@ export default function WhatsappInboxPage() {
   }
 
   /**
+   * Ola 6 (snooze) — posponer la conversación hasta `snoozedUntil` (ISO futuro
+   * que calcula `ConversationSnoozeControl`). `snooze` invalida lista+counts en
+   * su `onSettled` (la conversación sale de Abiertas y entra a Pospuestas).
+   * Mismo mecanismo de toast que status/assignee.
+   */
+  function handleSnooze(snoozedUntil: string) {
+    snooze(snoozedUntil, { onError: () => showInboxToast(SNOOZE_ERROR_MESSAGE) });
+  }
+
+  /**
+   * Ola 6 (snooze) — REACTIVAR una pospuesta. El BE NO tiene endpoint de
+   * des-posponer (`POST /snooze` exige fecha futura), así que "Reactivar" =
+   * REABRIR (`setStatus('open')`): reabrir la saca de `view=snoozed` y la
+   * devuelve al inbox abierto (documentado en `ConversationSnoozeControl`). NO
+   * ofrece el toast de "Deshacer" (ese es exclusivo de RESOLVER, D6).
+   */
+  function handleReactivateSnooze() {
+    setStatus('open', { onError: () => showInboxToast(STATUS_ERROR_MESSAGE) });
+  }
+
+  /**
+   * Ola 6 (menciones) — seleccionar una conversación. Si el agente la abre
+   * DESDE la vista Menciones, marca leídas sus menciones (`POST /mentions/read`)
+   * para sacarla de esa vista + bajar el count. En cualquier otra vista es un
+   * simple `setSelectedId` (cero llamadas extra). Best-effort: un fallo del
+   * mark-read no molesta al agente (housekeeping, sin toast).
+   */
+  function handleSelectConversation(id: string) {
+    setSelectedId(id);
+    if (activeView === 'mentioned') markMentionsRead(id);
+  }
+
+  /**
    * internal-notes F1.5 — editar/eliminar una nota interna del hilo. El error
    * se traduce por CÓDIGO (`mapNoteError`: 403 "no tenés permiso…", 409 "ya
    * fue eliminada", etc.) y se muestra en el mismo toast local que el resto de
@@ -481,6 +526,9 @@ export default function WhatsappInboxPage() {
   // status/assignee/area: el detalle (fetch-on-open) gana; mientras carga, el
   // list-item ya trae `labels` (viene de `useWhatsappConversations`).
   const selectedLabelIds = (detail?.labels ?? selectedListItem?.labels ?? []).map((l) => l.id);
+  // Ola 6 (snooze) — mismo fallback que status/assignee: el detalle (fetch-on-open)
+  // gana; mientras carga, el list-item ya trae `snoozedUntil`.
+  const selectedSnoozedUntil = detail?.snoozedUntil ?? selectedListItem?.snoozedUntil ?? null;
 
   return (
     <div
@@ -503,11 +551,19 @@ export default function WhatsappInboxPage() {
           isLoading={conversationsQuery.isLoading}
           isError={conversationsQuery.isError}
           selectedId={selectedId}
-          onSelect={setSelectedId}
+          // Ola 6 (menciones): al abrir una conversación desde la vista
+          // Menciones, marca leídas sus menciones (la saca de esa vista). En el
+          // resto de las vistas es un `setSelectedId` puro.
+          onSelect={handleSelectConversation}
           // `query.status ?? 'open'`: la vista "Sin atender" no manda status
           // (view gana en el BE) y cae en el bucket abierto del cinturón
           // client-side — correcto, sus filas son todas no-resueltas.
           status={query.status ?? 'open'}
+          // Ola 6 (menciones): la vista "Menciones" MUESTRA RESUELTAS también
+          // (el `view=mentioned` del BE define el set exacto) — desactivar el
+          // cinturón de bucket client-side, que si no borraría las resueltas al
+          // asumir el bucket abierto. El resto de las vistas conserva el belt.
+          filterByStatus={activeView !== 'mentioned'}
           emptyMessage={INBOX_VIEW_EMPTY_MESSAGES[activeView]}
           campaigns={campaigns}
           campaignId={query.campaignId}
@@ -534,6 +590,10 @@ export default function WhatsappInboxPage() {
             status={detail?.status ?? selectedListItem?.status ?? null}
             onToggleStatus={handleToggleStatus}
             isStatusPending={isStatusPending}
+            snoozedUntil={selectedSnoozedUntil}
+            onSnooze={handleSnooze}
+            onReactivateSnooze={handleReactivateSnooze}
+            isSnoozePending={isSnoozePending}
             assignee={detail?.assignee ?? selectedListItem?.assignee ?? null}
             area={detail?.area ?? selectedListItem?.area ?? null}
             assignableUsers={assignableUsers}
@@ -584,6 +644,10 @@ export default function WhatsappInboxPage() {
             // alimenta a ClientContextPanel — decide si las variables del
             // template pueden resolverse con datos del cliente.
             lightContext={detail?.clientContext}
+            // Ola 6 (@menciones): el catálogo de agentes para el popover de
+            // menciones en la nota interna (el MISMO que el control de
+            // asignación, ya gateado por `messaging.send`).
+            assignableUsers={assignableUsers}
           />
         )}
       </div>
@@ -602,7 +666,14 @@ export default function WhatsappInboxPage() {
             el candidato elegido en la conversación anterior. `key={selectedId}`
             fuerza un remount limpio (chosenId vuelve a null) cada vez que
             cambia la conversación seleccionada. */}
-        <ClientContextPanel key={selectedId} conversationId={selectedId} lightContext={detail?.clientContext} />
+        <ClientContextPanel
+          key={selectedId}
+          conversationId={selectedId}
+          lightContext={detail?.clientContext}
+          // Ola 6 (conversaciones previas): saltar a otra conversación del
+          // mismo contacto = seleccionarla (el panel remonta por key={selectedId}).
+          onNavigateConversation={setSelectedId}
+        />
       </div>
 
       {/* hallazgo MEDIUM #3 / HIGH #2: toast local (mismo mecanismo que

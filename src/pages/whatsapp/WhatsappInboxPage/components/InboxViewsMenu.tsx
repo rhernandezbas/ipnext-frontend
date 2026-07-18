@@ -74,11 +74,33 @@ function IconCheckCircle({ className }: IconProps) {
   );
 }
 
+/** Ola 6 (menciones) — arroba, la seña universal de "te mencionaron". */
+function IconAtSign({ className }: IconProps) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94" />
+    </svg>
+  );
+}
+
+/** Ola 6 (snooze) — reloj, "pospuesto para más tarde". */
+function IconClock({ className }: IconProps) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
 const VIEW_ICONS: Record<InboxViewId, (props: IconProps) => React.JSX.Element> = {
   mine: IconInboxTray,
   unattended: IconMessageWaiting,
+  mentioned: IconAtSign,
   all: IconLayers,
   unassigned: IconUserX,
+  snoozed: IconClock,
   resolved: IconCheckCircle,
 };
 

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import { Can } from '@/components/auth/Can';
 import { Button } from '@/components/atoms/Button/Button';
@@ -10,9 +10,11 @@ import { ComposeModeToggle } from './ComposeModeToggle';
 import type { ComposeMode } from './ComposeModeToggle';
 import { TemplateSendPanel } from './TemplateSendPanel';
 import { CannedResponsePicker } from './CannedResponsePicker';
+import { MentionPopover } from './MentionPopover';
+import { detectMentionQuery, filterMentionUsers, formatMentionToken, insertMention } from './mentions';
 import { MAX_FILES } from '@/utils/validateAttachment';
 import { mapSendError } from '@/utils/mapSendError';
-import type { WhatsappClientContext } from '@/types/whatsapp';
+import type { WhatsappAssignee, WhatsappClientContext } from '@/types/whatsapp';
 import styles from './Composer.module.css';
 
 interface ComposerProps {
@@ -51,7 +53,19 @@ interface ComposerProps {
    * sin él, el panel se comporta como "sin cliente" (solo Valor fijo).
    */
   lightContext?: WhatsappClientContext | null;
+  /**
+   * Ola 6 (@menciones) — catálogo de agentes mencionables en una NOTA interna
+   * (el MISMO que alimenta el control de asignación, `useAssignableUsers`;
+   * `WhatsappInboxPage` lo threadea). Al tipear "@" en modo nota se abre el
+   * popover con estos agentes; elegir inserta `@[Nombre](userId)`. Opcional con
+   * default `[]` (cero regresión para call sites/tests previos: sin catálogo el
+   * popover muestra "Sin coincidencias").
+   */
+  assignableUsers?: WhatsappAssignee[];
 }
+
+const MENTION_LISTBOX_ID = 'wa-mention-listbox';
+const mentionOptionId = (index: number) => `${MENTION_LISTBOX_ID}-option-${index}`;
 
 const WINDOW_EXPIRED_NOTICE = 'Ventana de 24h expirada — se necesita un template';
 /** CTA-1 (inbox-template-send, design D11) — anunciado por `TEMPLATE_SENT_ANNOUNCEMENT` cuando el envío del panel resuelve OK. */
@@ -87,7 +101,7 @@ const VERIFY_WINDOW_ERROR_NOTICE =
  * vive en la burbuja, no acá — por eso `disabled`/`canSend` YA NO dependen
  * de ningún `isPending` (el hook nuevo ni lo expone).
  */
-export function Composer({ conversationId, canReply, isDetailLoading = false, isDetailError = false, lightContext }: ComposerProps) {
+export function Composer({ conversationId, canReply, isDetailLoading = false, isDetailError = false, lightContext, assignableUsers = [] }: ComposerProps) {
   const [content, setContent] = useState('');
   // messaging-inbox-notes F1.5 fase D (design §3.1): 'reply' es el default —
   // cero cambio de comportamiento al abrir el composer.
@@ -132,10 +146,31 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
   // no se remonta entre modos) sin un Tab extra.
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // Ola 6 (@menciones) — estado del popover de menciones. `null` = cerrado.
+  // `start` es el índice del "@" que lo abrió; `query` es lo tipeado tras el
+  // "@" (filtro); `activeIndex` es la opción resaltada (teclado/mouse). Solo
+  // se usa en modo nota (ver `handleContentChange`/`handleKeyDown`).
+  const [mention, setMention] = useState<{ start: number; query: string; activeIndex: number } | null>(null);
+  // Caret a restaurar tras insertar un token (el `setContent` controlado no
+  // preserva la posición del caret por sí solo). `useLayoutEffect` lo aplica
+  // antes del paint para que no se vea el salto.
+  const pendingCaretRef = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (pendingCaretRef.current !== null && textareaRef.current) {
+      const pos = pendingCaretRef.current;
+      textareaRef.current.setSelectionRange(pos, pos);
+      pendingCaretRef.current = null;
+    }
+  });
+
   const trimmed = content.trim();
   const validDrafts = drafts.filter((d) => d.error === null);
   const validFiles = validDrafts.map((d) => d.file);
   const isNoteMode = mode === 'note';
+  // Agentes visibles en el popover — filtrados por lo tipeado tras el "@".
+  const mentionUsers = mention ? filterMentionUsers(assignableUsers, mention.query) : [];
+  const isMentionOpen = isNoteMode && mention !== null;
 
   // Bug #4: mientras el detalle carga, todavía NO sabemos el `canReply`
   // real — deshabilitar es lo seguro (no dejar mandar un mensaje que el BE
@@ -183,6 +218,9 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
     // arrastrar el flag "abierto por slash" a la próxima apertura en reply).
     setCannedPickerOpen(false);
     setCannedOpenedBySlash(false);
+    // Ola 6 (@menciones): el popover de menciones es exclusivo del modo nota —
+    // al cambiar de modo se cierra (no debe quedar colgado sobre el modo reply).
+    setMention(null);
     setMode(next);
     setModeAnnouncement(next === 'note' ? 'Modo nota interna' : 'Modo respuesta');
     // El textarea es el MISMO nodo en ambos modos (nunca se remonta) — el
@@ -239,6 +277,36 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
   // composición NO debe enviar el mensaje — `nativeEvent.isComposing` es la
   // señal estándar para distinguirlo del Enter "real".
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    // Ola 6 (@menciones): con el popover abierto, ↑/↓/Enter/Esc lo gobiernan a
+    // ÉL (el foco nunca sale del textarea — patrón aria-activedescendant), no
+    // al composer. Enter elige la mención, JAMÁS envía la nota.
+    if (isMentionOpen) {
+      const len = mentionUsers.length;
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setMention((m) => (m ? { ...m, activeIndex: len === 0 ? 0 : (m.activeIndex + 1) % len } : m));
+          return;
+        case 'ArrowUp':
+          e.preventDefault();
+          setMention((m) => (m ? { ...m, activeIndex: len === 0 ? 0 : (m.activeIndex - 1 + len) % len } : m));
+          return;
+        case 'Enter':
+          e.preventDefault();
+          if (len > 0 && mention) selectMention(mentionUsers[mention.activeIndex]);
+          else setMention(null);
+          return;
+        case 'Escape':
+          e.preventDefault();
+          // Corta la burbuja (mismo criterio que CannedResponsePicker/Select):
+          // un Escape a nivel document no debe cerrar además un modal ancestro.
+          e.stopPropagation();
+          setMention(null);
+          return;
+        default:
+          break;
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       trySend();
@@ -261,12 +329,20 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
    * slash". Cualquier otro "/" (en medio del texto, o con contenido previo) NO
    * dispara — el atajo es solo al inicio del composer vacío (patrón Chatwoot).
    */
-  function handleContentChange(next: string) {
+  function handleContentChange(next: string, caret: number) {
     if (!cannedPickerOpen && mode === 'reply' && content === '' && next === '/') {
       setCannedPickerOpen(true);
       setCannedOpenedBySlash(true);
     }
     setContent(next);
+    // Ola 6 (@menciones): solo en modo nota. Cada tecla recalcula si el caret
+    // está dentro de una palabra "@…" (`detectMentionQuery`) — abre/actualiza
+    // el popover o lo cierra. `activeIndex` vuelve al tope al cambiar el filtro
+    // (las flechas no pasan por acá: no cambian el content).
+    if (mode === 'note') {
+      const detected = detectMentionQuery(next, caret);
+      setMention(detected ? { start: detected.start, query: detected.query, activeIndex: 0 } : null);
+    }
   }
 
   function openCannedPicker() {
@@ -299,6 +375,23 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
       setContent(content.slice(0, start) + text + content.slice(end));
     }
     closeCannedPicker();
+  }
+
+  /**
+   * Ola 6 (@menciones) — insertar el token del agente elegido. Reemplaza la
+   * palabra `@…` (de `mention.start` al fin del query) por `@[Nombre](userId)`
+   * + espacio. El caret queda tras el espacio (`pendingCaretRef`, aplicado en
+   * el `useLayoutEffect`), y el foco vuelve al textarea (mismo nodo).
+   */
+  function selectMention(user: WhatsappAssignee) {
+    if (!mention) return;
+    const caretEnd = mention.start + mention.query.length + 1; // +1 por el "@"
+    const token = formatMentionToken(user.name, user.id);
+    const { text, caret } = insertMention(content, mention.start, caretEnd, token);
+    setContent(text);
+    setMention(null);
+    pendingCaretRef.current = caret;
+    textareaRef.current?.focus();
   }
 
   // Deriva el texto del announcement a partir del contador — el 1er envío
@@ -417,6 +510,21 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
           <CannedResponsePicker onSelect={handleCannedSelect} onClose={closeCannedPicker} />
         )}
 
+        {/* Ola 6 (@menciones) — popover de menciones, exclusivo del modo nota.
+            Anclado sobre el composer (position:absolute, bottom:100% — mismo
+            ancestro `.composer` que el CannedResponsePicker). El foco queda en
+            el textarea; este popover solo pinta las opciones filtradas. */}
+        {isMentionOpen && (
+          <MentionPopover
+            users={mentionUsers}
+            activeIndex={mention?.activeIndex ?? 0}
+            listboxId={MENTION_LISTBOX_ID}
+            optionId={mentionOptionId}
+            onSelect={selectMention}
+            onHover={(idx) => setMention((m) => (m ? { ...m, activeIndex: idx } : m))}
+          />
+        )}
+
         <div className={styles.row}>
           {mode === 'reply' && (
             <ComposerAttachButton
@@ -455,10 +563,22 @@ export function Composer({ conversationId, canReply, isDetailLoading = false, is
             ref={textareaRef}
             className={styles.textarea}
             value={content}
-            onChange={(e) => handleContentChange(e.target.value)}
+            onChange={(e) => handleContentChange(e.target.value, e.target.selectionStart ?? e.target.value.length)}
             onKeyDown={handleKeyDown}
+            // Ola 6 (@menciones): al perder el foco (click afuera / Tab) se
+            // cierra el popover. Elegir una opción NO dispara blur (el
+            // `onMouseDown` de la opción hace preventDefault → el foco queda).
+            onBlur={() => setMention(null)}
             placeholder={isNoteMode ? 'Escribí una nota interna…' : drafts.length > 0 ? 'Agregá un texto…' : 'Escribí un mensaje…'}
             disabled={windowDisabled}
+            // Ola 6 (@menciones): el textarea es el "input" del combobox de
+            // menciones (patrón aria-activedescendant — el foco nunca sale de él).
+            aria-haspopup={isNoteMode ? 'listbox' : undefined}
+            aria-expanded={isMentionOpen || undefined}
+            aria-controls={isMentionOpen && mentionUsers.length > 0 ? MENTION_LISTBOX_ID : undefined}
+            aria-activedescendant={
+              isMentionOpen && mention && mentionUsers.length > 0 ? mentionOptionId(mention.activeIndex) : undefined
+            }
           />
           <Button
             type="submit"

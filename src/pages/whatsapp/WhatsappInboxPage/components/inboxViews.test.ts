@@ -19,13 +19,23 @@ import {
 } from './inboxViews';
 
 describe('INBOX_VIEWS — catálogo ordenado (paridad sidebar Chatwoot)', () => {
-  it('expone las 5 vistas en el orden Mi bandeja / Sin atender / Todas / Sin asignar / Resueltas', () => {
-    expect(INBOX_VIEWS.map((v) => v.id)).toEqual(['mine', 'unattended', 'all', 'unassigned', 'resolved']);
+  it('expone las 7 vistas en el orden Mi bandeja / Sin atender / Menciones / Todas / Sin asignar / Pospuestas / Resueltas', () => {
+    expect(INBOX_VIEWS.map((v) => v.id)).toEqual([
+      'mine',
+      'unattended',
+      'mentioned',
+      'all',
+      'unassigned',
+      'snoozed',
+      'resolved',
+    ]);
     expect(INBOX_VIEWS.map((v) => v.label)).toEqual([
       'Mi bandeja',
       'Sin atender',
+      'Menciones',
       'Todas',
       'Sin asignar',
+      'Pospuestas',
       'Resueltas',
     ]);
   });
@@ -50,6 +60,14 @@ describe('INBOX_VIEW_PRESETS — pin del query por vista (contrato BE)', () => {
 
   it('resolved → {status:"resolved"} — sin assignment (los presets no acumulan ejes de otras vistas)', () => {
     expect(INBOX_VIEW_PRESETS.resolved).toEqual({ status: 'resolved' });
+  });
+
+  it('mentioned → {view:"mentioned"} SOLO — eje PROPIO del BE (muestra resueltas también), sin status ni assignment', () => {
+    expect(INBOX_VIEW_PRESETS.mentioned).toEqual({ view: 'mentioned' });
+  });
+
+  it('snoozed → {view:"snoozed"} SOLO — pospuestas vigentes, eje PROPIO del BE, sin status ni assignment', () => {
+    expect(INBOX_VIEW_PRESETS.snoozed).toEqual({ view: 'snoozed' });
   });
 
   it('cada vista del catálogo tiene su preset y su empty message (sin huecos)', () => {

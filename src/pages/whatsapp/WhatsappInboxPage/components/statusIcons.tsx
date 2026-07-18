@@ -44,3 +44,17 @@ export function IconUser({ className }: IconProps = {}) {
     </svg>
   );
 }
+
+/**
+ * IconClock — "Posponer" (Ola 6 — snooze). Reloj, NUNCA el emoji ⏰
+ * (design-system rule del repo). `aria-hidden`: el nombre accesible vive en el
+ * `aria-label` del botón que lo envuelve (`ConversationSnoozeControl`).
+ */
+export function IconClock({ className }: IconProps = {}) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
