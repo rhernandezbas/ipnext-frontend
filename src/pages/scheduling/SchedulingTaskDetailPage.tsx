@@ -530,6 +530,8 @@ export default function SchedulingTaskDetailPage() {
             taskId={task.id}
             taskKind={task.kind}
             networkSiteName={task.networkSiteName}
+            lastBroadcastAt={task.lastBroadcastAt}
+            lastBroadcastByName={task.lastBroadcastByName}
             onResult={showToast}
           />
           <TaskTabs

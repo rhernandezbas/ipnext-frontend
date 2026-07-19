@@ -102,6 +102,7 @@ export function describeActivity(a: ActivityDto): string {
     case 'checklist_reordered': return 'reordenó el checklist';
     case 'checklist_template_assigned': return 'asignó una plantilla de checklist';
     case 'checklist_cleared': return 'vació el checklist';
+    case 'noc_broadcast_sent': return 'difundió al NOC por WhatsApp';
     default: return a.type.replace(/_/g, ' ');
   }
 }

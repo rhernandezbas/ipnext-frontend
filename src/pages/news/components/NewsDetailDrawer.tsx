@@ -212,7 +212,7 @@ export function NewsDetailDrawer({ post, onClose, onMarkRead, onEdit, onArchived
               {errorFeedback}
             </p>
           )}
-          <NewsBroadcastButton postId={post.id} lastBroadcastAt={post.lastBroadcastAt} />
+          <NewsBroadcastButton postId={post.id} lastBroadcastAt={post.lastBroadcastAt} lastBroadcastByName={post.lastBroadcastByName} />
         </Can>
 
         {/* Body is MARKDOWN (N2) — rendered to React nodes, never as HTML (no XSS). */}

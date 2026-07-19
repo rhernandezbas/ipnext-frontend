@@ -35,6 +35,8 @@ interface NewsBroadcastButtonProps {
   postId: string;
   /** ISO of the last broadcast, or null. Rendered in Argentina time. */
   lastBroadcastAt: string | null;
+  /** Display name of the operator who last broadcast this post, or null. */
+  lastBroadcastByName: string | null;
 }
 
 /**
@@ -47,7 +49,7 @@ interface NewsBroadcastButtonProps {
  * honour the repo's "SVG, never emoji" design-system rule; the wording stays
  * "Difundido al canal — {link}".
  */
-export function NewsBroadcastButton({ postId, lastBroadcastAt }: NewsBroadcastButtonProps) {
+export function NewsBroadcastButton({ postId, lastBroadcastAt, lastBroadcastByName }: NewsBroadcastButtonProps) {
   const broadcast = useBroadcastNewsPost();
   const confirm = useConfirm();
   const [feedback, setFeedback] = useState<Feedback | null>(null);
@@ -82,7 +84,9 @@ export function NewsBroadcastButton({ postId, lastBroadcastAt }: NewsBroadcastBu
       </button>
 
       {lastBroadcastAt && (
-        <p className={styles.lastBroadcast}>Difundida el {formatDateTimeShort(lastBroadcastAt)}</p>
+        <p className={styles.lastBroadcast}>
+          Difundida el {formatDateTimeShort(lastBroadcastAt)} · {lastBroadcastByName ?? '—'}
+        </p>
       )}
 
       {feedback?.tone === 'success' && (

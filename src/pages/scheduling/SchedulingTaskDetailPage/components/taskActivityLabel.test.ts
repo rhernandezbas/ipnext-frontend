@@ -104,6 +104,10 @@ describe('describeActivity', () => {
     expect(describeActivity(act({ type: 'description_changed', toValue: 'nueva descripción' }))).toContain('nueva descripción');
   });
 
+  it('describes a noc_broadcast_sent event as a plain lowercase verb phrase', () => {
+    expect(describeActivity(act({ type: 'noc_broadcast_sent' }))).toBe('difundió al NOC por WhatsApp');
+  });
+
   it('falls back to a readable label for an unknown type', () => {
     expect(describeActivity(act({ type: 'some_future_event' }))).toBe('some future event');
   });

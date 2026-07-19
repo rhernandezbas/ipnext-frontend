@@ -66,6 +66,9 @@ export interface NewsPost {
   attachments: NewsAttachment[];
   /** N2 — ISO of the last NOC broadcast, or null if never broadcast. */
   lastBroadcastAt: string | null;
+  /** Display name of the operator who last broadcast this post to the NOC, or
+   *  null when never broadcast / name unavailable (noc-broadcast-traza). */
+  lastBroadcastByName: string | null;
   createdAt: string;
   updatedAt: string;
 }

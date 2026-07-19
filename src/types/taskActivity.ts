@@ -28,6 +28,7 @@ export type ActivityType =
   | 'checklist_reordered'
   | 'checklist_template_assigned'
   | 'checklist_cleared'
+  | 'noc_broadcast_sent'
   // forward-compat: backend may add types the frontend doesn't know yet
   | (string & {});
 

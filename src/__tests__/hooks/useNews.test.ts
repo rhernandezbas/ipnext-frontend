@@ -69,6 +69,7 @@ function makePost(over: Partial<NewsPost> = {}): NewsPost {
     read: false,
     attachments: [],
     lastBroadcastAt: null,
+    lastBroadcastByName: null,
     createdAt: '2026-07-01T12:00:00.000Z',
     updatedAt: '2026-07-01T12:00:00.000Z',
     ...over,

@@ -21,8 +21,17 @@ beforeEach(() => {
   vi.mocked(useConfirm).mockReturnValue(vi.fn().mockResolvedValue(true));
 });
 
-function renderButton(lastBroadcastAt: string | null = null) {
-  return render(<NewsBroadcastButton postId="p1" lastBroadcastAt={lastBroadcastAt} />);
+function renderButton(
+  lastBroadcastAt: string | null = null,
+  lastBroadcastByName: string | null = null,
+) {
+  return render(
+    <NewsBroadcastButton
+      postId="p1"
+      lastBroadcastAt={lastBroadcastAt}
+      lastBroadcastByName={lastBroadcastByName}
+    />,
+  );
 }
 
 describe('NewsBroadcastButton', () => {
@@ -96,6 +105,20 @@ describe('NewsBroadcastButton', () => {
     renderButton('2026-06-01T15:30:00.000Z');
     // formatDateTimeShort(...Z) → AR (UTC-3) = 01 jun 2026 - 12:30
     expect(screen.getByText(/difundida el 01 jun 2026 - 12:30/i)).toBeInTheDocument();
+  });
+
+  it('shows the broadcast date AND the user name when both are set', () => {
+    renderButton('2026-06-01T15:30:00.000Z', 'Juan Pérez');
+    expect(
+      screen.getByText(/difundida el 01 jun 2026 - 12:30 · juan pérez/i),
+    ).toBeInTheDocument();
+  });
+
+  it('falls back to "—" for the user when lastBroadcastByName is null but a date exists', () => {
+    renderButton('2026-06-01T15:30:00.000Z', null);
+    expect(
+      screen.getByText(/difundida el 01 jun 2026 - 12:30 · —/i),
+    ).toBeInTheDocument();
   });
 
   it('does NOT show the "Difundida el" line when lastBroadcastAt is null', () => {

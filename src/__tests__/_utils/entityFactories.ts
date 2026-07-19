@@ -77,6 +77,8 @@ export function makeScheduledTask(overrides: Partial<ScheduledTask> = {}): Sched
     iclassCityCode: null,
     networkType: null,
     archivedAt: null,
+    lastBroadcastAt: null,
+    lastBroadcastByName: null,
     iclassStatus: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',

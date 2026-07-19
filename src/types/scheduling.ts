@@ -199,6 +199,13 @@ export interface ScheduledTask {
   /** ISO datetime when the task was archived (#86). Null when not archived. */
   archivedAt: string | null;
 
+  /** ISO datetime of the last NOC WhatsApp broadcast of this task, or null if
+   *  never broadcast (noc-broadcast-traza). */
+  lastBroadcastAt: string | null;
+  /** Display name of the operator who last broadcast this task to the NOC, or
+   *  null when never broadcast / name unavailable (noc-broadcast-traza). */
+  lastBroadcastByName: string | null;
+
   /**
    * Serial de la ONU cargado por el técnico (K3 fiber-serial). El BE lo
    * normaliza al guardar (UPPERCASE sin espacios, 8-24 alfanumérico) y el

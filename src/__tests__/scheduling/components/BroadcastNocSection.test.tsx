@@ -93,6 +93,27 @@ describe('BroadcastNocSection', () => {
     ).not.toBeInTheDocument();
   });
 
+  // ── Badge de última difusión (trazabilidad) ──────────────────────────────────
+  it('muestra el badge de última difusión con fecha y usuario cuando lastBroadcastAt está seteado', () => {
+    renderSection({ lastBroadcastAt: '2026-06-01T15:30:00.000Z', lastBroadcastByName: 'Juan Pérez' });
+    // formatDateTimeShort(...Z) → AR (UTC-3) = 01 jun 2026 - 12:30
+    expect(
+      screen.getByText(/última difusión: 01 jun 2026 - 12:30 · juan pérez/i),
+    ).toBeInTheDocument();
+  });
+
+  it('cae a "—" cuando hay fecha de difusión pero sin nombre de usuario', () => {
+    renderSection({ lastBroadcastAt: '2026-06-01T15:30:00.000Z', lastBroadcastByName: null });
+    expect(
+      screen.getByText(/última difusión: 01 jun 2026 - 12:30 · —/i),
+    ).toBeInTheDocument();
+  });
+
+  it('NO muestra el badge de última difusión cuando lastBroadcastAt es null', () => {
+    renderSection({ lastBroadcastAt: null, lastBroadcastByName: null });
+    expect(screen.queryByText(/última difusión/i)).not.toBeInTheDocument();
+  });
+
   // ── Confirm + POST ───────────────────────────────────────────────────────────
   it('click → confirm suave → POST', async () => {
     const user = userEvent.setup();

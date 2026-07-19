@@ -36,6 +36,13 @@
   color: var(--color-text-secondary);
 }
 
+/* Trazabilidad — línea muted chica con la última difusión al NOC. */
+.lastBroadcast {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
 .cta {
   min-height: var(--space-11); /* 44px touch */
   padding: 0 var(--space-5);

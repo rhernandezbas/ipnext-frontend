@@ -1,6 +1,7 @@
 import { useCan } from '@/hooks/useMyPermissions';
 import { useConfirm } from '@/context/ConfirmContext';
 import { useBroadcastTaskToNoc } from '@/hooks/useScheduling';
+import { formatDateTimeShort } from '@/utils/formatDate';
 import { mapBroadcastNocError } from './broadcastNocErrors';
 import styles from './BroadcastNocSection.module.css';
 
@@ -11,6 +12,10 @@ export interface BroadcastNocSectionProps {
   taskKind: 'customer' | 'network';
   /** Nombre del nodo (solo para el subtítulo informativo). */
   networkSiteName?: string | null;
+  /** ISO de la última difusión al NOC, o null si nunca se difundió (trazabilidad). */
+  lastBroadcastAt?: string | null;
+  /** Nombre del operador que hizo la última difusión, o null (trazabilidad). */
+  lastBroadcastByName?: string | null;
   /**
    * Callback para surfacear el resultado por el sistema de toast de la página
    * (una sola superficie de toast en el detalle, en vez de una propia acá).
@@ -36,6 +41,8 @@ export function BroadcastNocSection({
   taskId,
   taskKind,
   networkSiteName,
+  lastBroadcastAt,
+  lastBroadcastByName,
   onResult,
 }: BroadcastNocSectionProps) {
   const canWrite = useCan('scheduling.write');
@@ -74,6 +81,11 @@ export function BroadcastNocSection({
             {networkSiteName ? ` — nodo ${networkSiteName}` : ''}, con un link directo
             a la tarea.
           </p>
+          {lastBroadcastAt && (
+            <p className={styles.lastBroadcast}>
+              Última difusión: {formatDateTimeShort(lastBroadcastAt)} · {lastBroadcastByName ?? '—'}
+            </p>
+          )}
         </div>
         <button
           type="button"

@@ -89,6 +89,8 @@ function makeTask(overrides: Partial<ScheduledTask> = {}): ScheduledTask {
     iclassCityCode: null,
     networkType: null,
     archivedAt: null,
+    lastBroadcastAt: null,
+    lastBroadcastByName: null,
     iclassStatus: null,
     ...overrides,
   };
