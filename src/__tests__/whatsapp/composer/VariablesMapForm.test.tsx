@@ -182,3 +182,66 @@ describe('VMF-11: sin repetición del contexto por variable (rediseño #4)', () 
     expect(paragraphs.size).toBe(1);
   });
 });
+
+const FALLBACK_LABEL = /valor por defecto \(sin cliente\)/i;
+
+describe('VMF-12: fallback para números sin cliente (campaign-var-fallback)', () => {
+  it('con fuente "name", aparece el input "Valor por defecto (sin cliente)" debajo del selector', () => {
+    const value: CampaignVariableSpec = { '1': { source: 'name' } };
+    render(<VariablesMapForm variables={['1']} value={value} onChange={vi.fn()} />);
+
+    expect(screen.getByLabelText(FALLBACK_LABEL)).toBeInTheDocument();
+  });
+
+  it('con fuente "balanceDue", también aparece el input de fallback', () => {
+    const value: CampaignVariableSpec = { '1': { source: 'balanceDue' } };
+    render(<VariablesMapForm variables={['1']} value={value} onChange={vi.fn()} />);
+
+    expect(screen.getByLabelText(FALLBACK_LABEL)).toBeInTheDocument();
+  });
+
+  it('muestra el hint explicando que solo aplica a los números sueltos', () => {
+    const value: CampaignVariableSpec = { '1': { source: 'name' } };
+    render(<VariablesMapForm variables={['1']} value={value} onChange={vi.fn()} />);
+
+    expect(screen.getByText(/destinatarios sin cliente/i)).toBeInTheDocument();
+    expect(screen.getByText(/clientes usan su dato real/i)).toBeInTheDocument();
+  });
+
+  it('con fuente "literal", NO aparece el input de fallback', () => {
+    const value: CampaignVariableSpec = { '1': { source: 'literal', value: '' } };
+    render(<VariablesMapForm variables={['1']} value={value} onChange={vi.fn()} />);
+
+    expect(screen.queryByLabelText(FALLBACK_LABEL)).not.toBeInTheDocument();
+  });
+
+  it('sin fuente elegida, NO aparece el input de fallback', () => {
+    render(<VariablesMapForm variables={['1']} value={{}} onChange={vi.fn()} />);
+
+    expect(screen.queryByLabelText(FALLBACK_LABEL)).not.toBeInTheDocument();
+  });
+
+  it('tipear en el fallback llama a onChange preservando la fuente + el fallback tipeado', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const value: CampaignVariableSpec = { '1': { source: 'name' } };
+    render(<VariablesMapForm variables={['1']} value={value} onChange={onChange} />);
+
+    await user.type(screen.getByLabelText(FALLBACK_LABEL), 'x');
+
+    expect(onChange).toHaveBeenCalledWith({ '1': { source: 'name', fallback: 'x' } });
+  });
+
+  it('vaciar el fallback guarda la entrada SIN `fallback` (undefined, nunca "")', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const value: CampaignVariableSpec = { '1': { source: 'name', fallback: 'A' } };
+    render(<VariablesMapForm variables={['1']} value={value} onChange={onChange} />);
+
+    await user.clear(screen.getByLabelText(FALLBACK_LABEL));
+
+    // toEqual ignora `undefined`, así que esto matchea `{source:'name', fallback:undefined}`
+    // pero NO matchearía `{source:'name', fallback:''}` — pinea el "no mandes ''".
+    expect(onChange).toHaveBeenCalledWith({ '1': { source: 'name' } });
+  });
+});

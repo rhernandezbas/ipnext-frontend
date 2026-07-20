@@ -176,6 +176,14 @@ export interface CampaignVariableSpecEntry {
   source: CampaignVariableSource;
   /** Requerido cuando `source === 'literal'`; ignorado para 'name'/'balanceDue'. */
   value?: string;
+  /**
+   * Valor para destinatarios SIN cliente (números crudos). Solo aplica cuando
+   * `source` es `'name'` o `'balanceDue'`: si el destinatario no está vinculado
+   * a un cliente y el `fallback` no está vacío, el BE envía este texto en vez
+   * del dato ausente. Los clientes vinculados lo IGNORAN (usan su dato real).
+   * No aplica a `'literal'`. Opcional.
+   */
+  fallback?: string;
 }
 
 /** Mapea cada variable del template (key) a cómo se resuelve POR-DESTINATARIO. */

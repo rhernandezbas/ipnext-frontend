@@ -90,6 +90,19 @@ export function VariablesMapForm({ variables, value, onChange, missingVariables 
     onChange({ ...value, [variable]: { source: 'literal', value: literalValue } });
   }
 
+  /**
+   * `fallback` (campaign-var-fallback) — SOLO tiene sentido para 'name'/'balanceDue'
+   * (el input que lo edita no se muestra en otras fuentes). Preserva el `source`
+   * (y cualquier otro campo del entry) y sólo pisa `fallback`. Vacío ⇒ `undefined`
+   * para NO mandar `''` al BE (el contrato ignora fallback vacío, pero mandarlo
+   * sería ruido en el payload).
+   */
+  function handleFallbackChange(variable: string, fallbackValue: string) {
+    const entry = value[variable];
+    if (!entry) return;
+    onChange({ ...value, [variable]: { ...entry, fallback: fallbackValue || undefined } });
+  }
+
   return (
     <fieldset className={styles.fieldset}>
       <legend className={styles.legend}>Variables del template</legend>
@@ -111,6 +124,8 @@ export function VariablesMapForm({ variables, value, onChange, missingVariables 
           const entry = value[variable];
           const selectId = `bulk-variable-${variable}-source`;
           const literalId = `bulk-variable-${variable}-literal`;
+          const fallbackId = `bulk-variable-${variable}-fallback`;
+          const supportsFallback = entry?.source === 'name' || entry?.source === 'balanceDue';
           const isMissing = missingVariables.includes(variable);
 
           return (
@@ -137,6 +152,25 @@ export function VariablesMapForm({ variables, value, onChange, missingVariables 
                     placeholder="Valor…"
                   />
                 </>
+              )}
+
+              {supportsFallback && (
+                <div className={styles.fallbackField}>
+                  <label htmlFor={fallbackId} className={styles.fallbackLabel}>
+                    Valor por defecto (sin cliente)
+                  </label>
+                  <input
+                    id={fallbackId}
+                    type="text"
+                    className={styles.literalInput}
+                    value={entry?.fallback ?? ''}
+                    onChange={(e) => handleFallbackChange(variable, e.target.value)}
+                    placeholder="Opcional"
+                  />
+                  <p className={styles.fallbackHint}>
+                    Se usa para los destinatarios sin cliente (números sueltos); los clientes usan su dato real.
+                  </p>
+                </div>
               )}
 
               {isMissing && (
