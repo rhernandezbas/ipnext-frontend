@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { StatusBadge } from '@/components/atoms/StatusBadge/StatusBadge';
+import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { CampaignSegment } from '@/types/messagingBulk';
 import { hasSegmentCriteria, hasIneffectiveBalance } from './segmentCriteria';
 import styles from './SegmentBuilder.module.css';
@@ -11,6 +13,9 @@ interface SegmentBuilderProps {
 type ClientStatus = 'active' | 'late' | 'blocked' | 'inactive' | 'baja';
 
 const STATUS_OPTIONS: ClientStatus[] = ['active', 'late', 'blocked', 'inactive', 'baja'];
+
+/** bulk-granular-perms — permiso `messaging.bulk_<status>` requerido para enviar a ese estado. */
+const statusPermission = (status: ClientStatus): string => `messaging.bulk_${status}`;
 
 /** `''` (input vacío) → `undefined`, NUNCA `NaN` — un balance vacío es "sin filtro", no un número inválido. */
 function parseBalance(text: string): number | undefined {
@@ -36,10 +41,24 @@ function parseBalance(text: string): number | undefined {
  * nueva acá.
  */
 export function SegmentBuilder({ value, onChange }: SegmentBuilderProps) {
+  const { can } = useMyPermissions();
   const criteriaPresent = hasSegmentCriteria(value);
   // FIX-1: el operador escribió una deuda que no filtra ($0/negativo) — avisar
   // que no cuenta, en vez de dejarlo creer que ya hay criterio (dead-end 400).
   const ineffectiveBalance = hasIneffectiveBalance(value);
+
+  // bulk-granular-perms — defensa en profundidad: si el `value` trae un estado
+  // que el usuario NO tiene permiso para enviar (permiso revocado, estado
+  // seteado por otra vía), se STRIPEA para que no viaje al preview/create. El
+  // checkbox deshabilitado ya impide TILDARLO, esto cubre el caso "ya venía
+  // tildado". Sólo dispara onChange cuando hay algo real que sacar (evita loop).
+  useEffect(() => {
+    const forbidden = value.statuses.filter((s) => !can(statusPermission(s as ClientStatus)));
+    if (forbidden.length > 0) {
+      onChange({ ...value, statuses: value.statuses.filter((s) => can(statusPermission(s as ClientStatus))) });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps primitivas: el join + la identidad de `can`
+  }, [value.statuses.join(','), can]);
 
   function toggleStatus(status: ClientStatus) {
     const next = value.statuses.includes(status)
@@ -55,16 +74,31 @@ export function SegmentBuilder({ value, onChange }: SegmentBuilderProps) {
       <div className={styles.statusGroup} role="group" aria-label="Estado del cliente">
         {STATUS_OPTIONS.map((status) => {
           const checkboxId = `bulk-segment-status-${status}`;
+          // bulk-granular-perms — sin `messaging.bulk_<status>` el estado no se
+          // puede tildar (checkbox deshabilitado + candado/tooltip).
+          const permitted = can(statusPermission(status));
           return (
-            <label key={status} htmlFor={checkboxId} className={styles.statusOption}>
+            <label
+              key={status}
+              htmlFor={checkboxId}
+              className={styles.statusOption}
+              title={permitted ? undefined : 'No tenés permiso para enviar a este estado'}
+              data-disabled={permitted ? undefined : 'true'}
+            >
               <input
                 id={checkboxId}
                 type="checkbox"
                 className={styles.checkbox}
                 checked={value.statuses.includes(status)}
+                disabled={!permitted}
                 onChange={() => toggleStatus(status)}
               />
               <StatusBadge status={status} />
+              {!permitted && (
+                <span className={styles.lock} aria-hidden="true">
+                  🔒
+                </span>
+              )}
             </label>
           );
         })}

@@ -39,6 +39,7 @@ function renderModal(
     total: number;
     manualCount: number;
     csvCount: number;
+    numbersCount: number;
     statusCounts: Record<string, number>;
     skipped: Skipped;
     onConfirm: () => void;
@@ -55,6 +56,7 @@ function renderModal(
       total={props.total ?? 42}
       manualCount={props.manualCount}
       csvCount={props.csvCount}
+      numbersCount={props.numbersCount}
       statusCounts={props.statusCounts ?? { late: 30, blocked: 12 }}
       skipped={'skipped' in props ? props.skipped : NO_SKIPPED}
       onConfirm={onConfirm}
@@ -237,6 +239,27 @@ describe('CCM-14: copy — próximo paso explícito (scope adicional, root cause
     // del lead (CCM-5), que ya existía antes de este scope.
     expect(screen.getByText('Pendiente')).toBeInTheDocument();
     expect(screen.getByText(/desde el detalle/i)).toBeInTheDocument();
+  });
+});
+
+// F1 (review adversarial bulk-granular-perms) — el tab "Números" es un origen
+// más de destinatarios; el checkpoint de confirmación DEBE nombrarlo (mismo
+// criterio "hasta N" que manualCount/csvCount: el `total` ya es la unión dedup
+// del BE). Sin esto, quien pega 500 números ve el total pero no el desglose.
+describe('F1: nota de números sueltos (mismo molde que csvCount)', () => {
+  it('con numbersCount > 0 muestra "incluye hasta N números sueltos"', () => {
+    renderModal({ total: 20, numbersCount: 3 });
+    expect(screen.getByText(/incluye hasta 3 números sueltos/i)).toBeInTheDocument();
+  });
+
+  it('singular: "hasta 1 número suelto"', () => {
+    renderModal({ total: 5, numbersCount: 1 });
+    expect(screen.getByText(/incluye hasta 1 número suelto/i)).toBeInTheDocument();
+  });
+
+  it('sin números (numbersCount 0/omitido) no muestra la nota', () => {
+    renderModal();
+    expect(screen.queryByText(/números? suelto/i)).not.toBeInTheDocument();
   });
 });
 

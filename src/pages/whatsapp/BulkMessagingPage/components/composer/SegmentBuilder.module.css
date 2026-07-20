@@ -87,6 +87,24 @@
   outline-offset: 2px;
 }
 
+/* bulk-granular-perms — estado sin permiso: chip atenuado + cursor no-permitido
+   (el candado 🔒 y el `title` del label refuerzan el motivo sin depender del
+   color). */
+.statusOption[data-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--color-surface-hover);
+}
+
+.checkbox:disabled {
+  cursor: not-allowed;
+}
+
+.lock {
+  font-size: var(--font-size-xs);
+  line-height: 1;
+}
+
 .balanceGroup {
   display: flex;
   flex-wrap: wrap;

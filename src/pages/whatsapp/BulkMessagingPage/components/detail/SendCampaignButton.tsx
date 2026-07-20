@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ConfirmModal } from '@/components/molecules/ConfirmModal/ConfirmModal';
-import { useSendCampaign } from '@/hooks/useBulkMessaging';
+import { useSendCampaign, bulkRecipientsErrorMessage } from '@/hooks/useBulkMessaging';
 import type { CampaignStatusDto } from '@/types/messagingBulk';
 import styles from './SendCampaignButton.module.css';
 
@@ -35,7 +35,7 @@ export function SendCampaignButton({ campaignId, status, total, onSent }: SendCa
   const [step, setStep] = useState<ConfirmStep>('idle');
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { send, isPending, isError, conflict, reset } = useSendCampaign();
+  const { send, isPending, isError, conflict, bulkRecipientsError, reset } = useSendCampaign();
 
   // FIX-8b — limpiar el timer del toast al desmontar (el botón se desmonta
   // apenas la campaña pasa a `running`), sin fugas.
@@ -91,7 +91,17 @@ export function SendCampaignButton({ campaignId, status, total, onSent }: SendCa
         </p>
       )}
 
-      {isError && !conflict && (
+      {/* F8 (review adversarial) — 403 BULK_RECIPIENTS_NOT_PERMITTED al ENVIAR:
+          el BE re-chequea permisos (`AuthorizeCampaignSend`). Mismo mensaje que
+          el composer (con el fallback F2 al `message` si `forbidden` viene
+          vacío/no-array), PERSISTENTE — distinto del error genérico de abajo. */}
+      {bulkRecipientsError && (
+        <p className={styles.sendError} role="alert">
+          {bulkRecipientsErrorMessage(bulkRecipientsError)}
+        </p>
+      )}
+
+      {isError && !conflict && !bulkRecipientsError && (
         <p className={styles.sendError} role="alert">
           No se pudo enviar la campaña. Revisá tu conexión y reintentá en unos segundos.
         </p>

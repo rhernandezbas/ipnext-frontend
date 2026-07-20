@@ -136,6 +136,81 @@
   animation: chipPop 180ms var(--ease-out) backwards;
 }
 
+/* ── Tab "Números" (bulk-granular-perms) ────────────────────────────── */
+
+.numbersPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.numbersLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.numbersHint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  /* gray-600 sobre la card blanca ≈ 8.9:1 (mismo pairing que .cardSubtitle). */
+  color: var(--color-gray-600);
+}
+
+.numbersHint code {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9em;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-hover);
+}
+
+.numbersTextarea {
+  min-height: var(--space-11);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font: inherit;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  resize: vertical;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.numbersTextarea:hover:not(:disabled) {
+  border-color: var(--color-gray-400);
+}
+
+.numbersTextarea:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  border-color: var(--color-primary);
+}
+
+.numbersTextarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  background: var(--color-surface-hover);
+}
+
+.numbersCount {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-600);
+  font-variant-numeric: tabular-nums;
+}
+
+.numbersLockedHint {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  /* gray-600 sobre surface-hover ≈ 7.2:1 (mismo pairing validado que .hint). */
+  color: var(--color-gray-600);
+  background: var(--color-surface-hover);
+}
+
 /* ── Barra de acción (nombre + CTA) ─────────────────────────────────── */
 
 .actionBar {

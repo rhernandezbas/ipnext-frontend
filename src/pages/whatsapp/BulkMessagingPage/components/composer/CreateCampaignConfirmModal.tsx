@@ -56,6 +56,13 @@ interface CreateCampaignConfirmModalProps {
    * la línea "del archivo" al resumen). Opcional (default 0 = sin CSV).
    */
   csvCount?: number;
+  /**
+   * bulk-granular-perms (F1 review adversarial) — cuántos contactos vinieron
+   * del tab "Números" (`numbersContacts.length`, crudo del FE — mismo criterio
+   * "hasta N" que `csvCount`/`manualCount`: el `total` real es la unión dedup
+   * del BE, esto sólo nombra la fuente en el checkpoint). Opcional (default 0).
+   */
+  numbersCount?: number;
   /** `previewData.statusCounts` — desglose de matcheados por estado. */
   statusCounts: Record<string, number>;
   /** `previewData.skipped` — excluidos del envío (opt-out / duplicado / inválido). Opcional. */
@@ -95,6 +102,7 @@ export function CreateCampaignConfirmModal({
   total,
   manualCount = 0,
   csvCount = 0,
+  numbersCount = 0,
   statusCounts,
   skipped,
   networkSiteName,
@@ -222,6 +230,14 @@ export function CreateCampaignConfirmModal({
                 // es la unión dedup real.
                 <span className={styles.manualNote}>
                   {' '}(incluye hasta {csvCount} del archivo CSV)
+                </span>
+              )}
+              {numbersCount > 0 && (
+                // bulk-granular-perms (F1) — mismo criterio "hasta N": `numbersCount`
+                // es el largo CRUDO del tab Números, `total` es la unión dedup real.
+                <span className={styles.manualNote}>
+                  {' '}(incluye hasta {numbersCount} número{numbersCount === 1 ? '' : 's'} suelto
+                  {numbersCount === 1 ? '' : 's'})
                 </span>
               )}
             </dd>

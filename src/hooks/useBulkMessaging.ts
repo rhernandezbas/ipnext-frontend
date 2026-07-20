@@ -5,6 +5,7 @@ import { useDocumentVisible } from '@/hooks/useDocumentVisible';
 import type {
   CampaignSendConflictBody,
   CampaignStatusDto,
+  CreateCampaignBulkRecipientsNotPermittedBody,
   CreateCampaignInput,
   CreateCampaignManualRecipientsNotFoundBody,
   CreateCampaignMissingVariablesBody,
@@ -115,6 +116,42 @@ function toManualRecipientsNotFoundError(error: unknown): ManualRecipientsNotFou
   };
 }
 
+/** DTO de error expuesto por el hook cuando el usuario no tiene permiso para algún destinatario (bulk-granular-perms). */
+export interface BulkRecipientsNotPermittedError {
+  code: CreateCampaignBulkRecipientsNotPermittedBody['code'];
+  message: string;
+  /** Etiquetas prohibidas (estados + `'números'`) — el composer las muestra tal cual. */
+  forbidden: string[];
+}
+
+/** Detecta el 403 BULK_RECIPIENTS_NOT_PERMITTED — mismo criterio que los demás detectores. */
+export function toBulkRecipientsNotPermittedError(error: unknown): BulkRecipientsNotPermittedError | null {
+  if (!axios.isAxiosError(error) || error.response?.status !== 403) return null;
+  const body = error.response.data as Partial<CreateCampaignBulkRecipientsNotPermittedBody> | undefined;
+  if (body?.code !== 'BULK_RECIPIENTS_NOT_PERMITTED') return null;
+  return {
+    code: 'BULK_RECIPIENTS_NOT_PERMITTED',
+    message: body.error ?? 'No tenés permiso para enviar a algunos destinatarios',
+    // F3 (review adversarial) — `Array.isArray` (no `?? []`): un `forbidden`
+    // NO-array (BE viejo / body inesperado) NO debe llegar al `.join` del
+    // render y crashear la UI; se degrada a lista vacía y cae al `message`.
+    forbidden: Array.isArray(body.forbidden) ? body.forbidden : [],
+  };
+}
+
+/**
+ * F2 (review adversarial) — texto a mostrar para el 403: si el BE mandó
+ * etiquetas (`forbidden`), se listan; si vino vacío (o no-array, ver F3), se
+ * usa el `message` del body en vez de dejar un "No tenés permiso para enviar
+ * a: " colgado. Único formateador — lo comparten el composer (create) y
+ * `SendCampaignButton` (send).
+ */
+export function bulkRecipientsErrorMessage(err: BulkRecipientsNotPermittedError): string {
+  return err.forbidden.length > 0
+    ? `No tenés permiso para enviar a: ${err.forbidden.join(', ')}`
+    : err.message;
+}
+
 /** Mensajes claros para los códigos de error del BE al crear (contrato CAMPAIGN spec). */
 const CREATE_ERROR_MESSAGES: Record<string, string> = {
   EMPTY_SEGMENT: 'El segmento no tiene destinatarios. Ajustá los filtros y volvé a intentar.',
@@ -142,6 +179,12 @@ function toCreateServerError(error: unknown): string | null {
       error.response?.status === 422 &&
       (body?.code === 'MISSING_TEMPLATE_VARIABLES' || body?.code === 'MANUAL_RECIPIENTS_NOT_FOUND')
     ) {
+      return null;
+    }
+    // bulk-granular-perms — el 403 BULK_RECIPIENTS_NOT_PERMITTED se maneja
+    // aparte (`bulkRecipientsError`, muestra la lista de prohibidos) — no como
+    // el texto genérico de abajo.
+    if (error.response?.status === 403 && body?.code === 'BULK_RECIPIENTS_NOT_PERMITTED') {
       return null;
     }
     if (body?.code && CREATE_ERROR_MESSAGES[body.code]) return CREATE_ERROR_MESSAGES[body.code];
@@ -180,6 +223,7 @@ export function useCreateCampaign() {
     reset: mutation.reset,
     missingVariablesError: toMissingVariablesError(mutation.error),
     missingRecipientsError: toManualRecipientsNotFoundError(mutation.error),
+    bulkRecipientsError: toBulkRecipientsNotPermittedError(mutation.error),
     serverError: toCreateServerError(mutation.error),
   };
 }
@@ -229,6 +273,11 @@ export function useSendCampaign() {
     error: mutation.error,
     reset: mutation.reset,
     conflict: toSendConflict(mutation.error),
+    // F8 (review adversarial) — el BE re-chequea permisos AL ENVIAR
+    // (`AuthorizeCampaignSend`): un 403 BULK_RECIPIENTS_NOT_PERMITTED acá (ej.
+    // el sender no es el creador, o campaña vieja) se expone como error propio
+    // en vez de caer en el genérico de red/500.
+    bulkRecipientsError: toBulkRecipientsNotPermittedError(mutation.error),
   };
 }
 

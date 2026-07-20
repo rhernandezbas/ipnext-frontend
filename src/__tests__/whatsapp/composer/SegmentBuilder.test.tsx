@@ -15,10 +15,25 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
 
-// network-filter-tab — los selects de Nodo/AP (y sus hooks de catálogo +
-// permisos) se MUDARON a `NetworkFilterPanel`: el builder volvió a ser puro
-// (estados + deuda, cero hooks) — ya no hay seams de red que neutralizar acá.
-// Los escenarios de red viven en `NetworkFilterPanel.test.tsx`.
+// bulk-granular-perms — el builder ahora lee permisos (`useMyPermissions`) para
+// gatear los checkboxes por estado. En estos escenarios (que NO prueban el
+// gating) se conceden TODOS los permisos para preservar el comportamiento
+// previo — el gating granular vive en `SegmentBuilder.permissions.test.tsx`.
+vi.mock('@/hooks/useMyPermissions', () => ({
+  useMyPermissions: () => ({
+    user: null,
+    roles: [],
+    permissions: ['*'],
+    isLoading: false,
+    isError: false,
+    can: () => true,
+  }),
+  useCan: () => true,
+}));
+
+// network-filter-tab — los selects de Nodo/AP (y sus hooks de catálogo) se
+// MUDARON a `NetworkFilterPanel`. Los escenarios de red viven en
+// `NetworkFilterPanel.test.tsx`.
 import { SegmentBuilder } from '@/pages/whatsapp/BulkMessagingPage/components/composer/SegmentBuilder';
 import type { CampaignSegment } from '@/types/messagingBulk';
 

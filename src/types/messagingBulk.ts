@@ -238,6 +238,21 @@ export interface CreateCampaignManualRecipientsNotFoundBody {
   missingClientIds: string[];
 }
 
+/**
+ * Body del 403 cuando el usuario NO tiene permiso para enviar a alguno de los
+ * destinatarios elegidos (bulk-granular-perms — BE en PROD). `forbidden` son
+ * ETIQUETAS legibles: los estados prohibidos (ej. `'bloqueado'`) y/o
+ * `'números'` (para el origen de números crudos). El FE las muestra tal cual
+ * ("No tenés permiso para enviar a: {forbidden.join(', ')}"). Es el BACKSTOP
+ * del BE: la UI ya deshabilita los orígenes sin permiso, pero un destinatario
+ * elegido a mano (ej. un cliente 'blocked' en Manuales) igual se rechaza acá.
+ */
+export interface CreateCampaignBulkRecipientsNotPermittedBody {
+  error: string;
+  code: 'BULK_RECIPIENTS_NOT_PERMITTED';
+  forbidden: string[];
+}
+
 // ─── Envío (SEND-1) ───────────────────────────────────────────────────────────
 
 export interface SendCampaignOutput {

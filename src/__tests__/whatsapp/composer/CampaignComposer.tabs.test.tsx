@@ -153,13 +153,15 @@ describe('TAB-1: la card Destinatarios consolida los orígenes en tabs', () => {
     expect(screen.getByRole('tab', { name: /manuales/i })).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByRole('tab', { name: /csv/i })).toHaveAttribute('aria-selected', 'false');
 
-    // Orden pedido por el usuario: Segmento | Nodo/AP | Manuales | CSV.
+    // Orden: Segmento | Nodo/AP | Manuales | CSV | Números (bulk-granular-perms
+    // agregó el tab "Números" al final).
     const tabTexts = screen.getAllByRole('tab').map((t) => t.textContent ?? '');
-    expect(tabTexts).toHaveLength(4);
+    expect(tabTexts).toHaveLength(5);
     expect(tabTexts[0]).toMatch(/segmento/i);
     expect(tabTexts[1]).toMatch(/nodo\/ap/i);
     expect(tabTexts[2]).toMatch(/manuales/i);
     expect(tabTexts[3]).toMatch(/csv/i);
+    expect(tabTexts[4]).toMatch(/números/i);
 
     // El panel activo (Segmento) expone sus controles en el árbol de accesibilidad;
     // los paneles ocultos quedan fuera (display: none — getByRole los excluye).

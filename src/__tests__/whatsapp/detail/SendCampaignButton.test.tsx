@@ -54,6 +54,20 @@ function makeConflictError(): AxiosError {
   return error;
 }
 
+/** F8 (review adversarial) — el BE re-chequea permisos AL ENVIAR: 403 BULK_RECIPIENTS_NOT_PERMITTED con forbidden. */
+function makeForbiddenError(forbidden: string[] = ['bloqueado', 'números']): AxiosError {
+  const error = new AxiosError('Request failed with status code 403', 'ERR_BAD_REQUEST');
+  error.response = {
+    status: 403,
+    statusText: 'Forbidden',
+    headers: {},
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- fixture mínimo de AxiosResponse
+    config: { headers: new AxiosHeaders() } as any,
+    data: { error: 'sin permiso', code: 'BULK_RECIPIENTS_NOT_PERMITTED', forbidden },
+  };
+  return error;
+}
+
 function renderButton(overrides: { status?: CampaignStatusDto; total?: number; onSent?: () => void } = {}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => (
@@ -203,6 +217,24 @@ describe('SCB-8: fallo de envío que NO es 409 (FIX-3a)', () => {
     expect(alert).toHaveTextContent(/no se pudo enviar/i);
     // no debe confundirse con el 409 (otra campaña en curso)
     expect(alert.textContent?.toLowerCase()).not.toMatch(/otra campaña|una a la vez/);
+  });
+});
+
+describe('SCB-10: 403 BULK_RECIPIENTS_NOT_PERMITTED al ENVIAR (F8 review adversarial)', () => {
+  it('muestra la lista de destinatarios prohibidos que devuelve el BE (no el error genérico)', async () => {
+    vi.mocked(sendCampaign).mockRejectedValue(makeForbiddenError(['bloqueado', 'números']));
+    const user = userEvent.setup();
+    renderButton();
+
+    await user.click(screen.getByRole('button', { name: /enviar campaña/i }));
+    await user.click(screen.getByRole('button', { name: /continuar/i }));
+    await user.click(screen.getByRole('button', { name: /sí, enviar/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/no tenés permiso para enviar a: bloqueado, números/i);
+    // No debe caer en el mensaje genérico de red/500.
+    expect(alert.textContent?.toLowerCase()).not.toMatch(/no se pudo enviar/);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
 

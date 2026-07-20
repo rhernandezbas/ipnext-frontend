@@ -3,7 +3,7 @@ import { Can } from '@/components/auth/Can';
 import { Button } from '@/components/atoms/Button/Button';
 import { Tabs } from '@/components/molecules/Tabs/Tabs';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
-import { useTemplates, usePreviewSegment, useCreateCampaign } from '@/hooks/useBulkMessaging';
+import { useTemplates, usePreviewSegment, useCreateCampaign, bulkRecipientsErrorMessage } from '@/hooks/useBulkMessaging';
 import { useNetworkSites } from '@/hooks/useNetworkSites';
 import { useAssignableAccessPoints } from '@/hooks/useAccessPoints';
 import type { CampaignSegment, CampaignVariableSpec, TemplateSummaryDto } from '@/types/messagingBulk';
@@ -17,6 +17,7 @@ import { CreateCampaignConfirmModal } from './CreateCampaignConfirmModal';
 import { ManualRecipientsPicker, type ManualRecipient } from '@/components/molecules/ManualRecipientsPicker/ManualRecipientsPicker';
 import { CsvRecipientsUploader } from './CsvRecipientsUploader';
 import type { CsvContact } from './parseRecipientsCsv';
+import { parseRecipientNumbers } from './parseRecipientNumbers';
 import { hasRecipients, hasEffectiveBalanceFilter, networkFilterCount } from './segmentCriteria';
 import styles from './CampaignComposer.module.css';
 
@@ -43,7 +44,7 @@ const NAME_INPUT_ID = 'bulk-campaign-name';
  * `networkSiteId`/`accessPointId` siguen DENTRO de `segment` (AND con
  * estados/deuda, payload idéntico).
  */
-type RecipientsTabId = 'segment' | 'network' | 'manual' | 'csv';
+type RecipientsTabId = 'segment' | 'network' | 'manual' | 'csv' | 'numbers';
 
 /**
  * CampaignComposer (F2 apply chunk 2; wiring del `PreviewModal` en
@@ -76,6 +77,10 @@ type RecipientsTabId = 'segment' | 'network' | 'manual' | 'csv';
 export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignComposerProps) {
   const { can } = useMyPermissions();
   const canUseTemplates = can('messaging.templates');
+  // bulk-granular-perms — gate del tab "Números": sin `messaging.bulk_numbers`
+  // el textarea queda deshabilitado (candado + aviso). El BE es el backstop
+  // (403 BULK_RECIPIENTS_NOT_PERMITTED) si igual llegara un número.
+  const canUseNumbers = can('messaging.bulk_numbers');
 
   const templatesQuery = useTemplates(canUseTemplates);
   const {
@@ -85,7 +90,7 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
     isError: isPreviewError,
     reset: resetPreview,
   } = usePreviewSegment();
-  const { createAsync, isPending: isCreating, missingVariablesError, missingRecipientsError, serverError: createServerError } = useCreateCampaign();
+  const { createAsync, isPending: isCreating, missingVariablesError, missingRecipientsError, bulkRecipientsError, serverError: createServerError } = useCreateCampaign();
 
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateSummaryDto | null>(null);
   const [variablesMap, setVariablesMap] = useState<CampaignVariableSpec>({});
@@ -98,6 +103,10 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   // fingerprint ESTABLE del debounce (NO un `join` de hasta 5000 items).
   const [csvContacts, setCsvContacts] = useState<CsvContact[]>([]);
   const [csvFileName, setCsvFileName] = useState<string | null>(null);
+  // bulk-granular-perms — tab "Números": texto crudo pegado por el operador
+  // (molde `csvFileName`, el estado dueño es el texto; los contactos se DERIVAN
+  // con `parseRecipientNumbers`). Uno por línea, opcionalmente `número, nombre`.
+  const [numbersText, setNumbersText] = useState('');
   // Bump tras crear la campaña (CSV-FE-5.5) para remontar el uploader (molde
   // `resetKey` de `ManualRecipientsPicker`/`CustomerPicker`) — limpia también
   // el resumen/detalle interno del archivo, no sólo el estado del composer.
@@ -120,10 +129,25 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
 
   // manual-recipients-fe — ids de la lista manual (el shape que espera el BE).
   const manualClientIds = manualRecipients.map((r) => r.id);
-  // El gate ahora combina el segmento con la lista manual (COMP-1) Y el CSV
-  // (bulk-csv-recipients CSV-FE-5): una lista manual o un CSV no vacíos
-  // habilitan el preview/create aunque el segmento esté vacío.
-  const criteriaPresent = hasRecipients(segment, manualClientIds, csvContacts.length > 0);
+  // bulk-granular-perms — contactos crudos del tab "Números", DERIVADOS del
+  // texto pegado (memoizado: sólo se re-parsea cuando cambia el texto).
+  const numbersContacts = useMemo(() => parseRecipientNumbers(numbersText), [numbersText]);
+  // CSV y Números comparten el MISMO canal del BE (`manualContacts`, dedup por
+  // teléfono) — se concatenan en un solo array (CSV primero, Números después).
+  // F4 (review adversarial) — los números se EXCLUYEN si el usuario no tiene
+  // `messaging.bulk_numbers` (ej. permiso revocado tras tipear): sin este scrub
+  // viajarían igual al preview/create aunque el textarea esté deshabilitado. El
+  // BE es el backstop (403), pero el FE no debe mandar lo que no puede.
+  // Identidad estable entre renders (solo cambia si cambian sus fuentes).
+  const combinedManualContacts = useMemo(
+    () => (canUseNumbers ? [...csvContacts, ...numbersContacts] : [...csvContacts]),
+    [canUseNumbers, csvContacts, numbersContacts],
+  );
+  // El gate combina el segmento con la lista manual (COMP-1), el CSV
+  // (bulk-csv-recipients CSV-FE-5) Y los números (bulk-granular-perms): una
+  // lista manual, un CSV o números no vacíos habilitan el preview/create
+  // aunque el segmento esté vacío.
+  const criteriaPresent = hasRecipients(segment, manualClientIds, combinedManualContacts.length > 0);
   // Fingerprint del archivo para el dep-array del debounce (CSV-FE-5, fix M3
   // review adversarial) — sobre el CONTENIDO real de `csvContacts`
   // (`JSON.stringify`, mismo patrón robusto que
@@ -164,7 +188,8 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
     return {
       ...segment,
       ...(manualClientIds.length > 0 ? { manualClientIds } : {}),
-      ...(csvContacts.length > 0 ? { manualContacts: csvContacts } : {}),
+      // CSV + Números concatenados (bulk-granular-perms) — un solo array.
+      ...(combinedManualContacts.length > 0 ? { manualContacts: combinedManualContacts } : {}),
     };
   }
 
@@ -202,6 +227,12 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
     segment.accessPointId,
     manualClientIds.join(','),
     csvFingerprint,
+    // bulk-granular-perms — editar los números re-dispara el preview (primitiva:
+    // cambia exactamente cuando cambia el texto pegado).
+    numbersText,
+    // F4 — si se gana/pierde el permiso de números, el scrub cambia lo que
+    // viaja: re-preview para que el count no quede stale.
+    canUseNumbers,
     criteriaPresent,
   ]);
 
@@ -258,9 +289,10 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         // manual-recipients-fe — PARALELO a `segment`, se OMITE cuando la lista
         // está vacía (cero cambio en el payload del flujo por-segmento).
         ...(manualClientIds.length > 0 ? { manualClientIds } : {}),
-        // bulk-csv-recipients (CSV-FE-5) — PARALELO a `manualClientIds`, se
-        // OMITE cuando no hay CSV cargado.
-        ...(csvContacts.length > 0 ? { manualContacts: csvContacts } : {}),
+        // bulk-csv-recipients (CSV-FE-5) + bulk-granular-perms — CSV y Números
+        // comparten `manualContacts` (dedup por teléfono en el BE). Se OMITE
+        // cuando no hay ni CSV ni números.
+        ...(combinedManualContacts.length > 0 ? { manualContacts: combinedManualContacts } : {}),
       });
       showToast(`Campaña "${name}" creada — ${output.total} destinatario${output.total === 1 ? '' : 's'}.`);
       onCampaignCreated(output.campaignId);
@@ -272,6 +304,7 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
       setCsvContacts([]);
       setCsvFileName(null);
       setCsvResetKey((k) => k + 1);
+      setNumbersText('');
       setCampaignName('');
       resetPreview();
     } catch {
@@ -372,6 +405,52 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
       label: tabLabel('CSV', csvContacts.length),
       content: <CsvRecipientsUploader key={csvResetKey} onChange={handleCsvChange} />,
     },
+    {
+      // bulk-granular-perms — tab "Números": pegar teléfonos sueltos (uno por
+      // línea, opcional `número, nombre`). Gateado a `messaging.bulk_numbers`:
+      // sin el permiso, el textarea queda deshabilitado (candado + aviso) y el
+      // label del tab lleva un candado. Los números viajan por `manualContacts`
+      // (junto con el CSV) — el BE dedup por teléfono.
+      id: 'numbers',
+      label: canUseNumbers ? (
+        tabLabel('Números', numbersContacts.length)
+      ) : (
+        <span className={styles.tabLabel} title="No tenés permiso para enviar a números">
+          Números{' '}
+          <span aria-hidden="true">🔒</span>
+        </span>
+      ),
+      content: (
+        <div className={styles.numbersPanel}>
+          <label htmlFor="bulk-numbers-input" className={styles.numbersLabel}>
+            Números de teléfono
+          </label>
+          <p className={styles.numbersHint}>
+            Uno por línea. Opcional: <code>número, nombre</code> (sin nombre, se muestra el número).
+          </p>
+          <textarea
+            id="bulk-numbers-input"
+            className={styles.numbersTextarea}
+            value={numbersText}
+            onChange={(e) => setNumbersText(e.target.value)}
+            disabled={!canUseNumbers}
+            rows={6}
+            placeholder={'1123456789\n1198765432, Ana Gómez'}
+            aria-describedby="bulk-numbers-count"
+          />
+          {canUseNumbers ? (
+            <p id="bulk-numbers-count" className={styles.numbersCount} role="status">
+              {numbersContacts.length} número{numbersContacts.length === 1 ? '' : 's'} válido
+              {numbersContacts.length === 1 ? '' : 's'}
+            </p>
+          ) : (
+            <p id="bulk-numbers-count" className={styles.numbersLockedHint} role="status">
+              <span aria-hidden="true">🔒</span> No tenés permiso para enviar a números.
+            </p>
+          )}
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -452,6 +531,16 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
           </p>
         )}
 
+        {/* bulk-granular-perms — 403 BULK_RECIPIENTS_NOT_PERMITTED: el operador
+            eligió destinatarios para los que no tiene permiso (backstop del BE,
+            ej. un cliente 'blocked' agregado a mano en Manuales). `forbidden`
+            son etiquetas legibles (estados + 'números') — se muestran tal cual. */}
+        {bulkRecipientsError && (
+          <p className={styles.serverError} role="alert" aria-live="polite">
+            {bulkRecipientsErrorMessage(bulkRecipientsError)}
+          </p>
+        )}
+
         {/* FIX-3b — errores de creación que NO son el 422 MISSING (EMPTY_SEGMENT,
             UNFILTERED_SEGMENT, TEMPLATE_NOT_APPROVED, red/500) ya no caen silenciosos. */}
         {createServerError && missingVariables.length === 0 && (
@@ -506,10 +595,11 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         segment={segment}
         templateBody={selectedTemplate?.body}
         variablesMap={variablesMap}
-        // bulk-csv-recipients (CSV-FE-6) — el modal pide la UNIÓN completa
-        // (segmento + manuales + CSV), ya no sólo el segmento con un aviso.
+        // bulk-csv-recipients (CSV-FE-6) + bulk-granular-perms — el modal pide
+        // la UNIÓN completa (segmento + manuales + CSV + Números), ya no sólo
+        // el segmento con un aviso.
         manualClientIds={manualClientIds}
-        manualContacts={csvContacts}
+        manualContacts={combinedManualContacts}
       />
 
       {/* #5 — doble-confirmación con resumen de impacto. Todo el contenido sale
@@ -522,6 +612,7 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         total={previewCount}
         manualCount={manualClientIds.length}
         csvCount={csvContacts.length}
+        numbersCount={numbersContacts.length}
         statusCounts={previewData?.statusCounts ?? {}}
         skipped={previewData?.skipped}
         networkSiteName={networkSiteName}
