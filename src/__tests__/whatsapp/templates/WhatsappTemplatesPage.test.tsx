@@ -136,7 +136,7 @@ describe('WTP-4: success — lista con status Meta', () => {
     // Labels textuales del badge (indicador NUNCA solo-color).
     expect(screen.getByText('Aprobado')).toBeInTheDocument();
     expect(screen.getByText('Borrador')).toBeInTheDocument();
-    expect(screen.getByText('Pendiente')).toBeInTheDocument();
+    expect(screen.getByText('En revisión')).toBeInTheDocument();
     expect(screen.getByText('Rechazado')).toBeInTheDocument();
   });
 });
@@ -243,7 +243,7 @@ describe('WTP-9: enviar a aprobación', () => {
         expect.objectContaining({ category: 'MARKETING' }),
       ),
     );
-    expect(await screen.findByRole('status')).toHaveTextContent(/pendiente/i);
+    expect(await screen.findByRole('status')).toHaveTextContent(/en revisión/i);
   });
 });
 

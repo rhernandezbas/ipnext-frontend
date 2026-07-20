@@ -108,7 +108,7 @@ export default function WhatsappTemplatesPage() {
       { sid: target.contentSid, input },
       {
         onSuccess: () => {
-          showToast('Template enviado a aprobación. Quedó en estado Pendiente.');
+          showToast('Template enviado a aprobación. Quedó en revisión.');
           closeModal();
         },
       },

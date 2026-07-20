@@ -3,7 +3,7 @@ import styles from './TemplateApprovalBadge.module.css';
 
 const LABELS: Record<TemplateApprovalStatus, string> = {
   approved: 'Aprobado',
-  pending: 'Pendiente',
+  pending: 'En revisión',
   rejected: 'Rechazado',
   unsubmitted: 'Borrador',
 };

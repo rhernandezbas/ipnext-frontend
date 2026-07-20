@@ -152,8 +152,8 @@ export function SubmitTemplateModal({
       <div className={styles.dialog} ref={dialogRef}>
         <h2 id={TITLE_ID} className={styles.title}>Enviar a aprobación</h2>
         <p id={LEAD_ID} className={styles.lead}>
-          Vas a enviar <strong>{template.friendlyName}</strong> a la aprobación de WhatsApp. Queda en estado{' '}
-          <strong>Pendiente</strong> hasta que Meta lo revise.
+          Vas a enviar <strong>{template.friendlyName}</strong> a la aprobación de WhatsApp. Queda{' '}
+          <strong>En revisión</strong> hasta que Meta lo apruebe.
         </p>
 
         {serverError && (
