@@ -204,10 +204,12 @@ describe('WhatsappSettingsPage', () => {
     // La sección Media SÍ (tiene read); la de Etiquetas NO (falta manage).
     // chatwoot-label-config-fe agregó OTRA sección con fallback propio
     // (Etiquetas de Chatwoot, gate messaging.templates) — con solo
-    // messaging.read hay AL MENOS 2 fallbacks ahora, así que se usa
-    // getAllByText en vez de getByText (que exige exactamente 1 match).
+    // messaging.read hay EXACTAMENTE 2 fallbacks: Etiquetas (Ola 5, falta
+    // manage) + Etiquetas de Chatwoot (falta templates). Se pinea === 2:
+    // un >= 1 pasaría igual si el fallback de la sección NUEVA dejara de
+    // renderizar (regresión silenciosa del propio feature).
     expect(screen.getByText(/descarga de media de whatsapp/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/no tenés permiso/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/no tenés permiso/i).length).toBe(2);
     expect(screen.queryByText(/catálogo de etiquetas/i)).not.toBeInTheDocument();
   });
 
