@@ -1,5 +1,6 @@
 import { Can } from '@/components/auth/Can';
 import { ChatMediaDownloadCard } from '@/components/settings/ChatMediaDownloadCard';
+import { ChatwootSendPathCard } from '@/components/settings/ChatwootSendPathCard';
 import { NocBroadcastCard } from '@/components/settings/NocBroadcastCard';
 import { CannedResponsesSection } from '@/components/settings/cannedResponses/CannedResponsesSection';
 import { MessagingLabelsBody } from './settings/MessagingLabelsBody';
@@ -30,6 +31,21 @@ export default function WhatsappSettingsPage() {
         </p>
         <Can permission="messaging.read" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
           <ChatMediaDownloadCard />
+        </Can>
+      </section>
+
+      {/* chatwoot-hub-sendpath (eje central) — flag `messaging-send-via-chatwoot`.
+          Mismo gate que la sección Media (`messaging.read` para ver, `admin.flags`
+          adentro de la card para el toggle): es la card hermana más cercana de
+          esta misma página. */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionHeading}>Envío</h2>
+        <p className={styles.sectionDescription}>
+          Camino de salida de los templates (hilo y envíos masivos): directo por Twilio, o vía
+          Chatwoot para que quede registrado en la conversación.
+        </p>
+        <Can permission="messaging.read" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
+          <ChatwootSendPathCard />
         </Can>
       </section>
 

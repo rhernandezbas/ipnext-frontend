@@ -24,6 +24,13 @@ vi.mock('@/hooks/useMyPermissions', () => ({
   useMyPermissions: vi.fn(),
   useCan: vi.fn(),
 }));
+// chatwoot-hub-sendpath — ChatwootSendPathCard usa useConfirm (toggle ON/OFF
+// pide confirmación, igual que RadiusAutoCureCard/FiberAutoProvisionCard).
+// Acá solo importa el WIRING/gating de la sección; el confirm en sí ya tiene
+// cobertura propia en ChatwootSendPathCard.test.tsx.
+vi.mock('@/context/ConfirmContext', () => ({
+  useConfirm: vi.fn(),
+}));
 // Ola 4 — la sección de respuestas rápidas (gateada por `messaging.manage`)
 // usa `useCannedResponses` (useQuery real). Se mockea el api a nivel fetch para
 // que renderice sin red — solo importa cuando el permiso está presente.
@@ -48,6 +55,7 @@ vi.mock('@/components/settings/NocBroadcastCard', () => ({
 
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
 import { useMyPermissions, useCan } from '@/hooks/useMyPermissions';
+import { useConfirm } from '@/context/ConfirmContext';
 import WhatsappSettingsPage from '@/pages/whatsapp/WhatsappSettingsPage';
 
 function setupHooks(permissions: string[] = ['messaging.read']) {
@@ -75,7 +83,10 @@ function setupHooks(permissions: string[] = ['messaging.read']) {
     mutate: vi.fn(),
     isPending: false,
     isError: false,
+    isSuccess: false,
   } as unknown as ReturnType<typeof useSetFeatureFlag>);
+
+  vi.mocked(useConfirm).mockReturnValue(vi.fn().mockResolvedValue(true));
 }
 
 function renderPage() {
@@ -116,6 +127,24 @@ describe('WhatsappSettingsPage', () => {
     // muestran el fallback "No tenés permiso…".
     expect(screen.getAllByText(/no tenés permiso/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText(/descarga de media de whatsapp/i)).not.toBeInTheDocument();
+  });
+
+  // ── chatwoot-hub-sendpath: card de envío vía Chatwoot (gate messaging.read) ─
+  it('renders the "Envío" section heading and ChatwootSendPathCard content when user has messaging.read', () => {
+    setupHooks(['messaging.read']);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /^envío$/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /envío vía chatwoot \(eje central\)/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('hides ChatwootSendPathCard content (fallback instead) without messaging.read', () => {
+    setupHooks([]);
+    renderPage();
+    expect(
+      screen.queryByRole('heading', { name: /envío vía chatwoot \(eje central\)/i }),
+    ).not.toBeInTheDocument();
   });
 
   // ── Ola 4: gestión de respuestas rápidas (gate messaging.manage) ──────────

@@ -252,6 +252,18 @@
   border: 1px solid #fecaca;
 }
 
+/* Success feedback (toggle confirmado, aria-live="polite"). Usa tokens del
+   design system — mismo par ya auditado que NocBroadcastCard.module.css
+   (--badge-paid-fg sobre --color-success-bg ≈ 6.8:1; --color-success-strong
+   sobre este mismo fondo da ~3.1:1 y FALLA 4.5:1 — ver el comentario de
+   variables.css sobre el verde no accesible). A diferencia de los banners de
+   arriba (hex crudo legacy), este usa tokens SIEMPRE. */
+.bannerSuccess {
+  background: var(--color-success-bg);
+  color: var(--badge-paid-fg);
+  border: 1px solid var(--color-success);
+}
+
 .bannerInfo {
   background: #fef3c7;
   color: #92400e;
