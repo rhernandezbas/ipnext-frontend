@@ -118,6 +118,11 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   // cuando no se elige nada, Decisión E del design BE).
   const [chatwootLabel, setChatwootLabel] = useState<string | null>(null);
   const [chatwootLabelModalOpen, setChatwootLabelModalOpen] = useState(false);
+  // Fix wave F2 (LOW-A11Y) — nodo ESTABLE (el contenedor reenviado por
+  // `ChatwootLabelSelector`, forwardRef) al que el mini-modal restaura el foco
+  // si el trigger que lo abrió (botón de la rama `emptyState`) ya se
+  // desmontó al cerrar (el catálogo pasó a tener 1 label → cambia a `success`).
+  const chatwootLabelSectionRef = useRef<HTMLDivElement>(null);
   const [segment, setSegment] = useState<CampaignSegment>(EMPTY_SEGMENT);
   // manual-recipients-fe — lista manual (metadata FE-only para los chips). El
   // contrato con el BE es `manualClientIds: string[]`, derivado abajo.
@@ -544,6 +549,7 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
                   si ya se eligió template (el operador puede pre-elegir la
                   etiqueta antes). */}
               <ChatwootLabelSelector
+                ref={chatwootLabelSectionRef}
                 labels={chatwootLabelsQuery.data ?? []}
                 isLoading={chatwootLabelsQuery.isLoading}
                 isError={chatwootLabelsQuery.isError}
@@ -694,6 +700,7 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         open={chatwootLabelModalOpen}
         busy={isCreatingChatwootLabel}
         serverError={chatwootLabelServerError}
+        fallbackFocusRef={chatwootLabelSectionRef}
         onSubmit={handleCreateChatwootLabel}
         onCancel={handleCancelChatwootLabelModal}
       />

@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { readableTextColor } from '@/utils/contrastColor';
 import styles from './ChatwootCreateLabelModal.module.css';
 
 /** Elementos tabulables dentro del diálogo (focus-trap) — mismo criterio que `ConfirmModal`/`CannedResponseFormModal`. */
@@ -43,6 +42,17 @@ interface ChatwootCreateLabelModalProps {
   busy?: boolean;
   /** 400 VALIDATION_ERROR / 503 CHATWOOT_UNAVAILABLE del hook — el modal NO se cierra, se muestra role=alert. */
   serverError?: string | null;
+  /**
+   * Fix wave F2 (LOW-A11Y) — nodo ESTABLE al que restaurar el foco si el que
+   * abrió el modal (`document.activeElement` capturado al abrir) ya NO está
+   * montado al cerrar. Caso real: el botón "+ Crear label…" de la rama
+   * `emptyState` del `ChatwootLabelSelector` se DESMONTA en cuanto el
+   * catálogo pasa a tener 1 label (la rama cambia a `success`) — sin este
+   * fallback, `.focus()` sobre un nodo desconectado es un no-op silencioso y
+   * el foco queda perdido en `document.body`. Opcional: sin él, mantiene el
+   * comportamiento previo (best-effort, puede caer a body en ese caso límite).
+   */
+  fallbackFocusRef?: RefObject<HTMLElement | null>;
   onSubmit: (input: { title: string; color: string }) => void;
   onCancel: () => void;
 }
@@ -63,6 +73,7 @@ export function ChatwootCreateLabelModal({
   open,
   busy = false,
   serverError,
+  fallbackFocusRef,
   onSubmit,
   onCancel,
 }: ChatwootCreateLabelModalProps) {
@@ -82,7 +93,16 @@ export function ChatwootCreateLabelModal({
     firstFieldRef.current?.focus();
     return () => {
       const el = restoreFocusRef.current;
-      if (el && typeof el.focus === 'function') el.focus();
+      // Fix wave F2 — `el.isConnected` cubre el caso límite donde el nodo que
+      // abrió el modal ya se DESMONTÓ mientras estaba abierto (ej. el trigger
+      // de la rama `emptyState` tras crear la primera etiqueta): un
+      // `.focus()` sobre un nodo desconectado es un no-op silencioso, así que
+      // sin este chequeo el foco quedaba perdido en `document.body`.
+      if (el && typeof el.focus === 'function' && el.isConnected) {
+        el.focus();
+      } else {
+        fallbackFocusRef?.current?.focus();
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al abrir/cerrar
   }, [open]);
@@ -131,6 +151,15 @@ export function ChatwootCreateLabelModal({
   const titleEmpty = normalizedTitle.length === 0;
   const titleInvalidCharset = !titleEmpty && !VALID_CHARSET.test(normalizedTitle);
   const isValid = !titleEmpty && !titleInvalidCharset;
+  // Fix wave F3 — solo se muestra si el operador YA tipeó algo (`rawTitle.length > 0`)
+  // que terminó normalizando a vacío (ej. solo espacios); un campo intacto no
+  // dispara un error antes de interactuar.
+  const showEmptyHint = rawTitle.length > 0 && titleEmpty;
+  const titleDescribedBy = showEmptyHint
+    ? 'chatwoot-label-title-preview chatwoot-label-title-empty-error'
+    : rawTitle.length > 0 && titleInvalidCharset
+      ? 'chatwoot-label-title-preview chatwoot-label-title-charset-error'
+      : 'chatwoot-label-title-preview';
 
   function handleSubmit() {
     if (!isValid || busy) return;
@@ -175,14 +204,24 @@ export function ChatwootCreateLabelModal({
             value={rawTitle}
             onChange={(e) => setRawTitle(e.target.value)}
             placeholder="Promo Julio"
-            aria-invalid={(rawTitle.length > 0 && titleInvalidCharset) || undefined}
-            aria-describedby="chatwoot-label-title-preview"
+            aria-invalid={(rawTitle.length > 0 && (titleEmpty || titleInvalidCharset)) || undefined}
+            aria-describedby={titleDescribedBy}
           />
           <span id="chatwoot-label-title-preview" className={styles.preview}>
             Título final: <strong>{normalizedTitle || '—'}</strong>
           </span>
+          {/* Fix wave F3 — antes el título vacío (ej. solo espacios tipeados)
+              dejaba el submit deshabilitado SIN ninguna explicación visible:
+              el hint de charset estaba gateado en `!titleEmpty`. Gate en
+              `rawTitle.length > 0` (no en el mount sin tocar) — un campo
+              INTACTO no muestra un error agresivo antes de interactuar. */}
+          {showEmptyHint && (
+            <span id="chatwoot-label-title-empty-error" className={styles.fieldError} role="alert">
+              El título no puede quedar vacío.
+            </span>
+          )}
           {rawTitle.length > 0 && titleInvalidCharset && (
-            <span className={styles.fieldError} role="alert">
+            <span id="chatwoot-label-title-charset-error" className={styles.fieldError} role="alert">
               Solo letras, números, guiones y guion bajo (sin espacios ni símbolos).
             </span>
           )}
@@ -191,12 +230,25 @@ export function ChatwootCreateLabelModal({
         <div className={styles.field}>
           <span className={styles.label}>Color</span>
           <div className={styles.colorRow}>
-            <span
-              className={styles.swatchPreview}
-              style={{ backgroundColor: color, color: readableTextColor(color) }}
-              data-testid="chatwoot-label-color-preview"
-            >
-              {normalizedTitle || 'label'}
+            {/* Fix wave F1 (MED-A11Y) — ANTES el título se pintaba como texto
+                DENTRO del chip coloreado (`readableTextColor(color)` sobre
+                `backgroundColor: color`): con el default #1f93ff eso da
+                3.15:1 (el util elige blanco vía un umbral de luminancia
+                BT.601, que NO es un cálculo de contraste WCAG — negro daría
+                5.8:1). Fix: el color vive SOLO en un dot decorativo
+                `aria-hidden`; el título va en texto normal (token
+                `--color-text-primary`) sobre fondo NEUTRO — cero texto sobre
+                color arbitrario, sea cual sea el color elegido. */}
+            <span className={styles.swatchPreview}>
+              <span
+                className={styles.swatchDot}
+                style={{ backgroundColor: color }}
+                aria-hidden="true"
+                data-testid="chatwoot-label-swatch-dot"
+              />
+              <span className={styles.swatchLabel} data-testid="chatwoot-label-swatch-label">
+                {normalizedTitle || 'label'}
+              </span>
             </span>
             <input
               type="color"

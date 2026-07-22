@@ -12,6 +12,13 @@
  *         aparece pero el Select sigue disponible (hereda messaging.templates)
  *  CHW-C6 400/503 al crear una etiqueta se muestra en el mini-modal (que
  *         sigue abierto) sin tocar el resto del composer
+ *
+ * Fix wave (review adversarial, post-apply):
+ *  CHW-C7 [F2 LOW-A11Y] crear la PRIMERA etiqueta desde catálogo VACÍO (el
+ *         trigger de la rama emptyState se desmonta) no deja el foco en body
+ *  CHW-C8 [F4 LOW] si el refetch del catálogo falla justo después de crear,
+ *         el label elegido se ve en la rama error + "Quitar" lo limpia del
+ *         estado Y del payload de create
  */
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -251,5 +258,66 @@ describe('CHW-C6: error al crear una etiqueta', () => {
     expect(await within(modal).findByText(/ya existe o chatwoot no está disponible/i)).toBeInTheDocument();
     // El modal sigue abierto (no se cerró por el error) y el Select del composer no cambió.
     expect(screen.getByRole('dialog', { name: /crear label de chatwoot/i })).toBeInTheDocument();
+  });
+});
+
+// ─── Fix wave (review adversarial) ───────────────────────────────────────────
+
+describe('CHW-C7 (F2 fix-wave, LOW-A11Y): foco al crear la PRIMERA etiqueta', () => {
+  it('desde catálogo vacío, crear la primera etiqueta (el trigger emptyState se desmonta) NO deja el foco en body', async () => {
+    // Catálogo VACÍO al montar (rama emptyState, dueña del trigger) → tras
+    // crear, la rama pasa a `success` y el botón original queda desmontado.
+    vi.mocked(listChatwootLabels)
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([{ title: 'promo-julio', color: '#1f93ff' }]);
+    vi.mocked(createChatwootLabel).mockResolvedValue({ title: 'promo-julio', color: '#1f93ff' });
+    const user = userEvent.setup();
+    renderComposer();
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+    expect(await screen.findByText(/no hay etiquetas de chatwoot/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /crear label/i }));
+    const modal = await screen.findByRole('dialog', { name: /crear label de chatwoot/i });
+    await user.type(within(modal).getByLabelText(/nombre/i), 'Promo Julio');
+    await user.click(within(modal).getByRole('button', { name: /^crear$/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: /crear label de chatwoot/i })).not.toBeInTheDocument(),
+    );
+    // El trigger original (rama emptyState) ya no existe — el foco cayó al
+    // fallback (contenedor del selector), NUNCA a document.body.
+    expect(document.body).not.toHaveFocus();
+  });
+});
+
+describe('CHW-C8 (F4 fix-wave, LOW): refetch del catálogo falla post-create', () => {
+  it('el label elegido se ve en la rama error y "Quitar" lo limpia del estado y del payload', async () => {
+    vi.mocked(listChatwootLabels)
+      .mockResolvedValueOnce([COBRANZAS]) // mount
+      .mockRejectedValue(new Error('network')); // refetch post-invalidate (tras crear)
+    vi.mocked(createChatwootLabel).mockResolvedValue({ title: 'promo-julio', color: '#1f93ff' });
+    const user = userEvent.setup();
+    renderComposer();
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /crear label/i }));
+    const modal = await screen.findByRole('dialog', { name: /crear label de chatwoot/i });
+    await user.type(within(modal).getByLabelText(/nombre/i), 'Promo Julio');
+    await user.click(within(modal).getByRole('button', { name: /^crear$/i }));
+
+    // El catálogo cae en error (refetch post-create falló), pero el label
+    // recién creado sigue visible — nunca invisible mientras viaja en el payload.
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no se pudieron cargar/i);
+    expect(screen.getByText('promo-julio')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /quitar/i }));
+
+    const createButton = await fillValidCampaign(user);
+    await confirmCreate(user, createButton);
+
+    await waitFor(() => expect(createCampaign).toHaveBeenCalled());
+    const payload = vi.mocked(createCampaign).mock.calls[0][0];
+    expect(payload).not.toHaveProperty('chatwootLabel');
   });
 });

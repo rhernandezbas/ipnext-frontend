@@ -108,16 +108,39 @@
   gap: var(--space-3);
 }
 
+/**
+ * Fix wave F1 (MED-A11Y) — el chip YA NO pinta texto sobre el color elegido
+ * (`readableTextColor` daba 3.15:1 con el default #1f93ff — no es un cálculo
+ * WCAG). El color vive SOLO en `.swatchDot` (decorativo, `aria-hidden`); el
+ * título va en `.swatchLabel` con el token de texto normal sobre un fondo
+ * NEUTRO (`.swatchPreview`) — contraste garantizado sea cual sea el color.
+ */
 .swatchPreview {
   flex: 1;
   min-width: 0;
   min-height: var(--space-11);
   display: flex;
   align-items: center;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-hover);
+}
+
+.swatchDot {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.swatchLabel {
+  min-width: 0;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

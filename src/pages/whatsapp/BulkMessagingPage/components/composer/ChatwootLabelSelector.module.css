@@ -12,6 +12,40 @@
   min-width: 0;
 }
 
+/* Fix wave F2 (LOW-A11Y) — `tabIndex={-1}` (JSX) saca el contenedor del
+   tab-order NATURAL pero lo deja focuseable PROGRAMÁTICAMENTE: es el
+   fallback estable al que el mini-modal restaura el foco si su trigger
+   original ya se desmontó. El outline SOLO se ve si de verdad queda
+   focuseado (confirmación visual real, no un halo permanente). */
+.section:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+
+.errorState {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Fix wave F4 (LOW) — el label elegido sigue viajando en el payload aunque el
+   catálogo esté en error; esta fila lo hace VISIBLE (UI y payload nunca
+   divergen invisiblemente) + ofrece "Quitar" sin depender del Select (que acá
+   no puede montarse, no hay catálogo que ofrecerle). */
+.selectedNotice {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-hover);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
 .notice {
   margin: 0;
   padding: var(--space-2) var(--space-3);
@@ -50,7 +84,8 @@
 }
 
 .retryBtn,
-.createBtn {
+.createBtn,
+.removeBtn {
   min-height: var(--space-11);
   padding: var(--space-2) var(--space-4);
   font-size: var(--font-size-sm);
@@ -69,17 +104,24 @@
   background: var(--color-danger-bg-hover);
 }
 
-.createBtn {
+.createBtn,
+.removeBtn {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   color: var(--color-text-primary);
 }
-.createBtn:hover {
+.createBtn:hover,
+.removeBtn:hover {
   background: var(--color-surface-hover);
 }
 
+.removeBtn {
+  padding: var(--space-1) var(--space-3);
+}
+
 .retryBtn:focus-visible,
-.createBtn:focus-visible {
+.createBtn:focus-visible,
+.removeBtn:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }

@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { Can } from '@/components/auth/Can';
 import { Select, type SelectOption } from '@/components/molecules/Select/Select';
 import type { ChatwootLabelDto } from '@/types/messagingBulk';
@@ -36,16 +37,24 @@ const EMPTY_VALUE = '';
  * etiqueta sigue necesitando poder sumar otra sin vaciarlo antes. Gateado
  * `messaging.manage` (tier supervisor, D5.c del design BE) — el picker en sí
  * ya heredó `messaging.templates` de la card contenedora.
+ *
+ * Fix wave (review adversarial, post-apply):
+ * - F2 (LOW-A11Y) — `forwardRef` expone el contenedor raíz (`tabIndex={-1}`,
+ *   focuseable programáticamente pero fuera del tab-order natural) como nodo
+ *   ESTABLE al que el mini-modal (`ChatwootCreateLabelModal.fallbackFocusRef`)
+ *   puede restaurar el foco si el trigger que lo abrió (rama `emptyState`) ya
+ *   se desmontó (el catálogo pasó a tener 1 label → cambia a `success`).
+ * - F4 (LOW) — si el refetch del catálogo falla justo DESPUÉS de crear una
+ *   etiqueta (`chatwootLabel` ya seteado en el composer, pero la query cae en
+ *   `isError`), la rama `error` YA NO oculta esa selección: la muestra con un
+ *   botón "Quitar" (`onSelect(null)`) para que UI y payload nunca diverjan
+ *   invisiblemente (el operador vería un error de catálogo sin saber que su
+ *   campaña igual va a viajar con un label que no puede ver/tocar).
  */
-export function ChatwootLabelSelector({
-  labels,
-  isLoading,
-  isError,
-  selected,
-  onSelect,
-  onRetry,
-  onCreateClick,
-}: ChatwootLabelSelectorProps) {
+export const ChatwootLabelSelector = forwardRef<HTMLDivElement, ChatwootLabelSelectorProps>(function ChatwootLabelSelector(
+  { labels, isLoading, isError, selected, onSelect, onRetry, onCreateClick },
+  ref,
+) {
   const options: SelectOption[] = [
     { value: EMPTY_VALUE, label: 'Sin etiqueta (opcional)' },
     ...labels.map((l) => ({ value: l.title, label: l.title, swatch: l.color })),
@@ -56,7 +65,7 @@ export function ChatwootLabelSelector({
   }
 
   return (
-    <div className={styles.section}>
+    <div className={styles.section} ref={ref} tabIndex={-1}>
       {isLoading && (
         <p className={styles.notice} role="status">
           Cargando etiquetas de Chatwoot…
@@ -64,14 +73,24 @@ export function ChatwootLabelSelector({
       )}
 
       {!isLoading && isError && (
-        <p className={styles.error} role="alert">
-          No se pudieron cargar las etiquetas de Chatwoot.
-          {onRetry && (
-            <button type="button" className={styles.retryBtn} onClick={onRetry}>
-              Reintentar
-            </button>
+        <div className={styles.errorState}>
+          <p className={styles.error} role="alert">
+            No se pudieron cargar las etiquetas de Chatwoot.
+            {onRetry && (
+              <button type="button" className={styles.retryBtn} onClick={onRetry}>
+                Reintentar
+              </button>
+            )}
+          </p>
+          {selected && (
+            <p className={styles.selectedNotice}>
+              Etiqueta elegida: <strong>{selected}</strong>
+              <button type="button" className={styles.removeBtn} onClick={() => onSelect(null)}>
+                Quitar
+              </button>
+            </p>
           )}
-        </p>
+        </div>
       )}
 
       {!isLoading && !isError && labels.length === 0 && (
@@ -105,4 +124,4 @@ export function ChatwootLabelSelector({
       )}
     </div>
   );
-}
+});
