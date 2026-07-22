@@ -1006,6 +1006,58 @@ describe('MBH-13: useCreateChatwootLabel (campaign-chatwoot-label)', () => {
     );
   });
 
+  /**
+   * Fix wave F2-bis (re-review empírica) — `onSuccess` DEBE actualizar
+   * `bulkChatwootLabelsKey` con `setQueryData` de forma SÍNCRONA (appendea el
+   * DTO creado) ANTES de disparar `invalidateQueries`. Sin esto, el
+   * `ChatwootLabelSelector` sigue mostrando la rama `emptyState` (con su
+   * trigger montado) hasta que el refetch asíncrono de `invalidateQueries`
+   * resuelve — con latencia de red REAL, eso puede pasar DESPUÉS de que el
+   * composer ya cerró el mini-modal, y el trigger (que en ese momento tenía
+   * el foco) se desmonta sin que el fallback del modal lo repare (corrió una
+   * sola vez, al cerrar). Verificado con un refetch mockeado DEMORADO
+   * (rechaza before resolving) para no depender de que la promesa se
+   * resuelva "al toque" como microtask.
+   */
+  it('F2-bis: setQueryData appendea el label creado de forma SÍNCRONA (antes del refetch de invalidateQueries)', async () => {
+    vi.mocked(createChatwootLabel).mockResolvedValue({ title: 'promo-julio', color: '#1f93ff' });
+    // El refetch que dispara `invalidateQueries` NUNCA resuelve durante este
+    // test — si el catálogo cambiara solo por ESE refetch, el `getQueryData`
+    // de abajo (leído ANTES de que nada pueda resolver) seguiría vacío.
+    vi.mocked(listChatwootLabels).mockReturnValue(new Promise(() => {}));
+    const { qc, wrapper } = makeWrapper();
+    qc.setQueryData(bulkChatwootLabelsKey, [{ title: 'cobranzas', color: '#e63946' }]);
+
+    const { result } = renderHook(() => useCreateChatwootLabel(), { wrapper });
+
+    act(() => {
+      result.current.create({ title: 'promo-julio', color: '#1f93ff' });
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    // El catálogo YA tiene el nuevo label — sin esperar a que el refetch
+    // (que nunca resuelve acá) lo traiga.
+    expect(qc.getQueryData(bulkChatwootLabelsKey)).toEqual([
+      { title: 'cobranzas', color: '#e63946' },
+      { title: 'promo-julio', color: '#1f93ff' },
+    ]);
+  });
+
+  it('F2-bis: sin catálogo previo en cache, setQueryData arranca desde un array vacío (no explota con `old` undefined)', async () => {
+    vi.mocked(createChatwootLabel).mockResolvedValue({ title: 'promo-julio', color: '#1f93ff' });
+    vi.mocked(listChatwootLabels).mockReturnValue(new Promise(() => {}));
+    const { qc, wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useCreateChatwootLabel(), { wrapper });
+
+    act(() => {
+      result.current.create({ title: 'promo-julio', color: '#1f93ff' });
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(qc.getQueryData(bulkChatwootLabelsKey)).toEqual([{ title: 'promo-julio', color: '#1f93ff' }]);
+  });
+
   it('400 VALIDATION_ERROR se expone como `serverError` con el mensaje del BE', async () => {
     vi.mocked(createChatwootLabel).mockRejectedValue(
       makeCreateError(400, { error: 'title requerido', code: 'VALIDATION_ERROR' }),

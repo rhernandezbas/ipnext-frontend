@@ -65,7 +65,7 @@ export const ChatwootLabelSelector = forwardRef<HTMLDivElement, ChatwootLabelSel
   }
 
   return (
-    <div className={styles.section} ref={ref} tabIndex={-1}>
+    <div className={styles.section} ref={ref} tabIndex={-1} data-testid="chatwoot-label-section">
       {isLoading && (
         <p className={styles.notice} role="status">
           Cargando etiquetas de Chatwoot…

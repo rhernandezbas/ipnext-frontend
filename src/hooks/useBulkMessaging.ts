@@ -100,17 +100,32 @@ function toChatwootLabelServerError(error: unknown): string | null {
 
 /**
  * campaign-chatwoot-label (D6/FE.3) — crea una etiqueta en el catálogo de
- * Chatwoot. Invalida `bulkChatwootLabelsKey` al crear (el picker refetchea
- * sin esperar el próximo `staleTime`) — el auto-select del label recién
- * creado lo hace el CALLER (`CampaignComposer`, dueño del `chatwootLabel`
- * elegido) con el DTO que devuelve `createAsync`.
+ * Chatwoot. El auto-select del label recién creado lo hace el CALLER
+ * (`CampaignComposer`, dueño del `chatwootLabel` elegido) con el DTO que
+ * devuelve `createAsync`.
+ *
+ * Fix wave F2-bis (re-review empírica) — `onSuccess` actualiza el catálogo
+ * con `setQueryData` de forma SÍNCRONA (appendea `created`) ANTES de
+ * `invalidateQueries`. Esto NO es solo optimización: es lo que hace que el
+ * `ChatwootLabelSelector` deje la rama `emptyState` (y desmonte su trigger
+ * "+ Crear label…") EN EL MISMO TICK en que el composer cierra el mini-modal
+ * — el `invalidateQueries` sin este `setQueryData` dispara un refetch
+ * ASÍNCRONO con latencia de red REAL (no una promesa resuelta al toque como
+ * en los tests mockeados); mientras esa latencia corre, el modal YA cerró y
+ * su cleanup de foco corrió con el trigger TODAVÍA montado (`isConnected`
+ * true) — recién ~100ms+ después el catálogo actualiza, la rama cambia a
+ * `success`, el trigger (que en ese momento TENÍA el foco) se desmonta, y el
+ * foco cae a `document.body` sin que el fallback del modal lo repare (ya
+ * corrió, una sola vez, al cerrar). `invalidateQueries` se MANTIENE después
+ * para consistencia eventual contra el catálogo real del servidor.
  */
 export function useCreateChatwootLabel() {
   const qc = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: (input: CreateChatwootLabelInput): Promise<ChatwootLabelDto> => api.createChatwootLabel(input),
-    onSuccess: () => {
+    onSuccess: (created) => {
+      qc.setQueryData<ChatwootLabelDto[]>(bulkChatwootLabelsKey, (old) => [...(old ?? []), created]);
       void qc.invalidateQueries({ queryKey: bulkChatwootLabelsKey });
     },
   });

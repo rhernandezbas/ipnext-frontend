@@ -264,7 +264,7 @@ describe('CHW-C6: error al crear una etiqueta', () => {
 // ─── Fix wave (review adversarial) ───────────────────────────────────────────
 
 describe('CHW-C7 (F2 fix-wave, LOW-A11Y): foco al crear la PRIMERA etiqueta', () => {
-  it('desde catálogo vacío, crear la primera etiqueta (el trigger emptyState se desmonta) NO deja el foco en body', async () => {
+  it('desde catálogo vacío, crear la primera etiqueta (el trigger emptyState se desmonta) — el foco queda en el fallback (root del selector), NO en body', async () => {
     // Catálogo VACÍO al montar (rama emptyState, dueña del trigger) → tras
     // crear, la rama pasa a `success` y el botón original queda desmontado.
     vi.mocked(listChatwootLabels)
@@ -285,8 +285,63 @@ describe('CHW-C7 (F2 fix-wave, LOW-A11Y): foco al crear la PRIMERA etiqueta', ()
     await waitFor(() =>
       expect(screen.queryByRole('dialog', { name: /crear label de chatwoot/i })).not.toBeInTheDocument(),
     );
-    // El trigger original (rama emptyState) ya no existe — el foco cayó al
-    // fallback (contenedor del selector), NUNCA a document.body.
+    // Assertion ENDURECIDA (re-review): no alcanza con "body no lo tiene" —
+    // hay que probar EXPLÍCITAMENTE que el fallback (root del
+    // `ChatwootLabelSelector`, `data-testid="chatwoot-label-section"`) es
+    // quien tiene el foco.
+    await waitFor(() => expect(screen.getByTestId('chatwoot-label-section')).toHaveFocus());
+    expect(document.body).not.toHaveFocus();
+  });
+
+  it('F2-bis (re-review empírica): con latencia REAL en el refetch (setTimeout >=100ms) tras crear, el foco SIGUE cayendo en el fallback, no en body', async () => {
+    // Probe del revisor: el bug real NO es que "el trigger ya esté
+    // desmontado cuando el modal cierra" (eso sería demasiado rápido para
+    // pasar) — es que el refetch disparado por `invalidateQueries` es
+    // ASÍNCRONO con latencia de red REAL (~100ms+), mientras el cleanup del
+    // modal corre ~16ms después de cerrar. Con el código viejo: al momento
+    // del cleanup, `labels` todavía está vacío (el refetch no resolvió) →
+    // `emptyState` SIGUE montado → `isConnected` da `true` → el fallback NO
+    // se usa, se foca el trigger viejo → ~100ms después el refetch resuelve,
+    // el catálogo pasa a tener 1 label, la rama cambia a `success`, el
+    // trigger (que TENÍA el foco) se desmonta → el foco cae a `body` sin que
+    // nada lo repare. El fix real vive en `useCreateChatwootLabel`
+    // (`setQueryData` SÍNCRONO antes del invalidate) — el modal/selector NO
+    // se tocan para esto.
+    vi.mocked(listChatwootLabels)
+      .mockResolvedValueOnce([]) // fetch inicial (mount) — catálogo vacío
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve([{ title: 'promo-julio', color: '#1f93ff' }]), 120);
+          }),
+      ); // refetch disparado por invalidateQueries — latencia de red REAL
+    vi.mocked(createChatwootLabel).mockResolvedValue({ title: 'promo-julio', color: '#1f93ff' });
+    const user = userEvent.setup();
+    renderComposer();
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+    expect(await screen.findByText(/no hay etiquetas de chatwoot/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /crear label/i }));
+    const modal = await screen.findByRole('dialog', { name: /crear label de chatwoot/i });
+    await user.type(within(modal).getByLabelText(/nombre/i), 'Promo Julio');
+    await user.click(within(modal).getByRole('button', { name: /^crear$/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: /crear label de chatwoot/i })).not.toBeInTheDocument(),
+    );
+
+    // Esperar a que el refetch DEMORADO resuelva y el catálogo pase a tener 1
+    // label (recién ACÁ el trigger de emptyState se desmonta de verdad, ~120ms
+    // después de cerrado el modal — no antes).
+    await waitFor(
+      () => expect(screen.getByRole('combobox', { name: /etiqueta de chatwoot/i })).toBeInTheDocument(),
+      { timeout: 2000 },
+    );
+
+    // El foco DEBE seguir en el fallback estable, sin importar CUÁNDO (antes
+    // o después del cierre del modal) se haya desmontado el trigger real.
+    await waitFor(() => expect(screen.getByTestId('chatwoot-label-section')).toHaveFocus());
     expect(document.body).not.toHaveFocus();
   });
 });

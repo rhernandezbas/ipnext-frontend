@@ -179,7 +179,23 @@ describe('CCL-9 (F1 fix-wave, MED-A11Y): swatch sin texto sobre el color', () =>
 });
 
 describe('CCL-10 (F2 fix-wave, LOW-A11Y): fallback de restauración de foco', () => {
-  /** Harness: abre el modal desde un trigger que se DESMONTA al crear (molde real: rama emptyState → success). */
+  /**
+   * Harness: abre el modal desde un trigger que se DESMONTA de forma
+   * SÍNCRONA dentro de `onSubmit` (antes de que el modal cierre).
+   *
+   * OJO (re-review empírica, F2-bis) — esto NO reproduce la condición de
+   * carrera REAL del composer: en `CampaignComposer` real, el trigger
+   * (rama `emptyState` del `ChatwootLabelSelector`) se desmonta cuando el
+   * CATÁLOGO cambia (`useChatwootLabels`), un evento asíncrono con latencia
+   * de red REAL que puede llegar ANTES o DESPUÉS de que el modal cierre. Este
+   * harness solo prueba la MECÁNICA del fallback (`el.isConnected === false`
+   * → usar `fallbackFocusRef`) de forma determinística y rápida — el
+   * escenario real, con el desmonte ocurriendo con latencia (>=100ms,
+   * DESPUÉS de que el modal ya cerró), lo cubre
+   * `CampaignComposer.chatwootLabel.test.tsx` ("F2-bis"), que fue el que
+   * detectó que el fix real vive en `useCreateChatwootLabel`
+   * (`setQueryData` síncrono antes del `invalidateQueries`), no en el modal.
+   */
   function Harness() {
     const [open, setOpen] = useState(false);
     const [triggerMounted, setTriggerMounted] = useState(true);
