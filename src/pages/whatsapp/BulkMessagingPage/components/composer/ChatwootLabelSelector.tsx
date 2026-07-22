@@ -1,5 +1,3 @@
-import { forwardRef } from 'react';
-import { Can } from '@/components/auth/Can';
 import { Select, type SelectOption } from '@/components/molecules/Select/Select';
 import type { ChatwootLabelDto } from '@/types/messagingBulk';
 import styles from './ChatwootLabelSelector.module.css';
@@ -13,8 +11,6 @@ interface ChatwootLabelSelectorProps {
   onSelect: (title: string | null) => void;
   /** Reintentar el catálogo tras un error (rama `error`, molde `Reintentar` del repo). Sin handler, no se ofrece botón. */
   onRetry?: () => void;
-  /** Abre el mini-modal "Crear label…" (FE.3) — gateado `messaging.manage` DENTRO de este componente. */
-  onCreateClick: () => void;
 }
 
 const EMPTY_VALUE = '';
@@ -32,29 +28,29 @@ const EMPTY_VALUE = '';
  * (Ola 5, colores/etiquetas propias del inbox). Value = `title` (los tags de
  * conversación de Chatwoot son title-keyed, sin `id` — D1.a del design BE).
  *
- * El CTA "Crear label…" se ofrece en `empty` Y en `success` (no solo en el
- * catálogo vacío citado literal por el design D6.2) — un catálogo con 1
- * etiqueta sigue necesitando poder sumar otra sin vaciarlo antes. Gateado
- * `messaging.manage` (tier supervisor, D5.c del design BE) — el picker en sí
- * ya heredó `messaging.templates` de la card contenedora.
+ * chatwoot-label-config-fe — el CTA "Crear label…" (y el mini-modal que abría)
+ * SALIÓ de acá: la creación del catálogo ahora vive en Configuración →
+ * WhatsApp (`ChatwootLabelsCard`), pedido explícito del usuario ("el crear
+ * label tiene que estar en configuración"). Este selector vuelve a ser
+ * PURAMENTE de selección — el `forwardRef`/`fallbackFocusRef` que exponía el
+ * contenedor raíz (fix wave F2 de la wave anterior) se retiró: era plumbing
+ * dedicado ÚNICAMENTE a restaurar el foco del mini-modal que ya no se abre
+ * desde acá.
  *
- * Fix wave (review adversarial, post-apply):
- * - F2 (LOW-A11Y) — `forwardRef` expone el contenedor raíz (`tabIndex={-1}`,
- *   focuseable programáticamente pero fuera del tab-order natural) como nodo
- *   ESTABLE al que el mini-modal (`ChatwootCreateLabelModal.fallbackFocusRef`)
- *   puede restaurar el foco si el trigger que lo abrió (rama `emptyState`) ya
- *   se desmontó (el catálogo pasó a tener 1 label → cambia a `success`).
- * - F4 (LOW) — si el refetch del catálogo falla justo DESPUÉS de crear una
- *   etiqueta (`chatwootLabel` ya seteado en el composer, pero la query cae en
- *   `isError`), la rama `error` YA NO oculta esa selección: la muestra con un
- *   botón "Quitar" (`onSelect(null)`) para que UI y payload nunca diverjan
- *   invisiblemente (el operador vería un error de catálogo sin saber que su
- *   campaña igual va a viajar con un label que no puede ver/tocar).
+ * Fix wave (review adversarial, post-apply) que SIGUE vigente:
+ * - F4 (LOW) — si el refetch del catálogo falla justo DESPUÉS de que el
+ *   operador ya tenía un `chatwootLabel` elegido, la rama `error` NO oculta
+ *   esa selección: la muestra con un botón "Quitar" (`onSelect(null)`) para
+ *   que UI y payload nunca diverjan invisiblemente.
  */
-export const ChatwootLabelSelector = forwardRef<HTMLDivElement, ChatwootLabelSelectorProps>(function ChatwootLabelSelector(
-  { labels, isLoading, isError, selected, onSelect, onRetry, onCreateClick },
-  ref,
-) {
+export function ChatwootLabelSelector({
+  labels,
+  isLoading,
+  isError,
+  selected,
+  onSelect,
+  onRetry,
+}: ChatwootLabelSelectorProps) {
   const options: SelectOption[] = [
     { value: EMPTY_VALUE, label: 'Sin etiqueta (opcional)' },
     ...labels.map((l) => ({ value: l.title, label: l.title, swatch: l.color })),
@@ -65,7 +61,7 @@ export const ChatwootLabelSelector = forwardRef<HTMLDivElement, ChatwootLabelSel
   }
 
   return (
-    <div className={styles.section} ref={ref} tabIndex={-1} data-testid="chatwoot-label-section">
+    <div className={styles.section}>
       {isLoading && (
         <p className={styles.notice} role="status">
           Cargando etiquetas de Chatwoot…
@@ -96,13 +92,8 @@ export const ChatwootLabelSelector = forwardRef<HTMLDivElement, ChatwootLabelSel
       {!isLoading && !isError && labels.length === 0 && (
         <div className={styles.emptyState}>
           <p className={styles.notice} role="status">
-            No hay etiquetas de Chatwoot todavía.
+            No hay etiquetas de Chatwoot todavía — se crean en Configuración → WhatsApp.
           </p>
-          <Can permission="messaging.manage">
-            <button type="button" className={styles.createBtn} onClick={onCreateClick}>
-              + Crear label…
-            </button>
-          </Can>
         </div>
       )}
 
@@ -115,13 +106,8 @@ export const ChatwootLabelSelector = forwardRef<HTMLDivElement, ChatwootLabelSel
             onChange={handleChange}
             placeholder="Sin etiqueta (opcional)"
           />
-          <Can permission="messaging.manage">
-            <button type="button" className={styles.createBtn} onClick={onCreateClick}>
-              + Crear label…
-            </button>
-          </Can>
         </div>
       )}
     </div>
   );
-});
+}

@@ -46,6 +46,13 @@ vi.mock('@/api/cannedResponses.api', () => ({
 vi.mock('@/pages/whatsapp/settings/MessagingLabelsBody', () => ({
   MessagingLabelsBody: () => <div>catálogo de etiquetas</div>,
 }));
+// chatwoot-label-config-fe — la card "Etiquetas de Chatwoot" tiene su propio
+// test (`ChatwootLabelsCard.test.tsx`, react-query real + api mockeado). Acá
+// solo importa el WIRING/gating de la sección (gate messaging.templates), así
+// que se stubbea para no arrastrar sus hooks de red.
+vi.mock('@/components/settings/ChatwootLabelsCard', () => ({
+  ChatwootLabelsCard: () => <div>tarjeta etiquetas de chatwoot</div>,
+}));
 // N1-FE (Difusión NOC) — la card tiene su propio test (mockea sus hooks GET/PUT/
 // POST). Acá solo importa el WIRING/gating de la sección (gate messaging.manage),
 // así que se stubbea la card para no arrastrar sus hooks de red.
@@ -153,6 +160,23 @@ describe('WhatsappSettingsPage', () => {
     ).not.toBeInTheDocument();
   });
 
+  // ── chatwoot-label-config-fe: card "Etiquetas de Chatwoot" (gate messaging.templates) ─
+  it('renders the "Etiquetas de Chatwoot" section and card when user has messaging.templates', () => {
+    setupHooks(['messaging.read', 'messaging.templates']);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /etiquetas de chatwoot/i })).toBeInTheDocument();
+    expect(screen.getByText(/tarjeta etiquetas de chatwoot/i)).toBeInTheDocument();
+  });
+
+  it('hides the ChatwootLabelsCard content (fallback instead) without messaging.templates', () => {
+    setupHooks(['messaging.read']);
+    renderPage();
+    // El heading de la sección se sigue mostrando (mismo criterio que Media/Envío);
+    // solo el CONTENIDO cae al fallback "No tenés permiso…".
+    expect(screen.getByRole('heading', { name: /etiquetas de chatwoot/i })).toBeInTheDocument();
+    expect(screen.queryByText(/tarjeta etiquetas de chatwoot/i)).not.toBeInTheDocument();
+  });
+
   // ── Ola 4: gestión de respuestas rápidas (gate messaging.manage) ──────────
   it('renders the canned responses section when user has messaging.manage', () => {
     setupHooks(['messaging.read', 'messaging.manage']);
@@ -178,8 +202,12 @@ describe('WhatsappSettingsPage', () => {
     setupHooks(['messaging.read']);
     renderPage();
     // La sección Media SÍ (tiene read); la de Etiquetas NO (falta manage).
+    // chatwoot-label-config-fe agregó OTRA sección con fallback propio
+    // (Etiquetas de Chatwoot, gate messaging.templates) — con solo
+    // messaging.read hay AL MENOS 2 fallbacks ahora, así que se usa
+    // getAllByText en vez de getByText (que exige exactamente 1 match).
     expect(screen.getByText(/descarga de media de whatsapp/i)).toBeInTheDocument();
-    expect(screen.getByText(/no tenés permiso/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/no tenés permiso/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText(/catálogo de etiquetas/i)).not.toBeInTheDocument();
   });
 

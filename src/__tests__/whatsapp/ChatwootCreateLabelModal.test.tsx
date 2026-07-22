@@ -1,8 +1,11 @@
 /**
  * ChatwootCreateLabelModal — campaign-chatwoot-label (design D6, tasks FE.3).
- * Mini-modal "Crear label…" del `ChatwootLabelSelector`. Shell de a11y calcado
- * de `CannedResponseFormModal`/`ConfirmModal` (portal, focus-trap, Esc/backdrop
- * cancelan, scroll-lock, restauración de foco).
+ * chatwoot-label-config-fe — MUDADO de `BulkMessagingPage/components/composer`
+ * a `components/settings`: ahora lo consume `ChatwootLabelsCard` (Configuración
+ * → WhatsApp), no el composer del bulk (el CTA "Crear label…" salió de ahí).
+ * Shell de a11y calcado de `CannedResponseFormModal`/`ConfirmModal` (portal,
+ * focus-trap, Esc/backdrop cancelan, scroll-lock, restauración de foco). El
+ * componente en sí no cambió de comportamiento — solo de ubicación.
  *
  *  CCL-1 open=false → no renderiza nada
  *  CCL-2 normalización visible: "Promo Julio" → preview "promo-julio"
@@ -33,7 +36,7 @@ import {
   ChatwootCreateLabelModal,
   normalizeChatwootLabelTitle,
   CHATWOOT_LABEL_DEFAULT_COLOR,
-} from '@/pages/whatsapp/BulkMessagingPage/components/composer/ChatwootCreateLabelModal';
+} from '@/components/settings/ChatwootCreateLabelModal';
 
 describe('CCL-1: open=false', () => {
   it('no renderiza nada', () => {

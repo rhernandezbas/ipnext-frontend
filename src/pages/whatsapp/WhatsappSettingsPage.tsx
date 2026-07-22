@@ -1,6 +1,7 @@
 import { Can } from '@/components/auth/Can';
 import { ChatMediaDownloadCard } from '@/components/settings/ChatMediaDownloadCard';
 import { ChatwootSendPathCard } from '@/components/settings/ChatwootSendPathCard';
+import { ChatwootLabelsCard } from '@/components/settings/ChatwootLabelsCard';
 import { NocBroadcastCard } from '@/components/settings/NocBroadcastCard';
 import { TaskStageConfigCard } from '@/components/settings/TaskStageConfigCard';
 import { CannedResponsesSection } from '@/components/settings/cannedResponses/CannedResponsesSection';
@@ -47,6 +48,27 @@ export default function WhatsappSettingsPage() {
         </p>
         <Can permission="messaging.read" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
           <ChatwootSendPathCard />
+        </Can>
+      </section>
+
+      {/* chatwoot-label-config-fe — catálogo de etiquetas de Chatwoot (D1/D5
+          del design de campaign-chatwoot-label). Antes se creaban desde un CTA
+          dentro del composer del bulk (`ChatwootLabelSelector`); pedido
+          textual del usuario ("el crear label tiene que estar en
+          configuración") las mudó acá. Gate `messaging.templates`: MISMO
+          permiso que ya gatea el catálogo del picker del composer
+          (`CampaignComposer.canUseTemplates`) — la card entera queda
+          consistente con "quién puede VER el catálogo de labels de Chatwoot"
+          en todo el repo. El CTA "Crear etiqueta…" de adentro tiene su PROPIO
+          gate (`messaging.manage`, tier supervisor). */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionHeading}>Etiquetas de Chatwoot</h2>
+        <p className={styles.sectionDescription}>
+          Etiquetas de Chatwoot para clasificar campañas de envío masivo (universo distinto de las etiquetas de
+          conversación de la sección &quot;Etiquetas&quot;, que son locales del inbox).
+        </p>
+        <Can permission="messaging.templates" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
+          <ChatwootLabelsCard />
         </Can>
       </section>
 

@@ -1,0 +1,132 @@
+/**
+ * ChatwootLabelsCard.module.css (chatwoot-label-config-fe) — molde
+ * `CannedResponsesSection.module.css` (actionsRow/primaryBtn/errorState/
+ * retryBtn/notice) + el dot de color de `ConversationLabelsControl.module.css`
+ * (`.swatch`, data-driven vía `style` inline). Tokens del repo, sin hex/px
+ * crudo (salvo el color de la etiqueta en sí, que es DATO, no estilo).
+ */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* `tabIndex={-1}` (JSX) — nodo focuseable PROGRAMÁTICAMENTE, fuera del
+   tab-order natural: fallback estable del modal "Crear etiqueta…" (mismo
+   criterio defensivo que el resto del repo, aunque acá el CTA no se
+   desmonta nunca). El outline solo se ve si de verdad queda focuseado. */
+.card:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+
+.actionsRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.primaryBtn {
+  min-height: var(--space-11);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-button);
+  border: 1px solid transparent;
+  background: var(--color-accent);
+  color: var(--color-white);
+  cursor: pointer;
+  transition: filter var(--transition-fast);
+}
+.primaryBtn:hover {
+  filter: brightness(0.95);
+}
+.primaryBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.notice {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+  background: var(--color-surface-hover);
+}
+
+.errorState {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-bg-hover);
+  border: 1px solid var(--badge-late-bg);
+}
+
+.errorText {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--badge-late-fg);
+}
+
+.retryBtn {
+  min-height: var(--space-11);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-button);
+  border: 1px solid var(--badge-late-fg);
+  background: var(--color-surface);
+  color: var(--badge-late-fg);
+  cursor: pointer;
+}
+.retryBtn:hover {
+  background: var(--color-danger-bg-hover);
+}
+.retryBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--space-11);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-hover);
+}
+
+/* Dot de color decorativo (aria-hidden) — el color es DATO de la etiqueta,
+   nunca color de texto (mismo criterio de contraste que `ChatwootCreateLabelModal`
+   fix F1: cero texto sobre color arbitrario). */
+.swatch {
+  flex-shrink: 0;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-full);
+}
+
+.listItemTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}

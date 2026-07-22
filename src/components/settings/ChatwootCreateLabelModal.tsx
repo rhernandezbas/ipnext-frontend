@@ -45,12 +45,16 @@ interface ChatwootCreateLabelModalProps {
   /**
    * Fix wave F2 (LOW-A11Y) — nodo ESTABLE al que restaurar el foco si el que
    * abrió el modal (`document.activeElement` capturado al abrir) ya NO está
-   * montado al cerrar. Caso real: el botón "+ Crear label…" de la rama
-   * `emptyState` del `ChatwootLabelSelector` se DESMONTA en cuanto el
-   * catálogo pasa a tener 1 label (la rama cambia a `success`) — sin este
-   * fallback, `.focus()` sobre un nodo desconectado es un no-op silencioso y
-   * el foco queda perdido en `document.body`. Opcional: sin él, mantiene el
-   * comportamiento previo (best-effort, puede caer a body en ese caso límite).
+   * montado al cerrar. Opcional: sin él, mantiene el comportamiento previo
+   * (best-effort, puede caer a body en ese caso límite).
+   *
+   * chatwoot-label-config-fe — el CTA que abre este modal MUDÓ del composer
+   * (`ChatwootLabelSelector`, rama `emptyState`, que SE DESMONTABA al crecer
+   * el catálogo) a `ChatwootLabelsCard` (Configuración → WhatsApp), donde el
+   * botón "Crear etiqueta…" vive en una fila de acciones ESTABLE, ajena a las
+   * 4 ramas de estado de la lista — ya no se desmonta al crear la primera
+   * etiqueta. El prop se mantiene por consistencia defensiva (mismo criterio
+   * que el resto del repo: nunca asumir que el trigger sigue montado).
    */
   fallbackFocusRef?: RefObject<HTMLElement | null>;
   onSubmit: (input: { title: string; color: string }) => void;
@@ -58,16 +62,16 @@ interface ChatwootCreateLabelModalProps {
 }
 
 /**
- * ChatwootCreateLabelModal (campaign-chatwoot-label, design D6/tasks FE.3) —
- * mini-modal "Crear label…" del `ChatwootLabelSelector`. Shell de a11y calcado
+ * ChatwootCreateLabelModal (campaign-chatwoot-label, design D6/tasks FE.3;
+ * mudado a Configuración → WhatsApp por chatwoot-label-config-fe) —
+ * mini-modal "Crear etiqueta…" de `ChatwootLabelsCard`. Shell de a11y calcado
  * de `CannedResponseFormModal`/`ConfirmModal`: portal a document.body,
  * focus-trap cíclico, Esc/backdrop cancelan, restauración de foco, scroll-lock.
  *
  * A diferencia de `CannedResponseFormModal` (validate-on-click), el submit
  * queda DESHABILITADO en vivo mientras el título esté vacío o con charset
- * inválido — mismo criterio que el propio "Crear campaña" del composer
- * (`canCreate` + hint): acá el operador YA ve el preview del título final en
- * tiempo real, así que el disabled no es un dead-end ciego.
+ * inválido: acá el operador YA ve el preview del título final en tiempo real,
+ * así que el disabled no es un dead-end ciego.
  */
 export function ChatwootCreateLabelModal({
   open,

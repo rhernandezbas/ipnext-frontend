@@ -3,6 +3,9 @@
  * EXACTO de `TemplateSelector.module.css`: aplanado, vive DENTRO de la card
  * "Mensaje" del composer (la card contenedora pone la superficie). Mismos
  * tokens/contraste que `.notice`/`.error` de esa hoja (ya validados a11y).
+ *
+ * chatwoot-label-config-fe — se retiró el estilo `:focus` del contenedor raíz
+ * (era el fallback de foco del mini-modal "Crear label…", que salió de acá).
  */
 
 .section {
@@ -10,17 +13,6 @@
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
-}
-
-/* Fix wave F2 (LOW-A11Y) — `tabIndex={-1}` (JSX) saca el contenedor del
-   tab-order NATURAL pero lo deja focuseable PROGRAMÁTICAMENTE: es el
-   fallback estable al que el mini-modal restaura el foco si su trigger
-   original ya se desmontó. El outline SOLO se ve si de verdad queda
-   focuseado (confirmación visual real, no un halo permanente). */
-.section:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-  border-radius: var(--radius-md);
 }
 
 .errorState {
@@ -84,7 +76,6 @@
 }
 
 .retryBtn,
-.createBtn,
 .removeBtn {
   min-height: var(--space-11);
   padding: var(--space-2) var(--space-4);
@@ -104,13 +95,11 @@
   background: var(--color-danger-bg-hover);
 }
 
-.createBtn,
 .removeBtn {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   color: var(--color-text-primary);
 }
-.createBtn:hover,
 .removeBtn:hover {
   background: var(--color-surface-hover);
 }
@@ -120,7 +109,6 @@
 }
 
 .retryBtn:focus-visible,
-.createBtn:focus-visible,
 .removeBtn:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
