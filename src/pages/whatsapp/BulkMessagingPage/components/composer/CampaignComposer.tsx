@@ -3,11 +3,20 @@ import { Can } from '@/components/auth/Can';
 import { Button } from '@/components/atoms/Button/Button';
 import { Tabs } from '@/components/molecules/Tabs/Tabs';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
-import { useTemplates, usePreviewSegment, useCreateCampaign, bulkRecipientsErrorMessage } from '@/hooks/useBulkMessaging';
+import {
+  useTemplates,
+  usePreviewSegment,
+  useCreateCampaign,
+  bulkRecipientsErrorMessage,
+  useChatwootLabels,
+  useCreateChatwootLabel,
+} from '@/hooks/useBulkMessaging';
 import { useNetworkSites } from '@/hooks/useNetworkSites';
 import { useAssignableAccessPoints } from '@/hooks/useAccessPoints';
 import type { CampaignSegment, CampaignVariableSpec, TemplateSummaryDto } from '@/types/messagingBulk';
 import { TemplateSelector } from './TemplateSelector';
+import { ChatwootLabelSelector } from './ChatwootLabelSelector';
+import { ChatwootCreateLabelModal } from './ChatwootCreateLabelModal';
 import { VariablesMapForm } from './VariablesMapForm';
 import { SegmentBuilder } from './SegmentBuilder';
 import { NetworkFilterPanel } from './NetworkFilterPanel';
@@ -83,6 +92,16 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   const canUseNumbers = can('messaging.bulk_numbers');
 
   const templatesQuery = useTemplates(canUseTemplates);
+  // campaign-chatwoot-label (D6/FE.1) — MISMO gate que el catálogo de
+  // templates: la card "Mensaje" entera está detrás de `messaging.templates`
+  // (D5.c del design BE, tier lectura para el picker).
+  const chatwootLabelsQuery = useChatwootLabels(canUseTemplates);
+  const {
+    createAsync: createChatwootLabelAsync,
+    isPending: isCreatingChatwootLabel,
+    serverError: chatwootLabelServerError,
+    reset: resetCreateChatwootLabel,
+  } = useCreateChatwootLabel();
   const {
     preview,
     data: previewData,
@@ -94,6 +113,11 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
 
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateSummaryDto | null>(null);
   const [variablesMap, setVariablesMap] = useState<CampaignVariableSpec>({});
+  // campaign-chatwoot-label (D6/FE.2) — `title` de la etiqueta de Chatwoot
+  // elegida (o `null` = "Sin etiqueta", opt-in — comportamiento actual exacto
+  // cuando no se elige nada, Decisión E del design BE).
+  const [chatwootLabel, setChatwootLabel] = useState<string | null>(null);
+  const [chatwootLabelModalOpen, setChatwootLabelModalOpen] = useState(false);
   const [segment, setSegment] = useState<CampaignSegment>(EMPTY_SEGMENT);
   // manual-recipients-fe — lista manual (metadata FE-only para los chips). El
   // contrato con el BE es `manualClientIds: string[]`, derivado abajo.
@@ -241,6 +265,28 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
     setVariablesMap({});
   }
 
+  /**
+   * campaign-chatwoot-label (D6/FE.3) — submit del mini-modal "Crear label…".
+   * Al crear OK, auto-selecciona el label recién creado (mismo DTO que
+   * devuelve el POST) y cierra el modal; al fallar, el error se refleja
+   * reactivamente vía `chatwootLabelServerError` y el modal queda abierto
+   * (mismo criterio que `handleCreate`/missingVariablesError de abajo).
+   */
+  async function handleCreateChatwootLabel(input: { title: string; color: string }) {
+    try {
+      const created = await createChatwootLabelAsync(input);
+      setChatwootLabel(created.title);
+      setChatwootLabelModalOpen(false);
+    } catch {
+      // el error se refleja reactivamente vía `chatwootLabelServerError`.
+    }
+  }
+
+  function handleCancelChatwootLabelModal() {
+    setChatwootLabelModalOpen(false);
+    resetCreateChatwootLabel();
+  }
+
   function showToast(message: string) {
     setToast(message);
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -293,6 +339,10 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         // comparten `manualContacts` (dedup por teléfono en el BE). Se OMITE
         // cuando no hay ni CSV ni números.
         ...(combinedManualContacts.length > 0 ? { manualContacts: combinedManualContacts } : {}),
+        // campaign-chatwoot-label (D6/FE.4) — se OMITE cuando no se eligió
+        // ninguna etiqueta (cero cambio en el payload de los flujos que no la
+        // usan), mismo criterio que `manualClientIds`/`manualContacts`.
+        ...(chatwootLabel ? { chatwootLabel } : {}),
       });
       showToast(`Campaña "${name}" creada — ${output.total} destinatario${output.total === 1 ? '' : 's'}.`);
       onCampaignCreated(output.campaignId);
@@ -306,6 +356,7 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
       setCsvResetKey((k) => k + 1);
       setNumbersText('');
       setCampaignName('');
+      setChatwootLabel(null);
       resetPreview();
     } catch {
       // El error se refleja reactivamente vía el hook: el 422
@@ -487,6 +538,20 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
                   templateBody={selectedTemplate.body}
                 />
               )}
+
+              {/* campaign-chatwoot-label (D6/FE.2) — debajo de VariablesMapForm,
+                  MISMO gate de la card (`messaging.templates`). Independiente de
+                  si ya se eligió template (el operador puede pre-elegir la
+                  etiqueta antes). */}
+              <ChatwootLabelSelector
+                labels={chatwootLabelsQuery.data ?? []}
+                isLoading={chatwootLabelsQuery.isLoading}
+                isError={chatwootLabelsQuery.isError}
+                selected={chatwootLabel}
+                onSelect={setChatwootLabel}
+                onRetry={() => void chatwootLabelsQuery.refetch()}
+                onCreateClick={() => setChatwootLabelModalOpen(true)}
+              />
             </section>
           </Can>
         )}
@@ -617,8 +682,20 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         skipped={previewData?.skipped}
         networkSiteName={networkSiteName}
         accessPointName={accessPointName}
+        chatwootLabel={chatwootLabel}
         onConfirm={handleConfirmCreate}
         onCancel={() => setConfirmOpen(false)}
+      />
+
+      {/* campaign-chatwoot-label (D6/FE.3) — mini-modal "Crear label…", montado
+          a nivel composer (no del selector) porque el auto-select del label
+          recién creado es dueño del `chatwootLabel` de acá. */}
+      <ChatwootCreateLabelModal
+        open={chatwootLabelModalOpen}
+        busy={isCreatingChatwootLabel}
+        serverError={chatwootLabelServerError}
+        onSubmit={handleCreateChatwootLabel}
+        onCancel={handleCancelChatwootLabelModal}
       />
 
       {toast && (

@@ -29,6 +29,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type {
   CampaignDto,
   CampaignSummaryDto,
+  ChatwootLabelDto,
   CreateCampaignInput,
   CreateCampaignOutput,
   ExcludedRecipientsOutput,
@@ -57,6 +58,8 @@ import {
   listCampaigns,
   listSegmentRecipients,
   listExcludedRecipients,
+  listChatwootLabels,
+  createChatwootLabel,
 } from '@/api/messagingBulk.api';
 
 const TEMPLATE: TemplateSummaryDto = {
@@ -331,5 +334,32 @@ describe('MBAPI-8: listExcludedRecipients (bulk-csv-recipients CSV-FE-7)', () =>
       view: 'excluded',
     });
     expect(result).toEqual(EXCLUDED_OUTPUT);
+  });
+});
+
+describe('MBAPI-9: listChatwootLabels (campaign-chatwoot-label)', () => {
+  it('GETs /messaging/bulk/chatwoot-labels y unwrappea {data} al array pelado', async () => {
+    const LABELS: ChatwootLabelDto[] = [{ title: 'cobranzas', color: '#e63946' }];
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: { data: LABELS } });
+
+    const result = await listChatwootLabels();
+
+    expect(axiosClient.get).toHaveBeenCalledWith('/messaging/bulk/chatwoot-labels');
+    expect(result).toEqual(LABELS);
+  });
+});
+
+describe('MBAPI-10: createChatwootLabel (campaign-chatwoot-label)', () => {
+  it('POSTea /messaging/bulk/chatwoot-labels con {title,color} y devuelve el DTO FLAT (201)', async () => {
+    const CREATED: ChatwootLabelDto = { title: 'promo-julio', color: '#1f93ff' };
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: CREATED });
+
+    const result = await createChatwootLabel({ title: 'promo-julio', color: '#1f93ff' });
+
+    expect(axiosClient.post).toHaveBeenCalledWith('/messaging/bulk/chatwoot-labels', {
+      title: 'promo-julio',
+      color: '#1f93ff',
+    });
+    expect(result).toEqual(CREATED);
   });
 });

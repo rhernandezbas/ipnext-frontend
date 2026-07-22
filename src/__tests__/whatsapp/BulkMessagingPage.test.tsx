@@ -32,6 +32,8 @@ vi.mock('@/api/messagingBulk.api', () => ({
   sendCampaign: vi.fn(),
   getCampaign: vi.fn(),
   listCampaigns: vi.fn(),
+  listChatwootLabels: vi.fn(),
+  createChatwootLabel: vi.fn(),
 }));
 vi.mock('@/hooks/useMyPermissions');
 // node-segment-fe — el composer monta los selects de Nodo/AP (catálogos de
@@ -40,7 +42,7 @@ vi.mock('@/hooks/useMyPermissions');
 vi.mock('@/api/networkSite.api', () => ({ getNetworkSites: vi.fn() }));
 vi.mock('@/api/accessPoints.api', () => ({ listAssignableAccessPoints: vi.fn() }));
 
-import { listBulkTemplates, previewSegment, createCampaign, listCampaigns, getCampaign, sendCampaign } from '@/api/messagingBulk.api';
+import { listBulkTemplates, previewSegment, createCampaign, listCampaigns, getCampaign, sendCampaign, listChatwootLabels } from '@/api/messagingBulk.api';
 import { getNetworkSites } from '@/api/networkSite.api';
 import { listAssignableAccessPoints } from '@/api/accessPoints.api';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
@@ -108,6 +110,7 @@ beforeEach(() => {
   vi.mocked(createCampaign).mockResolvedValue({ campaignId: 'camp-1', total: 10, status: 'pending' });
   vi.mocked(listCampaigns).mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 });
   vi.mocked(getCampaign).mockResolvedValue({ campaign: CAMPAIGN_DTO });
+  vi.mocked(listChatwootLabels).mockResolvedValue([]);
   vi.mocked(getNetworkSites).mockResolvedValue([]);
   vi.mocked(listAssignableAccessPoints).mockResolvedValue([]);
 });

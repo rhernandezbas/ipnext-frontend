@@ -34,13 +34,15 @@ vi.mock('@/api/messagingBulk.api', () => ({
   listCampaigns: vi.fn(),
   listSegmentRecipients: vi.fn(),
   listExcludedRecipients: vi.fn(),
+  listChatwootLabels: vi.fn(),
+  createChatwootLabel: vi.fn(),
 }));
 vi.mock('@/hooks/useMyPermissions');
 vi.mock('@/hooks/useCustomers', () => ({ useClientList: vi.fn() }));
 vi.mock('@/api/networkSite.api', () => ({ getNetworkSites: vi.fn() }));
 vi.mock('@/api/accessPoints.api', () => ({ listAssignableAccessPoints: vi.fn() }));
 
-import { listBulkTemplates, previewSegment, createCampaign } from '@/api/messagingBulk.api';
+import { listBulkTemplates, previewSegment, createCampaign, listChatwootLabels } from '@/api/messagingBulk.api';
 import { getNetworkSites } from '@/api/networkSite.api';
 import { listAssignableAccessPoints } from '@/api/accessPoints.api';
 import { useClientList } from '@/hooks/useCustomers';
@@ -120,6 +122,7 @@ beforeEach(() => {
   vi.mocked(listBulkTemplates).mockResolvedValue([TEMPLATE]);
   vi.mocked(previewSegment).mockResolvedValue(PREVIEW);
   vi.mocked(createCampaign).mockResolvedValue({ campaignId: 'camp-1', total: 42, status: 'pending' });
+  vi.mocked(listChatwootLabels).mockResolvedValue([]);
   vi.mocked(getNetworkSites).mockResolvedValue(SITES);
   // Scoping real: con networkSiteId devuelve SOLO los APs de ese nodo.
   vi.mocked(listAssignableAccessPoints).mockImplementation((networkSiteId?: string) =>

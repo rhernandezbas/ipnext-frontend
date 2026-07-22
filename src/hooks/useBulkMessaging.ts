@@ -5,10 +5,12 @@ import { useDocumentVisible } from '@/hooks/useDocumentVisible';
 import type {
   CampaignSendConflictBody,
   CampaignStatusDto,
+  ChatwootLabelDto,
   CreateCampaignBulkRecipientsNotPermittedBody,
   CreateCampaignInput,
   CreateCampaignManualRecipientsNotFoundBody,
   CreateCampaignMissingVariablesBody,
+  CreateChatwootLabelInput,
   GetCampaignOutput,
   GetCampaignQuery,
   PaginatedQuery,
@@ -52,6 +54,78 @@ export function useTemplates(enabled: boolean = true) {
     enabled,
     staleTime: 60_000,
   });
+}
+
+/**
+ * campaign-chatwoot-label (D6/FE.1) — catálogo de etiquetas de Chatwoot para
+ * el `ChatwootLabelSelector`. Molde `useTemplates`: `enabled` lo ata el
+ * caller al MISMO permiso que gatea la card ("Mensaje", `messaging.templates`
+ * — D5.c del design BE, tier lectura). Catálogo chico, `staleTime` alto (se
+ * administra a mano vía "Crear label…").
+ */
+export const bulkChatwootLabelsKey = ['messagingBulk', 'chatwootLabels'] as const;
+
+export function useChatwootLabels(enabled: boolean = true) {
+  return useQuery({
+    queryKey: bulkChatwootLabelsKey,
+    queryFn: api.listChatwootLabels,
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * Mensaje accionable para el 400/503 de crear una etiqueta de Chatwoot
+ * (D5.a/D2 del design BE): `VALIDATION_ERROR` (título vacío/color no-hex,
+ * saneado LOCAL antes de tocar Chatwoot) vs `CHATWOOT_UNAVAILABLE` (la
+ * convención de resultado único del port mapea CUALQUIER fallo — incl. el
+ * 4xx de un título duplicado — a este código único, D2/D8 del design BE: no
+ * hay un 409 semántico). El mensaje de 503 nombra AMBAS causas posibles
+ * porque el FE no puede distinguirlas desde acá.
+ */
+function toChatwootLabelServerError(error: unknown): string | null {
+  if (!error) return null;
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
+    const body = error.response?.data as { error?: string; code?: string } | undefined;
+    if (status === 400 || body?.code === 'VALIDATION_ERROR') {
+      return body?.error ?? 'El nombre o el color de la etiqueta no son válidos.';
+    }
+    if (status === 503 || body?.code === 'CHATWOOT_UNAVAILABLE') {
+      return 'No se pudo crear la etiqueta: ya existe o Chatwoot no está disponible. Reintentá en unos segundos.';
+    }
+  }
+  return 'No se pudo crear la etiqueta. Reintentá en unos segundos.';
+}
+
+/**
+ * campaign-chatwoot-label (D6/FE.3) — crea una etiqueta en el catálogo de
+ * Chatwoot. Invalida `bulkChatwootLabelsKey` al crear (el picker refetchea
+ * sin esperar el próximo `staleTime`) — el auto-select del label recién
+ * creado lo hace el CALLER (`CampaignComposer`, dueño del `chatwootLabel`
+ * elegido) con el DTO que devuelve `createAsync`.
+ */
+export function useCreateChatwootLabel() {
+  const qc = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (input: CreateChatwootLabelInput): Promise<ChatwootLabelDto> => api.createChatwootLabel(input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: bulkChatwootLabelsKey });
+    },
+  });
+
+  return {
+    create: mutation.mutate,
+    createAsync: mutation.mutateAsync,
+    data: mutation.data,
+    isPending: mutation.isPending,
+    isSuccess: mutation.isSuccess,
+    isError: mutation.isError,
+    error: mutation.error,
+    reset: mutation.reset,
+    serverError: toChatwootLabelServerError(mutation.error),
+  };
 }
 
 /**

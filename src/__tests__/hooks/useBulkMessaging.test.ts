@@ -53,6 +53,8 @@ vi.mock('@/api/messagingBulk.api', () => ({
   listCampaigns: vi.fn(),
   listSegmentRecipients: vi.fn(),
   listExcludedRecipients: vi.fn(),
+  listChatwootLabels: vi.fn(),
+  createChatwootLabel: vi.fn(),
 }));
 
 vi.mock('@/hooks/useDocumentVisible', () => ({
@@ -68,6 +70,8 @@ import {
   listCampaigns,
   listSegmentRecipients,
   listExcludedRecipients,
+  listChatwootLabels,
+  createChatwootLabel,
 } from '@/api/messagingBulk.api';
 import { useDocumentVisible } from '@/hooks/useDocumentVisible';
 import {
@@ -79,9 +83,12 @@ import {
   useCampaigns,
   useSegmentRecipients,
   useExcludedRecipients,
+  useChatwootLabels,
+  useCreateChatwootLabel,
   bulkTemplatesKey,
   bulkCampaignsKey,
   bulkCampaignKey,
+  bulkChatwootLabelsKey,
   campaignPollInterval,
 } from '@/hooks/useBulkMessaging';
 
@@ -955,5 +962,87 @@ describe('MBH-8: useExcludedRecipients (bulk-csv-recipients CSV-FE-7)', () => {
 
     expect(result.current.fetchStatus).toBe('idle');
     expect(listExcludedRecipients).not.toHaveBeenCalled();
+  });
+});
+
+describe('MBH-12: useChatwootLabels (campaign-chatwoot-label)', () => {
+  it('llama a listChatwootLabels y cachea bajo ["messagingBulk","chatwootLabels"]', async () => {
+    vi.mocked(listChatwootLabels).mockResolvedValue([{ title: 'cobranzas', color: '#e63946' }]);
+    const { qc, wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useChatwootLabels(), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual([{ title: 'cobranzas', color: '#e63946' }]);
+    expect(qc.getQueryData(bulkChatwootLabelsKey)).toEqual([{ title: 'cobranzas', color: '#e63946' }]);
+  });
+
+  it('enabled:false (sin permiso messaging.templates) NO dispara el fetch', () => {
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useChatwootLabels(false), { wrapper });
+
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(listChatwootLabels).not.toHaveBeenCalled();
+  });
+});
+
+describe('MBH-13: useCreateChatwootLabel (campaign-chatwoot-label)', () => {
+  it('create(input) llama a createChatwootLabel e invalida el catálogo', async () => {
+    vi.mocked(createChatwootLabel).mockResolvedValue({ title: 'promo-julio', color: '#1f93ff' });
+    const { qc, wrapper } = makeWrapper();
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+
+    const { result } = renderHook(() => useCreateChatwootLabel(), { wrapper });
+
+    act(() => {
+      result.current.create({ title: 'promo-julio', color: '#1f93ff' });
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual({ title: 'promo-julio', color: '#1f93ff' });
+    expect(invalidateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: bulkChatwootLabelsKey }),
+    );
+  });
+
+  it('400 VALIDATION_ERROR se expone como `serverError` con el mensaje del BE', async () => {
+    vi.mocked(createChatwootLabel).mockRejectedValue(
+      makeCreateError(400, { error: 'title requerido', code: 'VALIDATION_ERROR' }),
+    );
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useCreateChatwootLabel(), { wrapper });
+
+    act(() => {
+      result.current.create({ title: '', color: '#1f93ff' });
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.serverError).toBe('title requerido');
+  });
+
+  it('503 CHATWOOT_UNAVAILABLE se expone como mensaje accionable (duplicado o Chatwoot caído)', async () => {
+    vi.mocked(createChatwootLabel).mockRejectedValue(
+      makeCreateError(503, { error: 'Chatwoot no disponible', code: 'CHATWOOT_UNAVAILABLE' }),
+    );
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useCreateChatwootLabel(), { wrapper });
+
+    act(() => {
+      result.current.create({ title: 'cobranzas', color: '#1f93ff' });
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.serverError).toMatch(/ya existe o chatwoot no está disponible/i);
+  });
+
+  it('sin error, `serverError` es null', () => {
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useCreateChatwootLabel(), { wrapper });
+
+    expect(result.current.serverError).toBeNull();
   });
 });

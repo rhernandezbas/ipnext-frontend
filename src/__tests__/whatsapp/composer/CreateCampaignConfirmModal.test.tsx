@@ -42,6 +42,7 @@ function renderModal(
     numbersCount: number;
     statusCounts: Record<string, number>;
     skipped: Skipped;
+    chatwootLabel: string | null;
     onConfirm: () => void;
     onCancel: () => void;
   }> = {},
@@ -59,6 +60,7 @@ function renderModal(
       numbersCount={props.numbersCount}
       statusCounts={props.statusCounts ?? { late: 30, blocked: 12 }}
       skipped={'skipped' in props ? props.skipped : NO_SKIPPED}
+      chatwootLabel={props.chatwootLabel}
       onConfirm={onConfirm}
       onCancel={onCancel}
     />,
@@ -284,5 +286,21 @@ describe('CSV-FE-9: resumen con CSV y bajas', () => {
   it('sin bajas (statusCounts.baja ausente o 0) no muestra la línea de bajas', () => {
     renderModal({ statusCounts: { late: 30, blocked: 12 } });
     expect(screen.queryByText(/cliente.*de baja/i)).not.toBeInTheDocument();
+  });
+});
+
+// campaign-chatwoot-label (D6, orquestación #6) — el resumen nombra la
+// etiqueta de Chatwoot elegida, si hay. Sin selección, la fila entera se
+// omite (mismo criterio que `networkSiteName`/`accessPointName`).
+describe('CHW-1: etiqueta de Chatwoot en el resumen', () => {
+  it('con chatwootLabel elegido, muestra la fila "Etiqueta de Chatwoot"', () => {
+    renderModal({ chatwootLabel: 'promo-julio' });
+    expect(screen.getByText('Etiqueta de Chatwoot')).toBeInTheDocument();
+    expect(screen.getByText('promo-julio')).toBeInTheDocument();
+  });
+
+  it('sin chatwootLabel (null/omitido), NO muestra la fila', () => {
+    renderModal();
+    expect(screen.queryByText('Etiqueta de Chatwoot')).not.toBeInTheDocument();
   });
 });

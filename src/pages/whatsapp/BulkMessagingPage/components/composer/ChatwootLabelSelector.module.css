@@ -1,0 +1,85 @@
+/**
+ * ChatwootLabelSelector.module.css (campaign-chatwoot-label, FE.2) — molde
+ * EXACTO de `TemplateSelector.module.css`: aplanado, vive DENTRO de la card
+ * "Mensaje" del composer (la card contenedora pone la superficie). Mismos
+ * tokens/contraste que `.notice`/`.error` de esa hoja (ya validados a11y).
+ */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.notice {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+  background: var(--color-surface-hover);
+}
+
+.error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--badge-late-fg);
+  background: var(--badge-late-bg);
+  border-left: 3px solid var(--badge-late-fg);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.withOptions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.retryBtn,
+.createBtn {
+  min-height: var(--space-11);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-button);
+  cursor: pointer;
+  transition: filter var(--transition-fast), background var(--transition-fast);
+}
+
+.retryBtn {
+  border: 1px solid var(--badge-late-fg);
+  background: var(--color-surface);
+  color: var(--badge-late-fg);
+}
+.retryBtn:hover {
+  background: var(--color-danger-bg-hover);
+}
+
+.createBtn {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+.createBtn:hover {
+  background: var(--color-surface-hover);
+}
+
+.retryBtn:focus-visible,
+.createBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

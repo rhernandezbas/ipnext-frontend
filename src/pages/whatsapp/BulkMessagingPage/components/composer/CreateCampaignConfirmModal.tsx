@@ -75,6 +75,13 @@ interface CreateCampaignConfirmModalProps {
   networkSiteName?: string;
   /** node-segment-fe — NOMBRE del Access Point elegido (puede venir sin nodo). */
   accessPointName?: string;
+  /**
+   * campaign-chatwoot-label (D6, orquestación #6) — `title` de la etiqueta de
+   * Chatwoot elegida en el composer. Opcional/`null`: sin selección, la fila
+   * entera se omite (cero cambio visual para campañas sin label, mismo
+   * criterio que `networkSiteName`/`accessPointName`).
+   */
+  chatwootLabel?: string | null;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -107,6 +114,7 @@ export function CreateCampaignConfirmModal({
   skipped,
   networkSiteName,
   accessPointName,
+  chatwootLabel,
   onConfirm,
   onCancel,
 }: CreateCampaignConfirmModalProps) {
@@ -198,6 +206,14 @@ export function CreateCampaignConfirmModal({
             <dt className={styles.summaryTerm}>Template</dt>
             <dd className={styles.summaryValue}>{templateName}</dd>
           </div>
+          {/* campaign-chatwoot-label (D6, orquestación #6) — sin selección, la
+              fila se omite entera (mismo criterio que el filtro de red de abajo). */}
+          {chatwootLabel && (
+            <div className={styles.summaryRow}>
+              <dt className={styles.summaryTerm}>Etiqueta de Chatwoot</dt>
+              <dd className={styles.summaryValue}>{chatwootLabel}</dd>
+            </div>
+          )}
           {/* node-segment-fe — el filtro de red por NOMBRE (nodo y/o AP; el AP
               puede venir solo). Sin filtro, la fila entera se omite. */}
           {(networkSiteName || accessPointName) && (

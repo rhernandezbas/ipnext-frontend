@@ -1,8 +1,10 @@
 import axiosClient from './axios-client';
 import type {
   CampaignSummaryDto,
+  ChatwootLabelDto,
   CreateCampaignInput,
   CreateCampaignOutput,
+  CreateChatwootLabelInput,
   ExcludedRecipientsOutput,
   GetCampaignOutput,
   GetCampaignQuery,
@@ -44,6 +46,22 @@ const BASE = '/messaging/bulk';
 
 export const listBulkTemplates = (): Promise<TemplateSummaryDto[]> =>
   axiosClient.get<{ data: TemplateSummaryDto[] }>(`${BASE}/templates`).then((r) => r.data.data);
+
+/**
+ * campaign-chatwoot-label (D5.b BE) — catálogo de etiquetas de Chatwoot.
+ * Envelope `{data}` (mismo criterio que `listBulkTemplates` — UNWRAP
+ * `.data.data`, memoria `e2e-envelope-mock-mismatch`). Gate BE `messaging.templates`.
+ */
+export const listChatwootLabels = (): Promise<ChatwootLabelDto[]> =>
+  axiosClient.get<{ data: ChatwootLabelDto[] }>(`${BASE}/chatwoot-labels`).then((r) => r.data.data);
+
+/**
+ * campaign-chatwoot-label (D5.b BE) — crea una etiqueta en el catálogo de
+ * Chatwoot. `res.status(201).json(dto)` → FLAT (sin envelope, mismo criterio
+ * que `createCampaign`). Gate BE `messaging.manage` (tier supervisor).
+ */
+export const createChatwootLabel = (input: CreateChatwootLabelInput): Promise<ChatwootLabelDto> =>
+  axiosClient.post<ChatwootLabelDto>(`${BASE}/chatwoot-labels`, input).then((r) => r.data);
 
 export const previewSegment = (input: PreviewSegmentInput): Promise<PreviewSegmentOutput> =>
   axiosClient.post<PreviewSegmentOutput>(`${BASE}/segment/preview`, input).then((r) => r.data);

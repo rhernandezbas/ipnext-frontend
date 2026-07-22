@@ -31,6 +31,21 @@ export interface TemplateSummaryDto {
   body: string;
 }
 
+// ─── Etiquetas de Chatwoot (campaign-chatwoot-label, D1/D5) ──────────────────
+// Prefijo `chatwoot` OBLIGATORIO (design D6.5) — universo DISTINTO del
+// catálogo LOCAL `ConversationLabel`/`ConversationLabelsControl` (Ola 5). Los
+// tags de conversación de Chatwoot son title-keyed (sin `id` — YAGNI, D1.a).
+
+export interface ChatwootLabelDto {
+  title: string;
+  color: string;
+}
+
+export interface CreateChatwootLabelInput {
+  title: string;
+  color: string;
+}
+
 // ─── Segmentación (SEG-1..SEG-5) ─────────────────────────────────────────────
 
 export interface CampaignSegment {
@@ -212,6 +227,14 @@ export interface CreateCampaignInput {
    * cuando está vacío (cero cambio en los payloads que no usan CSV).
    */
   manualContacts?: ManualContactInput[];
+  /**
+   * campaign-chatwoot-label (D6/FE.4) — `title` de la etiqueta de Chatwoot
+   * elegida en el composer (pass-through puro, BE Decisión D: cero
+   * validación contra el catálogo real al crear). Opcional: se OMITE cuando
+   * no se eligió ninguna (cero cambio en el payload de los flujos que no la
+   * usan), mismo criterio que `manualClientIds`/`manualContacts`.
+   */
+  chatwootLabel?: string;
   // NOTA: `createdById` NO viaja en el body — el BE lo deriva SIEMPRE del
   // usuario autenticado (`req.user.id`, ver `messagingBulk.routes.ts`), nunca
   // del cliente. Incluirlo acá sería un campo fantasma que el BE ignora.

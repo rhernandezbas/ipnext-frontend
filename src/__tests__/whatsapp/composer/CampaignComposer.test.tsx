@@ -38,6 +38,8 @@ vi.mock('@/api/messagingBulk.api', () => ({
   listCampaigns: vi.fn(),
   listSegmentRecipients: vi.fn(),
   listExcludedRecipients: vi.fn(),
+  listChatwootLabels: vi.fn(),
+  createChatwootLabel: vi.fn(),
 }));
 vi.mock('@/hooks/useMyPermissions');
 // El composer ahora monta `ManualRecipientsPicker` → `CustomerPicker`, que usa
@@ -50,7 +52,7 @@ vi.mock('@/hooks/useCustomers', () => ({ useClientList: vi.fn() }));
 vi.mock('@/api/networkSite.api', () => ({ getNetworkSites: vi.fn() }));
 vi.mock('@/api/accessPoints.api', () => ({ listAssignableAccessPoints: vi.fn() }));
 
-import { listBulkTemplates, previewSegment, createCampaign, listSegmentRecipients, listExcludedRecipients } from '@/api/messagingBulk.api';
+import { listBulkTemplates, previewSegment, createCampaign, listSegmentRecipients, listExcludedRecipients, listChatwootLabels } from '@/api/messagingBulk.api';
 import { getNetworkSites } from '@/api/networkSite.api';
 import { listAssignableAccessPoints } from '@/api/accessPoints.api';
 import { useClientList } from '@/hooks/useCustomers';
@@ -171,6 +173,10 @@ beforeEach(() => {
   vi.mocked(listExcludedRecipients).mockResolvedValue({ ...EMPTY_RECIPIENTS, data: [] });
   vi.mocked(getNetworkSites).mockResolvedValue([]);
   vi.mocked(listAssignableAccessPoints).mockResolvedValue([]);
+  // campaign-chatwoot-label — catálogo vacío por default (no interfiere con
+  // los asserts existentes; escenarios propios viven en
+  // CampaignComposer.chatwootLabel.test.tsx).
+  vi.mocked(listChatwootLabels).mockResolvedValue([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useClientList
   vi.mocked(useClientList).mockReturnValue({ data: { data: CLIENTS, total: 2, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false } as any);
 });
