@@ -72,6 +72,23 @@ describe('IRT-5: status=baja señalado', () => {
   });
 });
 
+describe('IRT-8 (fix wave F5, bulk-task-recipients): fuente "task" se traduce a "Tarea"', () => {
+  it('una fila con source:"task" muestra la etiqueta traducida, no el token crudo', () => {
+    render(
+      <InvalidRecipientsTable
+        data={[{ name: 'Pedro Ruiz', phone: '+5491100000002', reason: 'opt_out', source: 'task' }]}
+        isLoading={false}
+        isError={false}
+        page={1}
+        totalPages={1}
+        onPageChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Tarea')).toBeInTheDocument();
+    expect(screen.queryByText('task')).not.toBeInTheDocument();
+  });
+});
+
 describe('IRT-6: paginación', () => {
   it('cambiar de página llama a onPageChange', async () => {
     const onPageChange = vi.fn();

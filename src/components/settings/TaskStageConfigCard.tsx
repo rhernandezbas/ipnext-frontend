@@ -118,6 +118,14 @@ export function TaskStageConfigCard() {
         &quot;Tarea&quot; en el envío masivo de WhatsApp.
       </p>
 
+      {/* fix wave F3 (review adversarial) — sin esto, mapear un stage
+          'hecho'/'cancelado' esperando tareas CERRADAS resolvía en 0
+          destinatarios sin ninguna explicación visible. */}
+      <p className={styles.hint}>
+        Solo cuentan tareas <strong>ABIERTAS</strong> — las cerradas o descartadas no generan destinatarios, aunque
+        su estado esté mapeado.
+      </p>
+
       {!canManage && (
         <p className={styles.readOnlyNote} role="status">
           Solo lectura — necesitás permiso de gestión (messaging.manage) para editar el mapeo.

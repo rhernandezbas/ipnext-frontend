@@ -6,6 +6,12 @@ interface TaskStagesTabPanelProps {
   mappedStages: MappedStageDto[];
   isLoading: boolean;
   isError: boolean;
+  /**
+   * fix wave F6 (review adversarial) — true cuando `isError` es un 403 (sin
+   * `messaging.read`): NO-retryable, "Reintentá" no cura nada. El caller
+   * (`CampaignComposer`) lo deriva del `error` real de la query.
+   */
+  isForbidden?: boolean;
   /** `stageId[]` tildados — controlado, mismo patrón que `SegmentBuilder`/`NetworkFilterPanel`. */
   value: string[];
   onChange: (next: string[]) => void;
@@ -31,6 +37,7 @@ export function TaskStagesTabPanel({
   mappedStages,
   isLoading,
   isError,
+  isForbidden = false,
   value,
   onChange,
   previewCount,
@@ -47,6 +54,18 @@ export function TaskStagesTabPanel({
   }
 
   if (isError) {
+    // fix wave F6 — mismo criterio M2 que `TaskStageConfigCard` (rama sin
+    // scheduling.read): un 403 es un problema de PERMISO, no transitorio —
+    // "Reintentá" nunca lo va a curar.
+    if (isForbidden) {
+      return (
+        <div className={styles.panel}>
+          <p className={styles.hint} role="alert">
+            No tenés permiso para ver los estados de tarea mapeados (necesitás <strong>messaging.read</strong>).
+          </p>
+        </div>
+      );
+    }
     return (
       <div className={styles.panel}>
         <p className={styles.error} role="alert">
@@ -74,6 +93,13 @@ export function TaskStagesTabPanel({
   return (
     <fieldset className={styles.fieldset}>
       <legend className={styles.legend}>Estados de tarea</legend>
+
+      {/* fix wave F3 (review adversarial) — mismo aviso que la card de
+          Ajustes: sin esto, tildar un stage 'hecho'/'cancelado' esperando
+          tareas cerradas resuelve en 0 destinatarios sin explicación. */}
+      <p className={styles.hint}>
+        Solo cuentan tareas <strong>ABIERTAS</strong> — las cerradas o descartadas no suman destinatarios.
+      </p>
 
       <div className={styles.stageGroup} role="group" aria-label="Estados de tarea mapeados">
         {mappedStages.map((stage) => {

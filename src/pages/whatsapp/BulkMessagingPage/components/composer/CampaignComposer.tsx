@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import axios from 'axios';
 import { Can } from '@/components/auth/Can';
 import { Button } from '@/components/atoms/Button/Button';
 import { Tabs } from '@/components/molecules/Tabs/Tabs';
@@ -305,10 +306,51 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   // Ajustes → WhatsApp). Refetchea la config para que el tab "Tarea" refleje
   // el mapeo REAL antes de que el operador reintente (en vez de dejarlo
   // reintentando a ciegas contra el mismo subset ya inválido).
+  //
+  // fix wave F1 (HIGH, review adversarial) — LOOP INFINITO: `taskStageNotEligibleError`
+  // lo arma `toTaskStageNotEligibleError()` DENTRO de `useCreateCampaign()`, un
+  // objeto NUEVO en cada render (aunque `mutation.error` no haya cambiado). Ese
+  // objeto es dependencia del efecto → el CUERPO corre en cada render mientras
+  // el error siga presente → `refetch()` togglea `isFetching` (re-render real)
+  // → el efecto vuelve a correr → refetch de nuevo → loop contra
+  // `/config/task-stages` (reproducido con "Maximum update depth exceeded" en
+  // el test rojo). El guard-ref recuerda "ya refetcheé para ESTA ocurrencia"
+  // (se resetea a `false` en cuanto el error desaparece — nueva mutación o
+  // reset): refetch se dispara UNA sola vez por 422, sin importar cuántos
+  // re-renders pasen después.
+  const taskStageRefetchedRef = useRef(false);
   useEffect(() => {
-    if (taskStageNotEligibleError) void taskStageConfigQuery.refetch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo reacciona al error, refetch estable de TanStack
+    if (!taskStageNotEligibleError) {
+      taskStageRefetchedRef.current = false;
+      return;
+    }
+    if (taskStageRefetchedRef.current) return;
+    taskStageRefetchedRef.current = true;
+    void taskStageConfigQuery.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- guard-ref evita el loop; refetch estable de TanStack
   }, [taskStageNotEligibleError]);
+
+  // fix wave F2 (MED, review adversarial) — taskStageIds HUÉRFANOS: si el
+  // mapeo se achica (otro admin desmapea un stage tildado en Ajustes →
+  // WhatsApp), el checkbox de ESE stage desaparece de `TaskStagesTabPanel`
+  // (ya no está en `mappedStages`) pero el id se quedaba en el ESTADO
+  // (`taskStageIds`) — 422 TASK_STAGE_NOT_ELIGIBLE perpetuo, SIN forma de
+  // destildarlo por UI (el checkbox que lo controlaba ya no existe).
+  // Reconciliación: cuando `mappedTaskStages` cambia (carga inicial o un
+  // refetch con un catálogo distinto), poda `taskStageIds` a la
+  // INTERSECCIÓN con los ids REALMENTE mapeados. El `setTaskStageIds`
+  // devuelve la MISMA referencia `prev` cuando nada cambió — React bailea
+  // el re-render, así que esto no compite con el guard-ref de F1 ni crea
+  // un loop propio.
+  useEffect(() => {
+    if (!taskStageConfigQuery.data) return; // todavía no cargó — no podar contra un catálogo vacío por ausencia de dato
+    const mappedIds = new Set(mappedTaskStages.map((s) => s.stageId));
+    setTaskStageIds((prev) => {
+      const pruned = prev.filter((id) => mappedIds.has(id));
+      return pruned.length === prev.length ? prev : pruned;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reacciona solo a mappedTaskStages (derivado de taskStageConfigQuery.data)
+  }, [mappedTaskStages]);
 
   function handleSelectTemplate(template: TemplateSummaryDto | null) {
     setSelectedTemplate(template);
@@ -484,6 +526,11 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   // panel ya distingue esas 2 ramas de la de config vacía).
   const taskStagesConfigEmpty =
     !taskStageConfigQuery.isLoading && !taskStageConfigQuery.isError && mappedTaskStages.length === 0;
+  // fix wave F6 (review adversarial) — un 403 (sin `messaging.read`) es
+  // NO-retryable: "Reintentá" nunca lo cura. Mismo criterio M2 que
+  // `TaskStageConfigCard` en la rama sin `scheduling.read`.
+  const taskStageConfigForbidden =
+    axios.isAxiosError(taskStageConfigQuery.error) && taskStageConfigQuery.error.response?.status === 403;
 
   const recipientTabs = [
     {
@@ -581,6 +628,7 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
           mappedStages={mappedTaskStages}
           isLoading={taskStageConfigQuery.isLoading}
           isError={taskStageConfigQuery.isError}
+          isForbidden={taskStageConfigForbidden}
           value={taskStageIds}
           onChange={setTaskStageIds}
           previewCount={previewData?.count}

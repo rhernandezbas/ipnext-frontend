@@ -41,6 +41,9 @@ const SOURCE_LABELS: Record<string, string> = {
   segment: 'Segmento',
   manual: 'Manual',
   csv: 'CSV',
+  // fix wave F5 (bulk-task-recipients, review adversarial) — sin esta entrada
+  // se mostraba el token crudo "task" en la columna Fuente.
+  task: 'Tarea',
 };
 
 /**

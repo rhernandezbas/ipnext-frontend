@@ -242,6 +242,35 @@ describe('PVM-6: con datos', () => {
   });
 });
 
+describe('PVM-13 (fix wave F4, bulk-task-recipients): chip noCustomerCount', () => {
+  it('con noCustomerCount>0, muestra la exclusión de tareas de red sin cliente', async () => {
+    vi.mocked(listSegmentRecipients).mockResolvedValue({ ...RECIPIENTS, noCustomerCount: 3 });
+    renderModal();
+
+    expect(await screen.findByText(/se excluyeron/i)).toHaveTextContent('3');
+  });
+
+  it('con noCustomerCount 0/ausente, no muestra el chip', async () => {
+    vi.mocked(listSegmentRecipients).mockResolvedValue(RECIPIENTS);
+    renderModal();
+
+    await screen.findByText('42');
+    expect(screen.queryByText(/se excluyeron/i)).not.toBeInTheDocument();
+  });
+
+  it('noCustomerCount>0 solo, SIN otros skipped, igual muestra el resumen de excluidos', async () => {
+    vi.mocked(listSegmentRecipients).mockResolvedValue({
+      ...EMPTY_RECIPIENTS,
+      total: 5,
+      data: RECIPIENTS.data.slice(0, 1),
+      noCustomerCount: 2,
+    });
+    renderModal();
+
+    expect(await screen.findByText(/se excluyeron/i)).toHaveTextContent('2');
+  });
+});
+
 describe('PVM-7: mensaje real con variables resueltas', () => {
   it('arma el mensaje reemplazando cada {{N}} según su fuente', async () => {
     vi.mocked(listSegmentRecipients).mockResolvedValue(RECIPIENTS);

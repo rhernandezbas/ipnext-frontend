@@ -71,6 +71,18 @@ const MAPPED: MappedStageDto[] = [
   { stageId: 's3', stageName: 'Abierto', stageCode: 'ABIERTO', color: '#333333', workflowId: 'wf2', workflowName: 'Reclamos' },
 ];
 
+/**
+ * Matcher por función para texto partido entre tags (ej. `<strong>` en medio
+ * de una oración) — molde recomendado de testing-library: matchea el
+ * elemento MÁS PROFUNDO cuyo `textContent` cubre el regex completo (ninguno
+ * de sus hijos directos lo cubre solo).
+ */
+function hasSplitText(re: RegExp) {
+  const matches = (node: Element | null) => re.test(node?.textContent ?? '');
+  return (_content: string, element: Element | null) =>
+    matches(element) && Array.from(element?.children ?? []).every((child) => !matches(child));
+}
+
 function baseConfig(over: Partial<TaskStageConfigOutput> = {}): TaskStageConfigOutput {
   return { stages: MAPPED, ...over };
 }
@@ -259,6 +271,16 @@ describe('TaskStageConfigCard — feedback de guardado', () => {
     setup({ updateError: { response: { status: 500, data: {} } } });
     render(<TaskStageConfigCard />);
     expect(screen.getByText(/no se pudo guardar/i)).toBeInTheDocument();
+  });
+});
+
+describe('TaskStageConfigCard — fix wave F3: copy explícita "solo tareas ABIERTAS"', () => {
+  it('la card aclara que solo tareas ABIERTAS generan destinatarios', () => {
+    setup();
+    render(<TaskStageConfigCard />);
+    // El texto está partido por un <strong>ABIERTAS</strong> — matcher por
+    // función (molde recomendado de testing-library para texto ENTRE tags).
+    expect(screen.getByText(hasSplitText(/solo.*tareas.*abiertas/i))).toBeInTheDocument();
   });
 });
 

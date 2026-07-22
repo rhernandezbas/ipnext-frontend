@@ -267,6 +267,13 @@ export function PreviewModal({
   // activa) sólo para el label — el trade-off de fetch fue DELIBERADO (ver
   // arriba), así que se documenta el acoplamiento en vez de cambiarlo.
   const excludedCount = data ? data.skipped.optedOut + data.skipped.duplicatePhone + data.skipped.invalidPhone : 0;
+  // fix wave F4 (bulk-task-recipients, review adversarial) — el BE ya manda
+  // `noCustomerCount` por el MISMO endpoint (`/segment/recipients`): tareas de
+  // red (sin cliente) en los `taskStageIds` pedidos. Antes se descartaba acá
+  // — la superficie de decisión final (este modal, justo antes de crear la
+  // campaña) no mostraba esa exclusión. NO es un skip de teléfono (no vive en
+  // `data.skipped`), por eso es un contador aparte.
+  const noCustomerCount = data?.noCustomerCount ?? 0;
 
   const columns: { label: string; key: string; render?: (row: RecipientRow) => JSX.Element }[] = [
     { label: 'Nombre', key: 'name' },
@@ -356,11 +363,18 @@ export function PreviewModal({
                               </ul>
                             )}
 
-                            {excludedCount > 0 && (
+                            {(excludedCount > 0 || noCustomerCount > 0) && (
                               <ul className={styles.skippedList} aria-label="Excluidos del envío">
                                 {data.skipped.optedOut > 0 && <li>Optaron por no recibir mensajes: {data.skipped.optedOut}</li>}
                                 {data.skipped.duplicatePhone > 0 && <li>Teléfono duplicado (colapsado): {data.skipped.duplicatePhone}</li>}
                                 {data.skipped.invalidPhone > 0 && <li>Teléfono ausente o inválido: {data.skipped.invalidPhone}</li>}
+                                {/* fix wave F4 (bulk-task-recipients) — tareas de red (kind:'network',
+                                    sin customerId) en los taskStageIds pedidos: NO es un skip de
+                                    teléfono, es un origen aparte que igual hay que mostrar acá,
+                                    la superficie de decisión final antes de crear la campaña. */}
+                                {noCustomerCount > 0 && (
+                                  <li>Se excluyeron {noCustomerCount} tarea{noCustomerCount === 1 ? '' : 's'} de red sin cliente asociado.</li>
+                                )}
                               </ul>
                             )}
                           </section>

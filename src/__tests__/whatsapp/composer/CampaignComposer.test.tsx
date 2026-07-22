@@ -27,6 +27,7 @@ import { render, screen, fireEvent, waitFor, act, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 
 vi.mock('@/api/messagingBulk.api', () => ({
@@ -65,6 +66,55 @@ import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
 import { CampaignComposer } from '@/pages/whatsapp/BulkMessagingPage/components/composer/CampaignComposer';
 import type { PreviewSegmentOutput, SegmentRecipientsOutput, TemplateSummaryDto } from '@/types/messagingBulk';
+import type { MappedStageDto } from '@/types/taskStageConfig';
+
+/**
+ * fix wave F1 (review adversarial, bulk-task-recipients) — mock REACTIVO de
+ * `useTaskStageConfig` para el test del guard anti-loop: a diferencia de un
+ * `refetch: vi.fn()` inerte (que ENMASCARA el bug — nunca togglea nada, así
+ * que el efecto sólo corre una vez "por casualidad"), acá `refetch()` togglea
+ * `isFetching` de verdad vía `useSyncExternalStore` — cada toggle fuerza un
+ * re-render REAL del composer. Sin el guard-ref (fix F1), cada uno de esos
+ * re-renders vuelve a disparar el efecto (el objeto `taskStageNotEligibleError`
+ * se recrea cada render) → refetch de nuevo → loop.
+ */
+function createReactiveTaskStageConfigMock(initialStages: MappedStageDto[]) {
+  const refetchSpy = vi.fn();
+  let snapshot = { stages: initialStages, isFetching: false };
+  const listeners = new Set<() => void>();
+  function notify() {
+    listeners.forEach((l) => l());
+  }
+  function setSnapshot(patch: Partial<typeof snapshot>) {
+    snapshot = { ...snapshot, ...patch };
+    notify();
+  }
+  function useHook() {
+    const s = useSyncExternalStore(
+      (cb) => {
+        listeners.add(cb);
+        return () => listeners.delete(cb);
+      },
+      () => snapshot,
+    );
+    return {
+      data: { stages: s.stages },
+      isLoading: false,
+      isError: false,
+      isFetching: s.isFetching,
+      refetch: () => {
+        refetchSpy();
+        setSnapshot({ isFetching: true });
+        // Simula la resolución async del refetch real — togglea `isFetching`
+        // de vuelta a `false` (un re-render MÁS, ya después del refetch).
+        void Promise.resolve().then(() => setSnapshot({ isFetching: false }));
+        return Promise.resolve();
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useTaskStageConfig
+    } as any;
+  }
+  return { useHook, refetchSpy, setStages: (next: MappedStageDto[]) => setSnapshot({ stages: next }) };
+}
 
 const TEMPLATE: TemplateSummaryDto = {
   contentSid: 'HX123',
@@ -748,20 +798,12 @@ describe('CC-25: crear con SÓLO estados de tarea (bulk-task-recipients, D8)', (
   });
 });
 
-describe('CC-26: 422 TASK_STAGE_NOT_ELIGIBLE (bulk-task-recipients, D3/TASK-2)', () => {
-  it('muestra un mensaje accionable y refetchea la config del mapeo', async () => {
-    const refetch = vi.fn();
-    vi.mocked(useTaskStageConfig).mockReturnValue({
-      data: {
-        stages: [
-          { stageId: 's1', stageName: 'Pendiente', stageCode: 'PEND', color: null, workflowId: 'wf1', workflowName: 'Instalaciones' },
-        ],
-      },
-      isLoading: false,
-      isError: false,
-      refetch,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useTaskStageConfig
-    } as any);
+describe('CC-26: 422 TASK_STAGE_NOT_ELIGIBLE (bulk-task-recipients, D3/TASK-2; fix wave F1)', () => {
+  it('muestra un mensaje accionable y refetchea la config EXACTAMENTE 1 vez, aunque isFetching togglee (re-renders reales)', async () => {
+    const mock = createReactiveTaskStageConfigMock([
+      { stageId: 's1', stageName: 'Pendiente', stageCode: 'PEND', color: null, workflowId: 'wf1', workflowName: 'Instalaciones' },
+    ]);
+    vi.mocked(useTaskStageConfig).mockImplementation(mock.useHook);
     const axiosError = Object.assign(new Error('422'), {
       isAxiosError: true,
       response: {
@@ -786,6 +828,16 @@ describe('CC-26: 422 TASK_STAGE_NOT_ELIGIBLE (bulk-task-recipients, D3/TASK-2)',
     await confirmCreate(user, createButton);
 
     expect(await screen.findByText(/mapeo de estados de tarea cambió/i)).toBeInTheDocument();
-    await waitFor(() => expect(refetch).toHaveBeenCalled());
+    await waitFor(() => expect(mock.refetchSpy).toHaveBeenCalledTimes(1));
+
+    // F1 — el bug real: `isFetching` togglea (true → false, re-renders REALES
+    // vía useSyncExternalStore) DESPUÉS del primer refetch. Sin el guard-ref,
+    // cada uno de esos re-renders volvía a disparar el efecto (el objeto
+    // `taskStageNotEligibleError` se recrea cada render) → loop de refetch.
+    // Con el fix, se mantiene en 1 llamada pase el tiempo que pase.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    expect(mock.refetchSpy).toHaveBeenCalledTimes(1);
   });
 });

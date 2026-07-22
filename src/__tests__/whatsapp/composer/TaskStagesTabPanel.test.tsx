@@ -24,6 +24,13 @@ const MAPPED: MappedStageDto[] = [
   { stageId: 's3', stageName: 'Abierto', stageCode: 'ABIERTO', color: '#333333', workflowId: 'wf2', workflowName: 'Reclamos' },
 ];
 
+/** Matcher por función para texto partido entre tags (ver `TaskStageConfigCard.test.tsx`). */
+function hasSplitText(re: RegExp) {
+  const matches = (node: Element | null) => re.test(node?.textContent ?? '');
+  return (_content: string, element: Element | null) =>
+    matches(element) && Array.from(element?.children ?? []).every((child) => !matches(child));
+}
+
 describe('TSP-1: loading', () => {
   it('muestra un mensaje de carga y ningún checkbox', () => {
     render(<TaskStagesTabPanel mappedStages={[]} isLoading isError={false} value={[]} onChange={vi.fn()} />);
@@ -37,6 +44,23 @@ describe('TSP-2: error', () => {
     render(<TaskStagesTabPanel mappedStages={[]} isLoading={false} isError value={[]} onChange={vi.fn()} />);
     expect(screen.getByRole('alert')).toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+});
+
+describe('TSP-9 (fix wave F6, bulk-task-recipients): 403 es no-retryable', () => {
+  it('con isForbidden, muestra un mensaje de permiso (no "Reintentá", que no cura nada)', () => {
+    render(
+      <TaskStagesTabPanel mappedStages={[]} isLoading={false} isError isForbidden value={[]} onChange={vi.fn()} />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(/no ten[eé]s permiso/i);
+    expect(screen.queryByText(/reintentá/i)).not.toBeInTheDocument();
+  });
+
+  it('sin isForbidden (error genérico), sigue mostrando "Reintentá"', () => {
+    render(
+      <TaskStagesTabPanel mappedStages={[]} isLoading={false} isError isForbidden={false} value={[]} onChange={vi.fn()} />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(/reintentá/i);
   });
 });
 
@@ -81,6 +105,15 @@ describe('TSP-4/5: checklist tildable', () => {
     );
     await user.click(screen.getByRole('checkbox', { name: /pendiente/i }));
     expect(onChange).toHaveBeenCalledWith(['s3']);
+  });
+});
+
+describe('TSP-8 (fix wave F3, bulk-task-recipients): copy explícita "solo tareas ABIERTAS"', () => {
+  it('con estados mapeados, el panel aclara que solo tareas ABIERTAS generan destinatarios', () => {
+    render(
+      <TaskStagesTabPanel mappedStages={MAPPED} isLoading={false} isError={false} value={[]} onChange={vi.fn()} />,
+    );
+    expect(screen.getByText(hasSplitText(/solo.*tareas.*abiertas/i))).toBeInTheDocument();
   });
 });
 

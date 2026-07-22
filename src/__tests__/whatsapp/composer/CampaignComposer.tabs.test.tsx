@@ -24,10 +24,11 @@
  * Mismos seams de mock que `CampaignComposer.test.tsx` (fetch-level para
  * messagingBulk.api / catálogos de red; hook-level para permisos y clientes).
  */
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 
 vi.mock('@/api/messagingBulk.api', () => ({
@@ -115,6 +116,45 @@ const APS: AccessPointOption[] = [
 const MAPPED_STAGES: MappedStageDto[] = [
   { stageId: 's1', stageName: 'Pendiente', stageCode: 'PEND', color: '#111111', workflowId: 'wf1', workflowName: 'Instalaciones' },
 ];
+
+/**
+ * fix wave F2 (review adversarial, bulk-task-recipients) — mock REACTIVO
+ * de `useTaskStageConfig` que permite cambiar `data.stages` DESPUÉS del
+ * render inicial (simula "el mapeo se achicó, un refetch trajo menos
+ * stages") sin pasar por `isFetching`/refetch — sólo el dato en sí, vía
+ * `useSyncExternalStore` (mismo patrón que `CampaignComposer.test.tsx`
+ * usa para F1, acá simplificado: no hace falta togglear `isFetching`).
+ */
+function createTaskStageConfigDataMock(initialStages: MappedStageDto[]) {
+  let stages = initialStages;
+  const listeners = new Set<() => void>();
+  function notify() {
+    listeners.forEach((l) => l());
+  }
+  function useHook() {
+    const s = useSyncExternalStore(
+      (cb) => {
+        listeners.add(cb);
+        return () => listeners.delete(cb);
+      },
+      () => stages,
+    );
+    return {
+      data: { stages: s },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useTaskStageConfig
+    } as any;
+  }
+  return {
+    useHook,
+    setStages: (next: MappedStageDto[]) => {
+      stages = next;
+      notify();
+    },
+  };
+}
 
 function renderComposer() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -429,6 +469,66 @@ describe('TASK-3: tildar un estado de tarea viaja en el payload del preview', ()
     await waitFor(() =>
       expect(previewSegment).toHaveBeenCalledWith({ statuses: [], taskStageIds: ['s1'] }),
     );
+  });
+});
+
+describe('TASK-6 (fix wave F6): 403 en la config de estados de tarea es no-retryable', () => {
+  it('con un 403 real (axios) en useTaskStageConfig, el panel muestra el mensaje de permiso, no "Reintentá"', async () => {
+    const forbiddenError = Object.assign(new Error('403'), {
+      isAxiosError: true,
+      response: { status: 403, data: { code: 'PERMISSION_DENIED' } },
+    });
+    vi.mocked(useTaskStageConfig).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: forbiddenError,
+      refetch: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useTaskStageConfig
+    } as any);
+    const user = userEvent.setup();
+    renderComposer();
+
+    await user.click(await screen.findByRole('tab', { name: /^tarea/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no ten[eé]s permiso/i);
+    expect(screen.queryByText(/^no se pudieron cargar los estados de tarea\. reintentá\.$/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('TASK-7 (fix wave F2): taskStageIds huérfanos se podan cuando el mapeo se achica', () => {
+  it('desmapear un stage tildado (el query trae menos) lo saca del ESTADO, no solo de la UI', async () => {
+    const mock = createTaskStageConfigDataMock([
+      { stageId: 's1', stageName: 'Pendiente', stageCode: 'PEND', color: '#111111', workflowId: 'wf1', workflowName: 'Instalaciones' },
+      { stageId: 's9', stageName: 'Otro', stageCode: 'OTRO', color: '#444444', workflowId: 'wf1', workflowName: 'Instalaciones' },
+    ]);
+    vi.mocked(useTaskStageConfig).mockImplementation(mock.useHook);
+    const user = userEvent.setup();
+    renderComposer();
+
+    await user.click(await screen.findByRole('tab', { name: /^tarea/i }));
+    await user.click(screen.getByRole('checkbox', { name: /pendiente/i }));
+    await user.click(screen.getByRole('checkbox', { name: /otro/i }));
+    expect(screen.getByRole('checkbox', { name: /pendiente/i })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /otro/i })).toBeChecked();
+
+    // El mapeo se achica: 's1' deja de estar mapeado (otro admin lo
+    // desmapeó en Ajustes → WhatsApp; el refetch compartido trae el
+    // catálogo nuevo).
+    act(() => {
+      mock.setStages([
+        { stageId: 's9', stageName: 'Otro', stageCode: 'OTRO', color: '#444444', workflowId: 'wf1', workflowName: 'Instalaciones' },
+      ]);
+    });
+
+    // El checkbox de "Pendiente" desaparece de la UI (ya no está mapeado).
+    expect(screen.queryByRole('checkbox', { name: /pendiente/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /otro/i })).toBeChecked();
+
+    // EL FIX real: 's1' salió del ESTADO interno (`taskStageIds`), no sólo
+    // de lo que se puede tildar en la UI — sin esto, el id huérfano seguía
+    // viajando en el payload (422 perpetuo, sin forma de destildarlo por UI
+    // porque su checkbox ya no existe).
+    await waitFor(() => expect(previewSegment).toHaveBeenLastCalledWith({ statuses: [], taskStageIds: ['s9'] }));
   });
 });
 
