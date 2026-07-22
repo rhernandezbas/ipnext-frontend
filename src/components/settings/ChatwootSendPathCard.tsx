@@ -155,11 +155,19 @@ export function ChatwootSendPathCard() {
         </Can>
       </section>
 
+      {/* El verbo sale de la INTENCIÓN del PATCH que acaba de resolver
+          (`setFlag.variables.enabled`), NUNCA del estado vivo `enabled`
+          (flagData): `isSuccess` se prende ANTES de que el refetch invalidado
+          del flag aterrice, así que `flagData.enabled` puede seguir stale
+          (valor pre-mutación) por ~100-500ms — derivar del estado vivo
+          mostraba el verbo opuesto en esa ventana. */}
       {setFlag.isSuccess && (
         <div className={`${styles.banner} ${styles.bannerSuccess}`} role="status" aria-live="polite">
           <span>
             <span className={styles.bannerTitle}>Listo.</span>{' '}
-            {enabled ? 'Envío vía Chatwoot activado.' : 'Envío vía Chatwoot desactivado.'}
+            {setFlag.variables?.enabled
+              ? 'Envío vía Chatwoot activado.'
+              : 'Envío vía Chatwoot desactivado.'}
           </span>
         </div>
       )}

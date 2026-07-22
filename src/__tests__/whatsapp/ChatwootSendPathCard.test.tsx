@@ -25,7 +25,13 @@
  *  9. Error states (flag fetch / setFlag) — incluye "Estado desconocido" +
  *     reintentar
  * 10. Feedback de éxito (role="status", aria-live="polite") tras un toggle
- *     confirmado
+ *     confirmado — el verbo sale de `setFlag.variables.enabled` (la intención
+ *     del PATCH que acaba de resolver), NUNCA del estado vivo `flagData`
+ *     (review adversarial, MEDIUM: el refetch invalidado puede aterrizar
+ *     ~100-500ms después de que `isSuccess` se prenda, dejando el verbo
+ *     opuesto si se derivara del estado vivo)
+ * 11. Gate admin.flags con permisos NO relacionados (W5b: pieza que el clon
+ *     había perdido vs. ChatMediaDownloadCard.test.tsx)
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -51,6 +57,7 @@ function setupHooks({
   setFlagPending = false,
   setFlagError = false,
   setFlagSuccess = false,
+  setFlagVariables = undefined,
   permissions = ['admin.flags'],
   confirmResult = true,
 }: {
@@ -60,6 +67,7 @@ function setupHooks({
   setFlagPending?: boolean;
   setFlagError?: boolean;
   setFlagSuccess?: boolean;
+  setFlagVariables?: { key: string; enabled: boolean } | undefined;
   permissions?: string[];
   confirmResult?: boolean;
 } = {}) {
@@ -96,6 +104,7 @@ function setupHooks({
     isPending: setFlagPending,
     isError: setFlagError,
     isSuccess: setFlagSuccess,
+    variables: setFlagVariables,
   } as unknown as ReturnType<typeof useSetFeatureFlag>);
 
   vi.mocked(useConfirm).mockReturnValue(confirmFn);
@@ -231,14 +240,47 @@ describe('ChatwootSendPathCard', () => {
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   });
 
+  // W5b (lección del review: el clon pierde piezas) — cubre el mismo caso que
+  // ChatMediaDownloadCard.test.tsx:162-166, que el clon inicial se había
+  // salteado: permisos no-relacionados (sin admin.flags) también ocultan el
+  // toggle, no solo la ausencia total de permisos.
+  it('toggle is NOT rendered when user has unrelated permissions but not admin.flags', () => {
+    setupHooks({ permissions: ['messaging.read', 'network.read'] });
+    render(<ChatwootSendPathCard />);
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+
   // ── Success feedback ───────────────────────────────────────────────────────
 
-  it('renders success feedback (aria-live) after a confirmed toggle', () => {
-    setupHooks({ flagEnabled: true, setFlagSuccess: true });
+  // Ventana REAL post-mutación: `setFlag.isSuccess` se prende ANTES de que el
+  // refetch invalidado del flag aterrice, así que `flagData.enabled` puede
+  // seguir con el valor STALE (pre-mutación) durante ~100-500ms. El verbo del
+  // toast tiene que salir de la INTENCIÓN del PATCH que acaba de resolver
+  // (`setFlag.variables.enabled`), NUNCA del estado vivo — si no, muestra el
+  // verbo opuesto en esa ventana (review adversarial, MEDIUM).
+  it('success toast uses the PATCH intent (setFlag.variables), not the stale live flag state', () => {
+    setupHooks({
+      flagEnabled: false, // stale: el refetch todavía no aterrizó
+      setFlagSuccess: true,
+      setFlagVariables: { key: 'messaging-send-via-chatwoot', enabled: true }, // intención: prender
+    });
     render(<ChatwootSendPathCard />);
     const status = screen.getByRole('status');
     expect(status).toHaveAttribute('aria-live', 'polite');
     expect(status).toHaveTextContent(/envío vía chatwoot activado/i);
+    expect(status).not.toHaveTextContent(/desactivado/i);
+  });
+
+  it('success toast says "desactivado" when the resolved PATCH intent was turning it off', () => {
+    setupHooks({
+      flagEnabled: true, // stale: el refetch todavía no aterrizó
+      setFlagSuccess: true,
+      setFlagVariables: { key: 'messaging-send-via-chatwoot', enabled: false }, // intención: apagar
+    });
+    render(<ChatwootSendPathCard />);
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent(/envío vía chatwoot desactivado/i);
+    expect(status).not.toHaveTextContent(/(?<!des)activado/i);
   });
 
   it('does NOT render success feedback before any mutation', () => {
