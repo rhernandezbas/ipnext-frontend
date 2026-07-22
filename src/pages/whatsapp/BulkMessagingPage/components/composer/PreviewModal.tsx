@@ -35,6 +35,8 @@ interface PreviewModalProps {
   manualClientIds?: string[];
   /** bulk-csv-recipients (CSV-FE-6) — contactos crudos del CSV cargado. */
   manualContacts?: ManualContactInput[];
+  /** bulk-task-recipients (D8) — subset de estados de tarea tildado en el tab "Tarea". */
+  taskStageIds?: string[];
 }
 
 const LIMIT = 20;
@@ -111,6 +113,7 @@ export function PreviewModal({
   variablesMap,
   manualClientIds = [],
   manualContacts = [],
+  taskStageIds = [],
 }: PreviewModalProps) {
   const [page, setPage] = useState(1);
   const [excludedPage, setExcludedPage] = useState(1);
@@ -119,16 +122,18 @@ export function PreviewModal({
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
-  // CSV-FE-6 — gate REEMPLAZADO: cualquier fuente con destinatarios (segmento,
-  // manuales o CSV) habilita la query de la UNIÓN completa. Antes sólo el
-  // segmento (`hasSegmentCriteria`) — eso era la deuda F4 (el BE no aceptaba
+  // CSV-FE-6 + bulk-task-recipients (D8) — gate REEMPLAZADO: cualquier fuente
+  // con destinatarios (segmento, manuales, CSV o el subset de tarea) habilita
+  // la query de la UNIÓN completa. Antes sólo el segmento
+  // (`hasSegmentCriteria`) — eso era la deuda F4 (el BE no aceptaba
   // `manualClientIds` en este endpoint todavía).
-  const hasAnyRecipients = hasRecipients(segment, manualClientIds, manualContacts.length > 0);
+  const hasAnyRecipients = hasRecipients(segment, manualClientIds, manualContacts.length > 0, taskStageIds.length > 0);
 
   function buildBaseQuery(): SegmentRecipientsQuery {
     const query: SegmentRecipientsQuery = { ...segment };
     if (manualClientIds.length > 0) query.manualClientIds = manualClientIds;
     if (manualContacts.length > 0) query.manualContacts = manualContacts;
+    if (taskStageIds.length > 0) query.taskStageIds = taskStageIds;
     return query;
   }
 
@@ -152,7 +157,7 @@ export function PreviewModal({
   // oficial de React para "ajustar estado ante un cambio de prop" (no dispara
   // loop) y NO rompe la paginación — el placeholder del MISMO input sí se
   // sigue mostrando.
-  const inputFingerprint = JSON.stringify({ segment, manualClientIds, manualContacts });
+  const inputFingerprint = JSON.stringify({ segment, manualClientIds, manualContacts, taskStageIds });
   const [settledFingerprint, setSettledFingerprint] = useState<string | null>(null);
   if (!isPlaceholderData && data && settledFingerprint !== inputFingerprint) {
     setSettledFingerprint(inputFingerprint);

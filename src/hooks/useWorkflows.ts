@@ -23,11 +23,20 @@ export function useWorkflow(id: string | null | undefined) {
   });
 }
 
-export function useWorkflows() {
+/**
+ * `enabled` (default `true`, bulk-task-recipients FE, D8) — lo ata el caller a
+ * un permiso cuando corresponda (molde `useTemplates(enabled)`).
+ * `TaskStageConfigCard` lo gatea a `scheduling.read`: sin el permiso, el
+ * catálogo de estados ni se pide (403 seguro, ningún "Reintentá" lo cura).
+ * Backcompat: los 10 callers existentes lo invocan sin argumento → sigue
+ * fetcheando igual que antes.
+ */
+export function useWorkflows(enabled: boolean = true) {
   return useQuery({
     queryKey: ['workflows'],
     queryFn: api.listWorkflows,
     staleTime: 60_000,
+    enabled,
   });
 }
 

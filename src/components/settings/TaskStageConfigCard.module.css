@@ -1,0 +1,197 @@
+/* ──────────────────────────────────────────────────────────────────────────
+ * TaskStageConfigCard (bulk-task-recipients FE, D8) — mapeo de estados de
+ * tarea elegibles como destinatario del bulk WhatsApp. Solo design tokens
+ * (colores/espacios/radios/tipografía), mismo criterio que `NocBroadcastCard`.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+
+.loading {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.description {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+.hint {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+  background: var(--color-surface-hover);
+}
+
+.readOnlyNote {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-warning-fg);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+}
+
+/* === Grupos por workflow ================================================ */
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin: 0;
+}
+
+.group:disabled {
+  opacity: 0.75;
+}
+
+.groupLegend {
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.stageList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.stageOption {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--space-11); /* 44px touch target */
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  background: var(--color-surface);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .stageOption:hover {
+    border-color: var(--color-gray-400);
+  }
+}
+
+.stageOption:has(.checkbox:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-surface-hover);
+}
+
+.stageOption[data-disabled='true'] {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+}
+
+.checkbox:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.checkbox:disabled {
+  cursor: not-allowed;
+}
+
+/* === Banners ============================================================ */
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+.bannerError {
+  background: var(--badge-late-bg);
+  color: var(--badge-late-fg);
+  border: 1px solid var(--color-danger);
+}
+
+.bannerSuccess {
+  background: var(--color-success-bg);
+  color: var(--badge-paid-fg);
+  border: 1px solid var(--color-success);
+}
+
+/* === Acciones ============================================================ */
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--space-11); /* 44px touch target */
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  background: var(--color-primary);
+  color: var(--color-white);
+  border: 1px solid var(--color-primary);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.btnPrimary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.btnPrimary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

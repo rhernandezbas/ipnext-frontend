@@ -90,6 +90,14 @@ export interface ManualContactInput {
 export type PreviewSegmentInput = CampaignSegment & {
   manualClientIds?: string[];
   manualContacts?: ManualContactInput[];
+  /**
+   * bulk-task-recipients (D8) — 5to dominio, PARALELO a `manualClientIds`/
+   * `manualContacts`: clientes con ≥1 tarea ABIERTA en un `Stage` mapeado
+   * (`messaging-task-stage-config`). `count` refleja la unión de las 4
+   * fuentes. Se OMITE cuando está vacío (cero cambio en los payloads que no
+   * usan el tab "Tarea").
+   */
+  taskStageIds?: string[];
 };
 
 export interface PreviewSegmentSampleItemDto {
@@ -115,6 +123,13 @@ export interface PreviewSegmentOutput {
   };
   /** v1.1 (BE en PROD) — cuenta de clientes MATCHEADOS por status, sobre TODO el segmento (no solo el `sample` de 20). */
   statusCounts: Record<string, number>;
+  /**
+   * bulk-task-recipients (D8) — chip agregado: tareas ABIERTAS en los
+   * `taskStageIds` pedidos que NO tienen cliente vinculado (tareas de red).
+   * `0`/ausente cuando `taskStageIds` está vacío. Opcional en el DTO (el BE
+   * lo marca opcional también) — el FE lo trata como `?? 0`.
+   */
+  noCustomerCount?: number;
 }
 
 // ─── Recipients paginados del segmento (v1.1, BE en PROD) ────────────────────
@@ -127,6 +142,8 @@ export interface PreviewSegmentOutput {
 export interface SegmentRecipientsQuery extends CampaignSegment {
   manualClientIds?: string[];
   manualContacts?: ManualContactInput[];
+  /** bulk-task-recipients (D8) — ver `PreviewSegmentInput.taskStageIds`. */
+  taskStageIds?: string[];
   page?: number;
   limit?: number;
   /** `'recipients'` (default, tabla de destinatarios) | `'excluded'` (bulk-csv-recipients CSV-FE-7). */
@@ -144,8 +161,8 @@ export interface SegmentRecipientDto {
   phoneE164: string;
   /** `'no_cliente'` (sintético) para un contacto CSV crudo — ver `statusLabel` en `PreviewModal`. */
   status: string;
-  /** bulk-csv-recipients (D11) — de qué fuente vino ('segment'|'manual'|'csv'). Opcional: no todos los BE lo mandan todavía. */
-  source?: 'segment' | 'manual' | 'csv';
+  /** bulk-csv-recipients (D11) + bulk-task-recipients (D8, agrega `'task'`) — de qué fuente vino. Opcional: no todos los BE lo mandan todavía. */
+  source?: 'segment' | 'manual' | 'csv' | 'task';
 }
 
 export interface SegmentRecipientsOutput {
@@ -155,6 +172,8 @@ export interface SegmentRecipientsOutput {
   limit: number;
   skipped: PreviewSegmentOutput['skipped'];
   statusCounts: Record<string, number>;
+  /** bulk-task-recipients (D8) — ver `PreviewSegmentOutput.noCustomerCount`. */
+  noCustomerCount?: number;
 }
 
 // ─── Excluidos por persona (bulk-csv-recipients, CSV-FE-7, D7/D11) ───────────
@@ -166,7 +185,7 @@ export interface ExcludedRecipientDto {
   name: string;
   phone: string;
   reason: ExcludedRecipientReason;
-  source?: 'segment' | 'manual' | 'csv';
+  source?: 'segment' | 'manual' | 'csv' | 'task';
   /** Presente sólo si el excluido llegó a vincularse a un cliente (ej. `duplicado` de un manual ya en el segmento). */
   clientId?: string | null;
   status?: string;
@@ -180,6 +199,8 @@ export interface ExcludedRecipientsOutput {
   limit: number;
   skipped: PreviewSegmentOutput['skipped'];
   statusCounts: Record<string, number>;
+  /** bulk-task-recipients (D8) — ver `PreviewSegmentOutput.noCustomerCount`. */
+  noCustomerCount?: number;
 }
 
 // ─── Variables por-destinatario (CAMP-1/CAMP-3, design §3.3) ────────────────
@@ -227,6 +248,14 @@ export interface CreateCampaignInput {
    * cuando está vacío (cero cambio en los payloads que no usan CSV).
    */
   manualContacts?: ManualContactInput[];
+  /**
+   * bulk-task-recipients (D8) — 5to dominio de destinatarios, PARALELO a
+   * `segment`/`manualClientIds`/`manualContacts`. Cada `stageId` DEBE estar
+   * mapeado como elegible (config en Ajustes → WhatsApp) — el BE re-valida
+   * SIEMPRE (422 `TASK_STAGE_NOT_ELIGIBLE` si no, autoridad BE). Se OMITE
+   * cuando está vacío.
+   */
+  taskStageIds?: string[];
   /**
    * campaign-chatwoot-label (D6/FE.4) — `title` de la etiqueta de Chatwoot
    * elegida en el composer (pass-through puro, BE Decisión D: cero

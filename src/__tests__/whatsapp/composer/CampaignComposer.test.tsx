@@ -51,8 +51,13 @@ vi.mock('@/hooks/useCustomers', () => ({ useClientList: vi.fn() }));
 // `CampaignComposer.networkSegment.test.tsx` — acá solo se neutralizan.
 vi.mock('@/api/networkSite.api', () => ({ getNetworkSites: vi.fn() }));
 vi.mock('@/api/accessPoints.api', () => ({ listAssignableAccessPoints: vi.fn() }));
+// bulk-task-recipients (D8) — mockeado a nivel hook (default: config vacía,
+// sin interferir con los asserts existentes). Escenarios propios viven en
+// CampaignComposer.taskStages.test.tsx.
+vi.mock('@/hooks/useTaskStageConfig', () => ({ useTaskStageConfig: vi.fn(), useUpdateTaskStageConfig: vi.fn() }));
 
 import { listBulkTemplates, previewSegment, createCampaign, listSegmentRecipients, listExcludedRecipients, listChatwootLabels } from '@/api/messagingBulk.api';
+import { useTaskStageConfig } from '@/hooks/useTaskStageConfig';
 import { getNetworkSites } from '@/api/networkSite.api';
 import { listAssignableAccessPoints } from '@/api/accessPoints.api';
 import { useClientList } from '@/hooks/useCustomers';
@@ -179,6 +184,14 @@ beforeEach(() => {
   vi.mocked(listChatwootLabels).mockResolvedValue([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useClientList
   vi.mocked(useClientList).mockReturnValue({ data: { data: CLIENTS, total: 2, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false } as any);
+  // bulk-task-recipients (D8) — default neutro: config vacía, sin tocar los asserts existentes.
+  vi.mocked(useTaskStageConfig).mockReturnValue({
+    data: { stages: [] },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useTaskStageConfig
+  } as any);
 });
 
 /**
@@ -681,5 +694,98 @@ describe('CC-24: fingerprint del CSV refleja el CONTENIDO, no sólo nombre+canti
         manualContacts: [{ name: 'Ana', phone: '1199998888' }],
       }),
     );
+  });
+});
+
+describe('CC-25: crear con SÓLO estados de tarea (bulk-task-recipients, D8)', () => {
+  it('canCreate con sólo taskStageIds tildado; el body de create incluye taskStageIds y segment vacío', async () => {
+    vi.mocked(useTaskStageConfig).mockReturnValue({
+      data: {
+        stages: [
+          { stageId: 's1', stageName: 'Pendiente', stageCode: 'PEND', color: null, workflowId: 'wf1', workflowName: 'Instalaciones' },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useTaskStageConfig
+    } as any);
+    const user = userEvent.setup();
+    const onCampaignCreated = vi.fn();
+    renderComposer(onCampaignCreated);
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+    await selectTemplateAndMapVariables();
+
+    await user.click(screen.getByRole('tab', { name: /^tarea/i }));
+    await user.click(screen.getByRole('checkbox', { name: /pendiente/i }));
+
+    // El preview automático (count 42) habilita el gate — sin segmento/manual/csv.
+    // `getAllByText`: con la pestaña "Tarea" seleccionada Y algo tildado, el
+    // chip honesto del panel ("Preview actual: 42…") también renderiza "42" —
+    // dos <strong>42</strong> en el DOM (mountMode="all"), ambos legítimos.
+    await waitFor(() => expect(screen.getAllByText('42').length).toBeGreaterThan(0));
+    await user.type(screen.getByLabelText(/nombre de la campaña/i), 'Recordatorio julio');
+
+    const createButton = screen.getByRole('button', { name: /crear campaña/i });
+    await waitFor(() => expect(createButton).toBeEnabled());
+
+    await user.click(createButton);
+    const dialog = await screen.findByRole('dialog', { name: /nueva campaña/i });
+    await user.click(within(dialog).getByRole('button', { name: /confirmar y crear/i }));
+
+    await waitFor(() =>
+      expect(createCampaign).toHaveBeenCalledWith({
+        name: 'Recordatorio julio',
+        templateRef: 'HX123',
+        templateName: 'Recordatorio de pago',
+        segment: { statuses: [] },
+        variablesMap: { '1': { source: 'name', value: undefined }, '2': { source: 'balanceDue', value: undefined } },
+        taskStageIds: ['s1'],
+      }),
+    );
+    expect(onCampaignCreated).toHaveBeenCalledWith('camp-1');
+  });
+});
+
+describe('CC-26: 422 TASK_STAGE_NOT_ELIGIBLE (bulk-task-recipients, D3/TASK-2)', () => {
+  it('muestra un mensaje accionable y refetchea la config del mapeo', async () => {
+    const refetch = vi.fn();
+    vi.mocked(useTaskStageConfig).mockReturnValue({
+      data: {
+        stages: [
+          { stageId: 's1', stageName: 'Pendiente', stageCode: 'PEND', color: null, workflowId: 'wf1', workflowName: 'Instalaciones' },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      refetch,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useTaskStageConfig
+    } as any);
+    const axiosError = Object.assign(new Error('422'), {
+      isAxiosError: true,
+      response: {
+        status: 422,
+        data: { error: 'Task stage id(s) not eligible', code: 'TASK_STAGE_NOT_ELIGIBLE' },
+      },
+    });
+    vi.mocked(createCampaign).mockRejectedValue(axiosError);
+    const user = userEvent.setup();
+    renderComposer();
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /template/i })).toBeInTheDocument());
+    await selectTemplateAndMapVariables();
+    await user.click(screen.getByRole('tab', { name: /^tarea/i }));
+    await user.click(screen.getByRole('checkbox', { name: /pendiente/i }));
+    // Ver CC-25: 2 <strong>42</strong> legítimos con la pestaña Tarea activa.
+    await waitFor(() => expect(screen.getAllByText('42').length).toBeGreaterThan(0));
+    await user.type(screen.getByLabelText(/nombre de la campaña/i), 'Recordatorio julio');
+
+    const createButton = screen.getByRole('button', { name: /crear campaña/i });
+    await waitFor(() => expect(createButton).toBeEnabled());
+    await confirmCreate(user, createButton);
+
+    expect(await screen.findByText(/mapeo de estados de tarea cambió/i)).toBeInTheDocument();
+    await waitFor(() => expect(refetch).toHaveBeenCalled());
   });
 });

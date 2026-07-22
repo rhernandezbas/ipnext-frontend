@@ -63,22 +63,26 @@ export function networkFilterCount(segment: CampaignSegment): number {
 
 /**
  * hasRecipients (manual-recipients-fe, CRIT-1; extendido en bulk-csv-recipients
- * CSV-FE-5 con un 3er parámetro) — gate de "hay destinatarios" del composer,
- * que combina el segmento por estado/deuda con la LISTA MANUAL y, ahora, con
- * los contactos del CSV cargado. Una lista manual O un CSV no vacíos cuentan
- * como criterio aunque el segmento esté vacío (el BE devuelve `count` = unión
- * dedup de las 3 fuentes). Se mantiene `hasSegmentCriteria` separado porque
- * `SegmentBuilder` lo usa para SU propio hint (que habla sólo del segmento).
+ * CSV-FE-5 con un 3er parámetro; bulk-task-recipients con un 4to) — gate de
+ * "hay destinatarios" del composer, que combina el segmento por estado/deuda
+ * con la LISTA MANUAL, los contactos del CSV cargado y, ahora, el subset de
+ * `taskStageIds` tildado en el tab "Tarea". Cualquiera de las 4 fuentes no
+ * vacía cuenta como criterio aunque el segmento esté vacío (el BE devuelve
+ * `count` = unión dedup de las 4 fuentes). Se mantiene `hasSegmentCriteria`
+ * separado porque `SegmentBuilder` lo usa para SU propio hint (que habla
+ * sólo del segmento).
  *
- * `hasCsvContacts` default `false` — backcompat: cualquier caller que todavía
- * llame con 2 args (sin CSV) se comporta EXACTAMENTE igual que antes.
+ * `hasCsvContacts`/`hasTaskStageIds` default `false` — backcompat: cualquier
+ * caller que todavía llame con menos args se comporta EXACTAMENTE igual que
+ * antes.
  */
 export function hasRecipients(
   segment: CampaignSegment,
   manualClientIds: string[],
   hasCsvContacts: boolean = false,
+  hasTaskStageIds: boolean = false,
 ): boolean {
-  return hasSegmentCriteria(segment) || manualClientIds.length > 0 || hasCsvContacts;
+  return hasSegmentCriteria(segment) || manualClientIds.length > 0 || hasCsvContacts || hasTaskStageIds;
 }
 
 /**

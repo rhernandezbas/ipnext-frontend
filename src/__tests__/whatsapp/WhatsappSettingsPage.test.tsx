@@ -52,6 +52,12 @@ vi.mock('@/pages/whatsapp/settings/MessagingLabelsBody', () => ({
 vi.mock('@/components/settings/NocBroadcastCard', () => ({
   NocBroadcastCard: () => <div>tarjeta difusión noc</div>,
 }));
+// bulk-task-recipients (D8, Parte A) — la card tiene su propio test (mockea
+// useWorkflows/useTaskStageConfig/useUpdateTaskStageConfig). Acá solo importa
+// el WIRING/gating de la sección (gate messaging.read), así que se stubbea.
+vi.mock('@/components/settings/TaskStageConfigCard', () => ({
+  TaskStageConfigCard: () => <div>tarjeta mapeo estados de tarea</div>,
+}));
 
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
 import { useMyPermissions, useCan } from '@/hooks/useMyPermissions';
@@ -190,5 +196,20 @@ describe('WhatsappSettingsPage', () => {
     renderPage();
     expect(screen.queryByRole('heading', { name: /difusión noc/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/tarjeta difusión noc/i)).not.toBeInTheDocument();
+  });
+
+  // ── bulk-task-recipients (D8, Parte A): mapeo de estados de tarea — gate messaging.read ─
+  it('Destinatarios por estado de tarea — con messaging.read, monta la sección y la card', () => {
+    setupHooks(['messaging.read']);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /destinatarios por estado de tarea/i })).toBeInTheDocument();
+    expect(screen.getByText(/tarjeta mapeo estados de tarea/i)).toBeInTheDocument();
+  });
+
+  it('Destinatarios por estado de tarea — sin messaging.read, fallback en vez de la card', () => {
+    setupHooks([]);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /destinatarios por estado de tarea/i })).toBeInTheDocument();
+    expect(screen.queryByText(/tarjeta mapeo estados de tarea/i)).not.toBeInTheDocument();
   });
 });

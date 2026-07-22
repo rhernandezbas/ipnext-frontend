@@ -241,6 +241,32 @@ export function bulkRecipientsErrorMessage(err: BulkRecipientsNotPermittedError)
     : err.message;
 }
 
+/**
+ * bulk-task-recipients (D3, TASK-2) — DTO de error expuesto por el hook
+ * cuando algún `taskStageIds` elegido dejó de estar mapeado ENTRE que el
+ * operador armó la campaña y el click de "Crear" (el BE es la autoridad — el
+ * composer solo ofrece stages mapeados, pero el mapeo puede cambiar en vivo,
+ * otro admin editándolo en Ajustes → WhatsApp). El caller (`CampaignComposer`)
+ * refetchea la config al ver este error para que el tab "Tarea" refleje el
+ * mapeo REAL antes de que el operador reintente.
+ */
+export interface TaskStageNotEligibleError {
+  code: 'TASK_STAGE_NOT_ELIGIBLE';
+  message: string;
+}
+
+/** Detecta el 422 TASK_STAGE_NOT_ELIGIBLE — mismo criterio que los demás detectores. */
+function toTaskStageNotEligibleError(error: unknown): TaskStageNotEligibleError | null {
+  if (!axios.isAxiosError(error) || error.response?.status !== 422) return null;
+  const body = error.response.data as { code?: string } | undefined;
+  if (body?.code !== 'TASK_STAGE_NOT_ELIGIBLE') return null;
+  return {
+    code: 'TASK_STAGE_NOT_ELIGIBLE',
+    message:
+      'El mapeo de estados de tarea cambió mientras armabas la campaña. Revisá la selección en la pestaña "Tarea" y volvé a intentar.',
+  };
+}
+
 /** Mensajes claros para los códigos de error del BE al crear (contrato CAMPAIGN spec). */
 const CREATE_ERROR_MESSAGES: Record<string, string> = {
   EMPTY_SEGMENT: 'El segmento no tiene destinatarios. Ajustá los filtros y volvé a intentar.',
@@ -260,7 +286,7 @@ const CREATE_ERROR_MESSAGES: Record<string, string> = {
 function toCreateServerError(error: unknown): string | null {
   if (!error) return null;
   if (axios.isAxiosError(error)) {
-    const body = error.response?.data as { code?: string } | undefined;
+    const body = error.response?.data as { code?: string; error?: string } | undefined;
     // Ambos 422 con dato estructurado se manejan aparte (resaltan filas/chips),
     // no como un texto genérico: MISSING_TEMPLATE_VARIABLES (`missingVariablesError`)
     // y MANUAL_RECIPIENTS_NOT_FOUND (`missingRecipientsError`, ERR-1).
@@ -275,6 +301,19 @@ function toCreateServerError(error: unknown): string | null {
     // el texto genérico de abajo.
     if (error.response?.status === 403 && body?.code === 'BULK_RECIPIENTS_NOT_PERMITTED') {
       return null;
+    }
+    // bulk-task-recipients — TASK_STAGE_NOT_ELIGIBLE se maneja aparte
+    // (`taskStageNotEligibleError`, dispara un refetch de la config) — no como
+    // el texto genérico de abajo.
+    if (error.response?.status === 422 && body?.code === 'TASK_STAGE_NOT_ELIGIBLE') {
+      return null;
+    }
+    // bulk-task-recipients (D3) — TOO_MANY_TASK_STATE_RECIPIENTS: el mensaje
+    // del BE YA es accionable y lleva los números REALES (`received`/`max`,
+    // ver `TooManyTaskStateRecipientsError`) — se muestra tal cual en vez de
+    // un texto estático que no podría reproducir esos números.
+    if (error.response?.status === 422 && body?.code === 'TOO_MANY_TASK_STATE_RECIPIENTS' && body.error) {
+      return body.error;
     }
     if (body?.code && CREATE_ERROR_MESSAGES[body.code]) return CREATE_ERROR_MESSAGES[body.code];
   }
@@ -313,6 +352,9 @@ export function useCreateCampaign() {
     missingVariablesError: toMissingVariablesError(mutation.error),
     missingRecipientsError: toManualRecipientsNotFoundError(mutation.error),
     bulkRecipientsError: toBulkRecipientsNotPermittedError(mutation.error),
+    // bulk-task-recipients (D3) — el composer usa esto para refetchear la
+    // config del mapeo (`useTaskStageConfig`) y mostrar el mensaje accionable.
+    taskStageNotEligibleError: toTaskStageNotEligibleError(mutation.error),
     serverError: toCreateServerError(mutation.error),
   };
 }

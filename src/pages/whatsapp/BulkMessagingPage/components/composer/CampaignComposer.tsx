@@ -13,6 +13,7 @@ import {
 } from '@/hooks/useBulkMessaging';
 import { useNetworkSites } from '@/hooks/useNetworkSites';
 import { useAssignableAccessPoints } from '@/hooks/useAccessPoints';
+import { useTaskStageConfig } from '@/hooks/useTaskStageConfig';
 import type { CampaignSegment, CampaignVariableSpec, TemplateSummaryDto } from '@/types/messagingBulk';
 import { TemplateSelector } from './TemplateSelector';
 import { ChatwootLabelSelector } from './ChatwootLabelSelector';
@@ -20,6 +21,7 @@ import { ChatwootCreateLabelModal } from './ChatwootCreateLabelModal';
 import { VariablesMapForm } from './VariablesMapForm';
 import { SegmentBuilder } from './SegmentBuilder';
 import { NetworkFilterPanel } from './NetworkFilterPanel';
+import { TaskStagesTabPanel } from './TaskStagesTabPanel';
 import { SegmentPreviewPanel } from './SegmentPreviewPanel';
 import { PreviewModal } from './PreviewModal';
 import { CreateCampaignConfirmModal } from './CreateCampaignConfirmModal';
@@ -53,7 +55,12 @@ const NAME_INPUT_ID = 'bulk-campaign-name';
  * `networkSiteId`/`accessPointId` siguen DENTRO de `segment` (AND con
  * estados/deuda, payload idéntico).
  */
-type RecipientsTabId = 'segment' | 'network' | 'manual' | 'csv' | 'numbers';
+// bulk-task-recipients (D8) — 6to tab "Tarea" AGREGADO AL FINAL (molde D10 del
+// design BE: append, nunca insertar en medio): clientes con ≥1 tarea abierta
+// en un `Stage` mapeado (Ajustes → WhatsApp, `TaskStageConfigCard`).
+// `taskStageIds` es un 4to origen PARALELO a segmento/manual/csv-números —
+// mismo criterio "se OMITE del payload cuando está vacío".
+type RecipientsTabId = 'segment' | 'network' | 'manual' | 'csv' | 'numbers' | 'task';
 
 /**
  * CampaignComposer (F2 apply chunk 2; wiring del `PreviewModal` en
@@ -109,7 +116,21 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
     isError: isPreviewError,
     reset: resetPreview,
   } = usePreviewSegment();
-  const { createAsync, isPending: isCreating, missingVariablesError, missingRecipientsError, bulkRecipientsError, serverError: createServerError } = useCreateCampaign();
+  const {
+    createAsync,
+    isPending: isCreating,
+    missingVariablesError,
+    missingRecipientsError,
+    bulkRecipientsError,
+    taskStageNotEligibleError,
+    serverError: createServerError,
+  } = useCreateCampaign();
+  // bulk-task-recipients (D8) — mapeo actual (gate: el MISMO que los otros
+  // tabs de destinatarios, sin gate propio — la ruta ya exige `messaging.bulk`;
+  // el fetch en sí lo autoriza el BE con `messaging.read`). Compartido por la
+  // card de Ajustes y este tab (misma query key, `useTaskStageConfig.ts`).
+  const taskStageConfigQuery = useTaskStageConfig();
+  const mappedTaskStages = taskStageConfigQuery.data?.stages ?? [];
 
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateSummaryDto | null>(null);
   const [variablesMap, setVariablesMap] = useState<CampaignVariableSpec>({});
@@ -136,6 +157,10 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
   // (molde `csvFileName`, el estado dueño es el texto; los contactos se DERIVAN
   // con `parseRecipientNumbers`). Uno por línea, opcionalmente `número, nombre`.
   const [numbersText, setNumbersText] = useState('');
+  // bulk-task-recipients (D8) — subset de stageIds tildado en el tab "Tarea"
+  // (molde `manualClientIds`: array de ids, SIN metadata FE — el chip del tab
+  // ya identifica el stage por su MappedStageDto hidratado).
+  const [taskStageIds, setTaskStageIds] = useState<string[]>([]);
   // Bump tras crear la campaña (CSV-FE-5.5) para remontar el uploader (molde
   // `resetKey` de `ManualRecipientsPicker`/`CustomerPicker`) — limpia también
   // el resumen/detalle interno del archivo, no sólo el estado del composer.
@@ -173,10 +198,15 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
     [canUseNumbers, csvContacts, numbersContacts],
   );
   // El gate combina el segmento con la lista manual (COMP-1), el CSV
-  // (bulk-csv-recipients CSV-FE-5) Y los números (bulk-granular-perms): una
-  // lista manual, un CSV o números no vacíos habilitan el preview/create
-  // aunque el segmento esté vacío.
-  const criteriaPresent = hasRecipients(segment, manualClientIds, combinedManualContacts.length > 0);
+  // (bulk-csv-recipients CSV-FE-5), los números (bulk-granular-perms) Y el
+  // subset de estados de tarea (bulk-task-recipients): cualquiera de las 4
+  // fuentes no vacía habilita el preview/create aunque el segmento esté vacío.
+  const criteriaPresent = hasRecipients(
+    segment,
+    manualClientIds,
+    combinedManualContacts.length > 0,
+    taskStageIds.length > 0,
+  );
   // Fingerprint del archivo para el dep-array del debounce (CSV-FE-5, fix M3
   // review adversarial) — sobre el CONTENIDO real de `csvContacts`
   // (`JSON.stringify`, mismo patrón robusto que
@@ -212,13 +242,15 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
     ? accessPointsCatalog?.find((a) => a.id === segment.accessPointId)?.name ?? segment.accessPointId
     : undefined;
 
-  /** Input del preview/segmento: se OMITEN `manualClientIds`/`manualContacts` cuando están vacíos (cero cambio en el payload del flujo por-segmento). */
+  /** Input del preview/segmento: se OMITEN `manualClientIds`/`manualContacts`/`taskStageIds` cuando están vacíos (cero cambio en el payload del flujo por-segmento). */
   function buildRecipientsInput() {
     return {
       ...segment,
       ...(manualClientIds.length > 0 ? { manualClientIds } : {}),
       // CSV + Números concatenados (bulk-granular-perms) — un solo array.
       ...(combinedManualContacts.length > 0 ? { manualContacts: combinedManualContacts } : {}),
+      // bulk-task-recipients (D8) — 4to origen, mismo criterio de omisión.
+      ...(taskStageIds.length > 0 ? { taskStageIds } : {}),
     };
   }
 
@@ -262,8 +294,21 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
     // F4 — si se gana/pierde el permiso de números, el scrub cambia lo que
     // viaja: re-preview para que el count no quede stale.
     canUseNumbers,
+    // bulk-task-recipients (D8) — tildar/destildar un estado de tarea
+    // re-dispara el preview (primitiva: join de ids, mismo criterio que manual).
+    taskStageIds.join(','),
     criteriaPresent,
   ]);
+
+  // bulk-task-recipients (D3, TASK-2) — 422 TASK_STAGE_NOT_ELIGIBLE: el mapeo
+  // cambió mientras el operador armaba la campaña (otro admin lo editó en
+  // Ajustes → WhatsApp). Refetchea la config para que el tab "Tarea" refleje
+  // el mapeo REAL antes de que el operador reintente (en vez de dejarlo
+  // reintentando a ciegas contra el mismo subset ya inválido).
+  useEffect(() => {
+    if (taskStageNotEligibleError) void taskStageConfigQuery.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo reacciona al error, refetch estable de TanStack
+  }, [taskStageNotEligibleError]);
 
   function handleSelectTemplate(template: TemplateSummaryDto | null) {
     setSelectedTemplate(template);
@@ -344,6 +389,8 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         // comparten `manualContacts` (dedup por teléfono en el BE). Se OMITE
         // cuando no hay ni CSV ni números.
         ...(combinedManualContacts.length > 0 ? { manualContacts: combinedManualContacts } : {}),
+        // bulk-task-recipients (D8) — 4to origen, mismo criterio de omisión.
+        ...(taskStageIds.length > 0 ? { taskStageIds } : {}),
         // campaign-chatwoot-label (D6/FE.4) — se OMITE cuando no se eligió
         // ninguna etiqueta (cero cambio en el payload de los flujos que no la
         // usan), mismo criterio que `manualClientIds`/`manualContacts`.
@@ -360,6 +407,7 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
       setCsvFileName(null);
       setCsvResetKey((k) => k + 1);
       setNumbersText('');
+      setTaskStageIds([]);
       setCampaignName('');
       setChatwootLabel(null);
       resetPreview();
@@ -430,6 +478,12 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
       </span>
     );
   }
+
+  // bulk-task-recipients (D8) — config REALMENTE vacía (ya resuelta, sin
+  // stages mapeados) — durante loading/error el tab NO se marca "vacío" (el
+  // panel ya distingue esas 2 ramas de la de config vacía).
+  const taskStagesConfigEmpty =
+    !taskStageConfigQuery.isLoading && !taskStageConfigQuery.isError && mappedTaskStages.length === 0;
 
   const recipientTabs = [
     {
@@ -505,6 +559,33 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
             </p>
           )}
         </div>
+      ),
+    },
+    {
+      // bulk-task-recipients (D8) — 6to tab "Tarea", AGREGADO AL FINAL (D10).
+      // Config vacía (sin NINGÚN stage mapeado) → el label lleva un hint
+      // visual (mismo criterio que "Números" con 🔒, acá ⚙ porque no es un
+      // permiso sino data ausente) y el panel muestra el hint accionable en
+      // vez de checkboxes — no hay nada que "tildar" hasta que un admin
+      // mapee ≥1 stage en Ajustes → WhatsApp.
+      id: 'task',
+      label: taskStagesConfigEmpty ? (
+        <span className={styles.tabLabel} title="Configurá estados de tarea en Ajustes → WhatsApp">
+          Tarea <span aria-hidden="true">⚙</span>
+        </span>
+      ) : (
+        tabLabel('Tarea', taskStageIds.length)
+      ),
+      content: (
+        <TaskStagesTabPanel
+          mappedStages={mappedTaskStages}
+          isLoading={taskStageConfigQuery.isLoading}
+          isError={taskStageConfigQuery.isError}
+          value={taskStageIds}
+          onChange={setTaskStageIds}
+          previewCount={previewData?.count}
+          noCustomerCount={previewData?.noCustomerCount}
+        />
       ),
     },
   ];
@@ -612,6 +693,15 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
           </p>
         )}
 
+        {/* bulk-task-recipients (D3, TASK-2) — 422 TASK_STAGE_NOT_ELIGIBLE: el
+            mapeo cambió mientras armabas la campaña. La config ya se
+            refetcheó (efecto de arriba) — el mensaje guía a revisar el tab. */}
+        {taskStageNotEligibleError && (
+          <p className={styles.serverError} role="alert" aria-live="polite">
+            {taskStageNotEligibleError.message}
+          </p>
+        )}
+
         {/* FIX-3b — errores de creación que NO son el 422 MISSING (EMPTY_SEGMENT,
             UNFILTERED_SEGMENT, TEMPLATE_NOT_APPROVED, red/500) ya no caen silenciosos. */}
         {createServerError && missingVariables.length === 0 && (
@@ -671,6 +761,10 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
         // el segmento con un aviso.
         manualClientIds={manualClientIds}
         manualContacts={combinedManualContacts}
+        // bulk-task-recipients (D8) — 4to origen: el modal pide la MISMA
+        // unión completa que ve el preview automático (`/segment/recipients`
+        // es el mismo endpoint que resuelve `taskStageIds`).
+        taskStageIds={taskStageIds}
       />
 
       {/* #5 — doble-confirmación con resumen de impacto. Todo el contenido sale

@@ -32,8 +32,11 @@ vi.mock('@/hooks/useMyPermissions');
 vi.mock('@/hooks/useCustomers', () => ({ useClientList: vi.fn() }));
 vi.mock('@/api/networkSite.api', () => ({ getNetworkSites: vi.fn() }));
 vi.mock('@/api/accessPoints.api', () => ({ listAssignableAccessPoints: vi.fn() }));
+// bulk-task-recipients (D8) — mockeado a nivel hook (default: config vacía).
+vi.mock('@/hooks/useTaskStageConfig', () => ({ useTaskStageConfig: vi.fn(), useUpdateTaskStageConfig: vi.fn() }));
 
 import { listBulkTemplates, previewSegment, createCampaign, listSegmentRecipients, listExcludedRecipients, listChatwootLabels } from '@/api/messagingBulk.api';
+import { useTaskStageConfig } from '@/hooks/useTaskStageConfig';
 import { getNetworkSites } from '@/api/networkSite.api';
 import { listAssignableAccessPoints } from '@/api/accessPoints.api';
 import { useClientList } from '@/hooks/useCustomers';
@@ -125,6 +128,14 @@ beforeEach(() => {
   vi.mocked(listAssignableAccessPoints).mockResolvedValue([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useClientList
   vi.mocked(useClientList).mockReturnValue({ data: { data: CLIENTS, total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false } as any);
+  // bulk-task-recipients (D8) — default neutro: config vacía.
+  vi.mocked(useTaskStageConfig).mockReturnValue({
+    data: { stages: [] },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useTaskStageConfig
+  } as any);
 });
 
 describe('BP-1: el tab "Números" aparece', () => {

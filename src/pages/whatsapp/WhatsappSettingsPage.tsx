@@ -2,6 +2,7 @@ import { Can } from '@/components/auth/Can';
 import { ChatMediaDownloadCard } from '@/components/settings/ChatMediaDownloadCard';
 import { ChatwootSendPathCard } from '@/components/settings/ChatwootSendPathCard';
 import { NocBroadcastCard } from '@/components/settings/NocBroadcastCard';
+import { TaskStageConfigCard } from '@/components/settings/TaskStageConfigCard';
 import { CannedResponsesSection } from '@/components/settings/cannedResponses/CannedResponsesSection';
 import { MessagingLabelsBody } from './settings/MessagingLabelsBody';
 import styles from './WhatsappSettingsPage.module.css';
@@ -95,6 +96,22 @@ export default function WhatsappSettingsPage() {
           <NocBroadcastCard />
         </section>
       </Can>
+
+      {/* bulk-task-recipients (D8, Parte A) — mapeo Stage→elegible-como-
+          destinatario del criterio "Tarea" del bulk WhatsApp. Card visible
+          con `messaging.read` (la LEE también el tab "Tarea" del composer);
+          el PUT adentro está gateado a `messaging.manage` (mismo par
+          "supervisor" que noc-broadcast/canned-responses). */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionHeading}>Destinatarios por estado de tarea</h2>
+        <p className={styles.sectionDescription}>
+          Elegí qué estados de tarea (agrupados por workflow de Scheduling) hacen que un cliente sea destinatario
+          del criterio &quot;Tarea&quot; al armar un envío masivo.
+        </p>
+        <Can permission="messaging.read" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
+          <TaskStageConfigCard />
+        </Can>
+      </section>
     </div>
   );
 }

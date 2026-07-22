@@ -46,6 +46,9 @@ vi.mock('@/hooks/useMyPermissions');
 vi.mock('@/hooks/useCustomers', () => ({ useClientList: vi.fn() }));
 vi.mock('@/api/networkSite.api', () => ({ getNetworkSites: vi.fn() }));
 vi.mock('@/api/accessPoints.api', () => ({ listAssignableAccessPoints: vi.fn() }));
+// bulk-task-recipients (D8) — mockeado a nivel hook: describe propio más
+// abajo (TASK-1..TASK-4) sobreescribe con catálogos concretos.
+vi.mock('@/hooks/useTaskStageConfig', () => ({ useTaskStageConfig: vi.fn(), useUpdateTaskStageConfig: vi.fn() }));
 
 import { listBulkTemplates, previewSegment, createCampaign, listSegmentRecipients, listExcludedRecipients, listChatwootLabels } from '@/api/messagingBulk.api';
 import { getNetworkSites } from '@/api/networkSite.api';
@@ -53,10 +56,12 @@ import { listAssignableAccessPoints } from '@/api/accessPoints.api';
 import { useClientList } from '@/hooks/useCustomers';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
+import { useTaskStageConfig } from '@/hooks/useTaskStageConfig';
 import { CampaignComposer } from '@/pages/whatsapp/BulkMessagingPage/components/composer/CampaignComposer';
 import type { PreviewSegmentOutput, TemplateSummaryDto } from '@/types/messagingBulk';
 import type { NetworkSite } from '@/types/networkSite';
 import type { AccessPointOption } from '@/types/accessPoint';
+import type { MappedStageDto } from '@/types/taskStageConfig';
 
 const TEMPLATE: TemplateSummaryDto = {
   contentSid: 'HX123',
@@ -106,6 +111,11 @@ const APS: AccessPointOption[] = [
   { id: 'ap-1', name: 'AP Centro Torre', mac: 'AA:BB:CC:DD:EE:01', networkSiteId: 'site-1' },
 ];
 
+// bulk-task-recipients (D8) — catálogo mapeado fixture (2 stages, 1 workflow).
+const MAPPED_STAGES: MappedStageDto[] = [
+  { stageId: 's1', stageName: 'Pendiente', stageCode: 'PEND', color: '#111111', workflowId: 'wf1', workflowName: 'Instalaciones' },
+];
+
 function renderComposer() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => (
@@ -144,6 +154,16 @@ beforeEach(() => {
   );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useClientList
   vi.mocked(useClientList).mockReturnValue({ data: { data: CLIENTS, total: 1, page: 1, pageSize: 20, totalPages: 1 }, isFetching: false } as any);
+  // bulk-task-recipients (D8) — default: mapeo YA cargado con 1 stage (los
+  // tests TAB-1..TAB-4 preexistentes no dependen de "Tarea"; el describe
+  // propio TASK-1..TASK-4 sobreescribe cuando necesita otro catálogo).
+  vi.mocked(useTaskStageConfig).mockReturnValue({
+    data: { stages: MAPPED_STAGES },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useTaskStageConfig
+  } as any);
 });
 
 describe('TAB-1: la card Destinatarios consolida los orígenes en tabs', () => {
@@ -156,15 +176,17 @@ describe('TAB-1: la card Destinatarios consolida los orígenes en tabs', () => {
     expect(screen.getByRole('tab', { name: /manuales/i })).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByRole('tab', { name: /csv/i })).toHaveAttribute('aria-selected', 'false');
 
-    // Orden: Segmento | Nodo/AP | Manuales | CSV | Números (bulk-granular-perms
-    // agregó el tab "Números" al final).
+    // Orden: Segmento | Nodo/AP | Manuales | CSV | Números | Tarea
+    // (bulk-granular-perms agregó "Números"; bulk-task-recipients agrega
+    // "Tarea" AL FINAL, D10 — append, nunca insertar en medio).
     const tabTexts = screen.getAllByRole('tab').map((t) => t.textContent ?? '');
-    expect(tabTexts).toHaveLength(5);
+    expect(tabTexts).toHaveLength(6);
     expect(tabTexts[0]).toMatch(/segmento/i);
     expect(tabTexts[1]).toMatch(/nodo\/ap/i);
     expect(tabTexts[2]).toMatch(/manuales/i);
     expect(tabTexts[3]).toMatch(/csv/i);
     expect(tabTexts[4]).toMatch(/números/i);
+    expect(tabTexts[5]).toMatch(/tarea/i);
 
     // El panel activo (Segmento) expone sus controles en el árbol de accesibilidad;
     // los paneles ocultos quedan fuera (display: none — getByRole los excluye).
@@ -357,5 +379,68 @@ describe('TAB-4: microcopy de la unión — se VE sin abrir cada tab', () => {
     renderComposer();
 
     expect(await screen.findByText(/se combinan en un único envío/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * TASK-1..TASK-4 — 6to tab "Tarea" (bulk-task-recipients FE, D8). Molde de
+ * mock: `useTaskStageConfig` a nivel hook (mismo criterio que `useMyPermissions`).
+ */
+describe('TASK-1: el tab "Tarea" muestra los estados MAPEADOS', () => {
+  it('con mapeo cargado, lista un checkbox por stage y permite tildarlo', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    await user.click(await screen.findByRole('tab', { name: /^tarea/i }));
+    const checkbox = screen.getByRole('checkbox', { name: /pendiente/i });
+    expect(checkbox).not.toBeChecked();
+
+    await user.click(checkbox);
+    expect(checkbox).toBeChecked();
+  });
+});
+
+describe('TASK-2: config vacía → tab con hint, sin checklist', () => {
+  it('sin NINGÚN stage mapeado, el panel muestra el hint accionable (no checkboxes)', async () => {
+    vi.mocked(useTaskStageConfig).mockReturnValue({
+      data: { stages: [] },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- retorno mínimo de useTaskStageConfig
+    } as any);
+    const user = userEvent.setup();
+    renderComposer();
+
+    await user.click(await screen.findByRole('tab', { name: /^tarea/i }));
+    expect(screen.getByText(/configur[aá].*ajustes.*whatsapp/i)).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /pendiente/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('TASK-3: tildar un estado de tarea viaja en el payload del preview', () => {
+  it('con SOLO un estado tildado (sin segmento/manual/csv), previewSegment recibe taskStageIds', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    await user.click(await screen.findByRole('tab', { name: /^tarea/i }));
+    await user.click(screen.getByRole('checkbox', { name: /pendiente/i }));
+
+    await waitFor(() =>
+      expect(previewSegment).toHaveBeenCalledWith({ statuses: [], taskStageIds: ['s1'] }),
+    );
+  });
+});
+
+describe('TASK-4: sin selección, el payload NO incluye taskStageIds (no-regresión)', () => {
+  it('tildar y destildar deja el payload IDÉNTICO al de antes de este change', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    await user.click(await screen.findByRole('checkbox', { name: /atrasado/i }));
+    await waitFor(() => expect(previewSegment).toHaveBeenCalledWith({ statuses: ['late'] }));
+
+    const payload = vi.mocked(previewSegment).mock.calls[vi.mocked(previewSegment).mock.calls.length - 1][0];
+    expect(payload).not.toHaveProperty('taskStageIds');
   });
 });
