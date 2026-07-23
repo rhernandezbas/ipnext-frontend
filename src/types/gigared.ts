@@ -184,7 +184,8 @@ export interface TvActivationEvent {
   clientId: string;
   customerName?: string;
   cic?: string;
-  eventType: 'alta' | 'baja' | 'reactivacion';
+  /** service-transfer D7 (BE en prod) — 'transferencia' se agrega para el Historial TV global. */
+  eventType: 'alta' | 'baja' | 'reactivacion' | 'transferencia';
   actorId: string;
   actorName: string;
   internalId?: string | null;
@@ -221,10 +222,24 @@ export interface CancelStatusResult {
   startedAt?: string;
 }
 
-/** #65 fix wave M7 — register response: the account + whether the credentials reached the slot. */
+/**
+ * #65 fix wave M7 — register response: the account + whether the credentials reached the slot.
+ *
+ * gigared-tv-identity-hardening (D3/D6, BE en prod) — el register ahora puede ser PARCIAL: el
+ * partner acepta la cuenta pero el reconcile local falla (207, `localReconciled:'failed'`). El FE
+ * NO necesita leer el HTTP status: el body ya trae el campo (mismo patrón que `LinkCicResult.local`
+ * / `AddTvServiceResult.local`). `recovered` es observability-only (probe/D2 detectó una cuenta
+ * MÍA ya estampada y saltó el write al partner) — NO gatea ningún banner por sí solo.
+ */
 export interface RegisterAccountResult {
   account: GigaredAccount;
   credentialsPersisted: boolean;
+  /** D3 — true por construcción (si el write al partner falla de verdad, el POST rechaza). */
+  partnerCreated?: boolean;
+  /** D3 — el ÚNICO gatillo del 207: 'failed' → banner ámbar + reintentar (idempotente, D2). */
+  localReconciled?: 'synced' | 'failed';
+  /** D2 — true cuando el probe encontró la identidad YA estampada y evitó re-registrar. */
+  recovered?: boolean;
 }
 
 export interface AddTvServicePayload {

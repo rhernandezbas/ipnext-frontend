@@ -42,10 +42,27 @@ const DIALOG_TITLE_ID = 'activation-history-modal-title';
 
 // ── Event type badge ──────────────────────────────────────────────────────────
 
+/**
+ * FE-4 (gigared-tv-identity-hardening, D7) — the fallback used to be an implicit
+ * "everything that is not alta/baja is reactivacion", which silently mislabeled the
+ * new 'transferencia' eventType as "Reactivación" (bug caught in the plan review).
+ * The switch below gives every KNOWN type its own branch, and the `default` renders
+ * the raw value in a neutral badge instead of guessing — a future eventType the FE
+ * has not learned about yet shows up honestly, never as a wrong label.
+ */
 function EventTypeBadge({ type }: { type: TvActivationEvent['eventType'] }) {
-  if (type === 'alta') return <span className={styles.badgeAlta}>Alta</span>;
-  if (type === 'baja') return <span className={styles.badgeBaja}>Baja</span>;
-  return <span className={styles.badgeReactivacion}>Reactivación</span>;
+  switch (type) {
+    case 'alta':
+      return <span className={styles.badgeAlta}>Alta</span>;
+    case 'baja':
+      return <span className={styles.badgeBaja}>Baja</span>;
+    case 'reactivacion':
+      return <span className={styles.badgeReactivacion}>Reactivación</span>;
+    case 'transferencia':
+      return <span className={styles.badgeTransferencia}>Transferencia</span>;
+    default:
+      return <span className={styles.badgeUnknown}>{type}</span>;
+  }
 }
 
 // ── Columns ───────────────────────────────────────────────────────────────────

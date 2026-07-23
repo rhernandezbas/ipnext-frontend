@@ -620,9 +620,18 @@ function UnlinkedView({
     email: ficticioEmail,
   });
   const [registerError, setRegisterError] = useState<string | null>(null);
+  // gigared-tv-identity-hardening FE-1/2 — el CODE crudo del último error de
+  // register (cuando aplica), usado SOLO para decidir qué acción mostrar dentro
+  // del banner (retry / CTA vincular). El texto de registerError es la fuente de
+  // verdad para lo que se MUESTRA; este código nunca se compara por texto.
+  const [registerErrorCode, setRegisterErrorCode] = useState<string | null>(null);
   // #109 — modal cuando el pool de CICs está agotado (NO_CIC_AVAILABLE).
   const [noCicModalOpen, setNoCicModalOpen] = useState(false);
   const [registerOk, setRegisterOk] = useState(false);
+  // FE-3 — 207 (partnerCreated:true, localReconciled:'failed'): la cuenta se creó en
+  // Gigared pero el reconcile local falló. Mismo patrón visual que linkSyncNotice —
+  // banner ámbar + Reintentar, que re-postea el MISMO payload (idempotente, B2).
+  const [registerSyncNotice, setRegisterSyncNotice] = useState(false);
   // #65 fix wave M7 — true cuando el alta funcionó pero las credenciales NO quedaron guardadas
   // en el slot TV (best-effort). Mostramos un warning sutil para que el operador las anote.
   const [registerCredsWarning, setRegisterCredsWarning] = useState(false);
@@ -677,11 +686,15 @@ function UnlinkedView({
     await doLink(cic);
   }
 
-  async function handleRegister(e: React.FormEvent) {
-    e.preventDefault();
-    if (register.isPending) return;
+  // gigared-tv-identity-hardening (FE-1/2/3) — extraído a `doRegister` para que el
+  // submit del form y el botón "Reintentar" (207 / 503) posteen EXACTAMENTE el mismo
+  // payload (mismo patrón que doLink/doAdd/doRemove — retry = re-invocación idéntica,
+  // idempotente por el recovery del BE, D2).
+  async function doRegister() {
     setRegisterError(null);
+    setRegisterErrorCode(null);
     setRegisterOk(false);
+    setRegisterSyncNotice(false);
     setRegisterCredsWarning(false);
     try {
       // #70 rework — el payload del register NO manda password: la genera el backend
@@ -689,15 +702,23 @@ function UnlinkedView({
       // #65 — contractId carries the owner contract so the BE impacts login + password
       // on the local TV slot (la clave generada queda en "Credenciales").
       // #109 — cic ya NO se manda: el BE asigna uno aleatorio del pool.
+      // FE-5 — firstName/lastName viajan igual (el BE los ignora, D1/B8: deriva del
+      // customer resuelto server-side), así que el payload no cambia de forma.
       const result = await register.mutateAsync({
         ...form,
         sendActivationEmail,
         contractId: effectiveContractId,
       });
-      // Drop the local form state after submit — never keep PII around.
-      setForm({ firstName: '', lastName: '', email: '' });
-      setSendActivationEmail(false);
-      setRegisterOk(true);
+      // FE-3 (D3) — el ÚNICO gatillo del 207 es localReconciled==='failed'. Con eso
+      // activo NO limpiamos el form: el retry debe re-postear el MISMO payload.
+      const partial = result?.localReconciled === 'failed';
+      setRegisterSyncNotice(partial);
+      if (!partial) {
+        // Drop the local form state after a FULL success — never keep PII around.
+        setForm({ firstName: '', lastName: '', email: '' });
+        setSendActivationEmail(false);
+        setRegisterOk(true);
+      }
       // M7 — the account exists, but flag if the credentials did not make it to the slot.
       setRegisterCredsWarning(!result?.credentialsPersisted);
     } catch (err) {
@@ -711,6 +732,28 @@ function UnlinkedView({
         setNoCicModalOpen(true);
         return;
       }
+      setRegisterErrorCode(c);
+      // FE-1a (422, D6) — condición de DATOS, no transitoria: no hay botón de
+      // reintentar (reintentar en loop no ayuda hasta limpiar el pool a mano).
+      if (c === 'TV_POOL_POISONED') {
+        setRegisterError(
+          'No hay CICs limpios en el pool de Gigared; hace falta limpiar el pool antes de dar altas.',
+        );
+        return;
+      }
+      // FE-1b (503, D6) — el readback post-stamp no confirmó la identidad: es
+      // transitorio, el retry se auto-completa vía el recovery del BE (D2).
+      if (c === 'TV_IDENTITY_UNVERIFIED') {
+        setRegisterError('No se pudo verificar la identidad en Gigared. Reintentá.');
+        return;
+      }
+      // FE-2 (409, D6) — el email determinístico ya está bindeado a OTRA cuenta.
+      // El error NO trae `cic` (solo email/ownedByInternalId): el operador completa
+      // el CIC a mano en el flujo de vincular ya existente (limitación documentada).
+      if (c === 'TV_EMAIL_OWNED_BY_OTHER') {
+        setRegisterError('Ya existe una cuenta de TV con este email, vinculada a otro cliente.');
+        return;
+      }
       // #47g-3 — surface the partner `detail` whenever it comes (422 reject OR
       // 502/503 upstream), with a generic fallback when it does not.
       setRegisterError(
@@ -721,6 +764,20 @@ function UnlinkedView({
             : 'No se pudo registrar la cuenta. Reintentá.',
       );
     }
+  }
+
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault();
+    if (register.isPending) return;
+    await doRegister();
+  }
+
+  // FE-1b/FE-3 — reintentar re-postea el MISMO payload (form intacto: no se limpia
+  // en 207 ni en error). Idempotente: el BE detecta la identidad ya estampada
+  // (probe/D2) y no vuelve a registrar ni a consumir un CIC del pool.
+  async function handleRetryRegister() {
+    if (register.isPending) return;
+    await doRegister();
   }
 
   return (
@@ -855,13 +912,18 @@ function UnlinkedView({
         {registerOpen && (
           <form className={styles.registerForm} onSubmit={handleRegister}>
             <div className={styles.formGrid}>
+              {/* FE-5 (gigared-tv-identity-hardening, D1/B8 — BE ya en prod) — el BE
+                  ES AUTORITATIVO sobre el nombre: deriva firstName/lastName del
+                  customer resuelto server-side e ignora lo que viaje en el body.
+                  Los inputs quedan readonly para que el operador nunca crea que
+                  editarlos cambia lo que el BE va a usar. */}
               <div className={styles.field}>
                 <label className={styles.fieldLabel} htmlFor="tv-reg-first">Nombre</label>
                 <input
                   id="tv-reg-first"
                   className={styles.input}
                   value={form.firstName}
-                  onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
+                  readOnly
                 />
               </div>
               <div className={styles.field}>
@@ -870,7 +932,7 @@ function UnlinkedView({
                   id="tv-reg-last"
                   className={styles.input}
                   value={form.lastName}
-                  onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+                  readOnly
                 />
               </div>
               <div className={styles.field}>
@@ -883,6 +945,9 @@ function UnlinkedView({
                   onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 />
               </div>
+              <p className={styles.emptyHint}>
+                Nombre y apellido se toman del cliente y no se pueden editar acá.
+              </p>
               {/* #109 — el CIC ya no lo elige el operador: el BE asigna uno aleatorio del pool. */}
               <p className={styles.emptyHint}>
                 El CIC se asignará de forma aleatoria.
@@ -915,7 +980,54 @@ function UnlinkedView({
               </p>
             </div>
             {registerError && (
-              <div className={`${styles.banner} ${styles.bannerError}`}><span>{registerError}</span></div>
+              <div
+                className={`${styles.banner} ${
+                  registerErrorCode === 'TV_IDENTITY_UNVERIFIED' ||
+                  registerErrorCode === 'TV_EMAIL_OWNED_BY_OTHER'
+                    ? styles.bannerWarning
+                    : styles.bannerError
+                }`}
+              >
+                <span>{registerError}</span>
+                {/* FE-1b (503 TV_IDENTITY_UNVERIFIED) — transitorio: el retry re-postea
+                    el MISMO payload y se auto-completa vía el recovery del BE (D2). */}
+                {registerErrorCode === 'TV_IDENTITY_UNVERIFIED' && (
+                  <button
+                    type="button"
+                    className={styles.btnLink}
+                    onClick={handleRetryRegister}
+                    disabled={register.isPending}
+                  >
+                    {register.isPending ? 'Reintentando…' : 'Reintentar'}
+                  </button>
+                )}
+                {/* FE-2 (409 TV_EMAIL_OWNED_BY_OTHER) — salta al flujo de vincular YA
+                    existente en este mismo modal (el error no trae cic: manual). */}
+                {registerErrorCode === 'TV_EMAIL_OWNED_BY_OTHER' && (
+                  <button
+                    type="button"
+                    className={styles.btnLink}
+                    onClick={() => setLinkManual(true)}
+                  >
+                    Vincular la cuenta existente
+                  </button>
+                )}
+              </div>
+            )}
+            {/* FE-3 (207, D3) — cuenta creada en Gigared, faltó vincular localmente.
+                Mismo patrón visual que linkSyncNotice: retry = re-submit idéntico. */}
+            {registerSyncNotice && (
+              <div className={`${styles.banner} ${styles.bannerWarning}`}>
+                <span>Cuenta creada en Gigared, faltó vincular localmente — reintentá.</span>
+                <button
+                  type="button"
+                  className={styles.btnLink}
+                  onClick={handleRetryRegister}
+                  disabled={register.isPending}
+                >
+                  {register.isPending ? 'Reintentando…' : 'Reintentar'}
+                </button>
+              </div>
             )}
             {registerOk && (
               <div className={`${styles.banner} ${styles.bannerSuccess}`}>

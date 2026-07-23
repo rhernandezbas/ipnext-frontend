@@ -219,6 +219,16 @@
   box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
 }
 
+/* FE-5 (gigared-tv-identity-hardening) — derived, non-editable fields
+   (firstName/lastName; el BE es autoritativo, D1/B8). Muted background as a
+   visible affordance — the operator sees it is not meant to be edited without
+   relying on cursor alone. */
+.input:read-only {
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+  cursor: default;
+}
+
 /* #127 — reason textarea in cancel confirm dialog */
 .textarea {
   width: 100%;

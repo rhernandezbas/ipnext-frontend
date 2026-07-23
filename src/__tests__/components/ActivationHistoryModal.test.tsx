@@ -274,4 +274,41 @@ describe('ActivationHistoryModal', () => {
     expect(screen.getByText('Motivo de la baja')).toBeInTheDocument();
     expect(screen.getByText('Baja por mudanza TV')).toBeInTheDocument();
   });
+
+  // ── FE-4 — gigared-tv-identity-hardening (D7): eventType 'transferencia' ──────
+  // Bug detectado en el plan: EventTypeBadge NO tenía rama default — un evento
+  // 'transferencia' caía en el fallback y se mostraba como "Reactivación" (mislabel).
+  describe("FE-4 — badge 'transferencia' + rama default segura", () => {
+    it("eventType='transferencia' → badge \"Transferencia\", NUNCA \"Reactivación\"", () => {
+      const withTransfer: TvActivationEvent[] = [
+        { ...events[0], eventType: 'transferencia' },
+      ];
+      mockGlobal(withTransfer);
+      renderModal();
+      expect(screen.getByText('Transferencia')).toBeInTheDocument();
+      expect(screen.queryByText('Reactivación')).not.toBeInTheDocument();
+    });
+
+    it("eventType='reactivacion' sigue mostrando \"Reactivación\" (regresión)", () => {
+      const withReactivacion: TvActivationEvent[] = [
+        { ...events[0], eventType: 'reactivacion' },
+      ];
+      mockGlobal(withReactivacion);
+      renderModal();
+      expect(screen.getByText('Reactivación')).toBeInTheDocument();
+    });
+
+    it('un eventType futuro/desconocido → rama default segura (muestra el valor crudo, NUNCA "Reactivación")', () => {
+      const withUnknown = [
+        { ...events[0], eventType: 'algo-nuevo' as unknown as TvActivationEvent['eventType'] },
+      ];
+      mockGlobal(withUnknown);
+      renderModal();
+      expect(screen.queryByText('Reactivación')).not.toBeInTheDocument();
+      expect(screen.queryByText('Alta')).not.toBeInTheDocument();
+      expect(screen.queryByText('Baja')).not.toBeInTheDocument();
+      expect(screen.queryByText('Transferencia')).not.toBeInTheDocument();
+      expect(screen.getByText('algo-nuevo')).toBeInTheDocument();
+    });
+  });
 });

@@ -156,6 +156,35 @@
   white-space: nowrap;
 }
 
+/* FE-4 (D7) — transferencia: color propio, distinto de alta/baja/reactivación.
+   Reusa el par bg/color de .bannerInfo (contraste verificado ~8:1, AA). */
+.badgeTransferencia {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  background: #eff6ff;
+  color: #1e40af;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+/* FE-4 — rama default segura: un eventType futuro no mapeado se muestra neutro
+   (nunca hereda el color/label de otro tipo). Contraste ~9.3:1, AA. */
+.badgeUnknown {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
 /* Customer name link */
 .nameLink {
   color: var(--color-accent);
