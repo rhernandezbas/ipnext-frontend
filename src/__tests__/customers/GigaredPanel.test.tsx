@@ -1140,7 +1140,19 @@ describe('GigaredPanel', () => {
       // revelando el input de CIC libre (el error no trae cic: el operador lo completa a mano).
       expect(screen.queryByLabelText(/^cic$/i)).not.toBeInTheDocument();
       await user.click(screen.getByRole('button', { name: /vincular la cuenta existente/i }));
-      expect(screen.getByLabelText(/^cic$/i)).toBeInTheDocument();
+      const cicInput = screen.getByLabelText(/^cic$/i);
+      expect(cicInput).toBeInTheDocument();
+      // F2 (fix wave) — el banner de register (con el CTA que ya cumplió su función)
+      // NO debe quedar colgado mientras el operador completa el link.
+      expect(
+        screen.queryByText(/ya existe una cuenta de tv con este email/i),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /vincular la cuenta existente/i }),
+      ).not.toBeInTheDocument();
+      // El input de CIC queda enfocado (el error no trae `cic`: nada que precargar,
+      // pero el operador no debe tener que ir a buscarlo con el mouse).
+      expect(cicInput).toHaveFocus();
     });
 
     it('otro código sin mapeo específico → sigue con el fallback genérico existente (regresión)', async () => {
@@ -1155,6 +1167,65 @@ describe('GigaredPanel', () => {
       await waitFor(() =>
         expect(screen.getByText(/no se pudo registrar la cuenta\. reintentá\./i)).toBeInTheDocument(),
       );
+    });
+
+    // F1 (fix wave adversarial) — REGRESIÓN: firstName/lastName son readonly y
+    // derivados de splitName(customer.name). Un nombre de UN SOLO token (ej. razón
+    // social, o solo apellido cargado) hace que firstName quede '' PARA SIEMPRE —
+    // el operador no puede tipear (readOnly) y el BE ni siquiera lee esos campos
+    // (los deriva server-side, D1/B8). Gatear el submit en ellos es un dead-end.
+    it('F1: customer con nombre de UN token ("García") → el botón Registrar NO queda bloqueado', async () => {
+      const user = userEvent.setup();
+      mockQuery({ account: { linked: false, account: null } });
+      renderPanel({ name: 'García', email: 'a@b.com' });
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      // splitName('García') → { lastName: 'García', firstName: '' } — firstName
+      // vacío para siempre (readonly, sin BE que lo necesite) YA NO debe bloquear.
+      expect(screen.getByLabelText(/nombre/i)).toHaveValue('');
+      expect(screen.getByLabelText(/apellido/i)).toHaveValue('García');
+      expect(screen.getByRole('button', { name: /^registrar$/i })).toBeEnabled();
+    });
+
+    // F4 (fix wave adversarial) — blindaje: mientras el register está en vuelo
+    // (sin idempotency-key hacia el partner), el submit Y cualquier botón
+    // Reintentar visible deben estar disabled — previene doble-registro por doble-click.
+    it('F4: register.isPending → submit Y Reintentar (207) quedan disabled', async () => {
+      const user = userEvent.setup();
+      registerMutate.mockResolvedValue({
+        account: linkedAccount,
+        partnerCreated: true,
+        localReconciled: 'failed',
+        credentialsPersisted: true,
+        recovered: false,
+      });
+      mockQuery({ account: { linked: false, account: null } });
+      const { rerender } = renderPanel({ name: 'García Ana', email: 'a@b.com' });
+      await user.click(screen.getByRole('button', { name: /registrar cuenta nueva/i }));
+      await user.click(screen.getByRole('button', { name: /^registrar$/i }));
+      await waitFor(() =>
+        expect(screen.getByText(/faltó vincular localmente/i)).toBeInTheDocument(),
+      );
+
+      // Ahora simulamos que un Reintentar quedó en vuelo (isPending:true). Mismo
+      // árbol/instancia (rerender preserva el estado interno — el banner sigue
+      // mostrándose — sólo cambia lo que expone el hook mockeado).
+      vi.mocked(useRegisterAccount).mockReturnValue({
+        mutateAsync: registerMutate,
+        isPending: true,
+      } as unknown as ReturnType<typeof useRegisterAccount>);
+      rerender(
+        <MemoryRouter>
+          <GigaredPanel
+            customerId="cust-1"
+            contractId="ct-9"
+            onClose={onClose}
+            customer={{ name: 'García Ana', email: 'a@b.com' }}
+          />
+        </MemoryRouter>,
+      );
+
+      expect(screen.getByRole('button', { name: /registrando…/i })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /reintentando…/i })).toBeDisabled();
     });
   });
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   useGigaredCustomerAccount,
   useGigaredSummary,
@@ -602,6 +602,16 @@ function UnlinkedView({
   // the same amber + retry pattern as the add; the retry re-posts the link.
   const [linkSyncNotice, setLinkSyncNotice] = useState(false);
 
+  // fix wave F2 — el CTA "Vincular la cuenta existente" (409 TV_EMAIL_OWNED_BY_OTHER
+  // del register) salta a este mismo input manual. El error del BE no trae `cic`
+  // (solo email/ownedByInternalId), así que no hay nada que precargar — pero el
+  // operador no debería tener que ir a buscarlo con el mouse: autofocus en CUALQUIER
+  // transición a modo manual (toggle explícito o el salto del CTA).
+  const cicInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (linkManual) cicInputRef.current?.focus();
+  }, [linkManual]);
+
   const prefill = customer ? splitName(customer.name) : { firstName: '', lastName: '' };
 
   // #65 — alta determinística. Con grContratoId (#118) prefillamos el correo FICTICIO
@@ -802,6 +812,7 @@ function UnlinkedView({
               <label className={styles.fieldLabel} htmlFor="tv-link-cic">CIC</label>
               <input
                 id="tv-link-cic"
+                ref={cicInputRef}
                 className={styles.input}
                 value={cic}
                 onChange={(e) => setCic(e.target.value)}
@@ -1002,12 +1013,19 @@ function UnlinkedView({
                   </button>
                 )}
                 {/* FE-2 (409 TV_EMAIL_OWNED_BY_OTHER) — salta al flujo de vincular YA
-                    existente en este mismo modal (el error no trae cic: manual). */}
+                    existente en este mismo modal (el error no trae cic: manual).
+                    fix wave F2 — el banner del register ya cumplió su función (el
+                    operador ya leyó el mensaje); dejarlo colgado mientras completa
+                    el link es ruido. Se limpia al saltar. */}
                 {registerErrorCode === 'TV_EMAIL_OWNED_BY_OTHER' && (
                   <button
                     type="button"
                     className={styles.btnLink}
-                    onClick={() => setLinkManual(true)}
+                    onClick={() => {
+                      setLinkManual(true);
+                      setRegisterError(null);
+                      setRegisterErrorCode(null);
+                    }}
                   >
                     Vincular la cuenta existente
                   </button>
@@ -1048,7 +1066,14 @@ function UnlinkedView({
                 <button
                   type="submit"
                   className={styles.btnPrimary}
-                  disabled={register.isPending || !form.firstName || !form.lastName || !form.email}
+                  // fix wave F1 — firstName/lastName son readonly y derivados de
+                  // splitName(customer.name); un nombre de UN token (razón social,
+                  // o solo apellido cargado) deja firstName='' PARA SIEMPRE y el
+                  // operador no puede tipear (readOnly). El BE además IGNORA estos
+                  // dos campos (los deriva server-side, D1/B8) — gatear el submit en
+                  // ellos era un dead-end. Solo lo que el BE realmente usa (email)
+                  // bloquea el submit.
+                  disabled={register.isPending || !form.email}
                 >
                   {register.isPending ? 'Registrando…' : 'Registrar'}
                 </button>

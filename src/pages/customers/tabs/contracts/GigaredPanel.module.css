@@ -222,10 +222,14 @@
 /* FE-5 (gigared-tv-identity-hardening) — derived, non-editable fields
    (firstName/lastName; el BE es autoritativo, D1/B8). Muted background as a
    visible affordance — the operator sees it is not meant to be edited without
-   relying on cursor alone. */
+   relying on cursor alone.
+   fix wave F3 — --color-text-secondary (#6c757d) sobre --color-surface-hover
+   (#f0f0f5) da ~4.13:1, por debajo del 4.5:1 AA para texto normal (readOnly NO
+   está exento del check de contraste). --color-text-primary (#212529) sobre el
+   mismo fondo da ~13.6:1 — el fondo muteado ya alcanza como affordance visual. */
 .input:read-only {
   background: var(--color-surface-hover);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   cursor: default;
 }
 
