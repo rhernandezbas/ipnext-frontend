@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getTaskStageConfig, updateTaskStageConfig } from '@/api/taskStageConfig.api';
-import type { TaskStageConfigOutput, UpdateTaskStageConfigPayload } from '@/types/taskStageConfig';
+import { getTaskStageConfig, updateTaskStageConfig, setTaskStageResultingStage } from '@/api/taskStageConfig.api';
+import type {
+  TaskStageConfigOutput,
+  UpdateTaskStageConfigPayload,
+  TaskStageTransitionConfigOutput,
+  SetResultingStagePayload,
+} from '@/types/taskStageConfig';
 
 /**
  * useTaskStageConfig (bulk-task-recipients FE, D8) — hooks del mapeo
@@ -31,6 +36,24 @@ export function useUpdateTaskStageConfig() {
     mutationFn: (payload: UpdateTaskStageConfigPayload) => updateTaskStageConfig(payload),
     onSuccess: (data: TaskStageConfigOutput) => {
       qc.setQueryData(taskStageConfigKey, data);
+      void qc.invalidateQueries({ queryKey: taskStageConfigKey });
+    },
+  });
+}
+
+/**
+ * bulk-task-stage-transition (TTC-4) — PUT del estado resultante único global. Al
+ * resolver OK, MERGEA `resultingStage` en el snapshot de cache existente (preserva
+ * `stages`) e invalida para consistencia eventual.
+ */
+export function useUpdateTaskStageResultingStage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: SetResultingStagePayload) => setTaskStageResultingStage(payload),
+    onSuccess: (data: TaskStageTransitionConfigOutput) => {
+      qc.setQueryData<TaskStageConfigOutput>(taskStageConfigKey, (prev) =>
+        prev ? { ...prev, resultingStage: data.resultingStage } : { stages: [], resultingStage: data.resultingStage },
+      );
       void qc.invalidateQueries({ queryKey: taskStageConfigKey });
     },
   });

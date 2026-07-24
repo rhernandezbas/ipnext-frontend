@@ -599,6 +599,8 @@ export function CampaignComposer({ onCampaignCreated = () => {} }: CampaignCompo
           onChange={setTaskStageIds}
           previewCount={previewData?.count}
           noCustomerCount={previewData?.noCustomerCount}
+          willTransitionCount={previewData?.taskWillTransitionCount}
+          resultingStageName={taskStageConfigQuery.data?.resultingStage?.stageName ?? null}
         />
       ),
     },

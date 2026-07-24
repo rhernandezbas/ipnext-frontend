@@ -130,6 +130,12 @@ export interface PreviewSegmentOutput {
    * lo marca opcional también) — el FE lo trata como `?? 0`.
    */
   noCustomerCount?: number;
+  /**
+   * bulk-task-stage-transition (TRANS-6) — cuántas TAREAS transicionarán de estado al
+   * enviar (recipients de tarea con un estado resultante configurado). `0`/ausente si no
+   * hay destino global o no hay dominio tarea. El FE lo muestra como hint informativo.
+   */
+  taskWillTransitionCount?: number;
 }
 
 // ─── Recipients paginados del segmento (v1.1, BE en PROD) ────────────────────

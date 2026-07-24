@@ -25,9 +25,25 @@ export interface MappedStageDto {
 /** GET y PUT `/api/messaging/config/task-stages` devuelven el mismo sobre. */
 export interface TaskStageConfigOutput {
   stages: MappedStageDto[];
+  /**
+   * bulk-task-stage-transition (TTC-4) — el ÚNICO estado resultante global al que
+   * transicionan las tareas cuando el bulk las envía (o `null` si no hay). Aditivo
+   * sobre el GET existente.
+   */
+  resultingStage?: MappedStageDto | null;
 }
 
 /** Body de PUT — replace-set (reemplaza el mapeo completo, NO suma). */
 export interface UpdateTaskStageConfigPayload {
   stageIds: string[];
+}
+
+/** bulk-task-stage-transition — respuesta de PUT `/resulting-stage`. */
+export interface TaskStageTransitionConfigOutput {
+  resultingStage: MappedStageDto | null;
+}
+
+/** bulk-task-stage-transition — body de PUT `/resulting-stage` (string o null para limpiar). */
+export interface SetResultingStagePayload {
+  stageId: string | null;
 }

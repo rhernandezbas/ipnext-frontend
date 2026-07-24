@@ -195,3 +195,20 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* bulk-task-stage-transition (FE-TRANS-1) — sección del estado resultante */
+.resultingSection {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.resultingTitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}

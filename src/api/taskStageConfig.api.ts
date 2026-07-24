@@ -1,5 +1,10 @@
 import axiosClient from './axios-client';
-import type { TaskStageConfigOutput, UpdateTaskStageConfigPayload } from '@/types/taskStageConfig';
+import type {
+  TaskStageConfigOutput,
+  UpdateTaskStageConfigPayload,
+  TaskStageTransitionConfigOutput,
+  SetResultingStagePayload,
+} from '@/types/taskStageConfig';
 
 /**
  * taskStageConfig.api (bulk-task-recipients FE, D6) — cliente del router
@@ -16,3 +21,9 @@ export const getTaskStageConfig = (): Promise<TaskStageConfigOutput> =>
 
 export const updateTaskStageConfig = (payload: UpdateTaskStageConfigPayload): Promise<TaskStageConfigOutput> =>
   axiosClient.put<TaskStageConfigOutput>(BASE, payload).then((r) => r.data);
+
+/** bulk-task-stage-transition (TTC-4) — setea/limpia el estado resultante único global. */
+export const setTaskStageResultingStage = (
+  payload: SetResultingStagePayload,
+): Promise<TaskStageTransitionConfigOutput> =>
+  axiosClient.put<TaskStageTransitionConfigOutput>(`${BASE}/resulting-stage`, payload).then((r) => r.data);

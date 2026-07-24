@@ -30,11 +30,12 @@ vi.mock('@/hooks/useWorkflows', () => ({
 vi.mock('@/hooks/useTaskStageConfig', () => ({
   useTaskStageConfig: vi.fn(),
   useUpdateTaskStageConfig: vi.fn(),
+  useUpdateTaskStageResultingStage: vi.fn(),
 }));
 vi.mock('@/hooks/useMyPermissions');
 
 import { useWorkflows } from '@/hooks/useWorkflows';
-import { useTaskStageConfig, useUpdateTaskStageConfig } from '@/hooks/useTaskStageConfig';
+import { useTaskStageConfig, useUpdateTaskStageConfig, useUpdateTaskStageResultingStage } from '@/hooks/useTaskStageConfig';
 import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { useConfirm } from '@/context/ConfirmContext';
 import type { UseMyPermissionsResult } from '@/hooks/useMyPermissions';
@@ -153,6 +154,16 @@ beforeEach(() => {
   // Default: auto-confirma (setup.ts global mock) — los tests de "cancelar"
   // sobreescriben con `.mockResolvedValue(false)`.
   vi.mocked(useConfirm).mockReturnValue(vi.fn().mockResolvedValue(true));
+  // bulk-task-stage-transition — el hook del estado resultante siempre mockeado (la card lo
+  // llama incondicionalmente); los tests que lo ejercen sobreescriben el mutate.
+  vi.mocked(useUpdateTaskStageResultingStage).mockReturnValue({
+    mutate: vi.fn(),
+    isPending: false,
+    isSuccess: false,
+    isError: false,
+    error: null,
+    reset: vi.fn(),
+  } as unknown as ReturnType<typeof useUpdateTaskStageResultingStage>);
 });
 
 describe('TaskStageConfigCard — rama: sin scheduling.read', () => {
@@ -291,5 +302,48 @@ describe('TaskStageConfigCard — sin messaging.manage', () => {
 
     expect(screen.getByRole('checkbox', { name: 'Pendiente' })).toBeDisabled();
     expect(screen.getByRole('button', { name: /guardar/i })).toBeDisabled();
+  });
+
+  // ── bulk-task-stage-transition (FE-TRANS-1/2) — estado resultante único global ──
+  it('elegir un estado resultante → confirma el impacto y hace PUT { stageId }', async () => {
+    const resultingMutate = vi.fn();
+    vi.mocked(useUpdateTaskStageResultingStage).mockReturnValue({
+      mutate: resultingMutate,
+      isPending: false,
+      isSuccess: false,
+      isError: false,
+      error: null,
+      reset: vi.fn(),
+    } as unknown as ReturnType<typeof useUpdateTaskStageResultingStage>);
+    setup({ config: baseConfig({ resultingStage: null }) });
+    const user = userEvent.setup();
+    render(<TaskStageConfigCard />);
+
+    await user.click(screen.getByRole('button', { name: /Sin transición/ }));
+    await user.click(screen.getByRole('option', { name: /En proceso/ }));
+
+    await waitFor(() => expect(resultingMutate).toHaveBeenCalledWith({ stageId: 's2' }));
+  });
+
+  it('cancelar el confirm del estado resultante → NO hace PUT', async () => {
+    vi.mocked(useConfirm).mockReturnValue(vi.fn().mockResolvedValue(false));
+    const resultingMutate = vi.fn();
+    vi.mocked(useUpdateTaskStageResultingStage).mockReturnValue({
+      mutate: resultingMutate,
+      isPending: false,
+      isSuccess: false,
+      isError: false,
+      error: null,
+      reset: vi.fn(),
+    } as unknown as ReturnType<typeof useUpdateTaskStageResultingStage>);
+    setup({ config: baseConfig({ resultingStage: null }) });
+    const user = userEvent.setup();
+    render(<TaskStageConfigCard />);
+
+    await user.click(screen.getByRole('button', { name: /Sin transición/ }));
+    await user.click(screen.getByRole('option', { name: /Abierto/ }));
+
+    await waitFor(() => expect(vi.mocked(useConfirm).mock.results[0]?.value).toBeDefined());
+    expect(resultingMutate).not.toHaveBeenCalled();
   });
 });

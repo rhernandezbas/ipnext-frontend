@@ -19,6 +19,10 @@ interface TaskStagesTabPanelProps {
   previewCount?: number;
   /** Chip honesto: tareas de red (sin cliente) en los stages tildados — `0`/ausente no se muestra. */
   noCustomerCount?: number;
+  /** bulk-task-stage-transition (TRANS-6) — cuántas tareas transicionarán de estado al enviar. */
+  willTransitionCount?: number;
+  /** bulk-task-stage-transition (TRANS-6) — nombre del estado resultante configurado (para el hint). */
+  resultingStageName?: string | null;
 }
 
 /**
@@ -42,6 +46,8 @@ export function TaskStagesTabPanel({
   onChange,
   previewCount,
   noCustomerCount,
+  willTransitionCount,
+  resultingStageName,
 }: TaskStagesTabPanelProps) {
   if (isLoading) {
     return (
@@ -130,6 +136,14 @@ export function TaskStagesTabPanel({
         <p className={styles.chip} role="status" aria-live="polite">
           {noCustomerCount} tarea{noCustomerCount === 1 ? '' : 's'} de red sin cliente excluida
           {noCustomerCount === 1 ? '' : 's'}.
+        </p>
+      )}
+
+      {/* bulk-task-stage-transition (TRANS-6) — hint honesto de la transición */}
+      {typeof willTransitionCount === 'number' && willTransitionCount > 0 && resultingStageName && (
+        <p className={styles.chip} role="status" aria-live="polite">
+          <strong>{willTransitionCount}</strong> tarea{willTransitionCount === 1 ? '' : 's'} pasará
+          {willTransitionCount === 1 ? '' : 'n'} al estado <strong>{resultingStageName}</strong> cuando el mensaje salga OK.
         </p>
       )}
     </fieldset>
