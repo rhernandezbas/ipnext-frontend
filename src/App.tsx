@@ -90,6 +90,10 @@ const ReportsPage = lazy(() => import('@/pages/reports/ReportsPage'));
 const MonitoringPage = lazy(() => import('@/pages/monitoring/MonitoringPage'));
 // Fase C (change noc-alerts-hub) — panel de alertas NOC en tiempo real (SSE), gated monitoring.read.
 const AlertsPage = lazy(() => import('@/pages/alerts/AlertsPage'));
+// change noc-alerts-config, Fase F — config del hub (flags + umbrales + auditoría), gated monitoring.read
+// a nivel ruta (cada sección adentro se autogatea con su permiso real: admin.flags / monitoring.manage /
+// admin.view_activity_log — molde NetworkingSettingsPage).
+const AlertsConfigPage = lazy(() => import('@/pages/alerts/AlertsConfigPage'));
 const NotificationsPage = lazy(() => import('@/pages/notifications/NotificationsPage'));
 // internal-news — tablón interno del equipo, gated news.read/news.manage.
 // /admin/notifications (arriba) queda intacta — target del footer de la campanita.
@@ -393,6 +397,8 @@ export function App() {
               <Route path="monitoring" element={<RequirePermission permission="monitoring.read"><MonitoringPage /></RequirePermission>} />
               {/* monitoring.read — Fase C (noc-alerts-hub): panel de alertas NOC en tiempo real (SSE) */}
               <Route path="alerts" element={<RequirePermission permission="monitoring.read"><AlertsPage /></RequirePermission>} />
+              {/* monitoring.read — change noc-alerts-config, Fase F: config del hub (flags + umbrales + auditoría) */}
+              <Route path="alerts/config" element={<RequirePermission permission="monitoring.read"><AlertsConfigPage /></RequirePermission>} />
               {/* notifications.read */}
               <Route path="notifications" element={<RequirePermission permission="notifications.read"><NotificationsPage /></RequirePermission>} />
               {/* internal-news (NEWS-FE-RT-1) — news.read tablón + news.manage categorías.

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Can } from '@/components/auth/Can';
 import { Select } from '@/components/molecules/Select/Select';
 import { ConfirmModal } from '@/components/molecules/ConfirmModal/ConfirmModal';
@@ -174,9 +175,19 @@ export default function AlertsPage() {
             {streamIndicator.label}
           </span>
         </div>
-        <button type="button" className={styles.refreshBtn} onClick={() => list.refetch()}>
-          Actualizar
-        </button>
+        <div className={styles.headerActions}>
+          {/* change `noc-alerts-config`, Fase F FE — entrada a /admin/alerts/config. Visible si
+              el usuario puede ver AL MENOS una sección de esa página (flags / umbrales /
+              auditoría) — evitar un link muerto que solo lleva a "sin permiso" en todas partes. */}
+          <Can permissions={['admin.flags', 'monitoring.manage', 'admin.view_activity_log']} mode="any">
+            <Link to="/admin/alerts/config" className={styles.configLink}>
+              Configuración
+            </Link>
+          </Can>
+          <button type="button" className={styles.refreshBtn} onClick={() => list.refetch()}>
+            Actualizar
+          </button>
+        </div>
       </div>
 
       {feedback && (

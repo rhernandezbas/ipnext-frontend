@@ -15,6 +15,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type { NocAlertDto } from '@/types/nocAlert';
 
@@ -80,7 +81,12 @@ function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <AlertsPage />
+      {/* MemoryRouter — change `noc-alerts-config` Fase F FE agrega un <Link> a
+          "/admin/alerts/config" en el header (molde: los ~12 archivos que renderizan
+          <Sidebar/> ya necesitaban esto por sus NavLink). */}
+      <MemoryRouter>
+        <AlertsPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
