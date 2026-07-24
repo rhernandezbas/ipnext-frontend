@@ -558,6 +558,20 @@ export function Sidebar({ open = true, onToggle }: SidebarProps) {
           >
             Monitoreo
           </NavLink>
+          {/* Fase C (change noc-alerts-hub) — panel de alertas NOC en tiempo real
+              (SSE). Gated monitoring.read (mismo gate que la ruta en App.tsx),
+              molde canSee de "Noticias" (isLoading || can(...) — sin layout
+              shift mientras carga /me). */}
+          {(isLoading || can('monitoring.read')) && (
+            <NavLink
+              to="/admin/alerts"
+              className={({ isActive }) =>
+                isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink
+              }
+            >
+              Alertas NOC
+            </NavLink>
+          )}
           {/* internal-news (NEWS-FE-SB-1) — reemplaza el ítem "Notificaciones":
               la ruta /admin/notifications + su page + la campanita del Navbar
               quedan intactas (target del footer de la campanita), solo cambia

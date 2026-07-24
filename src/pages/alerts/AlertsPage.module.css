@@ -1,0 +1,409 @@
+/**
+ * AlertsPage (Fase C FE, change `noc-alerts-hub`) — CSS Modules + tokens
+ * var(--color-*) (regla del workflow, NO Tailwind). Paleta/jerarquía vía
+ * skill ui-ux-pro-max (dark-friendly, alto contraste); severidad/estado
+ * dedicados en tokens/variables.css (--alert-*), NO reusa --badge-late-*.
+ */
+
+.page {
+  padding: var(--space-6);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.refreshBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.refreshBtn:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.refreshBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Live/polling indicator — dot + TEXT (nunca solo color). */
+.streamBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.streamBadge .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+}
+
+.streamLive .dot {
+  background-color: var(--color-success-strong);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.streamPolling .dot {
+  background-color: var(--alert-warning-dot);
+}
+
+.streamConnecting .dot {
+  background-color: var(--color-gray-400);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streamLive .dot {
+    animation: none;
+  }
+}
+
+/* Feedback banner (ACK success/error) */
+.feedbackSuccess,
+.feedbackError {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-4);
+}
+
+.feedbackSuccess {
+  background-color: var(--alert-status-resolved-bg);
+  color: var(--alert-status-resolved-fg);
+}
+
+.feedbackError {
+  background-color: var(--alert-critical-bg);
+  color: var(--alert-critical-fg);
+}
+
+/* Filters */
+.filters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.clearBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2) var(--space-3);
+  background-color: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.clearBtn:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.clearBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-3);
+}
+
+/* Loading skeleton */
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.skeletonCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+.skeletonBar {
+  height: 12px;
+  border-radius: var(--radius-xs, 4px);
+  background: linear-gradient(90deg, var(--color-border) 25%, var(--color-surface-hover) 50%, var(--color-border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeletonBar {
+    animation: none;
+    background-position: 0 0;
+  }
+}
+
+/* Error state */
+.errorState {
+  background-color: var(--color-surface);
+  border: 1px solid var(--alert-critical-fg);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--alert-critical-fg);
+}
+
+.retryBtn {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--alert-critical-fg);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.retryBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Empty state */
+.emptyState {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-12) var(--space-6);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.emptyState .clearBtn {
+  margin-top: var(--space-3);
+}
+
+/* List + cards */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.card {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Entrada de fila nueva (SSE `firing`) — Emil Kowalski: 150-300ms, ease-out
+   SIEMPRE (nunca ease-in en algo que el operador está mirando entrar), y
+   NUNCA en acciones de alta frecuencia — por eso esto se dispara UNA vez por
+   alerta (marcado por `data-entering`, limpiado por timeout en AlertsPage.tsx),
+   no en cada frame del stream. */
+.card[data-entering] {
+  animation: alertRowEnter 280ms var(--ease-out);
+}
+
+@keyframes alertRowEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+    background-color: var(--alert-info-bg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    background-color: var(--color-surface);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card[data-entering] {
+    animation: none;
+  }
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.time {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.alertName {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.entity {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-1);
+}
+
+.message {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.metric {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-family: monospace;
+  margin-bottom: var(--space-2);
+}
+
+.cardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.source {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ackInfo {
+  font-size: var(--font-size-xs);
+  color: var(--alert-status-resolved-fg);
+}
+
+.ackBtn {
+  padding: var(--space-2) var(--space-4);
+  min-height: 44px;
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.ackBtn:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.ackBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Severity / status badges — dot + TEXTO, nunca solo color (contraste
+   verificado >=4.5:1 texto/fondo, ver tokens/variables.css). */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+}
+
+.badge_critical {
+  background-color: var(--alert-critical-bg);
+  color: var(--alert-critical-fg);
+}
+.badge_critical .dot { background-color: var(--alert-critical-dot); }
+
+.badge_warning {
+  background-color: var(--alert-warning-bg);
+  color: var(--alert-warning-fg);
+}
+.badge_warning .dot { background-color: var(--alert-warning-dot); }
+
+.badge_info {
+  background-color: var(--alert-info-bg);
+  color: var(--alert-info-fg);
+}
+.badge_info .dot { background-color: var(--alert-info-dot); }
+
+.status_firing {
+  background-color: var(--alert-status-firing-bg);
+  color: var(--alert-status-firing-fg);
+}
+.status_firing .dot { background-color: var(--alert-critical-dot); }
+
+.status_resolved {
+  background-color: var(--alert-status-resolved-bg);
+  color: var(--alert-status-resolved-fg);
+}
+.status_resolved .dot { background-color: var(--color-success-strong); }
+
+@media (max-width: 640px) {
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

@@ -202,4 +202,33 @@
   /* ------------------------------------------------------------------ */
   --color-campaign-bg: #dbeafe;
   --color-campaign-fg: #1e40af;
+
+  /* ------------------------------------------------------------------ */
+  /* NOC alerts (Fase C FE, change `noc-alerts-hub`) — severidad y estado */
+  /* de `AlertsPage`. Rampas DEDICADAS — NO reusar --badge-late-* (barra   */
+  /* final separada a propósito, evita cerrar el comentario) ni            */
+  /* --color-warning-*: significan otra cosa ("factura atrasada"/"estado  */
+  /* incierto"), mismo criterio que --color-note-* de arriba. Contraste   */
+  /* texto/fondo verificado WCAG 2.1 (script propio, fórmula relative     */
+  /* luminance): critical 6.8:1, warning 6.37:1, info 7.15:1, firing      */
+  /* 6.8:1, resolved 6.49:1 — todos >=4.5:1. Los *-dot son decorativos    */
+  /* (aria-hidden, SIEMPRE acompañados de texto — nunca la única señal    */
+  /* de severidad) pero igual verificados contra fondo blanco por WCAG    */
+  /* 1.4.11 (non-text, >=3:1): critical 4.83:1, warning 5.02:1, info      */
+  /* 5.17:1.                                                              */
+  /* ------------------------------------------------------------------ */
+  --alert-critical-bg: #fee2e2;
+  --alert-critical-fg: #991b1b;
+  --alert-critical-dot: #dc2626;
+  --alert-warning-bg: #fef3c7;
+  --alert-warning-fg: #92400e;
+  --alert-warning-dot: #b45309;
+  --alert-info-bg: #dbeafe;
+  --alert-info-fg: #1e40af;
+  --alert-info-dot: #2563eb;
+
+  --alert-status-firing-bg: #fee2e2;
+  --alert-status-firing-fg: #991b1b;
+  --alert-status-resolved-bg: #dcfce7;
+  --alert-status-resolved-fg: #166534;
 }
