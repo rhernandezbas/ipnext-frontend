@@ -88,6 +88,8 @@ const SettingsPage = lazy(() => import('@/pages/system/SettingsPage'));
 const PartnersPage = lazy(() => import('@/pages/system/PartnersPage'));
 const ReportsPage = lazy(() => import('@/pages/reports/ReportsPage'));
 const MonitoringPage = lazy(() => import('@/pages/monitoring/MonitoringPage'));
+// Fase C (change noc-alerts-hub) — panel de alertas NOC en tiempo real (SSE), gated monitoring.read.
+const AlertsPage = lazy(() => import('@/pages/alerts/AlertsPage'));
 const NotificationsPage = lazy(() => import('@/pages/notifications/NotificationsPage'));
 // internal-news — tablón interno del equipo, gated news.read/news.manage.
 // /admin/notifications (arriba) queda intacta — target del footer de la campanita.
@@ -389,6 +391,8 @@ export function App() {
               <Route path="reports" element={<RequirePermission permission="reports.read"><ReportsPage /></RequirePermission>} />
               {/* monitoring.read */}
               <Route path="monitoring" element={<RequirePermission permission="monitoring.read"><MonitoringPage /></RequirePermission>} />
+              {/* monitoring.read — Fase C (noc-alerts-hub): panel de alertas NOC en tiempo real (SSE) */}
+              <Route path="alerts" element={<RequirePermission permission="monitoring.read"><AlertsPage /></RequirePermission>} />
               {/* notifications.read */}
               <Route path="notifications" element={<RequirePermission permission="notifications.read"><NotificationsPage /></RequirePermission>} />
               {/* internal-news (NEWS-FE-RT-1) — news.read tablón + news.manage categorías.
