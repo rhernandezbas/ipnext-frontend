@@ -179,4 +179,76 @@ describe('ActivityBody', () => {
       expect.objectContaining({ page: 2 })
     );
   });
+
+  // ── change `noc-alerts-config`, Fase F FE ──────────────────────────────────
+
+  it('preseeds the entityType filter from the initialEntityType prop', () => {
+    mockHook(makePage());
+    render(<ActivityBody initialEntityType="NocAlert" />);
+
+    expect(useAuditEvents).toHaveBeenLastCalledWith(
+      expect.objectContaining({ entityType: 'NocAlert' })
+    );
+    expect(screen.getByLabelText(/entidad/i)).toHaveValue('NocAlert');
+  });
+
+  it('clicking the "Alertas NOC" preset sets entityType=NocAlert and resets to page 1', async () => {
+    const user = userEvent.setup();
+    mockHook(makePage());
+    render(<ActivityBody />);
+
+    await user.click(screen.getByRole('button', { name: 'Alertas NOC' }));
+
+    expect(useAuditEvents).toHaveBeenLastCalledWith(
+      expect.objectContaining({ entityType: 'NocAlert', page: 1 })
+    );
+    expect(screen.getByLabelText(/entidad/i)).toHaveValue('NocAlert');
+  });
+
+  it('clicking the "Todas" preset clears the entityType filter', async () => {
+    const user = userEvent.setup();
+    mockHook(makePage());
+    render(<ActivityBody initialEntityType="NocAlert" />);
+
+    await user.click(screen.getByRole('button', { name: 'Todas' }));
+
+    const lastCallArgs = vi.mocked(useAuditEvents).mock.calls.at(-1)?.[0];
+    expect(lastCallArgs?.entityType).toBeUndefined();
+  });
+
+  it('shows a "Canal" column with the ACK channel only when filtering entityType=NocAlert', () => {
+    mockHook(
+      makePage({
+        items: [
+          {
+            id: 'ae-3',
+            actorId: 'u3',
+            actorLogin: 'diego',
+            method: 'POST',
+            path: '/api/alerts/a1/acknowledge',
+            action: 'alert.acknowledge',
+            entityType: 'NocAlert',
+            entityId: 'a1',
+            beforeJson: null,
+            afterJson: { channel: 'panel' },
+            statusCode: 200,
+            errorMessage: null,
+            ip: '10.0.0.9',
+            createdAt: '2026-07-20T12:00:00Z',
+          },
+        ],
+        total: 1,
+      }),
+    );
+    render(<ActivityBody initialEntityType="NocAlert" />);
+
+    expect(screen.getByRole('columnheader', { name: /canal/i })).toBeInTheDocument();
+    expect(screen.getByText('panel')).toBeInTheDocument();
+  });
+
+  it('does NOT show the "Canal" column for other entity types', () => {
+    mockHook(makePage());
+    render(<ActivityBody />);
+    expect(screen.queryByRole('columnheader', { name: /canal/i })).not.toBeInTheDocument();
+  });
 });

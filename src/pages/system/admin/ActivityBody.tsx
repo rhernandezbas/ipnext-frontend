@@ -9,8 +9,31 @@ const PAGE_SIZE = 25;
 
 const METHOD_OPTIONS = ['all', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
 
+/**
+ * Presets de entidad (change `noc-alerts-config`, Fase F FE) — la ACK de una
+ * alerta NOC queda con `entityType='NocAlert'` (`AcknowledgeAlert` del BE).
+ * El input de texto libre de abajo sigue existiendo (cualquier entityType es
+ * válido), esto es solo un atajo para no tener que escribirlo a mano.
+ */
+const ENTITY_PRESETS = [
+  { value: '', label: 'Todas' },
+  { value: 'NocAlert', label: 'Alertas NOC' },
+] as const;
+
 function formatDate(dateStr: string | null): string {
   return formatDateTimeShort(dateStr);
+}
+
+/**
+ * El ACK de una alerta NOC (`AcknowledgeAlert.ts`) escribe `afterJson.channel`
+ * ('panel' | 'telegram:<user>' derivado, ver `actorLogin`). Devuelve el canal
+ * si `afterJson` lo trae, o `null` si no aplica (evento de otra entidad, o
+ * `afterJson` sin esa forma) — nunca asume la forma sin chequear.
+ */
+function getAuditChannel(afterJson: unknown): string | null {
+  if (afterJson === null || typeof afterJson !== 'object') return null;
+  const channel = (afterJson as Record<string, unknown>)['channel'];
+  return typeof channel === 'string' && channel.length > 0 ? channel : null;
 }
 
 function methodClass(method: string): string {
@@ -125,9 +148,14 @@ function DetailDrawer({ event, onClose }: { event: AuditEventDto; onClose: () =>
   );
 }
 
-export function ActivityBody() {
+interface ActivityBodyProps {
+  /** Preseed the entity-type filter (e.g. deep-link from AlertsConfigPage → "Auditoría de alertas"). */
+  initialEntityType?: string;
+}
+
+export function ActivityBody({ initialEntityType = '' }: ActivityBodyProps = {}) {
   const [method, setMethod] = useState<string>('all');
-  const [entityType, setEntityType] = useState('');
+  const [entityType, setEntityType] = useState(initialEntityType);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [page, setPage] = useState(1);
@@ -181,6 +209,19 @@ export function ActivityBody() {
       render: (row: AuditEventDto): ReactNode =>
         row.entityType ? `${row.entityType}${row.entityId ? ` #${row.entityId}` : ''}` : '—',
     },
+    // Canal (change `noc-alerts-config`, Fase F FE) — solo tiene sentido cuando se está
+    // mirando la auditoría de alertas NOC (afterJson.channel viene del ACK de una alerta,
+    // 'panel' | 'telegram:<user>'). Mostrarla siempre sería ruido para el resto de entidades
+    // (Client, Contract, etc.) que nunca tienen ese campo.
+    ...(entityType === 'NocAlert'
+      ? [
+          {
+            label: 'Canal',
+            key: 'channel',
+            render: (row: AuditEventDto): ReactNode => getAuditChannel(row.afterJson) ?? '—',
+          },
+        ]
+      : []),
     {
       label: 'Método',
       key: 'method' as const,
@@ -224,6 +265,19 @@ export function ActivityBody() {
             value={entityType}
             onChange={(e) => resetToFirstPage(setEntityType)(e.target.value)}
           />
+          <div className={styles.entityPresets} role="group" aria-label="Atajos de filtro rápido">
+            {ENTITY_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                type="button"
+                className={`${styles.presetChip} ${entityType === preset.value ? styles.presetChipActive : ''}`}
+                aria-pressed={entityType === preset.value}
+                onClick={() => resetToFirstPage(setEntityType)(preset.value)}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className={styles.field}>
           <label htmlFor="audit-from">Desde</label>
