@@ -1,0 +1,142 @@
+/*
+ * ai-assistant-multiagent (OBS-1) — historial de intervenciones.
+ * Estilo Data-Dense Dashboard (skill ui-ux-pro-max): tabla densa, filas con hover, scroll
+ * horizontal PROPIO para que la página nunca scrollee de costado.
+ */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.toolbar {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-gray-600);
+  font-size: var(--font-size-sm);
+}
+
+.errorText {
+  margin: 0;
+  color: var(--alert-critical-fg);
+}
+
+.retry {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.retry:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* El contenedor scrollea, NUNCA el body de la página. */
+.tableScroll {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.caption {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  color: var(--color-gray-600);
+  font-size: var(--font-size-xs);
+}
+
+.table th {
+  text-align: left;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-gray-50);
+  color: var(--color-gray-700);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.table td {
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+  vertical-align: top;
+}
+
+.table tbody tr {
+  transition: background-color 180ms ease-out;
+}
+
+.table tbody tr:hover {
+  background: var(--color-gray-50);
+}
+
+.reason {
+  color: var(--color-gray-600);
+  font-size: var(--font-size-xs);
+}
+
+.outcome {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.replied {
+  background: var(--alert-status-resolved-bg);
+  color: var(--alert-status-resolved-fg);
+}
+
+.handoff {
+  background: var(--alert-warning-bg);
+  color: var(--alert-warning-fg);
+}
+
+/* La métrica que más importa: cada fila es una alucinación de plata atajada. */
+.rejected_numbers {
+  background: var(--alert-critical-bg);
+  color: var(--alert-critical-fg);
+}
+
+.error {
+  background: var(--alert-critical-bg);
+  color: var(--alert-critical-fg);
+}
+
+.noop {
+  background: var(--color-gray-100);
+  color: var(--color-gray-700);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .table tbody tr {
+    transition: none;
+  }
+}

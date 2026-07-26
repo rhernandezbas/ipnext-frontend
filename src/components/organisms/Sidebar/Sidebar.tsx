@@ -572,6 +572,19 @@ export function Sidebar({ open = true, onToggle }: SidebarProps) {
               Alertas NOC
             </NavLink>
           )}
+          {/* ai-assistant-multiagent — configuración del asistente IA. Gate `assistant.read`
+              (mismo que la ruta en App.tsx), molde canSee de "Alertas NOC": isLoading || can(..)
+              para no producir layout shift mientras carga /me. */}
+          {(isLoading || can('assistant.read')) && (
+            <NavLink
+              to="/admin/assistant"
+              className={({ isActive }) =>
+                isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink
+              }
+            >
+              Asistente IA
+            </NavLink>
+          )}
           {/* internal-news (NEWS-FE-SB-1) — reemplaza el ítem "Notificaciones":
               la ruta /admin/notifications + su page + la campanita del Navbar
               quedan intactas (target del footer de la campanita), solo cambia

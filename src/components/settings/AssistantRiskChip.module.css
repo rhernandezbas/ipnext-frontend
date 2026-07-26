@@ -1,0 +1,53 @@
+/*
+ * ai-assistant-multiagent — chip de nivel de riesgo de una acción.
+ *
+ * REUSA los tokens `--alert-*` (Fase C del hub NOC) en vez de definir colores nuevos. No es
+ * pereza: esos pares ya tienen el contraste CALCULADO y documentado en `variables.css`
+ * (todos >=4.5:1 sobre su fondo). Inventar un verde/amarillo/rojo propio significaría volver
+ * a calcularlo — y en la práctica, no calcularlo.
+ *
+ * El color NUNCA es la única señal (WCAG 1.4.1): el chip siempre lleva TEXTO ("Bajo", "Medio",
+ * "Alto"). El punto es decorativo y va `aria-hidden`.
+ */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.green {
+  background: var(--alert-status-resolved-bg);
+  color: var(--alert-status-resolved-fg);
+}
+.green .dot {
+  background: var(--alert-status-resolved-fg);
+}
+
+.yellow {
+  background: var(--alert-warning-bg);
+  color: var(--alert-warning-fg);
+}
+.yellow .dot {
+  background: var(--alert-warning-dot);
+}
+
+.red {
+  background: var(--alert-critical-bg);
+  color: var(--alert-critical-fg);
+}
+.red .dot {
+  background: var(--alert-critical-dot);
+}

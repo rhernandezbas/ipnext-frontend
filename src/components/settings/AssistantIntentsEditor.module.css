@@ -1,0 +1,191 @@
+/*
+ * ai-assistant-multiagent (CFG-2) — CRUD de intenciones.
+ * Tokens SIEMPRE; ni un hex ni un px crudo salvo tamaños de control (checkbox/dot).
+ */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-gray-600);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white, #fff);
+}
+
+.itemMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.itemHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.itemName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.offBadge {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-gray-100);
+  color: var(--color-gray-700);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.itemDescription,
+.itemSources {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-600);
+  line-height: 1.5;
+}
+
+.itemActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-gray-50);
+}
+
+.field,
+.fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.fieldLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.fieldHint {
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-600);
+  line-height: 1.5;
+  margin-bottom: var(--space-1);
+}
+
+.textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  resize: vertical;
+}
+
+.textarea:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+  border-color: var(--color-primary);
+}
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.checkbox:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.checkLabel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.disabledHint {
+  color: var(--color-gray-500);
+  font-size: var(--font-size-xs);
+}
+
+.error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--alert-critical-bg);
+  color: var(--alert-critical-fg);
+  font-size: var(--font-size-sm);
+}
+
+.formActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+@media (max-width: 768px) {
+  .item {
+    flex-direction: column;
+  }
+  .itemActions {
+    width: 100%;
+  }
+}

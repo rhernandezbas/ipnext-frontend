@@ -94,6 +94,8 @@ const AlertsPage = lazy(() => import('@/pages/alerts/AlertsPage'));
 // a nivel ruta (cada sección adentro se autogatea con su permiso real: admin.flags / monitoring.manage /
 // admin.view_activity_log — molde NetworkingSettingsPage).
 const AlertsConfigPage = lazy(() => import('@/pages/alerts/AlertsConfigPage'));
+// ai-assistant-multiagent — configuración del asistente IA conversacional.
+const AssistantConfigPage = lazy(() => import('@/pages/assistant/AssistantConfigPage'));
 const NotificationsPage = lazy(() => import('@/pages/notifications/NotificationsPage'));
 // internal-news — tablón interno del equipo, gated news.read/news.manage.
 // /admin/notifications (arriba) queda intacta — target del footer de la campanita.
@@ -399,6 +401,9 @@ export function App() {
               <Route path="alerts" element={<RequirePermission permission="monitoring.read"><AlertsPage /></RequirePermission>} />
               {/* monitoring.read — change noc-alerts-config, Fase F: config del hub (flags + umbrales + auditoría) */}
               <Route path="alerts/config" element={<RequirePermission permission="monitoring.read"><AlertsConfigPage /></RequirePermission>} />
+              {/* ai-assistant-multiagent — gate `assistant.read` (namespace del FE, con PUNTO;
+                  el del BE es `assistant:read` con COLON — NO son equivalentes). */}
+              <Route path="assistant" element={<RequirePermission permission="assistant.read"><AssistantConfigPage /></RequirePermission>} />
               {/* notifications.read */}
               <Route path="notifications" element={<RequirePermission permission="notifications.read"><NotificationsPage /></RequirePermission>} />
               {/* internal-news (NEWS-FE-RT-1) — news.read tablón + news.manage categorías.

@@ -1,0 +1,108 @@
+/*
+ * ai-assistant-multiagent — página de configuración del asistente.
+ * Molde: `AlertsConfigPage` (secciones con heading + descripción). Tokens SIEMPRE.
+ */
+
+.page {
+  padding: var(--space-6);
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+  line-height: 1.5;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.sectionHeading {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.sectionDescription {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+  line-height: 1.5;
+}
+
+.empty {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+  line-height: 1.6;
+}
+
+.state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-gray-600);
+  font-size: var(--font-size-sm);
+}
+
+.errorText {
+  margin: 0;
+  color: var(--alert-critical-fg);
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.statusBadge {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.on {
+  background: var(--alert-status-resolved-bg);
+  color: var(--alert-status-resolved-fg);
+}
+
+.off {
+  background: var(--color-gray-100);
+  color: var(--color-gray-700);
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: var(--space-4);
+  }
+}
