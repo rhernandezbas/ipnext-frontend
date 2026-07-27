@@ -6,6 +6,10 @@ import { Select } from '@/components/molecules/Select/Select';
 import { AssistantActionsEditor } from '@/components/settings/AssistantActionsEditor';
 import { AssistantIntentsEditor } from '@/components/settings/AssistantIntentsEditor';
 import { AssistantProviderCard } from '@/components/settings/AssistantProviderCard';
+import { AssistantRoutingCard } from '@/components/settings/AssistantRoutingCard';
+import { AssistantDataSourcesCard } from '@/components/settings/AssistantDataSourcesCard';
+import { AssistantEvalCard } from '@/components/settings/AssistantEvalCard';
+import { AssistantEnabledCard } from '@/components/settings/AssistantEnabledCard';
 import { AssistantRunsPanel } from '@/components/settings/AssistantRunsPanel';
 import { useTicketAreas } from '@/hooks/useTicketAreas';
 import {
@@ -70,6 +74,9 @@ export default function AssistantConfigPage() {
 
       {!loading && !areas.isError && !catalogs.isError && !profiles.isError && catalogs.data && (
         <>
+          {/* El kill-switch va PRIMERO: es lo que decide si todo lo de abajo tiene efecto. */}
+          <AssistantEnabledCard />
+
           <section className={styles.section}>
             <h2 className={styles.sectionHeading}>Proveedor de IA</h2>
             <p className={styles.sectionDescription}>
@@ -84,6 +91,38 @@ export default function AssistantConfigPage() {
             >
               <AssistantProviderCard />
             </Can>
+          </section>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionHeading}>Ruteo</h2>
+            <p className={styles.sectionDescription}>
+              Las conversaciones de WhatsApp entran <strong>sin área</strong> — nadie las
+              clasifica desde acá porque el equipo trabaja dentro de Chatwoot. Sin un área que
+              las atienda por default, el asistente no responde ninguna.
+            </p>
+            {/* SIN `Can`: el diagnóstico ("el bot no responde a nadie") lo tiene que ver
+                cualquiera con `assistant.read`, igual que lo expone el backend. La card gatea
+                por dentro la EDICIÓN. */}
+            <AssistantRoutingCard />
+          </section>
+
+          {/* Config GLOBAL (vale para todos los agentes) antes de la config POR ÁREA. */}
+          <section className={styles.section}>
+            <h2 className={styles.sectionHeading}>Fuentes de datos</h2>
+            <p className={styles.sectionDescription}>
+              Qué puede consultar el asistente, para todas las áreas. Una fuente apagada no se
+              consulta: el asistente no afirma nada sobre ese dato.
+            </p>
+            <AssistantDataSourcesCard />
+          </section>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionHeading}>Evaluaciones</h2>
+            <p className={styles.sectionDescription}>
+              El candado de las acciones de riesgo. Sin una evaluación registrada, &quot;Marcar
+              la conversación como resuelta&quot; no se puede habilitar en ningún agente.
+            </p>
+            <AssistantEvalCard />
           </section>
 
           <section className={styles.section}>

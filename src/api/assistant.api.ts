@@ -2,6 +2,10 @@ import axiosClient from './axios-client';
 import type {
   AssistantConnectionTest,
   AssistantProviderConfig,
+  AssistantRoutingConfig,
+  AssistantEvalRun,
+  RecordAssistantEvalInput,
+  AssistantDataSource,
   UpdateAssistantProviderInput,
   AssistantCatalogs,
   AssistantIntent,
@@ -70,6 +74,28 @@ export const assistantApi = {
     axiosClient.delete(`${BASE}/intents/${id}`).then(() => undefined),
 
   /** Credenciales del proveedor — SIEMPRE enmascaradas (la key nunca baja al navegador). */
+  listEvals: (): Promise<AssistantEvalRun[]> =>
+    axiosClient.get<{ data: AssistantEvalRun[] }>(`${BASE}/evals`).then(r => r.data.data),
+
+  recordEval: (input: RecordAssistantEvalInput): Promise<AssistantEvalRun> =>
+    axiosClient.post<{ data: AssistantEvalRun }>(`${BASE}/evals`, input).then(r => r.data.data),
+
+  /** Toggle GLOBAL de una fuente. No da de alta: las fuentes se registran en código (R5). */
+  setDataSourceEnabled: (key: string, enabled: boolean): Promise<AssistantDataSource> =>
+    axiosClient
+      .patch<{ data: AssistantDataSource }>(`${BASE}/catalogs/data-sources/${encodeURIComponent(key)}`, {
+        enabled,
+      })
+      .then(r => r.data.data),
+
+  getRouting: (): Promise<AssistantRoutingConfig> =>
+    axiosClient.get<{ data: AssistantRoutingConfig }>(`${BASE}/routing`).then(r => r.data.data),
+
+  updateRouting: (input: AssistantRoutingConfig): Promise<AssistantRoutingConfig> =>
+    axiosClient
+      .put<{ data: AssistantRoutingConfig }>(`${BASE}/routing`, input)
+      .then(r => r.data.data),
+
   getProvider: (): Promise<AssistantProviderConfig> =>
     axiosClient.get<{ data: AssistantProviderConfig }>(`${BASE}/provider`).then(r => r.data.data),
 

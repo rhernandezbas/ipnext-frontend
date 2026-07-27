@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tansta
 import { assistantApi } from '@/api/assistant.api';
 import type {
   UpdateAssistantProviderInput,
+  AssistantRoutingConfig,
+  RecordAssistantEvalInput,
   AssistantRunQuery,
   CreateAssistantIntentInput,
   CreateAssistantProfileInput,
@@ -19,7 +21,13 @@ export const ASSISTANT_QUERY_KEY = ['assistant'] as const;
  * perfiles e intenciones, en cambio, se editan seguido, así que se invalidan en cada mutación.
  */
 
-/** Catálogos de fuentes y acciones. Cambian con un deploy, no con el uso ⇒ cache largo. */
+/**
+ * Catálogos de fuentes y acciones. El SET de piezas cambia con un deploy (se registran en
+ * código), pero desde que existe el toggle de fuentes su campo `enabled` cambia en runtime.
+ * El cache largo se sostiene porque la mutación invalida esta query; lo único que se demora
+ * hasta 5 min es ver un toggle hecho por OTRA sesión, que para una config que se toca cada
+ * varios meses es aceptable.
+ */
 export function useAssistantCatalogs() {
   return useQuery({
     queryKey: [...ASSISTANT_QUERY_KEY, 'catalogs'],
@@ -107,6 +115,57 @@ export function useDeleteAssistantIntent() {
   const invalidate = useAssistantInvalidation();
   return useMutation({
     mutationFn: (id: string) => assistantApi.deleteIntent(id),
+    onSuccess: invalidate,
+  });
+}
+
+/**
+ * EVAL-1 — historial de corridas. `staleTime` corto: destrabar una acción de riesgo tiene que
+ * verse enseguida, si no el operador registra el eval y sigue viendo la acción bloqueada.
+ */
+export function useAssistantEvals() {
+  return useQuery({
+    queryKey: [...ASSISTANT_QUERY_KEY, 'evals'],
+    queryFn: () => assistantApi.listEvals(),
+    staleTime: 30_000,
+  });
+}
+
+export function useRecordAssistantEval() {
+  const invalidate = useAssistantInvalidation();
+  return useMutation({
+    mutationFn: (input: RecordAssistantEvalInput) => assistantApi.recordEval(input),
+    // Invalida TODO el asistente, no sólo los evals: registrar una corrida cambia qué acciones
+    // se pueden habilitar, y esa lista vive en el perfil.
+    onSuccess: invalidate,
+  });
+}
+
+export function useSetAssistantDataSource() {
+  const invalidate = useAssistantInvalidation();
+  return useMutation({
+    mutationFn: ({ key, enabled }: { key: string; enabled: boolean }) =>
+      assistantApi.setDataSourceEnabled(key, enabled),
+    onSuccess: invalidate,
+  });
+}
+
+/**
+ * RTR-0 — el ruteo. `staleTime` corto igual que el proveedor: se edita poco pero decide si el
+ * bot contesta o no, así que verlo desactualizado es peor que un refetch de más.
+ */
+export function useAssistantRouting() {
+  return useQuery({
+    queryKey: [...ASSISTANT_QUERY_KEY, 'routing'],
+    queryFn: () => assistantApi.getRouting(),
+    staleTime: 30_000,
+  });
+}
+
+export function useUpdateAssistantRouting() {
+  const invalidate = useAssistantInvalidation();
+  return useMutation({
+    mutationFn: (input: AssistantRoutingConfig) => assistantApi.updateRouting(input),
     onSuccess: invalidate,
   });
 }

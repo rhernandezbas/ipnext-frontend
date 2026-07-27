@@ -194,3 +194,51 @@ export const PROVIDER_SOURCE_LABELS: Record<AssistantProviderConfig['source'], s
   env: 'Del secret del deploy',
   none: 'Sin credencial — el asistente no puede responder',
 };
+
+/**
+ * RTR-0 — quién atiende lo que entra SIN clasificar.
+ *
+ * `defaultAreaId: null` NO es "todavía no lo configuraron": es un estado operativo con
+ * consecuencia concreta. Las conversaciones de WhatsApp entran siempre sin área (los agentes
+ * trabajan dentro de Chatwoot), así que sin default el asistente no le responde a NADIE.
+ * La pantalla tiene que decirlo con esas palabras.
+ */
+export interface AssistantRoutingConfig {
+  defaultAreaId: string | null;
+  /** Si el agente default detecta que el tema es de otra área con agente, reasigna. */
+  rerouteEnabled: boolean;
+}
+
+/**
+ * EVAL-1 — una corrida de evaluación, como la devuelve el backend.
+ *
+ * Las dos particiones van SEPARADAS a propósito, nunca promediadas:
+ *  - **resolución** — ¿acierta cuando la respuesta existe?
+ *  - **abstención** — ¿se calla cuando NO existe?
+ *
+ * Colapsarlas en un "accuracy" único esconde el modo de falla peligroso. El benchmark sobre
+ * tickets reales lo mostró crudo: el modelo que más resolvía era el PEOR resistiendo
+ * alucinaciones. Un promedio lo habría dejado primero en el ranking.
+ *
+ * Vienen los TOTALES además de las tasas porque una tasa sin tamaño de muestra no se puede
+ * interpretar: 100% sobre 3 casos no dice nada.
+ */
+export interface AssistantEvalRun {
+  id: string;
+  model: string;
+  resolutionAccuracy: number | null;
+  abstentionRate: number | null;
+  resolutionTotal: number;
+  abstentionTotal: number;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface RecordAssistantEvalInput {
+  model: string;
+  resolutionTotal: number;
+  resolutionCorrect: number;
+  abstentionTotal: number;
+  abstentionCorrect: number;
+  notes: string | null;
+}
