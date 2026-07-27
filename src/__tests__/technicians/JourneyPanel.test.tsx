@@ -55,6 +55,7 @@ function renderPanel(over: Partial<PanelProps> = {}) {
     isLoading: false,
     isError: false,
     isForbidden: false,
+    isPaused: false,
     onRetry: vi.fn(),
     onClose: vi.fn(),
     ...over,
@@ -106,9 +107,14 @@ describe('JP-1: la 4ª rama — el panel nunca queda en blanco', () => {
   });
 
   it('exactamente UNA rama de estado está viva a la vez', () => {
+    // `journey-forbidden` va en la lista: sin él, el 403 podía convivir con otra
+    // rama (o no aparecer) y este test seguía en verde. La exclusividad se
+    // verifica sobre TODAS las salidas del panel, no sobre cuatro de cinco.
     const branches = [
       'journey-skeleton',
       'journey-unavailable',
+      'journey-forbidden',
+      'journey-error',
       'journey-empty',
       'journey-first',
     ] as const;
@@ -116,6 +122,11 @@ describe('JP-1: la 4ª rama — el panel nunca queda en blanco', () => {
     const cases: Array<Partial<PanelProps>> = [
       { isLoading: true, journey: undefined },
       { journey: undefined, requiresAudit: true },
+      { journey: undefined, day: '' },
+      { journey: undefined, day: '2099-01-01', maxDay: '2026-07-26' },
+      { journey: undefined, isPaused: true },
+      { journey: undefined, isError: true, isForbidden: true, day: '2020-01-01' },
+      { journey: undefined, isError: true, isForbidden: false },
       { journey: { ...JOURNEY, pointCount: 0 } },
       {},
     ];
@@ -123,7 +134,7 @@ describe('JP-1: la 4ª rama — el panel nunca queda en blanco', () => {
     for (const over of cases) {
       const { unmount } = renderPanel(over);
       const alive = branches.filter((id) => screen.queryByTestId(id) !== null);
-      expect(alive).toHaveLength(1);
+      expect(alive, `caso ${JSON.stringify(over)}`).toHaveLength(1);
       unmount();
     }
   });
@@ -131,6 +142,93 @@ describe('JP-1: la 4ª rama — el panel nunca queda en blanco', () => {
   it('al abrirse mueve el foco al encabezado del panel', () => {
     renderPanel();
     expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2 }));
+  });
+});
+
+/**
+ * JP-1b — la 4ª rama no puede AFIRMAR UN LÍMITE DE PERMISO QUE NO SE DISPARÓ.
+ *
+ * El `<input type="date">` de Chrome y Firefox trae un botón para limpiar el
+ * valor: apretarlo deja `day === ''`. Como `journeyRequiresAudit` es fail-closed,
+ * un día vacío "requiere auditoría" y el panel salía con «El  queda fuera de tu
+ * alcance: la jornada de días anteriores a ayer requiere el permiso de
+ * auditoría» — una frase rota Y falsa: nadie pidió un día histórico. Inventarle
+ * al operador un límite de permiso es exactamente el tipo de afirmación sin
+ * respaldo que este change combate.
+ */
+describe('JP-1b: el día vacío no inventa un límite de permiso', () => {
+  it('con el selector vacío pide elegir un día y NO habla de permisos', () => {
+    renderPanel({ journey: undefined, day: '', requiresAudit: true, canAudit: false });
+
+    const note = screen.getByTestId('journey-unavailable');
+    expect(note).toHaveAttribute('data-reason', 'no-day');
+    expect(note.textContent ?? '').toMatch(/elegí un día/i);
+    expect(note.textContent ?? '').not.toMatch(/permiso|auditoría|alcance/i);
+    // La frase rota que salía antes: "El  queda fuera de tu alcance".
+    expect(note.textContent ?? '').not.toMatch(/El\s{2,}/);
+  });
+
+  it('con permiso de auditoría tampoco finge que se consultó algo', () => {
+    renderPanel({ journey: undefined, day: '', requiresAudit: true, canAudit: true });
+    const note = screen.getByTestId('journey-unavailable');
+    expect(note).toHaveAttribute('data-reason', 'no-day');
+    expect(note.textContent ?? '').not.toMatch(/todavía no se consultó la jornada del\s*\./i);
+  });
+});
+
+/**
+ * JP-1c — un día FUTURO no es un límite de permiso ni una falla técnica.
+ *
+ * El BE responde 400 a un día futuro y `journeyRequiresAudit` lo deja pasar
+ * (daysBack negativo → false). Sin esta rama el operador veía "No se pudo cargar
+ * la jornada" + un Reintentar que jamás iba a funcionar.
+ */
+describe('JP-1c: el día futuro se explica como entrada inválida', () => {
+  it('dice que el día todavía no ocurrió y no ofrece reintentar', () => {
+    renderPanel({
+      journey: undefined,
+      day: '2099-01-01',
+      maxDay: '2026-07-26',
+      requiresAudit: false,
+      canAudit: false,
+    });
+
+    const note = screen.getByTestId('journey-unavailable');
+    expect(note).toHaveAttribute('data-reason', 'future');
+    expect(note.textContent ?? '').toMatch(/todavía no ocurrió/i);
+    expect(note.textContent ?? '').not.toMatch(/permiso de auditoría/i);
+    expect(screen.queryByRole('button', { name: /reintentar/i })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * JP-1d — sin conexión el panel no dice "todavía no se consultó".
+ *
+ * TanStack pausa el query cuando el navegador está offline (`fetchStatus:
+ * 'paused'`): mismos `isLoading:false, isError:false, data:undefined` que el
+ * query deshabilitado. "Todavía no se consultó" suena a que falta apretar algo;
+ * lo que falta es la red.
+ */
+describe('JP-1d: sin conexión se dice que es la conexión', () => {
+  it('distingue el query pausado por falta de red', () => {
+    renderPanel({ journey: undefined, isPaused: true, day: '2026-07-26' });
+    const note = screen.getByTestId('journey-unavailable');
+    expect(note).toHaveAttribute('data-reason', 'offline');
+    expect(note.textContent ?? '').toMatch(/conexión/i);
+  });
+
+  it('el bloqueo por permiso gana sobre la falta de conexión (no se pidió, ni se va a pedir)', () => {
+    renderPanel({
+      journey: undefined,
+      isPaused: true,
+      requiresAudit: true,
+      canAudit: false,
+      day: '2020-01-01',
+    });
+    expect(screen.getByTestId('journey-unavailable')).toHaveAttribute(
+      'data-reason',
+      'requires-audit',
+    );
   });
 });
 

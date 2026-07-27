@@ -9,7 +9,7 @@
  */
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { useArToday } from '@/hooks/useArToday';
+import { previousIsoDay, useArToday } from '@/hooks/useArToday';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -67,5 +67,40 @@ describe('useArToday', () => {
     unmount();
     expect(clearSpy).toHaveBeenCalled();
     clearSpy.mockRestore();
+  });
+});
+
+/**
+ * previousIsoDay — de acá sale el `min` del selector de día cuando el usuario NO
+ * tiene `technicians.location_audit`. Si se corre un día, o el operador pierde
+ * el ayer que sí le corresponde, o se le abre un día histórico que el BE le va a
+ * negar con un 403. La aritmética va en UTC sobre el string a propósito: en un
+ * host que no sea AR, restar un día con `Date` local puede correrse.
+ */
+describe('previousIsoDay', () => {
+  it('resta un día dentro del mismo mes', () => {
+    expect(previousIsoDay('2026-07-26')).toBe('2026-07-25');
+  });
+
+  it('cruza el borde de mes', () => {
+    expect(previousIsoDay('2026-07-01')).toBe('2026-06-30');
+  });
+
+  it('cruza el borde de año', () => {
+    expect(previousIsoDay('2026-01-01')).toBe('2025-12-31');
+  });
+
+  it('respeta el 29 de febrero de un año bisiesto', () => {
+    expect(previousIsoDay('2024-03-01')).toBe('2024-02-29');
+  });
+
+  it('en un año NO bisiesto el 1 de marzo cae al 28', () => {
+    expect(previousIsoDay('2025-03-01')).toBe('2025-02-28');
+  });
+
+  it('un día que no parsea devuelve "" y no una fecha inventada', () => {
+    expect(previousIsoDay('')).toBe('');
+    expect(previousIsoDay('no-es-fecha')).toBe('');
+    expect(previousIsoDay('2026-13-45')).toBe('');
   });
 });

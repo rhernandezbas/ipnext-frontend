@@ -151,6 +151,25 @@
   color: var(--color-text-primary);
 }
 
+/* Título del mapa + "Recentrar". El botón vive acá arriba, a la vista: el
+   encuadre no se recupera solo, así que la forma de recuperarlo no puede estar
+   escondida. */
+.mapHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.mapHint {
+  margin: 0;
+  max-width: 88ch;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  color: var(--color-gray-600);
+}
+
 .mapBox {
   height: 420px;
   border-radius: var(--radius-md);

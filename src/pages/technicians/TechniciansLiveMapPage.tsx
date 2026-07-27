@@ -56,9 +56,25 @@ const DEFAULT_ZOOM = 11;
  * que el poll de 60 s devuelve SIEMPRE objetos nuevos aunque nada se haya
  * movido. Si el efecto se ata a la identidad del array, cada minuto el mapa
  * vuelve a encuadrar y le arrebata el pan/zoom al despachante justo cuando está
- * mirando algo. La firma es un string derivado de los logins + las coordenadas
- * redondeadas: sólo cambia cuando cambia el CONJUNTO de marcadores o alguien se
- * movió de verdad.
+ * mirando algo.
+ *
+ * La firma TAMPOCO puede llevar coordenadas, ni redondeadas. Con `accuracyMeters`
+ * de 12-40 m, un teléfono QUIETO reporta coordenadas distintas en cada
+ * breadcrumb: la deriva del GPS mueve los últimos decimales sola. Con ~6
+ * cuadrillas activas y una mediana de muestreo de ~7 min, la chance de que un
+ * poll de 60 s traiga al menos un punto nuevo ronda el 57% — o sea, el encuadre
+ * se le escapaba al operador cada uno o dos minutos igual.
+ *
+ * Por eso la firma es el CONJUNTO DE LOGINS con marcador, ORDENADO (el BE no
+ * garantiza el orden). El mapa se reencuadra sólo cuando cambia QUÉ se está
+ * mostrando — aparece o desaparece una cuadrilla, y la nueva puede estar fuera
+ * del viewport actual. Que el encuadre siga a las posiciones se pide con el
+ * botón "Recentrar": explícito, del operador, cuando él quiere.
+ *
+ * Se descartó el umbral geográfico (50-100 m) porque no resuelve el caso real:
+ * una cuadrilla en la camioneta cruza 100 m entre polls, así que el robo del
+ * viewport volvía con otro disfraz y encima intermitente — el peor modo de
+ * fallar, porque no se puede predecir.
  *
  * `invalidateSize` va con guarda porque el mock de tests no lo implementa; lo
  * mismo `fitBounds`.
@@ -172,6 +188,13 @@ export default function TechniciansLiveMapPage() {
   const [selected, setSelected] = useState<TeamLiveStatus | null>(null);
   const [day, setDay] = useState(todayAr);
 
+  /**
+   * Contador de "Recentrar". El encuadre automático sólo reacciona al conjunto
+   * de cuadrillas; volver a centrar sobre las posiciones actuales es una
+   * decisión del operador y entra por acá, sumándose a la firma del encuadre.
+   */
+  const [recenterCount, setRecenterCount] = useState(0);
+
   /** Botón que abrió el panel: al cerrar, el foco vuelve ahí y no al <body>. */
   const panelTriggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -188,6 +211,13 @@ export default function TechniciansLiveMapPage() {
 
   const journeyQuery = useTeamJourney(selected?.login ?? null, day, todayAr);
   const journeyRequiresAuditPerm = journeyRequiresAudit(day, todayAr);
+  /**
+   * TanStack pausa el query si el navegador está offline (`fetchStatus:
+   * 'paused'`): mismos `isLoading:false / isError:false / data:undefined` que un
+   * query deshabilitado. Sin distinguirlo, el panel decía "todavía no se
+   * consultó" — suena a que falta apretar algo, cuando lo que falta es la red.
+   */
+  const journeyPaused = journeyQuery.fetchStatus === 'paused';
   /** Un 403 es "no te corresponde", no "se rompió". Se presenta distinto. */
   const journeyForbidden =
     axios.isAxiosError(journeyQuery.error) && journeyQuery.error.response?.status === 403;
@@ -196,9 +226,9 @@ export default function TechniciansLiveMapPage() {
    * Un solo useMemo atado a `data`. OJO: `data` NO es referencialmente estable
    * entre polls — el BE recalcula `minutesSinceLastPoint` contra `now()` en cada
    * request, así que cada 60 s llega un objeto nuevo aunque nada se haya movido.
-   * Por eso el encuadre del mapa NO puede colgarse de la identidad de `bounds`:
-   * va por `markersSignature` (abajo), que sólo cambia cuando cambia el conjunto
-   * de marcadores o alguien se movió de verdad.
+   * Por eso el encuadre del mapa NO puede colgarse de la identidad de `fitPoints`:
+   * va por `fitSignature` (abajo), que sólo cambia cuando cambia el CONJUNTO de
+   * cuadrillas encuadradas.
    */
   const { teams, active, stale, noTrail, markers, fitPoints, fitSignature, usingFallbackFrame } =
     useMemo(() => {
@@ -224,12 +254,16 @@ export default function TechniciansLiveMapPage() {
         markers: withCoords,
         fitPoints: frameTeams.map((t) => [t.latitude, t.longitude] as [number, number]),
         /**
-         * FIRMA del encuadre: login + coordenadas redondeadas a ~1 m (5
-         * decimales). Deliberadamente NO incluye `minutesSinceLastPoint` ni
-         * `lastPointAt`, que cambian en CADA poll sin que nada se haya movido.
+         * FIRMA del encuadre: el CONJUNTO de logins encuadrados, ordenado.
+         * Sin coordenadas a propósito (ver el docblock de `MapFitter`): con
+         * precisiones de 12-40 m un teléfono quieto reporta coordenadas nuevas
+         * en cada breadcrumb, y cualquier firma que las mire le arrebata el
+         * pan/zoom al operador por puro ruido del GPS. El orden se normaliza
+         * porque el BE no lo garantiza entre requests.
          */
         fitSignature: frameTeams
-          .map((t) => `${t.login}@${t.latitude.toFixed(5)},${t.longitude.toFixed(5)}`)
+          .map((t) => t.login)
+          .sort()
           .join('|'),
         usingFallbackFrame: withCoords.length === 0 && anyKnown.length > 0,
       };
@@ -306,9 +340,30 @@ export default function TechniciansLiveMapPage() {
 
           <div className={styles.layout}>
             <section className={styles.mapSection} aria-labelledby="map-heading">
-              <h2 id="map-heading" className={styles.sectionTitle}>
-                Mapa — sólo cuadrillas activas ({markers.length})
-              </h2>
+              <div className={styles.mapHead}>
+                <h2 id="map-heading" className={styles.sectionTitle}>
+                  Mapa — sólo cuadrillas activas ({markers.length})
+                </h2>
+                {/* El encuadre automático no persigue posiciones: recuperarlo es
+                    una acción explícita. Sin puntos que encuadrar no se ofrece
+                    un botón que no haría nada. */}
+                {fitPoints.length > 0 && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setRecenterCount((n) => n + 1)}
+                  >
+                    Recentrar
+                  </Button>
+                )}
+              </div>
+              {fitPoints.length > 0 && (
+                <p className={styles.mapHint}>
+                  El encuadre es tuyo: el mapa se reencuadra por su cuenta únicamente cuando
+                  aparece o desaparece una cuadrilla. «Recentrar» vuelve a encuadrar las
+                  posiciones actuales.
+                </p>
+              )}
               <div className={styles.mapBox}>
                 <MapContainer
                   center={DEFAULT_CENTER}
@@ -321,7 +376,9 @@ export default function TechniciansLiveMapPage() {
                   />
                   <MapFitter
                     points={fitPoints}
-                    signature={fitSignature}
+                    /* El pedido explícito del operador entra en la firma: es la
+                       ÚNICA forma de que el encuadre siga a las posiciones. */
+                    signature={`${recenterCount}#${fitSignature}`}
                     /* Encuadre de respaldo: acercarse a nivel 15 sobre una
                        posición de hace más de 24 h la vestiría de dato actual. */
                     maxZoom={usingFallbackFrame ? 12 : 15}
@@ -382,6 +439,7 @@ export default function TechniciansLiveMapPage() {
                   isLoading={journeyQuery.isLoading}
                   isError={journeyQuery.isError}
                   isForbidden={journeyForbidden}
+                  isPaused={journeyPaused}
                   onRetry={() => journeyQuery.refetch()}
                   onClose={closeJourney}
                 />
@@ -400,14 +458,16 @@ export default function TechniciansLiveMapPage() {
                     <li className={styles.listEmpty}>Ninguna cuadrilla quedó desactualizada.</li>
                   ) : (
                     stale.map((team) => (
+                      /* `openJourney` a secas: un handler inline que descarte el
+                         segundo argumento deja `panelTriggerRef` con el botón
+                         ANTERIOR, y al cerrar el foco aterriza en la fila de otro
+                         técnico. En una pantalla que decide a quién se investiga,
+                         eso no es cosmético. */
                       <TeamRow
                         key={team.login}
                         team={team}
                         selected={selected?.login === team.login}
-                        onSelect={(t) => {
-                          setSelected(t);
-                          setDay(todayAr);
-                        }}
+                        onSelect={openJourney}
                       />
                     ))
                   )}

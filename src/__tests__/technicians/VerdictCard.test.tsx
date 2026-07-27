@@ -20,6 +20,7 @@
  *     manda el servidor, que también se renderiza.
  */
 import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { render, screen, within } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { VerdictCard } from '@/components/technicians/VerdictCard';
@@ -106,15 +107,35 @@ describe('VC-1: los cuatro veredictos tienen la MISMA estructura (igual peso vis
  * opacidad, tamaño, peso, filtro, escala — cae acá.
  */
 describe('VC-1b: el CSS no puede apagar un veredicto', () => {
-  // Ruta relativa a propósito: `import.meta.url` no es un file:// bajo el
-  // transform de vite, y `readFileSync` resuelve contra el cwd — que es la raíz
-  // del proyecto con la que corre vitest.
-  const css = readFileSync('src/components/technicians/VerdictCard.module.css', 'utf8');
+  // La ruta se resuelve contra ESTE archivo, no contra el cwd: `readFileSync`
+  // con ruta relativa asume que vitest corre desde la raíz del proyecto, y
+  // cualquier invocación con otro cwd (`--root ..`, un runner desde `src/`)
+  // reventaba con ENOENT y se llevaba puesto el archivo de tests ENTERO — 25
+  // tests desaparecidos sin que nadie los declare rotos.
+  const here = dirname(expect.getState().testPath as string);
+  const css = readFileSync(
+    resolve(here, '../../components/technicians/VerdictCard.module.css'),
+    'utf8',
+  );
 
   /** Reglas (selector + cuerpo) que discriminan por veredicto. */
   const verdictRules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
     .map(([, selector, body]) => ({ selector: selector.trim(), body }))
     .filter((r) => r.selector.includes('[data-verdict='));
+
+  /** Declaraciones `prop: value` de una regla, ya partidas y limpias. */
+  const declarations = (body: string) =>
+    body
+      .split(';')
+      .map((d) => d.trim())
+      .filter(Boolean)
+      .map((d) => {
+        const i = d.indexOf(':');
+        return { prop: d.slice(0, i).trim(), value: d.slice(i + 1).trim() };
+      });
+
+  /** Valores que EXISTEN como declaración pero no pintan nada. */
+  const INVISIBLE = /^(transparent|none|0|0px|initial|unset|revert|inherit|currentcolor)$/i;
 
   it('define una regla de tono para cada uno de los 4 veredictos', () => {
     for (const verdict of ALL_VERDICTS) {
@@ -129,10 +150,7 @@ describe('VC-1b: el CSS no puede apagar un veredicto', () => {
     expect(verdictRules.length).toBeGreaterThan(0);
 
     for (const { selector, body } of verdictRules) {
-      const props = body
-        .split(';')
-        .map((d) => d.split(':')[0].trim())
-        .filter(Boolean);
+      const props = declarations(body).map((d) => d.prop);
 
       expect(props.length, `${selector} no declara nada`).toBeGreaterThan(0);
       for (const prop of props) {
@@ -140,6 +158,38 @@ describe('VC-1b: el CSS no puede apagar un veredicto', () => {
           prop,
           `${selector} toca "${prop}": el tono es lo ÚNICO que puede variar por veredicto`,
         ).toMatch(/^--verdict-/);
+      }
+    }
+  });
+
+  /**
+   * Mirar sólo los NOMBRES de propiedad deja abierta la puerta grande: un
+   * `--verdict-accent: transparent` en NO_CONCLUYENTE pasa los tres tests de
+   * arriba y deja ese veredicto SIN barra de tono — apagado, que es justo lo
+   * que la regla prohíbe. El valor también se audita.
+   */
+  it('cada veredicto declara un --verdict-accent que efectivamente PINTA', () => {
+    for (const verdict of ALL_VERDICTS) {
+      const rule = verdictRules.find((r) => r.selector.includes(verdict));
+      expect(rule, `falta la regla de tono de ${verdict}`).toBeDefined();
+
+      const accent = declarations(rule!.body).find((d) => d.prop === '--verdict-accent');
+      expect(accent, `${verdict} no declara --verdict-accent: queda sin barra de tono`).toBeDefined();
+      expect(
+        accent!.value,
+        `${verdict} declara --verdict-accent: ${accent!.value} — eso apaga la barra`,
+      ).not.toMatch(INVISIBLE);
+      expect(accent!.value.length, `${verdict} declara --verdict-accent vacío`).toBeGreaterThan(0);
+    }
+  });
+
+  it('ningún valor de tono es invisible (transparent / none / 0)', () => {
+    for (const { selector, body } of verdictRules) {
+      for (const { prop, value } of declarations(body)) {
+        expect(
+          value,
+          `${selector} setea "${prop}: ${value}" — un valor que no pinta apaga el veredicto`,
+        ).not.toMatch(INVISIBLE);
       }
     }
   });

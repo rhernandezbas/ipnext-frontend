@@ -49,6 +49,27 @@ export function journeyRequiresAudit(day: string, todayAr: string): boolean {
 }
 
 /**
+ * ¿`day` cae DESPUÉS de hoy?
+ *
+ * Espejo del `400 day no puede ser una fecha futura` de
+ * `technicianLocation.routes.ts`. `journeyRequiresAudit` no lo cubre: para un
+ * día futuro `daysBack` es negativo, así que devuelve `false` y el query salía,
+ * comía el 400 y la pantalla mostraba "No se pudo cargar la jornada" con un
+ * Reintentar que no podía funcionar NUNCA — el mismo patrón que el manejo del
+ * 403 vino a matar.
+ *
+ * Un día que no parsea devuelve `false` a propósito: de ese caso ya se ocupa el
+ * fail-closed de `journeyRequiresAudit`, y marcarlo como "futuro" pintaría el
+ * mensaje equivocado.
+ */
+export function isFutureDay(day: string, todayAr: string): boolean {
+  const asked = Date.parse(`${day}T00:00:00.000Z`);
+  const today = Date.parse(`${todayAr}T00:00:00.000Z`);
+  if (Number.isNaN(asked) || Number.isNaN(today)) return false;
+  return asked > today;
+}
+
+/**
  * Estado en vivo de todas las cuadrillas.
  * `refetchInterval` de 60 s: es un tablero de despacho, no una foto.
  */
@@ -65,7 +86,12 @@ export function useTeamsLive() {
 
 /**
  * Jornada de una cuadrilla en un día argentino.
- * Se deshabilita sola si falta el login, el día, o el permiso que ese día exige.
+ *
+ * Se deshabilita sola si falta el login, el día, el permiso que ese día exige, o
+ * si el día es futuro. Las dos últimas guardas son la misma idea: no salir a
+ * comerse un rechazo que ya sabemos que va a llegar (403 y 400 respectivamente).
+ * Un error de request se presenta como falla técnica con botón de reintento, y
+ * ninguno de los dos casos se arregla reintentando.
  */
 export function useTeamJourney(login: string | null, day: string, todayAr: string) {
   const { can } = useMyPermissions();
@@ -76,7 +102,7 @@ export function useTeamJourney(login: string | null, day: string, todayAr: strin
     queryKey: ['technicians', 'location', 'journey', login, day],
     queryFn: () => technicianLocationApi.journey(login as string, day),
     staleTime: 60_000,
-    enabled: Boolean(login) && Boolean(day) && allowed,
+    enabled: Boolean(login) && Boolean(day) && !isFutureDay(day, todayAr) && allowed,
   });
 }
 

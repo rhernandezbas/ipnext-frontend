@@ -27,12 +27,15 @@ import styles from './JourneyPanel.module.css';
  * año iterando el roster completo que devuelve `/live`.
  *
  * ── Las CINCO ramas ───────────────────────────────────────────────────────────
- * `min` en el `<input type="date">` sólo limita el calendario del navegador:
- * tipear o pegar una fecha vieja dispara el `onChange` igual. Ahí el query queda
- * con `enabled:false` y TanStack v5 devuelve `isLoading:false, isError:false,
- * data:undefined` — ninguna de las 4 ramas clásicas matchea. Sin la rama de
- * "fuera de alcance" el panel quedaba EN BLANCO bajo el título con la fecha
- * elegida, y un supervisor lee ese blanco como "no trabajó". Nunca un hueco.
+ * `min`/`max` en el `<input type="date">` sólo limitan el calendario del
+ * navegador: tipear, pegar o LIMPIAR la fecha dispara el `onChange` igual. Ahí
+ * el query queda con `enabled:false` y TanStack v5 devuelve `isLoading:false,
+ * isError:false, data:undefined` — ninguna de las 4 ramas clásicas matchea. Sin
+ * la 5ª rama el panel quedaba EN BLANCO bajo el título con la fecha elegida, y
+ * un supervisor lee ese blanco como "no trabajó". Nunca un hueco.
+ *
+ * Esa 5ª rama tiene MOTIVOS (`unavailableNote`, más abajo): el texto que sale
+ * tiene que corresponderse con lo que efectivamente pasó. Ver el docblock ahí.
  */
 
 interface JourneyPanelProps {
@@ -51,11 +54,84 @@ interface JourneyPanelProps {
   isError: boolean;
   /** El error es un 403: límite de permiso, no falla técnica. Sin reintento. */
   isForbidden: boolean;
+  /** El query está PAUSADO por falta de conexión (`fetchStatus: 'paused'`). */
+  isPaused: boolean;
   onRetry: () => void;
   onClose: () => void;
 }
 
 const EMPTY = '—';
+
+/**
+ * Por qué la 5ª rama tiene MOTIVOS y no un texto único.
+ *
+ * `isLoading:false + isError:false + data:undefined` llega por CINCO caminos
+ * distintos, y cada uno tiene que decir SU verdad. Prestarle la frase a otro es
+ * tan grave como dejar el hueco en blanco:
+ *
+ *  · `no-day`         el operador limpió el `<input type="date">` (Chrome y
+ *                     Firefox tienen ese botón). Como `journeyRequiresAudit` es
+ *                     fail-closed, un día vacío "requiere auditoría" y el panel
+ *                     salía con «El  queda fuera de tu alcance…»: frase rota Y
+ *                     falsa — nadie pidió un día histórico. AFIRMAR UN LÍMITE DE
+ *                     PERMISO QUE NO SE DISPARÓ es inventar una restricción.
+ *  · `future`         día posterior al tope. El BE responde 400 y el FE ni sale
+ *                     a pedirlo; sin esta rama caía en "no se pudo cargar" con
+ *                     un Reintentar que nunca podía funcionar.
+ *  · `requires-audit` el corte real de permiso. Gana sobre `offline`: sin el
+ *                     permiso no se pidió, ni se va a pedir cuando vuelva la red.
+ *  · `offline`        query pausado por falta de conexión.
+ *  · `idle`           todavía no se consultó.
+ */
+type UnavailableReason = 'no-day' | 'future' | 'requires-audit' | 'offline' | 'idle';
+
+const NOT_A_JUDGEMENT = 'esto no dice nada sobre si la cuadrilla trabajó';
+
+function unavailableNote(args: {
+  day: string;
+  maxDay: string;
+  requiresAudit: boolean;
+  canAudit: boolean;
+  isPaused: boolean;
+}): { reason: UnavailableReason; text: string } {
+  const { day, maxDay, requiresAudit, canAudit, isPaused } = args;
+
+  if (day === '') {
+    return {
+      reason: 'no-day',
+      text: `Elegí un día para ver la jornada: el selector quedó vacío — ${NOT_A_JUDGEMENT}.`,
+    };
+  }
+
+  // `max` sólo limita el calendario del navegador: tipear o pegar una fecha
+  // posterior dispara el `onChange` igual. Comparación de strings "yyyy-MM-dd",
+  // que ordena igual que las fechas.
+  if (maxDay !== '' && day > maxDay) {
+    return {
+      reason: 'future',
+      text: `El ${day} todavía no ocurrió: no hay jornada que consultar. Elegí un día hasta el ${maxDay}.`,
+    };
+  }
+
+  if (requiresAudit && !canAudit) {
+    return {
+      reason: 'requires-audit',
+      text: `El ${day} queda fuera de tu alcance: la jornada de días anteriores a ayer requiere el permiso de auditoría (technicians.location_audit). Elegí un día dentro de tu alcance o pedí el permiso — ${NOT_A_JUDGEMENT}.`,
+    };
+  }
+
+  if (isPaused) {
+    return {
+      reason: 'offline',
+      text: `Sin conexión: la jornada del ${day} no se pudo pedir todavía. Se carga sola cuando vuelva la conexión — ${NOT_A_JUDGEMENT}.`,
+    };
+  }
+
+  return {
+    reason: 'idle',
+    text: `Todavía no se consultó la jornada del ${day}. Elegí un día para verla — ${NOT_A_JUDGEMENT}.`,
+  };
+}
 
 /**
  * Distribución horaria: barras + el número visible, nunca sólo la altura.
@@ -132,12 +208,15 @@ export function JourneyPanel({
   isLoading,
   isError,
   isForbidden,
+  isPaused,
   onRetry,
   onClose,
 }: JourneyPanelProps) {
   const hasPoints = journey != null && journey.pointCount > 0;
   /** Sin un segundo punto no hay tramo: el "0 m" del BE no es un recorrido medido. */
   const canEstimateTravel = journey != null && journey.medianSamplingMinutes != null;
+
+  const unavailable = unavailableNote({ day, maxDay, requiresAudit, canAudit, isPaused });
 
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -206,7 +285,7 @@ export function JourneyPanel({
       )}
 
       {!isLoading && isError && !isForbidden && (
-        <div className={styles.error} role="alert">
+        <div className={styles.error} role="alert" data-testid="journey-error">
           <p className={styles.errorText}>No se pudo cargar la jornada de esta cuadrilla.</p>
           <Button variant="secondary" size="sm" onClick={onRetry}>
             Reintentar
@@ -214,12 +293,16 @@ export function JourneyPanel({
         </div>
       )}
 
-      {/* 4ª rama: la consulta ni siquiera salió (query deshabilitado). NUNCA un hueco. */}
+      {/* 5ª rama: la consulta ni siquiera salió (query deshabilitado o pausado).
+          NUNCA un hueco, y nunca un motivo prestado: ver `unavailableNote`. */}
       {!isLoading && !isError && journey == null && (
-        <p className={styles.blocked} role="status" data-testid="journey-unavailable">
-          {requiresAudit && !canAudit
-            ? `El ${day} queda fuera de tu alcance: la jornada de días anteriores a ayer requiere el permiso de auditoría (technicians.location_audit). Elegí un día dentro de tu alcance o pedí el permiso — esto no dice nada sobre si la cuadrilla trabajó.`
-            : `Todavía no se consultó la jornada del ${day}. Elegí un día para verla — esto no dice nada sobre si la cuadrilla trabajó.`}
+        <p
+          className={styles.blocked}
+          role="status"
+          data-testid="journey-unavailable"
+          data-reason={unavailable.reason}
+        >
+          {unavailable.text}
         </p>
       )}
 

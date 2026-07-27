@@ -314,14 +314,24 @@ describe('LM-7: el estado administrativo de IClass no determina el rastreo', () 
 });
 
 /**
- * LM-8 — el mapa NO le arrebata el pan/zoom al operador.
+ * LM-8 — el encuadre del mapa es del OPERADOR, no del poll.
  *
  * El BE calcula `minutesSinceLastPoint` contra `now()` en CADA request, así que
- * el poll de 60 s devuelve un objeto nuevo aunque las coordenadas sean idénticas.
- * Si el encuadre se ata a la identidad del array de puntos, cada minuto el mapa
- * salta y el despachante pierde el zoom que acababa de hacer.
+ * el poll de 60 s devuelve un objeto nuevo aunque nada se haya movido. Pero el
+ * problema no termina ahí: con `accuracyMeters` de 12-40 m un teléfono QUIETO
+ * reporta coordenadas distintas en cada breadcrumb. Una firma que incluya las
+ * coordenadas — aunque estén redondeadas a ~1 m — cambia con esa deriva, y con
+ * ~6 cuadrillas activas eso reencuadra cada uno o dos minutos: el despachante
+ * pierde el zoom que acababa de hacer, justo cuando está mirando algo.
+ *
+ * Por eso la firma es el CONJUNTO DE LOGINS con marcador: el mapa se reencuadra
+ * solo cuando cambia QUÉ se está mostrando (aparece o desaparece una cuadrilla,
+ * que puede caer fuera del viewport actual). Que el encuadre siga a la posición
+ * se recupera con el botón explícito "Recentrar" — un umbral geográfico no
+ * alcanza: una cuadrilla en la camioneta cruza 100 m entre polls, así que el
+ * robo del viewport volvería igual con otro disfraz.
  */
-describe('LM-8: el encuadre se ata a una FIRMA estable, no a la identidad del dato', () => {
+describe('LM-8: el encuadre se ata al CONJUNTO de cuadrillas, no a sus coordenadas', () => {
   it('no reencuadra cuando sólo cambian los minutos de antigüedad', () => {
     mockLive({ data: [ACTIVA] });
     const { rerender } = renderPage();
@@ -333,6 +343,20 @@ describe('LM-8: el encuadre se ata a una FIRMA estable, no a la identidad del da
     mockLive({
       data: [{ ...ACTIVA, minutesSinceLastPoint: 5, lastPointAt: '2026-07-26T12:01:00.000Z' }],
     });
+    rerender(pageElement());
+
+    expect(mapStub.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it('no reencuadra por la DERIVA del GPS: 9 m con un teléfono quieto', () => {
+    // 8e-5° de latitud ≈ 8,9 m: por debajo de la precisión reportada (12-40 m).
+    // El teléfono no se movió; sólo cambió la lectura. Este es el caso que
+    // rompía el encuadre cada uno o dos minutos.
+    mockLive({ data: [ACTIVA] });
+    const { rerender } = renderPage();
+    mapStub.fitBounds.mockClear();
+
+    mockLive({ data: [{ ...ACTIVA, latitude: ACTIVA.latitude! - 0.00008 }] });
     rerender(pageElement());
 
     expect(mapStub.fitBounds).not.toHaveBeenCalled();
@@ -351,7 +375,27 @@ describe('LM-8: el encuadre se ata a una FIRMA estable, no a la identidad del da
     expect(mapStub.fitBounds).toHaveBeenCalledTimes(1);
   });
 
-  it('SÍ reencuadra cuando una cuadrilla se mueve', () => {
+  it('el conjunto no depende del ORDEN en que el BE liste las cuadrillas', () => {
+    const OTRO = { ...ACTIVA, login: 'IPNXOTRO', name: 'Otro', latitude: -34.9, longitude: -58.9 };
+    mockLive({ data: [ACTIVA, OTRO] });
+    const { rerender } = renderPage();
+    mapStub.fitBounds.mockClear();
+
+    // Mismo conjunto, orden invertido: no cambió QUÉ se muestra.
+    mockLive({ data: [OTRO, ACTIVA] });
+    rerender(pageElement());
+
+    expect(mapStub.fitBounds).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Antes acá vivía «SÍ reencuadra cuando una cuadrilla se mueve», que movía la
+   * cuadrilla 33 km. Ese test no distinguía NADA: 33 km y 9 m de deriva GPS
+   * cambian la firma por coordenadas exactamente igual, así que pasaba en verde
+   * mientras el operador perdía el encuadre por ruido del GPS. El movimiento
+   * real tampoco puede robar el viewport — para eso está el botón.
+   */
+  it('tampoco reencuadra por un movimiento REAL: el viewport es del operador', () => {
     mockLive({ data: [ACTIVA] });
     const { rerender } = renderPage();
     mapStub.fitBounds.mockClear();
@@ -359,7 +403,27 @@ describe('LM-8: el encuadre se ata a una FIRMA estable, no a la identidad del da
     mockLive({ data: [{ ...ACTIVA, latitude: -34.9, longitude: -58.9 }] });
     rerender(pageElement());
 
+    expect(mapStub.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it('el botón "Recentrar" devuelve el encuadre sobre las posiciones actuales', async () => {
+    mockLive({ data: [ACTIVA] });
+    const { rerender } = renderPage();
+
+    mockLive({ data: [{ ...ACTIVA, latitude: -34.9, longitude: -58.9 }] });
+    rerender(pageElement());
+    mapStub.fitBounds.mockClear();
+
+    await userEvent.click(screen.getByRole('button', { name: /recentrar/i }));
+
     expect(mapStub.fitBounds).toHaveBeenCalledTimes(1);
+    expect(mapStub.fitBounds.mock.calls[0][0]).toEqual([[-34.9, -58.9]]);
+  });
+
+  it('sin nada que encuadrar no ofrece un botón que no haría nada', () => {
+    mockLive({ data: [SIN_RASTRO] });
+    renderPage();
+    expect(screen.queryByRole('button', { name: /recentrar/i })).not.toBeInTheDocument();
   });
 
   it('sin cuadrillas activas encuadra las últimas posiciones CONOCIDAS, sin dibujarlas', () => {
@@ -370,7 +434,16 @@ describe('LM-8: el encuadre se ata a una FIRMA estable, no a la identidad del da
 
     expect(mapStub.fitBounds).toHaveBeenCalledTimes(1);
     expect(mapStub.fitBounds.mock.calls[0][0]).toEqual([[-34.7, -58.4]]);
+    // maxZoom 12 y no 15: acercarse a nivel de calle sobre una posición de hace
+    // más de 24 h la vestiría de dato actual.
+    expect(mapStub.fitBounds.mock.calls[0][1]).toMatchObject({ maxZoom: 12 });
     expect(screen.queryAllByTestId('map-marker')).toHaveLength(0);
+  });
+
+  it('con cuadrillas activas el encuadre sí llega a nivel de calle (maxZoom 15)', () => {
+    mockLive({ data: [ACTIVA] });
+    renderPage();
+    expect(mapStub.fitBounds.mock.calls[0][1]).toMatchObject({ maxZoom: 15 });
   });
 });
 
@@ -429,6 +502,59 @@ describe('LM-10: el panel de jornada nunca deja un hueco', () => {
     fireEvent.click(screen.getByRole('button', { name: /ver jornada de denis c\./i }));
 
     expect(screen.getByTestId('journey-forbidden')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /reintentar/i })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * LM-12 — al cerrar el panel el foco vuelve al botón que lo abrió. AL QUE LO
+ * ABRIÓ, no a otro. Esta pantalla decide a quién se investiga: si el foco
+ * aterriza en la fila de Denis después de cerrar la jornada de Antonio, el
+ * teclado (y el lector de pantalla) quedan parados sobre la persona equivocada.
+ */
+describe('LM-12: el foco vuelve al botón que abrió el panel', () => {
+  it('vuelve al botón de la MISMA cuadrilla, también desde la lista de desactualizadas', async () => {
+    mockLive({ data: [ACTIVA, DESACTUALIZADA] });
+    renderPage();
+
+    const denis = screen.getByRole('button', { name: /ver jornada de denis c\./i });
+    await userEvent.click(denis);
+    await userEvent.click(screen.getByRole('button', { name: /cerrar/i }));
+    expect(document.activeElement).toBe(denis);
+
+    const antonio = screen.getByRole('button', { name: /ver jornada de antonio m\./i });
+    await userEvent.click(antonio);
+    await userEvent.click(screen.getByRole('button', { name: /cerrar/i }));
+    expect(document.activeElement).toBe(antonio);
+  });
+});
+
+/**
+ * LM-13 — un día FUTURO no puede terminar en "no se pudo cargar" + Reintentar.
+ *
+ * El BE responde 400 a un día futuro (`technicianLocation.routes.ts`) y
+ * `journeyRequiresAudit` devuelve `false` (daysBack negativo), así que sin
+ * guarda el query salía, comía el 400 y la pantalla ofrecía un reintento que no
+ * podía funcionar nunca — el mismo patrón que el fix del 403 vino a matar.
+ */
+describe('LM-13: el día futuro se ataja antes de salir', () => {
+  it('explica que el día todavía no ocurrió, sin ofrecer un reintento inútil', () => {
+    mockPerms(['technicians.location_read', 'technicians.location_audit']);
+    mockLive({ data: [ACTIVA] });
+    mockJourney();
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: /ver jornada de denis c\./i }));
+    // `max` sólo limita el calendario del navegador: pegar una fecha futura
+    // dispara el onChange igual.
+    fireEvent.change(screen.getByLabelText(/día de la jornada/i), {
+      target: { value: '2099-01-01' },
+    });
+
+    const note = screen.getByTestId('journey-unavailable');
+    expect(note).toHaveAttribute('data-reason', 'future');
+    expect(note.textContent ?? '').toMatch(/todavía no ocurrió/i);
+    expect(note.textContent ?? '').not.toMatch(/permiso de auditoría/i);
     expect(screen.queryByRole('button', { name: /reintentar/i })).not.toBeInTheDocument();
   });
 });
