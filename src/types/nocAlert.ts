@@ -44,15 +44,21 @@ export interface NocAlertStreamEvent {
   alert: NocAlertDto;
 }
 
-/** Client-side-only filter selection (AlertsPage) — '' means "todas". */
+/** Client-side-only filter selection (AlertsPage) — '' means "todas".
+ *  `alertname` (change `noc-alerts-dashboard`, resumen por tipo) NO tiene un
+ *  <Select> propio — se setea/clearea desde los tiles clickeables del
+ *  resumen (`AlertsSummary`), reusando este MISMO estado de filtros en vez de
+ *  duplicar lógica de filtrado client-side. */
 export interface NocAlertFilterState {
   source: string;
   severity: NocAlertSeverity | '';
   status: NocAlertStatus | '';
+  alertname: string;
 }
 
 export const EMPTY_NOC_ALERT_FILTERS: NocAlertFilterState = {
   source: '',
   severity: '',
   status: '',
+  alertname: '',
 };
