@@ -208,3 +208,37 @@ export interface AssistantRoutingConfig {
   /** Si el agente default detecta que el tema es de otra área con agente, reasigna. */
   rerouteEnabled: boolean;
 }
+
+/**
+ * EVAL-1 — una corrida de evaluación, como la devuelve el backend.
+ *
+ * Las dos particiones van SEPARADAS a propósito, nunca promediadas:
+ *  - **resolución** — ¿acierta cuando la respuesta existe?
+ *  - **abstención** — ¿se calla cuando NO existe?
+ *
+ * Colapsarlas en un "accuracy" único esconde el modo de falla peligroso. El benchmark sobre
+ * tickets reales lo mostró crudo: el modelo que más resolvía era el PEOR resistiendo
+ * alucinaciones. Un promedio lo habría dejado primero en el ranking.
+ *
+ * Vienen los TOTALES además de las tasas porque una tasa sin tamaño de muestra no se puede
+ * interpretar: 100% sobre 3 casos no dice nada.
+ */
+export interface AssistantEvalRun {
+  id: string;
+  model: string;
+  resolutionAccuracy: number | null;
+  abstentionRate: number | null;
+  resolutionTotal: number;
+  abstentionTotal: number;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface RecordAssistantEvalInput {
+  model: string;
+  resolutionTotal: number;
+  resolutionCorrect: number;
+  abstentionTotal: number;
+  abstentionCorrect: number;
+  notes: string | null;
+}

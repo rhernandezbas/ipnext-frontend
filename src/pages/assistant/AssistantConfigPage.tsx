@@ -7,6 +7,8 @@ import { AssistantActionsEditor } from '@/components/settings/AssistantActionsEd
 import { AssistantIntentsEditor } from '@/components/settings/AssistantIntentsEditor';
 import { AssistantProviderCard } from '@/components/settings/AssistantProviderCard';
 import { AssistantRoutingCard } from '@/components/settings/AssistantRoutingCard';
+import { AssistantDataSourcesCard } from '@/components/settings/AssistantDataSourcesCard';
+import { AssistantEvalCard } from '@/components/settings/AssistantEvalCard';
 import { AssistantEnabledCard } from '@/components/settings/AssistantEnabledCard';
 import { AssistantRunsPanel } from '@/components/settings/AssistantRunsPanel';
 import { useTicketAreas } from '@/hooks/useTicketAreas';
@@ -102,6 +104,25 @@ export default function AssistantConfigPage() {
                 cualquiera con `assistant.read`, igual que lo expone el backend. La card gatea
                 por dentro la EDICIÓN. */}
             <AssistantRoutingCard />
+          </section>
+
+          {/* Config GLOBAL (vale para todos los agentes) antes de la config POR ÁREA. */}
+          <section className={styles.section}>
+            <h2 className={styles.sectionHeading}>Fuentes de datos</h2>
+            <p className={styles.sectionDescription}>
+              Qué puede consultar el asistente, para todas las áreas. Una fuente apagada no se
+              consulta: el asistente no afirma nada sobre ese dato.
+            </p>
+            <AssistantDataSourcesCard />
+          </section>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionHeading}>Evaluaciones</h2>
+            <p className={styles.sectionDescription}>
+              El candado de las acciones de riesgo. Sin una evaluación registrada, &quot;Marcar
+              la conversación como resuelta&quot; no se puede habilitar en ningún agente.
+            </p>
+            <AssistantEvalCard />
           </section>
 
           <section className={styles.section}>
