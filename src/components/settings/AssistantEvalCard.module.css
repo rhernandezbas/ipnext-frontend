@@ -1,0 +1,169 @@
+/* ai-assistant-multiagent (EVAL-1) — corridas de evaluación. Tokens del design system. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+/* El estado del candado no es decorativo: dice si una acción de riesgo se puede prender. */
+.locked,
+.unlocked {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.locked {
+  background: var(--alert-warning-bg);
+  color: var(--alert-warning-fg);
+}
+
+.unlocked {
+  background: var(--alert-status-resolved-bg);
+  color: var(--alert-status-resolved-fg);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.partition {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+}
+
+.legend {
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.key {
+  font-weight: var(--font-weight-normal);
+  color: var(--alert-warning-fg);
+}
+
+.pairRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-3);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fieldLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.fieldHint {
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-600);
+  line-height: 1.5;
+}
+
+.error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.empty {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+}
+
+.runs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.run {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.runHead {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.runModel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.runDate {
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-600);
+}
+
+.rates {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.rate {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.sample {
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-600);
+}
+
+.runNotes {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-600);
+  line-height: 1.5;
+}
