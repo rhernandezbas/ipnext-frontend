@@ -116,6 +116,364 @@
   color: var(--alert-critical-fg);
 }
 
+/* ------------------------------------------------------------------------ */
+/* Resumen indicativo por severidad/tipo (change `noc-alerts-dashboard`).    */
+/* Pattern "Data-Dense Dashboard" (skill ui-ux-pro-max): KPI tiles + grid,   */
+/* padding mínimo, sin ornamento. Jerarquía de severidad NUNCA solo color —  */
+/* dot + texto en cada tile (mismo criterio que .badge de más abajo). A1     */
+/* (review adversarial): el dot de `.kpiTop` NO hereda tamaño de `.badge     */
+/* .dot` / `.streamBadge .dot` (ninguno de los dos lo contiene) — tiene su   */
+/* PROPIA regla de tamaño (`.kpiTop .dot`, más abajo, junto a `.kpiTop`).    */
+/* ------------------------------------------------------------------------ */
+.summary {
+  margin-bottom: var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+/* Bajo (review adversarial): con `justify-content: space-between` el hint
+   quedaba pegado al borde derecho del contenedor en pantalla ancha, lejos de
+   los números que califica. `gap` alcanza — el título y el hint quedan
+   juntos, alineados a la izquierda. */
+.summaryHeading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.summaryTitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+/* Deja explícito que el resumen es GLOBAL — no cambia con los filtros de la
+   lista de abajo (decisión de diseño: ver comentario en AlertsPage.tsx). */
+.summaryHint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.summaryEmpty {
+  padding: var(--space-3) 0;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+/* Bajo (review adversarial): sin background-color propio caía sobre
+   --color-gray-50 (#f8f9fa) del layout — #6c757d ahí da 4.448:1, FALLA AA por
+   0.05. `--color-surface` (blanco, mismo token que `.summary`/`.errorState`
+   hermanos) da 4.688:1 — pasa, sin tocar el color de texto. */
+.summaryError {
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-5);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+/* Skeleton puramente visual (aria-hidden, ver AlertsPage.tsx) — el role="status"
+   de la lista ya cubre el anuncio de carga para lectores de pantalla. */
+.summarySkeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.summarySkeletonTile {
+  height: 72px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(90deg, var(--color-border) 25%, var(--color-surface-hover) 50%, var(--color-border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .summarySkeletonTile {
+    animation: none;
+    background-position: 0 0;
+  }
+}
+
+.kpiRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.kpiTile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.kpiTile:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.kpiTile:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* M7/M8 (review adversarial): el estado activo NO puede reusar el fondo de
+   :hover (indistinguibles) ni tocar `border-color` (`.kpiTile_critical` tiene
+   ESA misma propiedad a igual especificidad — 0,1,0 vs 0,2,0 acá, así que
+   `[aria-pressed='true']` SIEMPRE ganaba y el borde rojo de crítica se volvía
+   azul al activarse). Fix: fondo propio (tinte de --color-primary vía
+   color-mix, distinto del gris de :hover) + anillo con box-shadow — cero
+   propiedades compartidas con `.kpiTile_critical`, el acento de severidad
+   queda intacto en cualquier combinación de estados. */
+.kpiTile[aria-pressed='true'] {
+  background-color: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+
+.kpiTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* A1 (review adversarial): tamaño PROPIO del dot de los tiles — antes
+   dependía por error de `.badge .dot` / `.streamBadge .dot` (ninguno lo
+   contiene), así que renderizaba en 0x0 y el `gap` de `.kpiTop` dejaba una
+   sangría fantasma. El color sigue viniendo de `.kpiTile_{severity} .dot`. */
+.kpiTop .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.kpiLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+/* M6 (review adversarial): --color-text-secondary (#6c757d) sobre el fondo
+   de :hover/activo (#f0f0f5 / tinte de primary) da 4.128:1 — FALLA AA
+   (4.5:1). --color-gray-600 (#495057) da >=7.2:1 en ambos fondos (recalculado,
+   ver AlertsPage.contrast.test.tsx), con margen real. */
+.kpiTile:hover .kpiLabel,
+.kpiTile[aria-pressed='true'] .kpiLabel {
+  color: var(--color-gray-600);
+}
+
+.kpiValue {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+/* Crítica salta a la vista: borde acentuado + valor más grande. La severidad
+   SIGUE marcada por dot+texto (arriba) — esto es jerarquía ADICIONAL, nunca
+   la única señal (regla dura: severidad nunca solo color/tamaño). */
+.kpiTile_critical {
+  border-width: 2px;
+  border-color: var(--alert-critical-dot);
+}
+.kpiTile_critical .kpiValue {
+  font-size: var(--font-size-3xl);
+  color: var(--alert-critical-fg);
+}
+.kpiTile_critical .dot {
+  background-color: var(--alert-critical-dot);
+}
+
+.kpiTile_warning .dot {
+  background-color: var(--alert-warning-dot);
+}
+
+.kpiTile_info .dot {
+  background-color: var(--alert-info-dot);
+}
+
+/* Tile de "sin reconocer" — informativo, NO es un filtro (no hay dimensión
+   `acknowledged` en NocAlertFilterState hoy), por eso es <div> y no <button>. */
+.kpiTileAck {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+.kpiTileAck .kpiValue {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+/* Top incidencias (breakdown por tipo) */
+.typeBreakdown {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+}
+
+.breakdownTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-2);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.breakdownList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.breakdownRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.breakdownRow:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.breakdownRow:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* M7 (mismo criterio que `.kpiTile[aria-pressed='true']` arriba): fondo
+   propio para el estado activo, distinto del gris de :hover. */
+.breakdownRow[aria-pressed='true'] {
+  border-color: var(--color-primary);
+  background-color: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+
+/* M6: mismo fix de contraste que `.kpiLabel` — `.breakdownSource` usa
+   --color-text-secondary en font-size-xs, más chico y más sensible al
+   contraste que kpiLabel. */
+.breakdownRow:hover .breakdownSource,
+.breakdownRow[aria-pressed='true'] .breakdownSource {
+  color: var(--color-gray-600);
+}
+
+.breakdownMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.breakdownCount {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.breakdownName {
+  color: var(--color-text-primary);
+}
+
+.breakdownSource {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Mini-meter (skill dataviz — "Meter": fill = tono saturado de la severidad
+   dominante; track = paso más CLARO de la MISMA rampa, nunca un gris
+   genérico — por eso hay una variante `_critical/_warning/_info` para
+   cada uno, tomando los mismos tokens *-bg/*-dot ya usados en los badges). */
+.breakdownBarTrack {
+  display: block;
+  height: 6px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.breakdownBarTrack_critical {
+  background-color: var(--alert-critical-bg);
+}
+.breakdownBarTrack_warning {
+  background-color: var(--alert-warning-bg);
+}
+.breakdownBarTrack_info {
+  background-color: var(--alert-info-bg);
+}
+
+.breakdownBarFill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+}
+
+.breakdownBarFill_critical {
+  background-color: var(--alert-critical-dot);
+}
+.breakdownBarFill_warning {
+  background-color: var(--alert-warning-dot);
+}
+.breakdownBarFill_info {
+  background-color: var(--alert-info-dot);
+}
+
+.typeChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--alert-info-bg);
+  color: var(--alert-info-fg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.typeChip:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .kpiRow {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 /* Filters */
 .filters {
   display: flex;
