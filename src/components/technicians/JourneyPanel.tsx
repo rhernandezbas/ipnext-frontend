@@ -20,16 +20,31 @@ import styles from './JourneyPanel.module.css';
  * como "no se movió en todo el día", y un técnico que abrió la app tres minutos
  * produce exactamente ese caso. Va "—" y la razón.
  *
- * ── Por qué el selector de día tiene tope ─────────────────────────────────────
- * `technicians.location_read` (despacho) alcanza para hoy y ayer. Cualquier día
- * anterior exige `technicians.location_audit`. Sin ese corte, quien despacha
- * podía reconstruir los horarios de entrada y salida de cada empleado durante un
- * año iterando el roster completo que devuelve `/live`.
+ * ── DOS límites distintos: el permiso y la retención ──────────────────────────
+ * Se confundieron una vez y produjeron una nota falsa en cada dirección. Son
+ * independientes y el panel tiene que nombrarlos por separado.
  *
- * El tope es de PERMISO, no de retención: `technicianLocation.routes.ts` valida
- * el formato del día, que no sea futuro y el permiso que ese día exige — nada
- * más. La nota de alcance decía «cualquier día de los últimos 12 meses» y ese
- * cap NO EXISTE en ningún lado: afirmaba una restricción que nunca se dispara.
+ * **Permiso.** `technicians.location_read` (despacho) alcanza para hoy y ayer;
+ * cualquier día anterior exige `technicians.location_audit`. Sin ese corte, quien
+ * despacha podía reconstruir los horarios de entrada y salida de cada empleado
+ * durante un año iterando el roster completo que devuelve `/live`.
+ * `technicianLocation.routes.ts` valida el formato del día, que no sea futuro y
+ * el permiso que ese día exige — nada más. NO hay cap de antigüedad: con el
+ * permiso de auditoría, cualquier día pasado atraviesa el gate.
+ *
+ * **Retención.** El rastro propio se conserva 12 MESES y el corte es real y duro:
+ * `IngestTeamLocations` (`DEFAULT_RETENTION_MONTHS = 12`) llama a
+ * `repo.purgeOlderThan(cutoff)` en CADA corrida del ingest, y
+ * `PrismaTeamLocationRepository.purgeOlderThan` hace `deleteMany` — borrado
+ * físico. `GetTeamDailyJourney` lee `findByTeamOnDay` sobre esa misma tabla, sin
+ * fallback a IClass (que además retiene ~30 días rolling).
+ *
+ * O sea: un día anterior al horizonte pasa el gate, responde 200 y vuelve con
+ * `pointCount: 0` — INDISTINGUIBLE de "la cuadrilla no registró nada ese día".
+ * Presentarle al auditor "podés consultar cualquier día pasado" a secas le vende
+ * una promesa que el sistema no cumple, y lo deja leyendo un vacío de purga como
+ * si fuera un dato sobre una persona. Por eso la nota nombra el horizonte, y por
+ * eso el mensaje de "sin puntos" tiene DOS versiones (ver `beyondRetention`).
  *
  * ── Las CINCO ramas ───────────────────────────────────────────────────────────
  * `min`/`max` en el `<input type="date">` sólo limitan el calendario del
@@ -58,6 +73,13 @@ interface JourneyPanelProps {
   canAudit: boolean;
   /** ¿El día elegido cae en el tramo que exige `technicians.location_audit`? */
   requiresAudit: boolean;
+  /**
+   * ¿El día elegido quedó ATRÁS del horizonte de retención (12 meses)?
+   *
+   * No bloquea nada — el query sale y el BE responde 200. Sólo cambia QUÉ causa se
+   * ofrece cuando la jornada vuelve sin puntos: ahí el dato no falta, se BORRÓ.
+   */
+  beyondRetention: boolean;
   journey?: TeamDailyJourney;
   isLoading: boolean;
   isError: boolean;
@@ -244,6 +266,7 @@ export function JourneyPanel({
   onDayChange,
   canAudit,
   requiresAudit,
+  beyondRetention,
   journey,
   isLoading,
   isError,
@@ -309,10 +332,11 @@ export function JourneyPanel({
       </div>
 
       <p className={styles.scopeNote} data-testid="journey-scope-note">
-        {/* Lo que el BE valida y NADA más: formato, que el día no sea futuro y
-            el permiso. No hay ventana de retención de 12 meses en ningún lado. */}
+        {/* Dos límites, nombrados por separado: el PERMISO (que no mira
+            antigüedad) y la RETENCIÓN del dato (12 meses, borrado duro en cada
+            ingest). Fusionarlos vende una promesa que el sistema no cumple. */}
         {canAudit
-          ? 'Con el permiso de auditoría podés consultar cualquier día pasado, hasta hoy.'
+          ? 'Con el permiso de auditoría podés consultar cualquier día pasado: el permiso no tiene tope de antigüedad. El rastro propio, sí — se conserva 12 meses, y más atrás el dato ya se borró. Un día vacío por esa purga no dice que no haya habido jornada.'
           : 'Tu permiso operativo cubre hoy y ayer. Los días anteriores requieren el permiso de auditoría.'}
       </p>
 
@@ -356,10 +380,23 @@ export function JourneyPanel({
         </p>
       )}
 
+      {/* Dos versiones del vacío, porque la causa NO es la misma.
+
+          Dentro del horizonte, "la app cerrada" y "el teléfono sin señal" son
+          hipótesis honestas. Fuera del horizonte las dos son FALSAS: el dato
+          existió y lo borró el `purgeOlderThan` del ingest. Ofrecerlas igual
+          serían dos explicaciones sobre la CONDUCTA de una persona para un hueco
+          que produjo una política de retención — el defecto que este panel
+          existe para matar, dado vuelta. */}
       {!isLoading && !isError && journey != null && !hasPoints && (
-        <p className={styles.empty} data-testid="journey-empty">
-          Sin puntos registrados ese día. Ausencia de datos no es dato de ausencia: la app pudo
-          estar cerrada o el teléfono sin señal.
+        <p
+          className={styles.empty}
+          data-testid="journey-empty"
+          data-beyond-retention={beyondRetention ? 'true' : undefined}
+        >
+          {beyondRetention
+            ? 'Sin puntos: el rastro propio se conserva 12 meses y este día quedó más atrás, así que el dato ya se borró. El vacío es de la retención, no del día: no dice si hubo jornada ni qué se hizo.'
+            : 'Sin puntos registrados ese día. Ausencia de datos no es dato de ausencia: la app pudo estar cerrada o el teléfono sin señal.'}
         </p>
       )}
 

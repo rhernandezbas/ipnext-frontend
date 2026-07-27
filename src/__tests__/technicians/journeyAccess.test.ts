@@ -6,7 +6,11 @@
  * Si el FE se desalinea, o pide y come un 403, o esconde algo que sí puede ver.
  */
 import { describe, it, expect } from 'vitest';
-import { isFutureDay, journeyRequiresAudit } from '@/hooks/useTechnicianLocation';
+import {
+  isBeyondJourneyRetention,
+  isFutureDay,
+  journeyRequiresAudit,
+} from '@/hooks/useTechnicianLocation';
 
 const TODAY = '2026-07-26';
 
@@ -73,5 +77,64 @@ describe('isFutureDay', () => {
   it('un día inválido NO se marca como futuro: de ese caso se ocupa el fail-closed del permiso', () => {
     expect(isFutureDay('', TODAY)).toBe(false);
     expect(isFutureDay('no-es-fecha', TODAY)).toBe(false);
+  });
+});
+
+/**
+ * isBeyondJourneyRetention — espejo del BORRADO DURO del backend.
+ *
+ * `IngestTeamLocations` corre `repo.purgeOlderThan(now - 12 meses)` en CADA ingest y
+ * `PrismaTeamLocationRepository.purgeOlderThan` es un `deleteMany`, no un flag. Más
+ * atrás de esa ventana `findByTeamOnDay` devuelve `[]` y el BE contesta 200 con
+ * `pointCount: 0` — indistinguible de "la cuadrilla no registró nada ese día".
+ *
+ * Sin este espejo el panel le ofrece al auditor causas sobre la CONDUCTA del técnico
+ * ("la app pudo estar cerrada") para un hueco que produjo la política de retención.
+ *
+ * Dos decisiones deliberadas:
+ *
+ *  · **Fail-OPEN** (día que no parsea → `false`). Afirmar "el dato se borró" sobre un
+ *    día que no se pudo ubicar en el calendario sería inventar una causa: exactamente
+ *    el defecto que esto viene a matar. Mismo criterio que `isFutureDay`.
+ *  · **El día del corte NO cuenta como purgado.** El cutoff del BE lleva hora, así que
+ *    ese día está purgado A MEDIAS. Marcarlo entero como borrado afirmaría de más.
+ */
+describe('isBeyondJourneyRetention', () => {
+  it('hoy y ayer están dentro del horizonte', () => {
+    expect(isBeyondJourneyRetention(TODAY, TODAY)).toBe(false);
+    expect(isBeyondJourneyRetention('2026-07-25', TODAY)).toBe(false);
+  });
+
+  it('el día del corte NO se da por purgado (el cutoff del BE lleva hora)', () => {
+    expect(isBeyondJourneyRetention('2025-07-26', TODAY)).toBe(false);
+  });
+
+  it('el día anterior al corte SÍ está fuera del horizonte', () => {
+    expect(isBeyondJourneyRetention('2025-07-25', TODAY)).toBe(true);
+  });
+
+  it('un día de hace tres años está fuera del horizonte', () => {
+    expect(isBeyondJourneyRetention('2023-01-15', TODAY)).toBe(true);
+  });
+
+  /**
+   * El hallazgo 4.4 del BE, del lado del FE: restar 12 meses con `setUTCMonth` sobre
+   * un 29 de febrero da "29 de febrero" de un año NO bisiesto, que JS normaliza al 1
+   * de marzo — un corte en el FUTURO del pretendido. Con ese corte corrido el panel
+   * declararía "ya se borró" un día que el BE todavía tiene y sirve.
+   */
+  it('no desborda desde un 29 de febrero: el corte se acota al último día real del mes', () => {
+    expect(isBeyondJourneyRetention('2027-02-28', '2028-02-29')).toBe(false);
+    expect(isBeyondJourneyRetention('2027-02-27', '2028-02-29')).toBe(true);
+  });
+
+  it('un día inválido NO se marca como purgado (fail-open: no se inventa una causa)', () => {
+    expect(isBeyondJourneyRetention('', TODAY)).toBe(false);
+    expect(isBeyondJourneyRetention('no-es-fecha', TODAY)).toBe(false);
+    expect(isBeyondJourneyRetention(TODAY, 'no-es-fecha')).toBe(false);
+  });
+
+  it('un día futuro no está "fuera del horizonte": de ese caso se ocupa isFutureDay', () => {
+    expect(isBeyondJourneyRetention('2099-01-01', TODAY)).toBe(false);
   });
 });

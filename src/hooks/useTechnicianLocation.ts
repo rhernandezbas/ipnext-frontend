@@ -25,6 +25,28 @@ export const PERM_LOCATION_AUDIT = 'technicians.location_audit';
  */
 export const OPERATIONAL_JOURNEY_DAYS = 1;
 
+/**
+ * Meses que el rastro PROPIO se conserva. Espejo de `DEFAULT_RETENTION_MONTHS` en
+ * `IngestTeamLocations.ts` del backend.
+ *
+ * OJO: esto NO es un límite de permiso, y confundirlo con uno ya nos costó una nota
+ * falsa. Son dos cosas independientes:
+ *
+ *  · el GATE (`OPERATIONAL_JOURNEY_DAYS`) decide qué permiso exige un día. No mira
+ *    la antigüedad más allá de eso: con `technicians.location_audit` cualquier día
+ *    pasado pasa el gate y el BE responde 200.
+ *  · la RETENCIÓN decide hasta dónde existe el dato. `IngestTeamLocations` corre
+ *    `repo.purgeOlderThan(now - 12 meses)` en CADA ingest y
+ *    `PrismaTeamLocationRepository.purgeOlderThan` hace `deleteMany`: borrado DURO.
+ *    `GetTeamDailyJourney` lee esa misma tabla y no tiene fallback a IClass (que
+ *    retiene ~30 días rolling).
+ *
+ * Resultado: más atrás de la ventana el BE contesta 200 con `pointCount: 0`, y ese
+ * vacío es INDISTINGUIBLE de "la cuadrilla no registró nada". Por eso el FE lo tiene
+ * que poder nombrar.
+ */
+export const JOURNEY_RETENTION_MONTHS = 12;
+
 const MS_PER_DAY = 86_400_000;
 
 /**
@@ -67,6 +89,53 @@ export function isFutureDay(day: string, todayAr: string): boolean {
   const today = Date.parse(`${todayAr}T00:00:00.000Z`);
   if (Number.isNaN(asked) || Number.isNaN(today)) return false;
   return asked > today;
+}
+
+/**
+ * ¿`day` quedó ATRÁS del horizonte de retención, o sea el dato ya se borró?
+ *
+ * NO es una guarda: el query sale igual y el BE responde 200. Sirve sólo para que el
+ * panel pueda decir POR QUÉ está vacío. Un día purgado vuelve con `pointCount: 0`
+ * exactamente igual que un día sin actividad, y ofrecer ahí "la app pudo estar
+ * cerrada o el teléfono sin señal" son dos hipótesis sobre la CONDUCTA de una
+ * persona para un hueco que produjo una política de borrado.
+ *
+ * Dos decisiones deliberadas:
+ *
+ *  · **Fail-OPEN.** Un día que no parsea devuelve `false`. Afirmar "el dato se borró"
+ *    sobre un día que no se pudo ubicar en el calendario sería inventar una causa —
+ *    justo el defecto que esto viene a matar. Mismo criterio que `isFutureDay`.
+ *  · **El día del corte NO cuenta como purgado.** El cutoff del BE lleva hora, así que
+ *    ese día está purgado A MEDIAS. Se compara `<` estricto para no afirmar de más.
+ *
+ * @param day      día pedido, "yyyy-MM-dd" (calendario argentino)
+ * @param todayAr  hoy en calendario argentino, "yyyy-MM-dd"
+ */
+export function isBeyondJourneyRetention(day: string, todayAr: string): boolean {
+  const asked = Date.parse(`${day}T00:00:00.000Z`);
+  const today = Date.parse(`${todayAr}T00:00:00.000Z`);
+  if (Number.isNaN(asked) || Number.isNaN(today)) return false;
+
+  const ref = new Date(today);
+  const month = ref.getUTCMonth() - JOURNEY_RETENTION_MONTHS;
+  const targetYear = ref.getUTCFullYear() + Math.floor(month / 12);
+  const targetMonth = ((month % 12) + 12) % 12;
+
+  /**
+   * El día se acota al último día REAL del mes destino antes de armar la fecha
+   * (hallazgo 4.4 del BE, de este lado). Restarle 12 meses a un 29 de febrero da
+   * "29 de febrero" de un año no bisiesto, que JS normaliza al 1 de marzo: un corte
+   * en el FUTURO del pretendido, que declararía "ya se borró" días que el BE
+   * todavía tiene y sirve.
+   */
+  const lastDayOfTargetMonth = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  const cutoff = Date.UTC(
+    targetYear,
+    targetMonth,
+    Math.min(ref.getUTCDate(), lastDayOfTargetMonth),
+  );
+
+  return asked < cutoff;
 }
 
 /**

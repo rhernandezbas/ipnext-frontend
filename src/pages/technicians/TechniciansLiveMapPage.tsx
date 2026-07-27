@@ -6,6 +6,7 @@ import { JourneyPanel } from '@/components/technicians/JourneyPanel';
 import { TeamStateBadge } from '@/components/technicians/TeamStateBadge';
 import {
   PERM_LOCATION_AUDIT,
+  isBeyondJourneyRetention,
   journeyRequiresAudit,
   useTeamJourney,
   useTeamsLive,
@@ -369,6 +370,13 @@ export default function TechniciansLiveMapPage() {
   const journeyQuery = useTeamJourney(selected?.login ?? null, day, todayAr);
   const journeyRequiresAuditPerm = journeyRequiresAudit(day, todayAr);
   /**
+   * NO es una guarda: el día pasa el gate del BE y responde 200. Es la causa del
+   * vacío — más atrás de 12 meses el `purgeOlderThan` del ingest ya borró la fila,
+   * y sin esto el panel le ofrece al auditor "la app pudo estar cerrada" para un
+   * hueco que produjo una política de retención.
+   */
+  const journeyBeyondRetention = isBeyondJourneyRetention(day, todayAr);
+  /**
    * TanStack pausa el query si el navegador está offline (`fetchStatus:
    * 'paused'`): mismos `isLoading:false / isError:false / data:undefined` que un
    * query deshabilitado. Sin distinguirlo, el panel decía "todavía no se
@@ -643,6 +651,7 @@ export default function TechniciansLiveMapPage() {
                   onDayChange={setDay}
                   canAudit={canAudit}
                   requiresAudit={journeyRequiresAuditPerm}
+                  beyondRetention={journeyBeyondRetention}
                   journey={journeyQuery.data}
                   isLoading={journeyQuery.isLoading}
                   isError={journeyQuery.isError}

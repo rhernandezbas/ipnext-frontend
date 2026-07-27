@@ -20,6 +20,11 @@
  *  · JP-4  Un 403 por día histórico no es una falla técnica: se explica que ese
  *          día requiere el permiso de auditoría y NO se ofrece un reintento que
  *          va a comer 403 en loop.
+ *  · JP-5  La nota de alcance separa el tope de PERMISO (no existe: el gate no
+ *          mira antigüedad) del horizonte de DATOS (12 meses, borrado duro).
+ *  · JP-6  Un día anterior a ese horizonte volvió vacío porque el dato SE BORRÓ.
+ *          Ofrecer ahí "la app pudo estar cerrada" es dar hipótesis sobre la
+ *          conducta de una persona para un hueco que produjo una política.
  */
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -51,6 +56,7 @@ function renderPanel(over: Partial<PanelProps> = {}) {
     onDayChange: vi.fn(),
     canAudit: false,
     requiresAudit: false,
+    beyondRetention: false,
     journey: JOURNEY,
     isLoading: false,
     isError: false,
@@ -305,24 +311,118 @@ describe('JP-1f: el idle no pide elegir un día que ya está elegido', () => {
 });
 
 /**
- * JP-5 — la nota de alcance no puede afirmar un límite que el backend no aplica.
+ * JP-5 — la nota de alcance tiene que nombrar el horizonte de DATOS, y no
+ * confundirlo con un tope de permiso.
  *
- * Decía «cualquier día de los últimos 12 meses». `technicianLocation.routes.ts`
- * valida TRES cosas: formato `yyyy-MM-dd`, que el día no sea futuro y el permiso
- * que ese día exige. NO hay cap de 12 meses en ningún lado. Inventar un tope
- * hace que un auditor con permiso descarte solo una consulta legítima.
+ * Son DOS límites distintos y la ola anterior los fusionó en uno solo:
+ *
+ *  · **Permiso** — `technicianLocation.routes.ts` valida formato, que el día no
+ *    sea futuro y qué permiso exige. NO tiene cap de antigüedad: con
+ *    `technicians.location_audit` el gate deja pasar cualquier día pasado.
+ *  · **Datos** — `IngestTeamLocations` (`DEFAULT_RETENTION_MONTHS = 12`) llama a
+ *    `repo.purgeOlderThan(cutoff)` en CADA corrida, y
+ *    `PrismaTeamLocationRepository.purgeOlderThan` hace `deleteMany`: BORRADO
+ *    DURO. `GetTeamDailyJourney` lee `findByTeamOnDay` sobre esa misma tabla, sin
+ *    fallback a IClass (que además retiene ~30 días rolling).
+ *
+ * De ahí que la nota anterior —«podés consultar cualquier día pasado, hasta hoy»—
+ * fuera una promesa que el sistema no puede cumplir: el auditor pide 2025-05-10,
+ * recibe 200 con `pointCount: 0` y lee un vacío que la nota le presentó como
+ * consultable. Nombrar el horizonte no es inventar una restricción: es la única
+ * forma de que ese vacío no se lea como conducta.
  */
-describe('JP-5: la nota de alcance dice lo que el backend valida', () => {
-  it('con permiso de auditoría no promete un tope de 12 meses', () => {
+describe('JP-5: la nota de alcance separa el tope de permiso del horizonte de datos', () => {
+  it('con permiso de auditoría NOMBRA el horizonte de retención', () => {
     renderPanel({ canAudit: true });
-    const note = screen.getByTestId('journey-scope-note');
-    expect(note.textContent ?? '').not.toMatch(/12 meses|últimos? año|un año/i);
-    expect(note.textContent ?? '').toMatch(/cualquier día/i);
+    const text = screen.getByTestId('journey-scope-note').textContent ?? '';
+    expect(text).toMatch(/12 meses/i);
+    // Y lo atribuye a la conservación del dato, no a una regla de acceso.
+    expect(text).toMatch(/se conserva|se borr|retención/i);
+  });
+
+  it('NO presenta la retención como un tope de permiso', () => {
+    renderPanel({ canAudit: true });
+    const text = screen.getByTestId('journey-scope-note').textContent ?? '';
+    // «podés consultar … 12 meses» / «hasta 12 meses atrás» = cap de acceso, y
+    // ese cap NO existe: el gate del BE no mira la antigüedad del día.
+    expect(text).not.toMatch(/(podés|puede|podes)\s+consultar[^.]{0,80}12 meses/i);
+    expect(text).not.toMatch(/hasta\s+(los\s+)?12 meses/i);
+    // El permiso se nombra como lo que es: sin tope de antigüedad.
+    expect(text).toMatch(/permiso[^.]*no tiene tope|no tiene tope[^.]*permiso/i);
+  });
+
+  it('deja dicho que un vacío por purga NO es un dato sobre la jornada', () => {
+    renderPanel({ canAudit: true });
+    const text = screen.getByTestId('journey-scope-note').textContent ?? '';
+    expect(text).toMatch(/jornada/i);
+    expect(text).toMatch(/no dice|no significa|no es que/i);
   });
 
   it('sin el permiso sigue diciendo el corte real: hoy y ayer', () => {
     renderPanel({ canAudit: false });
     expect(screen.getByTestId('journey-scope-note').textContent ?? '').toMatch(/hoy y ayer/i);
+  });
+});
+
+/**
+ * JP-6 — el vacío de un día PURGADO no puede explicarse con la conducta del
+ * técnico.
+ *
+ * Un día dentro del horizonte que vuelve con `pointCount: 0` tiene dos causas
+ * plausibles y honestas: la app cerrada o el teléfono sin señal. Un día ANTERIOR
+ * al horizonte tiene UNA sola causa conocida —el `deleteMany` de la purga— y esas
+ * dos quedan FALSAS. Ofrecérselas igual al auditor es exactamente el defecto que
+ * este change existe para matar, dado vuelta: dos hipótesis sobre una persona
+ * para un hueco que produjo una política de retención.
+ *
+ * La nota de alcance (JP-5) no alcanza sola: vive ARRIBA del panel y es estática,
+ * mientras que este texto aparece ABAJO, nombrando el día concreto, justo donde
+ * el auditor está formando el juicio. Es el mismo criterio por el que la 5ª rama
+ * tiene SEIS motivos en vez de un texto único: cada hueco dice SU verdad.
+ */
+describe('JP-6: un día fuera del horizonte de retención dice que el dato se borró', () => {
+  const EMPTY_DAY: TeamDailyJourney = { ...JOURNEY, pointCount: 0, pointsByHour: {} };
+
+  it('dentro del horizonte ofrece las causas operativas', () => {
+    renderPanel({ journey: EMPTY_DAY, beyondRetention: false });
+    const box = screen.getByTestId('journey-empty');
+    expect(box).not.toHaveAttribute('data-beyond-retention');
+    expect(box.textContent ?? '').toMatch(/app pudo estar cerrada/i);
+  });
+
+  it('fuera del horizonte NO culpa a la app ni al teléfono', () => {
+    renderPanel({ journey: EMPTY_DAY, beyondRetention: true, canAudit: true, day: '2020-05-10' });
+    const box = screen.getByTestId('journey-empty');
+    expect(box).toHaveAttribute('data-beyond-retention', 'true');
+    expect(box.textContent ?? '').not.toMatch(/app pudo estar cerrada|sin señal/i);
+  });
+
+  it('nombra la purga como la causa y aclara que no es un dato del día', () => {
+    renderPanel({ journey: EMPTY_DAY, beyondRetention: true, canAudit: true, day: '2020-05-10' });
+    const text = screen.getByTestId('journey-empty').textContent ?? '';
+    expect(text).toMatch(/12 meses/i);
+    expect(text).toMatch(/se borr/i);
+    expect(text).toMatch(/no dice|no significa|no es que/i);
+    // Y jamás se lee como un juicio sobre la persona.
+    expect(bodyText()).not.toMatch(/no trabajó|sin actividad/i);
+  });
+
+  it('sigue siendo UNA sola rama viva', () => {
+    renderPanel({ journey: EMPTY_DAY, beyondRetention: true });
+    expect(screen.queryByTestId('journey-unavailable')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('journey-first')).not.toBeInTheDocument();
+    expect(screen.getByTestId('journey-empty')).toBeInTheDocument();
+  });
+
+  it('con puntos registrados no reclama purga: el rastro que llegó gana', () => {
+    // El dato SOBREVIVIÓ. El `beyondRetention` del FE es una aproximación al cutoff
+    // del BE (que lleva hora), así que el rastro efectivamente servido le gana a la
+    // estimación: se muestra la jornada y no se explica ningún vacío.
+    // La nota de alcance sí sigue nombrando la retención — es una advertencia
+    // general sobre el horizonte, cierta haya o no haya puntos ese día.
+    renderPanel({ journey: JOURNEY, beyondRetention: true, canAudit: true });
+    expect(screen.queryByTestId('journey-empty')).not.toBeInTheDocument();
+    expect(screen.getByTestId('journey-points')).toHaveTextContent('29');
   });
 });
 
