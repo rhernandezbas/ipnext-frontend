@@ -134,8 +134,124 @@ describe('VC-1b: el CSS no puede apagar un veredicto', () => {
         return { prop: d.slice(0, i).trim(), value: d.slice(i + 1).trim() };
       });
 
-  /** Valores que EXISTEN como declaración pero no pintan nada. */
-  const INVISIBLE = /^(transparent|none|0|0px|initial|unset|revert|inherit|currentcolor)$/i;
+  /**
+   * Valores que EXISTEN como declaración pero no pintan nada.
+   *
+   * La primera versión miraba sólo palabras clave (`transparent|none|0|…`) y
+   * dejaba abierta la puerta grande: `--verdict-accent: rgba(0, 0, 0, 0)` y
+   * `--verdict-accent: #0000` SOBREVIVEN en verde apagando la barra de tono, que
+   * es exactamente lo que VC-1b existe para impedir. Cada alternativa va anclada
+   * por su cuenta.
+   */
+  const INVISIBLE = new RegExp(
+    [
+      // Palabras clave que no pintan.
+      '^(?:transparent|none|0|0px|initial|unset|revert|revert-layer|inherit|currentcolor)$',
+      // Hex CON alpha en cero: `#rgb0` y `#rrggbb00`. Los opacos (#rgb, #rrggbb)
+      // tienen 3 o 6 dígitos y no matchean ninguna de las dos ramas.
+      '^#(?:[0-9a-f]{3}0|[0-9a-f]{6}00)$',
+      // Sintaxis por COMA con 4º componente en cero: `rgba(0, 0, 0, 0)`.
+      // Exige las 3 comas: `rgb(0, 0, 0)` es negro OPACO y no puede caer acá.
+      '^(?:rgba?|hsla?)\\(\\s*[^,()]+,[^,()]+,[^,()]+,\\s*0*(?:\\.0+)?%?\\s*\\)$',
+      // Sintaxis por BARRA con alpha en cero: `rgb(0 0 0 / 0)`, `hsl(30 80% 40% / 0%)`.
+      '^(?:rgba?|hsla?)\\([^)/]*\\/\\s*0*(?:\\.0+)?%?\\s*\\)$',
+      // `color-mix(… transparent)`: mezclar contra transparente atenúa o borra.
+      '^color-mix\\(.*transparent.*\\)$',
+    ].join('|'),
+    'i',
+  );
+
+  /** Color literal que SÍ pinta: hex opaco o función `rgb()/hsl()`. */
+  const OPAQUE_COLOR = /^(?:#(?:[0-9a-f]{3}|[0-9a-f]{6})|(?:rgba?|hsla?)\([^)]*\))$/i;
+
+  /**
+   * La paleta del proyecto, leída de la fuente.
+   *
+   * Los 4 valores de tono de hoy son `var(--badge-*-fg)`, y este archivo NO
+   * puede resolver custom properties por su cuenta: en el entorno de test los
+   * CSS modules ni se inyectan. O sea que la forma MÁS PROBABLE de apagar un
+   * veredicto no es escribir `transparent` — es apuntar a una custom property
+   * que resuelva a transparente, o a una que directamente no exista. Un regex
+   * sobre el valor crudo no ve ninguna de las dos.
+   */
+  const tokensCss = readFileSync(resolve(here, '../../tokens/variables.css'), 'utf8').replace(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  );
+
+  const TOKENS = new Map<string, string>(
+    [...tokensCss.matchAll(/(--[\w-]+)\s*:\s*([^;{}]+);/g)].map(([, name, value]) => [
+      name,
+      value.trim(),
+    ]),
+  );
+
+  /**
+   * Resuelve `var(--x)` (con o sin fallback) contra la paleta.
+   * `null` = la custom property NO existe en el token file y no hay fallback:
+   * la declaración no pinta nada, que es el mismo daño que `transparent`.
+   */
+  function resolveColor(value: string, depth = 0): string | null {
+    const v = value.trim();
+    if (depth > 5) return null;
+    const m = /^var\(\s*(--[\w-]+)\s*(?:,\s*([\s\S]+))?\)$/.exec(v);
+    if (!m) return v;
+    const [, name, fallback] = m;
+    const token = TOKENS.get(name);
+    if (token !== undefined) return resolveColor(token, depth + 1);
+    if (fallback !== undefined) return resolveColor(fallback, depth + 1);
+    return null;
+  }
+
+  it('el detector reconoce TODAS las formas de "no pinta"', () => {
+    // Las dos primeras SOBREVIVIERON en verde contra la versión anterior de
+    // VC-1b (26/26 tests pasando con la barra de tono apagada).
+    const INVISIBLE_FORMS = [
+      'rgba(0, 0, 0, 0)',
+      '#0000',
+      '#00000000',
+      '#ff000000',
+      'transparent',
+      'none',
+      '0',
+      'rgba(22,101,52,0)',
+      'rgba(22, 101, 52, 0.0)',
+      'rgb(0 0 0 / 0)',
+      'hsl(142 61% 24% / 0)',
+      'hsl(142 61% 24% / 0%)',
+      'hsla(142, 61%, 24%, 0)',
+      'color-mix(in srgb, var(--badge-paid-fg) 0%, transparent)',
+    ];
+    for (const form of INVISIBLE_FORMS) {
+      expect(form, `"${form}" pasa como color visible`).toMatch(INVISIBLE);
+    }
+  });
+
+  it('el detector NO marca como invisible un color opaco legítimo', () => {
+    const OPAQUE_FORMS = [
+      '#166534',
+      '#991b1b',
+      '#fff',
+      'rgb(0, 0, 0)',
+      'rgb(22, 101, 52)',
+      'rgba(22, 101, 52, 1)',
+      'rgba(22, 101, 52, 0.9)',
+      'hsl(142 61% 24%)',
+      'hsl(142 61% 24% / 1)',
+    ];
+    for (const form of OPAQUE_FORMS) {
+      expect(form, `"${form}" se marcó como invisible`).not.toMatch(INVISIBLE);
+      expect(form, `"${form}" no se reconoce como color opaco`).toMatch(OPAQUE_COLOR);
+    }
+  });
+
+  it('una custom property fuera de la paleta NO se da por buena', () => {
+    expect(resolveColor('var(--badge-paid-fg)')).toBe('#166534');
+    expect(resolveColor('var(--no-existe-en-la-paleta)')).toBeNull();
+    // El fallback es lo que realmente pinta cuando el token no existe.
+    expect(resolveColor('var(--no-existe, transparent)')).toBe('transparent');
+    expect(resolveColor('var(--no-existe, var(--badge-late-fg))')).toBe('#991b1b');
+  });
 
   it('define una regla de tono para cada uno de los 4 veredictos', () => {
     for (const verdict of ALL_VERDICTS) {
@@ -166,7 +282,9 @@ describe('VC-1b: el CSS no puede apagar un veredicto', () => {
    * Mirar sólo los NOMBRES de propiedad deja abierta la puerta grande: un
    * `--verdict-accent: transparent` en NO_CONCLUYENTE pasa los tres tests de
    * arriba y deja ese veredicto SIN barra de tono — apagado, que es justo lo
-   * que la regla prohíbe. El valor también se audita.
+   * que la regla prohíbe. El valor también se audita: crudo Y RESUELTO contra
+   * la paleta, porque los 4 valores de hoy son `var(…)` y ahí es donde se puede
+   * esconder un transparente.
    */
   it('cada veredicto declara un --verdict-accent que efectivamente PINTA', () => {
     for (const verdict of ALL_VERDICTS) {
@@ -175,20 +293,44 @@ describe('VC-1b: el CSS no puede apagar un veredicto', () => {
 
       const accent = declarations(rule!.body).find((d) => d.prop === '--verdict-accent');
       expect(accent, `${verdict} no declara --verdict-accent: queda sin barra de tono`).toBeDefined();
+      expect(accent!.value.length, `${verdict} declara --verdict-accent vacío`).toBeGreaterThan(0);
       expect(
         accent!.value,
         `${verdict} declara --verdict-accent: ${accent!.value} — eso apaga la barra`,
       ).not.toMatch(INVISIBLE);
-      expect(accent!.value.length, `${verdict} declara --verdict-accent vacío`).toBeGreaterThan(0);
+
+      const resolved = resolveColor(accent!.value);
+      expect(
+        resolved,
+        `${verdict}: --verdict-accent: ${accent!.value} no resuelve a ningún color de la paleta`,
+      ).not.toBeNull();
+      expect(
+        resolved!,
+        `${verdict}: --verdict-accent: ${accent!.value} resuelve a "${resolved}" — eso apaga la barra`,
+      ).not.toMatch(INVISIBLE);
+      expect(
+        resolved!,
+        `${verdict}: --verdict-accent: ${accent!.value} resuelve a "${resolved}", que no es un color opaco`,
+      ).toMatch(OPAQUE_COLOR);
     }
   });
 
-  it('ningún valor de tono es invisible (transparent / none / 0)', () => {
+  it('ningún valor de tono es invisible, ni crudo ni resuelto contra la paleta', () => {
     for (const { selector, body } of verdictRules) {
       for (const { prop, value } of declarations(body)) {
         expect(
           value,
           `${selector} setea "${prop}: ${value}" — un valor que no pinta apaga el veredicto`,
+        ).not.toMatch(INVISIBLE);
+
+        const resolved = resolveColor(value);
+        expect(
+          resolved,
+          `${selector} setea "${prop}: ${value}", que no resuelve a nada de la paleta`,
+        ).not.toBeNull();
+        expect(
+          resolved!,
+          `${selector} setea "${prop}: ${value}" → "${resolved}", un valor que no pinta`,
         ).not.toMatch(INVISIBLE);
       }
     }

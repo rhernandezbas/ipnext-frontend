@@ -56,10 +56,18 @@ function renderPanel(over: Partial<PanelProps> = {}) {
     isError: false,
     isForbidden: false,
     isPaused: false,
+    isSuccess: true,
     onRetry: vi.fn(),
     onClose: vi.fn(),
     ...over,
   };
+  /**
+   * `isSuccess` ACOMPAÑA a `journey` salvo que el caso lo diga explícitamente:
+   * un query que resolvió SIN cuerpo (JP-1e) es la excepción rara, no el
+   * default. Fijarlo en `true` a secas convertiría en "respuesta vacía" a los
+   * casos de JP-1/JP-1b/JP-1c/JP-1d, que hablan de otra cosa.
+   */
+  if (!('isSuccess' in over)) props.isSuccess = props.journey !== undefined;
   return { ...render(<JourneyPanel {...props} />), props };
 }
 
@@ -125,6 +133,7 @@ describe('JP-1: la 4ª rama — el panel nunca queda en blanco', () => {
       { journey: undefined, day: '' },
       { journey: undefined, day: '2099-01-01', maxDay: '2026-07-26' },
       { journey: undefined, isPaused: true },
+      { journey: undefined, isSuccess: true },
       { journey: undefined, isError: true, isForbidden: true, day: '2020-01-01' },
       { journey: undefined, isError: true, isForbidden: false },
       { journey: { ...JOURNEY, pointCount: 0 } },
@@ -229,6 +238,91 @@ describe('JP-1d: sin conexión se dice que es la conexión', () => {
       'data-reason',
       'requires-audit',
     );
+  });
+});
+
+/**
+ * JP-1e — el 6º camino: la respuesta LLEGÓ y vino vacía.
+ *
+ * `technicianLocation.api.ts` hace `.then((r) => r.data.data)`. Un 200 con
+ * cuerpo vacío (o un envelope sin `data`) resuelve el query con `undefined`:
+ * TanStack marca `isSuccess:true, isLoading:false, isError:false, data:undefined`
+ * — exactamente la firma de la 5ª rama. Sin distinguirlo, el panel salía con
+ * «Todavía no se consultó la jornada del …» AFIRMANDO QUE NO SE CONSULTÓ cuando
+ * el pedido salió, volvió y falló en silencio. Es el mismo defecto que `no-day`
+ * vino a matar: decir algo que no pasó.
+ */
+describe('JP-1e: una respuesta vacía no se disfraza de "todavía no se consultó"', () => {
+  it('con el query resuelto y sin cuerpo dice que la respuesta llegó vacía', () => {
+    renderPanel({ journey: undefined, isSuccess: true, day: '2026-07-26' });
+
+    const note = screen.getByTestId('journey-unavailable');
+    expect(note).toHaveAttribute('data-reason', 'empty-response');
+    expect(note.textContent ?? '').toMatch(/vacía/i);
+    expect(note.textContent ?? '').not.toMatch(/todavía no se consultó/i);
+    // Y sigue sin leerse como un juicio sobre la persona.
+    expect(bodyText()).not.toMatch(/no trabajó|sin actividad/i);
+  });
+
+  it('sin el query resuelto sigue siendo idle: no se consultó de verdad', () => {
+    renderPanel({ journey: undefined, isSuccess: false, day: '2026-07-26' });
+    expect(screen.getByTestId('journey-unavailable')).toHaveAttribute('data-reason', 'idle');
+  });
+
+  it.each([
+    ['no-day', { day: '' }],
+    ['future', { day: '2099-01-01', maxDay: '2026-07-26' }],
+    ['requires-audit', { day: '2020-01-01', requiresAudit: true, canAudit: false }],
+    ['offline', { isPaused: true }],
+  ] as const)('%s gana sobre la respuesta vacía', (reason, over) => {
+    // Los motivos de arriba explican por qué el pedido NO salió: si además el
+    // query quedó marcado como resuelto (de una consulta anterior), el motivo
+    // real sigue siendo el de arriba.
+    const { unmount } = renderPanel({ journey: undefined, isSuccess: true, ...over });
+    expect(screen.getByTestId('journey-unavailable')).toHaveAttribute('data-reason', reason);
+    unmount();
+  });
+});
+
+/**
+ * JP-1f — el `idle` no puede contradecirse a sí mismo.
+ *
+ * El texto decía «Todavía no se consultó la jornada del 2026-07-27. Elegí un día
+ * para verla»: NOMBRA el día elegido y en la oración siguiente pide elegir uno.
+ * En esa rama `day !== ''` está GARANTIZADO — `no-day` ya lo atajó antes. Pedir
+ * una acción que ya está hecha manda al operador a buscar un problema que no
+ * existe.
+ */
+describe('JP-1f: el idle no pide elegir un día que ya está elegido', () => {
+  it('nombra el día y NO pide elegir uno', () => {
+    renderPanel({ journey: undefined, isSuccess: false, day: '2026-07-26' });
+
+    const note = screen.getByTestId('journey-unavailable');
+    expect(note).toHaveAttribute('data-reason', 'idle');
+    expect(note.textContent ?? '').toContain('2026-07-26');
+    expect(note.textContent ?? '').not.toMatch(/elegí un día/i);
+  });
+});
+
+/**
+ * JP-5 — la nota de alcance no puede afirmar un límite que el backend no aplica.
+ *
+ * Decía «cualquier día de los últimos 12 meses». `technicianLocation.routes.ts`
+ * valida TRES cosas: formato `yyyy-MM-dd`, que el día no sea futuro y el permiso
+ * que ese día exige. NO hay cap de 12 meses en ningún lado. Inventar un tope
+ * hace que un auditor con permiso descarte solo una consulta legítima.
+ */
+describe('JP-5: la nota de alcance dice lo que el backend valida', () => {
+  it('con permiso de auditoría no promete un tope de 12 meses', () => {
+    renderPanel({ canAudit: true });
+    const note = screen.getByTestId('journey-scope-note');
+    expect(note.textContent ?? '').not.toMatch(/12 meses|últimos? año|un año/i);
+    expect(note.textContent ?? '').toMatch(/cualquier día/i);
+  });
+
+  it('sin el permiso sigue diciendo el corte real: hoy y ayer', () => {
+    renderPanel({ canAudit: false });
+    expect(screen.getByTestId('journey-scope-note').textContent ?? '').toMatch(/hoy y ayer/i);
   });
 });
 

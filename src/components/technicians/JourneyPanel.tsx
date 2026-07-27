@@ -26,6 +26,11 @@ import styles from './JourneyPanel.module.css';
  * podía reconstruir los horarios de entrada y salida de cada empleado durante un
  * año iterando el roster completo que devuelve `/live`.
  *
+ * El tope es de PERMISO, no de retención: `technicianLocation.routes.ts` valida
+ * el formato del día, que no sea futuro y el permiso que ese día exige — nada
+ * más. La nota de alcance decía «cualquier día de los últimos 12 meses» y ese
+ * cap NO EXISTE en ningún lado: afirmaba una restricción que nunca se dispara.
+ *
  * ── Las CINCO ramas ───────────────────────────────────────────────────────────
  * `min`/`max` en el `<input type="date">` sólo limitan el calendario del
  * navegador: tipear, pegar o LIMPIAR la fecha dispara el `onChange` igual. Ahí
@@ -33,6 +38,10 @@ import styles from './JourneyPanel.module.css';
  * isError:false, data:undefined` — ninguna de las 4 ramas clásicas matchea. Sin
  * la 5ª rama el panel quedaba EN BLANCO bajo el título con la fecha elegida, y
  * un supervisor lee ese blanco como "no trabajó". Nunca un hueco.
+ *
+ * OJO: esa misma firma la produce también un query que SÍ salió y resolvió sin
+ * cuerpo (`isSuccess:true` + `data:undefined`). Por eso la 5ª rama recibe
+ * `isSuccess`: ver `unavailableNote`.
  *
  * Esa 5ª rama tiene MOTIVOS (`unavailableNote`, más abajo): el texto que sale
  * tiene que corresponderse con lo que efectivamente pasó. Ver el docblock ahí.
@@ -56,6 +65,12 @@ interface JourneyPanelProps {
   isForbidden: boolean;
   /** El query está PAUSADO por falta de conexión (`fetchStatus: 'paused'`). */
   isPaused: boolean;
+  /**
+   * El query RESOLVIÓ (`isSuccess`). Con `journey` presente no aporta nada; con
+   * `journey === undefined` es lo único que distingue "todavía no se consultó"
+   * de "se consultó y volvió vacío". Ver `unavailableNote`.
+   */
+  isSuccess: boolean;
   onRetry: () => void;
   onClose: () => void;
 }
@@ -65,7 +80,7 @@ const EMPTY = '—';
 /**
  * Por qué la 5ª rama tiene MOTIVOS y no un texto único.
  *
- * `isLoading:false + isError:false + data:undefined` llega por CINCO caminos
+ * `isLoading:false + isError:false + data:undefined` llega por SEIS caminos
  * distintos, y cada uno tiene que decir SU verdad. Prestarle la frase a otro es
  * tan grave como dejar el hueco en blanco:
  *
@@ -81,9 +96,22 @@ const EMPTY = '—';
  *  · `requires-audit` el corte real de permiso. Gana sobre `offline`: sin el
  *                     permiso no se pidió, ni se va a pedir cuando vuelva la red.
  *  · `offline`        query pausado por falta de conexión.
- *  · `idle`           todavía no se consultó.
+ *  · `empty-response` el pedido SALIÓ, volvió 200 y no trajo cuerpo.
+ *                     `technicianLocation.api.ts` hace `.then(r => r.data.data)`:
+ *                     un envelope vacío resuelve el query con `undefined` y
+ *                     `isSuccess:true`. Sin esta rama el panel decía «Todavía no
+ *                     se consultó…» sobre algo que SÍ se consultó — el mismo
+ *                     defecto que `no-day` vino a matar, en la rama de al lado.
+ *  · `idle`           el pedido no llegó a salir (query deshabilitado y sin
+ *                     ninguno de los motivos de arriba).
  */
-type UnavailableReason = 'no-day' | 'future' | 'requires-audit' | 'offline' | 'idle';
+type UnavailableReason =
+  | 'no-day'
+  | 'future'
+  | 'requires-audit'
+  | 'offline'
+  | 'empty-response'
+  | 'idle';
 
 const NOT_A_JUDGEMENT = 'esto no dice nada sobre si la cuadrilla trabajó';
 
@@ -93,8 +121,9 @@ function unavailableNote(args: {
   requiresAudit: boolean;
   canAudit: boolean;
   isPaused: boolean;
+  isSuccess: boolean;
 }): { reason: UnavailableReason; text: string } {
-  const { day, maxDay, requiresAudit, canAudit, isPaused } = args;
+  const { day, maxDay, requiresAudit, canAudit, isPaused, isSuccess } = args;
 
   if (day === '') {
     return {
@@ -127,9 +156,20 @@ function unavailableNote(args: {
     };
   }
 
+  // El pedido salió y volvió sin cuerpo. Decir "todavía no se consultó" acá es
+  // afirmar algo que no pasó, y encima esconde una falla real de la respuesta.
+  if (isSuccess) {
+    return {
+      reason: 'empty-response',
+      text: `La respuesta de la jornada del ${day} llegó vacía: el servidor contestó pero no mandó los datos. Es una falla de la consulta, no un dato del día — ${NOT_A_JUDGEMENT}.`,
+    };
+  }
+
+  // Acá `day !== ''` está GARANTIZADO (lo atajó `no-day` arriba): pedir "elegí
+  // un día" después de nombrar el día elegido se contradice solo.
   return {
     reason: 'idle',
-    text: `Todavía no se consultó la jornada del ${day}. Elegí un día para verla — ${NOT_A_JUDGEMENT}.`,
+    text: `Todavía no se consultó la jornada del ${day}: el pedido no llegó a salir — ${NOT_A_JUDGEMENT}.`,
   };
 }
 
@@ -209,6 +249,7 @@ export function JourneyPanel({
   isError,
   isForbidden,
   isPaused,
+  isSuccess,
   onRetry,
   onClose,
 }: JourneyPanelProps) {
@@ -216,7 +257,14 @@ export function JourneyPanel({
   /** Sin un segundo punto no hay tramo: el "0 m" del BE no es un recorrido medido. */
   const canEstimateTravel = journey != null && journey.medianSamplingMinutes != null;
 
-  const unavailable = unavailableNote({ day, maxDay, requiresAudit, canAudit, isPaused });
+  const unavailable = unavailableNote({
+    day,
+    maxDay,
+    requiresAudit,
+    canAudit,
+    isPaused,
+    isSuccess,
+  });
 
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -261,8 +309,10 @@ export function JourneyPanel({
       </div>
 
       <p className={styles.scopeNote} data-testid="journey-scope-note">
+        {/* Lo que el BE valida y NADA más: formato, que el día no sea futuro y
+            el permiso. No hay ventana de retención de 12 meses en ningún lado. */}
         {canAudit
-          ? 'Con el permiso de auditoría podés consultar cualquier día de los últimos 12 meses.'
+          ? 'Con el permiso de auditoría podés consultar cualquier día pasado, hasta hoy.'
           : 'Tu permiso operativo cubre hoy y ayer. Los días anteriores requieren el permiso de auditoría.'}
       </p>
 

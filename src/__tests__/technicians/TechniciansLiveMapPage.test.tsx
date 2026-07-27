@@ -141,11 +141,48 @@ const renderPage = () => render(pageElement());
  * siempre el mismo objeto Leaflet del contexto. El mock compartido fabrica uno
  * nuevo por llamada, lo que haría refirar cualquier efecto `[map, …]` en cada
  * render y taparía justo la regresión que LM-8 blinda.
+ *
+ * `on`/`off` son un emisor de verdad (no un `vi.fn()` pelado): LM-15 necesita
+ * DISPARAR `moveend` para comprobar que el conteo de "fuera de la vista" se
+ * recalcula al terminar el paneo. `getBounds` arranca devolviendo `undefined`
+ * — el mapa real de Leaflet no existe acá — y cada test que lo necesita instala
+ * su propio viewport.
  */
-const mapStub = { invalidateSize: vi.fn(), fitBounds: vi.fn() };
+const mapListeners = new Map<string, Set<() => void>>();
+
+const mapStub = {
+  invalidateSize: vi.fn(),
+  fitBounds: vi.fn(),
+  getBounds: vi.fn(),
+  on: vi.fn((event: string, handler: () => void) => {
+    const set = mapListeners.get(event) ?? new Set<() => void>();
+    set.add(handler);
+    mapListeners.set(event, set);
+  }),
+  off: vi.fn((event: string, handler: () => void) => {
+    mapListeners.get(event)?.delete(handler);
+  }),
+};
+
+/** Dispara un evento del mapa (paneo/zoom terminado) sobre los suscriptores reales. */
+function fireMapEvent(event: string) {
+  for (const handler of [...(mapListeners.get(event) ?? [])]) handler();
+}
+
+/** Viewport falso: `contains` decide qué marcador entra en la vista. */
+function viewport(contains: (point: [number, number]) => boolean) {
+  mapStub.getBounds.mockReturnValue({ contains } as unknown as ReturnType<
+    typeof mapStub.getBounds
+  >);
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // `clearAllMocks` limpia las LLAMADAS pero NO las implementaciones ni los
+  // `mockReturnValue`: sin este reset el viewport de un test se filtra al
+  // siguiente y los conteos de "fuera de la vista" quedan cruzados.
+  mapStub.getBounds.mockReturnValue(undefined as unknown as ReturnType<typeof mapStub.getBounds>);
+  mapListeners.clear();
   mockPerms(['technicians.location_read']);
   mockJourney();
   vi.mocked(useMap).mockReturnValue(mapStub as unknown as ReturnType<typeof useMap>);
@@ -362,7 +399,7 @@ describe('LM-8: el encuadre se ata al CONJUNTO de cuadrillas, no a sus coordenad
     expect(mapStub.fitBounds).not.toHaveBeenCalled();
   });
 
-  it('SÍ reencuadra cuando cambia el conjunto de marcadores', () => {
+  it('SÍ reencuadra cuando ENTRA una cuadrilla (puede caer fuera de la vista)', () => {
     mockLive({ data: [ACTIVA] });
     const { rerender } = renderPage();
     mapStub.fitBounds.mockClear();
@@ -373,6 +410,75 @@ describe('LM-8: el encuadre se ata al CONJUNTO de cuadrillas, no a sus coordenad
     rerender(pageElement());
 
     expect(mapStub.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * LM-8b — que una cuadrilla SE VAYA no justifica tocar el viewport.
+   *
+   * La firma por conjunto cambia en las DOS direcciones, y ahí el fix se pasaba
+   * de largo: con un alta el reencuadre TIENE beneficio (la nueva puede estar
+   * fuera de la vista), con una baja el beneficio es CERO — `fitBounds` reencuadra
+   * sobre el conjunto más chico y le mueve el zoom al despachante gratis.
+   *
+   * Y no es teórico: el roster viene de IClass, la misma API que este change
+   * documentó devolviendo 5 de 11 cuadrillas en SIN_RASTRO. Con un roster que
+   * parpadea (`A|B` → falla y vuelve `A` → vuelve `A|B`) eran DOS refits
+   * silenciosos en dos minutos; con el alta como única condición queda uno.
+   */
+  it('NO reencuadra cuando una cuadrilla SE VA: el conjunto más chico ya está a la vista', () => {
+    const OTRO = { ...ACTIVA, login: 'IPNXOTRO', name: 'Otro', latitude: -34.9, longitude: -58.9 };
+    mockLive({ data: [ACTIVA, OTRO] });
+    const { rerender } = renderPage();
+    mapStub.fitBounds.mockClear();
+
+    mockLive({ data: [ACTIVA] });
+    rerender(pageElement());
+
+    expect(mapStub.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it('el roster que PARPADEA no cobra dos refits: sólo el alta reencuadra', () => {
+    const OTRO = { ...ACTIVA, login: 'IPNXOTRO', name: 'Otro', latitude: -34.9, longitude: -58.9 };
+    mockLive({ data: [ACTIVA, OTRO] });
+    const { rerender } = renderPage();
+    mapStub.fitBounds.mockClear();
+
+    // IClass devuelve el roster incompleto en un poll…
+    mockLive({ data: [ACTIVA] });
+    rerender(pageElement());
+    expect(mapStub.fitBounds).not.toHaveBeenCalled();
+
+    // …y en el siguiente vuelve. Ese alta SÍ reencuadra (uno, no dos).
+    mockLive({ data: [ACTIVA, OTRO] });
+    rerender(pageElement());
+    expect(mapStub.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it('un RELEVO (una se va y otra entra) reencuadra: hay un alta', () => {
+    const OTRO = { ...ACTIVA, login: 'IPNXOTRO', name: 'Otro', latitude: -34.9, longitude: -58.9 };
+    mockLive({ data: [ACTIVA] });
+    const { rerender } = renderPage();
+    mapStub.fitBounds.mockClear();
+
+    mockLive({ data: [OTRO] });
+    rerender(pageElement());
+
+    expect(mapStub.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it('"Recentrar" sigue funcionando cuando el conjunto sólo perdió cuadrillas', async () => {
+    const OTRO = { ...ACTIVA, login: 'IPNXOTRO', name: 'Otro', latitude: -34.9, longitude: -58.9 };
+    mockLive({ data: [ACTIVA, OTRO] });
+    const { rerender } = renderPage();
+
+    mockLive({ data: [OTRO] });
+    rerender(pageElement());
+    mapStub.fitBounds.mockClear();
+
+    await userEvent.click(screen.getByRole('button', { name: /recentrar/i }));
+
+    expect(mapStub.fitBounds).toHaveBeenCalledTimes(1);
+    expect(mapStub.fitBounds.mock.calls[0][0]).toEqual([[-34.9, -58.9]]);
   });
 
   it('el conjunto no depende del ORDEN en que el BE liste las cuadrillas', () => {
@@ -556,6 +662,180 @@ describe('LM-13: el día futuro se ataja antes de salir', () => {
     expect(note.textContent ?? '').toMatch(/todavía no ocurrió/i);
     expect(note.textContent ?? '').not.toMatch(/permiso de auditoría/i);
     expect(screen.queryByRole('button', { name: /reintentar/i })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * LM-14 — el foco no puede terminar en el `<body>` porque el POLL desmontó el
+ * botón que abrió el panel.
+ *
+ * Panel abierto sobre Denis → llega el poll de 60 s → Denis cruza las 24 h → su
+ * fila migra de `active-list` a `stale-list` → React desmonta ESE botón y monta
+ * uno nuevo en la otra lista. Al Cerrar, `panelTriggerRef` apunta a un nodo
+ * huérfano: `.focus()` sobre algo fuera del documento no hace nada y el teclado
+ * queda tirado en el `<body>`.
+ *
+ * Es el MISMO invariante que blinda LM-12, disparado por el poll en vez de por
+ * un handler mal escrito. En una pantalla que decide a quién se investiga, dejar
+ * el teclado en el `<body>` no es cosmético.
+ *
+ * El poll se simula con `rerender` + datos nuevos, NO con timers: `useTeamsLive`
+ * está mockeado, así que avanzar el reloj no produciría ningún refetch. Lo que
+ * importa es el EFECTO del poll — un render con la cuadrilla en la otra lista —
+ * y eso es exactamente lo que hace `rerender`.
+ */
+describe('LM-14: el poll no puede tirar el foco al <body>', () => {
+  it('si la fila migró de lista, el foco va al botón equivalente de la nueva lista', async () => {
+    mockLive({ data: [ACTIVA] });
+    const { rerender } = renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: /ver jornada de denis c\./i }));
+
+    // El poll: Denis cruzó las 24 h sin reportar.
+    mockLive({
+      data: [{ ...ACTIVA, state: 'DESACTUALIZADA', minutesSinceLastPoint: 1500 }],
+    });
+    rerender(pageElement());
+
+    const migrated = within(screen.getByTestId('stale-list')).getByRole('button', {
+      name: /ver jornada de denis c\./i,
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /cerrar/i }));
+
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement).toBe(migrated);
+  });
+
+  it('si la cuadrilla desapareció del roster el foco cae en un ancla estable', async () => {
+    const OTRO = { ...ACTIVA, login: 'IPNXOTRO', name: 'Otro', latitude: -34.9, longitude: -58.9 };
+    mockLive({ data: [ACTIVA, OTRO] });
+    const { rerender } = renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: /ver jornada de denis c\./i }));
+
+    // IClass dejó de listar a Denis: no hay botón equivalente en NINGUNA lista.
+    mockLive({ data: [OTRO] });
+    rerender(pageElement());
+
+    await userEvent.click(screen.getByRole('button', { name: /cerrar/i }));
+
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement).toBe(
+      screen.getByRole('heading', { name: /mapa — sólo cuadrillas activas/i }),
+    );
+  });
+});
+
+/**
+ * LM-15 — el costo NO MITIGADO de que el encuadre sea del operador.
+ *
+ * Desde LM-8 el mapa dejó de perseguir posiciones: eso arregla el robo del
+ * viewport, pero abre un agujero nuevo. El encabezado dice «Mapa — sólo
+ * cuadrillas activas (6)» mientras el viewport muestra 3, y no hay NINGUNA
+ * señal de que falten. Antes de LM-8 el problema no existía (el mapa perseguía
+ * a todos), así que es una deuda que introdujo la decisión de producto — y pega
+ * justo en el caso que la pantalla dice servir: el tablero mirado de lejos.
+ *
+ * El recuento se hace contra `map.getBounds()` y se refresca en `moveend` /
+ * `zoomend`. `move`/`zoom` quedan AFUERA a propósito: disparan por cada píxel de
+ * arrastre y meterían un re-render por frame de paneo.
+ */
+describe('LM-15: se avisa cuántas cuadrillas quedaron fuera de la vista', () => {
+  const LEJOS = {
+    ...ACTIVA,
+    login: 'IPNXLEJOS',
+    name: 'Lejos',
+    latitude: -38.9,
+    longitude: -62.2,
+  };
+
+  it('cuenta los marcadores que caen fuera del viewport', () => {
+    viewport(([lat]) => lat === ACTIVA.latitude);
+    mockLive({ data: [ACTIVA, LEJOS] });
+    renderPage();
+
+    expect(screen.getByTestId('map-offscreen')).toHaveTextContent(
+      /1 cuadrilla fuera de la vista/i,
+    );
+  });
+
+  it('con todo a la vista no inventa una advertencia', () => {
+    viewport(() => true);
+    mockLive({ data: [ACTIVA, LEJOS] });
+    renderPage();
+
+    expect(screen.queryByTestId('map-offscreen')).not.toBeInTheDocument();
+  });
+
+  it('recalcula al TERMINAR el paneo, y no en cada píxel', () => {
+    viewport(() => true);
+    mockLive({ data: [ACTIVA, LEJOS] });
+    renderPage();
+    expect(screen.queryByTestId('map-offscreen')).not.toBeInTheDocument();
+
+    // El operador arrastra el mapa hasta dejar a las dos afuera.
+    viewport(() => false);
+    act(() => fireMapEvent('moveend'));
+
+    expect(screen.getByTestId('map-offscreen')).toHaveTextContent(
+      /2 cuadrillas fuera de la vista/i,
+    );
+
+    // Y sólo se suscribe a los eventos de FIN: `move`/`zoom` disparan por cada
+    // píxel de arrastre — un setState por frame en un tablero con poll de 60 s.
+    expect([...new Set(mapStub.on.mock.calls.map((c) => c[0]))].sort()).toEqual([
+      'moveend',
+      'zoomend',
+    ]);
+  });
+
+  it('el zoom también recalcula', () => {
+    viewport(() => false);
+    mockLive({ data: [ACTIVA, LEJOS] });
+    renderPage();
+    expect(screen.getByTestId('map-offscreen')).toHaveTextContent(/2 cuadrillas/i);
+
+    viewport(() => true);
+    act(() => fireMapEvent('zoomend'));
+    expect(screen.queryByTestId('map-offscreen')).not.toBeInTheDocument();
+  });
+
+  it('el aviso es una región viva y convive con "Recentrar"', () => {
+    viewport(([lat]) => lat === ACTIVA.latitude);
+    mockLive({ data: [ACTIVA, LEJOS] });
+    renderPage();
+
+    expect(screen.getByTestId('map-offscreen')).toHaveAttribute('role', 'status');
+    expect(screen.getByRole('button', { name: /recentrar/i })).toBeInTheDocument();
+  });
+
+  it('sin viewport disponible no inventa un conteo', () => {
+    // `getBounds` devuelve undefined (mapa todavía sin tamaño): 0, nunca "todas
+    // fuera de la vista" — un aviso falso manda a recentrar sin motivo.
+    mockLive({ data: [ACTIVA, LEJOS] });
+    renderPage();
+    expect(screen.queryByTestId('map-offscreen')).not.toBeInTheDocument();
+  });
+
+  it('sólo cuenta MARCADORES: una desactualizada no se dibuja, no puede estar "fuera de la vista"', () => {
+    viewport(() => false);
+    mockLive({ data: [ACTIVA, DESACTUALIZADA] });
+    renderPage();
+
+    expect(screen.getByTestId('map-offscreen')).toHaveTextContent(/1 cuadrilla/i);
+  });
+
+  it('se limpia cuando ya no queda ningún marcador', () => {
+    viewport(() => false);
+    mockLive({ data: [ACTIVA] });
+    const { rerender } = renderPage();
+    expect(screen.getByTestId('map-offscreen')).toBeInTheDocument();
+
+    mockLive({ data: [{ ...ACTIVA, state: 'DESACTUALIZADA', minutesSinceLastPoint: 1500 }] });
+    rerender(pageElement());
+
+    expect(screen.queryByTestId('map-offscreen')).not.toBeInTheDocument();
   });
 });
 

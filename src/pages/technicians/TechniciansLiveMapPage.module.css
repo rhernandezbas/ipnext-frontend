@@ -151,15 +151,45 @@
   color: var(--color-text-primary);
 }
 
-/* Título del mapa + "Recentrar". El botón vive acá arriba, a la vista: el
-   encuadre no se recupera solo, así que la forma de recuperarlo no puede estar
-   escondida. */
+/* Título del mapa + aviso de "fuera de la vista" + "Recentrar". El botón vive
+   acá arriba, a la vista: el encuadre no se recupera solo, así que la forma de
+   recuperarlo no puede estar escondida. */
 .mapHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
   flex-wrap: wrap;
+}
+
+.mapHeadActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* Aviso de marcadores fuera del viewport. Va PEGADO a "Recentrar" porque ese
+   botón es la acción que lo resuelve. Ámbar de "atención, no error": no hay
+   nada roto, falta contexto. #92400e sobre #fef3c7 → 6,37:1. */
+.offscreen {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--badge-paused-bg);
+  color: var(--badge-paused-fg);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+/* El heading del mapa recibe foco POR PROGRAMA (`tabindex="-1"`) cuando el
+   panel se cierra y el botón que lo abrió ya no existe: ver `closeJourney`. El
+   anillo va sólo con :focus-visible, así el click no lo dibuja. */
+.sectionTitle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .mapHint {

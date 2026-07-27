@@ -13,6 +13,10 @@ import { previousIsoDay, useArToday } from '@/hooks/useArToday';
 
 afterEach(() => {
   vi.useRealTimers();
+  // `previousIsoDay` se testea con el huso del proceso pisado (ver el último
+  // caso): sin este restore, el TZ se filtra a los tests que corran después en
+  // el mismo worker.
+  vi.unstubAllEnvs();
 });
 
 describe('useArToday', () => {
@@ -102,5 +106,38 @@ describe('previousIsoDay', () => {
     expect(previousIsoDay('')).toBe('');
     expect(previousIsoDay('no-es-fecha')).toBe('');
     expect(previousIsoDay('2026-13-45')).toBe('');
+  });
+
+  /**
+   * La aritmética UTC no es decoración: los 6 casos de arriba son de CALENDARIO
+   * (bordes de mes, de año, bisiesto) y pasan igual con `setDate` local, así que
+   * cambiar `setUTCDate` por `setDate` SOBREVIVÍA en verde. El huso del host es
+   * lo único que los distingue.
+   *
+   * Caso: `TZ=Europe/Berlin`, día `2026-10-26`.
+   *   `new Date('2026-10-26T00:00:00.000Z')` = 26-oct 01:00 CET en Berlín.
+   *   `setDate(getDate() - 1)` → 25-oct 01:00 LOCAL, que todavía es CEST (UTC+2)
+   *   porque el fall-back de DST ocurre a las 03:00 de ese mismo día → 24-oct
+   *   23:00 UTC → `toISOString()` devuelve "2026-10-24": un día de más.
+   *   `setUTCDate` devuelve "2026-10-25", que es la respuesta.
+   *
+   * De acá sale el `min` del selector cuando el usuario NO puede auditar: correr
+   * un día le abre una fecha que el BE le va a negar con un 403 presentado como
+   * falla técnica, o le tapa el ayer que sí le corresponde.
+   */
+  it('la aritmética va en UTC: un huso con DST no puede correr el día', () => {
+    // `vi.stubEnv('TZ', …)` cambia el huso del proceso en caliente (Node ≥ 13 le
+    // notifica el cambio a V8) y el `afterEach` lo restaura, así que no se
+    // contamina el resto del worker.
+    vi.stubEnv('TZ', 'Europe/Berlin');
+    expect(previousIsoDay('2026-10-26')).toBe('2026-10-25');
+    // El día del fall-back propiamente dicho, y el del spring-forward.
+    expect(previousIsoDay('2026-10-25')).toBe('2026-10-24');
+    expect(previousIsoDay('2026-03-29')).toBe('2026-03-28');
+
+    // Un huso al este del meridiano tampoco corre el día hacia adelante.
+    vi.stubEnv('TZ', 'Pacific/Auckland');
+    expect(previousIsoDay('2026-04-05')).toBe('2026-04-04');
+    expect(previousIsoDay('2026-09-27')).toBe('2026-09-26');
   });
 });
