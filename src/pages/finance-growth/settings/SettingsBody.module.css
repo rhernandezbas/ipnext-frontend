@@ -1,0 +1,204 @@
+/**
+ * Estilos compartidos por los 5 bodies de settings de finance-growth
+ * (costos por tecnología, precios por plan, metas, IPC, tipos de comprobante).
+ * Mismo criterio de tokens que TicketAreasBody/AlertsPage — CSS Modules, sin
+ * Tailwind, sin hex/px crudo.
+ */
+
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-3);
+}
+
+.unconfigured {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.linkBtn {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  min-height: 44px;
+  padding: 0 var(--space-2);
+}
+
+.linkBtn:hover {
+  text-decoration: underline;
+}
+
+.linkBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.badgeUnclassified {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background-color: var(--color-warning-bg);
+  color: var(--color-warning-fg);
+  border: 1px solid var(--color-warning-border);
+}
+
+.errorState {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-danger);
+}
+
+.retryBtn {
+  margin-top: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--color-danger);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.retryBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.editPanel {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  animation: panelIn 200ms var(--ease-out);
+}
+
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editPanel {
+    animation: none;
+  }
+}
+
+.editTitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-3);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.field input {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+  background-color: var(--color-surface);
+}
+
+.field input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.btnPrimary,
+.btnSecondary {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.btnPrimary {
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+}
+
+.btnPrimary:disabled {
+  background-color: var(--color-border);
+  /* Contraste (bloqueante) — sin esto el texto ("Guardando…") queda blanco
+     sobre --color-border (#dee2e6) = 1.30:1, INVISIBLE. .syncBtn:disabled
+     del Overview ya hace esto bien; este botón se había quedado atrás. */
+  color: var(--color-text-primary);
+  cursor: not-allowed;
+}
+
+.btnSecondary {
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.btnSecondary:hover:not(:disabled) {
+  background-color: var(--color-surface-hover);
+}
+
+.btnPrimary:focus-visible,
+.btnSecondary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.formError {
+  color: var(--color-danger);
+  background-color: var(--color-danger-bg-hover);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+.feedbackSuccess {
+  /* Contraste (bloqueante) — --color-success-strong sobre blanco da 3.30:1,
+     falla AA texto. --badge-paid-fg da 7.13:1 (mismo criterio que
+     FinanceGrowthOverviewPage.module.css .syncOk/.feedbackSuccess). */
+  color: var(--badge-paid-fg);
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-2);
+}

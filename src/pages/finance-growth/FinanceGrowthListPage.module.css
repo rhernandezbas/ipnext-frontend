@@ -1,0 +1,325 @@
+/**
+ * finance-growth-dashboard (Fase 5, items 5.4-5.8) — estilos compartidos por
+ * las 5 páginas de "lectura pura" (cohortes, CAC, vendedores, nodos,
+ * motivos de baja). Mismo criterio de tokens que FinanceGrowthOverviewPage
+ * (CSS Modules, sin Tailwind, sin hex/px crudo) — reusado en vez de duplicado
+ * porque las 5 páginas comparten layout: header + controles + banners +
+ * KPIs opcionales + una tabla (DataTable).
+ */
+
+.page {
+  padding: var(--space-6);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.breadcrumb {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-4);
+}
+
+/* -------------------------------------------------------------- Controls -- */
+.controlsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.controlField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  min-width: 160px;
+}
+
+.controlField input {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+  background-color: var(--color-surface);
+}
+
+.controlField input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.controlField input[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.fieldError {
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+}
+
+/* -------------------------------------------------------------- States -- */
+.skeletonGrid {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.skeletonBar {
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(90deg, var(--color-border) 25%, var(--color-surface-hover) 50%, var(--color-border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeletonBar {
+    animation: none;
+    background-position: 0 0;
+  }
+}
+
+.errorState {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-danger);
+}
+
+.retryBtn {
+  margin-top: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--color-danger);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.retryBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.emptyState {
+  background-color: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-8) var(--space-6);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.emptyCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+}
+
+/* ---------------------------------------------------------------- Banners -- */
+.warningBanner {
+  font-size: var(--font-size-sm);
+  color: var(--color-warning-fg);
+  background-color: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.warningBanner a {
+  color: inherit;
+  font-weight: var(--font-weight-semibold);
+}
+
+.infoBanner {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+/* -------------------------------------------------------------------- KPI -- */
+.kpiRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.kpiTile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+.kpiLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.kpiValue {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------- Table emphasis -- */
+/* Columna PRIMARIA (jerarquía visual invertida a propósito — ver 5.6) */
+.primaryMetric {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Contraste (bloqueante) — estas 3 clases viven DENTRO de filas de
+ * `DataTable`, que pinta el fondo a `--color-surface-hover` (#f0f0f5) en
+ * `:hover` (`DataTable.module.css` `.row:hover td`). Verificado en vivo
+ * (WCAG 2.1 relative luminance):
+ *   --color-text-secondary  (#6c757d) sobre #f0f0f5 = 4.13:1  🔴 (sobre blanco: 4.69:1, al límite)
+ *   --color-success-strong  (#16a34a) sobre blanco  = 3.30:1  🔴 (sobre hover: 2.90:1)
+ *   --color-danger          (#dc3545) sobre blanco  = 4.53:1  al límite (sobre hover: 3.99:1) 🔴
+ * Los reemplazos pasan en AMBOS fondos (blanco Y hover):
+ *   --color-gray-600  (#495057) → 8.18:1 blanco / 7.20:1 hover
+ *   --badge-paid-fg   (#166534) → 7.13:1 blanco / 6.28:1 hover
+ *   --badge-late-fg   (#991b1b) → 8.31:1 blanco / 7.32:1 hover
+ */
+.secondaryMetric {
+  color: var(--color-gray-600);
+  font-variant-numeric: tabular-nums;
+}
+
+.tierGood {
+  color: var(--badge-paid-fg);
+}
+
+.tierWarn {
+  color: var(--color-warning-fg);
+}
+
+.tierBad {
+  color: var(--badge-late-fg);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+/* Contraste (bloqueante) — --color-danger (#dc3545) sobre
+   --color-danger-bg-hover (#fff0f1) da 4.09:1 🔴. --badge-late-fg (#991b1b)
+   sobre --badge-late-bg (#fee2e2) da 6.80:1 — misma familia roja "estado
+   malo/atrasado" ya verificada en el repo (alert-critical comparte estos
+   hex). --color-text-secondary (#6c757d) sobre --color-surface-hover
+   (#f0f0f5) da 4.13:1 🔴. --badge-inactive-fg/--badge-inactive-bg
+   (#5f6772/#f3f4f6) da 5.20:1 — mismo criterio semántico "neutro/inactivo". */
+.badgeDanger {
+  background-color: var(--badge-late-bg);
+  color: var(--badge-late-fg);
+  border: 1px solid var(--badge-late-fg);
+}
+
+.badgeNeutral {
+  background-color: var(--badge-inactive-bg);
+  color: var(--badge-inactive-fg);
+  border: 1px solid var(--color-border);
+}
+
+.badgeWarning {
+  background-color: var(--color-warning-bg);
+  color: var(--color-warning-fg);
+  border: 1px solid var(--color-warning-border);
+}
+
+/*
+ * DataTable no expone un `rowClassName` — el resaltado de "nodo en
+ * contracción" / "alta que pierde plata" se aplica DENTRO de la celda
+ * relevante (chip con borde+fondo), no en el <tr> completo. Evita tocar un
+ * componente compartido por el resto del panel para un caso de uso puntual.
+ */
+.highlightCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-left: 3px solid var(--color-danger);
+  background-color: var(--color-danger-bg-hover);
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-danger);
+}
+
+.caveat {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.unknown {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

@@ -91,7 +91,13 @@ const CRM_ITEMS: NavParentItem[] = [
   },
   {
     label: 'Finanzas',
-    matchPaths: ['/admin/finance'],
+    // finance-growth-dashboard Fase 5 fix wave — bug: '/admin/finance' (sin
+    // barra final) hace match por prefijo de '/admin/finance-growth/*' vía
+    // startsWith, así que entrar a Crecimiento Financiero abría/resaltaba
+    // este acordeón (el cementerio Splynx) en vez del suyo. La barra final
+    // es la corrección — Finanzas está DECLARADO ANTES en este array y
+    // `deriveActive` devuelve el PRIMER match, así que el orden importaba.
+    matchPaths: ['/admin/finance/'],
     requiredPermission: 'billing.read', // /admin/finance/* → billing.read
     children: [
       { to: '/admin/finance/dashboard', label: 'Dashboard' },
@@ -104,6 +110,24 @@ const CRM_ITEMS: NavParentItem[] = [
       { to: '/admin/finance/payment-statements', label: 'Payment statements' },
       { to: '/admin/finance/dunning', label: 'Dunning' },
       { to: '/admin/finance/payment-plans', label: 'Planes de pago' },
+    ],
+  },
+  {
+    // finance-growth-dashboard Fase 5 — módulo RBAC PROPIO (`finance`),
+    // deliberadamente SEPARADO de "Finanzas" arriba (`billing`, cementerio
+    // Splynx). Placeholder de nombre pendiente de confirmación del usuario
+    // (pregunta abierta #3 del proposal) — "Crecimiento Financiero" por ahora.
+    label: 'Crecimiento Financiero',
+    matchPaths: ['/admin/finance-growth'],
+    requiredPermission: 'finance.read',
+    children: [
+      { to: '/admin/finance-growth', label: 'Resumen' },
+      { to: '/admin/finance-growth/cohorts', label: 'Cohortes' },
+      { to: '/admin/finance-growth/cac', label: 'CAC y payback' },
+      { to: '/admin/finance-growth/vendors', label: 'Ranking de vendedores' },
+      { to: '/admin/finance-growth/nodes', label: 'Crecimiento por nodo' },
+      { to: '/admin/finance-growth/motivos-baja', label: 'Motivos de baja' },
+      { to: '/admin/finance-growth/settings', label: 'Configuración' },
     ],
   },
   {

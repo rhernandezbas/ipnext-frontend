@@ -1,0 +1,18 @@
+.page {
+  padding: var(--space-6);
+}
+
+.header {
+  margin-bottom: var(--space-4);
+}
+
+.breadcrumb {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}

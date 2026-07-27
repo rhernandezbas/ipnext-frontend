@@ -1,0 +1,370 @@
+/**
+ * finance-growth-dashboard (Fase 5 FE) — CSS Modules + tokens var(--color-*)
+ * (NO Tailwind). Paleta/jerarquía siguiendo ui-ux-pro-max: KPI tiles + banners
+ * de estado con dot+texto (nunca solo color), igual criterio que AlertsPage.
+ * Motion: shimmer del skeleton, 1.5s linear infinite, SIEMPRE con guard
+ * `prefers-reduced-motion` — mismo criterio que Emil Kowalski (nunca una
+ * animación que no se pueda apagar).
+ */
+
+.page {
+  padding: var(--space-6);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.breadcrumb {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+/* ---------------------------------------------------------------- Sync -- */
+.syncBox {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.syncStatus {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.syncOk::before,
+.syncDegraded::before {
+  content: '';
+}
+
+/* Contraste (bloqueante) — --color-success-strong (#16a34a) sobre blanco da
+   3.30:1, falla AA texto (4.5:1). --badge-paid-fg (#166534) da 7.13:1 —
+   mismo verde "al día" ya usado en FinancialSection para el mismo caso
+   (ver el comentario del token en variables.css). */
+.syncOk {
+  color: var(--badge-paid-fg);
+}
+
+.syncDegraded {
+  color: var(--color-warning-fg);
+}
+
+/* Bloqueante 🔴3 — kill-switch apagado (pacing.enabled === false). Rojo/neutro
+   a propósito, NUNCA verde: es un estado que requiere atención de un admin,
+   no "todo bien". --color-danger sobre blanco = 4.53:1 (>=4.5:1, AA). */
+.syncDisabled {
+  color: var(--color-danger);
+}
+
+.syncMeta {
+  color: var(--color-text-secondary);
+}
+
+.syncBtn {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.syncBtn:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+}
+
+.syncBtn:disabled {
+  background-color: var(--color-border);
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+}
+
+.syncBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.feedbackSuccess {
+  font-size: var(--font-size-xs);
+  /* Contraste — ver comentario de .syncOk arriba. */
+  color: var(--badge-paid-fg);
+}
+
+.feedbackError {
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+}
+
+/* -------------------------------------------------------------- States -- */
+.skeletonGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+}
+
+.skeletonTile {
+  height: 88px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(90deg, var(--color-border) 25%, var(--color-surface-hover) 50%, var(--color-border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeletonTile {
+    animation: none;
+    background-position: 0 0;
+  }
+}
+
+.errorState {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-danger);
+}
+
+.retryBtn {
+  margin-top: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--color-danger);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.retryBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.emptyState {
+  background-color: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-8) var(--space-6);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.emptyCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+}
+
+/* ---------------------------------------------------------------- Banners -- */
+.disclaimer {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--color-primary);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-sm);
+}
+
+.warningBanner {
+  font-size: var(--font-size-sm);
+  color: var(--color-warning-fg);
+  background-color: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.warningBanner a {
+  color: inherit;
+  font-weight: var(--font-weight-semibold);
+}
+
+.errorBanner {
+  font-size: var(--font-size-sm);
+  color: var(--alert-critical-fg, var(--color-danger));
+  background-color: var(--alert-critical-bg, var(--color-danger-bg-hover));
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+/* ------------------------------------------------------------------ Toggle -- */
+.toggleRow {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: var(--space-4);
+}
+
+.toggleBtn {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--color-surface);
+  border: none;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.toggleBtn + .toggleBtn {
+  border-left: 1px solid var(--color-border);
+}
+
+.toggleBtn:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.toggleBtn[aria-pressed='true'] {
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  font-weight: var(--font-weight-medium);
+}
+
+.toggleBtn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------------- KPI -- */
+.kpiRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.kpiTile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+.kpiLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.kpiValue {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------- Bridge -- */
+.bridgeCard {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.sectionTitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-3);
+}
+
+.bridgeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+}
+
+.bridgeRow:last-child {
+  border-bottom: none;
+  font-weight: var(--font-weight-bold);
+}
+
+.bridgeLabel {
+  color: var(--color-text-secondary);
+}
+
+.bridgeValue {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+
+/* Contraste — ver comentario de .syncOk arriba. */
+.bridge_up {
+  color: var(--badge-paid-fg);
+}
+
+.bridge_down {
+  color: var(--color-danger);
+}
+
+.bridgeNote {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.unclassifiedNote {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.unclassifiedNote a {
+  color: var(--color-primary);
+}
+
+@media (max-width: 640px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .syncBox {
+    align-items: flex-start;
+  }
+}

@@ -1,0 +1,6 @@
+.unknown {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  cursor: help;
+  border-bottom: 1px dotted var(--color-text-secondary);
+}

@@ -79,6 +79,13 @@ const TarifasRecurrentePage = lazy(() => import('@/pages/tariffs/TarifasRecurren
 const TarifasUnicoPage = lazy(() => import('@/pages/tariffs/TarifasUnicoPage'));
 const TarifasPaquetesPage = lazy(() => import('@/pages/tariffs/TarifasPaquetesPage'));
 const TarifasHuaweiGroupsPage = lazy(() => import('@/pages/tariffs/TarifasHuaweiGroupsPage'));
+const FinanceGrowthOverviewPage = lazy(() => import('@/pages/finance-growth/FinanceGrowthOverviewPage'));
+const FinanceGrowthSettingsPage = lazy(() => import('@/pages/finance-growth/FinanceGrowthSettingsPage'));
+const FinanceGrowthCohortsPage = lazy(() => import('@/pages/finance-growth/FinanceGrowthCohortsPage'));
+const FinanceGrowthCacPage = lazy(() => import('@/pages/finance-growth/FinanceGrowthCacPage'));
+const FinanceGrowthVendorsPage = lazy(() => import('@/pages/finance-growth/FinanceGrowthVendorsPage'));
+const FinanceGrowthNodesPage = lazy(() => import('@/pages/finance-growth/FinanceGrowthNodesPage'));
+const FinanceGrowthMotivosBajaPage = lazy(() => import('@/pages/finance-growth/FinanceGrowthMotivosBajaPage'));
 const NotasCreditoPage = lazy(() => import('@/pages/finance/NotasCreditoPage'));
 const ProformasPage = lazy(() => import('@/pages/finance/ProformasPage'));
 const HistorialFinancieroPage = lazy(() => import('@/pages/finance/HistorialFinancieroPage'));
@@ -264,6 +271,17 @@ export function App() {
                 <Route path="payment-statements" element={<RequirePermission permission="billing.read"><PaymentStatementsPage /></RequirePermission>} />
                 <Route path="dunning" element={<RequirePermission permission="billing.read"><DunningPage /></RequirePermission>} />
                 <Route path="payment-plans" element={<RequirePermission permission="billing.read"><PaymentPlansPage /></RequirePermission>} />
+              </Route>
+              {/* ── Finance Growth (finance.read) — módulo RBAC propio, separado
+                   de "Finanzas"/billing arriba (Decision 6 de design.md). ────── */}
+              <Route path="finance-growth">
+                <Route index element={<RequirePermission permission="finance.read"><FinanceGrowthOverviewPage /></RequirePermission>} />
+                <Route path="settings" element={<RequirePermission permission="finance.read"><FinanceGrowthSettingsPage /></RequirePermission>} />
+                <Route path="cohorts" element={<RequirePermission permission="finance.read"><FinanceGrowthCohortsPage /></RequirePermission>} />
+                <Route path="cac" element={<RequirePermission permission="finance.read"><FinanceGrowthCacPage /></RequirePermission>} />
+                <Route path="vendors" element={<RequirePermission permission="finance.read"><FinanceGrowthVendorsPage /></RequirePermission>} />
+                <Route path="nodes" element={<RequirePermission permission="finance.read"><FinanceGrowthNodesPage /></RequirePermission>} />
+                <Route path="motivos-baja" element={<RequirePermission permission="finance.read"><FinanceGrowthMotivosBajaPage /></RequirePermission>} />
               </Route>
               {/* ── Networking (network.read) ──────────────────────────────── */}
               <Route path="networking">
