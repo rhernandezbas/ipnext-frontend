@@ -11,6 +11,7 @@ import { ClosureIntervalConfig } from './ClosureIntervalConfig';
 import { IClassTechnicianMappingBody } from './IClassTechnicianMappingBody';
 import { IClassOsActionsBody } from './IClassOsActionsBody';
 import { IClassDispatchPreviewBody } from './IClassDispatchPreviewBody';
+import { IClassGpsIngestCard } from '@/components/settings/IClassGpsIngestCard';
 
 const SUB_TABS = [
   { id: 'integracion',       label: 'Integración',          content: <IClassFlagBody /> },
@@ -20,6 +21,7 @@ const SUB_TABS = [
   { id: 'estados-iclass',    label: 'Estados de IClass',    content: <IClassStatusCatalogBody /> },
   { id: 'cuadrillas',        label: 'Cuadrillas',           content: <IClassTeamsCatalogBody /> },
   { id: 'tecnicos-cuadrilla', label: 'Técnicos → Cuadrillas', content: <IClassTechnicianMappingBody /> },
+  { id: 'rastro-gps',        label: 'Rastro GPS',           content: <IClassGpsIngestCard /> },
   { id: 'acciones-os',       label: 'Acciones de OS',       content: <IClassOsActionsBody /> },
   { id: 'despacho',          label: 'Qué se envía a IClass', content: <IClassDispatchPreviewBody /> },
   {
@@ -41,6 +43,7 @@ const SUB_TABS = [
  * - Catálogo: tipos de OS
  * - Mapeo de proyectos: proyecto ↔ IClass
  * - Mapeo de estado: mapeo de resultados (IClassResultCodeMappingBody)
+ * - Rastro GPS: flag `iclass-gps-ingest` del ingest de breadcrumbs (IClassGpsIngestCard)
  * - Procesamiento: flag del loop + tabla de side-effects pendientes (ClosureProgressTable)
  *
  * El id `cierre` se preserva para compatibilidad con deep-links existentes.

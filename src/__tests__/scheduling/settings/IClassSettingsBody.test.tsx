@@ -36,6 +36,9 @@ vi.mock('@/pages/scheduling/settings/IClassOsActionsBody', () => ({
 vi.mock('@/pages/scheduling/settings/IClassDispatchPreviewBody', () => ({
   IClassDispatchPreviewBody: () => <div data-testid="dispatch-preview-body" />,
 }));
+vi.mock('@/components/settings/IClassGpsIngestCard', () => ({
+  IClassGpsIngestCard: () => <div data-testid="gps-ingest-card" />,
+}));
 
 import { IClassSettingsBody } from '@/pages/scheduling/settings/IClassSettingsBody';
 
@@ -50,8 +53,8 @@ function renderSettings() {
 describe('IClassSettingsBody', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  // REQ-LIST-4 SC1: 10 sub-tabs in order (incluyendo las 3 nuevas olas A/B/C)
-  it('renders exactly 10 sub-tabs including the 3 new OLA tabs', () => {
+  // REQ-LIST-4 SC1: sub-tabs in order (incluyendo las 3 olas A/B/C + Rastro GPS)
+  it('renders exactly 11 sub-tabs including Rastro GPS', () => {
     renderSettings();
     const tabs = screen.getAllByRole('tab').map(t => t.textContent);
     expect(tabs).toEqual([
@@ -62,12 +65,27 @@ describe('IClassSettingsBody', () => {
       'Estados de IClass',
       'Cuadrillas',
       'Técnicos → Cuadrillas',
+      'Rastro GPS',
       'Acciones de OS',
       'Qué se envía a IClass',
       'Procesamiento',
     ]);
     // Old "Cierre de OS" label must no longer exist
     expect(screen.queryByRole('tab', { name: 'Cierre de OS' })).not.toBeInTheDocument();
+  });
+
+  // `iclass-gps-ingest` está EN PROD pero dark: sin esta sub-tab el flag es
+  // INVISIBLE y el go-live sólo se puede hacer con un PATCH a mano.
+  it('clicking Rastro GPS tab mounts the iclass-gps-ingest flag card', () => {
+    renderSettings();
+    fireEvent.click(screen.getByRole('tab', { name: 'Rastro GPS' }));
+    expect(screen.getByRole('tab', { name: 'Rastro GPS' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('gps-ingest-card')).toBeInTheDocument();
+  });
+
+  it('does not mount the Rastro GPS card until its tab is clicked (lazy mount)', () => {
+    renderSettings();
+    expect(screen.queryByTestId('gps-ingest-card')).not.toBeInTheDocument();
   });
 
   it('clicking Técnicos → Cuadrillas tab mounts its body', () => {
