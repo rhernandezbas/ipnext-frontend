@@ -177,6 +177,26 @@ const EMPRESA_ITEMS: NavParentItem[] = [
     ],
   },
   {
+    // Cuadrillas (change iclass-gps-audit). NO lleva `requiredPermission` de
+    // grupo a propósito: cada hijo declara el suyo, porque el mapa en vivo
+    // (operativo) y la auditoría (supervisión) son permisos distintos y quien
+    // tiene uno no debe ver la entrada del otro.
+    label: 'Cuadrillas',
+    matchPaths: ['/admin/technicians'],
+    children: [
+      {
+        to: '/admin/technicians/live',
+        label: 'Mapa en vivo',
+        requiredPermission: 'technicians.location_read',
+      },
+      {
+        to: '/admin/technicians/audit',
+        label: 'Auditoría de presencia',
+        requiredPermission: 'technicians.location_audit',
+      },
+    ],
+  },
+  {
     label: 'Inventario',
     matchPaths: ['/admin/inventory'],
     requiredPermission: 'inventory.read', // /admin/inventory/* → inventory.read

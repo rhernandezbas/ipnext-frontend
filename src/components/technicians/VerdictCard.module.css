@@ -1,0 +1,236 @@
+/*
+ * VerdictCard — IGUAL PESO VISUAL para los 4 veredictos.
+ *
+ * El tono vive SÓLO en el chip del ícono y en la barra superior. El fondo, el
+ * tamaño, el color y el peso del título son idénticos en los cuatro casos: así
+ * `NO_CONCLUYENTE` no puede degradarse a "gris chiquito" en un refactor
+ * distraído. Si mañana alguien quiere diferenciarlos más, que rompa esta regla
+ * a propósito y no por inercia.
+ *
+ * Contrastes CALCULADOS (fg sobre su chip):
+ *   EN_SITIO        #166534 / #dcfce7 → 6,49:1
+ *   FUERA_DE_SITIO  #991b1b / #fee2e2 → 6,80:1
+ *   NO_CONCLUYENTE  #92400e / #fef3c7 → 6,37:1
+ *   NO_AUDITABLE    #1e40af / #dbeafe → 7,15:1
+ * Banda 6,3–7,2 a propósito: ninguno "pesa" menos que otro.
+ * Texto del cuerpo: #212529 sobre #ffffff → 15,3:1. Etiquetas #495057 → 8,2:1.
+ */
+
+.card {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+  animation: cardIn 200ms var(--ease-out) both;
+}
+
+/* Barra de tono: mismo grosor y misma posición en los 4. */
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 4px;
+  background: var(--verdict-accent, var(--color-border));
+}
+
+.card[data-verdict='EN_SITIO'] {
+  --verdict-accent: var(--badge-paid-fg);
+  --verdict-chip-bg: var(--badge-paid-bg);
+  --verdict-chip-fg: var(--badge-paid-fg);
+}
+
+.card[data-verdict='FUERA_DE_SITIO'] {
+  --verdict-accent: var(--badge-late-fg);
+  --verdict-chip-bg: var(--badge-late-bg);
+  --verdict-chip-fg: var(--badge-late-fg);
+}
+
+.card[data-verdict='NO_CONCLUYENTE'] {
+  --verdict-accent: var(--badge-paused-fg);
+  --verdict-chip-bg: var(--badge-paused-bg);
+  --verdict-chip-fg: var(--badge-paused-fg);
+}
+
+.card[data-verdict='NO_AUDITABLE'] {
+  --verdict-accent: var(--badge-active-fg);
+  --verdict-chip-bg: var(--badge-active-bg);
+  --verdict-chip-fg: var(--badge-active-fg);
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.iconWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--verdict-chip-bg);
+  color: var(--verdict-chip-fg);
+}
+
+.headText {
+  min-width: 0;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Idéntico para los 4 veredictos: mismo tamaño, mismo peso, mismo color. */
+.title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
+}
+
+.meaning {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-primary);
+  max-width: 68ch;
+}
+
+.reason {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-gray-50);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+}
+
+.reasonTerm {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-600);
+}
+
+.evidence {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3) var(--space-5);
+  margin: 0 0 var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.term {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-gray-600);
+}
+
+.definition {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.subtle {
+  font-weight: var(--font-weight-normal);
+  color: var(--color-gray-600);
+}
+
+.mapsRow {
+  margin: 0 0 var(--space-4);
+}
+
+.mapsLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--space-11);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 150ms var(--ease-out),
+    border-color 150ms var(--ease-out);
+}
+
+.mapsLink:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+}
+
+.mapsLink:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.external {
+  font-size: var(--font-size-xs);
+}
+
+.disclaimer {
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  color: var(--color-gray-600);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Fade sí, desplazamiento no: el card sigue avisando que llegó un resultado. */
+  .card {
+    animation-name: fadeInOnly;
+  }
+
+  .mapsLink {
+    transition: none;
+  }
+}
+
+@keyframes fadeInOnly {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

@@ -159,6 +159,12 @@ const InventoryTechnicianPage = lazy(() => import('@/pages/inventory/InventoryTe
 const InventoryVehiclePage = lazy(() => import('@/pages/inventory/InventoryVehiclePage'));
 const InventoryReturnsPendingPage = lazy(() => import('@/pages/inventory/InventoryReturnsPendingPage'));
 const InventoryDeductionsPendingPage = lazy(() => import('@/pages/inventory/DeductionsPendingPage'));
+
+// Ubicación / auditoría de cuadrillas (change iclass-gps-audit). Dos permisos
+// distintos a propósito: despachar NO arrastra el poder de auditar el historial
+// completo de una persona.
+const TechniciansLiveMapPage = lazy(() => import('@/pages/technicians/TechniciansLiveMapPage'));
+const TechniciansAuditPage = lazy(() => import('@/pages/technicians/TechniciansAuditPage'));
 const VoiceCategoriesPage = lazy(() => import('@/pages/voice/VoiceCategoriesPage'));
 const VoiceProcessingPage = lazy(() => import('@/pages/voice/VoiceProcessingPage'));
 const VoiceRateTablesPage = lazy(() => import('@/pages/voice/VoiceRateTablesPage'));
@@ -344,6 +350,17 @@ export function App() {
                 <Route path="returns" element={<RequirePermission permission="inventory.read"><InventoryReturnsPendingPage /></RequirePermission>} />
                 <Route path="deductions" element={<RequirePermission permission="inventory.read"><InventoryDeductionsPendingPage /></RequirePermission>} />
                 <Route path="settings" element={<RequirePermission permission="inventory.read"><InventorySettingsPage /></RequirePermission>} />
+              </Route>
+
+              {/* ── Cuadrillas: ubicación y auditoría (iclass-gps-audit) ───── */}
+              {/* Dos permisos SEPARADOS: `technicians.location_read` es operativo
+                  (despacho ve dónde están las cuadrillas para asignar trabajo) y
+                  `technicians.location_audit` es de supervisión (historial de una
+                  persona). El backend aplica el mismo corte — el guard del FE no
+                  reemplaza al del BE, lo acompaña. */}
+              <Route path="technicians">
+                <Route path="live" element={<RequirePermission permission="technicians.location_read"><TechniciansLiveMapPage /></RequirePermission>} />
+                <Route path="audit" element={<RequirePermission permission="technicians.location_audit"><TechniciansAuditPage /></RequirePermission>} />
               </Route>
 
               {/* ── CRM (crm.read) ─────────────────────────────────────────── */}

@@ -28,6 +28,17 @@ const ROUTE_CRUMBS: RouteConfig[] = [
     pattern: '/admin/customers/list',
     crumbs: [{ label: 'CRM' }, { label: 'Clientes' }],
   },
+  // Cuadrillas (iclass-gps-audit). Sin `to` en el crumb padre: no hay índice
+  // de /admin/technicians, y cada hija exige un permiso distinto — un link al
+  // padre llevaría a una ruta que no existe.
+  {
+    pattern: '/admin/technicians/live',
+    crumbs: [{ label: 'Empresa' }, { label: 'Cuadrillas' }, { label: 'Mapa en vivo' }],
+  },
+  {
+    pattern: '/admin/technicians/audit',
+    crumbs: [{ label: 'Empresa' }, { label: 'Cuadrillas' }, { label: 'Auditoría de presencia' }],
+  },
   {
     pattern: '/admin/tickets/new',
     crumbs: [

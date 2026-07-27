@@ -1,0 +1,314 @@
+/*
+ * JourneyPanel — panel lateral de la jornada de una cuadrilla.
+ *
+ * Contrastes CALCULADOS: texto #212529 sobre #ffffff → 15,3:1; etiquetas
+ * #495057 sobre #ffffff → 8,2:1 y sobre #f8f9fa → 7,8:1. El chip "Mínimo
+ * estimado" usa #92400e sobre #fef3c7 → 6,37:1.
+ *
+ * Movimiento: entra desde su propio borde (derecha en desktop, abajo en mobile),
+ * 220 ms con --ease-out. Nunca ease-in: un panel que arranca lento se siente
+ * trabado. Interrumpible por definición (el panel se desmonta al cerrar) y
+ * anulado bajo prefers-reduced-motion.
+ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  animation: panelIn 220ms var(--ease-out) both;
+}
+
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Abajo de 1024px la grilla es de una columna: el panel aparece DEBAJO del
+   mapa, así que entrar desde la derecha contradice de dónde viene. */
+@media (max-width: 1024px) {
+  .panel {
+    animation-name: panelInStacked;
+  }
+}
+
+@keyframes panelInStacked {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  margin: 2px 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-600);
+}
+
+.dayRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.dayLabel {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-gray-600);
+}
+
+.dayInput {
+  min-height: var(--space-11);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color 150ms var(--ease-out);
+}
+
+.dayInput:hover {
+  border-color: var(--color-gray-400);
+}
+
+.dayInput:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-color: var(--color-primary);
+}
+
+.scopeNote {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  color: var(--color-gray-600);
+}
+
+/* ── Estados ────────────────────────────────────────────────────────────────── */
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.skeletonLine,
+.skeletonBars {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--color-gray-100) 25%,
+    var(--color-gray-50) 37%,
+    var(--color-gray-100) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.skeletonLine {
+  height: 16px;
+}
+
+.skeletonBars {
+  height: 88px;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 50%;
+  }
+  to {
+    background-position: 0 50%;
+  }
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--badge-late-bg);
+  border-radius: var(--radius-md);
+}
+
+.errorText {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--badge-late-fg);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--color-gray-50);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-gray-600);
+}
+
+/* ── Datos ──────────────────────────────────────────────────────────────────── */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.statTerm {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-gray-600);
+}
+
+.statValue {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.estimateTag {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--badge-paused-bg);
+  color: var(--badge-paused-fg);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  vertical-align: middle;
+}
+
+.samplingNote {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  color: var(--color-gray-600);
+}
+
+.samplingWhy {
+  color: var(--color-gray-600);
+}
+
+.hoursTitle {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.hours {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+}
+
+.hourItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+  min-width: 28px;
+}
+
+.hourCount {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.hourTrack {
+  display: flex;
+  align-items: flex-end;
+  width: 20px;
+  height: 72px;
+  background: var(--color-gray-100);
+  border-radius: var(--radius-sm);
+}
+
+.hourBar {
+  width: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-sm);
+}
+
+.hourLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-600);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Se conserva el fade (dice "esto apareció") y se elimina el desplazamiento. */
+  .panel {
+    animation-name: fadeInOnly;
+  }
+
+  .skeletonLine,
+  .skeletonBars {
+    animation: none;
+    background: var(--color-gray-100);
+  }
+
+  .dayInput {
+    transition: none;
+  }
+}
+
+@keyframes fadeInOnly {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

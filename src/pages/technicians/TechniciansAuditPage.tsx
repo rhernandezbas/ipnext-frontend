@@ -1,0 +1,312 @@
+import { useMemo, useState, type FormEvent } from 'react';
+import { Button } from '@/components/atoms/Button/Button';
+import { Input } from '@/components/atoms/Input/Input';
+import { DataTable } from '@/components/organisms/DataTable/DataTable';
+import { Select } from '@/components/molecules/Select/Select';
+import { Tabs } from '@/components/molecules/Tabs/Tabs';
+import { VerdictCard } from '@/components/technicians/VerdictCard';
+import {
+  useServiceOrderPresenceAudit,
+  useSuspiciousClosures,
+} from '@/hooks/useTechnicianLocation';
+import type { SuspiciousClosure } from '@/types/technicianLocation';
+import { toArIsoDate } from '@/utils/formatDate';
+import { formatDurationMinutes, formatMinutes } from '@/utils/formatGeo';
+import styles from './TechniciansAuditPage.module.css';
+
+/**
+ * Auditoría de presencia (permiso `technicians.location_audit`).
+ *
+ * ── Lo que esta pantalla NO hace ──────────────────────────────────────────────
+ * No dictamina incumplimientos. Produce EVIDENCIA sobre dónde estuvo el
+ * dispositivo que reporta la ubicación, con sus límites a la vista. La
+ * distinción no es cosmética: un falso positivo de "no fue" acusa a una persona
+ * real de algo que sí hizo.
+ *
+ * ── El pre-filtro es una cola de trabajo, no un veredicto ─────────────────────
+ * El listado marca órdenes cuyo tramo viaje→cierre duró menos que un umbral,
+ * calculado SÓLO con el histórico de estados (órdenes de magnitud más barato que
+ * el cruce GPS). Sirve para priorizar qué mirar. Rotularlo "incumplimientos"
+ * convertiría un heurístico temporal en una acusación.
+ *
+ * ── Por qué el umbral que se muestra es el del servidor ───────────────────────
+ * Hubo un bug real (hallazgo 3.6) donde la ruta validaba el `thresholdMinutes`
+ * pedido y después lo descartaba: un auditor pedía 30, recibía resultados
+ * calculados con 5 y concluía "no hay más casos". Acá se muestra SIEMPRE
+ * `meta.thresholdMinutes` — el que efectivamente se aplicó.
+ */
+
+const MS_PER_DAY = 86_400_000;
+
+/** Cota del barrido. Espejo de MAX_AUDIT_RANGE_DAYS del backend (IClass topea en 30). */
+const MAX_RANGE_DAYS = 30;
+
+const THRESHOLD_OPTIONS = [
+  { value: '2', label: '2 minutos' },
+  { value: '5', label: '5 minutos' },
+  { value: '10', label: '10 minutos' },
+  { value: '15', label: '15 minutos' },
+  { value: '30', label: '30 minutos' },
+];
+
+interface CandidateRow extends SuspiciousClosure {
+  id: string;
+}
+
+const CANDIDATE_COLUMNS = [
+  { label: 'Orden', key: 'serviceOrderCode' },
+  {
+    label: 'Duración de ejecución',
+    key: 'executionMinutes',
+    sortable: true,
+    render: (row: CandidateRow) => formatDurationMinutes(row.executionMinutes),
+  },
+  {
+    label: 'Cuadrilla',
+    key: 'teamTechnicianName',
+    render: (row: CandidateRow) => row.teamTechnicianName ?? row.teamLogin ?? '—',
+  },
+  {
+    label: 'Tipo de orden',
+    key: 'soTypeDescription',
+    render: (row: CandidateRow) => row.soTypeDescription ?? '—',
+  },
+  {
+    label: 'Resultado registrado',
+    key: 'resultCodeName',
+    render: (row: CandidateRow) => row.resultCodeName ?? '—',
+  },
+];
+
+/** Diferencia en días entre dos "yyyy-MM-dd". `NaN` si alguno no parsea. */
+function rangeDays(from: string, to: string): number {
+  const a = Date.parse(`${from}T00:00:00.000Z`);
+  const b = Date.parse(`${to}T00:00:00.000Z`);
+  if (Number.isNaN(a) || Number.isNaN(b)) return NaN;
+  return (b - a) / MS_PER_DAY;
+}
+
+export default function TechniciansAuditPage() {
+  const [activeTab, setActiveTab] = useState<'order' | 'candidates'>('order');
+
+  // ── Auditoría por orden ────────────────────────────────────────────────────
+  const [codeDraft, setCodeDraft] = useState('');
+  const [submittedCode, setSubmittedCode] = useState<string | null>(null);
+  const auditQuery = useServiceOrderPresenceAudit(submittedCode);
+
+  function handleAuditSubmit(e: FormEvent) {
+    e.preventDefault();
+    const code = codeDraft.trim();
+    // Sin código no se dispara nada: un GET con code vacío es un 400 garantizado.
+    if (!code) return;
+    setSubmittedCode(code);
+  }
+
+  // ── Pre-filtro de cierres ──────────────────────────────────────────────────
+  const todayAr = useMemo(() => toArIsoDate(new Date()), []);
+  const weekAgoAr = useMemo(() => toArIsoDate(new Date(Date.now() - 7 * MS_PER_DAY)), []);
+
+  const [from, setFrom] = useState(weekAgoAr);
+  const [to, setTo] = useState(todayAr);
+  const [threshold, setThreshold] = useState('5');
+
+  const span = rangeDays(from, to);
+  let rangeError: string | null = null;
+  if (Number.isNaN(span)) rangeError = 'Ingresá ambas fechas con un formato válido.';
+  else if (span < 0) rangeError = 'La fecha "desde" no puede ser posterior a la fecha "hasta".';
+  else if (span > MAX_RANGE_DAYS)
+    rangeError = `El rango no puede superar los ${MAX_RANGE_DAYS} días (pediste ${Math.round(span)}).`;
+
+  const suspiciousQuery = useSuspiciousClosures(
+    { from, to, thresholdMinutes: Number(threshold) },
+    rangeError === null && activeTab === 'candidates',
+  );
+
+  const candidates: CandidateRow[] = (suspiciousQuery.data?.candidates ?? []).map((c) => ({
+    ...c,
+    id: c.serviceOrderCode,
+  }));
+
+  // ── Panel: auditar una orden ───────────────────────────────────────────────
+  const orderPanel = (
+    <div className={styles.panel}>
+      <form className={styles.searchRow} onSubmit={handleAuditSubmit} noValidate>
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="audit-code">
+            Código de la orden de servicio
+          </label>
+          <Input
+            id="audit-code"
+            value={codeDraft}
+            onChange={(e) => setCodeDraft(e.target.value)}
+            placeholder="Ej: 4905"
+            autoComplete="off"
+          />
+        </div>
+        <Button type="submit" variant="primary" size="md">
+          Auditar orden
+        </Button>
+      </form>
+
+      {!submittedCode && !auditQuery.isLoading && (
+        <p className={styles.empty} data-testid="audit-empty">
+          Ingresá el código de una orden cerrada para ver dónde estuvo el dispositivo de la
+          cuadrilla durante la ventana real de trabajo. La ventana sale del histórico de estados
+          de la orden, no de la fecha agendada.
+        </p>
+      )}
+
+      {auditQuery.isLoading && (
+        <div className={styles.skeleton} data-testid="audit-skeleton">
+          <span className={styles.skeletonBlock} aria-hidden="true" />
+          <p className={styles.srOnly}>Auditando la orden…</p>
+        </div>
+      )}
+
+      {!auditQuery.isLoading && auditQuery.isError && (
+        <div className={styles.errorBanner} role="alert">
+          <p className={styles.errorText}>
+            No se pudo auditar la orden. Puede ser un problema con IClass — no interpretes el
+            fallo como un resultado.
+          </p>
+          <Button variant="secondary" size="sm" onClick={() => auditQuery.refetch()}>
+            Reintentar
+          </Button>
+        </div>
+      )}
+
+      {!auditQuery.isLoading && !auditQuery.isError && auditQuery.data && (
+        <VerdictCard report={auditQuery.data} />
+      )}
+    </div>
+  );
+
+  // ── Panel: candidatos a revisar ────────────────────────────────────────────
+  const candidatesPanel = (
+    <div className={styles.panel} data-testid="candidates-panel">
+      <div className={styles.panelHead}>
+        <h2 className={styles.panelTitle}>Candidatos a revisar</h2>
+        <p className={styles.panelIntro}>
+          Órdenes cuyo tramo de ejecución (viaje → cierre) duró menos que el umbral, según el
+          histórico de estados. Es una cola de priorización: <strong>no es un veredicto</strong> y
+          no cruza ningún dato de GPS. Para saber dónde estuvo el dispositivo, auditá la orden en
+          la otra pestaña.
+        </p>
+      </div>
+
+      <div className={styles.filters}>
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="range-from">
+            Desde
+          </label>
+          <input
+            id="range-from"
+            className={styles.dateInput}
+            type="date"
+            value={from}
+            max={todayAr}
+            onChange={(e) => setFrom(e.target.value)}
+            aria-invalid={rangeError !== null || undefined}
+            aria-describedby={rangeError ? 'range-error' : undefined}
+          />
+        </div>
+
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="range-to">
+            Hasta
+          </label>
+          <input
+            id="range-to"
+            className={styles.dateInput}
+            type="date"
+            value={to}
+            max={todayAr}
+            onChange={(e) => setTo(e.target.value)}
+            aria-invalid={rangeError !== null || undefined}
+            aria-describedby={rangeError ? 'range-error' : undefined}
+          />
+        </div>
+
+        <div className={styles.field}>
+          <Select
+            label="Umbral de ejecución"
+            options={THRESHOLD_OPTIONS}
+            value={threshold}
+            onChange={setThreshold}
+          />
+        </div>
+      </div>
+
+      {rangeError && (
+        <p className={styles.rangeError} id="range-error" data-testid="range-error" role="alert">
+          {rangeError}
+        </p>
+      )}
+
+      {!rangeError && suspiciousQuery.data && (
+        <p className={styles.appliedThreshold} data-testid="applied-threshold" aria-live="polite">
+          Umbral aplicado por el servidor: {formatMinutes(suspiciousQuery.data.thresholdMinutes)}.
+          Los resultados de abajo se calcularon con ese valor.
+        </p>
+      )}
+
+      {suspiciousQuery.isLoading && (
+        <div className={styles.skeleton} data-testid="candidates-skeleton">
+          <span className={styles.skeletonRow} aria-hidden="true" />
+          <span className={styles.skeletonRow} aria-hidden="true" />
+          <span className={styles.skeletonRow} aria-hidden="true" />
+          <p className={styles.srOnly}>Buscando candidatos…</p>
+        </div>
+      )}
+
+      {!suspiciousQuery.isLoading && suspiciousQuery.isError && (
+        <div className={styles.errorBanner} role="alert">
+          <p className={styles.errorText}>
+            No se pudo completar el barrido de cierres. El resultado quedó incompleto — no lo
+            leas como "no hay candidatos".
+          </p>
+          <Button variant="secondary" size="sm" onClick={() => suspiciousQuery.refetch()}>
+            Reintentar
+          </Button>
+        </div>
+      )}
+
+      {!suspiciousQuery.isLoading &&
+        !suspiciousQuery.isError &&
+        suspiciousQuery.data &&
+        candidates.length === 0 && (
+          <p className={styles.empty} data-testid="candidates-empty">
+            Ninguna orden del rango quedó por debajo del umbral. Probá con un umbral mayor o con
+            otro rango de fechas.
+          </p>
+        )}
+
+      {!suspiciousQuery.isLoading && !suspiciousQuery.isError && candidates.length > 0 && (
+        <DataTable<CandidateRow> columns={CANDIDATE_COLUMNS} data={candidates} />
+      )}
+    </div>
+  );
+
+  return (
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <h1 className={styles.title}>Auditoría de presencia</h1>
+        <p className={styles.subtitle}>
+          La evidencia indica dónde estuvo el dispositivo que reporta la ubicación durante la
+          ventana de trabajo de la orden. No establece quién lo operaba ni constituye una
+          imputación.
+        </p>
+      </header>
+
+      <Tabs
+        mountMode="lazy"
+        activeTab={activeTab}
+        onTabChange={(id) => setActiveTab(id as 'order' | 'candidates')}
+        tabs={[
+          { id: 'order', label: 'Auditar una orden', content: orderPanel },
+          { id: 'candidates', label: 'Candidatos a revisar', content: candidatesPanel },
+        ]}
+      />
+    </div>
+  );
+}

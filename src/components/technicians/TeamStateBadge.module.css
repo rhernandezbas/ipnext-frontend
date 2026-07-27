@@ -1,0 +1,47 @@
+/*
+ * Contrastes CALCULADOS (WCAG 2.1, texto sobre su propio fondo):
+ *   ACTIVA          #166534 sobre #dcfce7 → 6,49:1
+ *   DESACTUALIZADA  #92400e sobre #fef3c7 → 6,37:1
+ *   SIN_RASTRO      #5f6772 sobre #f3f4f6 → 5,20:1
+ * Los tres superan 4,5:1 y quedan en una banda parecida a propósito: ninguno
+ * puede leerse como "más débil" que otro.
+ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  white-space: nowrap;
+}
+
+.badge[data-state='ACTIVA'] {
+  background: var(--badge-paid-bg);
+  color: var(--badge-paid-fg);
+}
+
+.badge[data-state='DESACTUALIZADA'] {
+  background: var(--badge-paused-bg);
+  color: var(--badge-paused-fg);
+}
+
+.badge[data-state='SIN_RASTRO'] {
+  background: var(--badge-inactive-bg);
+  color: var(--badge-inactive-fg);
+}
+
+.icon {
+  flex: 0 0 auto;
+}
+
+.label {
+  letter-spacing: 0.01em;
+}
+
+.age {
+  font-weight: var(--font-weight-medium);
+}
