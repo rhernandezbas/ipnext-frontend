@@ -26,78 +26,33 @@
  *
  * La matemática WCAG (`relLuminance` / `contrastRatio`) fue reimplementada y
  * verificada de forma independiente por el revisor — no se toca.
+ *
+ * MEDIO-4 + BAJO-1 (3ª review adversarial): los helpers de parseo se mudaron a
+ * `@/test/cssContract` — ver ahí el porqué (el pase silencioso de los hex con
+ * alpha, y el `resolveToken` sin anclar ni escapar que resolvía
+ * `--color-.rimary` a `#0d6efd`). Este archivo se queda SOLO con los contratos
+ * de contraste, que es lo suyo.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import {
+  contrastRatio,
+  declaration,
+  extractRule,
+  hexToRgb,
+  makeTokenResolver,
+  mix,
+  readCss,
+  type Rgb,
+} from '@/test/cssContract';
 
 const cssPath = join(__dirname, 'AlertsPage.module.css');
-const css = readFileSync(cssPath, 'utf-8');
+const css = readCss(cssPath);
 
 const tokensCssPath = join(__dirname, '..', '..', 'tokens', 'variables.css');
-const tokensCss = readFileSync(tokensCssPath, 'utf-8');
+const tokensCss = readCss(tokensCssPath);
 
-type Rgb = [number, number, number];
-
-function resolveToken(name: string): string {
-  const m = tokensCss.match(new RegExp(`${name}:\\s*(#[0-9a-fA-F]{3,8})`));
-  if (!m) throw new Error(`Token "${name}" no encontrado en tokens/variables.css`);
-  return m[1]!;
-}
-
-function hexToRgb(hex: string): Rgb {
-  let h = hex.replace('#', '');
-  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
-  const n = parseInt(h, 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-/** color-mix(in srgb, A p%, B) — misma fórmula lineal que usa el browser para sRGB. */
-function mix(a: Rgb, b: Rgb, percentA: number): Rgb {
-  const p = percentA / 100;
-  return [0, 1, 2].map((i) => p * a[i]! + (1 - p) * b[i]!) as Rgb;
-}
-
-function relLuminance([r, g, b]: Rgb): number {
-  const lin = (c: number) => {
-    const cs = c / 255;
-    return cs <= 0.03928 ? cs / 12.92 : Math.pow((cs + 0.055) / 1.055, 2.4);
-  };
-  const [R, G, B] = [lin(r), lin(g), lin(b)];
-  return 0.2126 * R + 0.7152 * G + 0.0722 * B;
-}
-
-/** WCAG 2.1 contrast ratio: (L1+0.05)/(L2+0.05), L1 >= L2. */
-function contrastRatio(rgbA: Rgb, rgbB: Rgb): number {
-  const l1 = relLuminance(rgbA);
-  const l2 = relLuminance(rgbB);
-  const [a, b] = l1 > l2 ? [l1, l2] : [l2, l1];
-  return (a + 0.05) / (b + 0.05);
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/** MEDIO-4: el selector se ancla a PRINCIPIO DE LÍNEA. Con `indexOf` a secas,
- *  buscar `.breakdownSource {` encontraba primero
- *  `.breakdownRow[aria-pressed='true'] .breakdownSource {` y el "estado base"
- *  se validaba contra la regla del estado activo — un falso verde silencioso. */
-function extractRule(source: string, selector: string): string {
-  const m = new RegExp(`^${escapeRegExp(selector)}`, 'm').exec(source);
-  if (!m) throw new Error(`Selector "${selector}" no encontrado (a principio de línea) en el CSS.`);
-  const open = source.indexOf('{', m.index);
-  const close = source.indexOf('}', open);
-  return source.slice(open + 1, close);
-}
-
-/** Valor crudo de una declaración dentro de un bloque, anclado para que
- *  `border-color:` no matchee cuando se pide `color:`. */
-function declaration(block: string, prop: string): string {
-  const m = new RegExp(`(?:^|;|\\n)\\s*${escapeRegExp(prop)}:\\s*([^;]+);`).exec(block);
-  if (!m) throw new Error(`Declaración "${prop}" no encontrada en el bloque:\n${block}`);
-  return m[1]!.trim();
-}
+const resolveToken = makeTokenResolver(tokensCss);
 
 const VAR_RE = /^var\(\s*(--[\w-]+)\s*\)$/;
 const COLOR_MIX_RE = /^color-mix\(\s*in\s+srgb\s*,\s*(.+?)\s+([\d.]+)%\s*,\s*(.+?)\s*\)$/;
@@ -172,6 +127,11 @@ const CONTRAST_CONTRACTS: Array<{
   { what: '.breakdownName sobre .breakdownRow (base)', textSelector: '.breakdownName {', bgSelector: '.breakdownRow {', min: WCAG_AA_SMALL_TEXT },
   { what: ".breakdownName sobre .breakdownRow[aria-pressed='true']", textSelector: '.breakdownName {', bgSelector: ".breakdownRow[aria-pressed='true'] {", min: WCAG_AA_SMALL_TEXT },
   { what: '.breakdownCount sobre .breakdownRow:hover', textSelector: '.breakdownCount {', bgSelector: '.breakdownRow:hover {', min: WCAG_AA_SMALL_TEXT },
+  // BAJO-3: el indicador de mezcla ("×1") es font-size-xs — el más chico y el
+  // más sensible al contraste. Los TRES fondos de la fila, con una sola regla.
+  { what: '.breakdownMix sobre .breakdownRow (base)', textSelector: '.breakdownMix {', bgSelector: '.breakdownRow {', min: WCAG_AA_SMALL_TEXT },
+  { what: '.breakdownMix sobre .breakdownRow:hover', textSelector: '.breakdownMix {', bgSelector: '.breakdownRow:hover {', min: WCAG_AA_SMALL_TEXT },
+  { what: ".breakdownMix sobre .breakdownRow[aria-pressed='true']", textSelector: '.breakdownMix {', bgSelector: ".breakdownRow[aria-pressed='true'] {", min: WCAG_AA_SMALL_TEXT },
   // Textos del resumen sobre el fondo de la sección / el suyo propio.
   { what: '.summaryHint sobre .summary', textSelector: '.summaryHint {', bgSelector: '.summary {', min: WCAG_AA_SMALL_TEXT },
   { what: '.summaryEmpty sobre .summary', textSelector: '.summaryEmpty {', bgSelector: '.summary {', min: WCAG_AA_SMALL_TEXT },
@@ -240,6 +200,63 @@ describe('AlertsPage.module.css — MEDIO-4: el parser NO es una tautología', (
 
   it('un valor de color no soportado revienta (nunca pasa en silencio)', () => {
     expect(() => resolveCssColor('linear-gradient(90deg, red, blue)')).toThrow(/no soportado/i);
+  });
+
+  /**
+   * MEDIO-4 (3ª review adversarial): el docblock prometía "sintaxis desconocida
+   * = throw, nunca un pase silencioso" y el parser tenía un pase silencioso
+   * justo ahí. `resolveToken` aceptaba `#[0-9a-fA-F]{3,8}` pero `hexToRgb` solo
+   * manejaba 3 y 6 dígitos: con un hex de 8 (con canal alpha) NO tiraba —
+   * decodificaba MAL, leyendo `GG BB AA` como `RR GG BB`.
+   * Probe del revisor: `#0d6efd80` → `[110, 253, 128]`, un color INVENTADO.
+   * El día que alguien metiera un token con alpha en `variables.css`, los 20
+   * contratos de arriba se calcularían sobre ese color fantasma y pasarían.
+   *
+   * El contraste de un color con alpha NO es computable sin saber qué hay
+   * detrás, así que la única respuesta honesta es fallar ruidosamente.
+   */
+  it('MEDIO-4: un hex de 8 dígitos (con alpha) REVIENTA — antes decodificaba mal en silencio', () => {
+    // Rastro del defecto: así decodificaba el parser viejo (`parseInt` sobre los
+    // 8 dígitos y shifts de 16/8 → leía GG BB AA como si fueran RR GG BB).
+    const decodeComoElParserViejo = (hex: string) => {
+      const n = parseInt(hex.replace('#', ''), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    };
+    expect(decodeComoElParserViejo('#0d6efd80')).toEqual([110, 253, 128]);
+    // …un color INVENTADO, y sin tirar. Ahora tira.
+    expect(() => hexToRgb('#0d6efd80')).toThrow(/alpha/i);
+    expect(() => resolveCssColor('#0d6efd80')).toThrow(/alpha/i);
+  });
+
+  it('MEDIO-4: un hex de 4 dígitos (#rgba) también revienta', () => {
+    expect(() => hexToRgb('#0d6f')).toThrow(/alpha/i);
+    expect(() => resolveCssColor('#0d6f')).toThrow(/alpha/i);
+  });
+
+  it('MEDIO-4: cualquier otro largo de hex revienta (5, 7) — solo #rgb y #rrggbb son válidos', () => {
+    expect(() => hexToRgb('#0d6ef')).toThrow(/largo no soportado/i);
+    expect(() => hexToRgb('#0d6efd1')).toThrow(/largo no soportado/i);
+    // …y los válidos siguen funcionando.
+    expect(hexToRgb('#fff')).toEqual([255, 255, 255]);
+    expect(hexToRgb('#0d6efd')).toEqual([13, 110, 253]);
+  });
+
+  /**
+   * BAJO-1 (3ª review adversarial): `resolveToken` usaba una regex SIN anclar y
+   * SIN `escapeRegExp` — que sí se usaban en `extractRule` y `declaration`, en
+   * el mismo archivo. Probado por el revisor:
+   * `resolveToken('--color-.rimary')` devolvía `#0d6efd`, porque el `.` de la
+   * regex matcheaba la `p` de `--color-primary`.
+   */
+  it('BAJO-1: resolveToken escapa el nombre — un metacarácter de regex NO puede resolver a otro token', () => {
+    expect(resolveToken('--color-primary')).toBe('#0d6efd');
+    expect(() => resolveToken('--color-.rimary')).toThrow(/no encontrado/i);
+    expect(() => resolveToken('--color-primar[yz]')).toThrow(/no encontrado/i);
+  });
+
+  it('BAJO-1: resolveToken se ancla — un token no puede resolverse por ser SUFIJO de otro', () => {
+    // `--color-gray-600` existe; `-gray-600` (sufijo del anterior) NO es un token.
+    expect(() => resolveToken('-gray-600')).toThrow(/no encontrado/i);
   });
 });
 

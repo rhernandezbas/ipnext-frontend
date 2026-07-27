@@ -6,19 +6,44 @@
  * crudo, mismo patrón que `AlertsPage.contrast.test.tsx`.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { extractRule, readCss } from '@/test/cssContract';
 
 const cssPath = join(__dirname, 'AlertsPage.module.css');
-const css = readFileSync(cssPath, 'utf-8');
+const css = readCss(cssPath);
 
-function extractRule(source: string, selector: string): string {
-  const start = source.indexOf(selector);
-  if (start === -1) throw new Error(`Selector "${selector}" no encontrado en el CSS.`);
-  const open = source.indexOf('{', start);
-  const close = source.indexOf('}', open);
-  return source.slice(open + 1, close);
-}
+/**
+ * BAJO-1 (3ª review adversarial): este archivo tenía el MISMO `extractRule` con
+ * `indexOf` sin anclar que ya se había arreglado en `AlertsPage.contrast.test.tsx`
+ * — sobre el MISMO CSS y en el MISMO directorio. Hoy se salvaba de casualidad
+ * (ninguno de sus asserts pedía un selector que fuera sufijo de otro), o sea
+ * era una bomba con la espoleta puesta: el primer contrato nuevo sobre
+ * `.breakdownSource`, `.kpiLabel` o `.kpiValue` se habría validado contra la
+ * regla del estado activo, en verde y en silencio.
+ *
+ * Este test fija el comportamiento del helper compartido (`@/test/cssContract`)
+ * con el caso real que existe en este CSS: la regla del estado ACTIVO de
+ * `.breakdownSource` está ANTES en el archivo y CONTIENE la subcadena
+ * `.breakdownSource {`, así que con `indexOf` gana ella.
+ */
+describe('AlertsPage.module.css — BAJO-1 (el extractor de reglas está anclado)', () => {
+  it('`.breakdownSource {` devuelve la regla BASE, no la del estado activo que la contiene y aparece antes', () => {
+    const base = extractRule(css, '.breakdownSource {');
+    expect(base).toMatch(/color:\s*var\(--color-text-secondary\)/);
+    // La regla del activo (que con `indexOf` secuestraba la búsqueda) usa otro token.
+    expect(base).not.toMatch(/--color-gray-600/);
+
+    const pressed = extractRule(css, ".breakdownRow[aria-pressed='true'] .breakdownSource {");
+    expect(pressed).toMatch(/color:\s*var\(--color-gray-600\)/);
+  });
+
+  it('un selector inexistente revienta (no devuelve el bloque de otro por accidente)', () => {
+    expect(() => extractRule(css, '.noExisteEsteSelector {')).toThrow(/no encontrado/i);
+    // `Track {` es sufijo de `.breakdownBarTrack {` — con `indexOf` habría
+    // devuelto el bloque de esa regla; anclado, no matchea nada.
+    expect(() => extractRule(css, 'Track {')).toThrow(/no encontrado/i);
+  });
+});
 
 describe('AlertsPage.module.css — A1 (el dot de los tiles del resumen tiene tamaño propio)', () => {
   it('.kpiTop .dot define width/height (antes: 0x0, dependía por error de .badge .dot / .streamBadge .dot)', () => {

@@ -461,6 +461,204 @@ describe('ALP-9 severity summary tiles (global, unaffected by list filters)', ()
   });
 });
 
+/**
+ * MEDIO-1 (3ª review adversarial) — fuga del reducer.
+ *
+ * `disengageSummary` decidía si quedaba algún control del resumen enganchado
+ * con `filters.severity !== '' || filters.alertname !== ''`, o sea INFIRIENDO
+ * el enganche de que un campo estuviera no-vacío. Pero una `severity` puesta a
+ * mano con el <Select> también deja el campo no-vacío, y el reducer la contaba
+ * como "hay un control enganchado que sostiene el 'firing'" → nunca restauraba
+ * el status. Resultado: `Estado: Activa` PEGADO, que el operario nunca puso, y
+ * un tile con `aria-pressed=true` que nadie clickeó.
+ *
+ * Es el mismo defecto que MEDIO-2 (2ª review) cerró, sobreviviendo en la
+ * dimensión que el reducer no modelaba. El fix no es otro parche a la
+ * condición: es MODELAR el enganche explícitamente (`engaged.severity` /
+ * `engaged.alertname`), de forma que "puesto por un control del resumen" y
+ * "campo no vacío" dejen de ser lo mismo.
+ */
+describe('MEDIO-1 (3ª review adversarial): the reducer models summary ENGAGEMENT, not "field is non-empty"', () => {
+  function mixedData() {
+    mockList({
+      data: [
+        makeAlert({ id: 'w-los-f', alertname: 'ONU LOS', severity: 'warning', status: 'firing' }),
+        makeAlert({ id: 'w-los-r', alertname: 'ONU LOS', severity: 'warning', status: 'resolved' }),
+        makeAlert({ id: 'w-pon-f', alertname: 'PON signal degraded', severity: 'warning', status: 'firing' }),
+        makeAlert({ id: 'c-nas-f', alertname: 'NAS DOWN', severity: 'critical', status: 'firing' }),
+        makeAlert({ id: 'i-rec-r', alertname: 'ONU recovered', severity: 'info', status: 'resolved' }),
+      ],
+      isLoading: false,
+      isError: false,
+    });
+    renderPage();
+  }
+
+  it('door 1: hand-picked severity + engage a type row + DISengage it → the status goes back, no phantom pressed tile', async () => {
+    mixedData();
+
+    // El operario elige Severidad a mano. NO es un tile enganchado.
+    const severitySelect = screen.getByRole('combobox', { name: /severidad/i });
+    await userEvent.click(severitySelect);
+    await userEvent.click(screen.getByRole('option', { name: /advertencia/i }));
+
+    const statusSelect = screen.getByRole('combobox', { name: /estado/i });
+    expect(statusSelect).toHaveTextContent(/^todos los estados/i);
+
+    // Engancha una fila del breakdown y la desengancha.
+    const summary = screen.getByRole('region', { name: /resumen/i });
+    const losRow = within(summary).getByRole('button', { name: /onu los/i });
+    await userEvent.click(losRow);
+    expect(statusSelect).toHaveTextContent(/^activa/i);
+    await userEvent.click(losRow);
+
+    // El 'firing' lo puso la FILA, y la fila ya no está: se restaura.
+    expect(statusSelect).toHaveTextContent(/^todos los estados/i);
+    // Y el tile de Advertencia NUNCA se clickeó → jamás puede verse presionado.
+    const warningTile = within(getSeverityGroup()).getByRole('button', { name: /advertencia/i });
+    expect(warningTile).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('door 2: engage a severity tile, then clear it with the <Select> → the status is not left stuck on "Activa"', async () => {
+    mixedData();
+
+    const warningTile = within(getSeverityGroup()).getByRole('button', { name: /advertencia/i });
+    await userEvent.click(warningTile);
+    const statusSelect = screen.getByRole('combobox', { name: /estado/i });
+    expect(statusSelect).toHaveTextContent(/^activa/i);
+
+    // El operario limpia la severidad a mano: el tile ya no sostiene nada.
+    const severitySelect = screen.getByRole('combobox', { name: /severidad/i });
+    await userEvent.click(severitySelect);
+    await userEvent.click(screen.getByRole('option', { name: /todas las severidades/i }));
+
+    expect(statusSelect).toHaveTextContent(/^todos los estados/i);
+    expect(warningTile).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('door 3: hand-picked severity + engage a type row + the "quitar filtro de tipo" chip → same restore', async () => {
+    mixedData();
+
+    const severitySelect = screen.getByRole('combobox', { name: /severidad/i });
+    await userEvent.click(severitySelect);
+    await userEvent.click(screen.getByRole('option', { name: /advertencia/i }));
+
+    const summary = screen.getByRole('region', { name: /resumen/i });
+    await userEvent.click(within(summary).getByRole('button', { name: /onu los/i }));
+
+    const statusSelect = screen.getByRole('combobox', { name: /estado/i });
+    expect(statusSelect).toHaveTextContent(/^activa/i);
+
+    await userEvent.click(screen.getByRole('button', { name: /quitar filtro de tipo/i }));
+    expect(statusSelect).toHaveTextContent(/^todos los estados/i);
+  });
+
+  it('a severity set BY HAND never presses the tile — pressed means "I clicked it"', async () => {
+    mixedData();
+
+    const severitySelect = screen.getByRole('combobox', { name: /severidad/i });
+    await userEvent.click(severitySelect);
+    await userEvent.click(screen.getByRole('option', { name: /advertencia/i }));
+
+    const statusSelect = screen.getByRole('combobox', { name: /estado/i });
+    await userEvent.click(statusSelect);
+    await userEvent.click(screen.getByRole('option', { name: /^activa/i }));
+
+    // El filtro real es severity=warning + status=firing — EXACTAMENTE lo que
+    // el tile representa — pero el operario nunca tocó el tile. No está
+    // presionado, y esa es la diferencia entre "el filtro coincide" y "este
+    // control está enganchado".
+    const warningTile = within(getSeverityGroup()).getByRole('button', { name: /advertencia/i });
+    expect(warningTile).toHaveAttribute('aria-pressed', 'false');
+
+    // Invariante de la 2ª review, INTACTO: un botón que se ve suelto, al
+    // clickearlo, se presiona (el toggle y el predicado son el mismo).
+    await userEvent.click(warningTile);
+    expect(warningTile).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(warningTile);
+    expect(warningTile).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  /**
+   * Regresión del refactor: encadenar tile → tile (sin soltar el primero) tiene
+   * que PRESERVAR el status original — no guardar el `'firing'` que dejó el
+   * primer tile. Estaba verificado a mano en la 2ª review pero sin test, y es
+   * exactamente el área que `engaged` + `settle` reescribieron.
+   */
+  it('chaining tile → tile keeps the ORIGINAL status, and only ONE tile is pressed at a time', async () => {
+    mixedData();
+
+    const statusSelect = screen.getByRole('combobox', { name: /estado/i });
+    await userEvent.click(statusSelect);
+    await userEvent.click(screen.getByRole('option', { name: /resuelta/i }));
+
+    const group = getSeverityGroup();
+    const criticalTile = within(group).getByRole('button', { name: /cr[ií]tica/i });
+    const warningTile = within(group).getByRole('button', { name: /advertencia/i });
+
+    await userEvent.click(criticalTile);
+    expect(criticalTile).toHaveAttribute('aria-pressed', 'true');
+
+    // Encadeno al segundo tile SIN soltar el primero.
+    await userEvent.click(warningTile);
+    expect(criticalTile).toHaveAttribute('aria-pressed', 'false');
+    expect(warningTile).toHaveAttribute('aria-pressed', 'true');
+    expect(statusSelect).toHaveTextContent(/^activa/i);
+
+    // Al soltar, vuelve 'Resuelta' — NO el 'Activa' que dejó el primer tile.
+    await userEvent.click(warningTile);
+    expect(statusSelect).toHaveTextContent(/^resuelta/i);
+  });
+
+  it('`status: ""` (todos los estados) sobrevive el round-trip — se restaura con ?? y no con ||', async () => {
+    mixedData();
+
+    const statusSelect = screen.getByRole('combobox', { name: /estado/i });
+    expect(statusSelect).toHaveTextContent(/^todos los estados/i);
+
+    const criticalTile = within(getSeverityGroup()).getByRole('button', { name: /cr[ií]tica/i });
+    await userEvent.click(criticalTile);
+    expect(statusSelect).toHaveTextContent(/^activa/i);
+    await userEvent.click(criticalTile);
+    expect(statusSelect).toHaveTextContent(/^todos los estados/i);
+  });
+
+  /**
+   * Corolario del hallazgo: el test `MEDIO-2: un-toggling the tile RESTORES the
+   * status the user had picked by hand` promete más de lo que cubre — solo vale
+   * si NO hay nada más enganchado. Acá SÍ lo hay: dos controles del resumen
+   * enganchados a la vez. El status previo tiene que sobrevivir a los dos y
+   * restaurarse UNA sola vez, al soltar el último.
+   */
+  it('MEDIO-2 reforzado: with TWO summary controls engaged, the hand-picked status survives until the LAST one is released', async () => {
+    mixedData();
+
+    const statusSelect = screen.getByRole('combobox', { name: /estado/i });
+    await userEvent.click(statusSelect);
+    await userEvent.click(screen.getByRole('option', { name: /resuelta/i }));
+    expect(statusSelect).toHaveTextContent(/^resuelta/i);
+
+    const warningTile = within(getSeverityGroup()).getByRole('button', { name: /advertencia/i });
+    const summary = screen.getByRole('region', { name: /resumen/i });
+    const losRow = within(summary).getByRole('button', { name: /onu los/i });
+
+    await userEvent.click(warningTile);
+    await userEvent.click(losRow);
+    expect(statusSelect).toHaveTextContent(/^activa/i);
+
+    // Suelto el PRIMERO: la fila sigue enganchada y sostiene el 'firing'.
+    await userEvent.click(warningTile);
+    expect(statusSelect).toHaveTextContent(/^activa/i);
+    expect(losRow).toHaveAttribute('aria-pressed', 'true');
+
+    // Suelto el ÚLTIMO: recién ahí vuelve lo que el operario había elegido.
+    await userEvent.click(losRow);
+    expect(statusSelect).toHaveTextContent(/^resuelta/i);
+    expect(warningTile).toHaveAttribute('aria-pressed', 'false');
+    expect(losRow).toHaveAttribute('aria-pressed', 'false');
+  });
+});
+
 describe('A4 (review adversarial): no aria-live/aria-atomic on raw KPI numbers', () => {
   /**
    * BAJO-2 (2ª review adversarial): el test original solo miraba el tile de
@@ -589,23 +787,39 @@ describe('ALP-10 ack-pending indicator', () => {
 
 describe('ALP-11 incident type breakdown (top N)', () => {
   /**
-   * A3 (review adversarial): el orden YA NO es por conteo bruto — ordenar
+   * A3 (1ª review adversarial): el orden YA NO es por conteo bruto — ordenar
    * así reproducía el problema que el resumen vino a resolver (con la
    * distribución real de prod, 305 info/63 warning/16 critical, los primeros
    * 6 por conteo eran todos info y un `NAS DOWN` critical quedaba afuera).
-   * Orden real: severidad DOMINANTE primero (critical > warning > info),
-   * conteo DESPUÉS dentro de la misma severidad.
+   *
+   * BAJO-2 (3ª review adversarial): este test se llamaba "ranks by DOMINANT
+   * severity" y su fixture usaba solo tipos PUROS — donde dominante == máxima —
+   * así que CERTIFICABA la implementación vieja: pasaba igual rankeando por la
+   * severidad modal, que es justo lo que Foco 2 (2ª review) mató. El nombre
+   * prometía un contrato que el test no distinguía.
+   *
+   * Fixture reforzado: los tipos ahora MEZCLAN severidades y la modal de los
+   * tres es `info`. Con ranking por severidad DOMINANTE los tres empatan y el
+   * orden cae al conteo → "ONU recovered" (8) primero. Con severidad MÁXIMA
+   * (el contrato real) manda la gravedad: critical → warning → info.
    */
-  it('ranks by dominant severity first, then by count within the same severity', () => {
+  it('ranks by MAXIMUM severity first, then by count within the same severity', () => {
     mockList({
       data: [
-        ...Array.from({ length: 3 }, (_, i) =>
-          makeAlert({ id: `los-${i}`, alertname: 'ONU LOS', severity: 'critical', status: 'firing', source: 'fiber-collector' }),
+        // maxSeverity=critical, modal=info (1 crit + 4 info) → total 5.
+        makeAlert({ id: 'los-c', alertname: 'ONU LOS', severity: 'critical', status: 'firing', source: 'fiber-collector' }),
+        ...Array.from({ length: 4 }, (_, i) =>
+          makeAlert({ id: `los-i-${i}`, alertname: 'ONU LOS', severity: 'info', status: 'firing', source: 'fiber-collector' }),
         ),
-        ...Array.from({ length: 5 }, (_, i) =>
+        // maxSeverity=warning, modal=info (1 warn + 3 info) → total 4.
+        makeAlert({ id: 'pon-w', alertname: 'PON signal degraded', severity: 'warning', status: 'firing', source: 'fiber-collector' }),
+        ...Array.from({ length: 3 }, (_, i) =>
+          makeAlert({ id: `pon-i-${i}`, alertname: 'PON signal degraded', severity: 'info', status: 'firing', source: 'fiber-collector' }),
+        ),
+        // maxSeverity=info PURO, y el MÁS numeroso de los tres → total 8.
+        ...Array.from({ length: 8 }, (_, i) =>
           makeAlert({ id: `rec-${i}`, alertname: 'ONU recovered', severity: 'info', status: 'firing', source: 'fiber-collector' }),
         ),
-        makeAlert({ id: 'pon-1', alertname: 'PON signal degraded', severity: 'warning', status: 'firing', source: 'fiber-collector' }),
       ],
       isLoading: false,
       isError: false,
@@ -615,14 +829,17 @@ describe('ALP-11 incident type breakdown (top N)', () => {
     const summary = screen.getByRole('region', { name: /resumen/i });
     const rows = within(summary).getAllByRole('button', { name: /onu recovered|onu los|pon signal degraded/i });
 
-    // "ONU LOS" es critical (3) → SIEMPRE primero, aunque "ONU recovered" (info, 5)
-    // tenga más volumen. "PON signal degraded" es warning (1) → segundo.
-    // "ONU recovered" (info, 5) → último pese a ser el más numeroso.
+    // "ONU LOS" contiene 1 critical → SIEMPRE primero, aunque su severidad
+    // MODAL sea info y "ONU recovered" (8) tenga casi el doble de volumen.
     expect(rows[0]).toHaveTextContent('ONU LOS');
-    expect(rows[0]).toHaveTextContent('3');
+    expect(rows[0]).toHaveTextContent('5');
     expect(rows[1]).toHaveTextContent('PON signal degraded');
     expect(rows[2]).toHaveTextContent('ONU recovered');
-    expect(rows[2]).toHaveTextContent('5');
+    expect(rows[2]).toHaveTextContent('8');
+
+    // Y el badge visible sigue mostrando la MÁXIMA, no la modal.
+    expect(within(rows[0] as HTMLElement).getByText(/cr[ií]tica/i)).toBeInTheDocument();
+    expect(within(rows[1] as HTMLElement).getByText(/advertencia/i)).toBeInTheDocument();
   });
 
   it('A3: a low-count critical type is NEVER pushed out of the top-N by high-volume info types (prod-shaped data)', () => {
@@ -704,6 +921,61 @@ describe('ALP-11 incident type breakdown (top N)', () => {
     expect(rows[0]).toHaveAccessibleName(/20 info/i);
   });
 
+  /**
+   * BAJO-3 (3ª review adversarial): el badge muestra la severidad MÁXIMA, así
+   * que 200 info + 1 critical se ve `201 · OLT flap · Crítica` con la barra
+   * roja llena. El desglose real YA viajaba en el `aria-label` (perfecto para
+   * lector de pantalla) y en el `title` — pero el `title` requiere HOVER, que
+   * en touch no existe. El operario VIDENTE en una tablet no tenía forma de
+   * ver que la crítica era 1 de 201.
+   *
+   * Fix de bajo riesgo: cuando el tipo MEZCLA severidades, al lado del badge
+   * se muestra cuántas son de la severidad máxima ("Crítica ×1"). Sobre-avisar
+   * sigue siendo la política (el tipo NO se degrada ni se saca del podio), pero
+   * la magnitud deja de ser invisible sin hover.
+   */
+  it('BAJO-3: a MIXED type shows the max-severity count VISIBLY (no hover needed), not only in the aria-label', () => {
+    mockList({
+      data: [
+        ...Array.from({ length: 200 }, (_, i) =>
+          makeAlert({ id: `mx-i-${i}`, alertname: 'OLT port flapping', severity: 'info', status: 'firing' }),
+        ),
+        makeAlert({ id: 'mx-c', alertname: 'OLT port flapping', severity: 'critical', status: 'firing' }),
+      ],
+      isLoading: false,
+      isError: false,
+    });
+    renderPage();
+
+    const summary = screen.getByRole('region', { name: /resumen/i });
+    const row = within(summary).getByRole('button', { name: /olt port flapping/i });
+
+    // El total sigue siendo 201 y el badge sigue diciendo Crítica (sobre-avisar).
+    expect(within(row).getByText('201')).toBeInTheDocument();
+    expect(within(row).getByText(/cr[ií]tica/i)).toBeInTheDocument();
+    // …pero AHORA se ve, sin hover, que la crítica es UNA.
+    expect(within(row).getByText('×1')).toBeInTheDocument();
+    // El desglose completo sigue en el nombre accesible (no se degradó nada).
+    expect(row).toHaveAccessibleName(/1 cr[ií]tica/i);
+    expect(row).toHaveAccessibleName(/200 info/i);
+  });
+
+  it('BAJO-3: a PURE type gets NO mix indicator — el tipo puro no gana ruido', () => {
+    mockList({
+      data: Array.from({ length: 7 }, (_, i) =>
+        makeAlert({ id: `p-${i}`, alertname: 'ONU recovered', severity: 'info', status: 'firing' }),
+      ),
+      isLoading: false,
+      isError: false,
+    });
+    renderPage();
+
+    const summary = screen.getByRole('region', { name: /resumen/i });
+    const row = within(summary).getByRole('button', { name: /onu recovered/i });
+    expect(within(row).getByText('7')).toBeInTheDocument();
+    expect(within(row).queryByText(/^×/)).toBeNull();
+  });
+
   it('Foco 2: a PURE info type keeps showing Info (the max-severity rule does not inflate anything)', () => {
     mockList({
       data: [
@@ -756,6 +1028,130 @@ describe('ALP-11 incident type breakdown (top N)', () => {
     await userEvent.click(screen.getByRole('option', { name: /resuelta/i }));
     expect(losRow).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByText(/3 alertas visibles/i)).toBeInTheDocument();
+  });
+
+  /**
+   * MEDIO-3 (3ª review adversarial): el comentario de `computeTypeBreakdown`
+   * describía una cadena de sort de 4 claves (severidad → volumen → FUENTE →
+   * nombre). El sort real tiene 3: `SEVERITY_RANK` → `count` → `alertname`;
+   * NO hay clave de fuente. Este test fija la cadena REAL para que el
+   * comentario no vuelva a despegarse del código: mismo `maxSeverity`, mismo
+   * `count`, fuentes distintas — si la fuente desempatara alfabéticamente
+   * ganaría "Bravo" (fiber-collector < grafana); gana "Alpha", por nombre.
+   */
+  it('MEDIO-3: the sort chain is severity → count → alertname — dominantSource is NOT a sort key', () => {
+    mockList({
+      data: [
+        makeAlert({ id: 'b1', alertname: 'Bravo', severity: 'critical', status: 'firing', source: 'fiber-collector' }),
+        makeAlert({ id: 'a1', alertname: 'Alpha', severity: 'critical', status: 'firing', source: 'grafana' }),
+      ],
+      isLoading: false,
+      isError: false,
+    });
+    renderPage();
+
+    const summary = screen.getByRole('region', { name: /resumen/i });
+    const rows = within(summary).getAllByRole('button', { name: /^(alpha|bravo):/i });
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent('Alpha');
+    expect(rows[1]).toHaveTextContent('Bravo');
+  });
+
+  /**
+   * MEDIO-2 (3ª review adversarial): `TOP_TYPES_LIMIT` no tenía NINGUNA
+   * cobertura. Revert probado por el revisor: `.slice(0, limit)` →
+   * `.slice(0, 999)` y los 113 tests pasaban igual. Sin esto, borrar el
+   * `.slice` hace que el panel escupa 400 filas — exactamente el muro de ruido
+   * que el resumen vino a evitar — sin que nada chille.
+   *
+   * El límite se testea por su EFECTO observable: cuántas filas renderiza el
+   * breakdown. `getAllByRole('listitem')` scopeado al resumen son las filas del
+   * breakdown (el `<ul>` de la lista de alertas vive FUERA de la región).
+   */
+  it('MEDIO-2: the breakdown renders AT MOST TOP_TYPES_LIMIT (6) rows, no matter how many types are firing', () => {
+    // 9 tipos distintos, TODOS activos, todos con conteos distintos para que el
+    // orden sea determinístico. Sin el `.slice` se renderizarían los 9.
+    const names = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9'];
+    mockList({
+      data: names.flatMap((name, idx) =>
+        Array.from({ length: names.length - idx }, (_, i) =>
+          makeAlert({ id: `${name}-${i}`, alertname: name, severity: 'info', status: 'firing' }),
+        ),
+      ),
+      isLoading: false,
+      isError: false,
+    });
+    renderPage();
+
+    const summary = screen.getByRole('region', { name: /resumen/i });
+    const rows = within(summary).getAllByRole('listitem');
+    expect(rows).toHaveLength(6);
+
+    // …y las que entran son las 6 de MÁS volumen (misma severidad → manda el
+    // conteo): T1..T6 dentro, T7..T9 afuera.
+    for (const inside of ['T1', 'T2', 'T3', 'T4', 'T5', 'T6']) {
+      expect(within(summary).getByRole('button', { name: new RegExp(`^${inside}:`) })).toBeInTheDocument();
+    }
+    for (const outside of ['T7', 'T8', 'T9']) {
+      expect(within(summary).queryByRole('button', { name: new RegExp(`^${outside}:`) })).toBeNull();
+    }
+  });
+
+  /**
+   * ALTO-1 (3ª review adversarial) — el hermano silencioso del fix A3. El
+   * denominador de la mini-barra era `typeBreakdown[0].count`, y desde A3 la
+   * fila `[0]` es la MÁS GRAVE, no la de más volumen. Con el caso NORMAL del
+   * panel (los criticals son de BAJO volumen: 1 critical + 12 warning + 30
+   * info) los anchos salían 100% / 1200% / 3000% y, como
+   * `.breakdownBarTrack` tiene `overflow: hidden`, las TRES se veían idénticas
+   * y llenas: el medidor no comunicaba nada y el tipo con 1 alerta se veía
+   * igual que el de 30.
+   *
+   * El denominador tiene que ser el conteo MÁXIMO de las filas MOSTRADAS,
+   * independiente del orden en que se muestren.
+   */
+  it('ALTO-1: the mini-bar scales against the MAX count of the shown rows, not against the first (most severe) row', () => {
+    mockList({
+      data: [
+        makeAlert({ id: 'c1', alertname: 'NAS DOWN', severity: 'critical', status: 'firing' }),
+        ...Array.from({ length: 12 }, (_, i) =>
+          makeAlert({ id: `w-${i}`, alertname: 'PON signal degraded', severity: 'warning', status: 'firing' }),
+        ),
+        ...Array.from({ length: 30 }, (_, i) =>
+          makeAlert({ id: `i-${i}`, alertname: 'ONU recovered', severity: 'info', status: 'firing' }),
+        ),
+      ],
+      isLoading: false,
+      isError: false,
+    });
+    renderPage();
+
+    const summary = screen.getByRole('region', { name: /resumen/i });
+    const rows = within(summary).getAllByRole('button', {
+      name: /nas down|pon signal degraded|onu recovered/i,
+    });
+    const widths = rows.map((row) => {
+      const fill = row.querySelector('.breakdownBarFill') as HTMLElement | null;
+      if (!fill) throw new Error('La fila del breakdown no tiene mini-barra.');
+      return parseFloat(fill.style.width);
+    });
+
+    // Orden por severidad (A3): NAS DOWN (1) → PON (12) → ONU recovered (30).
+    expect(rows[0]).toHaveTextContent('NAS DOWN');
+    expect(rows[2]).toHaveTextContent('ONU recovered');
+
+    // NINGUNA barra puede pasarse del track (el `overflow: hidden` las
+    // aplastaba todas contra el 100% y las volvía indistinguibles).
+    for (const w of widths) expect(w).toBeLessThanOrEqual(100);
+
+    // El más voluminoso llena la barra; los otros son proporcionales A ÉL.
+    expect(widths[2]).toBeCloseTo(100, 5);
+    expect(widths[1]).toBeCloseTo(40, 5);
+    expect(widths[0]).toBeCloseTo(100 / 30, 5);
+
+    // Y por lo tanto se DISTINGUEN entre sí: 1 alerta no se ve como 30.
+    expect(widths[0]).toBeLessThan(widths[1]);
+    expect(widths[1]).toBeLessThan(widths[2]);
   });
 
   it('clicking a type row toggles the alertname filter and narrows the visible list', async () => {

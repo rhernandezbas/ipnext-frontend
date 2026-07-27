@@ -412,6 +412,18 @@
   letter-spacing: 0.03em;
 }
 
+/* BAJO-3: cuántas alertas son de la severidad MÁXIMA, visible solo cuando el
+   tipo mezcla severidades (ver el comentario en AlertsPage.tsx). Usa
+   `--color-gray-600` DIRECTO — el mismo token al que `.breakdownSource` cae en
+   :hover/activo — para que el contraste aguante los TRES fondos de la fila
+   (base, hover y activo) con una sola regla, sin overrides por estado. */
+.breakdownMix {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-gray-600);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Mini-meter (skill dataviz — "Meter": fill = tono saturado de la severidad
    dominante; track = paso más CLARO de la MISMA rampa, nunca un gris
    genérico — por eso hay una variante `_critical/_warning/_info` para

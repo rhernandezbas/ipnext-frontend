@@ -66,8 +66,13 @@ const FEEDBACK_TIMEOUT_MS = 4_000;
 
 /** BAJO-1 (2ª review adversarial): referencia ESTABLE para el fallback de
  *  `list.data` — un `?? []` inline crea un array nuevo por render y rompe la
- *  memoización aguas abajo. Nunca se muta. */
-const EMPTY_ALERTS: NocAlertDto[] = [];
+ *  memoización aguas abajo.
+ *
+ *  3ª review: `Object.freeze` convierte el "nunca se muta" de comentario en
+ *  garantía — un `push` sobre esta constante corrompería el fallback de TODOS
+ *  los renders futuros, no solo el actual. El tipo `readonly` hace que el
+ *  compilador lo haga cumplir ADEMÁS del runtime. */
+const EMPTY_ALERTS: readonly NocAlertDto[] = Object.freeze([] as NocAlertDto[]);
 
 /**
  * Resumen indicativo por severidad/tipo (change `noc-alerts-dashboard`).
@@ -144,9 +149,16 @@ function computeSeverityCounts(activeAlerts: NocAlertDto[]): Record<NocAlertSeve
  *  Garantía dura (ahora SÍ es cierta): mientras haya <= `TOP_TYPES_LIMIT`
  *  tipos que contengan AL MENOS UNA alerta critical, TODOS entran al panel sin
  *  importar cuántas info los superen en volumen — ni por conteo ni por mezcla
- *  interna de severidades. Empate de severidad máxima → gana el de más
- *  volumen; empate de fuente dominante → alfabético, solo por determinismo;
- *  empate final de nombre → alfabético, mismo criterio. */
+ *  interna de severidades.
+ *
+ *  El sort tiene EXACTAMENTE 3 claves, en este orden:
+ *    1. `SEVERITY_RANK[maxSeverity]` — critical > warning > info.
+ *    2. `count` descendente — empate de severidad máxima → gana el de más volumen.
+ *    3. `alertname` alfabético — empate de conteo → determinismo, nada más.
+ *  `dominantSource` NO es clave de orden (MEDIO-3, 3ª review adversarial: el
+ *  comentario decía que sí y era texto arrastrado de una versión vieja). Su
+ *  propio desempate alfabético existe, pero vive ADENTRO del cálculo de la
+ *  fuente dominante de cada fila — no influye en qué fila va antes que cuál. */
 function computeTypeBreakdown(activeAlerts: NocAlertDto[], limit: number): TypeBreakdownEntry[] {
   const byType = new Map<
     string,
@@ -202,30 +214,55 @@ function breakdownRowLabel(row: TypeBreakdownEntry): string {
 }
 
 /**
- * MEDIO-1 / MEDIO-2 (2ª review adversarial) — estado de filtros con MEMORIA.
+ * MEDIO-1 / MEDIO-2 (2ª review) + MEDIO-1 (3ª review) — estado de filtros con
+ * MEMORIA y con el enganche del resumen MODELADO EXPLÍCITAMENTE.
  *
  * Los controles del RESUMEN (tiles de severidad y filas del breakdown) cuentan
  * SOLO alertas activas, así que al activarse fuerzan `status: 'firing'` para
  * que la lista muestre EXACTAMENTE lo que el control promete (fix A2). Eso
- * abrió dos agujeros que este reducer cierra:
+ * abrió los agujeros que este reducer cierra:
  *
- * - MEDIO-1: `aria-pressed` miraba solo `severity`, no la condición completa.
- *   Con el tile presionado, cambiar Estado a mano dejaba el tile diciendo
- *   "presionado" y prometiendo N mientras la lista mostraba otra cosa. Ahora
- *   el predicado de "presionado" (`isSeverityTilePressed` /
- *   `isAlertnameRowPressed`) es la condición COMPLETA, y es EL MISMO que usa
- *   el toggle — un botón que se ve suelto, al clickearlo, se presiona.
- * - MEDIO-2: pisar el `status` manual al presionar es defendible (acción
+ * - MEDIO-1 (2ª): `aria-pressed` miraba solo `severity`, no la condición
+ *   completa. Con el tile presionado, cambiar Estado a mano dejaba el tile
+ *   diciendo "presionado" mientras la lista mostraba otra cosa.
+ * - MEDIO-2 (2ª): pisar el `status` manual al presionar es defendible (acción
  *   atómica); DESTRUIRLO al des-presionar no. `statusBeforeSummary` guarda lo
  *   que el operario tenía elegido y el des-toggle lo restaura.
+ * - MEDIO-1 (3ª): el reducer INFERÍA "hay un control del resumen enganchado"
+ *   de `filters.severity !== '' || filters.alertname !== ''`. Una `severity`
+ *   puesta A MANO con el <Select> también deja el campo no-vacío, así que el
+ *   reducer creía que un tile sostenía el `'firing'` y NUNCA lo restauraba:
+ *   quedaba `Estado: Activa` pegado, que el operario nunca puso, y el tile de
+ *   esa severidad se veía presionado sin que nadie lo hubiera clickeado.
  *
- * `statusBeforeSummary === null` significa "ningún control del resumen está
- * pisando el status ahora mismo" — y también es lo que se setea cuando el
- * operario toca el <Select> de Estado a mano: a partir de ahí maneja él esa
- * dimensión y no hay nada pisado que restaurar.
+ * El fix no es otro parche a la condición: `engaged` registra QUÉ controles del
+ * resumen están enganchados de verdad. "Campo no vacío" y "control enganchado"
+ * dejan de ser lo mismo, que era la confusión de raíz.
+ *
+ * Invariantes que sostiene:
+ * 1. `aria-pressed` de un control === "ese control está en `engaged`", y ese
+ *    MISMO predicado decide si el click engancha o desengancha → un botón que
+ *    se ve suelto, al clickearlo, se presiona (invariante de la 2ª review).
+ * 2. Un control enganchado SIEMPRE implica `filters.status === 'firing'` y el
+ *    campo correspondiente seteado: cualquier acción que rompa eso (tocar
+ *    Estado o Severidad a mano) lo desengancha en el mismo paso.
+ * 3. `statusBeforeSummary` se restaura EXACTAMENTE UNA vez, cuando se suelta
+ *    el ÚLTIMO control enganchado — sin importar por qué puerta se suelte
+ *    (des-toggle, chip "quitar filtro de tipo", o un <Select> manual que lo
+ *    desenganche).
  */
+interface SummaryEngagement {
+  /** Severidad cuyo TILE está enganchado, o `null`. */
+  severity: NocAlertSeverity | null;
+  /** `alertname` cuya FILA del breakdown está enganchada, o `null`. */
+  alertname: string | null;
+}
+
+const NO_ENGAGEMENT: SummaryEngagement = { severity: null, alertname: null };
+
 interface FiltersState {
   filters: NocAlertFilterState;
+  engaged: SummaryEngagement;
   statusBeforeSummary: NocAlertFilterState['status'] | null;
 }
 
@@ -238,61 +275,84 @@ type FiltersAction =
 
 const INITIAL_FILTERS_STATE: FiltersState = {
   filters: EMPTY_NOC_ALERT_FILTERS,
+  engaged: NO_ENGAGEMENT,
   statusBeforeSummary: null,
 };
 
-/** El tile promete "N alertas ACTIVAS de esta severidad". Está presionado solo
- *  si el filtro real es EXACTAMENTE eso: esa severidad Y `status === 'firing'`. */
-function isSeverityTilePressed(filters: NocAlertFilterState, severity: NocAlertSeverity): boolean {
-  return filters.severity === severity && filters.status === 'firing';
+/** El tile está presionado si ESTE tile es el enganchado — no si el filtro
+ *  "casualmente" coincide con lo que el tile representa (podría haberlo puesto
+ *  el operario a mano, y entonces nadie lo clickeó). */
+function isSeverityTilePressed(engaged: SummaryEngagement, severity: NocAlertSeverity): boolean {
+  return engaged.severity === severity;
 }
 
-/** Hermana del tile: la fila del breakdown también cuenta SOLO activas, así que
- *  su estado presionado exige la misma condición completa (tipo Y activas). */
-function isAlertnameRowPressed(filters: NocAlertFilterState, alertname: string): boolean {
-  return filters.alertname === alertname && filters.status === 'firing';
+/** Hermana del tile, mismo criterio. */
+function isAlertnameRowPressed(engaged: SummaryEngagement, alertname: string): boolean {
+  return engaged.alertname === alertname;
 }
 
-function engageSummary(state: FiltersState, patch: Partial<NocAlertFilterState>): FiltersState {
+/**
+ * Punto ÚNICO donde se decide si hay que devolver el status pisado. Si ya no
+ * queda ningún control del resumen enganchado y había algo guardado, se
+ * restaura (invariante 3). Si `statusBeforeSummary` es null, el operario tomó
+ * el volante del Estado a mano y no se le pisa nada.
+ */
+function settle(
+  filters: NocAlertFilterState,
+  engaged: SummaryEngagement,
+  statusBeforeSummary: NocAlertFilterState['status'] | null,
+): FiltersState {
+  const anyEngaged = engaged.severity !== null || engaged.alertname !== null;
+  if (!anyEngaged && statusBeforeSummary !== null) {
+    return { filters: { ...filters, status: statusBeforeSummary }, engaged, statusBeforeSummary: null };
+  }
+  return { filters, engaged, statusBeforeSummary };
+}
+
+function engage(state: FiltersState, engaged: SummaryEngagement, patch: Partial<NocAlertFilterState>): FiltersState {
   return {
     filters: { ...state.filters, ...patch, status: 'firing' },
+    engaged,
     // Si ya había otro control del resumen enganchado, el status "previo" es el
     // de ANTES de ese primero — no el 'firing' que él mismo dejó.
     statusBeforeSummary: state.statusBeforeSummary ?? state.filters.status,
   };
 }
 
-function disengageSummary(state: FiltersState, patch: Partial<NocAlertFilterState>): FiltersState {
-  const filters = { ...state.filters, ...patch };
-  // Si queda OTRO control del resumen enganchado, el 'firing' lo sostiene ÉL:
-  // restaurar acá lo des-presionaría de rebote. Y si `statusBeforeSummary` es
-  // null, el operario ya tomó el volante del Estado a mano — no se le pisa.
-  const stillEngaged = filters.severity !== '' || filters.alertname !== '';
-  if (stillEngaged || state.statusBeforeSummary === null) return { ...state, filters };
-  return { filters: { ...filters, status: state.statusBeforeSummary }, statusBeforeSummary: null };
-}
-
 function filtersReducer(state: FiltersState, action: FiltersAction): FiltersState {
   switch (action.type) {
-    case 'patch':
-      return {
-        filters: { ...state.filters, ...action.patch },
-        statusBeforeSummary: 'status' in action.patch ? null : state.statusBeforeSummary,
-      };
+    case 'patch': {
+      const filters = { ...state.filters, ...action.patch };
+      // Tocar Estado a mano invalida el enganche de TODOS los controles del
+      // resumen (los dos prometen "activas"), y a partir de ahí el operario
+      // maneja esa dimensión: no hay nada pisado que restaurar.
+      if ('status' in action.patch) return { filters, engaged: NO_ENGAGEMENT, statusBeforeSummary: null };
+      // Tocar Severidad a mano desengancha SOLO el tile (una severidad elegida
+      // con el <Select> no es un tile presionado — MEDIO-1 3ª review). Si con
+      // eso no queda nada enganchado, `settle` devuelve el status pisado.
+      if ('severity' in action.patch) {
+        return settle(filters, { ...state.engaged, severity: null }, state.statusBeforeSummary);
+      }
+      return { ...state, filters };
+    }
     case 'reset':
       return INITIAL_FILTERS_STATE;
     case 'toggleSeverity':
-      return isSeverityTilePressed(state.filters, action.severity)
-        ? disengageSummary(state, { severity: '' })
-        : engageSummary(state, { severity: action.severity });
+      return isSeverityTilePressed(state.engaged, action.severity)
+        ? settle({ ...state.filters, severity: '' }, { ...state.engaged, severity: null }, state.statusBeforeSummary)
+        : engage(state, { ...state.engaged, severity: action.severity }, { severity: action.severity });
     case 'toggleAlertname':
-      return isAlertnameRowPressed(state.filters, action.alertname)
-        ? disengageSummary(state, { alertname: '' })
-        : engageSummary(state, { alertname: action.alertname });
+      return isAlertnameRowPressed(state.engaged, action.alertname)
+        ? settle({ ...state.filters, alertname: '' }, { ...state.engaged, alertname: null }, state.statusBeforeSummary)
+        : engage(state, { ...state.engaged, alertname: action.alertname }, { alertname: action.alertname });
     // El chip "Quitar filtro de tipo" NO es un toggle: siempre saca el filtro
-    // (y restaura el status como cualquier des-toggle del resumen).
+    // (y desengancha la fila, restaurando el status como cualquier des-toggle).
     case 'clearAlertname':
-      return disengageSummary(state, { alertname: '' });
+      return settle(
+        { ...state.filters, alertname: '' },
+        { ...state.engaged, alertname: null },
+        state.statusBeforeSummary,
+      );
   }
 }
 
@@ -305,7 +365,12 @@ interface AlertsSummaryProps {
    *  por AUSENCIA de datos es peligroso en un panel NOC. */
   hasData: boolean;
   activeAlerts: NocAlertDto[];
-  filters: NocAlertFilterState;
+  /** MEDIO-1 (3ª review): el resumen ya NO recibe `filters` — recibe qué
+   *  controles SUYOS están enganchados. Derivar "presionado" del filtro hacía
+   *  que una severidad puesta a mano con el <Select> presionara un tile
+   *  fantasma. Además desacopla el `React.memo`: cambiar `source` en el <Select>
+   *  ya no re-renderiza el resumen. */
+  engaged: SummaryEngagement;
   onToggleSeverity: (severity: NocAlertSeverity) => void;
   onToggleAlertname: (alertname: string) => void;
 }
@@ -337,14 +402,24 @@ function AlertsSummaryImpl({
   isError,
   hasData,
   activeAlerts,
-  filters,
+  engaged,
   onToggleSeverity,
   onToggleAlertname,
 }: AlertsSummaryProps) {
   const severityCounts = useMemo(() => computeSeverityCounts(activeAlerts), [activeAlerts]);
   const unacked = useMemo(() => activeAlerts.filter((a) => !a.acknowledged).length, [activeAlerts]);
   const typeBreakdown = useMemo(() => computeTypeBreakdown(activeAlerts, TOP_TYPES_LIMIT), [activeAlerts]);
-  const maxTypeCount = typeBreakdown[0]?.count ?? 0;
+  /** ALTO-1 (3ª review adversarial): denominador de la mini-barra = el conteo
+   *  MÁXIMO de las filas MOSTRADAS, no el de la primera. Desde el fix A3 la fila
+   *  `[0]` es la MÁS GRAVE, no la de más volumen — y como los criticals son
+   *  típicamente de bajo volumen (el caso NORMAL: 1 critical + 12 warning + 30
+   *  info), dividir por `[0].count` daba anchos de 1200% y 3000% que el
+   *  `overflow: hidden` del track aplastaba: las tres barras se veían idénticas
+   *  y llenas. El denominador tiene que ser independiente del ORDEN. */
+  const maxTypeCount = useMemo(
+    () => typeBreakdown.reduce((max, row) => (row.count > max ? row.count : max), 0),
+    [typeBreakdown],
+  );
 
   if (isLoading) {
     return <AlertsSummarySkeleton />;
@@ -383,7 +458,7 @@ function AlertsSummaryImpl({
             // MEDIO-1: la condición COMPLETA que el tile representa (esta
             // severidad Y activas), no media condición. Si el operario cambió
             // Estado a mano, el tile ya no es el filtro vigente → suelto.
-            aria-pressed={isSeverityTilePressed(filters, sev)}
+            aria-pressed={isSeverityTilePressed(engaged, sev)}
             onClick={() => onToggleSeverity(sev)}
           >
             <span className={styles.kpiTop}>
@@ -430,7 +505,7 @@ function AlertsSummaryImpl({
                     className={styles.breakdownRow}
                     // MEDIO-1 (hermano del tile): condición COMPLETA — este
                     // tipo Y activas, que es lo que la fila cuenta.
-                    aria-pressed={isAlertnameRowPressed(filters, row.alertname)}
+                    aria-pressed={isAlertnameRowPressed(engaged, row.alertname)}
                     aria-label={label}
                     title={label}
                     onClick={() => onToggleAlertname(row.alertname)}
@@ -439,6 +514,21 @@ function AlertsSummaryImpl({
                       <span className={styles.breakdownCount}>{row.count}</span>
                       <span className={styles.breakdownName}>{row.alertname}</span>
                       <SeverityBadge severity={row.maxSeverity} />
+                      {/* BAJO-3 (3ª review adversarial): el badge muestra la
+                          severidad MÁXIMA, así que 200 info + 1 critical se ve
+                          "201 · Crítica" con la barra roja llena. El desglose
+                          real ya viajaba en el `aria-label` (lector de pantalla,
+                          cubierto) y en el `title` — pero el `title` pide HOVER,
+                          que en touch NO existe: el operario VIDENTE en tablet
+                          no tenía forma de ver que la crítica era 1 de 201. Si
+                          el tipo MEZCLA severidades se muestra cuántas son de
+                          la máxima ("Crítica ×1"). Sobre-avisar sigue siendo la
+                          política — el tipo no se degrada ni se saca del podio —
+                          pero la magnitud deja de ser invisible. Un tipo PURO no
+                          gana ruido: el indicador no aparece. */}
+                      {row.severityCounts.length > 1 && (
+                        <span className={styles.breakdownMix}>×{row.severityCounts[0]!.count}</span>
+                      )}
                       <span className={styles.breakdownSource}>{row.dominantSource}</span>
                     </span>
                     <span
@@ -637,7 +727,7 @@ export default function AlertsPage() {
         isError={list.isError}
         hasData={hasData}
         activeAlerts={activeAlerts}
-        filters={filters}
+        engaged={filterState.engaged}
         onToggleSeverity={toggleSeverityFilter}
         onToggleAlertname={toggleAlertnameFilter}
       />
