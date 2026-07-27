@@ -6,6 +6,8 @@ import { Select } from '@/components/molecules/Select/Select';
 import { AssistantActionsEditor } from '@/components/settings/AssistantActionsEditor';
 import { AssistantIntentsEditor } from '@/components/settings/AssistantIntentsEditor';
 import { AssistantProviderCard } from '@/components/settings/AssistantProviderCard';
+import { AssistantRoutingCard } from '@/components/settings/AssistantRoutingCard';
+import { AssistantEnabledCard } from '@/components/settings/AssistantEnabledCard';
 import { AssistantRunsPanel } from '@/components/settings/AssistantRunsPanel';
 import { useTicketAreas } from '@/hooks/useTicketAreas';
 import {
@@ -70,6 +72,9 @@ export default function AssistantConfigPage() {
 
       {!loading && !areas.isError && !catalogs.isError && !profiles.isError && catalogs.data && (
         <>
+          {/* El kill-switch va PRIMERO: es lo que decide si todo lo de abajo tiene efecto. */}
+          <AssistantEnabledCard />
+
           <section className={styles.section}>
             <h2 className={styles.sectionHeading}>Proveedor de IA</h2>
             <p className={styles.sectionDescription}>
@@ -84,6 +89,19 @@ export default function AssistantConfigPage() {
             >
               <AssistantProviderCard />
             </Can>
+          </section>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionHeading}>Ruteo</h2>
+            <p className={styles.sectionDescription}>
+              Las conversaciones de WhatsApp entran <strong>sin área</strong> — nadie las
+              clasifica desde acá porque el equipo trabaja dentro de Chatwoot. Sin un área que
+              las atienda por default, el asistente no responde ninguna.
+            </p>
+            {/* SIN `Can`: el diagnóstico ("el bot no responde a nadie") lo tiene que ver
+                cualquiera con `assistant.read`, igual que lo expone el backend. La card gatea
+                por dentro la EDICIÓN. */}
+            <AssistantRoutingCard />
           </section>
 
           <section className={styles.section}>
