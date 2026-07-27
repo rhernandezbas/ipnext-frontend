@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { assistantApi } from '@/api/assistant.api';
 import type {
+  UpdateAssistantProviderInput,
   AssistantRunQuery,
   CreateAssistantIntentInput,
   CreateAssistantProfileInput,
@@ -108,4 +109,29 @@ export function useDeleteAssistantIntent() {
     mutationFn: (id: string) => assistantApi.deleteIntent(id),
     onSuccess: invalidate,
   });
+}
+
+/** Credenciales del proveedor (enmascaradas). Cache corto: se edita poco pero importa verla fresca. */
+export function useAssistantProvider() {
+  return useQuery({
+    queryKey: [...ASSISTANT_QUERY_KEY, 'provider'],
+    queryFn: () => assistantApi.getProvider(),
+    staleTime: 30_000,
+  });
+}
+
+export function useUpdateAssistantProvider() {
+  const invalidate = useAssistantInvalidation();
+  return useMutation({
+    mutationFn: (input: UpdateAssistantProviderInput) => assistantApi.updateProvider(input),
+    onSuccess: invalidate,
+  });
+}
+
+/**
+ * "Probar conexión". NO invalida nada: probar no cambia configuración, y un refetch acá
+ * borraría el resultado que el operador está leyendo.
+ */
+export function useTestAssistantProvider() {
+  return useMutation({ mutationFn: () => assistantApi.testProvider() });
 }

@@ -5,6 +5,7 @@ import { Spinner } from '@/components/atoms/Spinner/Spinner';
 import { Select } from '@/components/molecules/Select/Select';
 import { AssistantActionsEditor } from '@/components/settings/AssistantActionsEditor';
 import { AssistantIntentsEditor } from '@/components/settings/AssistantIntentsEditor';
+import { AssistantProviderCard } from '@/components/settings/AssistantProviderCard';
 import { AssistantRunsPanel } from '@/components/settings/AssistantRunsPanel';
 import { useTicketAreas } from '@/hooks/useTicketAreas';
 import {
@@ -69,6 +70,22 @@ export default function AssistantConfigPage() {
 
       {!loading && !areas.isError && !catalogs.isError && !profiles.isError && catalogs.data && (
         <>
+          <section className={styles.section}>
+            <h2 className={styles.sectionHeading}>Proveedor de IA</h2>
+            <p className={styles.sectionDescription}>
+              La API key se guarda en el servidor y nunca vuelve a mostrarse — sólo sus últimos
+              4 caracteres. Probar la conexión ejecuta una llamada real desde el backend.
+            </p>
+            <Can
+              permission="assistant.manage"
+              fallback={
+                <p className={styles.empty}>No tenés permiso para ver ni editar las credenciales.</p>
+              }
+            >
+              <AssistantProviderCard />
+            </Can>
+          </section>
+
           <section className={styles.section}>
             <h2 className={styles.sectionHeading}>Área</h2>
             <Select

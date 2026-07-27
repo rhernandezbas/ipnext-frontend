@@ -148,3 +148,49 @@ export const OUTCOME_LABELS: Record<AssistantOutcome, string> = {
   rejected_numbers: 'Descartó cifra sin respaldo',
   error: 'Error',
 };
+
+/**
+ * Credenciales del proveedor de IA — SIEMPRE enmascaradas.
+ *
+ * ⚠️ No existe un campo `apiKey` acá, y no es un olvido: el backend NUNCA la serializa. Todo
+ * lo que llega a este tipo se descargó al navegador y es público. Si alguien agrega `apiKey`
+ * a este shape, la está publicando.
+ */
+export interface AssistantProviderConfig {
+  /**
+   * URL GUARDADA desde esta pantalla. Vacía ⇒ se usa la del deploy. Es lo que edita el form.
+   *
+   * Ojo: NO es la que está en uso. El form reenvía este valor al guardar, así que si acá
+   * viniera la efectiva, guardar la key promovería la URL del deploy a la DB y el env
+   * quedaría muerto en silencio.
+   */
+  baseUrl: string;
+  /** URL realmente en uso. Sólo para MOSTRAR (placeholder) — nunca se reenvía. */
+  effectiveBaseUrl: string;
+  /** ¿Hay una credencial EFECTIVA (de la UI o del deploy)? */
+  hasApiKey: boolean;
+  /** Últimos 4 de la key guardada desde esta pantalla, o null. */
+  apiKeyLast4: string | null;
+  /** `db` = cargada acá · `env` = secret del deploy · `none` = el bot está mudo */
+  source: 'db' | 'env' | 'none';
+}
+
+export interface UpdateAssistantProviderInput {
+  baseUrl?: string;
+  /** Vacío o ausente PRESERVA la guardada. Para borrarla, `clearApiKey`. */
+  apiKey?: string;
+  clearApiKey?: boolean;
+}
+
+export interface AssistantConnectionTest {
+  ok: boolean;
+  detail: string;
+  latencyMs: number | null;
+}
+
+/** Cómo se le explica al operador de dónde sale la credencial en uso. */
+export const PROVIDER_SOURCE_LABELS: Record<AssistantProviderConfig['source'], string> = {
+  db: 'Cargada desde esta pantalla',
+  env: 'Del secret del deploy',
+  none: 'Sin credencial — el asistente no puede responder',
+};
