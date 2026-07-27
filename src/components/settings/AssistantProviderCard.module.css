@@ -1,0 +1,108 @@
+/*
+ * ai-assistant-multiagent — credenciales del proveedor de IA.
+ * Tokens SIEMPRE; ni un hex ni un px crudo salvo tamaños de control.
+ */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.sourceBadge {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.sourceOk {
+  background: var(--alert-status-resolved-bg);
+  color: var(--alert-status-resolved-fg);
+}
+
+/* Sin credencial el asistente no puede responder: se avisa fuerte, no en gris. */
+.sourceNone {
+  background: var(--alert-warning-bg);
+  color: var(--alert-warning-fg);
+}
+
+.masked {
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-600);
+}
+
+.masked code {
+  font-family: monospace;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-gray-100);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fieldLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.fieldHint {
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-600);
+  line-height: 1.5;
+  margin-bottom: var(--space-1);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.ok,
+.error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.ok {
+  background: var(--alert-status-resolved-bg);
+  color: var(--alert-status-resolved-fg);
+}
+
+.error,
+.errorText {
+  background: var(--alert-critical-bg);
+  color: var(--alert-critical-fg);
+}
+
+.errorText {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-gray-600);
+  font-size: var(--font-size-sm);
+}

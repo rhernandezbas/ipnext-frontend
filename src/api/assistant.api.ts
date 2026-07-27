@@ -1,5 +1,8 @@
 import axiosClient from './axios-client';
 import type {
+  AssistantConnectionTest,
+  AssistantProviderConfig,
+  UpdateAssistantProviderInput,
   AssistantCatalogs,
   AssistantIntent,
   AssistantProfile,
@@ -65,6 +68,21 @@ export const assistantApi = {
 
   deleteIntent: (id: string): Promise<void> =>
     axiosClient.delete(`${BASE}/intents/${id}`).then(() => undefined),
+
+  /** Credenciales del proveedor — SIEMPRE enmascaradas (la key nunca baja al navegador). */
+  getProvider: (): Promise<AssistantProviderConfig> =>
+    axiosClient.get<{ data: AssistantProviderConfig }>(`${BASE}/provider`).then(r => r.data.data),
+
+  updateProvider: (input: UpdateAssistantProviderInput): Promise<AssistantProviderConfig> =>
+    axiosClient
+      .put<{ data: AssistantProviderConfig }>(`${BASE}/provider`, input)
+      .then(r => r.data.data),
+
+  /** La prueba corre EN EL SERVIDOR: acá sólo se dispara y se lee el resultado. */
+  testProvider: (): Promise<AssistantConnectionTest> =>
+    axiosClient
+      .post<{ data: AssistantConnectionTest }>(`${BASE}/provider/test`)
+      .then(r => r.data.data),
 
   /** OBS-1 — historial de corridas. Filtrable por outcome para aislar `rejected_numbers`. */
   listRuns: (query: AssistantRunQuery = {}): Promise<AssistantRunPage> =>
