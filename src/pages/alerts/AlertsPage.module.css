@@ -619,10 +619,15 @@
 }
 
 /* Entrada de fila nueva (SSE `firing`) — Emil Kowalski: 150-300ms, ease-out
-   SIEMPRE (nunca ease-in en algo que el operador está mirando entrar), y
-   NUNCA en acciones de alta frecuencia — por eso esto se dispara UNA vez por
-   alerta (marcado por `data-entering`, limpiado por timeout en AlertsPage.tsx),
-   no en cada frame del stream. */
+   SIEMPRE (nunca ease-in en algo que el operador está mirando entrar), y NUNCA
+   en acciones de alta frecuencia.
+   Quién garantiza esa baja frecuencia: `useNocAlertsStream` sólo avisa
+   (`onNewFiring`) cuando la alerta es NUEVA para el panel — id que no estaba, o
+   resurrección resolved→firing —, NO en cada frame `firing`. El colector
+   re-anuncia por NIVEL cada fingerprint activo cada 30 min y esos re-anuncios no
+   llegan hasta acá. `AlertsPage.tsx` traduce ese aviso a `data-entering` y lo
+   limpia por timeout, así que la animación corre una vez por evento REAL.
+   Contrato cubierto por `AlertsPage.entering.test.tsx` (ALP-E1..E4). */
 .card[data-entering] {
   animation: alertRowEnter 280ms var(--ease-out);
 }
