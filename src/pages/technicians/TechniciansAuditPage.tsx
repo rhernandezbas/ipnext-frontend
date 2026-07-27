@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/atoms/Button/Button';
 import { Input } from '@/components/atoms/Input/Input';
 import { DataTable } from '@/components/organisms/DataTable/DataTable';
@@ -9,6 +9,7 @@ import {
   useServiceOrderPresenceAudit,
   useSuspiciousClosures,
 } from '@/hooks/useTechnicianLocation';
+import { useArToday } from '@/hooks/useArToday';
 import type { SuspiciousClosure } from '@/types/technicianLocation';
 import { toArIsoDate } from '@/utils/formatDate';
 import { formatDurationMinutes, formatMinutes } from '@/utils/formatGeo';
@@ -99,14 +100,23 @@ export default function TechniciansAuditPage() {
     const code = codeDraft.trim();
     // Sin código no se dispara nada: un GET con code vacío es un 400 garantizado.
     if (!code) return;
+    // Reauditar el MISMO código tiene que volver a consultar: `setSubmittedCode`
+    // con el valor ya cargado no cambia el estado ni la query key, así que el
+    // botón quedaba mudo justo cuando el auditor quiere confirmar un resultado.
+    if (code === submittedCode) {
+      auditQuery.refetch();
+      return;
+    }
     setSubmittedCode(code);
   }
 
   // ── Pre-filtro de cierres ──────────────────────────────────────────────────
-  const todayAr = useMemo(() => toArIsoDate(new Date()), []);
-  const weekAgoAr = useMemo(() => toArIsoDate(new Date(Date.now() - 7 * MS_PER_DAY)), []);
+  /** VIVO: la pantalla puede quedar abierta y cruzar la medianoche argentina. */
+  const todayAr = useArToday();
 
-  const [from, setFrom] = useState(weekAgoAr);
+  // Semilla del rango. Se calcula UNA vez a propósito (es el valor inicial de un
+  // campo editable): recalcularlo pisaría lo que el auditor haya elegido.
+  const [from, setFrom] = useState(() => toArIsoDate(new Date(Date.now() - 7 * MS_PER_DAY)));
   const [to, setTo] = useState(todayAr);
   const [threshold, setThreshold] = useState('5');
 
@@ -130,6 +140,10 @@ export default function TechniciansAuditPage() {
   // ── Panel: auditar una orden ───────────────────────────────────────────────
   const orderPanel = (
     <div className={styles.panel}>
+      {/* h2 explícito: sin él la jerarquía saltaba del h1 de la página al h3 del
+          VerdictCard, y un lector de pantalla pierde el nivel intermedio. */}
+      <h2 className={styles.panelTitle}>Auditoría por orden de servicio</h2>
+
       <form className={styles.searchRow} onSubmit={handleAuditSubmit} noValidate>
         <div className={styles.field}>
           <label className={styles.label} htmlFor="audit-code">
@@ -159,7 +173,9 @@ export default function TechniciansAuditPage() {
       {auditQuery.isLoading && (
         <div className={styles.skeleton} data-testid="audit-skeleton">
           <span className={styles.skeletonBlock} aria-hidden="true" />
-          <p className={styles.srOnly}>Auditando la orden…</p>
+          <p className={styles.srOnly} role="status">
+            Auditando la orden…
+          </p>
         </div>
       )}
 
@@ -255,7 +271,9 @@ export default function TechniciansAuditPage() {
           <span className={styles.skeletonRow} aria-hidden="true" />
           <span className={styles.skeletonRow} aria-hidden="true" />
           <span className={styles.skeletonRow} aria-hidden="true" />
-          <p className={styles.srOnly}>Buscando candidatos…</p>
+          <p className={styles.srOnly} role="status">
+            Buscando candidatos…
+          </p>
         </div>
       )}
 
@@ -281,8 +299,23 @@ export default function TechniciansAuditPage() {
           </p>
         )}
 
+      {/*
+        La salvedad va PEGADA a la tabla, no sólo en el intro del panel. Lo que
+        se scrollea, se recorta y se manda por WhatsApp es la tabla: nombre y
+        apellido con "2m 16s" al lado, ordenado de más corto a más largo. Si la
+        explicación legítima queda arriba de todo, el recorte la pierde y la
+        lista sola se lee como un ranking de sospechosos.
+      */}
       {!suspiciousQuery.isLoading && !suspiciousQuery.isError && candidates.length > 0 && (
-        <DataTable<CandidateRow> columns={CANDIDATE_COLUMNS} data={candidates} />
+        <div className={styles.tableBlock} data-testid="candidates-table-block">
+          <p className={styles.tableCaveat} data-testid="candidates-caveat">
+            Una ejecución corta puede tener explicación legítima: la cuadrilla ya estaba en el
+            lugar por otra orden, el cliente canceló en la puerta, o el trabajo ya estaba hecho.
+            Esta lista dice cuánto duró el tramo viaje → cierre según el histórico de estados —
+            nada más.
+          </p>
+          <DataTable<CandidateRow> columns={CANDIDATE_COLUMNS} data={candidates} />
+        </div>
       )}
     </div>
   );

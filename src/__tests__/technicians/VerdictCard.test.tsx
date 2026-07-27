@@ -2,15 +2,24 @@
  * VerdictCard — la REGLA DE PRESENTACIÓN del change iclass-gps-audit.
  *
  * Este componente decide si se investiga a una PERSONA REAL. Los tests de acá
- * abajo no son cosmética: bloquean tres regresiones concretas.
+ * abajo no son cosmética: bloquean regresiones concretas.
  *
- *  1. `NO_CONCLUYENTE` / `NO_AUDITABLE` con IGUAL peso visual que los otros dos.
- *     Si alguien los degrada a "variante apagada de no estuvo", el card pierde
- *     estructura y el test cae.
- *  2. El estado NUNCA es sólo-color: siempre hay etiqueta de texto.
- *  3. La evidencia va COMPLETA en los 4 veredictos (aunque valga "—"), y ningún
- *     texto imputa intención, dolo ni incumplimiento.
+ *  1. ESTRUCTURA idéntica en los 4 veredictos (VC-1): mismo contenedor, mismo
+ *     nivel de heading, las 10 filas de evidencia siempre presentes.
+ *  2. PESO VISUAL idéntico en los 4 (VC-1b). Esto NO se puede verificar desde el
+ *     DOM: el entorno de test no aplica los CSS modules (`classNameStrategy:
+ *     'non-scoped'` en vite.config → los estilos no se inyectan), así que
+ *     `getComputedStyle` devolvería lo mismo con o sin `opacity:.6`. Por eso el
+ *     assert va sobre la FUENTE del CSS module: las reglas por veredicto sólo
+ *     pueden setear custom properties `--verdict-*` (tono), nunca opacidad,
+ *     tamaño de fuente ni filtros. Un test que prometía blindar esto mirando el
+ *     DOM era exactamente el defecto que este change combate.
+ *  3. El estado NUNCA es sólo-color: siempre hay etiqueta de texto.
+ *  4. La evidencia va COMPLETA en los 4 veredictos (aunque valga "—"), y ningún
+ *     texto imputa intención, dolo ni incumplimiento — incluido el `reason` que
+ *     manda el servidor, que también se renderiza.
  */
+import { readFileSync } from 'node:fs';
 import { render, screen, within } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { VerdictCard } from '@/components/technicians/VerdictCard';
@@ -87,6 +96,63 @@ describe('VC-1: los cuatro veredictos tienen la MISMA estructura (igual peso vis
   });
 });
 
+/**
+ * VC-1b — el "igual peso visual" verificado donde REALMENTE vive: el CSS.
+ *
+ * En el entorno de test los CSS modules no se inyectan, así que ningún assert
+ * sobre el DOM puede detectar un `opacity:.6` en `[data-verdict='NO_CONCLUYENTE']`.
+ * Este test lee la fuente del módulo y exige que las reglas por veredicto sólo
+ * seteen el TONO (`--verdict-*`). Cualquier intento de apagar un veredicto —
+ * opacidad, tamaño, peso, filtro, escala — cae acá.
+ */
+describe('VC-1b: el CSS no puede apagar un veredicto', () => {
+  // Ruta relativa a propósito: `import.meta.url` no es un file:// bajo el
+  // transform de vite, y `readFileSync` resuelve contra el cwd — que es la raíz
+  // del proyecto con la que corre vitest.
+  const css = readFileSync('src/components/technicians/VerdictCard.module.css', 'utf8');
+
+  /** Reglas (selector + cuerpo) que discriminan por veredicto. */
+  const verdictRules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .map(([, selector, body]) => ({ selector: selector.trim(), body }))
+    .filter((r) => r.selector.includes('[data-verdict='));
+
+  it('define una regla de tono para cada uno de los 4 veredictos', () => {
+    for (const verdict of ALL_VERDICTS) {
+      expect(
+        verdictRules.some((r) => r.selector.includes(verdict)),
+        `falta la regla de tono de ${verdict}`,
+      ).toBe(true);
+    }
+  });
+
+  it('las reglas por veredicto SÓLO setean custom properties --verdict-*', () => {
+    expect(verdictRules.length).toBeGreaterThan(0);
+
+    for (const { selector, body } of verdictRules) {
+      const props = body
+        .split(';')
+        .map((d) => d.split(':')[0].trim())
+        .filter(Boolean);
+
+      expect(props.length, `${selector} no declara nada`).toBeGreaterThan(0);
+      for (const prop of props) {
+        expect(
+          prop,
+          `${selector} toca "${prop}": el tono es lo ÚNICO que puede variar por veredicto`,
+        ).toMatch(/^--verdict-/);
+      }
+    }
+  });
+
+  it('el título y el card base no se redefinen por veredicto', () => {
+    // Un `.card[data-verdict='X'] .title { font-size: … }` sería la puerta de
+    // atrás para degradar NO_CONCLUYENTE sin tocar la regla de tono.
+    for (const { selector } of verdictRules) {
+      expect(selector).toMatch(/^\.card\[data-verdict='[A-Z_]+'\]$/);
+    }
+  });
+});
+
 describe('VC-2: el estado no depende sólo del color', () => {
   it.each([
     ['EN_SITIO', /en sitio/i],
@@ -158,8 +224,19 @@ describe('VC-4: la evidencia va completa', () => {
 describe('VC-5: el texto no imputa intención ni incumplimiento', () => {
   const FORBIDDEN = /mintió|mentira|incumpl|fraude|dolo|culpab|sanci|falseó|engañ/i;
 
+  /**
+   * El `reason` lo escribe el SERVIDOR y se renderiza tal cual: es la parte del
+   * card más expuesta a colar vocabulario acusatorio. Los fixtures lo dejaban en
+   * `null`, así que el barrido nunca lo tocaba — el test decía cubrir algo que
+   * no cubría. Acá va poblado y además se verifica que efectivamente se pinta.
+   */
+  const REASON = 'Sin puntos GPS de la cuadrilla dentro de la ventana evaluada';
+
   it.each(ALL_VERDICTS)('%s no contiene vocabulario acusatorio', (verdict) => {
-    const { container, unmount } = render(<VerdictCard report={report({ verdict })} />);
+    const { container, unmount } = render(
+      <VerdictCard report={report({ verdict, reason: REASON })} />,
+    );
+    expect(container.textContent ?? '').toContain(REASON);
     expect(container.textContent ?? '').not.toMatch(FORBIDDEN);
     unmount();
   });
@@ -169,5 +246,52 @@ describe('VC-5: el texto no imputa intención ni incumplimiento', () => {
     expect(screen.getByTestId('verdict-disclaimer').textContent ?? '').toMatch(
       /no establece quién lo operaba/i,
     );
+  });
+});
+
+/**
+ * VC-6 — la ventana evaluada no puede perder el cambio de día.
+ *
+ * Rendir el extremo `to` como sólo hora convierte "26 jul 23:35 → 27 jul 00:20"
+ * en "26 jul - 23:35 → 00:20": se lee como una ventana que corre 23 h HACIA
+ * ATRÁS. Con una orden abierta el lunes 18:00 y cerrada el martes 09:00 el
+ * lector cree que se evaluaron 30 min cuando fueron 15 h — y eso cambia por
+ * completo el peso de `pointsEvaluated`.
+ */
+describe('VC-6: la ventana evaluada muestra la fecha cuando cruza el día', () => {
+  it('mismo día argentino → fecha una sola vez, el cierre es sólo hora', () => {
+    render(<VerdictCard report={report()} />);
+    // 23:14 UTC del 26 = 20:14 ART del 26; 23:46 UTC = 20:46 ART del mismo día.
+    expect(screen.getByTestId('evidence-window')).toHaveTextContent(
+      '26 jul 2026 - 20:14 → 20:46',
+    );
+  });
+
+  it('cruce de medianoche → el extremo "to" lleva su propia fecha', () => {
+    render(
+      <VerdictCard
+        report={report({
+          // 23:50 ART del 26 → 00:05 ART del 27.
+          window: { from: '2026-07-27T02:50:00.000Z', to: '2026-07-27T03:05:00.000Z' },
+        })}
+      />,
+    );
+    expect(screen.getByTestId('evidence-window')).toHaveTextContent(
+      '26 jul 2026 - 23:50 → 27 jul 2026 - 00:05',
+    );
+  });
+
+  it('ventana de 15 h a caballo de dos días → se ven los dos días', () => {
+    render(
+      <VerdictCard
+        report={report({
+          // Lunes 18:00 ART → martes 09:00 ART.
+          window: { from: '2026-07-27T21:00:00.000Z', to: '2026-07-28T12:00:00.000Z' },
+        })}
+      />,
+    );
+    const text = screen.getByTestId('evidence-window').textContent ?? '';
+    expect(text).toContain('27 jul 2026 - 18:00');
+    expect(text).toContain('28 jul 2026 - 09:00');
   });
 });

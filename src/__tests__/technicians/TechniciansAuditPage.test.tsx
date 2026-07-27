@@ -229,6 +229,69 @@ describe('AU-4: las 4 ramas del listado', () => {
   });
 });
 
+/**
+ * AU-6 — el "por qué puede ser legítimo" tiene que estar DONDE ESTÁ LA TABLA.
+ *
+ * El BE lo documenta: una ejecución corta puede tener explicación legítima (la
+ * cuadrilla ya estaba en el lugar por otra orden, el cliente canceló en la
+ * puerta). Si eso vive sólo en el intro, se pierde apenas alguien scrollea o
+ * recorta la pantalla para mandarla por WhatsApp — y queda una lista de nombres
+ * y apellidos ordenada de "más sospechoso" a "menos".
+ */
+describe('AU-6: la salvedad viaja pegada a la tabla', () => {
+  beforeEach(() => {
+    mockSuspicious({ data: { candidates: [CANDIDATE], thresholdMinutes: 5 } });
+  });
+
+  it('nombra explicaciones legítimas concretas, no una advertencia genérica', async () => {
+    renderPage();
+    await openCandidatesTab();
+    const caveat = screen.getByTestId('candidates-caveat');
+    expect(caveat.textContent ?? '').toMatch(/ya estaba en el lugar/i);
+    expect(caveat.textContent ?? '').toMatch(/canceló en la puerta/i);
+  });
+
+  it('la salvedad y la tabla comparten contenedor: recortar la tabla no la pierde', async () => {
+    renderPage();
+    await openCandidatesTab();
+    const block = screen.getByTestId('candidates-table-block');
+    expect(within(block).getByTestId('candidates-caveat')).toBeInTheDocument();
+    expect(within(block).getByRole('table')).toBeInTheDocument();
+    // Y va ANTES de la tabla: se lee primero, no como nota al pie.
+    const caveat = within(block).getByTestId('candidates-caveat');
+    const table = within(block).getByRole('table');
+    expect(caveat.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe('AU-7: reauditar el mismo código vuelve a consultar', () => {
+  it('resubmitir el código ya cargado dispara un refetch, no un no-op', async () => {
+    const refetch = vi.fn();
+    mockAudit({ data: REPORT, refetch });
+    renderPage();
+
+    const input = screen.getByLabelText(/código de la orden/i);
+    await userEvent.type(input, '4905');
+    await userEvent.click(screen.getByRole('button', { name: /auditar orden/i }));
+    expect(refetch).not.toHaveBeenCalled();
+
+    // Mismo código otra vez: sin esto la pantalla se queda muda para siempre.
+    await userEvent.click(screen.getByRole('button', { name: /auditar orden/i }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('AU-8: la jerarquía de encabezados no salta niveles', () => {
+  it('el panel de auditoría por orden tiene su h2 entre el h1 y el h3 del veredicto', () => {
+    mockAudit({ data: REPORT });
+    renderPage();
+
+    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 2 }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { level: 3 })).toBeInTheDocument();
+  });
+});
+
 describe('AU-5: cota de rango del barrido', () => {
   it('rechaza un rango mayor a 30 días antes de pegarle al backend', async () => {
     mockSuspicious({ data: { candidates: [], thresholdMinutes: 5 } });

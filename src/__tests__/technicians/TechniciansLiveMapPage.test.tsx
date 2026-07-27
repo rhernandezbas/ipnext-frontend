@@ -10,10 +10,11 @@
  *    muestreo visible. Nunca como valor exacto.
  *  · Las 4 ramas de estado (loading / empty / error / success).
  */
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { useMap } from 'react-leaflet';
 
 vi.mock('@/hooks/useTechnicianLocation', async () => {
   const actual = await vi.importActual<typeof import('@/hooks/useTechnicianLocation')>(
@@ -122,17 +123,36 @@ function mockJourney(over: Partial<JourneyResult> = {}) {
   } as unknown as JourneyResult);
 }
 
-const renderPage = () =>
-  render(
-    <MemoryRouter>
-      <TechniciansLiveMapPage />
-    </MemoryRouter>,
-  );
+/**
+ * FÁBRICA, no constante: React hace bail-out cuando `rerender` recibe el MISMO
+ * objeto de elemento, así que un elemento compartido convertiría los tests de
+ * re-render en no-ops que pasan siempre.
+ */
+const pageElement = () => (
+  <MemoryRouter>
+    <TechniciansLiveMapPage />
+  </MemoryRouter>
+);
+
+const renderPage = () => render(pageElement());
+
+/**
+ * Instancia de mapa ESTABLE, como la de react-leaflet real: `useMap()` devuelve
+ * siempre el mismo objeto Leaflet del contexto. El mock compartido fabrica uno
+ * nuevo por llamada, lo que haría refirar cualquier efecto `[map, …]` en cada
+ * render y taparía justo la regresión que LM-8 blinda.
+ */
+const mapStub = { invalidateSize: vi.fn(), fitBounds: vi.fn() };
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockPerms(['technicians.location_read']);
   mockJourney();
+  vi.mocked(useMap).mockReturnValue(mapStub as unknown as ReturnType<typeof useMap>);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('LM-1: rama loading', () => {
@@ -183,7 +203,12 @@ describe('LM-4: la posición vieja NO se dibuja como actual', () => {
     const row = within(list).getByText('Antonio M.').closest('li');
     expect(row).not.toBeNull();
     expect(row).toHaveTextContent(/hace 2 d/i);
-    expect(within(list).getByText(/última posición conocida/i)).toBeInTheDocument();
+    // Específico a la NOTA de la lista: desde LM-11 el link a Maps de la fila
+    // también dice "última posición conocida", así que el matcher genérico
+    // encontraba dos nodos. Que aparezca en los dos lugares es lo correcto.
+    expect(
+      within(list).getByText(/última posición conocida, con más de 24 h/i),
+    ).toBeInTheDocument();
   });
 
   it('lista la sin rastro aparte y NO como pin fantasma', () => {
@@ -285,5 +310,143 @@ describe('LM-7: el estado administrativo de IClass no determina el rastreo', () 
     renderPage();
     expect(screen.getByTestId('live-counters')).toHaveTextContent(/1\s*activa/i);
     expect(screen.getByText(/estado administrativo en iclass/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * LM-8 — el mapa NO le arrebata el pan/zoom al operador.
+ *
+ * El BE calcula `minutesSinceLastPoint` contra `now()` en CADA request, así que
+ * el poll de 60 s devuelve un objeto nuevo aunque las coordenadas sean idénticas.
+ * Si el encuadre se ata a la identidad del array de puntos, cada minuto el mapa
+ * salta y el despachante pierde el zoom que acababa de hacer.
+ */
+describe('LM-8: el encuadre se ata a una FIRMA estable, no a la identidad del dato', () => {
+  it('no reencuadra cuando sólo cambian los minutos de antigüedad', () => {
+    mockLive({ data: [ACTIVA] });
+    const { rerender } = renderPage();
+    expect(mapStub.fitBounds).toHaveBeenCalledTimes(1);
+
+    mapStub.fitBounds.mockClear();
+
+    // Segundo poll: MISMAS coordenadas, objeto nuevo, antigüedad recalculada.
+    mockLive({
+      data: [{ ...ACTIVA, minutesSinceLastPoint: 5, lastPointAt: '2026-07-26T12:01:00.000Z' }],
+    });
+    rerender(pageElement());
+
+    expect(mapStub.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it('SÍ reencuadra cuando cambia el conjunto de marcadores', () => {
+    mockLive({ data: [ACTIVA] });
+    const { rerender } = renderPage();
+    mapStub.fitBounds.mockClear();
+
+    mockLive({
+      data: [ACTIVA, { ...ACTIVA, login: 'IPNXOTRO', name: 'Otro', latitude: -34.9, longitude: -58.9 }],
+    });
+    rerender(pageElement());
+
+    expect(mapStub.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it('SÍ reencuadra cuando una cuadrilla se mueve', () => {
+    mockLive({ data: [ACTIVA] });
+    const { rerender } = renderPage();
+    mapStub.fitBounds.mockClear();
+
+    mockLive({ data: [{ ...ACTIVA, latitude: -34.9, longitude: -58.9 }] });
+    rerender(pageElement());
+
+    expect(mapStub.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it('sin cuadrillas activas encuadra las últimas posiciones CONOCIDAS, sin dibujarlas', () => {
+    // El centro por defecto es un último recurso arbitrario: plantar el viewport
+    // ahí cuando hay posiciones conocidas manda al operador a otra región.
+    mockLive({ data: [DESACTUALIZADA, SIN_RASTRO] });
+    renderPage();
+
+    expect(mapStub.fitBounds).toHaveBeenCalledTimes(1);
+    expect(mapStub.fitBounds.mock.calls[0][0]).toEqual([[-34.7, -58.4]]);
+    expect(screen.queryAllByTestId('map-marker')).toHaveLength(0);
+  });
+});
+
+describe('LM-9: el día vivo no se congela', () => {
+  it('recalcula "hoy" pasada la medianoche argentina (la pantalla queda abierta)', () => {
+    vi.useFakeTimers();
+    // 23:59:30 ART del 26 de julio (ART = UTC-3, sin DST).
+    vi.setSystemTime(new Date('2026-07-27T02:59:30.000Z'));
+
+    mockLive({ data: [ACTIVA] });
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /ver jornada de denis c\./i }));
+
+    expect((screen.getByLabelText(/día de la jornada/i) as HTMLInputElement).max).toBe(
+      '2026-07-26',
+    );
+
+    act(() => {
+      vi.setSystemTime(new Date('2026-07-27T03:00:30.000Z'));
+      vi.advanceTimersByTime(61_000);
+    });
+
+    expect((screen.getByLabelText(/día de la jornada/i) as HTMLInputElement).max).toBe(
+      '2026-07-27',
+    );
+  });
+});
+
+describe('LM-10: el panel de jornada nunca deja un hueco', () => {
+  it('un día fuera de alcance explica el motivo en vez de quedar en blanco', () => {
+    mockPerms(['technicians.location_read']);
+    mockLive({ data: [ACTIVA] });
+    mockJourney(); // enabled:false → isLoading:false, isError:false, data:undefined
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: /ver jornada de denis c\./i }));
+    // `min` sólo limita el calendario; tipear o pegar una fecha vieja dispara igual.
+    fireEvent.change(screen.getByLabelText(/día de la jornada/i), {
+      target: { value: '2020-01-01' },
+    });
+
+    expect(screen.getByTestId('journey-unavailable').textContent ?? '').toMatch(
+      /permiso de auditoría/i,
+    );
+  });
+
+  it('un 403 se presenta como límite de permiso, no como falla técnica', () => {
+    mockPerms(['technicians.location_read']);
+    mockLive({ data: [ACTIVA] });
+    mockJourney({
+      isError: true,
+      error: { isAxiosError: true, response: { status: 403 } },
+    } as unknown as Partial<JourneyResult>);
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: /ver jornada de denis c\./i }));
+
+    expect(screen.getByTestId('journey-forbidden')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /reintentar/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('LM-11: el link a Maps dice de QUÉ posición habla', () => {
+  it('en una cuadrilla activa es la posición actual', () => {
+    mockLive({ data: [ACTIVA] });
+    renderPage();
+    const list = screen.getByTestId('active-list');
+    expect(within(list).getByRole('link', { name: /abrir en maps/i })).toBeInTheDocument();
+  });
+
+  it('en una DESACTUALIZADA califica que es la ÚLTIMA POSICIÓN CONOCIDA', () => {
+    mockLive({ data: [DESACTUALIZADA] });
+    renderPage();
+    const list = screen.getByTestId('stale-list');
+    const link = within(list).getByRole('link');
+    expect(link).toHaveAccessibleName(/última posición conocida/i);
+    expect(link.textContent ?? '').not.toMatch(/^abrir en maps$/i);
   });
 });

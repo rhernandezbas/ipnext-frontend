@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { PresenceVerdict, ServiceOrderPresenceReport } from '@/types/technicianLocation';
-import { formatDateTimeShort, formatTimeShort } from '@/utils/formatDate';
+import { formatDateTimeShort, formatTimeShort, toArIsoDate } from '@/utils/formatDate';
 import { formatAccuracy, formatMeters, formatMinutes } from '@/utils/formatGeo';
 import styles from './VerdictCard.module.css';
 
@@ -101,6 +101,25 @@ const VERDICT_META: Record<PresenceVerdict, VerdictMeta> = {
 
 const EMPTY = '—';
 
+/**
+ * Ventana evaluada, legible cuando cruza la medianoche.
+ *
+ * Rendir el extremo `to` como sólo hora convierte "26 jul 23:35 → 27 jul 00:20"
+ * en "26 jul - 23:35 → 00:20": se lee como una ventana que corre 23 h HACIA
+ * ATRÁS. Peor con una orden abierta el lunes 18:00 y cerrada el martes 09:00 —
+ * el lector cree que se evaluaron 30 min cuando fueron 15 h, y eso cambia por
+ * completo el peso que le da a `pointsEvaluated`. La comparación va por día
+ * calendario ARGENTINO, que es el que se muestra.
+ */
+function formatWindow(window_: { from: string; to: string } | null): string {
+  if (!window_) return EMPTY;
+  const sameDay =
+    toArIsoDate(window_.from) !== '' && toArIsoDate(window_.from) === toArIsoDate(window_.to);
+  return sameDay
+    ? `${formatDateTimeShort(window_.from)} → ${formatTimeShort(window_.to)}`
+    : `${formatDateTimeShort(window_.from)} → ${formatDateTimeShort(window_.to)}`;
+}
+
 function Row({ term, testId, children }: { term: string; testId: string; children: ReactNode }) {
   return (
     <div className={styles.row}>
@@ -160,9 +179,7 @@ export function VerdictCard({ report }: VerdictCardProps) {
           {formatMinutes(report.largestCoverageGapMinutes)}
         </Row>
         <Row term="Ventana evaluada" testId="evidence-window">
-          {window_
-            ? `${formatDateTimeShort(window_.from)} → ${formatTimeShort(window_.to)}`
-            : EMPTY}
+          {formatWindow(window_)}
         </Row>
         <Row term="Umbral de presencia" testId="evidence-threshold">
           {formatMeters(report.onSiteThresholdMeters)}

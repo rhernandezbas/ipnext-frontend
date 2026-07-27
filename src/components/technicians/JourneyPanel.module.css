@@ -68,6 +68,14 @@
   color: var(--color-text-primary);
 }
 
+/* El panel se abre por acción del operador y el foco lo sigue (tabIndex={-1}).
+   Sin este anillo el foco programático sería invisible. */
+.title:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
 .subtitle {
   margin: 2px 0 0;
   font-size: var(--font-size-xs);
@@ -180,6 +188,27 @@
   color: var(--color-gray-600);
 }
 
+/*
+ * Límite de ALCANCE, no error ni vacío: "este día no te corresponde" / "todavía
+ * no se consultó". Tono ámbar (#92400e sobre #fef3c7 → 6,37:1 CALCULADO), el
+ * mismo del chip "Mínimo estimado": dice "atención al límite del dato", no
+ * "algo se rompió" (eso es el rojo de .error).
+ */
+.blocked {
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--badge-paused-bg);
+  color: var(--badge-paused-fg);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.blocked code {
+  font-family: var(--font-family-mono, monospace);
+  font-size: var(--font-size-xs);
+}
+
 /* ── Datos ──────────────────────────────────────────────────────────────────── */
 
 .stats {
@@ -285,6 +314,32 @@
   font-size: var(--font-size-xs);
   color: var(--color-gray-600);
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Hora SIN cobertura. El track queda punteado y hueco: se distingue de un "casi
+ * cero" (barra mínima) de un golpe de vista, sin depender del color — la forma
+ * del borde ya lo dice. El "0" del contador va igual: la altura nunca es el
+ * único indicador.
+ */
+.hourItem[data-empty] .hourTrack {
+  background: transparent;
+  border: 1px dashed var(--color-border);
+}
+
+.hourItem[data-empty] .hourCount,
+.hourItem[data-empty] .hourLabel {
+  color: var(--color-gray-600);
+}
+
+.hourGaps {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-gray-50);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  color: var(--color-gray-600);
 }
 
 @media (prefers-reduced-motion: reduce) {

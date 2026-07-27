@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { TeamDailyJourney } from '@/types/technicianLocation';
 import { Button } from '@/components/atoms/Button/Button';
 import { formatTimeShort } from '@/utils/formatDate';
@@ -14,11 +15,24 @@ import styles from './JourneyPanel.module.css';
  * sobre esa cifra alguien podría evaluar el desempeño de una persona. Por eso el
  * intervalo de muestreo va siempre al lado: hace legible el margen.
  *
+ * Con UN SOLO punto no hay tramo que medir: el BE manda `travelledMetersLowerBound
+ * = 0` y `medianSamplingMinutes = null`. Imprimir "Mínimo estimado 0 m" ahí se lee
+ * como "no se movió en todo el día", y un técnico que abrió la app tres minutos
+ * produce exactamente ese caso. Va "—" y la razón.
+ *
  * ── Por qué el selector de día tiene tope ─────────────────────────────────────
  * `technicians.location_read` (despacho) alcanza para hoy y ayer. Cualquier día
  * anterior exige `technicians.location_audit`. Sin ese corte, quien despacha
  * podía reconstruir los horarios de entrada y salida de cada empleado durante un
  * año iterando el roster completo que devuelve `/live`.
+ *
+ * ── Las CINCO ramas ───────────────────────────────────────────────────────────
+ * `min` en el `<input type="date">` sólo limita el calendario del navegador:
+ * tipear o pegar una fecha vieja dispara el `onChange` igual. Ahí el query queda
+ * con `enabled:false` y TanStack v5 devuelve `isLoading:false, isError:false,
+ * data:undefined` — ninguna de las 4 ramas clásicas matchea. Sin la rama de
+ * "fuera de alcance" el panel quedaba EN BLANCO bajo el título con la fecha
+ * elegida, y un supervisor lee ese blanco como "no trabajó". Nunca un hueco.
  */
 
 interface JourneyPanelProps {
@@ -30,37 +44,78 @@ interface JourneyPanelProps {
   maxDay: string;
   onDayChange: (day: string) => void;
   canAudit: boolean;
+  /** ¿El día elegido cae en el tramo que exige `technicians.location_audit`? */
+  requiresAudit: boolean;
   journey?: TeamDailyJourney;
   isLoading: boolean;
   isError: boolean;
+  /** El error es un 403: límite de permiso, no falla técnica. Sin reintento. */
+  isForbidden: boolean;
   onRetry: () => void;
   onClose: () => void;
 }
 
-/** Distribución horaria: barras + el número visible, nunca sólo la altura. */
+const EMPTY = '—';
+
+/**
+ * Distribución horaria: barras + el número visible, nunca sólo la altura.
+ *
+ * El rango `min..max` se rellena con CEROS. Iterar sólo las horas presentes
+ * dibujaba puntos en 06-08 y 18-19 como cinco barras contiguas —se lee como una
+ * jornada continua— y hacía desaparecer las 9 horas sin cobertura, que son
+ * justamente el dato que permite juzgar la solidez de lo que se está mirando.
+ */
 function HourDistribution({ pointsByHour }: { pointsByHour: Record<string, number> }) {
-  const hours = Object.keys(pointsByHour).sort();
-  const max = Math.max(...hours.map((h) => pointsByHour[h]), 1);
+  const present = Object.keys(pointsByHour)
+    .filter((h) => /^\d{1,2}$/.test(h))
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  if (present.length === 0) return null;
+
+  const hours: string[] = [];
+  for (let h = present[0]; h <= present[present.length - 1]; h += 1) {
+    hours.push(String(h).padStart(2, '0'));
+  }
+
+  const max = Math.max(...hours.map((h) => pointsByHour[h] ?? 0), 1);
+  const gaps = hours.filter((h) => (pointsByHour[h] ?? 0) === 0).length;
 
   return (
-    <ul className={styles.hours} data-testid="journey-hours">
-      {hours.map((hour) => {
-        const count = pointsByHour[hour];
-        return (
-          <li key={hour} className={styles.hourItem}>
-            <span className={styles.hourCount}>{count}</span>
-            <span className={styles.hourTrack}>
-              <span
-                className={styles.hourBar}
-                /* Altura data-driven: es un valor calculado, no un token. */
-                style={{ height: `${Math.max(6, (count / max) * 100)}%` }}
-              />
-            </span>
-            <span className={styles.hourLabel}>{hour}</span>
-          </li>
-        );
-      })}
-    </ul>
+    <>
+      <ul className={styles.hours} data-testid="journey-hours">
+        {hours.map((hour) => {
+          const count = pointsByHour[hour] ?? 0;
+          return (
+            <li
+              key={hour}
+              className={styles.hourItem}
+              data-hour={hour}
+              data-empty={count === 0 ? 'true' : undefined}
+            >
+              <span className={styles.hourCount}>{count}</span>
+              <span className={styles.hourTrack}>
+                <span
+                  className={styles.hourBar}
+                  /* Altura data-driven: es un valor calculado, no un token. Una
+                     hora en cero NO dibuja barra — el piso de 6% la haría ver
+                     como cobertura mínima donde no hubo ninguna. */
+                  style={{ height: count === 0 ? '0%' : `${Math.max(6, (count / max) * 100)}%` }}
+                />
+              </span>
+              <span className={styles.hourLabel}>{hour}</span>
+            </li>
+          );
+        })}
+      </ul>
+
+      {gaps > 0 && (
+        <p className={styles.hourGaps} data-testid="journey-hour-gaps">
+          {gaps} h del rango sin ningún punto. La app pudo estar cerrada, el teléfono sin señal o
+          la cuadrilla en un punto sin cobertura: el hueco no dice qué pasó, sólo que no hay dato.
+        </p>
+      )}
+    </>
   );
 }
 
@@ -72,13 +127,26 @@ export function JourneyPanel({
   maxDay,
   onDayChange,
   canAudit,
+  requiresAudit,
   journey,
   isLoading,
   isError,
+  isForbidden,
   onRetry,
   onClose,
 }: JourneyPanelProps) {
   const hasPoints = journey != null && journey.pointCount > 0;
+  /** Sin un segundo punto no hay tramo: el "0 m" del BE no es un recorrido medido. */
+  const canEstimateTravel = journey != null && journey.medianSamplingMinutes != null;
+
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  // El panel aparece por una acción del operador ("Ver jornada"): el foco lo
+  // sigue, así el lector de pantalla anuncia de quién es la jornada y el teclado
+  // no queda atrás en la lista.
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
 
   return (
     <section
@@ -88,7 +156,7 @@ export function JourneyPanel({
     >
       <header className={styles.head}>
         <div>
-          <h2 id="journey-heading" className={styles.title}>
+          <h2 id="journey-heading" className={styles.title} ref={headingRef} tabIndex={-1}>
             Jornada de {teamName}
           </h2>
           <p className={styles.subtitle}>{teamLogin}</p>
@@ -127,13 +195,32 @@ export function JourneyPanel({
         </div>
       )}
 
-      {!isLoading && isError && (
+      {/* 403: el servidor no falló, dijo que no. Reintentar sólo repite el 403. */}
+      {!isLoading && isError && isForbidden && (
+        <p className={styles.blocked} role="status" data-testid="journey-forbidden">
+          El {day} queda fuera de tu alcance: consultar la jornada de días anteriores a ayer
+          requiere el permiso de auditoría (<code>technicians.location_audit</code>). No es una
+          falla del sistema y reintentar no cambia el resultado — elegí un día dentro de tu
+          alcance o pedí el permiso.
+        </p>
+      )}
+
+      {!isLoading && isError && !isForbidden && (
         <div className={styles.error} role="alert">
           <p className={styles.errorText}>No se pudo cargar la jornada de esta cuadrilla.</p>
           <Button variant="secondary" size="sm" onClick={onRetry}>
             Reintentar
           </Button>
         </div>
+      )}
+
+      {/* 4ª rama: la consulta ni siquiera salió (query deshabilitado). NUNCA un hueco. */}
+      {!isLoading && !isError && journey == null && (
+        <p className={styles.blocked} role="status" data-testid="journey-unavailable">
+          {requiresAudit && !canAudit
+            ? `El ${day} queda fuera de tu alcance: la jornada de días anteriores a ayer requiere el permiso de auditoría (technicians.location_audit). Elegí un día dentro de tu alcance o pedí el permiso — esto no dice nada sobre si la cuadrilla trabajó.`
+            : `Todavía no se consultó la jornada del ${day}. Elegí un día para verla — esto no dice nada sobre si la cuadrilla trabajó.`}
+        </p>
       )}
 
       {!isLoading && !isError && journey != null && !hasPoints && (
@@ -167,21 +254,42 @@ export function JourneyPanel({
             <div className={styles.stat}>
               <dt className={styles.statTerm}>Recorrido</dt>
               <dd className={styles.statValue} data-testid="journey-distance">
-                <span className={styles.estimateTag}>Mínimo estimado</span>{' '}
-                {formatMeters(journey.travelledMetersLowerBound)}
+                {canEstimateTravel ? (
+                  <>
+                    <span className={styles.estimateTag}>Mínimo estimado</span>{' '}
+                    {formatMeters(journey.travelledMetersLowerBound)}
+                  </>
+                ) : (
+                  EMPTY
+                )}
               </dd>
             </div>
           </dl>
 
           <p className={styles.samplingNote}>
-            <span data-testid="journey-sampling">
-              Intervalo de muestreo (mediana): {formatMinutes(journey.medianSamplingMinutes)}
-            </span>
-            <span className={styles.samplingWhy}>
-              {' '}
-              — el recorrido suma tramos rectos entre puntos tomados con ese intervalo, así que
-              queda por debajo del recorrido real. No es un valor exacto.
-            </span>
+            {canEstimateTravel ? (
+              <>
+                <span data-testid="journey-sampling">
+                  Intervalo de muestreo (mediana): {formatMinutes(journey.medianSamplingMinutes)}
+                </span>
+                <span className={styles.samplingWhy}>
+                  {' '}
+                  — el recorrido suma tramos rectos entre puntos tomados con ese intervalo, así
+                  que queda por debajo del recorrido real. No es un valor exacto.
+                </span>
+              </>
+            ) : (
+              <>
+                <span data-testid="journey-sampling">
+                  Intervalo de muestreo (mediana): {EMPTY}
+                </span>
+                <span className={styles.samplingWhy}>
+                  {' '}
+                  — hace falta más de un punto para estimar recorrido: con uno solo no hay tramo
+                  que medir. Eso NO significa que la cuadrilla no se haya movido.
+                </span>
+              </>
+            )}
           </p>
 
           <h3 className={styles.hoursTitle}>Distribución horaria (hora argentina)</h3>

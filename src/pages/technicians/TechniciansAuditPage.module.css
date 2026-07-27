@@ -71,6 +71,30 @@
   color: var(--color-gray-600);
 }
 
+/*
+ * La tabla y su salvedad son UNA unidad: lo que se scrollea, se recorta y se
+ * manda por WhatsApp es la tabla. Comparten contenedor para que no se separen
+ * nunca, ni en el DOM ni en un screenshot.
+ */
+.tableBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* #92400e sobre #fef3c7 → 6,37:1 CALCULADO. Ámbar = "ojo con cómo se lee esto",
+   no rojo de error: la lista no imputa nada. */
+.tableCaveat {
+  margin: 0;
+  max-width: 84ch;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--badge-paused-bg);
+  color: var(--badge-paused-fg);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
 /* ── Controles ──────────────────────────────────────────────────────────────── */
 
 .searchRow {
