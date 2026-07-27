@@ -391,19 +391,120 @@ describe('ALP-9 severity summary tiles (global, unaffected by list filters)', ()
     await userEvent.click(infoTile);
     expect(screen.getByText(/5 alertas visibles/i)).toBeInTheDocument();
   });
-});
 
-describe('A4 (review adversarial): no aria-live/aria-atomic on raw KPI numbers', () => {
-  it('the severity tile values are NOT live regions (avoids announcing a bare number on every SSE tick)', () => {
+  /**
+   * MEDIO-1 (2ª review adversarial): el fix A2 era UNIDIRECCIONAL. El tile
+   * escribía `severity` + `status`, pero su `aria-pressed` solo miraba
+   * `severity` — así que si después el operario tocaba el <Select> de Estado
+   * a mano, el tile seguía diciendo "presionado" y prometiendo N mientras la
+   * lista mostraba otra cosa. Probe: 1 critical firing + 2 critical resolved.
+   * El estado "presionado" tiene que reflejar la condición COMPLETA que el
+   * tile representa (severidad Y status=firing), no media condición.
+   */
+  it('MEDIO-1: the tile un-presses when the manual Estado filter no longer matches what the tile promises', async () => {
     mockList({
-      data: [makeAlert({ id: 'a1', severity: 'critical', status: 'firing' })],
+      data: [
+        makeAlert({ id: 'f1', severity: 'critical', status: 'firing' }),
+        makeAlert({ id: 'r1', severity: 'critical', status: 'resolved' }),
+        makeAlert({ id: 'r2', severity: 'critical', status: 'resolved' }),
+      ],
       isLoading: false,
       isError: false,
     });
     renderPage();
 
     const criticalTile = within(getSeverityGroup()).getByRole('button', { name: /cr[ií]tica/i });
-    expect(criticalTile.querySelector('[aria-live]')).toBeNull();
+    await userEvent.click(criticalTile);
+    expect(criticalTile).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(/1 alerta visible/i)).toBeInTheDocument();
+
+    // El operario cambia Estado a mano → el filtro real deja de ser "esta
+    // severidad ACTIVA", que es lo único que el tile promete.
+    const statusSelect = screen.getByRole('combobox', { name: /estado/i });
+    await userEvent.click(statusSelect);
+    await userEvent.click(screen.getByRole('option', { name: /resuelta/i }));
+
+    expect(screen.getByText(/2 alertas visibles/i)).toBeInTheDocument();
+    expect(criticalTile).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  /**
+   * MEDIO-2 (2ª review adversarial): que el click del tile PISE el `status`
+   * manual es defendible (acción atómica). Que el DES-toggle lo BORRE no lo
+   * es: el operario había elegido "Resuelta" a mano y al des-togglear quedaba
+   * en "Todos los estados". El des-toggle tiene que RESTAURAR lo previo.
+   */
+  it('MEDIO-2: un-toggling the tile RESTORES the status the user had picked by hand', async () => {
+    mockList({
+      data: [
+        makeAlert({ id: 'f1', severity: 'critical', status: 'firing' }),
+        makeAlert({ id: 'r1', severity: 'critical', status: 'resolved' }),
+      ],
+      isLoading: false,
+      isError: false,
+    });
+    renderPage();
+
+    const statusSelect = screen.getByRole('combobox', { name: /estado/i });
+    await userEvent.click(statusSelect);
+    await userEvent.click(screen.getByRole('option', { name: /resuelta/i }));
+    expect(statusSelect).toHaveTextContent(/^resuelta/i);
+
+    const criticalTile = within(getSeverityGroup()).getByRole('button', { name: /cr[ií]tica/i });
+    await userEvent.click(criticalTile);
+    expect(statusSelect).toHaveTextContent(/^activa/i); // pisado — acción atómica, aceptado
+
+    await userEvent.click(criticalTile);
+    // NO "Todos los estados": vuelve lo que el operario había elegido.
+    expect(statusSelect).toHaveTextContent(/^resuelta/i);
+    expect(screen.getByText(/1 alerta visible/i)).toBeInTheDocument();
+  });
+});
+
+describe('A4 (review adversarial): no aria-live/aria-atomic on raw KPI numbers', () => {
+  /**
+   * BAJO-2 (2ª review adversarial): el test original solo miraba el tile de
+   * CRÍTICA (`criticalTile.querySelector('[aria-live]')`). Una regresión que
+   * metiera `aria-live` en el tile de Advertencia, en el de Info, en el de ACK
+   * o en una fila del breakdown pasaba igual. Barrido COMPLETO del resumen:
+   * ninguna live region (ni `aria-live`, ni `aria-atomic`, ni `role=status`,
+   * ni `role=alert`) puede vivir adentro — el `.count` de la lista ya cubre
+   * "algo cambió" y estos números cambian en CADA tick del SSE.
+   */
+  function summaryWithEveryTileAndRow() {
+    mockList({
+      data: [
+        makeAlert({ id: 'c1', severity: 'critical', status: 'firing', alertname: 'NAS DOWN' }),
+        makeAlert({ id: 'w1', severity: 'warning', status: 'firing', alertname: 'PON signal degraded' }),
+        makeAlert({ id: 'i1', severity: 'info', status: 'firing', alertname: 'ONU recovered' }),
+        makeAlert({ id: 'i2', severity: 'info', status: 'firing', alertname: 'ONU recovered', acknowledged: true, ackBy: 'juan' }),
+      ],
+      isLoading: false,
+      isError: false,
+    });
+    renderPage();
+    return screen.getByRole('region', { name: /resumen/i });
+  }
+
+  it('NO element inside the summary is a live region (all 3 severity tiles + ACK tile + every breakdown row)', () => {
+    const summary = summaryWithEveryTileAndRow();
+    expect(summary.querySelectorAll('[aria-live], [aria-atomic], [role="status"], [role="alert"]')).toHaveLength(0);
+  });
+
+  it('explicitly: each severity tile, the ACK tile and each breakdown row carry no aria-live themselves', () => {
+    const summary = summaryWithEveryTileAndRow();
+    const tiles = within(getSeverityGroup()).getAllByRole('button');
+    const ackTile = within(summary).getByTestId('kpi-tile-ack');
+    const rows = within(summary).getAllByRole('button', { name: /nas down|pon signal degraded|onu recovered/i });
+
+    expect(tiles).toHaveLength(3);
+    expect(rows).toHaveLength(3);
+
+    for (const el of [...tiles, ackTile, ...rows]) {
+      expect(el.hasAttribute('aria-live')).toBe(false);
+      expect(el.hasAttribute('aria-atomic')).toBe(false);
+      expect(el.querySelector('[aria-live], [aria-atomic]')).toBeNull();
+    }
   });
 });
 
@@ -423,6 +524,31 @@ describe('B13 (review adversarial): "no data yet" must not read as "network is h
 
     const summary = screen.getByRole('region', { name: /resumen/i });
     expect(within(summary).getByText(/sin alertas activas.*la red está en orden/i)).toBeInTheDocument();
+  });
+
+  /**
+   * MEDIO-3 (2ª review adversarial): B13 quedó a mitad de camino. El RESUMEN
+   * decía "Sin datos para mostrar." pero la LISTA, 200px más abajo, seguía
+   * afirmando "No hay alertas activas en este momento." con `data === undefined`.
+   * `hasData` nunca se consultaba en la rama de la lista. Afirmar "no hay
+   * alertas activas" por AUSENCIA de datos es exactamente lo que B13 declaró
+   * peligroso en un panel NOC.
+   */
+  it('MEDIO-3: the LIST empty branch also says "sin datos" — never "no hay alertas activas" — when data is undefined', () => {
+    mockList({ data: undefined, isLoading: false, isError: false });
+    renderPage();
+
+    expect(screen.queryByText(/no hay alertas activas/i)).not.toBeInTheDocument();
+    // Resumen Y lista: los dos bloques dicen lo mismo, "no sé" en vez de "no hay".
+    expect(screen.getAllByText(/sin datos para mostrar/i)).toHaveLength(2);
+  });
+
+  it('MEDIO-3: with data genuinely empty the LIST still says "no hay alertas" (no falso "sin datos")', () => {
+    mockList({ data: [], isLoading: false, isError: false });
+    renderPage();
+
+    expect(screen.getByText(/no hay alertas/i)).toBeInTheDocument();
+    expect(screen.queryByText(/sin datos para mostrar/i)).not.toBeInTheDocument();
   });
 });
 
@@ -529,6 +655,107 @@ describe('ALP-11 incident type breakdown (top N)', () => {
       name: /onu recovered|signal fluctuation|onu rebooted|low rx power|onu registered|pon signal degraded|nas down/i,
     });
     expect(allRows[0]).toHaveTextContent('NAS DOWN');
+  });
+
+  /**
+   * Foco 2 (2ª review adversarial, CONFIRMADO contra el backend): la severidad
+   * NO está acoplada al `alertname` — `GrafanaWebhookSource.ts` la toma del
+   * label POR ALERTA (la inferencia por alertname es solo fallback) y el
+   * ingest genérico valida `alertname` y `severity` como campos independientes.
+   * O sea: un mismo tipo PUEDE mezclar severidades. Rankear por la severidad
+   * MODAL (la más frecuente) hace que un tipo con 20 info + 1 critical se
+   * muestre como "Info" y quede FUERA del top-6, escondiendo el critical.
+   * En un panel NOC sobre-avisar es más seguro que sub-avisar: el ranking va
+   * por la severidad MÁXIMA presente.
+   */
+  it('Foco 2: a MIXED type (20 info + 1 critical) ranks by its MAXIMUM severity — it is never evicted from the top-N', () => {
+    mockList({
+      data: [
+        // 6 tipos info PUROS con más volumen que el mixto: por conteo (o por
+        // severidad modal, que para todos ellos es info) llenan las 6 posiciones.
+        ...Array.from({ length: 30 }, (_, i) => makeAlert({ id: `p1-${i}`, alertname: 'ONU recovered', severity: 'info', status: 'firing' })),
+        ...Array.from({ length: 29 }, (_, i) => makeAlert({ id: `p2-${i}`, alertname: 'Signal fluctuation', severity: 'info', status: 'firing' })),
+        ...Array.from({ length: 28 }, (_, i) => makeAlert({ id: `p3-${i}`, alertname: 'ONU rebooted', severity: 'info', status: 'firing' })),
+        ...Array.from({ length: 27 }, (_, i) => makeAlert({ id: `p4-${i}`, alertname: 'Low RX power', severity: 'info', status: 'firing' })),
+        ...Array.from({ length: 26 }, (_, i) => makeAlert({ id: `p5-${i}`, alertname: 'ONU registered', severity: 'info', status: 'firing' })),
+        ...Array.from({ length: 25 }, (_, i) => makeAlert({ id: `p6-${i}`, alertname: 'ONU dying gasp', severity: 'info', status: 'firing' })),
+        // El tipo MEZCLADO: modal = info (20), máxima = critical (1). Total 21
+        // → séptimo por conteo, y séptimo también por severidad modal → EVICTED.
+        ...Array.from({ length: 20 }, (_, i) => makeAlert({ id: `mx-i-${i}`, alertname: 'OLT port flapping', severity: 'info', status: 'firing' })),
+        makeAlert({ id: 'mx-c', alertname: 'OLT port flapping', severity: 'critical', status: 'firing' }),
+      ],
+      isLoading: false,
+      isError: false,
+    });
+    renderPage();
+
+    const summary = screen.getByRole('region', { name: /resumen/i });
+    const rows = within(summary).getAllByRole('button', {
+      name: /onu recovered|signal fluctuation|onu rebooted|low rx power|onu registered|onu dying gasp|olt port flapping/i,
+    });
+
+    // Entra al top-N Y va PRIMERO: contiene una critical.
+    expect(rows[0]).toHaveTextContent('OLT port flapping');
+    // El badge muestra la MÁXIMA (Crítica), no la modal (Info).
+    expect(within(rows[0] as HTMLElement).getByText(/cr[ií]tica/i)).toBeInTheDocument();
+    // …y el desglose real viaja en el nombre accesible, para no sobre-representar:
+    // "1 Crítica" + "20 Info" dentro del mismo tipo.
+    expect(rows[0]).toHaveAccessibleName(/1 cr[ií]tica/i);
+    expect(rows[0]).toHaveAccessibleName(/20 info/i);
+  });
+
+  it('Foco 2: a PURE info type keeps showing Info (the max-severity rule does not inflate anything)', () => {
+    mockList({
+      data: [
+        ...Array.from({ length: 3 }, (_, i) => makeAlert({ id: `pi-${i}`, alertname: 'ONU recovered', severity: 'info', status: 'firing' })),
+      ],
+      isLoading: false,
+      isError: false,
+    });
+    renderPage();
+
+    const summary = screen.getByRole('region', { name: /resumen/i });
+    const row = within(summary).getByRole('button', { name: /onu recovered/i });
+    expect(within(row).getByText(/^info$/i)).toBeInTheDocument();
+    expect(within(row).queryByText(/cr[ií]tica|advertencia/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * MEDIO-1 / hermano: la fila del breakdown tiene EXACTAMENTE el mismo
+   * contrato que el tile de severidad — su conteo es GLOBAL sobre ACTIVAS —
+   * y arrastraba el mismo defecto A2: prometía N y la lista mostraba
+   * activas + resueltas de ese tipo. Probe: 1 firing + 3 resolved del mismo
+   * alertname → la fila dice 1, la lista decía 4.
+   */
+  it('MEDIO-1 (hermano): clicking a type row also filters the list to firing — the count matches the row', async () => {
+    mockList({
+      data: [
+        makeAlert({ id: 'f1', alertname: 'ONU LOS', status: 'firing' }),
+        makeAlert({ id: 'r1', alertname: 'ONU LOS', status: 'resolved' }),
+        makeAlert({ id: 'r2', alertname: 'ONU LOS', status: 'resolved' }),
+        makeAlert({ id: 'r3', alertname: 'ONU LOS', status: 'resolved' }),
+      ],
+      isLoading: false,
+      isError: false,
+    });
+    renderPage();
+
+    const summary = screen.getByRole('region', { name: /resumen/i });
+    const losRow = within(summary).getByRole('button', { name: /onu los/i });
+    expect(within(losRow).getByText('1')).toBeInTheDocument();
+
+    await userEvent.click(losRow);
+    expect(screen.getByText(/1 alerta visible/i)).toBeInTheDocument();
+    expect(screen.queryByText(/4 alertas visibles/i)).not.toBeInTheDocument();
+    expect(losRow).toHaveAttribute('aria-pressed', 'true');
+
+    // …y el estado "presionado" refleja la condición COMPLETA: si el operario
+    // cambia Estado a mano, la fila deja de prometer lo que promete.
+    const statusSelect = screen.getByRole('combobox', { name: /estado/i });
+    await userEvent.click(statusSelect);
+    await userEvent.click(screen.getByRole('option', { name: /resuelta/i }));
+    expect(losRow).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText(/3 alertas visibles/i)).toBeInTheDocument();
   });
 
   it('clicking a type row toggles the alertname filter and narrows the visible list', async () => {
