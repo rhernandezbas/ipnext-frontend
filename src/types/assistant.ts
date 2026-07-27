@@ -157,7 +157,16 @@ export const OUTCOME_LABELS: Record<AssistantOutcome, string> = {
  * a este shape, la está publicando.
  */
 export interface AssistantProviderConfig {
+  /**
+   * URL GUARDADA desde esta pantalla. Vacía ⇒ se usa la del deploy. Es lo que edita el form.
+   *
+   * Ojo: NO es la que está en uso. El form reenvía este valor al guardar, así que si acá
+   * viniera la efectiva, guardar la key promovería la URL del deploy a la DB y el env
+   * quedaría muerto en silencio.
+   */
   baseUrl: string;
+  /** URL realmente en uso. Sólo para MOSTRAR (placeholder) — nunca se reenvía. */
+  effectiveBaseUrl: string;
   /** ¿Hay una credencial EFECTIVA (de la UI o del deploy)? */
   hasApiKey: boolean;
   /** Últimos 4 de la key guardada desde esta pantalla, o null. */

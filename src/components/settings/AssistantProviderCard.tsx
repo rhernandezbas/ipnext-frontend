@@ -55,8 +55,19 @@ export function AssistantProviderCard() {
   const data = provider.data;
   const currentBaseUrl = baseUrl ?? data.baseUrl;
 
-  const save = async () => {
+  /**
+   * Todo cambio en el formulario invalida lo que la pantalla está AFIRMANDO: el cartel de
+   * "guardado" y el resultado de la última prueba. Dejarlos sería confirmarle al operador algo
+   * que ya no corresponde a lo que tiene delante — un "Conexión OK" al lado de una credencial
+   * nueva afirma algo que nunca se probó.
+   */
+  const touch = () => {
     setSaved(false);
+    test.reset();
+  };
+
+  const save = async () => {
+    touch();
     await update.mutateAsync({
       baseUrl: currentBaseUrl,
       // Vacío ⇒ el backend PRESERVA la guardada. Nunca se manda la máscara.
@@ -90,11 +101,19 @@ export function AssistantProviderCard() {
         <label className={styles.fieldLabel} htmlFor="provider-base-url">
           URL del proveedor
         </label>
+        <span className={styles.fieldHint} id="provider-base-url-hint">
+          Dejala vacía para usar la del deploy ({data.effectiveBaseUrl}). Sólo cargá una acá si
+          necesitás apuntar a otro gateway.
+        </span>
         <Input
           id="provider-base-url"
           value={currentBaseUrl}
-          onChange={e => setBaseUrl(e.target.value)}
-          placeholder="https://api.deepseek.com"
+          onChange={e => {
+            touch();
+            setBaseUrl(e.target.value);
+          }}
+          placeholder={data.effectiveBaseUrl}
+          aria-describedby="provider-base-url-hint"
         />
       </div>
 
@@ -111,7 +130,10 @@ export function AssistantProviderCard() {
           id="provider-api-key"
           type="password"
           value={apiKey}
-          onChange={e => setApiKey(e.target.value)}
+          onChange={e => {
+            touch();
+            setApiKey(e.target.value);
+          }}
           placeholder={data.hasApiKey ? '•••••••••• (sin cambios)' : 'sk-…'}
           autoComplete="off"
           aria-describedby="provider-api-key-hint"
@@ -172,6 +194,9 @@ export function AssistantProviderCard() {
           confirmLabel="Sí, borrar"
           onConfirm={async () => {
             setConfirmClear(false);
+            // Borrar la credencial invalida el resultado que ESA credencial produjo.
+            touch();
+            setApiKey('');
             await update.mutateAsync({ clearApiKey: true });
           }}
           onCancel={() => setConfirmClear(false)}

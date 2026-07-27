@@ -5,6 +5,7 @@ import { AssistantProviderCard } from '@/components/settings/AssistantProviderCa
 const useAssistantProvider = vi.fn();
 const updateMutateAsync = vi.fn();
 const testMutate = vi.fn();
+const testReset = vi.fn();
 const useTest = vi.fn();
 
 vi.mock('@/hooks/useAssistant', () => ({
@@ -26,7 +27,10 @@ vi.mock('@/hooks/useAssistant', () => ({
 
 const mockProvider = (data: Record<string, unknown> | null, extra = {}) => {
   useAssistantProvider.mockReturnValue({
-    data,
+    // `effectiveBaseUrl` por default: el backend SIEMPRE lo manda (tiene default en config), y
+    // un mock sin él ejercita una forma que en prod no existe. Los tests que la necesitan
+    // distinta la pisan al pasarla explícita.
+    data: data && { effectiveBaseUrl: 'https://api.deepseek.com', ...data },
     isLoading: false,
     isError: false,
     refetch: vi.fn(),
@@ -38,7 +42,13 @@ beforeEach(() => {
   useAssistantProvider.mockReset();
   updateMutateAsync.mockReset();
   testMutate.mockReset();
-  useTest.mockReturnValue({ mutate: testMutate, isPending: false, data: undefined });
+  testReset.mockReset();
+  useTest.mockReturnValue({
+    mutate: testMutate,
+    reset: testReset,
+    isPending: false,
+    data: undefined,
+  });
 });
 
 describe('AssistantProviderCard — la key nunca vive en el front', () => {
@@ -116,6 +126,7 @@ describe('AssistantProviderCard — estado y prueba de conexión', () => {
     mockProvider({ baseUrl: '', hasApiKey: true, apiKeyLast4: '9876', source: 'db' });
     useTest.mockReturnValue({
       mutate: testMutate,
+      reset: testReset,
       isPending: false,
       data: { ok: true, detail: 'Conexión OK usando la credencial de esta pantalla.', latencyMs: 820 },
     });
@@ -129,6 +140,7 @@ describe('AssistantProviderCard — estado y prueba de conexión', () => {
     mockProvider({ baseUrl: '', hasApiKey: true, apiKeyLast4: '9876', source: 'db' });
     useTest.mockReturnValue({
       mutate: testMutate,
+      reset: testReset,
       isPending: false,
       data: { ok: false, detail: 'No se pudo contactar al proveedor.', latencyMs: 15000 },
     });
@@ -164,5 +176,114 @@ describe('AssistantProviderCard — estado y prueba de conexión', () => {
 
     expect(screen.getByRole('alert')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Reintentar/ })).toBeInTheDocument();
+  });
+});
+
+describe('AssistantProviderCard — la URL del deploy no se promueve a la DB', () => {
+  it('guardar sin tocar la URL manda la GUARDADA (vacía), no la del deploy', async () => {
+    // Si mandara la efectiva, el primer Guardar —aunque sólo se haya tocado la key— escribiría
+    // la URL del deploy en la DB. Y como la DB pisa al env, DEEPSEEK_BASE_URL quedaría muerta
+    // en silencio para siempre.
+    mockProvider({
+      baseUrl: '',
+      effectiveBaseUrl: 'https://api.deepseek.com',
+      hasApiKey: true,
+      apiKeyLast4: '9876',
+      source: 'db',
+    });
+    render(<AssistantProviderCard />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await waitFor(() => expect(updateMutateAsync).toHaveBeenCalled());
+    expect(updateMutateAsync.mock.calls[0][0]).toMatchObject({ baseUrl: '' });
+  });
+
+  it('muestra la URL en uso como placeholder, sin meterla en el input', () => {
+    // El placeholder tiene que salir de `effectiveBaseUrl`, NO de un default hardcodeado.
+    // Por eso el valor de prueba es distinto al default: si el componente hardcodea
+    // 'https://api.deepseek.com', este test falla en vez de pasar por coincidencia.
+    mockProvider({
+      baseUrl: '',
+      effectiveBaseUrl: 'https://gateway.del-deploy',
+      hasApiKey: true,
+      apiKeyLast4: null,
+      source: 'env',
+    });
+    render(<AssistantProviderCard />);
+
+    const input = screen.getByLabelText('URL del proveedor');
+    expect(input).toHaveValue('');
+    expect(input).toHaveAttribute('placeholder', 'https://gateway.del-deploy');
+  });
+});
+
+describe('AssistantProviderCard — el resultado de la prueba no sobrevive a un cambio', () => {
+  it('guardar limpia el resultado anterior', async () => {
+    // Un "Conexión OK" viejo al lado de una credencial nueva afirma algo que nunca se probó.
+    mockProvider({
+      baseUrl: '',
+      effectiveBaseUrl: 'https://api.deepseek.com',
+      hasApiKey: true,
+      apiKeyLast4: '9876',
+      source: 'db',
+    });
+    useTest.mockReturnValue({
+      mutate: testMutate,
+      reset: testReset,
+      isPending: false,
+      data: { ok: true, detail: 'Conexión OK.', latencyMs: 800 },
+    });
+    render(<AssistantProviderCard />);
+
+    fireEvent.change(screen.getByLabelText('API key'), { target: { value: 'sk-otra-9999' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await waitFor(() => expect(testReset).toHaveBeenCalled());
+  });
+});
+
+describe('AssistantProviderCard — borrar la credencial también invalida lo mostrado', () => {
+  it('borrar limpia el resultado de la prueba anterior', async () => {
+    // Mismo falso verde que al guardar: un "Conexión OK" sobreviviendo al borrado de la
+    // credencial que lo produjo.
+    mockProvider({
+      baseUrl: '',
+      effectiveBaseUrl: 'https://api.deepseek.com',
+      hasApiKey: true,
+      apiKeyLast4: '9876',
+      source: 'db',
+    });
+    useTest.mockReturnValue({
+      mutate: testMutate,
+      reset: testReset,
+      isPending: false,
+      data: { ok: true, detail: 'Conexión OK.', latencyMs: 800 },
+    });
+    render(<AssistantProviderCard />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Borrar credencial/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Sí, borrar/ }));
+
+    await waitFor(() => expect(testReset).toHaveBeenCalled());
+  });
+
+  it('editar la key baja el cartel de "guardado" del save anterior', async () => {
+    mockProvider({
+      baseUrl: '',
+      effectiveBaseUrl: 'https://api.deepseek.com',
+      hasApiKey: true,
+      apiKeyLast4: '9876',
+      source: 'db',
+    });
+    render(<AssistantProviderCard />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(screen.getByText('Credenciales guardadas.')).toBeInTheDocument());
+
+    // Con una key nueva a medio escribir, "Credenciales guardadas" afirma algo que ya no aplica.
+    fireEvent.change(screen.getByLabelText('API key'), { target: { value: 'sk-otra' } });
+
+    expect(screen.queryByText('Credenciales guardadas.')).not.toBeInTheDocument();
   });
 });
