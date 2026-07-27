@@ -2,6 +2,7 @@ import axiosClient from './axios-client';
 import type {
   AssistantConnectionTest,
   AssistantProviderConfig,
+  AssistantRoutingConfig,
   UpdateAssistantProviderInput,
   AssistantCatalogs,
   AssistantIntent,
@@ -70,6 +71,14 @@ export const assistantApi = {
     axiosClient.delete(`${BASE}/intents/${id}`).then(() => undefined),
 
   /** Credenciales del proveedor — SIEMPRE enmascaradas (la key nunca baja al navegador). */
+  getRouting: (): Promise<AssistantRoutingConfig> =>
+    axiosClient.get<{ data: AssistantRoutingConfig }>(`${BASE}/routing`).then(r => r.data.data),
+
+  updateRouting: (input: AssistantRoutingConfig): Promise<AssistantRoutingConfig> =>
+    axiosClient
+      .put<{ data: AssistantRoutingConfig }>(`${BASE}/routing`, input)
+      .then(r => r.data.data),
+
   getProvider: (): Promise<AssistantProviderConfig> =>
     axiosClient.get<{ data: AssistantProviderConfig }>(`${BASE}/provider`).then(r => r.data.data),
 

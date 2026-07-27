@@ -194,3 +194,17 @@ export const PROVIDER_SOURCE_LABELS: Record<AssistantProviderConfig['source'], s
   env: 'Del secret del deploy',
   none: 'Sin credencial — el asistente no puede responder',
 };
+
+/**
+ * RTR-0 — quién atiende lo que entra SIN clasificar.
+ *
+ * `defaultAreaId: null` NO es "todavía no lo configuraron": es un estado operativo con
+ * consecuencia concreta. Las conversaciones de WhatsApp entran siempre sin área (los agentes
+ * trabajan dentro de Chatwoot), así que sin default el asistente no le responde a NADIE.
+ * La pantalla tiene que decirlo con esas palabras.
+ */
+export interface AssistantRoutingConfig {
+  defaultAreaId: string | null;
+  /** Si el agente default detecta que el tema es de otra área con agente, reasigna. */
+  rerouteEnabled: boolean;
+}

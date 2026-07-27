@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tansta
 import { assistantApi } from '@/api/assistant.api';
 import type {
   UpdateAssistantProviderInput,
+  AssistantRoutingConfig,
   AssistantRunQuery,
   CreateAssistantIntentInput,
   CreateAssistantProfileInput,
@@ -107,6 +108,26 @@ export function useDeleteAssistantIntent() {
   const invalidate = useAssistantInvalidation();
   return useMutation({
     mutationFn: (id: string) => assistantApi.deleteIntent(id),
+    onSuccess: invalidate,
+  });
+}
+
+/**
+ * RTR-0 — el ruteo. `staleTime` corto igual que el proveedor: se edita poco pero decide si el
+ * bot contesta o no, así que verlo desactualizado es peor que un refetch de más.
+ */
+export function useAssistantRouting() {
+  return useQuery({
+    queryKey: [...ASSISTANT_QUERY_KEY, 'routing'],
+    queryFn: () => assistantApi.getRouting(),
+    staleTime: 30_000,
+  });
+}
+
+export function useUpdateAssistantRouting() {
+  const invalidate = useAssistantInvalidation();
+  return useMutation({
+    mutationFn: (input: AssistantRoutingConfig) => assistantApi.updateRouting(input),
     onSuccess: invalidate,
   });
 }
