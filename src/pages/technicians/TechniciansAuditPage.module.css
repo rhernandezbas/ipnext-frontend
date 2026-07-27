@@ -171,6 +171,32 @@
   color: var(--badge-late-fg);
 }
 
+/*
+ * Dato permanente de contexto, no una alarma: el barrido es caro SIEMPRE y eso se
+ * dice una sola vez, en tono neutro. Si esto gritara como un error, el auditor lo
+ * empezaría a ignorar — y entonces el aviso del rango caro (que sí escala) tampoco
+ * se leería.
+ */
+.costHint {
+  margin: 0;
+  max-width: 84ch;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-gray-600);
+}
+
+/* Escala sobre el hint: el rango elegido YA es caro. Advertencia, no error. */
+.slowRangeWarning {
+  margin: 0;
+  padding: var(--space-3);
+  max-width: 84ch;
+  background: var(--badge-paused-bg);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--badge-paused-fg);
+}
+
 /* ── Estados ────────────────────────────────────────────────────────────────── */
 
 .empty {

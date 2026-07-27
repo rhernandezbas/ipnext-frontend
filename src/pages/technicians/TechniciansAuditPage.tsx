@@ -11,7 +11,6 @@ import {
 } from '@/hooks/useTechnicianLocation';
 import { useArToday } from '@/hooks/useArToday';
 import type { SuspiciousClosure } from '@/types/technicianLocation';
-import { toArIsoDate } from '@/utils/formatDate';
 import { formatDurationMinutes, formatMinutes } from '@/utils/formatGeo';
 import styles from './TechniciansAuditPage.module.css';
 
@@ -39,8 +38,31 @@ import styles from './TechniciansAuditPage.module.css';
 
 const MS_PER_DAY = 86_400_000;
 
-/** Cota del barrido. Espejo de MAX_AUDIT_RANGE_DAYS del backend (IClass topea en 30). */
-const MAX_RANGE_DAYS = 30;
+/**
+ * Cota del barrido. Espejo EXACTO de MAX_AUDIT_RANGE_DAYS del backend — si divergen,
+ * el auditor se come un 400 que el cliente podía haber evitado.
+ *
+ * Era 30. Medido contra producción:
+ *
+ *   7 días → 504, y React Query reintenta: ~2 min de spinner y después error
+ *   3 días → 200 OK en 60-90 s
+ *   1 día  → 200 OK, rápido
+ *
+ * El backend consulta el histórico de CADA orden contra IClass en serie (~16 OS/día,
+ * ~1,5 s por orden), así que el costo es lineal en el rango. 3 es el mayor valor con
+ * evidencia medida de responder: permitir 30 era ofrecer 27 rangos que no responden.
+ */
+const MAX_RANGE_DAYS = 3;
+
+/**
+ * A partir de este span el barrido deja de ser instantáneo y hay que avisarlo ANTES.
+ * Un spinner mudo de 90 s se lee como "se colgó" y el auditor recarga — disparando
+ * otro barrido en serie contra la misma IClass que atiende el closure loop.
+ */
+const SLOW_RANGE_DAYS = 2;
+
+/** Techo medido del barrido en el rango máximo permitido. */
+const SLOW_RANGE_SECONDS = 90;
 
 const THRESHOLD_OPTIONS = [
   { value: '2', label: '2 minutos' },
@@ -114,9 +136,14 @@ export default function TechniciansAuditPage() {
   /** VIVO: la pantalla puede quedar abierta y cruzar la medianoche argentina. */
   const todayAr = useArToday();
 
-  // Semilla del rango. Se calcula UNA vez a propósito (es el valor inicial de un
-  // campo editable): recalcularlo pisaría lo que el auditor haya elegido.
-  const [from, setFrom] = useState(() => toArIsoDate(new Date(Date.now() - 7 * MS_PER_DAY)));
+  // Semilla del rango: HOY, un solo día. Se calcula UNA vez a propósito (es el valor
+  // inicial de un campo editable): recalcularlo pisaría lo que el auditor haya elegido.
+  //
+  // Antes la semilla era `hoy - 7 días`. Abrir la pestaña disparaba, sin que nadie
+  // eligiera nada, el único rango que en producción NUNCA respondía: 504, reintento de
+  // React Query, otro 504, ~2 minutos de spinner. El default tiene que ser el rango que
+  // sabemos que responde rápido; ampliarlo es una decisión explícita del auditor.
+  const [from, setFrom] = useState(todayAr);
   const [to, setTo] = useState(todayAr);
   const [threshold, setThreshold] = useState('5');
 
@@ -125,7 +152,13 @@ export default function TechniciansAuditPage() {
   if (Number.isNaN(span)) rangeError = 'Ingresá ambas fechas con un formato válido.';
   else if (span < 0) rangeError = 'La fecha "desde" no puede ser posterior a la fecha "hasta".';
   else if (span > MAX_RANGE_DAYS)
-    rangeError = `El rango no puede superar los ${MAX_RANGE_DAYS} días (pediste ${Math.round(span)}).`;
+    rangeError =
+      `El rango no puede superar los ${MAX_RANGE_DAYS} días (pediste ${Math.round(span)}). ` +
+      `Por encima de eso el barrido no llega a responder. Partí el período en tramos.`;
+
+  /** Rango válido pero caro: hay que avisar el costo antes de que el spinner arranque. */
+  const isSlowRange = rangeError === null && span >= SLOW_RANGE_DAYS;
+  const spanDays = Number.isFinite(span) ? Math.round(span) : 0;
 
   const suspiciousQuery = useSuspiciousClosures(
     { from, to, thresholdMinutes: Number(threshold) },
@@ -253,9 +286,33 @@ export default function TechniciansAuditPage() {
         </div>
       </div>
 
+      {/*
+        El costo está escrito en la pantalla, no en la cabeza de quien la programó.
+        Se ve ANTES de tocar las fechas: el auditor decide con el número a la vista,
+        no descubre los 90 segundos mirando un spinner.
+      */}
+      <p className={styles.costHint} data-testid="range-cost-hint">
+        El barrido consulta el histórico de cada orden contra IClass <strong>en serie</strong>, así
+        que el tiempo crece con el rango: un día responde en segundos y {MAX_RANGE_DAYS} días —el
+        máximo— tardó hasta {SLOW_RANGE_SECONDS} s medidos en producción.
+      </p>
+
       {rangeError && (
         <p className={styles.rangeError} id="range-error" data-testid="range-error" role="alert">
           {rangeError}
+        </p>
+      )}
+
+      {isSlowRange && (
+        <p
+          className={styles.slowRangeWarning}
+          data-testid="slow-range-warning"
+          role="status"
+          aria-live="polite"
+        >
+          Pediste {spanDays} días: puede tardar hasta {SLOW_RANGE_SECONDS} s. No recargues la
+          página mientras corre — recargar dispara otro barrido contra IClass sin cancelar el que
+          ya está en curso.
         </p>
       )}
 
@@ -271,8 +328,15 @@ export default function TechniciansAuditPage() {
           <span className={styles.skeletonRow} aria-hidden="true" />
           <span className={styles.skeletonRow} aria-hidden="true" />
           <span className={styles.skeletonRow} aria-hidden="true" />
+          {/*
+            El anuncio del lector de pantalla dice cuánto puede tardar cuando el rango
+            es caro. "Buscando candidatos…" durante 90 s no distingue "trabajando" de
+            "colgado", y quien no ve la pantalla no tiene ni el spinner como pista.
+          */}
           <p className={styles.srOnly} role="status">
-            Buscando candidatos…
+            {isSlowRange
+              ? `Barrido de ${spanDays} días en curso. Puede tardar hasta ${SLOW_RANGE_SECONDS} s.`
+              : 'Buscando candidatos…'}
           </p>
         </div>
       )}

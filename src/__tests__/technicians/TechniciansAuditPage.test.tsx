@@ -292,8 +292,20 @@ describe('AU-8: la jerarquía de encabezados no salta niveles', () => {
   });
 });
 
+/**
+ * AU-5 — la cota del barrido, medida contra PRODUCCIÓN.
+ *
+ * El default de esta pantalla era de 7 días y el endpoint devolvía 504. React Query
+ * reintenta una vez: el auditor abría la pestaña y se comía ~2 minutos de spinner
+ * para terminar en un error. Lo medido:
+ *
+ *   7 días → 504 × 2      3 días → 200 OK en 60-90 s      1 día → 200 OK, rápido
+ *
+ * La cota del FE es espejo de MAX_AUDIT_RANGE_DAYS del backend. Si divergen, el
+ * usuario se come un 400 que el cliente podía haber evitado.
+ */
 describe('AU-5: cota de rango del barrido', () => {
-  it('rechaza un rango mayor a 30 días antes de pegarle al backend', async () => {
+  it('rechaza un rango mayor a 3 días antes de pegarle al backend', async () => {
     mockSuspicious({ data: { candidates: [], thresholdMinutes: 5 } });
     renderPage();
     await openCandidatesTab();
@@ -303,6 +315,119 @@ describe('AU-5: cota de rango del barrido', () => {
     fireEvent.change(screen.getByLabelText(/desde/i), { target: { value: '2026-01-01' } });
     fireEvent.change(screen.getByLabelText(/hasta/i), { target: { value: '2026-07-26' } });
 
-    expect(screen.getByTestId('range-error')).toHaveTextContent(/30 días/i);
+    expect(screen.getByTestId('range-error')).toHaveTextContent(/3 días/i);
+  });
+
+  it('rechaza 7 días — el rango que en producción daba 504 × 2', async () => {
+    mockSuspicious({ data: { candidates: [], thresholdMinutes: 5 } });
+    renderPage();
+    await openCandidatesTab();
+
+    fireEvent.change(screen.getByLabelText(/desde/i), { target: { value: '2026-07-19' } });
+    fireEvent.change(screen.getByLabelText(/hasta/i), { target: { value: '2026-07-26' } });
+
+    expect(screen.getByTestId('range-error')).toBeInTheDocument();
+  });
+
+  it('con el rango fuera de cota NO dispara la query: el barrido caro ni se intenta', async () => {
+    mockSuspicious({ data: { candidates: [], thresholdMinutes: 5 } });
+    renderPage();
+    await openCandidatesTab();
+
+    fireEvent.change(screen.getByLabelText(/desde/i), { target: { value: '2026-07-19' } });
+    fireEvent.change(screen.getByLabelText(/hasta/i), { target: { value: '2026-07-26' } });
+
+    // El segundo argumento de useSuspiciousClosures es el `enabled`.
+    const lastCall = vi.mocked(useSuspiciousClosures).mock.calls.at(-1);
+    expect(lastCall?.[1]).toBe(false);
+  });
+
+  it('3 días entra: es el techo con evidencia de responder', async () => {
+    mockSuspicious({ data: { candidates: [], thresholdMinutes: 5 } });
+    renderPage();
+    await openCandidatesTab();
+
+    fireEvent.change(screen.getByLabelText(/desde/i), { target: { value: '2026-07-23' } });
+    fireEvent.change(screen.getByLabelText(/hasta/i), { target: { value: '2026-07-26' } });
+
+    expect(screen.queryByTestId('range-error')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * AU-9 — el default arranca en 1 día.
+ *
+ * Semilla vieja: `hoy - 7 días`. Abrir la pestaña disparaba EL RANGO QUE NO RESPONDE
+ * sin que nadie eligiera nada. El default tiene que ser el rango que sabemos que
+ * responde rápido; ampliarlo es una decisión explícita del auditor.
+ */
+describe('AU-9: el rango por defecto es de un día', () => {
+  it('desde y hasta arrancan en el MISMO día', async () => {
+    mockSuspicious({ data: { candidates: [], thresholdMinutes: 5 } });
+    renderPage();
+    await openCandidatesTab();
+
+    const from = screen.getByLabelText(/desde/i) as HTMLInputElement;
+    const to = screen.getByLabelText(/hasta/i) as HTMLInputElement;
+    expect(from.value).toBe(to.value);
+    expect(from.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('el default es válido: la query arranca habilitada, sin range-error', async () => {
+    mockSuspicious({ data: { candidates: [], thresholdMinutes: 5 } });
+    renderPage();
+    await openCandidatesTab();
+
+    expect(screen.queryByTestId('range-error')).not.toBeInTheDocument();
+    const lastCall = vi.mocked(useSuspiciousClosures).mock.calls.at(-1);
+    expect(lastCall?.[1]).toBe(true);
+    expect(lastCall?.[0].from).toBe(lastCall?.[0].to);
+  });
+});
+
+/**
+ * AU-10 — el costo del barrido se avisa ANTES, no se descubre esperando.
+ *
+ * Un rango de 3 días tarda 60-90 s medidos. Un spinner mudo durante minuto y medio
+ * se lee como "se colgó", y el auditor recarga (disparando OTRO barrido en serie
+ * contra IClass). El costo tiene que estar escrito en la pantalla, no en la cabeza
+ * de quien la programó.
+ */
+describe('AU-10: la pantalla avisa que el barrido es caro', () => {
+  it('el costo está a la vista desde el arranque, antes de tocar nada', async () => {
+    mockSuspicious({ data: { candidates: [], thresholdMinutes: 5 } });
+    renderPage();
+    await openCandidatesTab();
+
+    const hint = screen.getByTestId('range-cost-hint');
+    expect(hint.textContent ?? '').toMatch(/en serie|una por una/i);
+    expect(hint.textContent ?? '').toMatch(/segundos|minuto/i);
+  });
+
+  it('al ampliar a un rango caro, el aviso lo dice con el número de días', async () => {
+    mockSuspicious({ data: { candidates: [], thresholdMinutes: 5 } });
+    renderPage();
+    await openCandidatesTab();
+
+    expect(screen.queryByTestId('slow-range-warning')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/desde/i), { target: { value: '2026-07-23' } });
+    fireEvent.change(screen.getByLabelText(/hasta/i), { target: { value: '2026-07-26' } });
+
+    const warn = screen.getByTestId('slow-range-warning');
+    expect(warn).toHaveTextContent(/3 días/i);
+    expect(warn.textContent ?? '').toMatch(/90 s|90 segundos/i);
+  });
+
+  it('el skeleton del barrido caro dice cuánto puede tardar, no es un spinner mudo', async () => {
+    mockSuspicious({ isLoading: true });
+    renderPage();
+    await openCandidatesTab();
+
+    fireEvent.change(screen.getByLabelText(/desde/i), { target: { value: '2026-07-23' } });
+    fireEvent.change(screen.getByLabelText(/hasta/i), { target: { value: '2026-07-26' } });
+
+    const status = within(screen.getByTestId('candidates-skeleton')).getByRole('status');
+    expect(status.textContent ?? '').toMatch(/90 s|90 segundos/i);
   });
 });

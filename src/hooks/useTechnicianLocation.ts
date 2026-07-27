@@ -193,6 +193,18 @@ export function useServiceOrderPresenceAudit(code: string | null) {
  * `enabled` incluye `valid`: el barrido corre un `getServiceOrderHistory` por orden
  * EN SERIE contra IClass — pedirlo con un rango inválido es plata tirada y presión
  * innecesaria sobre una API que también atiende el closure loop.
+ *
+ * ── `retry: false` — por qué esta query se sale del default global ────────────
+ * `main.tsx` pone `retry: 1` para todo, que es lo correcto para una request barata
+ * que puede haber pegado contra un blip de red. Ésta no es barata: son decenas de
+ * llamadas en serie contra IClass. Medido en producción con el default viejo de 7
+ * días, el 504 se reintentaba y daba OTRO 504: ~2 minutos de spinner para terminar
+ * en error, y un segundo barrido lanzado sobre IClass mientras el primero podía
+ * seguir corriendo del lado del servidor.
+ *
+ * Reintentar automáticamente un timeout de una operación cara sólo duplica la
+ * espera y la carga. El reintento acá lo decide una persona (el botón "Reintentar"
+ * del panel), que puede achicar el rango antes de volver a pedir.
  */
 export function useSuspiciousClosures(query: SuspiciousClosuresQuery, valid: boolean) {
   const { can } = useMyPermissions();
@@ -208,6 +220,7 @@ export function useSuspiciousClosures(query: SuspiciousClosuresQuery, valid: boo
     ],
     queryFn: () => technicianLocationApi.suspiciousClosures(query),
     staleTime: 5 * 60_000,
+    retry: false,
     enabled: valid && can(PERM_LOCATION_AUDIT),
   });
 }
