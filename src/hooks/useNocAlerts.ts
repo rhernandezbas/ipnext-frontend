@@ -73,12 +73,42 @@ function applyStreamEvent(qc: QueryClient, event: NocAlertStreamEvent) {
   });
 }
 
+/**
+ * ¿Este frame `firing` representa una alerta NUEVA para el panel?
+ *
+ * NUEVA = el fingerprint no estaba en la lista, O estaba pero NO en `firing`
+ * (resurrección: se resolvió y volvió a disparar — para el operador ESO sí es
+ * un evento nuevo). Un re-anuncio de algo que ya está firing NO lo es.
+ *
+ * Por qué existe: el colector Rust emitía por FLANCO (un evento sólo cuando algo
+ * cambiaba), así que "llegó un frame firing" y "hay una alerta nueva" coincidían
+ * de casualidad. Al pasar a NIVEL — re-anuncia cada fingerprint activo 1× cada
+ * 30 min, y `IngestAlert` publica un evento SSE por cada re-post — dejan de
+ * coincidir: sin este chequeo cada re-anuncio vuelve a marcar la fila y
+ * re-dispara su animación de entrada (~10 filas/min parpadeando sobre alertas
+ * que no cambiaron).
+ *
+ * Se consulta ANTES de `applyStreamEvent`: después el id ya está en la cache con
+ * el estado nuevo y el estado previo — que es justo lo que decide esto — se
+ * perdió.
+ */
+function isNewFiring(qc: QueryClient, alert: NocAlertDto): boolean {
+  const cached = qc.getQueryData<NocAlertDto[]>(nocAlertsKey);
+  const existing = cached?.find((a) => a.id === alert.id);
+  return existing === undefined || existing.status !== 'firing';
+}
+
 interface UseNocAlertsStreamOptions {
   enabled: boolean;
-  /** Disparado en cada frame `firing` — el caller lo usa para marcar la fila
-   *  y disparar la animación de entrada (SOLO en firing: es la única señal
-   *  real de "esto es nuevo/re-disparado", no un heurístico derivado). */
-  onFiring?: (alertId: string) => void;
+  /** Disparado SÓLO cuando un frame `firing` trae una alerta NUEVA para el panel
+   *  (ver `isNewFiring`): fingerprint que no estaba, o resurrección. El caller lo
+   *  usa para marcar la fila y disparar la animación de entrada — por eso NO
+   *  puede ser "cada frame firing": animar de nuevo una fila que no cambió de
+   *  estado es exactamente el parpadeo. Decidirlo acá y no en el caller es
+   *  obligatorio: cuando el callback corre, `applyStreamEvent` ya pisó el estado
+   *  previo en la cache y el caller ya no puede distinguir un alta de un
+   *  re-anuncio. */
+  onNewFiring?: (alertId: string) => void;
 }
 
 /**
@@ -93,11 +123,11 @@ interface UseNocAlertsStreamOptions {
  *   → cierra el stream y devuelve `mode:'polling'`; el caller ata ese modo a
  *   `useNocAlertsList(pollingEnabled)`.
  */
-export function useNocAlertsStream({ enabled, onFiring }: UseNocAlertsStreamOptions): NocAlertsStreamMode {
+export function useNocAlertsStream({ enabled, onNewFiring }: UseNocAlertsStreamOptions): NocAlertsStreamMode {
   const qc = useQueryClient();
   const [mode, setMode] = useState<NocAlertsStreamMode>('connecting');
-  const onFiringRef = useRef(onFiring);
-  onFiringRef.current = onFiring;
+  const onNewFiringRef = useRef(onNewFiring);
+  onNewFiringRef.current = onNewFiring;
 
   useEffect(() => {
     if (!enabled) return;
@@ -124,8 +154,11 @@ export function useNocAlertsStream({ enabled, onFiring }: UseNocAlertsStreamOpti
       if (cancelled) return;
       try {
         const parsed = JSON.parse(ev.data) as NocAlertStreamEvent;
+        // El orden importa: `isNewFiring` compara contra el estado que la cache
+        // tiene TODAVÍA; `applyStreamEvent` lo pisa en la línea siguiente.
+        const isNew = parsed.type === 'firing' && isNewFiring(qc, parsed.alert);
         applyStreamEvent(qc, parsed);
-        if (parsed.type === 'firing') onFiringRef.current?.(parsed.alert.id);
+        if (isNew) onNewFiringRef.current?.(parsed.alert.id);
       } catch {
         // Frame malformado — se ignora; el próximo evento/heartbeat sigue llegando.
       }

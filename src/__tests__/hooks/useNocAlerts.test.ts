@@ -7,9 +7,13 @@
  *         reconcilia con invalidate en onSettled (éxito Y error).
  *  NOCH-3 useNocAlertsStream: onopen (inicial O reconexión) → invalida la
  *         lista para reconciliar (spec.md "reconciles via full refetch").
- *  NOCH-4 onmessage 'firing' con id nuevo → upsert al tope + onFiring(id).
+ *  NOCH-4 onmessage 'firing' con id nuevo → upsert al tope + onNewFiring(id).
  *  NOCH-5 onmessage 'acked'/'resolved' sobre id existente → reemplaza in-place,
  *         no reordena.
+ *  NOCH-8 onmessage 'firing' sobre una alerta que YA está firing (re-anuncio por
+ *         NIVEL del colector) → patchea la cache pero NO llama a onNewFiring.
+ *  NOCH-9 onmessage 'firing' sobre una alerta 'resolved' (resurrección) → SÍ
+ *         llama a onNewFiring: para el operador es un evento nuevo.
  *  NOCH-6 onerror transiente (vuelve a OPEN antes de la ventana de gracia) →
  *         se queda en 'live', NUNCA polling.
  *  NOCH-7 onerror persistente (sigue sin OPEN pasados 5s) → mode 'polling' +
@@ -216,11 +220,11 @@ describe('NOCH-3/4/5 useNocAlertsStream', () => {
     expect(invalidateSpy).toHaveBeenCalledTimes(2);
   });
 
-  it('firing frame with a new id is upserted at the top and onFiring fires', () => {
+  it('firing frame with a new id is upserted at the top and onNewFiring fires', () => {
     const qc = makeQC();
     qc.setQueryData(nocAlertsKey, [makeAlert({ id: 'old' })]);
-    const onFiring = vi.fn();
-    renderHook(() => useNocAlertsStream({ enabled: true, onFiring }), { wrapper: wrapper(qc) });
+    const onNewFiring = vi.fn();
+    renderHook(() => useNocAlertsStream({ enabled: true, onNewFiring }), { wrapper: wrapper(qc) });
 
     const fresh = makeAlert({ id: 'new-1' });
     act(() => FakeEventSource.instances[0]!.message({ type: 'firing', alert: fresh }));
@@ -228,7 +232,7 @@ describe('NOCH-3/4/5 useNocAlertsStream', () => {
     const cached = qc.getQueryData<NocAlertDto[]>(nocAlertsKey);
     expect(cached?.[0]?.id).toBe('new-1');
     expect(cached).toHaveLength(2);
-    expect(onFiring).toHaveBeenCalledWith('new-1');
+    expect(onNewFiring).toHaveBeenCalledWith('new-1');
   });
 
   it('acked frame on an existing id replaces it in place (no reorder)', () => {
@@ -243,6 +247,38 @@ describe('NOCH-3/4/5 useNocAlertsStream', () => {
     expect(cached).toHaveLength(2);
     expect(cached?.[1]?.id).toBe('a2');
     expect(cached?.[1]?.acknowledged).toBe(true);
+  });
+
+  it('NOCH-8 firing frame on an alert ALREADY firing patches the cache but does NOT re-announce it as new', () => {
+    const qc = makeQC();
+    const yaFiring = makeAlert({ id: 'a1', status: 'firing' });
+    qc.setQueryData(nocAlertsKey, [yaFiring]);
+    const onNewFiring = vi.fn();
+    renderHook(() => useNocAlertsStream({ enabled: true, onNewFiring }), { wrapper: wrapper(qc) });
+
+    // Re-anuncio por NIVEL del colector: mismo fingerprint, mismo estado, sólo
+    // avanza `updatedAt`. La cache SÍ se actualiza (el dato es más fresco), pero
+    // para el panel no pasó NADA nuevo.
+    const reanuncio = { ...yaFiring, updatedAt: '2026-07-24T10:30:00.000Z' };
+    act(() => FakeEventSource.instances[0]!.message({ type: 'firing', alert: reanuncio }));
+
+    const cached = qc.getQueryData<NocAlertDto[]>(nocAlertsKey);
+    expect(cached).toHaveLength(1);
+    expect(cached?.[0]?.updatedAt).toBe('2026-07-24T10:30:00.000Z');
+    expect(onNewFiring).not.toHaveBeenCalled();
+  });
+
+  it('NOCH-9 firing frame on an alert that was RESOLVED is a resurrection → announced as new', () => {
+    const qc = makeQC();
+    const resuelta = makeAlert({ id: 'a1', status: 'resolved', endsAt: '2026-07-24T10:20:00.000Z' });
+    qc.setQueryData(nocAlertsKey, [resuelta]);
+    const onNewFiring = vi.fn();
+    renderHook(() => useNocAlertsStream({ enabled: true, onNewFiring }), { wrapper: wrapper(qc) });
+
+    const revive = { ...resuelta, status: 'firing' as const, endsAt: null };
+    act(() => FakeEventSource.instances[0]!.message({ type: 'firing', alert: revive }));
+
+    expect(onNewFiring).toHaveBeenCalledWith('a1');
   });
 
   it('NOCH-6 transient error (recovers to OPEN before grace) stays live, never polls', () => {

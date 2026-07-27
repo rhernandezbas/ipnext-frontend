@@ -593,9 +593,12 @@ export default function AlertsPage() {
 
   const ack = useAcknowledgeNocAlert();
 
+  // `onNewFiring` (no "cada frame firing"): el hook ya filtró los re-anuncios
+  // del colector contra el estado que la lista tenía, así que acá SOLO llegan
+  // altas y resurrecciones. Ver `isNewFiring` en useNocAlerts.ts.
   const streamMode = useNocAlertsStream({
     enabled: true,
-    onFiring: (alertId) => {
+    onNewFiring: (alertId) => {
       setEnteringIds((prev) => new Set(prev).add(alertId));
       setTimeout(() => {
         setEnteringIds((prev) => {
