@@ -427,10 +427,12 @@ describe('W3: adopción manual (pendiente → elegir router en Editar)', () => {
     expect(screen.queryByText(/no se pudo guardar los cambios/i)).toBeNull();
   });
 
-  it('404 NO_POOL_FOR_NAS_TYPE del move → mensaje mapeado (sin pool CGNAT)', async () => {
+  // pppoe-move-ip-kind-aware: fixture con el texto REAL del error del dominio (antes usaba un
+  // 'no pool' inventado). El mensaje ahora nombra la clase que falta, no CGNAT a la fuerza.
+  it('404 NO_POOL_FOR_NAS_TYPE del move → mensaje mapeado que nombra la clase faltante', async () => {
     const user = userEvent.setup();
     const err = Object.assign(new Error('not found'), {
-      response: { status: 404, data: { code: 'NO_POOL_FOR_NAS_TYPE', error: 'no pool' } },
+      response: { status: 404, data: { code: 'NO_POOL_FOR_NAS_TYPE', error: "El NAS nas-2 no tiene un pool 'public'" } },
     });
     setupMocks({ contractPppoe: [pendingPppoe], moveMutateAsync: vi.fn().mockRejectedValue(err) });
     renderPanel();
@@ -438,7 +440,7 @@ describe('W3: adopción manual (pendiente → elegir router en Editar)', () => {
     await editAndPickRouter(user, 'nas-2');
 
     await waitFor(() => {
-      expect(screen.getByText('El NAS destino no tiene pool CGNAT configurado.')).toBeInTheDocument();
+      expect(screen.getByText('El NAS destino no tiene pool de IPs públicas configurado.')).toBeInTheDocument();
     });
     expect(screen.queryByText(/no se pudo guardar los cambios/i)).toBeNull();
   });

@@ -319,13 +319,33 @@ describe('MoveNasModal — errores tipados', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
-  it('404 NO_POOL_FOR_NAS_TYPE → "El NAS destino no tiene pool CGNAT configurado"', async () => {
-    setup(vi.fn().mockRejectedValue(httpError(404, { code: 'NO_POOL_FOR_NAS_TYPE', error: 'no pool' })));
+  // pppoe-move-ip-kind-aware: el mensaje ya NO hardcodea "CGNAT" — se deriva de la clase que
+  // el BE nombra en el error. El fixture usa el texto REAL del dominio
+  // (`El NAS <id> no tiene un pool '<kind>'`); antes usaba un 'no pool' inventado que ningún
+  // backend manda, y por eso la aserción del mensaje hardcodeado pasaba sin ser fiel.
+  it('404 NO_POOL_FOR_NAS_TYPE con clase cgnat → mensaje que nombra las privadas', async () => {
+    setup(vi.fn().mockRejectedValue(httpError(404, {
+      code: 'NO_POOL_FOR_NAS_TYPE', error: "El NAS nas-2 no tiene un pool 'cgnat'",
+    })));
     const dialog = await openMoveModal();
     await selectDestinoYMover(dialog);
 
     await waitFor(() => {
-      expect(within(dialog).getByRole('alert')).toHaveTextContent(/el nas destino no tiene pool cgnat configurado/i);
+      expect(within(dialog).getByRole('alert')).toHaveTextContent(/privadas \(cgnat\)/i);
+    });
+  });
+
+  it('404 NO_POOL_FOR_NAS_TYPE con clase public → mensaje que nombra las públicas, NO CGNAT', async () => {
+    setup(vi.fn().mockRejectedValue(httpError(404, {
+      code: 'NO_POOL_FOR_NAS_TYPE', error: "El NAS nas-2 no tiene un pool 'public'",
+    })));
+    const dialog = await openMoveModal();
+    await selectDestinoYMover(dialog);
+
+    await waitFor(() => {
+      const alert = within(dialog).getByRole('alert');
+      expect(alert).toHaveTextContent(/públicas/i);
+      expect(alert).not.toHaveTextContent(/cgnat/i);
     });
   });
 

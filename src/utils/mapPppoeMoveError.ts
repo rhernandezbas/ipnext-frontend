@@ -33,8 +33,21 @@ export function mapPppoeMoveError(err: unknown): string {
   switch (r?.data?.code) {
     case 'NO_FREE_IP':
       return 'El pool del NAS destino no tiene IPs libres.';
-    case 'NO_POOL_FOR_NAS_TYPE':
-      return 'El NAS destino no tiene pool CGNAT configurado.';
+    /**
+     * pppoe-move-ip-kind-aware: el mensaje ya NO hardcodea "CGNAT".
+     *
+     * El error del dominio viene parametrizado (`El NAS <id> no tiene un pool '<cgnat|public>'`)
+     * pero el FE lo aplanaba a CGNAT siempre. Acertaba por casualidad mientras el move pedía
+     * cgnat a la fuerza; con la resolución por destino y el camino de adopción, la clase puede
+     * ser `public` y el mensaje mentiría — mandando al operador a buscar un pool CGNAT que no
+     * es el problema.
+     */
+    case 'NO_POOL_FOR_NAS_TYPE': {
+      const raw = r?.data?.error ?? '';
+      if (raw.includes("'public'")) return 'El NAS destino no tiene pool de IPs públicas configurado.';
+      if (raw.includes("'cgnat'"))  return 'El NAS destino no tiene pool de IPs privadas (CGNAT) configurado.';
+      return 'El NAS destino no tiene un pool del tipo de IP requerido.';
+    }
     // 404s: mensaje propio en español — el `error` crudo del BE viene en inglés.
     case 'PPPOE_NOT_FOUND':
       return 'El servicio PPPoE ya no existe (¿fue dado de baja?).';
