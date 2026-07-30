@@ -22,6 +22,7 @@ import { isEligiblePlan } from '@/utils/plans';
 import { useNasServers, useNextFreeIp } from '@/hooks/useNas';
 import { mapPppoeMoveError } from '@/utils/mapPppoeMoveError';
 import type { IpType } from '@/api/nas.api';
+import type { NasServer } from '@/types/nas';
 import type { ContractService } from '@/types/customer';
 import type { PppoeServiceDto } from '@/types/pppoe';
 import styles from './InternetPanel.module.css';
@@ -267,7 +268,8 @@ function CreatePppoeForm({
 }: {
   contractId: string;
   clientId: string | number;
-  nasServers: { id: string; name: string }[];
+  /** pppoe-move-ip-kind-aware: `supportedIpKinds` viaja para ofrecer solo los tipos que el NAS soporta. */
+  nasServers: Pick<NasServer, 'id' | 'name' | 'supportedIpKinds'>[];
 }) {
   const create = useCreatePppoe(contractId, clientId);
   const plansQuery = usePlans();
@@ -296,6 +298,27 @@ function CreatePppoeForm({
   const isNoRouter = form.nasId === NO_ROUTER_VALUE;
 
   const ipQuery = useNextFreeIp(isNoRouter ? null : (form.nasId || null), ipType);
+
+  /**
+   * pppoe-move-ip-kind-aware: clases que el NAS elegido soporta (derivadas en el BE de sus pools).
+   * Con "Sin router" NO se filtra: en pre-provisión la clase es una INTENCIÓN a futuro y el NAS
+   * lo resuelve la adopción, así que las dos opciones son legítimas. Ausente/vacío ⇒ ambas.
+   */
+  const createNasKinds = isNoRouter
+    ? undefined
+    : nasServers.find((n) => n.id === form.nasId)?.supportedIpKinds;
+  const allowedIpTypes: IpType[] =
+    createNasKinds && createNasKinds.length > 0 ? createNasKinds : ['cgnat', 'public'];
+
+  /** Si el NAS soporta una sola clase queda fijada; si la elegida deja de valer, se limpia. */
+  useEffect(() => {
+    if (allowedIpTypes.length === 1) {
+      if (ipType !== allowedIpTypes[0]) setIpType(allowedIpTypes[0]);
+    } else if (ipType && !allowedIpTypes.includes(ipType)) {
+      setIpType(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.nasId, allowedIpTypes.join(','), ipType]);
 
   /**
    * Single effect that runs whenever the selection (nasId, ipType) OR the query
@@ -495,24 +518,30 @@ function CreatePppoeForm({
               aria-label="Tipo de IP"
               aria-describedby={!ipType ? 'pppoe-iptype-hint' : undefined}
             >
-              <button
-                type="button"
-                className={`${styles.ipTypeBtn} ${ipType === 'cgnat' ? styles.ipTypeBtnActive : ''}`}
-                onClick={() => setIpType('cgnat')}
-                disabled={create.isPending}
-                aria-pressed={ipType === 'cgnat'}
-              >
-                Privada
-              </button>
-              <button
-                type="button"
-                className={`${styles.ipTypeBtn} ${ipType === 'public' ? styles.ipTypeBtnActive : ''}`}
-                onClick={() => setIpType('public')}
-                disabled={create.isPending}
-                aria-pressed={ipType === 'public'}
-              >
-                Pública
-              </button>
+              {/* pppoe-move-ip-kind-aware: mismo filtrado que el form de Editar. Sin esto, elegir
+                  "Privada" + NE8000 al CREAR falla igual (el NAS no tiene pools cgnat). */}
+              {allowedIpTypes.includes('cgnat') && (
+                <button
+                  type="button"
+                  className={`${styles.ipTypeBtn} ${ipType === 'cgnat' ? styles.ipTypeBtnActive : ''}`}
+                  onClick={() => setIpType('cgnat')}
+                  disabled={create.isPending}
+                  aria-pressed={ipType === 'cgnat'}
+                >
+                  Privada
+                </button>
+              )}
+              {allowedIpTypes.includes('public') && (
+                <button
+                  type="button"
+                  className={`${styles.ipTypeBtn} ${ipType === 'public' ? styles.ipTypeBtnActive : ''}`}
+                  onClick={() => setIpType('public')}
+                  disabled={create.isPending}
+                  aria-pressed={ipType === 'public'}
+                >
+                  Pública
+                </button>
+              )}
             </div>
             {!ipType && (
               <p id="pppoe-iptype-hint" className={styles.fieldHint}>
@@ -740,7 +769,8 @@ function ActivePppoeView({
   contractId: string;
   clientId: string | number;
   pppoe: PppoeServiceDto;
-  nasServers: { id: string; name: string }[];
+  /** pppoe-move-ip-kind-aware: `supportedIpKinds` viaja para ofrecer solo los tipos que el NAS soporta. */
+  nasServers: Pick<NasServer, 'id' | 'name' | 'supportedIpKinds'>[];
   onBaja: (outcome: 'full' | 'partial') => void;
   /** service-transfer W4 — abre el modal de transferencia en el PARENT (snapshot del DTO). */
   onRequestTransfer: (pppoe: PppoeServiceDto) => void;
@@ -773,6 +803,34 @@ function ActivePppoeView({
   const [editIpAutoFilled, setEditIpAutoFilled] = useState(false);
 
   const editIpQuery = useNextFreeIp(editing ? editForm.nasId : null, editIpType);
+
+  /**
+   * pppoe-move-ip-kind-aware: clases de IP que el NAS seleccionado puede asignar (derivadas en el
+   * BE de sus pools). Se ofrecen SOLO esas — el NE8000 quedó 100% público, mostrar "Privada" ahí
+   * es ofrecer algo que no existe.
+   *
+   * AUSENTE o VACÍO ⇒ "no determinado" → se muestran AMBAS y el BE rechaza si la combinación es
+   * inválida. Esconder las dos bloquearía al operador por un fallo de lectura ajeno a su
+   * intención; un error claro del backend es preferible a un formulario muerto.
+   */
+  const editNasKinds = nasServers.find((n) => n.id === editForm.nasId)?.supportedIpKinds;
+  const editAllowedIpTypes: IpType[] =
+    editNasKinds && editNasKinds.length > 0 ? editNasKinds : ['cgnat', 'public'];
+
+  /**
+   * Si el NAS soporta UNA sola clase, queda fijada (no hay elección que ofrecer). Y si la clase
+   * elegida deja de ser válida al cambiar de router, se corrige — un `editIpType` que el NAS no
+   * soporta pediría una IP de un pool inexistente y el sugeridor quedaría en error permanente.
+   */
+  useEffect(() => {
+    if (!editing) return;
+    if (editAllowedIpTypes.length === 1) {
+      if (editIpType !== editAllowedIpTypes[0]) setEditIpType(editAllowedIpTypes[0]);
+    } else if (editIpType && !editAllowedIpTypes.includes(editIpType)) {
+      setEditIpType(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, editForm.nasId, editAllowedIpTypes.join(','), editIpType]);
 
   /**
    * Mismo patrón que CreatePppoeForm: fill solo si la IP está vacía o fue
@@ -811,6 +869,23 @@ function ActivePppoeView({
     try {
       // Con nasId null (pendiente), elegir un router acá = adopción manual (move).
       const nasChanged = editForm.nasId !== (pppoe.nasId ?? '');
+      const claseCambio = !!editIpType && editIpType !== pppoe.ipTypePreference;
+
+      /**
+       * pppoe-move-ip-kind-aware (hallazgo del review adversarial) — ORDEN en la ADOPCIÓN.
+       *
+       * La adopción de un pendiente resuelve el pool con el `ipTypePreference` PERSISTIDO. Si el
+       * operador elige "Pública" Y un router a la vez, `nasChanged` es true y la preferencia se
+       * mandaba DESPUÉS del move (o no se mandaba) ⇒ la adopción usaba la clase vieja y el cliente
+       * recibía una CGNAT sin ningún error visible. Falla silenciosa.
+       *
+       * Fix: en un pendiente la preferencia se persiste ANTES del move. El BE permite ese update
+       * sobre un pendiente justamente para esto (excepción acotada al guard de pendientes).
+       */
+      if (isPendingInstall && claseCambio) {
+        await update.mutateAsync({ id: pppoe.id, body: { ipTypePreference: editIpType! } });
+      }
+
       if (nasChanged && editForm.nasId) {
         try {
           await move.mutateAsync({ id: pppoe.id, nasId: editForm.nasId });
@@ -821,9 +896,22 @@ function ActivePppoeView({
           return;
         }
       }
-      const updateBody: { password?: string; remoteAddress?: string } = {};
+      const updateBody: { password?: string; remoteAddress?: string; ipTypePreference?: IpType } = {};
       if (editForm.password) updateBody.password = editForm.password;
       if (editForm.remoteAddress !== (pppoe.remoteAddress ?? '')) updateBody.remoteAddress = editForm.remoteAddress.trim() || undefined;
+      /**
+       * pppoe-move-ip-kind-aware: la clase de IP se manda SOLO si NO hubo move.
+       *
+       * Con move, el BE ya resolvió la clase contra los pools del NAS destino y la persistió; un
+       * update posterior con la clase la PISARÍA con lo que el operador tenía seleccionado, que
+       * puede no ser lo que el destino soporta. El destino manda. Este es exactamente el
+       * passthrough frágil de la lección #28 — pineado con test.
+       */
+      // Ya persistida arriba en el caso pendiente-con-adopción; acá cubre el servicio YA instalado
+      // que cambia de clase SIN cambiar de router.
+      if (!nasChanged && claseCambio) {
+        updateBody.ipTypePreference = editIpType!;
+      }
       const hasChanges = Object.keys(updateBody).length > 0;
       if (hasChanges) {
         await update.mutateAsync({ id: pppoe.id, body: updateBody });
@@ -1026,26 +1114,38 @@ function ActivePppoeView({
                   {/* Tipo de IP — toggle Privada / Pública (igual al form de crear) */}
                   <div className={styles.field}>
                     <span className={styles.fieldLabel}>Tipo de IP</span>
+                    {/* pppoe-move-ip-kind-aware: solo los tipos que el NAS elegido soporta. */}
                     <div className={styles.ipTypeToggle} role="group" aria-label="Tipo de IP">
-                      <button
-                        type="button"
-                        className={`${styles.ipTypeBtn} ${editIpType === 'cgnat' ? styles.ipTypeBtnActive : ''}`}
-                        onClick={() => { setEditIpType('cgnat'); setEditIpAutoFilled(false); }}
-                        disabled={isPending}
-                        aria-pressed={editIpType === 'cgnat'}
-                      >
-                        Privada
-                      </button>
-                      <button
-                        type="button"
-                        className={`${styles.ipTypeBtn} ${editIpType === 'public' ? styles.ipTypeBtnActive : ''}`}
-                        onClick={() => { setEditIpType('public'); setEditIpAutoFilled(false); }}
-                        disabled={isPending}
-                        aria-pressed={editIpType === 'public'}
-                      >
-                        Pública
-                      </button>
+                      {editAllowedIpTypes.includes('cgnat') && (
+                        <button
+                          type="button"
+                          className={`${styles.ipTypeBtn} ${editIpType === 'cgnat' ? styles.ipTypeBtnActive : ''}`}
+                          onClick={() => { setEditIpType('cgnat'); setEditIpAutoFilled(false); }}
+                          disabled={isPending}
+                          aria-pressed={editIpType === 'cgnat'}
+                        >
+                          Privada
+                        </button>
+                      )}
+                      {editAllowedIpTypes.includes('public') && (
+                        <button
+                          type="button"
+                          className={`${styles.ipTypeBtn} ${editIpType === 'public' ? styles.ipTypeBtnActive : ''}`}
+                          onClick={() => { setEditIpType('public'); setEditIpAutoFilled(false); }}
+                          disabled={isPending}
+                          aria-pressed={editIpType === 'public'}
+                        >
+                          Pública
+                        </button>
+                      )}
                     </div>
+                    {editAllowedIpTypes.length === 1 && (
+                      <p className={styles.hint}>
+                        {editAllowedIpTypes[0] === 'public'
+                          ? 'Este router solo asigna IPs públicas.'
+                          : 'Este router solo asigna IPs privadas.'}
+                      </p>
+                    )}
                   </div>
 
                   {/* IP remota — con feedback de auto-asignación */}

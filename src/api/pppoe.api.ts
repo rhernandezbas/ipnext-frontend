@@ -106,6 +106,15 @@ export interface UpdatePppoeBody {
   password?: string;
   remoteAddress?: string;
   status?: string;
+  /**
+   * pppoe-move-ip-kind-aware: clase de IP elegida por el operador. CONTRATO DEL WIRE, campo por
+   * campo, espejo del `UpdatePppoeBodySchema` del BE (`z.enum(['cgnat','public']).optional()`).
+   *
+   * Semántica del BE: OMITIDO ⇒ no se toca. CON NAS y la clase cambia ⇒ el BE AUTO-ASIGNA una IP
+   * del pool de la clase nueva (para no dejar el servicio marcado 'public' con una CGNAT viva).
+   * SIN NAS (pendiente) ⇒ solo se persiste la intención; la IP la resuelve la adopción.
+   */
+  ipTypePreference?: IpTypePreference;
   reason?: string | null;
 }
 
