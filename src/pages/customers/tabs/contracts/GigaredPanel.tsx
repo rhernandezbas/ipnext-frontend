@@ -25,6 +25,7 @@ import { GigaredNotConfigured } from '@/components/molecules/GigaredNotConfigure
 import { ServiceRemovalReasonModal } from '@/components/molecules/ServiceRemovalReasonModal/ServiceRemovalReasonModal';
 import { formatDateShort } from '@/utils/formatDate';
 import { LinkAccountPickerModal } from './LinkAccountPickerModal';
+import { registerErrorView } from './registerErrorView';
 import type { Contract, ContractService } from '@/types/customer';
 import type {
   GigaredAccount,
@@ -736,43 +737,19 @@ function UnlinkedView({
       // "email already in use"). There is no dedicated ACCOUNT_EXISTS code —
       // surface the partner's detail verbatim, with a generic fallback.
       // #109 — NO_CIC_AVAILABLE: 422 cuando el pool de CICs está agotado → modal dedicado.
+      // gigared-tv-cic-reuse — todo el mapeo código→(mensaje, tono, acción) vive ahora en
+      // `registerErrorView`, una función PURA y testeada. Antes estaba inline acá dentro del
+      // catch y por eso no tenía ni un test; de paso, los códigos nuevos del backend
+      // (TV_NO_USABLE_CIC / TV_POOL_UNAVAILABLE) caían al fallback genérico que dice
+      // "Reintentá" — mentira frente a un 422 que jamás se resuelve reintentando.
       const c = errorCode(err);
-      const detail = errorDetail(err);
-      if (c === 'NO_CIC_AVAILABLE') {
+      const view = registerErrorView(c, errorDetail(err));
+      if (view.poolExhaustedModal) {
         setNoCicModalOpen(true);
         return;
       }
       setRegisterErrorCode(c);
-      // FE-1a (422, D6) — condición de DATOS, no transitoria: no hay botón de
-      // reintentar (reintentar en loop no ayuda hasta limpiar el pool a mano).
-      if (c === 'TV_POOL_POISONED') {
-        setRegisterError(
-          'No hay CICs limpios en el pool de Gigared; hace falta limpiar el pool antes de dar altas.',
-        );
-        return;
-      }
-      // FE-1b (503, D6) — el readback post-stamp no confirmó la identidad: es
-      // transitorio, el retry se auto-completa vía el recovery del BE (D2).
-      if (c === 'TV_IDENTITY_UNVERIFIED') {
-        setRegisterError('No se pudo verificar la identidad en Gigared. Reintentá.');
-        return;
-      }
-      // FE-2 (409, D6) — el email determinístico ya está bindeado a OTRA cuenta.
-      // El error NO trae `cic` (solo email/ownedByInternalId): el operador completa
-      // el CIC a mano en el flujo de vincular ya existente (limitación documentada).
-      if (c === 'TV_EMAIL_OWNED_BY_OTHER') {
-        setRegisterError('Ya existe una cuenta de TV con este email, vinculada a otro cliente.');
-        return;
-      }
-      // #47g-3 — surface the partner `detail` whenever it comes (422 reject OR
-      // 502/503 upstream), with a generic fallback when it does not.
-      setRegisterError(
-        c === 'GIGARED_REJECTED'
-          ? (detail ?? 'Gigared rechazó el registro. Revisá los datos.')
-          : detail
-            ? `No se pudo registrar: ${detail}`
-            : 'No se pudo registrar la cuenta. Reintentá.',
-      );
+      setRegisterError(view.message);
     }
   }
 
@@ -993,16 +970,18 @@ function UnlinkedView({
             {registerError && (
               <div
                 className={`${styles.banner} ${
-                  registerErrorCode === 'TV_IDENTITY_UNVERIFIED' ||
-                  registerErrorCode === 'TV_EMAIL_OWNED_BY_OTHER'
+                  // gigared-tv-cic-reuse — el TONO y la ACCIÓN salen de la misma función pura
+                  // que el mensaje, así no pueden divergir del código de error. El `detail` no
+                  // hace falta acá: ninguna rama lo usa para decidir tono ni acción.
+                  registerErrorView(registerErrorCode).tone === 'warning'
                     ? styles.bannerWarning
                     : styles.bannerError
                 }`}
               >
                 <span>{registerError}</span>
-                {/* FE-1b (503 TV_IDENTITY_UNVERIFIED) — transitorio: el retry re-postea
-                    el MISMO payload y se auto-completa vía el recovery del BE (D2). */}
-                {registerErrorCode === 'TV_IDENTITY_UNVERIFIED' && (
+                {/* Transitorio (503) — el retry re-postea el MISMO payload y se auto-completa
+                    vía el recovery del BE (D2). Un 4xx de DATOS jamás ofrece este botón. */}
+                {registerErrorView(registerErrorCode).action === 'retry' && (
                   <button
                     type="button"
                     className={styles.btnLink}
@@ -1017,7 +996,7 @@ function UnlinkedView({
                     fix wave F2 — el banner del register ya cumplió su función (el
                     operador ya leyó el mensaje); dejarlo colgado mientras completa
                     el link es ruido. Se limpia al saltar. */}
-                {registerErrorCode === 'TV_EMAIL_OWNED_BY_OTHER' && (
+                {registerErrorView(registerErrorCode).action === 'link' && (
                   <button
                     type="button"
                     className={styles.btnLink}
