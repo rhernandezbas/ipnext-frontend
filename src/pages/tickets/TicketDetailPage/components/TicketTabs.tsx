@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Tabs } from '@/components/molecules/Tabs/Tabs';
-import { TicketCommentsTimeline } from './TicketCommentsTimeline';
+import { TicketMessagingThread } from './messaging/TicketMessagingThread';
 import type { RelatedTask } from '@/types/ticket';
 import styles from './TicketTabs.module.css';
 
@@ -62,7 +62,7 @@ export function TicketTabs({ ticketId, description, reporterName, createdAt, tas
       id: TAB_IDS.conversacion,
       label: 'Conversación',
       content: (
-        <TicketCommentsTimeline
+        <TicketMessagingThread
           ticketId={ticketId}
           description={description}
           reporterName={reporterName}

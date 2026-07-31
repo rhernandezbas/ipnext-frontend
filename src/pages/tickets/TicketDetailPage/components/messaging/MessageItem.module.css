@@ -1,0 +1,144 @@
+/**
+ * MessageItem — 3 lanes visuales (ticket-messaging-ui, golden rule). Mismos
+ * tokens/valores que `MessageBubble.module.css` (WhatsApp inbox, contraste
+ * WCAG 2.1 YA verificado en ese módulo): --color-note-* para la nota interna,
+ * --color-primary-hover/--color-white para la respuesta pública del staff
+ * (outbound), --color-gray-100/--color-text-primary para el mensaje del
+ * cliente (inbound). Reusar los MISMOS tokens (no un hex nuevo) es lo que
+ * mantiene la garantía de contraste sin tener que re-derivarla acá — ver
+ * MessageItem.contrast.test.tsx, que reafirma que este módulo usa esos
+ * mismos tokens.
+ */
+
+.row {
+  display: flex;
+  margin-bottom: var(--space-2);
+}
+
+.row.client {
+  justify-content: flex-start;
+}
+
+.row.staff {
+  justify-content: flex-end;
+}
+
+.row.note {
+  justify-content: stretch;
+}
+
+.bubble {
+  max-width: 70%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  word-break: break-word;
+}
+
+.client .bubble {
+  background-color: var(--color-gray-100);
+  color: var(--color-text-primary);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+.staff .bubble {
+  /* Mismo criterio de contraste que MessageBubble.module.css (outbound):
+     --color-primary-hover en vez de --color-primary da margen real para que
+     el .time a opacity < 1 siga cumpliendo >= 4.5:1. */
+  background-color: var(--color-primary-hover);
+  color: var(--color-white);
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.note .bubble {
+  max-width: 100%;
+  width: 100%;
+  background-color: var(--color-note-bg);
+  color: var(--color-note-fg);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-note-accent);
+}
+
+.noteHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: 2px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-note-fg);
+}
+
+.noteIcon {
+  flex-shrink: 0;
+  color: var(--color-note-accent);
+}
+
+.meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.sender {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  opacity: 0.92;
+}
+
+.time {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.body {
+  margin: var(--space-1) 0 0;
+  white-space: pre-wrap;
+}
+
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* ── Motion — burbuja nueva. Mismo patrón que MessageBubble (WhatsApp inbox):
+   translateY(8px)->0 + opacity, 220ms var(--ease-out); reduced-motion cae a
+   un fade corto sin desplazamiento. */
+@keyframes ticketMsgEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.row.enter {
+  animation: ticketMsgEnter 220ms var(--ease-out) both;
+}
+
+@keyframes ticketMsgEnterReduced {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row.enter {
+    animation-name: ticketMsgEnterReduced;
+    animation-duration: 200ms;
+    animation-timing-function: ease;
+    animation-fill-mode: both;
+  }
+}

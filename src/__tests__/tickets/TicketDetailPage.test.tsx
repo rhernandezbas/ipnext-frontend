@@ -10,6 +10,7 @@ import * as useMyPermissionsModule from '@/hooks/useMyPermissions';
 import * as useRbacUsersModule from '@/hooks/useRbacUsers';
 import * as useAuthModule from '@/hooks/useAuth';
 import * as useTicketCommentsModule from '@/hooks/useTicketComments';
+import * as useTicketMessagesModule from '@/hooks/useTicketMessages';
 import type { Ticket } from '@/types/ticket';
 import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
@@ -19,6 +20,7 @@ vi.mock('@/hooks/useMyPermissions');
 vi.mock('@/hooks/useRbacUsers');
 vi.mock('@/hooks/useAuth');
 vi.mock('@/hooks/useTicketComments');
+vi.mock('@/hooks/useTicketMessages');
 vi.mock('@/hooks/useTicketAreas', () => ({
   useTicketAreas: () => ({ data: [{ id: 'area-1', name: 'Soporte' }] }),
 }));
@@ -125,7 +127,7 @@ describe('TicketDetailPage (Prominense layout)', () => {
     } as unknown as ReturnType<typeof useMyPermissionsModule.useMyPermissions>);
     vi.mocked(useMyPermissionsModule.useCan).mockReturnValue(true);
 
-    // TicketCommentsTimeline (Conversación tab) deps.
+    // TicketMessagingThread (Conversación tab) deps.
     vi.mocked(useAuthModule.useAuth).mockReturnValue({
       user: { id: 1, username: 'admin', email: 'a@x.com', displayName: 'Admin', role: 'admin', permissions: [] },
       isLoading: false,
@@ -134,6 +136,10 @@ describe('TicketDetailPage (Prominense layout)', () => {
     } as unknown as ReturnType<typeof useAuthModule.useAuth>);
     vi.mocked(useTicketCommentsModule.useTicketComments).mockReturnValue(mockQuery({ data: [], isLoading: false }));
     vi.mocked(useTicketCommentsModule.useAddTicketComment).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as unknown as ReturnType<typeof useTicketCommentsModule.useAddTicketComment>);
+
+    // TicketMessagingThread (Conversación tab) — mensajería nueva (ticket-messaging-ui).
+    vi.mocked(useTicketMessagesModule.useTicketUnreadCount).mockReturnValue(mockQuery({ data: 0, isLoading: false }));
+    vi.mocked(useTicketMessagesModule.useSendStaffTicketReply).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as unknown as ReturnType<typeof useTicketMessagesModule.useSendStaffTicketReply>);
   });
 
   it('renders ticket subject in the header', () => {
