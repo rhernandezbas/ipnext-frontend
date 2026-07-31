@@ -173,7 +173,12 @@ export function NoteComposer({ ticketId, authorName }: Props) {
         id="ticket-note-body"
         className={styles.textarea}
         value={body}
-        onChange={(e) => setBody(e.target.value)}
+        onChange={(e) => {
+          setBody(e.target.value);
+          // M4 (fix wave) — mismo fix que PublicReplyComposer: el feedback de
+          // éxito no puede sobrevivir al inicio de un draft nuevo.
+          if (feedback) setFeedback(null);
+        }}
         onPaste={handlePaste}
         placeholder="Escribí una nota interna… (pegá una imagen con Ctrl+V)"
       />
@@ -234,7 +239,9 @@ export function NoteComposer({ ticketId, authorName }: Props) {
         )}
       </div>
 
-      <p className={styles.hint} aria-live="polite">
+      {/* M2 (fix wave) — SIN aria-live: texto ESTÁTICO que nunca cambia, el
+          aria-live era puro ruido sin ningún beneficio. */}
+      <p className={styles.hint}>
         Hasta {MAX_IMAGES} imágenes, {Math.round(MAX_IMAGE_BYTES / 1024 / 1024)}MB cada una.
       </p>
     </form>

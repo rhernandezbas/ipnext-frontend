@@ -231,4 +231,27 @@
   --alert-status-firing-fg: #991b1b;
   --alert-status-resolved-bg: #dcfce7;
   --alert-status-resolved-fg: #166534;
+
+  /* ------------------------------------------------------------------ */
+  /* Component tokens — ticket messaging (fix wave L3). Tamaños/duraciones */
+  /* repetidos sin token entre `NoteComposer`/`PublicReplyComposer`/         */
+  /* `TicketMessageAttachmentView`/`TicketMessagingThread` — MISMOS         */
+  /* valores que ya estaban, solo nombrados (cero cambio visual). No        */
+  /* mapean a la escala --space-* (72/120/160/240/320/480 no son           */
+  /* múltiplos dentro del rango de esa escala) — component tokens propios,  */
+  /* mismo criterio que --radius-button. `--messaging-enter-duration`      */
+  /* queda LOCAL a esta feature a propósito: `MessageBubble.module.css`     */
+  /* (WhatsApp inbox, la referencia que este módulo cita) usa 220ms crudo   */
+  /* — no se tocó ese archivo (fuera de alcance de este fix wave).         */
+  /* ------------------------------------------------------------------ */
+  --messaging-textarea-min-h: 72px;
+  --messaging-chip-filename-max-w: 120px;
+  --messaging-thumb-max: 160px;
+  --messaging-media-max-w: 320px;
+  --messaging-video-max-h: 240px;
+  --messaging-timeline-max-h: 480px;
+  --messaging-enter-duration: 220ms;
+  --messaging-skeleton-duration: 1.4s;
+  --messaging-header-gap: 2px;
+  --messaging-accent-border-w: 3px;
 }

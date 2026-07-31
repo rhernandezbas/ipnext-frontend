@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { useSendStaffTicketReply } from '@/hooks/useTicketMessages';
+import { useConfirm } from '@/context/ConfirmContext';
 import {
   classifyTicketMessageFile,
   TICKET_MESSAGE_MAX_ATTACHMENTS,
@@ -61,12 +62,29 @@ function readAsDataURL(file: File): Promise<string> {
  */
 export function PublicReplyComposer({ ticketId, authorName }: Props) {
   const sendReply = useSendStaffTicketReply(ticketId);
+  const confirm = useConfirm();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // H2 (fix wave) — reservas SÍNCRONAS de cupo/bytes en vuelo. `addFiles`
+  // acepta archivos leyendo `attachments` del closure/render (stale); sin
+  // esto, dos llamadas rápidas (dos selecciones antes de que la primera
+  // commitee a `attachments`) ven el MISMO `attachments.length` de partida y
+  // ambas aceptan hasta el cap completo — el total combinado se pasa, el BE
+  // tira 422 y se pierde el envío entero. Mismo patrón que
+  // `NoteComposer.pendingCountRef`.
+  const pendingCountRef = useRef(0);
+  const pendingBytesRef = useRef(0);
 
   const [body, setBody] = useState('');
   const [attachments, setAttachments] = useState<AttachmentDraft[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  // H1 (fix wave) — cuántas lecturas de `readAsDataURL` siguen en vuelo.
+  // `addFiles` acepta el archivo sincrónicamente pero recién lo agrega a
+  // `attachments` cuando la lectura async resuelve; sin este contador, un
+  // submit disparado ENTRE esos dos momentos manda el mensaje sin el adjunto
+  // — el operador ve "Respuesta enviada al cliente." con el archivo perdido
+  // en silencio. Bloquea el submit mientras `pendingReads > 0`.
+  const [pendingReads, setPendingReads] = useState(0);
 
   const bodyTooLong = body.length > TICKET_MESSAGE_MAX_BODY_LEN;
 
@@ -77,8 +95,11 @@ export function PublicReplyComposer({ ticketId, authorName }: Props) {
       if (!messages.includes(m)) messages.push(m);
     };
 
-    let countSoFar = attachments.length;
-    let batchBytesSoFar = attachments.reduce((sum, a) => sum + a.file.size, 0);
+    // H2 — arranca desde attachments YA commiteados + lo que otra llamada de
+    // addFiles en vuelo ya reservó (pendingCountRef/pendingBytesRef), no solo
+    // desde el `attachments.length` de este render.
+    let countSoFar = attachments.length + pendingCountRef.current;
+    let batchBytesSoFar = attachments.reduce((sum, a) => sum + a.file.size, 0) + pendingBytesRef.current;
     const accepted: Array<{ file: File; kind: 'image' | 'audio' | 'video' }> = [];
 
     for (const file of files) {
@@ -105,15 +126,32 @@ export function PublicReplyComposer({ ticketId, authorName }: Props) {
     }
 
     if (accepted.length > 0) {
+      // Reservar YA (sincrónico, antes del primer `await`) — así una segunda
+      // llamada a addFiles en el mismo tick ve esta reserva vía
+      // pendingCountRef/pendingBytesRef, aunque `attachments` (state) todavía
+      // no haya commiteado nada.
+      const acceptedBytes = accepted.reduce((sum, a) => sum + a.file.size, 0);
+      pendingCountRef.current += accepted.length;
+      pendingBytesRef.current += acceptedBytes;
+      setPendingReads((n) => n + accepted.length);
       void (async () => {
-        const drafts: AttachmentDraft[] = await Promise.all(
-          accepted.map(async (a) => ({
-            file: a.file,
-            kind: a.kind,
-            previewUrl: a.kind === 'image' ? await readAsDataURL(a.file).catch(() => null) : null,
-          })),
-        );
-        setAttachments((prev) => [...prev, ...drafts]);
+        try {
+          const drafts: AttachmentDraft[] = await Promise.all(
+            accepted.map(async (a) => ({
+              file: a.file,
+              kind: a.kind,
+              previewUrl: a.kind === 'image' ? await readAsDataURL(a.file).catch(() => null) : null,
+            })),
+          );
+          setAttachments((prev) => [...prev, ...drafts]);
+        } finally {
+          // Liberar la reserva DESPUÉS de haber commiteado a `attachments`
+          // (mismo tick, sin `await` entre medio) — nunca queda una ventana
+          // donde ni la reserva ni el state cuenten el batch.
+          pendingCountRef.current = Math.max(0, pendingCountRef.current - accepted.length);
+          pendingBytesRef.current = Math.max(0, pendingBytesRef.current - acceptedBytes);
+          setPendingReads((n) => Math.max(0, n - accepted.length));
+        }
       })();
     }
 
@@ -136,15 +174,60 @@ export function PublicReplyComposer({ ticketId, authorName }: Props) {
     e.target.value = '';
   }
 
+  // L2 (fix wave) — `NoteComposer` soporta pegar (Ctrl+V) un screenshot;
+  // este composer no tenía NADA — el operador pegaba una imagen en la caja
+  // PÚBLICA y no pasaba nada, silencio total (ni error, ni chip). Mismo
+  // handler que `NoteComposer.handlePaste`, reusando `addFiles` (que ya
+  // valida contra el allowlist image/audio/video, no solo imagen).
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const cd = e.clipboardData;
+    const fromItems = Array.from(cd?.items ?? [])
+      .filter((it) => it.kind === 'file')
+      .map((it) => it.getAsFile())
+      .filter((f): f is File => f != null);
+    const fromFiles = Array.from(cd?.files ?? []);
+
+    const seen = new Set<string>();
+    const allFiles: File[] = [];
+    for (const f of [...fromItems, ...fromFiles]) {
+      const key = `${f.name}|${f.size}|${f.type}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      allFiles.push(f);
+    }
+
+    if (allFiles.length === 0) return;
+    e.preventDefault();
+    addFiles(allFiles);
+  }
+
   const canSubmit =
     !!authorName &&
     (body.trim().length > 0 || attachments.length > 0) &&
     !bodyTooLong &&
-    !sendReply.isPending;
+    !sendReply.isPending &&
+    pendingReads === 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canSubmit || !authorName) return;
+    // H1 — guard explícito además de `canSubmit`/`disabled`: un Enter en el
+    // textarea también dispara `onSubmit` del form, así que el bloqueo no
+    // puede depender solo de que el botón esté deshabilitado.
+    if (!canSubmit || !authorName || pendingReads > 0) return;
+
+    // H4 (fix wave, HIGH) — confirmación EXPLÍCITA antes de mandar algo
+    // irreversible: el cliente lo ve en su teléfono y acá no hay editar ni
+    // borrar. Mismo `useConfirm` que ya usa el repo para acciones
+    // irreversibles (ver `TicketDetailPage.handleDelete`). La nota interna
+    // (`NoteComposer`) NO pasa por acá — queda sin fricción a propósito.
+    const confirmed = await confirm({
+      title: 'Enviar al cliente',
+      message: 'Esto se envía al cliente ahora mismo y no se puede editar ni borrar después. ¿Confirmás el envío?',
+      confirmLabel: 'Enviar al cliente',
+      cancelLabel: 'Cancelar',
+    });
+    if (!confirmed) return;
+
     setError(null);
     setFeedback(null);
     try {
@@ -177,13 +260,29 @@ export function PublicReplyComposer({ ticketId, authorName }: Props) {
         id="ticket-reply-body"
         className={styles.textarea}
         value={body}
-        onChange={(e) => setBody(e.target.value)}
-        placeholder="Escribí tu respuesta para el cliente…"
+        onChange={(e) => {
+          setBody(e.target.value);
+          // M4 (fix wave) — el feedback de éxito quedaba pegado para siempre
+          // (solo se limpiaba en el PRÓXIMO submit); el operador arrancaba un
+          // draft nuevo con "Respuesta enviada al cliente." todavía debajo,
+          // que se lee como si ESTE draft ya hubiera salido.
+          if (feedback) setFeedback(null);
+        }}
+        onPaste={handlePaste}
+        placeholder="Escribí tu respuesta para el cliente… (pegá una imagen/audio/video con Ctrl+V)"
       />
-      <p className={bodyTooLong ? styles.counterOver : styles.counter} aria-live="polite">
+      {/* M2 (fix wave) — SIN aria-live: era "polite" y anunciaba el número en
+          CADA tecla tipeada, ruido total para un lector de pantalla. */}
+      <p className={bodyTooLong ? styles.counterOver : styles.counter}>
         {body.length} / {TICKET_MESSAGE_MAX_BODY_LEN}
         {bodyTooLong && ' — superaste el largo máximo permitido.'}
       </p>
+
+      {pendingReads > 0 && (
+        <p className={styles.pendingReadsHint} role="status">
+          Cargando {pendingReads === 1 ? 'adjunto' : `${pendingReads} adjuntos`}…
+        </p>
+      )}
 
       {attachments.length > 0 && (
         <ul className={styles.pendingRow} aria-label="Adjuntos pendientes">

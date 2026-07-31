@@ -109,6 +109,25 @@ describe('NoteComposer — submit', () => {
   });
 });
 
+// M6 (fix wave) — cobertura repuesta: existía en TicketCommentsTimeline.test.tsx
+// ("pasting plain text (no image) lets the text land — no preventDefault, no
+// chip") y se borró junto con ese archivo. El comportamiento sigue en
+// `NoteComposer.handlePaste` (solo hace preventDefault si detecta al menos un
+// File), pero se había quedado sin la prueba que lo fija como contrato.
+describe('NoteComposer — pegar texto plano (M6, cobertura repuesta)', () => {
+  it('pegar texto plano (sin imagen) deja que el texto aterrice — NO hace preventDefault, no agrega chip', () => {
+    render(<NoteComposer ticketId="ticket-1" authorName="Ana" />);
+    const textarea = screen.getByPlaceholderText(/nota interna/i);
+    const evt = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(evt, 'clipboardData', {
+      value: { files: [], items: [], getData: () => 'hello' },
+    });
+    textarea.dispatchEvent(evt);
+    expect(evt.defaultPrevented).toBe(false);
+    expect(screen.queryByRole('list', { name: /imágenes pendientes/i })).not.toBeInTheDocument();
+  });
+});
+
 describe('NoteComposer — no se cae bajo un batch de FileReader controlado', () => {
   it('un batch mixto (pdf inválido + png válido) agrega el válido y muestra el error del inválido', async () => {
     render(<NoteComposer ticketId="ticket-1" authorName="Ana" />);

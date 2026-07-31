@@ -22,8 +22,8 @@
 
 .imageThumb img {
   display: block;
-  max-width: 160px;
-  max-height: 160px;
+  max-width: var(--messaging-thumb-max);
+  max-height: var(--messaging-thumb-max);
   width: auto;
   height: auto;
   object-fit: cover;
@@ -34,7 +34,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  max-width: 320px;
+  max-width: var(--messaging-media-max-w);
 }
 
 .audioPlayer {
@@ -44,15 +44,24 @@
 
 .videoPlayer {
   width: 100%;
-  max-width: 320px;
-  max-height: 240px;
+  max-width: var(--messaging-media-max-w);
+  max-height: var(--messaging-video-max-h);
   border-radius: var(--radius-md);
   background: var(--color-black);
 }
 
+/* H3 (fix wave) — este componente se renderiza SIEMPRE dentro de una burbuja
+   de `MessageItem` (nota ámbar / staff azul / cliente gris), nunca sobre
+   fondo blanco suelto. Un color fijo (`--color-text-secondary`,
+   `--color-primary`) asumía blanco y medía 1.25–4.21:1 según la lane —
+   1.25:1 y 1.30:1 en la lane staff, la peor. `color: inherit` hereda el
+   `color` que `MessageItem.module.css` YA fija por lane (`--color-note-fg` /
+   `--color-white` / `--color-text-primary`, cada uno verificado >=4.5:1
+   contra su propio fondo en MessageItem.contrast.test.tsx) — cero hex nuevo,
+   cero ratio para re-derivar acá. Ver TicketMessageAttachmentView.contrast.test.tsx. */
 .mediaCaption {
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: inherit;
   word-break: break-word;
 }
 
@@ -63,7 +72,7 @@
   min-height: var(--space-11);
   padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
-  color: var(--color-primary);
+  color: inherit;
   text-decoration: underline;
   font-size: var(--font-size-sm);
   word-break: break-word;
@@ -82,7 +91,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  color: var(--color-text-secondary);
+  color: inherit;
   font-size: var(--font-size-sm);
   font-style: italic;
 }

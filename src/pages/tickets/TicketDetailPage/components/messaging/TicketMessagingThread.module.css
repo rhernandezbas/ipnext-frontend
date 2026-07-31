@@ -28,7 +28,7 @@
 /* Contraste --badge-active-fg/--badge-active-bg ya verificado en el repo
    (mismo par que otros badges "activo/informativo"). */
 .unreadBadge {
-  padding: 2px var(--space-2);
+  padding: var(--messaging-header-gap) var(--space-2);
   border-radius: var(--radius-full);
   background: var(--badge-active-bg);
   color: var(--badge-active-fg);
@@ -43,12 +43,12 @@
 }
 
 .skeletonRow {
-  height: 48px;
+  height: var(--space-12);
   width: 70%;
   border-radius: var(--radius-lg);
   background: linear-gradient(90deg, var(--color-gray-100) 25%, var(--color-gray-200) 37%, var(--color-gray-100) 63%);
   background-size: 400% 100%;
-  animation: skeletonShimmer 1.4s ease infinite;
+  animation: skeletonShimmer var(--messaging-skeleton-duration) ease infinite;
 }
 
 .skeletonRowShort {
@@ -94,13 +94,13 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  max-height: 480px;
+  max-height: var(--messaging-timeline-max-h);
   overflow-y: auto;
   padding-right: var(--space-1);
 }
 
 .composers {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(var(--messaging-media-max-w), 1fr));
   gap: var(--space-3);
 }

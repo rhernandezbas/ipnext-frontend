@@ -79,6 +79,17 @@ describe('TicketMessagingThread — 4 estados de fetch', () => {
     expect(mockRefetch).toHaveBeenCalledTimes(1);
   });
 
+  // M6 (fix wave) — cobertura repuesta (TicketCommentsTimeline.test.tsx: "keeps
+  // the composer usable while in error state"). Un error al CARGAR el hilo no
+  // debe tumbar la posibilidad de escribir — los composers son independientes
+  // del query de lectura.
+  it('error: los composers siguen usables (no dependen del query de lectura)', () => {
+    setComments(undefined, { isError: true });
+    render(<TicketMessagingThread ticketId="ticket-1" />);
+    expect(screen.getByPlaceholderText(/respuesta para el cliente/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/nota interna/i)).toBeInTheDocument();
+  });
+
   it('empty: sin comentarios ni comentario de apertura muestra el estado vacío', () => {
     setComments([]);
     render(<TicketMessagingThread ticketId="ticket-1" />);
@@ -106,6 +117,32 @@ describe('TicketMessagingThread — comentario de apertura (#77, migrado)', () =
     setComments([]);
     render(<TicketMessagingThread ticketId="ticket-1" description="" reporterName="Juan" createdAt="2024-01-15T10:00:00Z" />);
     expect(screen.queryByText('Juan')).not.toBeInTheDocument();
+  });
+
+  // M6 (fix wave) — cobertura repuesta (TicketCommentsTimeline.test.tsx):
+  // "NO muestra el comentario inicial si la descripción es solo espacios" +
+  // "usa 'Sistema' como fallback de authorName cuando reporterName es null" +
+  // "el comentario inicial aparece ANTES de los comentarios reales".
+  it('NO se muestra cuando description es solo espacios', () => {
+    setComments([]);
+    render(<TicketMessagingThread ticketId="ticket-1" description="   " reporterName="Juan" createdAt="2024-01-15T10:00:00Z" />);
+    expect(screen.queryByText('Juan')).not.toBeInTheDocument();
+  });
+
+  it('usa "Sistema" como fallback de authorName cuando reporterName es null', () => {
+    setComments([]);
+    render(<TicketMessagingThread ticketId="ticket-1" description="Descripción del ticket." reporterName={null} createdAt="2024-01-15T10:00:00Z" />);
+    expect(screen.getByText('Sistema')).toBeInTheDocument();
+  });
+
+  it('el comentario de apertura aparece ANTES de los comentarios reales', () => {
+    setComments([
+      { id: 'c1', ticketId: 'ticket-1', authorName: 'Ana Técnico', body: 'Revisando el problema', createdAt: '2024-01-16T10:00:00Z', attachments: [], visibility: 'internal', authorKind: 'staff' },
+    ]);
+    render(<TicketMessagingThread ticketId="ticket-1" description="No tengo señal." reporterName="Cliente Juan" createdAt="2024-01-15T10:00:00Z" />);
+    const items = screen.getAllByRole('listitem');
+    expect(items[0]).toHaveTextContent('Cliente Juan');
+    expect(items[1]).toHaveTextContent('Ana Técnico');
   });
 });
 

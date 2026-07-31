@@ -77,6 +77,34 @@ describe('TicketMessageAttachmentView', () => {
     expect(screen.getByText('evil.pdf')).toBeInTheDocument();
   });
 
+  // M6 (fix wave) — cobertura repuesta (TicketCommentsTimeline.test.tsx, borrado
+  // junto con ese archivo). El allowlist de esquema (Fix #6 heredado, `isSafeHref`)
+  // sigue vivo en `TicketMessageAttachmentView` pero se había quedado sin este caso.
+  it('does NOT render a link for a data:text/html URL — plain filename text only', () => {
+    render(
+      <TicketMessageAttachmentView
+        attachment={{ id: 'a7', url: 'data:text/html,<script>1</script>', filename: 'x.html' }}
+      />,
+    );
+    expect(screen.queryByRole('link', { name: /x\.html/i })).not.toBeInTheDocument();
+    expect(screen.getByText('x.html')).toBeInTheDocument();
+  });
+
+  // M6 (fix wave) — cobertura repuesta: el lightbox compartido (`ImageLightbox`)
+  // cierra con Escape; el test viejo lo probaba sobre `TicketCommentsTimeline`.
+  it('Escape closes the lightbox', async () => {
+    const user = userEvent.setup();
+    render(
+      <TicketMessageAttachmentView
+        attachment={{ id: 'a8', url: '/api/tickets/messages/attachments/a8/file', filename: 'pegada.png', kind: 'image' }}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: /ver pegada\.png en grande/i }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('renders a "not available" fallback when url is null (corrupted legacy attachment)', () => {
     render(
       <TicketMessageAttachmentView

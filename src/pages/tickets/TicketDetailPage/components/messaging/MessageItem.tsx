@@ -50,16 +50,33 @@ export function MessageItem({ comment, isNew }: Props) {
   const rowClassName = [styles.row, styles[lane], isNew ? styles.enter : ''].filter(Boolean).join(' ');
 
   return (
-    <div data-testid="message-item-row" className={rowClassName}>
-      <article
-        className={styles.bubble}
-        role="listitem"
-        aria-label={ACCESSIBLE_NAME[lane](comment.authorName)}
-      >
+    // M3 (fix wave) — role="listitem"/aria-label viven acá, en el HIJO
+    // DIRECTO del `<div role="list">` del hilo (`TicketMessagingThread`).
+    // Antes vivían en el <article> de adentro, con este div genérico
+    // interpuesto — por spec ARIA, listitem debe ser hijo directo de list;
+    // con un contenedor sin rol en el medio la relación se rompe.
+    <div
+      data-testid="message-item-row"
+      className={rowClassName}
+      role="listitem"
+      aria-label={ACCESSIBLE_NAME[lane](comment.authorName)}
+    >
+      <article className={styles.bubble}>
         {lane === 'note' && (
           <div className={styles.noteHeader}>
             <IconNote className={styles.noteIcon} />
             <span>Nota interna</span>
+          </div>
+        )}
+
+        {/* M1 (fix wave) — etiquetado simétrico: antes SOLO la nota interna
+            llevaba texto visible; la respuesta pública se distinguía únicamente
+            por color/lado (el texto "al cliente" vivía solo en el aria-label,
+            invisible para un operador vidente). "¿Esto lo vio el cliente?" no
+            puede responderse por AUSENCIA de etiqueta. */}
+        {lane === 'staff' && (
+          <div className={styles.staffHeader}>
+            <span>Enviado al cliente</span>
           </div>
         )}
 
@@ -73,7 +90,9 @@ export function MessageItem({ comment, isNew }: Props) {
         {comment.body && <p className={styles.body}>{comment.body}</p>}
 
         {comment.attachments.length > 0 && (
-          <div className={styles.attachments} aria-label="Archivos adjuntos">
+          // M3 — role="group": un <div> sin rol (generic) no expone
+          // aria-label en el árbol de accesibilidad; "group" sí.
+          <div className={styles.attachments} role="group" aria-label="Archivos adjuntos">
             {comment.attachments.map((att) => (
               <TicketMessageAttachmentView key={att.id} attachment={att} />
             ))}

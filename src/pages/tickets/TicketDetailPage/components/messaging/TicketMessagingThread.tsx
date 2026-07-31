@@ -63,8 +63,28 @@ export function TicketMessagingThread({ ticketId, description, reporterName, cre
       }
     : null;
 
+  // M5 (fix wave) — filas efectivamente renderizadas (apertura + comentarios),
+  // en el mismo orden que el JSX de abajo. Se usa para el guard de
+  // auto-scroll: necesita saber cuál es la ÚLTIMA fila (¿la mandó el staff?)
+  // y un key estable de "entró/salió una fila" sin reaccionar a cada
+  // re-render.
+  const allRows: TicketComment[] = openingComment ? [openingComment, ...(comments ?? [])] : (comments ?? []);
+  const rowIdsKey = allRows.map((r) => r.id).join('|');
+
   const seenIdsRef = useRef<Set<string>>(new Set());
   const [justAddedIds, setJustAddedIds] = useState<Set<string>>(new Set());
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  // C1 (fix wave, CRITICAL) — defensa en profundidad: aunque `key={ticketId}`
+  // en el caller ya fuerza un remount completo (por lo que este ref nace
+  // vacío), resetear explícitamente acá evita que un futuro caller que NO
+  // pase esa key deje `seenIdsRef` con los ids del ticket anterior — eso
+  // animaría TODOS los mensajes del ticket nuevo como "recién llegados".
+  useEffect(() => {
+    seenIdsRef.current = new Set();
+    setJustAddedIds(new Set());
+  }, [ticketId]);
 
   useEffect(() => {
     if (!comments) return;
@@ -82,6 +102,34 @@ export function TicketMessagingThread({ ticketId, description, reporterName, cre
     }
     return undefined;
   }, [comments]);
+
+  // M5 (fix wave) — auto-scroll al fondo. Mismo guard ya probado en
+  // `MessageThread` (inbox de WhatsApp, bug #7 de ese review): SOLO
+  // auto-scrollea cuando (a) el hilo se acaba de abrir/montar, (b) el
+  // operador ya estaba cerca del fondo (no le arranca de las manos una
+  // lectura de historial viejo), o (c) la última fila es un envío propio del
+  // staff (la razón por la que escribió es verlo salir). `NEAR_BOTTOM_PX`
+  // mismo valor (120px) que la versión ya reafirmada en WhatsApp.
+  const NEAR_BOTTOM_PX = 120;
+  const isFirstScrollRunRef = useRef(true);
+  useEffect(() => {
+    const bottom = bottomRef.current;
+    if (!bottom) return;
+
+    const isFirstRun = isFirstScrollRunRef.current;
+    isFirstScrollRunRef.current = false;
+
+    const lastRow = allRows[allRows.length - 1];
+    const isOwnStaffSend = lastRow?.authorKind === 'staff';
+
+    const list = listRef.current;
+    const isNearBottom = !list || list.scrollHeight - list.scrollTop - list.clientHeight < NEAR_BOTTOM_PX;
+
+    if (isFirstRun || isOwnStaffSend || isNearBottom) {
+      bottom.scrollIntoView?.({ block: 'end' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe re-correr cuando cambia el SET de filas (rowIdsKey), no en cada re-render.
+  }, [rowIdsKey]);
 
   const hasUnread = unreadCount != null && unreadCount > 0;
 
@@ -123,18 +171,34 @@ export function TicketMessagingThread({ ticketId, description, reporterName, cre
       )}
 
       {!isLoading && !isError && comments && (comments.length > 0 || openingComment) && (
-        <div className={styles.timeline} role="list" aria-label="Mensajes del ticket">
+        // M5 (fix wave) — ref (auto-scroll), data-testid (mide scrollHeight/
+        // scrollTop en test) y aria-live="polite" (un mensaje nuevo se
+        // anuncia, mismo criterio que `MessageThread` del inbox de WhatsApp).
+        <div
+          ref={listRef}
+          data-testid="messaging-thread-list"
+          className={styles.timeline}
+          role="list"
+          aria-label="Mensajes del ticket"
+          aria-live="polite"
+        >
           {openingComment && <MessageItem comment={openingComment} isNew={false} />}
           {comments.map((comment) => (
             <MessageItem key={comment.id} comment={comment} isNew={justAddedIds.has(comment.id)} />
           ))}
+          <div ref={bottomRef} aria-hidden="true" />
         </div>
       )}
 
       {canWrite && (
         <div className={styles.composers}>
-          <PublicReplyComposer ticketId={ticketId} authorName={authorName} />
-          <NoteComposer ticketId={ticketId} authorName={authorName} />
+          {/* C1 (fix wave, CRITICAL) — key={ticketId} en AMBOS composers,
+              defensa en profundidad además del key en TicketTabs: si este
+              componente alguna vez se usa sin esa key exterior (o el árbol
+              cambia), el draft/adjuntos NO deben poder viajar de un ticket a
+              otro. */}
+          <PublicReplyComposer key={ticketId} ticketId={ticketId} authorName={authorName} />
+          <NoteComposer key={ticketId} ticketId={ticketId} authorName={authorName} />
         </div>
       )}
     </section>

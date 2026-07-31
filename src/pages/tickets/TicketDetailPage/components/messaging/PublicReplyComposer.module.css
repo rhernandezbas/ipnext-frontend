@@ -24,7 +24,7 @@
 
 .headerIcon {
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: var(--messaging-header-gap);
   color: var(--color-primary);
 }
 
@@ -41,7 +41,7 @@
 }
 
 .textarea {
-  min-height: 72px;
+  min-height: var(--messaging-textarea-min-h);
   padding: var(--space-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -74,6 +74,12 @@
      re-derivar un rojo nuevo. */
   color: var(--badge-late-fg);
   font-weight: var(--font-weight-semibold);
+}
+
+.pendingReadsHint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
 }
 
 .pendingRow {
@@ -109,7 +115,7 @@
 }
 
 .pendingFilename {
-  max-width: 120px;
+  max-width: var(--messaging-chip-filename-max-w);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -131,6 +137,17 @@
 .pendingRemove:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 1px;
+}
+
+/* L1 (fix wave) — `.pendingRemove` es un <button> crudo (no el átomo Button,
+   que ya resuelve esto) a 24px de target — la mitad del mínimo táctil
+   (44px, WCAG 2.5.5/2.5.8). Mismo patrón que Button.module.css: compacto en
+   pointer fino, >=44px bajo pointer: coarse. */
+@media (pointer: coarse) {
+  .pendingRemove {
+    min-width: var(--space-11);
+    min-height: var(--space-11);
+  }
 }
 
 /* Superficie PROPIA (--badge-late-* / --badge-paid-*) — medido: success-strong

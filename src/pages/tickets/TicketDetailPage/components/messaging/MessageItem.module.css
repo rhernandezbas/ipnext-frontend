@@ -57,14 +57,14 @@
   background-color: var(--color-note-bg);
   color: var(--color-note-fg);
   border-radius: var(--radius-md);
-  border-left: 3px solid var(--color-note-accent);
+  border-left: var(--messaging-accent-border-w) solid var(--color-note-accent);
 }
 
 .noteHeader {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  margin-bottom: 2px;
+  margin-bottom: var(--messaging-header-gap);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-note-fg);
@@ -73,6 +73,18 @@
 .noteIcon {
   flex-shrink: 0;
   color: var(--color-note-accent);
+}
+
+/* M1 (fix wave) — etiqueta VISIBLE de la lane staff, simétrica a .noteHeader.
+   color: inherit hereda --color-white de `.staff .bubble` (ya verificado
+   >=4.5:1 contra --color-primary-hover en MessageItem.contrast.test.tsx) —
+   mismo criterio "sin hex nuevo" que TicketMessageAttachmentView (H3). */
+.staffHeader {
+  margin-bottom: var(--messaging-header-gap);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: inherit;
+  opacity: 0.92;
 }
 
 .meta {
@@ -113,7 +125,9 @@
 @keyframes ticketMsgEnter {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    /* --space-2 (8px) — reusa el token de spacing existente, no uno nuevo:
+       la distancia del translateY coincide exactamente. */
+    transform: translateY(var(--space-2));
   }
   to {
     opacity: 1;
@@ -122,7 +136,7 @@
 }
 
 .row.enter {
-  animation: ticketMsgEnter 220ms var(--ease-out) both;
+  animation: ticketMsgEnter var(--messaging-enter-duration) var(--ease-out) both;
 }
 
 @keyframes ticketMsgEnterReduced {
