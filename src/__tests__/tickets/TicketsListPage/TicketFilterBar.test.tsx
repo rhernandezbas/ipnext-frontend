@@ -27,8 +27,8 @@ const mockUsers: import('@/types/rbacUser').RbacUserWithRolesDto[] = [
 ];
 
 const mockAreas: TicketArea[] = [
-  { id: 'a1', name: 'Soporte', color: '#3b82f6' },
-  { id: 'a2', name: 'Facturacion', color: '#3b82f6' },
+  { id: 'a1', name: 'Soporte', color: '#3b82f6', portalVisible: false, portalLabel: null, portalDescription: null, portalOrder: 0 },
+  { id: 'a2', name: 'Facturacion', color: '#3b82f6', portalVisible: false, portalLabel: null, portalDescription: null, portalOrder: 0 },
 ];
 
 function renderBar(filter: TicketFilter = {}, onFilterChange = vi.fn(), variant?: 'horizontal' | 'vertical') {

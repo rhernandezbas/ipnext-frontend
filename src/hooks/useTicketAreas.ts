@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ticketAreasApi } from '@/api/ticketAreas.api';
+import type { UpdateTicketAreaData } from '@/api/ticketAreas.api';
 
 const KEY = ['ticket-areas'] as const;
 
@@ -18,7 +19,7 @@ export function useCreateTicketArea() {
 export function useUpdateTicketArea() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name?: string; color?: string } }) =>
+    mutationFn: ({ id, data }: { id: string; data: UpdateTicketAreaData }) =>
       ticketAreasApi.update(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });

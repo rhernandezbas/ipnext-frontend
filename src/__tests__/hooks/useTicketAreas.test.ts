@@ -35,7 +35,16 @@ const mockApi = ticketAreasApiModule.ticketAreasApi as {
 };
 
 function makeArea(over: Partial<TicketArea> = {}): TicketArea {
-  return { id: 'a-1', name: 'Soporte', color: '#6366f1', ...over };
+  return {
+    id: 'a-1',
+    name: 'Soporte',
+    color: '#6366f1',
+    portalVisible: false,
+    portalLabel: null,
+    portalDescription: null,
+    portalOrder: 0,
+    ...over,
+  };
 }
 
 function makeWrapper() {
