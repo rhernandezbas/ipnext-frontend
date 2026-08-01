@@ -13,10 +13,27 @@ import styles from './TicketAreasBody.module.css';
 /** #69 — default pill color for a new area (índigo, mirrors the BE seed default). */
 const DEFAULT_AREA_COLOR = '#6366f1';
 
+/**
+ * portal-topic-admin — payload shape shared by create/update. A blank text field
+ * MUST travel as `null`, never `""`: the BE rejects an empty string with 400
+ * (`.trim().min(1)`), while `null` is the documented way to clear the field.
+ */
+interface PortalFieldsPayload {
+  portalVisible: boolean;
+  portalLabel: string | null;
+  portalDescription: string | null;
+  portalOrder: number;
+}
+
+function toNullableText(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed === '' ? null : trimmed;
+}
+
 interface ModalProps {
   initial?: TicketArea;
   onClose: () => void;
-  onSave: (data: { name: string; color: string }) => Promise<void>;
+  onSave: (data: { name: string; color: string } & PortalFieldsPayload) => Promise<void>;
   loading: boolean;
 }
 
@@ -25,10 +42,25 @@ function TicketAreaModal({ initial, onClose, onSave, loading }: ModalProps) {
   const [color, setColor] = useState(initial?.color ?? DEFAULT_AREA_COLOR);
   const [error, setError] = useState<string | null>(null);
 
+  // portal-topic-admin — kept in separate state so toggling portalVisible off/on
+  // never clears what the operator already typed (contract: apagar y prender
+  // conserva lo escrito).
+  const [portalVisible, setPortalVisible] = useState(initial?.portalVisible ?? false);
+  const [portalLabel, setPortalLabel] = useState(initial?.portalLabel ?? '');
+  const [portalDescription, setPortalDescription] = useState(initial?.portalDescription ?? '');
+  const [portalOrder, setPortalOrder] = useState(initial?.portalOrder ?? 0);
+
   async function handleSave() {
     setError(null);
     try {
-      await onSave({ name: name.trim(), color });
+      await onSave({
+        name: name.trim(),
+        color,
+        portalVisible,
+        portalLabel: toNullableText(portalLabel),
+        portalDescription: toNullableText(portalDescription),
+        portalOrder,
+      });
       onClose();
     } catch (err: unknown) {
       const e = err as { response?: { status?: number; data?: { code?: string } } };
@@ -67,6 +99,70 @@ function TicketAreaModal({ initial, onClose, onSave, loading }: ModalProps) {
             style={{ width: 56, height: 36, padding: 2, border: '1px solid #cbd5e1', borderRadius: 8, cursor: 'pointer' }}
           />
         </label>
+
+        <div className={styles.portalSection}>
+          <h3 className={styles.portalSectionTitle}>Visible en la app de clientes</h3>
+
+          <div className={styles.switchRow}>
+            <span className={styles.switchRowLabel}>
+              Mostrar este tópico en la app de clientes
+            </span>
+            <label className={styles.switch}>
+              <input
+                type="checkbox"
+                checked={portalVisible}
+                onChange={e => setPortalVisible(e.target.checked)}
+                aria-label="Mostrar este tópico en la app de clientes"
+              />
+              <span className={styles.switchTrack} aria-hidden="true" />
+            </label>
+          </div>
+
+          <label className={styles.label} htmlFor="portalLabel">
+            Nombre en la app
+            <input
+              id="portalLabel"
+              className={styles.input}
+              value={portalLabel}
+              onChange={e => setPortalLabel(e.target.value)}
+              placeholder={name.trim() || 'Nombre interno del área'}
+              disabled={!portalVisible}
+            />
+            <span className={styles.helper}>
+              Es el nombre que ve el cliente al elegir este tópico. Si lo dejás
+              vacío, se usa el nombre interno del área.
+            </span>
+          </label>
+
+          <label className={styles.label} htmlFor="portalDescription">
+            Descripción en la app
+            <textarea
+              id="portalDescription"
+              className={styles.input}
+              value={portalDescription}
+              onChange={e => setPortalDescription(e.target.value)}
+              disabled={!portalVisible}
+              rows={2}
+            />
+            <span className={styles.helper}>
+              Línea de ayuda que aparece debajo del tópico, para que el cliente
+              sepa cuándo elegir esta opción.
+            </span>
+          </label>
+
+          <label className={styles.label} htmlFor="portalOrder">
+            Orden en la app
+            <input
+              id="portalOrder"
+              type="number"
+              className={styles.input}
+              value={portalOrder}
+              onChange={e => setPortalOrder(Number(e.target.value))}
+              disabled={!portalVisible}
+            />
+          </label>
+        </div>
+
         <div className={styles.modalActions}>
           <button className={styles.btnSecondary} onClick={onClose} disabled={loading}>Cancelar</button>
           <button className={styles.btnPrimary} onClick={handleSave} disabled={!name.trim() || loading}>
@@ -132,6 +228,7 @@ export function TicketAreasBody() {
               <tr>
                 <th>Color</th>
                 <th>Nombre</th>
+                <th>Portal</th>
                 <th></th>
               </tr>
             </thead>
@@ -153,6 +250,16 @@ export function TicketAreasBody() {
                     />
                   </td>
                   <td>{area.name}</td>
+                  <td>
+                    {area.portalVisible && (
+                      <span className={styles.portalCell}>
+                        <span className={styles.portalChip}>En la app</span>
+                        {area.portalLabel && (
+                          <span className={styles.portalLabelText}>{area.portalLabel}</span>
+                        )}
+                      </span>
+                    )}
+                  </td>
                   <td className={styles.actions}>
                     <Can permission="tickets.manage">
                       <button className={styles.linkBtn} onClick={() => setEditing(area)}>Editar</button>

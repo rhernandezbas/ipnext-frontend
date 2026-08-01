@@ -1,8 +1,9 @@
 /**
- * Tests for TicketAreasBody — catalog ABM (list, create, edit, delete).
+ * Tests for TicketAreasBody — catalog ABM (list, create, edit, delete) +
+ * portal-topic-admin: visibility of each área as a tópico in the customer app.
  * Mocks at the hook layer (useTicketAreas + mutations).
  */
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
@@ -21,9 +22,46 @@ import { TicketAreasBody } from '@/pages/tickets/settings/TicketAreasBody';
 import type { TicketArea } from '@/types/ticketArea';
 import { mockQuery } from '@/__tests__/_utils/reactQueryMocks';
 
+// portal-topic-admin — fixture with >=2 áreas on EACH side (visible/internal).
+// A single-element-per-side fixture would let a mutant survive (e.g. "always show
+// the chip" or "never show it" could still pass with just 1+1).
 const mockAreas: TicketArea[] = [
-  { id: 'a1', name: 'Soporte', color: '#6366f1' },
-  { id: 'a2', name: 'Facturacion', color: '#10b981' },
+  {
+    id: 'a1',
+    name: 'Soporte',
+    color: '#6366f1',
+    portalVisible: true,
+    portalLabel: 'Soporte técnico',
+    portalDescription: 'Fallas de internet o del servicio',
+    portalOrder: 1,
+  },
+  {
+    id: 'a2',
+    name: 'Facturacion',
+    color: '#10b981',
+    portalVisible: true,
+    portalLabel: null,
+    portalDescription: null,
+    portalOrder: 2,
+  },
+  {
+    id: 'a3',
+    name: 'NOC',
+    color: '#3b82f6',
+    portalVisible: false,
+    portalLabel: null,
+    portalDescription: null,
+    portalOrder: 0,
+  },
+  {
+    id: 'a4',
+    name: 'Administracion',
+    color: '#f59e0b',
+    portalVisible: false,
+    portalLabel: null,
+    portalDescription: null,
+    portalOrder: 0,
+  },
 ];
 
 function makeNoop() {
@@ -36,6 +74,21 @@ function renderBody() {
       <TicketAreasBody />
     </MemoryRouter>
   );
+}
+
+/** Default portal payload sent when the operator never touches that section. */
+const DEFAULT_PORTAL_PAYLOAD = {
+  portalVisible: false,
+  portalLabel: null,
+  portalDescription: null,
+  portalOrder: 0,
+};
+
+function findRowByText(text: string): HTMLElement {
+  const rows = screen.getAllByRole('row');
+  const row = rows.find(r => within(r).queryByText(text));
+  if (!row) throw new Error(`row containing "${text}" not found`);
+  return row;
 }
 
 describe('TicketAreasBody', () => {
@@ -97,7 +150,11 @@ describe('TicketAreasBody', () => {
     fireEvent.click(screen.getByRole('button', { name: /^guardar/i }));
     await waitFor(() => {
       // #69 — new area carries the default pill color.
-      expect(createMock.mutateAsync).toHaveBeenCalledWith({ name: 'Redes', color: '#6366f1' });
+      expect(createMock.mutateAsync).toHaveBeenCalledWith({
+        name: 'Redes',
+        color: '#6366f1',
+        ...DEFAULT_PORTAL_PAYLOAD,
+      });
     });
   });
 
@@ -110,7 +167,11 @@ describe('TicketAreasBody', () => {
     fireEvent.change(screen.getByLabelText(/color del area/i), { target: { value: '#10b981' } });
     fireEvent.click(screen.getByRole('button', { name: /^guardar/i }));
     await waitFor(() => {
-      expect(createMock.mutateAsync).toHaveBeenCalledWith({ name: 'Redes', color: '#10b981' });
+      expect(createMock.mutateAsync).toHaveBeenCalledWith({
+        name: 'Redes',
+        color: '#10b981',
+        ...DEFAULT_PORTAL_PAYLOAD,
+      });
     });
   });
 
@@ -139,7 +200,14 @@ describe('TicketAreasBody', () => {
     await waitFor(() => {
       expect(vi.mocked(updateMock.mutateAsync)).toHaveBeenCalledWith({
         id: 'a1',
-        data: { name: 'Soporte TI', color: '#6366f1' },
+        data: {
+          name: 'Soporte TI',
+          color: '#6366f1',
+          portalVisible: true,
+          portalLabel: 'Soporte técnico',
+          portalDescription: 'Fallas de internet o del servicio',
+          portalOrder: 1,
+        },
       });
     });
   });
@@ -187,6 +255,104 @@ describe('TicketAreasBody', () => {
     fireEvent.click(screen.getByRole('button', { name: /^guardar/i }));
     await waitFor(() => {
       expect(screen.getByText(/ya existe un area/i)).toBeInTheDocument();
+    });
+  });
+
+  // ── portal-topic-admin ──────────────────────────────────────────────────
+
+  describe('portal visibility — list', () => {
+    it('shows the "En la app" chip only for portal-visible areas (>=2 each side) and the client label if set', () => {
+      renderBody();
+
+      const soporteRow = findRowByText('Soporte');
+      const facturacionRow = findRowByText('Facturacion');
+      const nocRow = findRowByText('NOC');
+      const adminRow = findRowByText('Administracion');
+
+      expect(within(soporteRow).getByText('En la app')).toBeInTheDocument();
+      expect(within(soporteRow).getByText('Soporte técnico')).toBeInTheDocument();
+
+      expect(within(facturacionRow).getByText('En la app')).toBeInTheDocument();
+
+      expect(within(nocRow).queryByText('En la app')).not.toBeInTheDocument();
+      expect(within(adminRow).queryByText('En la app')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('portal visibility — form', () => {
+    it('prefills the 4 portal fields when editing an existing area', () => {
+      renderBody();
+      const editBtns = screen.getAllByRole('button', { name: /editar/i });
+      fireEvent.click(editBtns[0]); // a1 — Soporte, portalVisible: true
+
+      expect(screen.getByLabelText(/mostrar.*app de clientes/i)).toBeChecked();
+      expect(screen.getByLabelText(/nombre en la app/i)).toHaveValue('Soporte técnico');
+      expect(screen.getByLabelText(/descripci[oó]n en la app/i)).toHaveValue('Fallas de internet o del servicio');
+      expect(screen.getByLabelText(/orden en la app/i)).toHaveValue(1);
+    });
+
+    it('sends portalLabel as null (not empty string) when the operator clears it', async () => {
+      const updateMock = makeNoop() as unknown as ReturnType<typeof useTicketAreasModule.useUpdateTicketArea>;
+      vi.mocked(useTicketAreasModule.useUpdateTicketArea).mockReturnValue(updateMock);
+      renderBody();
+      const editBtns = screen.getAllByRole('button', { name: /editar/i });
+      fireEvent.click(editBtns[0]); // a1 — portalLabel: 'Soporte técnico'
+
+      fireEvent.change(screen.getByLabelText(/nombre en la app/i), { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: /^guardar/i }));
+
+      await waitFor(() => {
+        expect(vi.mocked(updateMock.mutateAsync)).toHaveBeenCalledWith({
+          id: 'a1',
+          data: expect.objectContaining({ portalLabel: null }),
+        });
+      });
+      // asserting the REAL body, not just "didn't throw":
+      const call = vi.mocked(updateMock.mutateAsync).mock.calls[0][0];
+      expect(call.data.portalLabel).toBe(null);
+      expect(call.data.portalLabel).not.toBe('');
+    });
+
+    it('preserves label/description text when portalVisible is toggled off and back on', () => {
+      renderBody();
+      const editBtns = screen.getAllByRole('button', { name: /editar/i });
+      fireEvent.click(editBtns[0]); // a1
+
+      const toggle = screen.getByLabelText(/mostrar.*app de clientes/i);
+      fireEvent.click(toggle); // off
+      expect(toggle).not.toBeChecked();
+      fireEvent.click(toggle); // back on
+      expect(toggle).toBeChecked();
+
+      expect(screen.getByLabelText(/nombre en la app/i)).toHaveValue('Soporte técnico');
+      expect(screen.getByLabelText(/descripci[oó]n en la app/i)).toHaveValue('Fallas de internet o del servicio');
+    });
+
+    it('disables the label/description/order fields while portalVisible is off', () => {
+      renderBody();
+      const editBtns = screen.getAllByRole('button', { name: /editar/i });
+      fireEvent.click(editBtns[2]); // a3 — NOC, portalVisible: false
+
+      expect(screen.getByLabelText(/mostrar.*app de clientes/i)).not.toBeChecked();
+      expect(screen.getByLabelText(/nombre en la app/i)).toBeDisabled();
+      expect(screen.getByLabelText(/descripci[oó]n en la app/i)).toBeDisabled();
+      expect(screen.getByLabelText(/orden en la app/i)).toBeDisabled();
+    });
+
+    it('creating an area without touching the portal section never sends portalVisible: true', async () => {
+      const createMock = makeNoop();
+      vi.mocked(useTicketAreasModule.useCreateTicketArea).mockReturnValue(createMock);
+      renderBody();
+      fireEvent.click(screen.getByRole('button', { name: /nueva area/i }));
+      fireEvent.change(screen.getByPlaceholderText(/soporte/i), { target: { value: 'Redes' } });
+      fireEvent.click(screen.getByRole('button', { name: /^guardar/i }));
+
+      await waitFor(() => {
+        expect(createMock.mutateAsync).toHaveBeenCalled();
+      });
+      const payload = vi.mocked(createMock.mutateAsync).mock.calls[0][0];
+      expect(payload.portalVisible).not.toBe(true);
+      expect(payload.portalVisible).toBe(false);
     });
   });
 });

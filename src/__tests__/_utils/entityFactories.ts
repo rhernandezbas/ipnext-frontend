@@ -291,6 +291,10 @@ export function makeTicketArea(overrides: Partial<TicketArea> = {}): TicketArea 
     id: 'area-1',
     name: 'Soporte',
     color: '#3b82f6',
+    portalVisible: false,
+    portalLabel: null,
+    portalDescription: null,
+    portalOrder: 0,
     ...overrides,
   };
 }
