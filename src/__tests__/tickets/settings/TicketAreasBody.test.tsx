@@ -313,6 +313,38 @@ describe('TicketAreasBody', () => {
       expect(call.data.portalLabel).not.toBe('');
     });
 
+    // El BE exige `z.number().int()`. Un `<input type="number">` deja pasar
+    // decimales, que `Number()` convierte en 1.5 y se comen un 400 que el
+    // operador ve como "No se pudo guardar el area", sin pista de cual campo
+    // lo causo.
+    //
+    // HONESTIDAD SOBRE ESTE TEST: el revert-probe (romper `toPortalOrder` para
+    // devolver el `Number()` crudo) mata SOLO la fila del decimal. Las filas
+    // '-' y '' pasan CON Y SIN el guard, porque jsdom —igual que un browser
+    // real— normaliza un valor invalido de un input numerico a '' antes de que
+    // el handler lo vea, y `Number('')` ya es 0. O sea: NO son la red, son
+    // documentacion del contrato "salga lo que salga del input, al BE va un
+    // entero". La rama NaN de `toPortalOrder` es defensa en profundidad para
+    // el dia que ese input cambie de tipo, no una ruta alcanzable hoy.
+    it.each([
+      ['2.7', 2, 'un decimal se trunca — LA fila que el probe mata'],
+      ['-', 0, 'normalizado a "" por el input; no discrimina el guard'],
+      ['', 0, 'campo vaciado; no discrimina el guard'],
+    ])('portalOrder %s => %i (%s)', async (typed, expected) => {
+      const updateMock = makeNoop() as unknown as ReturnType<typeof useTicketAreasModule.useUpdateTicketArea>;
+      vi.mocked(useTicketAreasModule.useUpdateTicketArea).mockReturnValue(updateMock);
+      renderBody();
+      fireEvent.click(screen.getAllByRole('button', { name: /editar/i })[0]);
+
+      fireEvent.change(screen.getByLabelText(/orden en la app/i), { target: { value: typed } });
+      fireEvent.click(screen.getByRole('button', { name: /^guardar/i }));
+
+      await waitFor(() => expect(vi.mocked(updateMock.mutateAsync)).toHaveBeenCalled());
+      const call = vi.mocked(updateMock.mutateAsync).mock.calls[0][0];
+      expect(call.data.portalOrder).toBe(expected);
+      expect(Number.isInteger(call.data.portalOrder)).toBe(true);
+    });
+
     it('preserves label/description text when portalVisible is toggled off and back on', () => {
       renderBody();
       const editBtns = screen.getAllByRole('button', { name: /editar/i });

@@ -30,6 +30,21 @@ function toNullableText(value: string): string | null {
   return trimmed === '' ? null : trimmed;
 }
 
+/**
+ * El BE exige un ENTERO (`z.number().int()` en CreateTicketAreaSchema), pero un
+ * `<input type="number">` entrega string y deja pasar decimales y estados
+ * intermedios invalidos ("-", "1e"), que `Number()` convierte en 1.5 o NaN.
+ * Cualquiera de los dos se come un 400 que el operador ve como "No se pudo
+ * guardar el area", sin pista de cual campo lo causo.
+ *
+ * La basura cae al valor SEGURO (0), no al ultimo tipeado: 0 es el mismo default
+ * de la columna y el unico valor que no puede reordenar los topicos por accidente.
+ */
+function toPortalOrder(value: string): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
+}
+
 interface ModalProps {
   initial?: TicketArea;
   onClose: () => void;
@@ -157,7 +172,7 @@ function TicketAreaModal({ initial, onClose, onSave, loading }: ModalProps) {
               type="number"
               className={styles.input}
               value={portalOrder}
-              onChange={e => setPortalOrder(Number(e.target.value))}
+              onChange={e => setPortalOrder(toPortalOrder(e.target.value))}
               disabled={!portalVisible}
             />
           </label>
