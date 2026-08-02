@@ -190,6 +190,10 @@ const PortalUsersPage = lazy(() => import('@/pages/portal/PortalUsersPage'));
 // implica leer el resto de la config del portal, mismo criterio que
 // messaging.bulk/messaging.templates dentro de Comunicaciones.
 const PromosPage = lazy(() => import('@/pages/portal/PromosPage/PromosPage'));
+// store-admin — ABM de productos de la Tienda de la app de clientes + pedidos
+// (lectura). Gate PROPIO `store.read` (contrato del BE en paralelo, worktree
+// `store-be`), mismo criterio que `promos.read` — independiente de `portal.read`.
+const StorePage = lazy(() => import('@/pages/portal/StorePage/StorePage'));
 const ContractsListPage = lazy(() => import('@/pages/contracts/ContractsListPage'));
 const RecaptacionPage = lazy(() => import('@/pages/customers/RecaptacionPage'));
 const MisClientesPage = lazy(() => import('@/pages/customers/MisClientesPage'));
@@ -418,6 +422,8 @@ export function App() {
                 <Route path="users" element={<RequirePermission permission="portal.read"><PortalUsersPage /></RequirePermission>} />
                 {/* promos-admin — gate PROPIO promos.read (contrato del BE), independiente de portal.read. */}
                 <Route path="promos" element={<RequirePermission permission="promos.read"><PromosPage /></RequirePermission>} />
+                {/* store-admin — gate PROPIO store.read (contrato del BE), independiente de portal.read. */}
+                <Route path="store" element={<RequirePermission permission="store.read"><StorePage /></RequirePermission>} />
               </Route>
 
               {/* ── Administration (admin.read) ────────────────────────────── */}
