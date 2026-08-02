@@ -1,0 +1,17 @@
+.pill {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Borrador — no visible en la app, gris neutro (mismo par que PromoStatusBadge.draft). */
+.draft { background-color: var(--color-gray-100); color: var(--color-gray-700); }
+/* Activo — visible en la tienda de la app, verde "vivo" (mismo par que --badge-paid-*). */
+.active { background-color: var(--badge-paid-bg); color: var(--badge-paid-fg); }
+/* Archivado — retirado a propósito, gris "inactive" (mismo par que PromoStatusBadge.archived). */
+.archived { background-color: var(--badge-inactive-bg); color: var(--badge-inactive-fg); }

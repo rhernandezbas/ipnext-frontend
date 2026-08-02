@@ -278,6 +278,9 @@ const EMPRESA_ITEMS: NavParentItem[] = [
       // dominio que Configuración/Usuarios — NO en Comunicaciones (eso es
       // WhatsApp/mensajería, un canal distinto).
       { to: '/admin/portal/promos', label: 'Promociones', requiredPermission: 'promos.read' },
+      // store-admin — productos de la Tienda de la app de clientes + pedidos.
+      // Gate PROPIO `store.read`, mismo criterio que Promociones.
+      { to: '/admin/portal/store', label: 'Tienda', requiredPermission: 'store.read' },
     ],
   },
   {
