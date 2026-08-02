@@ -265,10 +265,19 @@ const EMPRESA_ITEMS: NavParentItem[] = [
   {
     label: 'Portal',
     matchPaths: ['/admin/portal'],
-    requiredPermission: 'portal.read', // /admin/portal/* → portal.read
+    // Sin requiredPermission de GRUPO a propósito: "Promociones" tiene un gate
+    // PROPIO `promos.read` (contrato del BE), distinto de `portal.read` — un
+    // operador con uno solo de los dos permisos debe ver SU hijo igual
+    // (mismo criterio que "Cuadrillas" arriba). Configuración/Usuarios heredan
+    // `portal.read` vía su propio `requiredPermission`.
     children: [
-      { to: '/admin/portal', label: 'Configuración' },
-      { to: '/admin/portal/users', label: 'Usuarios' },
+      { to: '/admin/portal', label: 'Configuración', requiredPermission: 'portal.read' },
+      { to: '/admin/portal/users', label: 'Usuarios', requiredPermission: 'portal.read' },
+      // promos-admin — promociones que ven los clientes en la app. Va acá
+      // (Portal) porque es contenido de la app/portal de clientes, mismo
+      // dominio que Configuración/Usuarios — NO en Comunicaciones (eso es
+      // WhatsApp/mensajería, un canal distinto).
+      { to: '/admin/portal/promos', label: 'Promociones', requiredPermission: 'promos.read' },
     ],
   },
   {

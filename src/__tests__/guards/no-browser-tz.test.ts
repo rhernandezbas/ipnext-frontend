@@ -102,6 +102,14 @@ const ALLOWLIST = new Set<string>([
   // same host clock, so the ±1-day drift at timezone boundaries is inconsequential
   // for a "warranty expiring soon" alert. This is arithmetic, not rendering.
   'pages/networking/HardwarePage.tsx',
+
+  // ── PromoFormModal (promos-admin) ──────────────────────────────────────────
+  // toLocalInput()/toIso() round-trip startsAt/endsAt through <input
+  // datetime-local>, same contract as DatosForm.tsx above: the browser renders
+  // and submits datetime-local in host-local format, so reading/writing with
+  // local getters is the correct inverse. No backend UTC display happens here —
+  // the read-only list view (PromosPage.tsx) uses formatDateShort instead.
+  'pages/portal/PromosPage/components/PromoFormModal.tsx',
 ]);
 
 // ─── Detection patterns ───────────────────────────────────────────────────────
