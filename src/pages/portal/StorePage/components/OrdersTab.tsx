@@ -12,16 +12,12 @@ import styles from './ProductsTab.module.css';
  * acciones, sin gate `store.manage` — leer pedidos es parte de `store.read`,
  * mismo criterio que el resto de esta página).
  *
- * El link al reclamo usa `ticketNumber` TAL CUAL lo manda el contrato del
- * proposal — con una reserva IMPORTANTE: el nombre sugiere el número de
- * EXHIBICIÓN del ticket (`sequenceNumber`, "#N"), pero la ruta real
- * `/admin/tickets/:id` busca por `id` (UUID, verificado contra
- * `GetTicket.execute(id) → repo.getById(id)` en el backend — NO acepta
- * `sequenceNumber`). Si el BE efectivamente manda el número de exhibición acá
- * (no el id real), este link va a 404. No hay forma de resolverlo del lado
- * del panel sin el DTO real del BE (worktree `store-be` sin diff contra
- * `main` al momento de construir esto) — ver informe final / reportado como
- * desvío a validar con el equipo del backend.
+ * El link al reclamo usa `ticketId` (UUID real) y muestra `ticketNumber`
+ * ("#N") — RESUELTO: el DTO real del BE (`storeOrders.dto.ts`) manda AMBOS
+ * campos, justamente porque la ruta `/admin/tickets/:id` resuelve por
+ * `getById(id)` y NO acepta `sequenceNumber`. El riesgo de 404 que este
+ * comentario documentaba en la primera versión quedó cerrado del lado del
+ * backend antes del merge.
  */
 export function OrdersTab() {
   const { data, isLoading, isError, refetch } = useStoreOrders();
@@ -42,8 +38,8 @@ export function OrdersTab() {
       label: 'Reclamo',
       key: 'ticketNumber',
       render: (row: StoreOrderDto) =>
-        row.ticketNumber != null ? (
-          <Link to={`/admin/tickets/${row.ticketNumber}`}>#{row.ticketNumber}</Link>
+        row.ticketId != null ? (
+          <Link to={`/admin/tickets/${row.ticketId}`}>#{row.ticketNumber ?? '…'}</Link>
         ) : (
           '—'
         ),

@@ -2,7 +2,8 @@
  * OrdersTab (store-admin) — pedidos de la tienda, read-only.
  *
  *  OT-1 renderiza filas con producto/cliente/contrato/cuotas/precio/fecha
- *  OT-2 el link al reclamo apunta a /admin/tickets/{ticketNumber}
+ *  OT-2 el link va al ID REAL (/admin/tickets/{ticketId}) y MUESTRA #{ticketNumber}
+ *       — la ruta del panel resuelve por getById, un link por numero daria 404
  *  OT-3 sin ticketNumber muestra "—" (no rompe, no linkea a nada)
  */
 import { render, screen } from '@testing-library/react';
@@ -33,6 +34,7 @@ const ORDER_WITH_TICKET: StoreOrderDto = {
   contractId: 'contract-1',
   installments: 3,
   priceArsAtOrder: 45000.5,
+  ticketId: 'ticket-uuid-128',
   ticketNumber: 128,
   createdAt: '2026-06-01T00:00:00.000Z',
 };
@@ -40,6 +42,7 @@ const ORDER_WITH_TICKET: StoreOrderDto = {
 const ORDER_WITHOUT_TICKET: StoreOrderDto = {
   ...ORDER_WITH_TICKET,
   id: 'order-2',
+  ticketId: null,
   ticketNumber: null,
 };
 
@@ -70,16 +73,16 @@ describe('OT-1: renderiza filas', () => {
 });
 
 describe('OT-2: link al reclamo', () => {
-  it('linkea a /admin/tickets/{ticketNumber}', async () => {
+  it('linkea al ID real y muestra el numero', async () => {
     vi.mocked(storeApi.listOrders).mockResolvedValue([ORDER_WITH_TICKET]);
     renderTab();
 
     const link = await screen.findByRole('link', { name: '#128' });
-    expect(link).toHaveAttribute('href', '/admin/tickets/128');
+    expect(link).toHaveAttribute('href', '/admin/tickets/ticket-uuid-128');
   });
 });
 
-describe('OT-3: sin ticketNumber', () => {
+describe('OT-3: sin ticket', () => {
   it('muestra "—" sin link', async () => {
     vi.mocked(storeApi.listOrders).mockResolvedValue([ORDER_WITHOUT_TICKET]);
     renderTab();

@@ -63,6 +63,11 @@ export interface StoreOrderDto {
   contractId: string;
   installments: number;
   priceArsAtOrder: string | number;
-  ticketNumber: number | string | null;
+  /** UUID real del Ticket — es lo que resuelve la ruta `/admin/tickets/:id`
+   * del panel (getById; NO acepta sequenceNumber). Confirmado contra el DTO
+   * real del BE (`storeOrders.dto.ts`). */
+  ticketId: string | null;
+  /** sequenceNumber visible ("#586") — SOLO para display, jamás para el link. */
+  ticketNumber: number | null;
   createdAt: string;
 }
