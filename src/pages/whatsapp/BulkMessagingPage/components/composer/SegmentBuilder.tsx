@@ -8,6 +8,16 @@ import styles from './SegmentBuilder.module.css';
 interface SegmentBuilderProps {
   value: CampaignSegment;
   onChange: (next: CampaignSegment) => void;
+  /**
+   * promos-admin — el hint de "sin criterio" por default menciona la pestaña
+   * "Nodo/AP" (`NetworkFilterPanel`), que sólo existe en el composer de Bulk
+   * Messaging. Callers SIN esa pestaña (ej. `PromoFormModal`) deben pasar
+   * `false` para no referenciar una pestaña que no existe en su pantalla —
+   * evita el mismo bug de UI mentirosa que motivó el comentario de
+   * `network-filter-tab` de arriba. Default `true` = comportamiento INTACTO
+   * para Bulk Messaging (cero cambio, tests existentes sin tocar).
+   */
+  hasNetworkFilterTab?: boolean;
 }
 
 type ClientStatus = 'active' | 'late' | 'blocked' | 'inactive' | 'baja';
@@ -40,7 +50,7 @@ function parseBalance(text: string): number | undefined {
  * checkbox — refuerzo visual del color por estado sin inventar una paleta
  * nueva acá.
  */
-export function SegmentBuilder({ value, onChange }: SegmentBuilderProps) {
+export function SegmentBuilder({ value, onChange, hasNetworkFilterTab = true }: SegmentBuilderProps) {
   const { can } = useMyPermissions();
   const criteriaPresent = hasSegmentCriteria(value);
   // FIX-1: el operador escribió una deuda que no filtra ($0/negativo) — avisar
@@ -132,8 +142,8 @@ export function SegmentBuilder({ value, onChange }: SegmentBuilderProps) {
       {!criteriaPresent && (
         <p className={styles.hint} role="status">
           {ineffectiveBalance
-            ? 'Una deuda de $0 o menos no filtra a nadie — ingresá un monto mayor a 0, elegí un estado o definí un nodo/AP (pestaña Nodo/AP).'
-            : 'Elegí al menos un estado, un rango de deuda o un nodo/AP (pestaña Nodo/AP).'}
+            ? `Una deuda de $0 o menos no filtra a nadie — ingresá un monto mayor a 0, elegí un estado${hasNetworkFilterTab ? ' o definí un nodo/AP (pestaña Nodo/AP).' : '.'}`
+            : `Elegí al menos un estado, un rango de deuda${hasNetworkFilterTab ? ' o un nodo/AP (pestaña Nodo/AP).' : '.'}`}
         </p>
       )}
     </fieldset>

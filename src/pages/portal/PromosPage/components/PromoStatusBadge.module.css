@@ -1,0 +1,19 @@
+.pill {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Borrador — nadie la ve todavía, gris neutro (mismo par que TemplateApprovalBadge.unsubmitted). */
+.draft { background-color: var(--color-gray-100); color: var(--color-gray-700); }
+/* Publicada — visible en la app, verde "vivo" (mismo par que --badge-paid-*). */
+.published { background-color: var(--badge-paid-bg); color: var(--badge-paid-fg); }
+/* Vencida — ya no se muestra por fecha, rojo/atención (mismo par que --badge-late-*). */
+.expired { background-color: var(--badge-late-bg); color: var(--badge-late-fg); }
+/* Archivada — retirada a propósito por el operador, gris "inactive" (distinto del gris plano de Borrador). */
+.archived { background-color: var(--badge-inactive-bg); color: var(--badge-inactive-fg); }

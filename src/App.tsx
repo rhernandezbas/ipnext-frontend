@@ -185,6 +185,11 @@ const PaymentPlansPage = lazy(() => import('@/pages/finance/PaymentPlansPage'));
 const CDRPage = lazy(() => import('@/pages/voice/CDRPage'));
 const PortalConfigPage = lazy(() => import('@/pages/portal/PortalConfigPage'));
 const PortalUsersPage = lazy(() => import('@/pages/portal/PortalUsersPage'));
+// promos-admin — ABM de promociones que ven los clientes en la app. Gate
+// PROPIO `promos.read` (independiente de `portal.read`) — leer promos no
+// implica leer el resto de la config del portal, mismo criterio que
+// messaging.bulk/messaging.templates dentro de Comunicaciones.
+const PromosPage = lazy(() => import('@/pages/portal/PromosPage/PromosPage'));
 const ContractsListPage = lazy(() => import('@/pages/contracts/ContractsListPage'));
 const RecaptacionPage = lazy(() => import('@/pages/customers/RecaptacionPage'));
 const MisClientesPage = lazy(() => import('@/pages/customers/MisClientesPage'));
@@ -411,6 +416,8 @@ export function App() {
               <Route path="portal">
                 <Route index element={<RequirePermission permission="portal.read"><PortalConfigPage /></RequirePermission>} />
                 <Route path="users" element={<RequirePermission permission="portal.read"><PortalUsersPage /></RequirePermission>} />
+                {/* promos-admin — gate PROPIO promos.read (contrato del BE), independiente de portal.read. */}
+                <Route path="promos" element={<RequirePermission permission="promos.read"><PromosPage /></RequirePermission>} />
               </Route>
 
               {/* ── Administration (admin.read) ────────────────────────────── */}
