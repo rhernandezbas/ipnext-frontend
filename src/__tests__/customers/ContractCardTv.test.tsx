@@ -63,6 +63,11 @@ vi.mock('@/pages/customers/tabs/contracts/GigaredPanel', () => ({
 vi.mock('@/pages/customers/tabs/ServiceInventorySection', () => ({
   ServiceInventorySection: () => <div data-testid="equipos" />,
 }));
+// wifi-staff-panel — WifiCard has its own deep hook tree (useServiceInstalledItems +
+// useOnuWifiStatus); stub it same as ServiceInventorySection above.
+vi.mock('@/pages/customers/tabs/contracts/WifiCard', () => ({
+  WifiCard: () => <div data-testid="wifi-card" />,
+}));
 // InlineNameEdit pulls useUpdateContractName — stub it to keep the card simple.
 vi.mock('@/pages/customers/tabs/contracts/InlineNameEdit', () => ({
   InlineNameEdit: ({ display }: { display: string }) => <span>{display}</span>,
