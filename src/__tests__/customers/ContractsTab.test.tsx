@@ -48,6 +48,11 @@ vi.mock('@/pages/customers/tabs/ServiceInventorySection', () => ({
     <div data-testid="equipos" data-service-id={serviceId} />
   ),
 }));
+// wifi-staff-panel — WifiCard has its own deep hook tree (useServiceInstalledItems +
+// useOnuWifiStatus); stub it out same as ServiceInventorySection above.
+vi.mock('@/pages/customers/tabs/contracts/WifiCard', () => ({
+  WifiCard: () => <div data-testid="wifi-card" />,
+}));
 // client-geolocation: GeoLocationEditor is now embedded in ContractCard.
 // Stub it to prevent it from rendering extra textboxes/labels that would break
 // existing tests that use getByRole('textbox') or getByText(/Instalación/i).

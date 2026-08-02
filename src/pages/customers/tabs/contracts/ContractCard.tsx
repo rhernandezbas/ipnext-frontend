@@ -5,6 +5,7 @@ import { useMyPermissions } from '@/hooks/useMyPermissions';
 import { useGigaredConfig, useGigaredCustomerAccount } from '@/hooks/useGigared';
 import type { Contract } from '@/types/customer';
 import { ServiceInventorySection } from '../ServiceInventorySection';
+import { WifiCard } from './WifiCard';
 import { InlineNameEdit } from './InlineNameEdit';
 import { ContractServiceChips } from './ContractServiceChips';
 import { ServicePickerMenu } from './ServicePickerMenu';
@@ -190,6 +191,9 @@ export function ContractCard({ contract, clientId, active, customer }: Props) {
           clientId={clientId}
           customerName={customer?.name ?? null}
         />
+        {/* wifi-staff-panel — self-service WiFi de la ONU asociada a este contrato.
+            Vive junto a Equipos instalados: comparte la MISMA query del item ONU. */}
+        <WifiCard contractId={contract.id} enabled={active} />
       </div>
 
       {/* client-geolocation — GPS editor for this contract's installation point */}
