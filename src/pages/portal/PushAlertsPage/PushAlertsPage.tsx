@@ -117,6 +117,11 @@ export default function PushAlertsPage() {
     try {
       const sent = await sendMutation.sendAsync({ title: trimmedTitle, body: trimmedBody, networkSiteId });
       setResult(sent);
+      // Post-envío el alcance se limpia: `canSend` vuelve a exigir un preview
+      // FRESCO antes del próximo blast. Sin esto, el operador puede re-disparar
+      // otro envío masivo sin volver a mirar a cuántos le pega — justo lo que
+      // el gate del preview existe para evitar (hallazgo del review, 2026-08-05).
+      setScope(null);
     } catch {
       // El mensaje sale por `sendMutation.serverError` (abajo); no hay nada que
       // relanzar — un throw acá sólo rompería el handler del click.
