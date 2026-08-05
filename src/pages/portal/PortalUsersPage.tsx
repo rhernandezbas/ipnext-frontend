@@ -69,6 +69,14 @@ export default function PortalUsersPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const showEmpty = !isLoading && !isError && accounts.length === 0;
 
+  // Borrar la última fila de la última página deja `pageNum` apuntando a una
+  // página que ya no existe: el BE devuelve `[]` y, como la paginación sólo se
+  // renderiza en la rama con datos, el operador ve un falso "no hay cuentas" SIN
+  // forma de volver. Al achicarse el total, replegamos a la última página real.
+  useEffect(() => {
+    if (pageNum > totalPages) setPageNum(totalPages);
+  }, [pageNum, totalPages]);
+
   function enable(account: PortalAccountAdminDto) {
     setStatus.mutate(
       { id: account.id, status: 'active' },
@@ -306,7 +314,15 @@ export default function PortalUsersPage() {
         clientName={modal.kind === 'password' ? modal.clientName : ''}
         password={modal.kind === 'password' ? modal.password : ''}
         title="Contraseña regenerada"
-        onClose={() => setModal(CLOSED)}
+        onClose={() => {
+          setModal(CLOSED);
+          // La pass temporal viaja en `regenerate.data.password` y queda VIVA en
+          // el MutationCache aunque el modal se cierre (visible en React Query
+          // Devtools / un heap snapshot). Cerrar el estado del modal NO alcanza:
+          // hay que borrar el secreto de la mutación. Regla del repo (PushAlerts,
+          // Promos, Products también resetean).
+          regenerate.reset();
+        }}
       />
     </div>
   );

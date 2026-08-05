@@ -59,12 +59,21 @@ function invalidateAll(qc: ReturnType<typeof useQueryClient>) {
   void qc.invalidateQueries({ queryKey: portalAccountsRootKey });
 }
 
-/** CREATE — devuelve la cuenta + contraseña en texto plano (mostrar una vez). */
+/**
+ * CREATE — devuelve la cuenta + contraseña en texto plano (mostrar una vez).
+ *
+ * `gcTime: 0`: la respuesta lleva un SECRETO. Sin esto, la mutación (con la pass
+ * adentro) sobrevive en el MutationCache hasta el gcTime default (5 min) aunque
+ * el modal se cierre y se llame `reset()` — visible en React Query Devtools / un
+ * heap snapshot. Con `gcTime: 0`, en cuanto `reset()` suelta el observer la
+ * mutación se recolecta y el secreto desaparece del cache al instante.
+ */
 export function useCreatePortalAccount() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: CreatePortalAccountInput) => portalAccountsApi.create(input),
     onSuccess: () => invalidateAll(qc),
+    gcTime: 0,
   });
 }
 
@@ -78,12 +87,17 @@ export function useSetPortalAccountStatus() {
   });
 }
 
-/** Regenerar contraseña — devuelve la nueva en texto plano (mostrar una vez). */
+/**
+ * Regenerar contraseña — devuelve la nueva en texto plano (mostrar una vez).
+ * `gcTime: 0` por la misma razón que `useCreatePortalAccount`: purgar el secreto
+ * del MutationCache apenas se cierra el modal (junto con `reset()` en el caller).
+ */
 export function useRegeneratePortalPassword() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => portalAccountsApi.regeneratePassword(id),
     onSuccess: () => invalidateAll(qc),
+    gcTime: 0,
   });
 }
 

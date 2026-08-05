@@ -76,7 +76,15 @@ function renderPage() {
       <MemoryRouter>{children}</MemoryRouter>
     </QueryClientProvider>
   );
-  return render(<PortalUsersPage />, { wrapper });
+  return { qc, ...render(<PortalUsersPage />, { wrapper }) };
+}
+
+/** ¿Sobrevive el texto `secret` en el `data` de ALGUNA mutación del cache? */
+function secretLingersInMutationCache(qc: QueryClient, secret: string): boolean {
+  return qc
+    .getMutationCache()
+    .getAll()
+    .some((m) => JSON.stringify(m.state.data ?? null).includes(secret));
 }
 
 /** Abre el kebab de acciones de la (única) fila y clickea el item por nombre. */
@@ -200,6 +208,64 @@ describe('PortalUsersPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /cancelar/i }));
 
     expect(portalAccountsApi.regeneratePassword).not.toHaveBeenCalled();
+  });
+
+  it('PU-6 la pass temporal NO sobrevive en el MutationCache tras cerrar el modal', async () => {
+    const SECRET = 'Tmp-9x7Q2k';
+    vi.mocked(portalAccountsApi.list).mockResolvedValue(page([account()]));
+    vi.mocked(portalAccountsApi.regeneratePassword).mockResolvedValue({ ...account(), password: SECRET });
+
+    const { qc } = renderPage();
+    await screen.findByText('Juan Pérez');
+
+    // Regenerar (doble confirm) → revelar la pass.
+    await clickRowAction(/regenerar contrase/i);
+    fireEvent.click(await screen.findByRole('button', { name: /^continuar$/i }));
+    await screen.findByText(/segunda confirmaci/i);
+    fireEvent.click(screen.getByRole('button', { name: /regenerar ahora/i }));
+    expect(await screen.findByText(SECRET)).toBeInTheDocument();
+
+    // Presencia ANTES de cerrar: el secreto vive en el cache de la mutación
+    // (esto ancla la ausencia posterior — sin esto el test pasaría trivialmente).
+    expect(secretLingersInMutationCache(qc, SECRET)).toBe(true);
+
+    // Cerrar el modal debe RESETEAR la mutación y borrar el secreto del cache
+    // (el gc de `gcTime: 0` corre en un setTimeout(0) → esperamos con waitFor).
+    fireEvent.click(screen.getByRole('button', { name: /entendido|cerrar/i }));
+    await waitFor(() => expect(screen.queryByText(SECRET)).not.toBeInTheDocument());
+    await waitFor(() => expect(secretLingersInMutationCache(qc, SECRET)).toBe(false));
+  });
+
+  it('PU-7 borrar la última fila de la última página repliega a la real (no falso vacío)', async () => {
+    let removed = false;
+    vi.mocked(portalAccountsApi.list).mockImplementation(async (params) => {
+      const p = params?.page ?? 1;
+      const total = removed ? 20 : 21;
+      if (p >= 2) {
+        return { data: removed ? [] : [account({ id: 'acc-21', clientName: 'Rosalind Franklin' })], total, page: 2, limit: 20 };
+      }
+      return { data: [account({ id: 'acc-1', clientName: 'Juan Pérez' })], total, page: 1, limit: 20 };
+    });
+    vi.mocked(portalAccountsApi.remove).mockResolvedValue(undefined);
+
+    renderPage();
+    await screen.findByText('Juan Pérez');
+
+    // Ir a la página 2 (21 cuentas ⇒ 2 páginas de 20).
+    fireEvent.click(await screen.findByRole('button', { name: '2' }));
+    expect(await screen.findByText('Rosalind Franklin')).toBeInTheDocument();
+
+    // Borrar la ÚNICA fila de la página 2 (doble confirm). A partir de acá la API
+    // devuelve total=20 ⇒ la página 2 ya no existe.
+    removed = true;
+    await clickRowAction(/borrar/i);
+    fireEvent.click(await screen.findByRole('button', { name: /^continuar$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /eliminar definitivamente/i }));
+
+    // El clamp debe replegar a la página 1: se ve la cuenta real, NO el falso
+    // "no hay cuentas".
+    expect(await screen.findByText('Juan Pérez')).toBeInTheDocument();
+    expect(screen.queryByText(/no hay cuentas de la app/i)).not.toBeInTheDocument();
   });
 
   it('PU-5 deshabilitar — dispara el PATCH e invalida la lista (se re-consulta)', async () => {
