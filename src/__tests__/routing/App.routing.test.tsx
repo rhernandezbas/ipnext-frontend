@@ -290,6 +290,13 @@ vi.mock('@/pages/portal/PortalConfigPage', () => ({
 vi.mock('@/pages/portal/PortalUsersPage', () => ({
   default: () => React.createElement('div', null, '[PAGE:PortalUsers]'),
 }));
+// gestion-app — portada de la sección + envío de avisos push.
+vi.mock('@/pages/portal/AppOverviewPage/AppOverviewPage', () => ({
+  default: () => React.createElement('div', null, '[PAGE:AppOverview]'),
+}));
+vi.mock('@/pages/portal/PushAlertsPage/PushAlertsPage', () => ({
+  default: () => React.createElement('div', null, '[PAGE:PushAlerts]'),
+}));
 
 // Sistema / Administration
 vi.mock('@/pages/system/LocationsPage', () => ({
@@ -439,9 +446,11 @@ const directCases: Array<{ url: string; marker: string }> = [
   // Resellers
   { url: '/admin/resellers', marker: '[PAGE:ResellersList]' },
   { url: '/admin/resellers/r-42', marker: '[PAGE:ResellerDetail]' },
-  // Portal
+  // Gestión de App (ex "Portal" — el grupo se renombró, las rutas NO)
   { url: '/admin/portal', marker: '[PAGE:PortalConfig]' },
   { url: '/admin/portal/users', marker: '[PAGE:PortalUsers]' },
+  { url: '/admin/portal/resumen', marker: '[PAGE:AppOverview]' },
+  { url: '/admin/portal/push', marker: '[PAGE:PushAlerts]' },
   // System / Administration
   { url: '/admin/locations', marker: '[PAGE:Ubicaciones]' },
   { url: '/admin/administration/administrators', marker: '[PAGE:Administracion]' },
