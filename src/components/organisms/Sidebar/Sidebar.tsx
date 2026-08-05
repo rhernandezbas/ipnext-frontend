@@ -263,7 +263,12 @@ const EMPRESA_ITEMS: NavParentItem[] = [
     ],
   },
   {
-    label: 'Portal',
+    // gestion-app — antes se llamaba "Portal". El nombre nuevo dice lo que el
+    // grupo ES para el operador: acá vive TODO lo de la app de clientes
+    // (promociones, tienda, avisos push, cuentas, configuración). Las rutas
+    // siguen colgando de `/admin/portal/*` — renombrar la etiqueta no rompe
+    // links, bookmarks ni permisos.
+    label: 'Gestión de App',
     matchPaths: ['/admin/portal'],
     // Sin requiredPermission de GRUPO a propósito: "Promociones" tiene un gate
     // PROPIO `promos.read` (contrato del BE), distinto de `portal.read` — un
@@ -271,16 +276,24 @@ const EMPRESA_ITEMS: NavParentItem[] = [
     // (mismo criterio que "Cuadrillas" arriba). Configuración/Usuarios heredan
     // `portal.read` vía su propio `requiredPermission`.
     children: [
-      { to: '/admin/portal', label: 'Configuración', requiredPermission: 'portal.read' },
-      { to: '/admin/portal/users', label: 'Usuarios', requiredPermission: 'portal.read' },
+      // Portada de la sección: el índice con el estado real de cada cosa.
+      // Mismo `portal.read` que Configuración/Usuarios — no inventa un permiso.
+      { to: '/admin/portal/resumen', label: 'Resumen', requiredPermission: 'portal.read' },
       // promos-admin — promociones que ven los clientes en la app. Va acá
-      // (Portal) porque es contenido de la app/portal de clientes, mismo
-      // dominio que Configuración/Usuarios — NO en Comunicaciones (eso es
+      // porque es contenido de la app de clientes, mismo dominio que
+      // Configuración/Usuarios — NO en Comunicaciones (eso es
       // WhatsApp/mensajería, un canal distinto).
       { to: '/admin/portal/promos', label: 'Promociones', requiredPermission: 'promos.read' },
       // store-admin — productos de la Tienda de la app de clientes + pedidos.
       // Gate PROPIO `store.read`, mismo criterio que Promociones.
       { to: '/admin/portal/store', label: 'Tienda', requiredPermission: 'store.read' },
+      // gestion-app — envío de avisos de servicio al teléfono del cliente.
+      // Gate PROPIO `push.send` (el módulo/acción que exige el BE en
+      // `notifications.routes.ts`): es un permiso de ESCRITURA de alto alcance,
+      // NO se hereda de `portal.read`.
+      { to: '/admin/portal/push', label: 'Avisos push', requiredPermission: 'push.send' },
+      { to: '/admin/portal/users', label: 'Usuarios', requiredPermission: 'portal.read' },
+      { to: '/admin/portal', label: 'Configuración', requiredPermission: 'portal.read' },
     ],
   },
   {

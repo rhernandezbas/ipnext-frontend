@@ -1,0 +1,137 @@
+/**
+ * AppSummaryCard.module.css — tarjetas de la portada de "Gestión de App".
+ * Tokens del repo únicamente (`var(--color-*)`, `var(--space-*)`); cero hex
+ * crudo. Molde de header/estado de `PromosPage.module.css`.
+ */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  /* ≥44px de área táctil con muchísimo margen (checklist de accesibilidad). */
+  min-height: var(--space-12);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.card:hover {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-md);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.cardTitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.cardDescription {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-secondary);
+}
+
+.metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.metricLabel {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+}
+
+.metricValue {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+/* Dato REAL en cero — no es un fallo, y no puede leerse como uno. */
+.metricEmpty {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+/* Endpoint caído: se dice, no se inventa. Sobre --color-warning-bg el
+   --color-warning-fg del repo ya cumple contraste AA. */
+.metricUnavailable {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-warning-fg);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+  align-self: flex-start;
+}
+
+.skeleton {
+  display: block;
+  width: var(--space-10);
+  height: var(--space-6);
+  border-radius: var(--radius-sm);
+  background: var(--color-gray-200);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.cardCta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: auto;
+  padding-top: var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+  .skeleton {
+    animation: none;
+  }
+}

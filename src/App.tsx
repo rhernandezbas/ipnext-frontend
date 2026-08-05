@@ -194,6 +194,14 @@ const PromosPage = lazy(() => import('@/pages/portal/PromosPage/PromosPage'));
 // (lectura). Gate PROPIO `store.read` (contrato del BE en paralelo, worktree
 // `store-be`), mismo criterio que `promos.read` — independiente de `portal.read`.
 const StorePage = lazy(() => import('@/pages/portal/StorePage/StorePage'));
+// gestion-app — portada de la sección "Gestión de App". Mismo `portal.read` que
+// el resto de la config del portal: es un índice de lo que ya existe.
+const AppOverviewPage = lazy(() => import('@/pages/portal/AppOverviewPage/AppOverviewPage'));
+// gestion-app — envío de avisos push de servicio. Gate PROPIO `push.send`, el
+// MISMO módulo/acción que exige el BE (`requirePerm('push','send')` en
+// notifications.routes.ts): escritura de alto alcance, jamás derivada de
+// `portal.read`.
+const PushAlertsPage = lazy(() => import('@/pages/portal/PushAlertsPage/PushAlertsPage'));
 const ContractsListPage = lazy(() => import('@/pages/contracts/ContractsListPage'));
 const RecaptacionPage = lazy(() => import('@/pages/customers/RecaptacionPage'));
 const MisClientesPage = lazy(() => import('@/pages/customers/MisClientesPage'));
@@ -416,14 +424,20 @@ export function App() {
                 <Route path=":id" element={<RequirePermission permission="partners.read"><ResellerDetailPage /></RequirePermission>} />
               </Route>
 
-              {/* ── Portal (portal.read) ───────────────────────────────────── */}
+              {/* ── Gestión de App (ex "Portal", portal.read) ──────────────── */}
+              {/* gestion-app renombró la SECCIÓN, no las rutas: `/admin/portal/*`
+                  se queda tal cual para no romper links, bookmarks ni permisos. */}
               <Route path="portal">
                 <Route index element={<RequirePermission permission="portal.read"><PortalConfigPage /></RequirePermission>} />
+                {/* gestion-app — portada de la sección. */}
+                <Route path="resumen" element={<RequirePermission permission="portal.read"><AppOverviewPage /></RequirePermission>} />
                 <Route path="users" element={<RequirePermission permission="portal.read"><PortalUsersPage /></RequirePermission>} />
                 {/* promos-admin — gate PROPIO promos.read (contrato del BE), independiente de portal.read. */}
                 <Route path="promos" element={<RequirePermission permission="promos.read"><PromosPage /></RequirePermission>} />
                 {/* store-admin — gate PROPIO store.read (contrato del BE), independiente de portal.read. */}
                 <Route path="store" element={<RequirePermission permission="store.read"><StorePage /></RequirePermission>} />
+                {/* gestion-app — gate PROPIO push.send, el mismo que exige el BE. */}
+                <Route path="push" element={<RequirePermission permission="push.send"><PushAlertsPage /></RequirePermission>} />
               </Route>
 
               {/* ── Administration (admin.read) ────────────────────────────── */}

@@ -186,9 +186,12 @@ describe('Sidebar', () => {
     expect(screen.getByRole('button', { name: /resellers/i })).toBeInTheDocument();
   });
 
-  it('Portal collapsible section renders', () => {
+  // gestion-app — el grupo "Portal" pasó a llamarse "Gestión de App" (las rutas
+  // /admin/portal/* NO cambiaron). El detalle de sus ítems y permisos vive en
+  // SidebarGestionApp.test.tsx.
+  it('"Gestión de App" collapsible section renders (ex "Portal")', () => {
     renderSidebar('/admin/portal');
-    expect(screen.getByRole('button', { name: /portal/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /gestión de app/i })).toBeInTheDocument();
   });
 
   it('SLA collapsible section renders', () => {
