@@ -78,14 +78,30 @@ const WCAG_AA_SMALL_TEXT = 4.5;
 const SURFACE = hexToRgb(resolveToken('--color-surface'));
 
 describe('InfoTab.module.css — cero hex crudo en las reglas .balance* (A11Y-1 (A))', () => {
-  it('ninguna declaración color/background(-color) de .balance* contiene un literal #RRGGBB', () => {
+  it('ninguna declaración color/background(-color)/BORDE/outline de .balance* contiene un literal #RRGGBB', () => {
     const balanceBlockStart = css.indexOf('.balanceTimestamp');
     const balanceSection = css.slice(balanceBlockStart);
-    const colorDecls = balanceSection.match(/(?:^|[\s;{])(color|background|background-color):\s*([^;]+);/gm) ?? [];
+    // FX13 (fix wave, R2 F7): el scan original miraba SÓLO color/background y
+    // dejaba `border`/`outline` como punto ciego — justo donde
+    // `.balanceStaleChip` usa `--color-warning-border`. Un
+    // `border: 1px solid #fde68a` crudo tiene que ser un hallazgo.
+    const colorDecls =
+      balanceSection.match(
+        /(?:^|[\s;{])(color|background|background-color|border|border-color|border-top|border-bottom|border-left|border-right|outline|outline-color):\s*([^;]+);/gm,
+      ) ?? [];
     expect(colorDecls.length).toBeGreaterThan(0);
     for (const decl of colorDecls) {
       expect(decl).not.toMatch(/#[0-9a-fA-F]{3,8}/);
     }
+  });
+
+  it('el scan cubre efectivamente una declaración de BORDE (si no, el pin de FX13 sería vacuo)', () => {
+    const balanceSection = css.slice(css.indexOf('.balanceTimestamp'));
+    const decls =
+      balanceSection.match(
+        /(?:^|[\s;{])(border|border-color|outline|outline-color):\s*([^;]+);/gm,
+      ) ?? [];
+    expect(decls.length).toBeGreaterThan(0);
   });
 });
 

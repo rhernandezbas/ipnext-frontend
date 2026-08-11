@@ -106,6 +106,20 @@ describe('InfoTab — BalanceCard — CARD-2: cero medido, deuda y crédito son 
     expect(screen.queryByText('Sin deuda')).not.toBeInTheDocument();
   });
 
+  // FX8 (fix wave, R2 F1 / MUT-3): el test de arriba mira SÓLO el monto, así
+  // que el badge "A favor" podía desaparecer entero y la suite seguía verde —
+  // justo el scenario A11Y-1 "el estado se lee sin color" que el spec promete.
+  // Los 4 estados quedan pineados por su TEXTO, explícitamente.
+  it.each([
+    ['unknown', null, /saldo no disponible/i],
+    ['credit', -5000, /a favor/i],
+    ['settled', 0, /sin deuda/i],
+    ['debt', 65722.07, /deudor/i],
+  ] as const)('A11Y-1 — el estado %s se identifica por su TEXTO, sin depender del color', (_kind, due, textRe) => {
+    render(<InfoTab customer={{ ...mockCustomer, balanceDue: due }} active={true} />);
+    expect(screen.getByText(textRe)).toBeInTheDocument();
+  });
+
   it('los cuatro estados son mutuamente excluyentes (exactamente UN testid por render)', () => {
     const testids = ['balance-unknown', 'balance-credit', 'balance-no-debt', 'balance-amount'];
     const cases: Array<number | null> = [null, -5000, 0, 65722.07];
@@ -143,6 +157,73 @@ describe('InfoTab — BalanceCard — CARD-3: frescura del dato', () => {
     render(<InfoTab customer={customer} active={true} />);
 
     expect(screen.queryByText(/Actualizado/)).not.toBeInTheDocument();
+  });
+
+  // FX4 (fix wave, R1 M4) — par CRUZADO: el chip de stale SÍ tenía el guard
+  // `state.kind !== 'unknown'`, la marca "Actualizado hace …" de al lado NO.
+  // Resultado en pantalla: "Saldo no disponible · Actualizado hace 2 h" —
+  // ¿actualizado QUÉ, si no hay dato? El `lastBalanceAt` de un cliente sin
+  // `grClienteId` es la marca del último INTENTO, no de un saldo real.
+  it('balanceDue null + lastBalanceAt reciente → NO se afirma "Actualizado hace …" (mismo gate que el chip de stale)', () => {
+    const recentDate = new Date(Date.now() - 2 * 60 * 60_000).toISOString();
+    const customer: Customer = { ...mockCustomer, balanceDue: null, lastBalanceAt: recentDate };
+    render(<InfoTab customer={customer} active={true} />);
+
+    expect(screen.getByTestId('balance-unknown')).toBeInTheDocument();
+    expect(screen.queryByText(/Actualizado/)).not.toBeInTheDocument();
+  });
+
+  it('balanceDue null + lastBalanceAt + balanceStale true → ni marca de frescura ni chip de viejo (los dos gates coinciden)', () => {
+    const customer: Customer = {
+      ...mockCustomer,
+      balanceDue: null,
+      lastBalanceAt: new Date(Date.now() - 26 * 60 * 60_000).toISOString(),
+      balanceStale: true,
+    };
+    render(<InfoTab customer={customer} active={true} />);
+
+    expect(screen.queryByText(/Actualizado/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('balance-stale')).not.toBeInTheDocument();
+  });
+
+  it('el gate NO se lleva puesta la marca cuando SÍ hay dato (no-regresión del cruzado)', () => {
+    const customer: Customer = {
+      ...mockCustomer,
+      balanceDue: 0,
+      lastBalanceAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+    };
+    render(<InfoTab customer={customer} active={true} />);
+
+    expect(screen.getByText(/Actualizado hace/)).toBeInTheDocument();
+  });
+});
+
+/**
+ * FX7 (fix wave, R1 M7) — el título de la card era el literal "Saldo deudor",
+ * fijo: coronaba un CRÉDITO ("Saldo deudor / A favor $ 5.000") y un cero
+ * medido con la palabra "deudor". Pasa a un título NEUTRO por estado —
+ * "Saldo de la cuenta", el mismo rótulo que ya usa el sub-header, así el
+ * operador lee el mismo nombre para el mismo dato en los dos lugares.
+ * Se eligió el título neutro (y no uno por estado) porque no rompe ningún
+ * assert de CARD-1..4: ninguno matchea el título, y "Deudor" sigue siendo el
+ * badge del estado de deuda — que ahora es la ÚNICA ocurrencia de esa palabra
+ * cuando corresponde.
+ */
+describe('InfoTab — BalanceCard — FX7: el título de la card no presupone deuda', () => {
+  it('con un CRÉDITO el título no dice "deudor"', () => {
+    render(<InfoTab customer={{ ...mockCustomer, balanceDue: -5000 }} active={true} />);
+    expect(screen.queryByText(/saldo deudor/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /saldo de la cuenta/i })).toBeInTheDocument();
+  });
+
+  it('con un CERO medido el título tampoco dice "deudor"', () => {
+    render(<InfoTab customer={{ ...mockCustomer, balanceDue: 0 }} active={true} />);
+    expect(screen.queryByText(/saldo deudor/i)).not.toBeInTheDocument();
+  });
+
+  it('con DEUDA, "Deudor" aparece UNA sola vez — el badge del estado, no el título', () => {
+    render(<InfoTab customer={{ ...mockCustomer, balanceDue: 65722.07 }} active={true} />);
+    expect(screen.getAllByText(/deudor/i)).toHaveLength(1);
   });
 });
 

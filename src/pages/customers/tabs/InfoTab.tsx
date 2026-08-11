@@ -262,7 +262,12 @@ const UNKNOWN_BALANCE_REASON =
 function BalanceCard({ customer }: { customer: Customer }) {
   const { balanceDue, balanceStale, lastBalanceAt } = customer;
   const state = balanceState(balanceDue);
-  const relative = lastBalanceAt ? formatRelativeTime(lastBalanceAt) : null;
+  // FX4 (fix wave, R1 M4): MISMO gate que el chip de stale de abajo — sin
+  // dato no hay nada que pueda estar "actualizado". El `lastBalanceAt` de un
+  // cliente sin `grClienteId` marca el último INTENTO de sincronización, no
+  // un saldo real; imprimir "Saldo no disponible · Actualizado hace 2 h" le
+  // afirma al operador que hay un dato fresco que no existe.
+  const relative = state.kind !== 'unknown' && lastBalanceAt ? formatRelativeTime(lastBalanceAt) : null;
   // CARD-4 (design §2 Decision 3): el chip de "desactualizado" sólo tiene
   // sentido cuando HAY un dato que pueda estar viejo — con balanceDue==null
   // el BE puede mandar balanceStale:true de forma permanente (cliente sin
@@ -273,7 +278,15 @@ function BalanceCard({ customer }: { customer: Customer }) {
   return (
     <section className={styles.card}>
       <header className={styles.cardHeader}>
-        <h2 className={styles.cardTitle}>Saldo deudor</h2>
+        {/* FX7 (fix wave, R1 M7): el título era el literal "Saldo deudor" —
+            coronaba un CRÉDITO ("Saldo deudor / A favor $ 5.000") y un cero
+            medido con la palabra "deudor". Título NEUTRO, el MISMO rótulo que
+            usa el sub-header de la página para el mismo dato; el estado sigue
+            diciéndose donde corresponde (badge "Deudor" / "A favor" / "Sin
+            deuda" / "Saldo no disponible"). Se eligió neutro sobre "por
+            estado" porque ningún assert de CARD-1..4 matchea el título — el
+            cambio es puramente aditivo en honestidad. */}
+        <h2 className={styles.cardTitle}>Saldo de la cuenta</h2>
         {relative && (
           <span className={styles.balanceTimestamp} title={formatDateTimeShort(lastBalanceAt!)}>
             Actualizado {relative}
