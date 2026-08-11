@@ -136,8 +136,11 @@ Fases independientes entre sí salvo lo indicado: **F0 bloquea todo lo visual**;
 - [x] G.6 ~~Verificar que `FinancialSection.tsx` / `TemplateSendPanel.tsx` NO están
       tocados~~ **REESCRITA**: los dos SÍ se tocan (FX1, bloqueante). Lo que se verifica
       es que `App.tsx`, `Sidebar.tsx`, `MisClientesPage.tsx` y `src/api/*` siguen intactos
-- [ ] G.7 Smoke Playwright: `/admin/customers/view/:id` sin `grClienteId` + un deudor real;
-      `/admin/finance-growth` con el panel de sync — **pendiente** (requiere entorno vivo)
+- [x] G.7 Smoke Playwright: `/admin/customers/view/:id` sin `grClienteId` + un deudor real;
+      `/admin/finance-growth` con el panel de sync — **hecho en vivo, 2026-08-11, deploy `82aa05b4`**:
+      deudor 109143 con el saldo en rojo arriba (sub-header) y abajo (card) + "Actualizado hace 39 min";
+      cuenta demo sin `grClienteId` → "—" / "Saldo no disponible" con la razón real; panel de finanzas
+      mostrando "Sincronización al día" consumiendo el bloque `reconcile`
 - [x] G.8 Borrar cualquier `__probe_*.test.ts` que dejen los revisores — 0 residuales
 
 ---
