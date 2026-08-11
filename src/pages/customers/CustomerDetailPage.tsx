@@ -10,7 +10,7 @@ import { useClientDetail, useToggleClientStatus, useDeleteCustomer } from '../..
 import { useTasksByCustomer } from '../../hooks/useScheduling';
 import { useTicketsByCustomer } from '../../hooks/useTickets';
 import { MaybeValue } from '../../components/atoms/MaybeValue/MaybeValue';
-import { balanceState } from '@/utils/balanceState';
+import { balanceState, type BalanceState } from '@/utils/balanceState';
 import { InfoTab } from './tabs/InfoTab';
 import { ContractsTab } from './tabs/ContractsTab';
 import { BillingTab } from './tabs/BillingTab';
@@ -32,6 +32,21 @@ const arsFormatter = new Intl.NumberFormat('es-AR', { style: 'currency', currenc
 function formatBalanceAmount(amount: number): string {
   return arsFormatter.format(amount);
 }
+
+/**
+ * FX3 (fix wave combo-balance-honesto) — tono del valor del saldo POR ESTADO,
+ * con los MISMOS tokens que la `BalanceCard` del tab Información: el mismo
+ * concepto se pinta del mismo color en los dos lugares. Antes, un único hex
+ * verde crudo (3.30:1, FALLA AA) pintaba los cuatro casos — la deuda salía
+ * VERDE acá y roja abajo, y el crédito era del mismo verde que la deuda.
+ * El color es refuerzo: el canal informativo sigue siendo el texto.
+ */
+const BALANCE_TONE: Record<BalanceState['kind'], string> = {
+  unknown: styles.subHeaderValueUnknown,
+  settled: styles.subHeaderValueSettled,
+  debt: styles.subHeaderValueDebt,
+  credit: styles.subHeaderValueCredit,
+};
 
 export default function CustomerDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
@@ -191,6 +206,11 @@ export default function CustomerDetailPage() {
   // del BE. La convención de signo vigente se conserva (deuda = negativo);
   // el crédito se distingue por TEXTO ("a favor"), no por invertir el signo.
   const accountBalance = balanceState(customer.balanceDue);
+  // FX6 — mismo gate que el chip de la card (CARD-4): con el saldo desconocido
+  // el BE puede mandar `balanceStale: true` de forma permanente (cliente sin
+  // grClienteId, nunca se refresca) y "no disponible" + "desactualizado"
+  // juntos se contradicen en pantalla.
+  const showBalanceStale = accountBalance.kind !== 'unknown' && customer.balanceStale === true;
 
   return (
     <div className={styles.page}>
@@ -224,7 +244,10 @@ export default function CustomerDetailPage() {
           </span>
           <span className={styles.subHeaderBalance}>
             Saldo de la cuenta:
-            <span className={styles.subHeaderBalanceValue}>
+            <span
+              className={`${styles.subHeaderBalanceValue} ${BALANCE_TONE[accountBalance.kind]}`}
+              data-testid="subheader-balance-value"
+            >
               {accountBalance.kind === 'unknown' && (
                 <MaybeValue
                   value={null}
@@ -242,6 +265,11 @@ export default function CustomerDetailPage() {
                 </>
               )}
             </span>
+            {showBalanceStale && (
+              <span className={styles.subHeaderStaleChip} data-testid="subheader-balance-stale">
+                <span aria-hidden>⚠</span> Desactualizado
+              </span>
+            )}
           </span>
         </div>
         <div className={styles.headerActions}>

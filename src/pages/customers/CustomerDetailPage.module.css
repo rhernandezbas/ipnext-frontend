@@ -57,10 +57,37 @@
   color: var(--color-text-primary);
   font-weight: 500;
 }
+/* FX3 (fix wave combo-balance-honesto, R1) — esta regla tenía un hex crudo
+   (verde, 3.30:1 sobre blanco: FALLA AA) aplicado a los CUATRO estados por
+   igual: la DEUDA salía verde acá y roja en la card de abajo, y el crédito
+   era del MISMO verde que la deuda. El tono ahora es POR ESTADO y sale de
+   los MISMOS tokens que la BalanceCard del tab Información — mismo concepto,
+   mismos colores. Esta regla base NO declara color a propósito: el tono lo
+   pone la clase de estado (si volviera un color acá pisaría o competiría con
+   ellas, y `CustomerDetailPage.contrast.test.tsx` lo caza). */
 .subHeaderBalanceValue {
   font-weight: 700;
-  color: #16a34a;
   margin-left: 4px;
+}
+
+/* Tono por estado. El color es SIEMPRE refuerzo: el canal informativo es el
+   texto ("—" / "$ 0,00" / "-$ 5.000" / "a favor"). Contraste calculado en
+   CustomerDetailPage.contrast.test.tsx contra --color-surface. */
+.subHeaderValueUnknown {
+  /* mismo gris que .balanceUnknown de la card */
+  color: var(--color-text-secondary);
+}
+.subHeaderValueSettled {
+  /* mismo verde "al día" que el .balanceCheckIcon de la card */
+  color: var(--badge-paid-fg);
+}
+.subHeaderValueDebt {
+  /* mismo rojo que .balanceAmount de la card */
+  color: var(--badge-late-fg);
+}
+.subHeaderValueCredit {
+  /* mismo verde que .balanceCredit de la card */
+  color: var(--badge-paid-fg);
 }
 
 /* Saldo a favor (HEADER-2, combo-balance-honesto, design.md §3 Decisión 5):
@@ -72,6 +99,25 @@
   color: var(--badge-paid-fg);
   font-weight: 600;
   font-size: 12px;
+}
+
+/* FX6 (fix wave, R1 M6) — el saldo MÁS visible de la página no tenía señal de
+   frescura: un dato de 26h+ se presentaba idéntico a uno recién sincronizado.
+   Calco EXACTO del .balanceStaleChip de InfoTab.module.css (icono + TEXTO,
+   nunca sólo color) para que el operador reconozca la misma marca en los dos
+   lugares. */
+.subHeaderStaleChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-fg);
+  border: 1px solid var(--color-warning-border);
 }
 
 /* ── Legacy classes (kept for compat with older sections) ────────────── */

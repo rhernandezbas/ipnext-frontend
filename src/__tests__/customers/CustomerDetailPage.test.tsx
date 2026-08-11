@@ -312,9 +312,9 @@ describe('CustomerDetailPage — sub-header "Saldo de la cuenta" (combo-balance-
     mockAllHooks();
   });
 
-  function mockCustomerBalance(balanceDue: number | null | undefined) {
+  function mockCustomerBalance(balanceDue: number | null | undefined, extra: Partial<Customer> = {}) {
     vi.mocked(useClientsModule.useClientDetail).mockReturnValue({
-      data: { ...mockCustomer, balanceDue },
+      data: { ...mockCustomer, balanceDue, ...extra },
       isLoading: false,
     } as ReturnType<typeof useClientsModule.useClientDetail>);
   }
@@ -335,6 +335,12 @@ describe('CustomerDetailPage — sub-header "Saldo de la cuenta" (combo-balance-
     const marker = within(subHeader).getByTitle(/no disponible/i);
     expect(marker).toBeInTheDocument();
     expect(marker.getAttribute('aria-label')).toMatch(/no disponible/i);
+    // FX11 (R2 F5 / MUT-9): "dato no disponible" es BOILERPLATE de
+    // `MaybeValue` — pasa con CUALQUIER `unknownReason` (incluso vacío). Lo
+    // que este scenario promete es la RAZÓN concreta; se assertea el texto
+    // real, igual que su gemelo de la card (`InfoTab.test.tsx` CARD-1).
+    expect(marker.getAttribute('title')).toMatch(/gesti[oó]n real|sincroniz/i);
+    expect(marker.getAttribute('aria-label')).toMatch(/gesti[oó]n real|sincroniz/i);
   });
 
   it('HEADER-1: balanceDue 0 → muestra un monto cero REAL, no el marcador de "no disponible"', () => {
@@ -365,4 +371,134 @@ describe('CustomerDetailPage — sub-header "Saldo de la cuenta" (combo-balance-
     // No debe salir con signo negativo: "$ 5.000 a favor", no "-$ 5.000 a favor".
     expect(within(subHeader).queryByText(/-\s*\$\s*5[.,]000/)).not.toBeInTheDocument();
   });
+
+  it('FX12 (R2 F6): balanceDue 0 (cero medido) NO dice "a favor" — un saldo saldado no es un crédito', () => {
+    mockCustomerBalance(0);
+    renderDetail();
+
+    const subHeader = getSubHeaderBalance();
+    expect(within(subHeader).queryByText(/a favor/i)).not.toBeInTheDocument();
+  });
 });
+
+/**
+ * FX3 (fix wave, R1 HIGH) — el sub-header pintaba TODOS los estados con un
+ * solo color hardcodeado (`#16a34a`, verde, 3.30:1: fallaba AA y encima
+ * mostraba la DEUDA en verde y el CRÉDITO del MISMO verde que la deuda).
+ * El color pasa a ser POR ESTADO y CONSISTENTE con la BalanceCard del tab
+ * Información — mismo concepto, mismos tokens:
+ *   debt    → --badge-late-fg      (el rojo de `.balanceAmount`)
+ *   credit  → --badge-paid-fg      (el verde de `.balanceCredit`)
+ *   settled → --badge-paid-fg      (el verde "al día" del `.balanceCheckIcon`)
+ *   unknown → --color-text-secondary (el gris de `.balanceUnknown`)
+ * El color es REFUERZO: el canal informativo sigue siendo el texto
+ * ("—"/"$ 0,00"/"-$ 5.000"/"a favor"). Este test fija la CLASE por estado;
+ * el contraste de cada par se calcula en `CustomerDetailPage.contrast.test.tsx`.
+ */
+describe('CustomerDetailPage — FX3: el valor del sub-header toma color POR ESTADO', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAllHooks();
+  });
+
+  function mockBalance(balanceDue: number | null | undefined, extra: Partial<Customer> = {}) {
+    vi.mocked(useClientsModule.useClientDetail).mockReturnValue({
+      data: { ...mockCustomer, balanceDue, ...extra },
+      isLoading: false,
+    } as ReturnType<typeof useClientsModule.useClientDetail>);
+  }
+
+  const TONE_CLASSES = [
+    'subHeaderValueUnknown',
+    'subHeaderValueCredit',
+    'subHeaderValueSettled',
+    'subHeaderValueDebt',
+  ];
+
+  function getValueEl() {
+    return screen.getByTestId('subheader-balance-value');
+  }
+
+  it.each([
+    ['unknown', null, 'subHeaderValueUnknown'],
+    ['settled', 0, 'subHeaderValueSettled'],
+    ['debt', 5000, 'subHeaderValueDebt'],
+    ['credit', -5000, 'subHeaderValueCredit'],
+  ] as const)('estado %s → clase %s, y NINGUNA de las otras tres', (_kind, due, expectedClass) => {
+    mockBalance(due);
+    renderDetail();
+
+    const el = getValueEl();
+    expect(el).toHaveClass(expectedClass);
+    for (const other of TONE_CLASSES.filter((c) => c !== expectedClass)) {
+      expect(el).not.toHaveClass(other);
+    }
+  });
+
+  it('la deuda NO comparte clase con el crédito (era el bug: los dos del mismo verde)', () => {
+    mockBalance(5000);
+    renderDetail();
+    expect(getValueEl()).not.toHaveClass('subHeaderValueCredit');
+  });
+});
+
+/**
+ * FX6 (fix wave, R1 M6) — el saldo MÁS visible de la página no tenía señal de
+ * frescura: un dato de 26h+ (el barrido de bajas) se presentaba idéntico a uno
+ * recién sincronizado. Se reusa el patrón EXACTO del chip de la card (icono +
+ * TEXTO "Desactualizado", nunca sólo color) y el MISMO gate: con el saldo
+ * desconocido no se avisa "dato viejo" (el BE puede mandar `stale:true`
+ * permanente para un cliente sin `grClienteId`; los dos avisos juntos se
+ * contradicen).
+ */
+describe('CustomerDetailPage — FX6: marca de frescura en el sub-header', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAllHooks();
+  });
+
+  function mockBalance(balanceDue: number | null | undefined, extra: Partial<Customer> = {}) {
+    vi.mocked(useClientsModule.useClientDetail).mockReturnValue({
+      data: { ...mockCustomer, balanceDue, ...extra },
+      isLoading: false,
+    } as ReturnType<typeof useClientsModule.useClientDetail>);
+  }
+
+  it('balanceStale: true + dato presente → chip "⚠ Desactualizado" con TEXTO', () => {
+    mockBalance(5000, { balanceStale: true });
+    renderDetail();
+
+    const chip = screen.getByTestId('subheader-balance-stale');
+    expect(chip.textContent).toMatch(/desactualizad/i);
+  });
+
+  it('balanceStale: false → sin chip', () => {
+    mockBalance(5000, { balanceStale: false });
+    renderDetail();
+    expect(screen.queryByTestId('subheader-balance-stale')).not.toBeInTheDocument();
+  });
+
+  it('balanceStale ausente ≡ fresco → sin chip, sin crash', () => {
+    mockBalance(5000);
+    renderDetail();
+    expect(screen.queryByTestId('subheader-balance-stale')).not.toBeInTheDocument();
+  });
+
+  it('balanceDue null + balanceStale true → NO se avisa de dato viejo (gana "no disponible"), mismo gate que la card', () => {
+    mockBalance(null, { balanceStale: true });
+    renderDetail();
+
+    expect(screen.queryByTestId('subheader-balance-stale')).not.toBeInTheDocument();
+    expect(within(getSubHeaderBalanceScoped()).getByTitle(/no disponible/i)).toBeInTheDocument();
+  });
+
+  it('el crédito también avisa cuando está desactualizado (la clase, no la instancia)', () => {
+    mockBalance(-5000, { balanceStale: true });
+    renderDetail();
+    expect(screen.getByTestId('subheader-balance-stale')).toBeInTheDocument();
+  });
+});
+
+function getSubHeaderBalanceScoped() {
+  return screen.getByText('Saldo de la cuenta:').closest('span')!;
+}
