@@ -160,8 +160,15 @@ export function TemplateSendPanel({ conversationId, onClose, onSent, lightContex
   // el gate del confirm bloquea. La deuda usa el MISMO `formatMoney` que el
   // HERO del panel de contexto — el operador ve el mismo número en ambos lados.
   const resolvedName = (contextClient?.name ?? '').trim();
+  // FX1 (combo-balance-honesto fix wave) — el bloque `balance` está declarado
+  // requerido pero el BE puede mandar el `client` sin él (payload parcial /
+  // deploy escalonado): el MISMO fixture que motivó el `?.` de
+  // `useWhatsapp.ts:880`. Sin este encadenado, `contextClient.balance.due`
+  // tiraba `Cannot read properties of undefined (reading 'due')` y se llevaba
+  // el modal entero. Sin dato ⇒ '' ⇒ la fuente "Monto de deuda" queda
+  // deshabilitada (mismo camino que `due: null`), nunca un monto inventado.
   const resolvedDebt =
-    contextClient && contextClient.balance.due != null
+    contextClient?.balance?.due != null
       ? formatMoney(contextClient.balance.due, contextClient.balance.currency)
       : '';
 

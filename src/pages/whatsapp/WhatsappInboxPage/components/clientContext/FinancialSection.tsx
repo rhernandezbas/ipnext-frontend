@@ -31,6 +31,16 @@ const INVOICE_STATUS_LABEL: Record<WhatsappInboxInvoice['status'], string> = {
  * que da ~3.9:1 y falla 4.5:1) para el monto grande; verde `--badge-paid-*`
  * (NUEVO, F3) solo cuando `isDebtor===false && due!=null` — nunca se pinta
  * "al día" si el balance es desconocido (`due==null`).
+ *
+ * FX1 (combo-balance-honesto fix wave, INBOX-1 de la CLASE): el bloque
+ * `balance` está declarado requerido en el tipo, pero el BE puede mandar el
+ * `client` sin él (payload parcial / deploy escalonado) — es el MISMO fixture
+ * que motivó el `?.` de `useWhatsapp.ts:880`. Aquel fix salvó al cuerpo del
+ * hook y dejó a este consumidor tirando `Cannot read properties of undefined
+ * (reading 'due')`, o sea el panel entero caído igual. Todas las lecturas del
+ * bloque encadenan opcional y caen al estado honesto "Saldo no disponible":
+ * el resto de la sección (última factura, próximo vencimiento) sigue siendo
+ * información útil para el agente y no tiene por qué morir con el saldo.
  */
 export function FinancialSection({ client, isRefreshingBalance }: FinancialSectionProps) {
   const { balance, lastInvoice, nextDueDate } = client;
@@ -51,7 +61,7 @@ export function FinancialSection({ client, isRefreshingBalance }: FinancialSecti
           .filter(Boolean)
           .join(' ')}
       >
-        {balance.due == null ? (
+        {balance?.due == null ? (
           <>
             <span className={styles['fin-unknown']}>—</span>
             <span className={styles['fin-unknownLabel']}>Saldo no disponible</span>
@@ -71,7 +81,7 @@ export function FinancialSection({ client, isRefreshingBalance }: FinancialSecti
 
       <div className={styles['fin-meta']}>
         <span className={styles['fin-lastRefreshed']}>
-          {balance.lastRefreshedAt ? `Actualizado ${formatDateShort(balance.lastRefreshedAt)}` : 'Sin actualizaciones'}
+          {balance?.lastRefreshedAt ? `Actualizado ${formatDateShort(balance.lastRefreshedAt)}` : 'Sin actualizaciones'}
         </span>
         {isRefreshingBalance && <span className={styles['fin-refreshingPill']}>actualizando…</span>}
       </div>
@@ -84,7 +94,7 @@ export function FinancialSection({ client, isRefreshingBalance }: FinancialSecti
               status={INVOICE_STATUS_BADGE[lastInvoice.status]}
               label={INVOICE_STATUS_LABEL[lastInvoice.status]}
             />
-            <span className={styles['fin-invoiceAmount']}>{formatMoney(lastInvoice.amount, balance.currency)}</span>
+            <span className={styles['fin-invoiceAmount']}>{formatMoney(lastInvoice.amount, balance?.currency ?? null)}</span>
           </>
         ) : (
           <span className={styles['fin-invoiceEmpty']}>Sin facturas registradas</span>

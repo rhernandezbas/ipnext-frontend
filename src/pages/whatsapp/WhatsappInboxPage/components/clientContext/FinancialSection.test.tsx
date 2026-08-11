@@ -128,3 +128,50 @@ describe('FinancialSection — HERO deuda (messaging-inbox-v2 F1.5, design §5.2
     expect(screen.getByText('$ 5.000,00')).toBeInTheDocument();
   });
 });
+
+/**
+ * FX1 (fix wave combo-balance-honesto, R1 CRITICAL) — el `?.` de
+ * `useWhatsapp.ts:880` salvó al CUERPO del hook de un payload parcial del BE
+ * (`client` presente, `balance` ausente) pero dejó a los CONSUMIDORES
+ * explotando: este componente hacía `balance.due` sin guard y tiraba
+ * `Cannot read properties of undefined (reading 'due')` con el fixture EXACTO
+ * del test de aquel fix. Un panel que se cae entero es peor que un panel que
+ * dice "no sé": el resto del contexto (facturas, vencimiento) sigue siendo
+ * información útil para el agente.
+ */
+describe('FinancialSection — FX1: `client` SIN bloque `balance` (payload parcial del BE)', () => {
+  /** El tipo declara `balance` requerido; el BE puede no emitirlo (deploy
+   *  escalonado / proyección parcial). El cast reproduce ESE runtime. */
+  const CLIENT_SIN_BALANCE = { ...BASE, balance: undefined } as unknown as WhatsappInboxClientSummary;
+
+  it('no crashea: renderiza el estado "Saldo no disponible" en vez de tirar el panel entero', () => {
+    expect(() => render(<FinancialSection client={CLIENT_SIN_BALANCE} />)).not.toThrow();
+    expect(screen.getByText(/saldo no disponible/i)).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
+  });
+
+  it('sin `balance` NO se afirma "Al día" ni "Debe" (no se inventa un estado financiero)', () => {
+    render(<FinancialSection client={CLIENT_SIN_BALANCE} />);
+    expect(screen.queryByText(/al día/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^debe$/i)).not.toBeInTheDocument();
+  });
+
+  it('el resto de la sección sigue viva: última factura y próximo vencimiento se renderizan igual', () => {
+    render(
+      <FinancialSection
+        client={
+          {
+            ...BASE,
+            balance: undefined,
+            nextDueDate: '2026-08-15',
+            lastInvoice: { id: 'inv-1', number: 'F-001', dueDate: '2026-08-01', amount: 1234, status: 'pendiente', balance: 1234 },
+          } as unknown as WhatsappInboxClientSummary
+        }
+      />,
+    );
+    expect(screen.getByText('F-001')).toBeInTheDocument();
+    expect(screen.getByText('$ 1.234,00')).toBeInTheDocument();
+    expect(screen.getByText('15 ago 2026')).toBeInTheDocument();
+    expect(screen.getByText(/sin actualizaciones/i)).toBeInTheDocument();
+  });
+});

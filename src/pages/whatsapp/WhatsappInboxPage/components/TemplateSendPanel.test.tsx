@@ -676,6 +676,26 @@ describe('FUENTES: opciones de datos del contexto + texto libre (patrón Variabl
     expect(screen.getByRole('option', { name: /nombre del cliente/i })).not.toHaveAttribute('aria-disabled');
   });
 
+  it('FX1: cliente SIN bloque `balance` (payload parcial del BE) → no crashea; "Monto de deuda" deshabilitada, "Nombre del cliente" habilitada', async () => {
+    // Fixture EXACTO del fix de `useWhatsapp.ts:880` (client presente, balance
+    // ausente): aquel `?.` salvó al hook y dejó a ESTE consumidor leyendo
+    // `contextClient.balance.due` sin guard → TypeError que tira el modal.
+    const user = userEvent.setup();
+    mockClientContext({
+      data: {
+        ...RICH_CONTEXT,
+        client: { ...RICH_CONTEXT.client!, balance: undefined },
+      } as unknown as WhatsappInboxClientContext,
+    });
+
+    expect(() => renderPanel({ lightContext: LIGHT_MATCHED })).not.toThrow();
+    await pickApproved(user);
+
+    await user.click(screen.getByRole('combobox', { name: '{{1}}' }));
+    expect(screen.getByRole('option', { name: /monto de deuda/i })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('option', { name: /nombre del cliente/i })).not.toHaveAttribute('aria-disabled');
+  });
+
   it('gate: {{1}} resuelta por fuente pero {{2}} en "Valor fijo" VACÍO → confirm disabled; tipear habilita', async () => {
     const user = userEvent.setup();
     mockClientContext({ data: RICH_CONTEXT });
