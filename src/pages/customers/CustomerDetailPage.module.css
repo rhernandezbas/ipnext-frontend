@@ -63,6 +63,17 @@
   margin-left: 4px;
 }
 
+/* Saldo a favor (HEADER-2, combo-balance-honesto, design.md §3 Decisión 5):
+   color de REFUERZO — el canal informativo es el texto "a favor" al lado,
+   no este color. Se conserva el signo (deuda = negativo, sin invertir la
+   convención vigente); --badge-paid-fg es el mismo verde "al día" que ya
+   usa el resto del sistema para el mismo significado de negocio. */
+.subHeaderBalanceCredit {
+  color: var(--badge-paid-fg);
+  font-weight: 600;
+  font-size: 12px;
+}
+
 /* ── Legacy classes (kept for compat with older sections) ────────────── */
 .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
 .headerLeft { display: flex; flex-direction: column; gap: 0.25rem; }

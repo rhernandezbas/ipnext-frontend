@@ -462,6 +462,45 @@ describe('WHATS-5: useInboxClientContext(conversationId, clientId)', () => {
     expect(result.current.isError).toBe(false);
     await waitFor(() => expect(result.current.balanceRefreshFailed).toBe(true));
   });
+
+  it('INBOX-1 (combo-balance-honesto) — `client` SIN `balance` no rompe el hook: staleBalance resuelve false y el refresh NO se dispara', async () => {
+    // Payload parcial/desalineado del BE (versión vieja o degradada): `client`
+    // presente pero sin el bloque `balance`. Antes del fix,
+    // `query.data?.client?.balance.stale` explotaba en el CUERPO del hook
+    // (el `.stale` sin `?.` sobre un `balance` undefined) — un throw ahí, sin
+    // ningún `isError` que lo capture, tira el panel del inbox entero.
+    const clientWithoutBalance = {
+      status: 'matched',
+      client: {
+        id: 'cli-1',
+        name: 'Juan Perez',
+        email: 'juan@example.com',
+        phone: '+5491100000000',
+        status: 'active',
+        fichaClientId: 'cli-1',
+        // balance: OMITIDO A PROPÓSITO
+        lastInvoice: null,
+        nextDueDate: null,
+        contracts: [],
+        openTicketsCount: 0,
+        recentTickets: [],
+        recentTasks: [],
+        recentLogs: [],
+      },
+    } as unknown as WhatsappInboxClientContext;
+    vi.mocked(getInboxClientContext).mockResolvedValue(clientWithoutBalance);
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(() => useInboxClientContext('conv-1', null), { wrapper });
+
+    // No debe tirar ninguna excepción — el hook resuelve OK.
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.isError).toBe(false);
+
+    // staleBalance resuelve false ⇒ la 2da query (refresh) NUNCA se dispara.
+    expect(result.current.isRefreshingBalance).toBe(false);
+    expect(getInboxClientContext).not.toHaveBeenCalledWith('conv-1', undefined, { refreshBalance: true });
+  });
 });
 
 afterEach(() => {

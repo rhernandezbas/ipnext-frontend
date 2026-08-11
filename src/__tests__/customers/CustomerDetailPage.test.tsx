@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -303,5 +303,66 @@ describe('CustomerDetailPage', () => {
     // The rest of the dropdown (ungated items) must still render.
     expect(screen.getByRole('button', { name: 'Bloquear cliente' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Crear ticket' })).toBeInTheDocument();
+  });
+});
+
+describe('CustomerDetailPage — sub-header "Saldo de la cuenta" (combo-balance-honesto)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAllHooks();
+  });
+
+  function mockCustomerBalance(balanceDue: number | null | undefined) {
+    vi.mocked(useClientsModule.useClientDetail).mockReturnValue({
+      data: { ...mockCustomer, balanceDue },
+      isLoading: false,
+    } as ReturnType<typeof useClientsModule.useClientDetail>);
+  }
+
+  // El sub-header no es la única fuente de "$ 0,00" en la página (StatsTab/
+  // BillingTab también rinden montos en cero) — cada scenario se scopea al
+  // contenedor "Saldo de la cuenta:" para no confundirse con esos otros.
+  function getSubHeaderBalance() {
+    return screen.getByText('Saldo de la cuenta:').closest('span')!;
+  }
+
+  it('HEADER-1: balanceDue null → NO aparece "$ 0,00"; aparece el marcador de no disponible con explicación accesible', () => {
+    mockCustomerBalance(null);
+    renderDetail();
+
+    const subHeader = getSubHeaderBalance();
+    expect(within(subHeader).queryByText('$ 0,00')).not.toBeInTheDocument();
+    const marker = within(subHeader).getByTitle(/no disponible/i);
+    expect(marker).toBeInTheDocument();
+    expect(marker.getAttribute('aria-label')).toMatch(/no disponible/i);
+  });
+
+  it('HEADER-1: balanceDue 0 → muestra un monto cero REAL, no el marcador de "no disponible"', () => {
+    mockCustomerBalance(0);
+    renderDetail();
+
+    const subHeader = getSubHeaderBalance();
+    expect(within(subHeader).getByText(/\$\s*0,00/)).toBeInTheDocument();
+    expect(within(subHeader).queryByTitle(/no disponible/i)).not.toBeInTheDocument();
+  });
+
+  it('HEADER-2: balanceDue 5000 (deuda) → negativo, NO etiquetado "a favor"', () => {
+    mockCustomerBalance(5000);
+    renderDetail();
+
+    const subHeader = getSubHeaderBalance();
+    expect(within(subHeader).getByText(/-\s*\$\s*5[.,]000/)).toBeInTheDocument();
+    expect(within(subHeader).queryByText(/a favor/i)).not.toBeInTheDocument();
+  });
+
+  it('HEADER-2: balanceDue -5000 (crédito) → etiquetado "a favor", distinguible de la deuda por TEXTO', () => {
+    mockCustomerBalance(-5000);
+    renderDetail();
+
+    const subHeader = getSubHeaderBalance();
+    expect(within(subHeader).getByText(/a favor/i)).toBeInTheDocument();
+    expect(within(subHeader).getByText(/\$\s*5[.,]000/)).toBeInTheDocument();
+    // No debe salir con signo negativo: "$ 5.000 a favor", no "-$ 5.000 a favor".
+    expect(within(subHeader).queryByText(/-\s*\$\s*5[.,]000/)).not.toBeInTheDocument();
   });
 });

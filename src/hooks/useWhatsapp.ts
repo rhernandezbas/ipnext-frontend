@@ -873,7 +873,11 @@ export function useInboxClientContext(conversationId: string | null, clientId: s
     refetchInterval: false,
   });
 
-  const staleBalance = query.data?.client?.balance.stale === true;
+  // INBOX-1 (combo-balance-honesto) — el último hop encadena opcional: un
+  // `client` sin `balance` (payload parcial / BE desalineado) ya no explota
+  // en el CUERPO del hook. Antes de este fix, `.balance.stale` sin `?.`
+  // tiraba el panel del inbox entero sin que ningún `isError` lo capturara.
+  const staleBalance = query.data?.client?.balance?.stale === true;
 
   const balanceQuery = useQuery({
     queryKey: [...primaryKey, 'balanceRefresh'],

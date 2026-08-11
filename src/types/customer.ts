@@ -162,11 +162,19 @@ export interface Customer {
   splynxId?: string | null;
   grClienteId?: string | null;
   customAttributes?: Record<string, unknown> | null;
-  /** Gestión Real balance sync fields (gr-client-balance-sync change). */
+  /**
+   * Gestión Real balance sync fields (gr-client-balance-sync change,
+   * unmasked by customer-balance-unmask — combo-balance-honesto FA1).
+   * `balanceDue` is the REAL number for every status now (`null` = no data
+   * verified — no `grClienteId`, or never synced — NOT "no debt"; `< 0` is
+   * a real credit balance). `balanceOverdue`/`invoicesQty` were REMOVED:
+   * the BE (`domain/entities/customer.ts`, `toCustomer()`) never emitted
+   * them — declaring them here blessed unreachable UI branches.
+   */
   balanceDue?: number | null;
-  balanceOverdue?: number | null;
-  invoicesQty?: number | null;
   lastBalanceAt?: string | null;
+  /** TTL-based staleness per lane (fast ~60min / bajas 26h). FE MUST NOT recompute it. */
+  balanceStale?: boolean;
   /**
    * client-geolocation — Prominense-owned GPS coordinates, editable by
    * operators via the "Ubicación" tab. Distinct from any GR address.

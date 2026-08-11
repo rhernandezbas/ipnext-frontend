@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Customer } from '../../../types/customer';
 import { CLIENT_STATUS_LABELS } from '../clientStatusLabels';
 import { formatDateTimeShort } from '@/utils/formatDate';
+import { balanceState } from '@/utils/balanceState';
 import styles from './InfoTab.module.css';
 
 interface Props { customer: Customer; active: boolean; }
@@ -234,8 +235,18 @@ function formatARS(amount: number): string {
   return arsFormatter.format(amount);
 }
 
-function formatRelativeTime(isoDate: string): string {
-  const diff = Date.now() - new Date(isoDate).getTime();
+/**
+ * `formatRelativeTime` guard (design.md §2 Decision 4): un `isoDate`
+ * inválido produce `NaN` en cada paso de la cuenta (`new Date('x').getTime()`
+ * ⇒ `NaN`). Antes de este guard el llamador imprimía el literal "hace NaN d"
+ * — un error de datos NO le sirve al operador. Devolver `null` deja que el
+ * llamador omita el bloque entero (misma convención que ya usa para
+ * `lastBalanceAt` ausente).
+ */
+function formatRelativeTime(isoDate: string): string | null {
+  const t = new Date(isoDate).getTime();
+  if (!Number.isFinite(t)) return null;
+  const diff = Date.now() - t;
   const mins = Math.floor(diff / 60_000);
   if (mins < 1) return 'hace un momento';
   if (mins < 60) return `hace ${mins} min`;
@@ -245,46 +256,64 @@ function formatRelativeTime(isoDate: string): string {
   return `hace ${days} d`;
 }
 
+const UNKNOWN_BALANCE_REASON =
+  'el cliente no está vinculado a Gestión Real o su saldo nunca se sincronizó';
+
 function BalanceCard({ customer }: { customer: Customer }) {
-  const { balanceDue, balanceOverdue, invoicesQty, lastBalanceAt } = customer;
-  const hasDebt = typeof balanceDue === 'number' && balanceDue > 0;
+  const { balanceDue, balanceStale, lastBalanceAt } = customer;
+  const state = balanceState(balanceDue);
+  const relative = lastBalanceAt ? formatRelativeTime(lastBalanceAt) : null;
+  // CARD-4 (design §2 Decision 3): el chip de "desactualizado" sólo tiene
+  // sentido cuando HAY un dato que pueda estar viejo — con balanceDue==null
+  // el BE puede mandar balanceStale:true de forma permanente (cliente sin
+  // grClienteId, nunca se refresca), y mostrar los dos avisos juntos se
+  // contradice en pantalla.
+  const showStale = state.kind !== 'unknown' && balanceStale === true;
 
   return (
     <section className={styles.card}>
       <header className={styles.cardHeader}>
         <h2 className={styles.cardTitle}>Saldo deudor</h2>
-        {lastBalanceAt && (
-          <span className={styles.balanceTimestamp} title={formatDateTimeShort(lastBalanceAt)}>
-            Actualizado {formatRelativeTime(lastBalanceAt)}
+        {relative && (
+          <span className={styles.balanceTimestamp} title={formatDateTimeShort(lastBalanceAt!)}>
+            Actualizado {relative}
+          </span>
+        )}
+        {showStale && (
+          <span className={styles.balanceStaleChip} data-testid="balance-stale">
+            <span aria-hidden>⚠</span> Desactualizado
           </span>
         )}
       </header>
       <div className={`${styles.cardBody} ${styles.balanceBody}`}>
-        {hasDebt ? (
-          <>
-            <div className={styles.balanceAmountWrap}>
-              <span className={styles.balanceDebtorBadge} aria-label="Estado deudor">Deudor</span>
-              <span className={styles.balanceAmount} data-testid="balance-amount">
-                {formatARS(balanceDue!)}
-              </span>
-            </div>
-            {typeof balanceOverdue === 'number' && balanceOverdue > 0 && (
-              <div className={styles.balanceRow}>
-                <span className={styles.balanceRowLabel}>Vencido</span>
-                <span className={styles.balanceOverdue} data-testid="balance-overdue">{formatARS(balanceOverdue)}</span>
-              </div>
-            )}
-            {typeof invoicesQty === 'number' && invoicesQty > 0 && (
-              <div className={styles.balanceRow}>
-                <span className={styles.balanceRowLabel}>Facturas impagas</span>
-                <span data-testid="balance-invoices-qty">{invoicesQty}</span>
-              </div>
-            )}
-          </>
-        ) : (
+        {state.kind === 'unknown' && (
+          <div
+            className={styles.balanceUnknown}
+            data-testid="balance-unknown"
+            title={`Saldo no disponible: ${UNKNOWN_BALANCE_REASON}`}
+            aria-label={`Saldo no disponible: ${UNKNOWN_BALANCE_REASON}`}
+          >
+            <span aria-hidden>—</span> Saldo no disponible
+          </div>
+        )}
+        {state.kind === 'credit' && (
+          <div className={styles.balanceAmountWrap} data-testid="balance-credit">
+            <span className={styles.balanceCreditBadge}>A favor</span>
+            <span className={styles.balanceCredit}>{formatARS(state.amount)}</span>
+          </div>
+        )}
+        {state.kind === 'settled' && (
           <div className={styles.balanceNeutral} data-testid="balance-no-debt">
             <span className={styles.balanceCheckIcon} aria-hidden>✓</span>
             Sin deuda
+          </div>
+        )}
+        {state.kind === 'debt' && (
+          <div className={styles.balanceAmountWrap}>
+            <span className={styles.balanceDebtorBadge} aria-label="Estado deudor">Deudor</span>
+            <span className={styles.balanceAmount} data-testid="balance-amount">
+              {formatARS(state.amount)}
+            </span>
           </div>
         )}
       </div>

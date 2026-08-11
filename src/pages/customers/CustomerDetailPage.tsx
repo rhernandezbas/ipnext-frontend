@@ -9,6 +9,8 @@ import { useCan } from '../../hooks/useMyPermissions';
 import { useClientDetail, useToggleClientStatus, useDeleteCustomer } from '../../hooks/useCustomers';
 import { useTasksByCustomer } from '../../hooks/useScheduling';
 import { useTicketsByCustomer } from '../../hooks/useTickets';
+import { MaybeValue } from '../../components/atoms/MaybeValue/MaybeValue';
+import { balanceState } from '@/utils/balanceState';
 import { InfoTab } from './tabs/InfoTab';
 import { ContractsTab } from './tabs/ContractsTab';
 import { BillingTab } from './tabs/BillingTab';
@@ -25,9 +27,10 @@ import styles from './CustomerDetailPage.module.css';
 const TAB_IDS = ['information', 'contracts', 'billing', 'statistics', 'documents', 'files', 'logs', 'equipos', 'ubicacion', 'actividad', 'comentarios'];
 const HASH_ALIASES: Record<string, string> = { services: 'contracts' };
 
-function formatBalance(b: number | undefined | null) {
-  if (b === undefined || b === null) return '$ 0,00';
-  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(b);
+const arsFormatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
+
+function formatBalanceAmount(amount: number): string {
+  return arsFormatter.format(amount);
 }
 
 export default function CustomerDetailPage() {
@@ -180,11 +183,14 @@ export default function CustomerDetailPage() {
   ];
 
   const splynxId = (customer as { splynxId?: string | null }).splynxId ?? null;
-  // Account balance from the GR-synced debt (balanceDue). A debtor owes money,
-  // so the account saldo is shown NEGATIVE — consistent with the "Saldo deudor"
-  // card on the Info tab. Non-debtors have no debt → $ 0,00.
-  const balanceDue = (customer as { balanceDue?: number | null }).balanceDue ?? null;
-  const balance = balanceDue && balanceDue > 0 ? -balanceDue : balanceDue;
+  // HEADER-1/2/3 (combo-balance-honesto, design.md §3): balanceState() es la
+  // MISMA fuente de verdad que usa la BalanceCard del tab Información — un
+  // -5000 tiene que significar lo mismo en los dos lugares. El cast
+  // estructural `(customer as {...}).balanceDue` se eliminó (HEADER-3): el
+  // tipo ya declara el campo, y el cast anulaba el type-check ante un rename
+  // del BE. La convención de signo vigente se conserva (deuda = negativo);
+  // el crédito se distingue por TEXTO ("a favor"), no por invertir el signo.
+  const accountBalance = balanceState(customer.balanceDue);
 
   return (
     <div className={styles.page}>
@@ -218,7 +224,24 @@ export default function CustomerDetailPage() {
           </span>
           <span className={styles.subHeaderBalance}>
             Saldo de la cuenta:
-            <span className={styles.subHeaderBalanceValue}>{formatBalance(balance)}</span>
+            <span className={styles.subHeaderBalanceValue}>
+              {accountBalance.kind === 'unknown' && (
+                <MaybeValue
+                  value={null}
+                  format={formatBalanceAmount}
+                  label="saldo de la cuenta"
+                  unknownReason="el cliente no está vinculado a Gestión Real o su saldo nunca se sincronizó"
+                />
+              )}
+              {accountBalance.kind === 'settled' && formatBalanceAmount(0)}
+              {accountBalance.kind === 'debt' && formatBalanceAmount(-accountBalance.amount)}
+              {accountBalance.kind === 'credit' && (
+                <>
+                  {formatBalanceAmount(accountBalance.amount)}
+                  <span className={styles.subHeaderBalanceCredit}> a favor</span>
+                </>
+              )}
+            </span>
           </span>
         </div>
         <div className={styles.headerActions}>
