@@ -182,9 +182,17 @@ Cada ítem: rojo visto (revert-probe sobre el código pre-fix) → fix → verde
 
 ---
 
-## Matriz scenario → tarea (48 scenarios originales + 8 del fix wave)
+## Matriz scenario → tarea (48 scenarios originales + 16 del fix wave)
 
-### `customer-balance-display` (31 + 6)
+> **Enmendado (docs, 2026-08-11)**: el header decía "31 + 6 = 37" y tageaba 7 filas
+> "(nuevo)" — ninguna de las 7 tenía su `#### Scenario:` real en el spec (CRITICAL del
+> `sdd-verify`). Las 7 conductas del fix wave ya estaban implementadas y testeadas; lo que
+> faltaba era el texto. Al calcarlas de los tests reales, varias conductas (FX2/FX3, FX6,
+> FX7) resultaron en MÁS de un scenario cada una — el spec ahora tiene **31 + 14 = 45**
+> scenarios para esta capability (verificado con `grep -c '#### Scenario:'` sobre el spec
+> ya enmendado), no 37 ni 38.
+
+### `customer-balance-display` (31 + 14 = 45)
 
 | Requirement | Scenario | Tarea |
 |---|---|---|
@@ -203,23 +211,30 @@ Cada ítem: rojo visto (revert-probe sobre el código pre-fix) → fix → verde
 | CARD-3 | marca relativa con fecha válida | 3.6 / 3.7 |
 | CARD-3 | fecha inválida no imprime NaN | 3.6 / 3.7 |
 | CARD-3 | sin `lastBalanceAt` no hay marca | 3.6 / 3.7 |
-| CARD-3 | **sin DATO no hay marca de frescura** (nuevo) | **FX4** |
+| CARD-3 | **sin DATO no hay marca de frescura** (nuevo) | **FX4** — `InfoTab.test.tsx` > balanceDue null + lastBalanceAt reciente → NO "Actualizado hace …" |
 | CARD-4 | dato viejo se avisa con texto | 3.8 / 3.9 |
 | CARD-4 | dato fresco no molesta | 3.8 / 3.9 |
 | CARD-4 | `balanceStale` ausente ≡ fresco | 3.8 / 3.9 |
 | CARD-4 | sin dato no se avisa de dato viejo | 3.8 / 3.9 |
-| CARD-5 | **el título no presupone deuda** (nuevo) | **FX7** |
+| CARD-5 | **con crédito el título no dice "deudor"** (nuevo) | **FX7** — `InfoTab.test.tsx` > con un CRÉDITO el título no dice "deudor" |
+| CARD-5 | **con cero medido el título tampoco dice "deudor"** (nuevo) | **FX7** — `InfoTab.test.tsx` > con un CERO medido el título tampoco dice "deudor" |
+| CARD-5 | **con deuda, "Deudor" aparece una sola vez** (nuevo) | **FX7** — `InfoTab.test.tsx` > con DEUDA, "Deudor" aparece UNA sola vez |
 | HEADER-1 | sin dato no afirma cero | 4.1 / 4.4 |
 | HEADER-1 | cero medido sí es cero | 4.1 / 4.4 |
-| HEADER-1 | **la razón del "no disponible" es la real** (nuevo) | **FX11** |
+| HEADER-1 | **la razón del "no disponible" es la real** (nuevo) | **FX11** — `CustomerDetailPage.test.tsx` > HEADER-1: balanceDue null … (asserts de `title`/`aria-label` FX11 sobre el mismo test) |
 | HEADER-2 | deuda en negativo | 4.2 / 4.4 |
 | HEADER-2 | crédito etiquetado "a favor" | 4.2 / 4.4 / 4.5 |
-| HEADER-2 | **el cero NO dice "a favor"** (nuevo) | **FX12** |
+| HEADER-2 | **el cero NO dice "a favor"** (nuevo) | **FX12** — `CustomerDetailPage.test.tsx` > FX12 (R2 F6): balanceDue 0 NO dice "a favor" |
 | HEADER-3 | rename rompe el typecheck | 4.3 / 4.4 |
-| HEADER-4 | **color por estado, consistente con la card** (nuevo) | **FX2 / FX3** |
-| HEADER-5 | **frescura visible en el sub-header** (nuevo) | **FX6** |
+| HEADER-4 | **cada estado toma su clase, ninguna las otras tres** (nuevo) | **FX2 / FX3** — `CustomerDetailPage.test.tsx` > estado %s → clase %s (`it.each` de los 4 estados) |
+| HEADER-4 | **la deuda no comparte clase con el crédito** (nuevo) | **FX3** — `CustomerDetailPage.test.tsx` > la deuda NO comparte clase con el crédito |
+| HEADER-5 | **chip "Desactualizado" con dato conocido** (nuevo) | **FX6** — `CustomerDetailPage.test.tsx` > balanceStale: true + dato presente → chip "⚠ Desactualizado" |
+| HEADER-5 | **dato fresco no muestra el chip** (nuevo) | **FX6** — `CustomerDetailPage.test.tsx` > balanceStale: false → sin chip |
+| HEADER-5 | **`balanceStale` ausente ≡ fresco, sin chip** (nuevo) | **FX6** — `CustomerDetailPage.test.tsx` > balanceStale ausente ≡ fresco → sin chip, sin crash |
+| HEADER-5 | **sin dato no hay chip de viejo (mismo gate)** (nuevo) | **FX6** — `CustomerDetailPage.test.tsx` > balanceDue null + balanceStale true → NO se avisa de dato viejo |
+| HEADER-5 | **el crédito también avisa si está viejo** (nuevo) | **FX6** — `CustomerDetailPage.test.tsx` > el crédito también avisa cuando está desactualizado |
 | INBOX-1 | `client` sin `balance` no rompe el hook | 5.1 / 5.2 |
-| INBOX-1 | **… ni a sus CONSUMIDORES** (nuevo) | **FX1** |
+| INBOX-1 | **… ni a sus CONSUMIDORES** (nuevo) | **FX1** — `FinancialSection.test.tsx` > no crashea: renderiza "Saldo no disponible" + `TemplateSendPanel.test.tsx` > FX1: cliente SIN bloque `balance` |
 | NOREG-1 | `FinancialSection` honesto con `null` | 6.1 |
 | NOREG-1 | `TemplateSendPanel` deshabilita fuente | 6.2 |
 | NOREG-1 | `MisClientesPage` no usa `balanceDue` | 6.3 |

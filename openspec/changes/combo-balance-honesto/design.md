@@ -309,11 +309,13 @@ no discrimina" porque el mismo archivo asserta primero la PRESENCIA de los campo
 
 ## 10. Archivos
 
-**Modificados** (9): `src/types/customer.ts` · `src/types/financeGrowth.ts` ·
-`src/pages/customers/tabs/InfoTab.tsx` + `.module.css` ·
+**Modificados** (11, tras FX1 — ver nota de abajo): `src/types/customer.ts` ·
+`src/types/financeGrowth.ts` · `src/pages/customers/tabs/InfoTab.tsx` + `.module.css` ·
 `src/pages/customers/CustomerDetailPage.tsx` + `.module.css` ·
 `src/hooks/useWhatsapp.ts` · `src/pages/finance-growth/FinanceGrowthOverviewPage.tsx` +
-`.module.css`.
+`.module.css` ·
+`src/pages/whatsapp/WhatsappInboxPage/components/clientContext/FinancialSection.tsx` ·
+`src/pages/whatsapp/WhatsappInboxPage/components/TemplateSendPanel.tsx`.
 
 **Nuevos** (4): `src/utils/balanceState.ts` · `src/__tests__/utils/balanceState.test.ts` ·
 `src/__tests__/customers/clientDetail.contract.test.tsx` ·
@@ -322,8 +324,16 @@ no discrimina" porque el mismo archivo asserta primero la PRESENCIA de los campo
 **Tests modificados** (3): `InfoTab.test.tsx` (borra 2, reescribe 1) ·
 `CustomerDetailPage.test.tsx` · `FinanceGrowthOverviewPage.test.tsx`.
 
-**No se toca**: `App.tsx` (cero rutas), `Sidebar.tsx`, `FinancialSection.tsx`,
-`TemplateSendPanel.tsx`, `MisClientesPage.tsx`, `src/api/*`, ningún hook de datos.
+**No se toca**: `App.tsx` (cero rutas), `Sidebar.tsx`, `MisClientesPage.tsx`, `src/api/*`,
+ningún hook de datos.
+
+> **Enmendado (docs, 2026-08-11)**: `FinancialSection.tsx` y `TemplateSendPanel.tsx`
+> **SÍ se tocaron** — la premisa original de esta lista era falsa. FA5 dejó el `?.` de
+> `useWhatsapp.ts` bien puesto, pero ambos consumidores leían `balance.due` sin guard y
+> explotaban con el MISMO fixture del test de FA5 (payload parcial del BE, `client`
+> presente sin `balance`). El fix wave (FX1, `CRITICAL`) los tocó a los dos para tolerar
+> `balance` ausente sin tirar el panel entero — ver `tasks.md` G.6 (reescrita) y el
+> requirement `INBOX-1` del spec `customer-balance-display`.
 
 ## 11. Migración / Rollout
 

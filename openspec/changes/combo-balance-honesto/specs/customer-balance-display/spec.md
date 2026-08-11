@@ -134,6 +134,17 @@ la card MUST omitir la marca en ese caso. Hoy una fecha inválida produce el lit
 - **WHEN** se renderiza `InfoTab`
 - **THEN** no se renderiza ninguna marca "Actualizado …"
 
+#### Scenario: sin dato de saldo no hay marca de frescura, aunque `lastBalanceAt` esté presente
+> Agregado (fix wave, 2026-08-11). El chip de stale (CARD-4) ya tenía el guard
+> `state.kind !== 'unknown'`; la marca "Actualizado hace …" de al lado no lo tenía, y podía
+> leerse "Saldo no disponible · Actualizado hace 2 h" — ¿actualizado QUÉ, si no hay saldo?
+> El `lastBalanceAt` de un cliente sin `grClienteId` es la marca del último INTENTO, no de
+> un saldo real.
+
+- **GIVEN** un `Customer` con `balanceDue: null` y `lastBalanceAt` de hace 2 horas
+- **WHEN** se renderiza `InfoTab`
+- **THEN** se ve el estado "Saldo no disponible" y NO aparece ningún texto "Actualizado"
+
 ### Requirement: CARD-4 — `balanceStale` visible, con texto, y sin contradecir al estado
 Con `balanceStale === true` **y** un `balanceDue` conocido, la card MUST mostrar un
 indicador de dato desactualizado que incluya **texto** (no sólo color ni sólo icono). Con
@@ -163,6 +174,31 @@ dos mensajes juntos se contradice.
 - **WHEN** se renderiza `InfoTab`
 - **THEN** se ve "Saldo no disponible" y NO se ve el indicador de desactualizado
 
+### Requirement: CARD-5 — el título de la card no presupone deuda
+> Agregado (fix wave, 2026-08-11). El título literal "Saldo deudor" coronaba un CRÉDITO
+> ("Saldo deudor / A favor $ 5.000") y un cero medido con la palabra "deudor". La
+> `BalanceCard` MUST usar un título neutro por TODOS los estados — "Saldo de la cuenta", el
+> mismo rótulo que ya usa el sub-header de `CustomerDetailPage` (HEADER-1) — para que el
+> operador lea el mismo nombre para el mismo dato en los dos lugares. El badge "Deudor"
+> sigue siendo la única marca del estado de deuda.
+
+#### Scenario: con un crédito el título no dice "deudor"
+- **GIVEN** un `Customer` con `balanceDue: -5000`
+- **WHEN** se renderiza `InfoTab`
+- **THEN** NO se ve el texto "Saldo deudor" y el heading de la card dice "Saldo de la
+  cuenta"
+
+#### Scenario: con un cero medido el título tampoco dice "deudor"
+- **GIVEN** un `Customer` con `balanceDue: 0`
+- **WHEN** se renderiza `InfoTab`
+- **THEN** NO se ve el texto "Saldo deudor"
+
+#### Scenario: con deuda, "Deudor" aparece una sola vez
+- **GIVEN** un `Customer` con `balanceDue: 65722.07`
+- **WHEN** se renderiza `InfoTab`
+- **THEN** el texto "Deudor" aparece exactamente UNA vez — el badge del estado, no el
+  título
+
 ---
 
 ## Capability: saldo de la cuenta (sub-header de `CustomerDetailPage`)
@@ -186,6 +222,16 @@ Gestión Real o saldo nunca sincronizado).
 - **THEN** "Saldo de la cuenta" muestra un monto cero formateado, no el marcador de
   "no disponible"
 
+#### Scenario: la razón del "no disponible" es la real, no el boilerplate
+> Agregado (fix wave, 2026-08-11). "Dato no disponible" es el texto BOILERPLATE del atom
+> `MaybeValue` — pasa con cualquier `unknownReason`, incluso vacío. Este scenario promete
+> la RAZÓN concreta, igual que su gemelo de la card (CARD-1).
+
+- **GIVEN** un `Customer` con `balanceDue: null`
+- **WHEN** se renderiza `CustomerDetailPage`
+- **THEN** el marcador de "no disponible" del sub-header tiene `title` y `aria-label` que
+  mencionan la razón real (Gestión Real / sincronización), no sólo el boilerplate genérico
+
 ### Requirement: HEADER-2 — deuda y saldo a favor no pueden verse igual
 El sub-header MUST distinguir deuda de crédito. Se conserva la convención vigente (una
 deuda se muestra en negativo, `:187`), y el crédito MUST identificarse por **texto**
@@ -204,6 +250,13 @@ adicional, no sólo por color ni sólo por el signo. Hoy una deuda de 5.000 y un
 - **THEN** el saldo aparece acompañado de un texto que lo identifica como saldo a favor, y
   su render es distinguible del caso de deuda por `5000` **sin depender del color**
 
+#### Scenario: el cero medido no dice "a favor"
+> Agregado (fix wave, 2026-08-11). Un saldo saldado (cero medido) no es un crédito.
+
+- **GIVEN** un `Customer` con `balanceDue: 0`
+- **WHEN** se renderiza `CustomerDetailPage`
+- **THEN** el sub-header NO muestra el texto "a favor"
+
 ### Requirement: HEADER-3 — sin casts estructurales
 `CustomerDetailPage` MUST leer `customer.balanceDue` directamente. El cast
 `(customer as { balanceDue?: number | null }).balanceDue` (`:186`) MUST eliminarse: el
@@ -214,6 +267,62 @@ bug que este change existe para no cometer).
 - **GIVEN** el código de `CustomerDetailPage` sin el cast estructural
 - **WHEN** se busca `as { balanceDue` en el archivo
 - **THEN** no hay ninguna ocurrencia — el acceso es directo y `tsc --noEmit` lo cubre
+
+### Requirement: HEADER-4 — el color del sub-header es por estado y consistente con la card
+> Agregado (fix wave, 2026-08-11). El sub-header pintaba TODOS los estados con un único
+> color hardcodeado (`#16a34a`, verde, 3.30:1 sobre blanco: FALLA AA) — incluida la deuda,
+> del MISMO verde que el crédito. El valor del sub-header MUST tomar color POR ESTADO, con
+> los MISMOS tokens que la `BalanceCard` del tab Información: deuda → `--badge-late-fg`,
+> crédito y cero medido → `--badge-paid-fg`, sin dato → `--color-text-secondary`. El color
+> es refuerzo: el canal informativo sigue siendo el texto (`—` / `$ 0,00` / `-$ 5.000` /
+> "a favor").
+
+#### Scenario: cada estado toma su clase de color y ninguna de las otras tres
+- **GIVEN** los cuatro valores de `balanceDue` (`null`, `0`, `5000`, `-5000`)
+- **WHEN** se renderiza `CustomerDetailPage` para cada uno
+- **THEN** el valor del sub-header tiene la clase de tono correspondiente a su estado
+  (unknown/settled/debt/credit) y NINGUNA de las otras tres
+
+#### Scenario: la deuda no comparte clase con el crédito
+- **GIVEN** un `Customer` con `balanceDue: 5000`
+- **WHEN** se renderiza `CustomerDetailPage`
+- **THEN** el valor del sub-header NO tiene la clase de tono del crédito (era el bug: los
+  dos del mismo verde)
+
+### Requirement: HEADER-5 — frescura visible en el sub-header
+> Agregado (fix wave, 2026-08-11). El saldo MÁS visible de la página no tenía señal de
+> frescura: un dato de 26h+ (el barrido de bajas) se presentaba idéntico a uno recién
+> sincronizado. El sub-header MUST mostrar un chip "⚠ Desactualizado" (icono + TEXTO,
+> reusando el patrón del chip de la `BalanceCard`, CARD-4) cuando `balanceStale === true` y
+> hay un `balanceDue` conocido. Con `balanceDue == null` el chip MUST NOT mostrarse —
+> mismo gate que CARD-4: no hay dato que pueda estar viejo, y el BE puede mandar
+> `stale: true` permanente para un cliente sin `grClienteId`.
+
+#### Scenario: dato desactualizado con saldo conocido muestra el chip con texto
+- **GIVEN** un `Customer` con `balanceDue: 5000` y `balanceStale: true`
+- **WHEN** se renderiza `CustomerDetailPage`
+- **THEN** el sub-header muestra un chip cuyo texto matchea "desactualizado"
+
+#### Scenario: dato fresco no muestra el chip
+- **GIVEN** un `Customer` con `balanceDue: 5000` y `balanceStale: false`
+- **WHEN** se renderiza `CustomerDetailPage`
+- **THEN** el chip de desactualizado NO está presente
+
+#### Scenario: `balanceStale` ausente se trata como fresco
+- **GIVEN** un `Customer` con `balanceDue: 5000` sin la propiedad `balanceStale`
+- **WHEN** se renderiza `CustomerDetailPage`
+- **THEN** el chip NO está presente y la página no crashea
+
+#### Scenario: sin dato no se avisa de dato viejo (mismo gate que la card)
+- **GIVEN** un `Customer` con `balanceDue: null` y `balanceStale: true`
+- **WHEN** se renderiza `CustomerDetailPage`
+- **THEN** el chip de desactualizado NO está presente, y sí se ve el marcador de
+  "no disponible"
+
+#### Scenario: el crédito también avisa cuando está desactualizado
+- **GIVEN** un `Customer` con `balanceDue: -5000` y `balanceStale: true`
+- **WHEN** se renderiza `CustomerDetailPage`
+- **THEN** el chip de desactualizado SÍ está presente (la clase, no la instancia)
 
 ---
 
@@ -230,6 +339,19 @@ throw ocurre en el cuerpo del hook, tirando el panel entero.
 - **WHEN** se ejecuta `useInboxClientContext`
 - **THEN** no se lanza ninguna excepción, `staleBalance` resuelve `false` y el query de
   refresco de balance NO se dispara
+
+#### Scenario: `client` sin `balance` tampoco rompe a sus consumidores
+> Agregado (fix wave, 2026-08-11). El `?.` de `useWhatsapp.ts:880` salvó el CUERPO del
+> hook pero dejó a los CONSUMIDORES del mismo payload (`FinancialSection`,
+> `TemplateSendPanel`) leyendo `balance.due` sin guard — explotaban con el fixture EXACTO
+> del test de arriba. Fix de la CLASE, no la instancia.
+
+- **GIVEN** un `client` presente pero SIN la propiedad `balance` (payload parcial del BE,
+  deploy escalonado)
+- **WHEN** se renderizan `FinancialSection` y `TemplateSendPanel` sobre ese contexto
+- **THEN** ninguno de los dos lanza excepción; `FinancialSection` muestra "Saldo no
+  disponible" sin afirmar "Al día" ni "Debe", y en `TemplateSendPanel` la fuente
+  "Monto de deuda" queda deshabilitada mientras "Nombre del cliente" sigue habilitada
 
 ---
 
