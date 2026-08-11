@@ -172,6 +172,60 @@ describe('FinancialSection — FX1: `client` SIN bloque `balance` (payload parci
     expect(screen.getByText('F-001')).toBeInTheDocument();
     expect(screen.getByText('$ 1.234,00')).toBeInTheDocument();
     expect(screen.getByText('15 ago 2026')).toBeInTheDocument();
+    // FIX (mini fix wave, el hermano de FX4): sin `balance` no hay dato de
+    // saldo → la marca de frescura se omite entera (ni "Actualizado" ni el
+    // fallback "Sin actualizaciones", ver describe de abajo).
+    expect(screen.queryByText(/sin actualizaciones/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/actualizado/i)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * FIX [MEDIUM] (mini fix wave combo-balance-honesto) — el hermano de FX4
+ * (`InfoTab.tsx` BalanceCard) en el inbox: la marca de frescura (`Actualizado
+ * {fecha}` / `Sin actualizaciones`) se mostraba AUNQUE `balance.due` fuera
+ * `null` — "Saldo no disponible · Actualizado 10 ago" le afirma al agente un
+ * dato fresco que no existe. Alcanzable en prod: el BE mapea
+ * `lastRefreshedAt: customer.lastBalanceAt ?? null` para la MISMA población
+ * sin dato de saldo. Mismo criterio que FX4: la marca de frescura solo se
+ * muestra cuando HAY dato de saldo (`due != null`).
+ */
+describe('FinancialSection — FIX: marca de frescura solo con dato de saldo (due != null)', () => {
+  it('due:null con lastRefreshedAt presente NO muestra "Actualizado" (no se afirma un dato fresco que no existe)', () => {
+    render(
+      <FinancialSection
+        client={{
+          ...BASE,
+          balance: { due: null, currency: null, isDebtor: false, stale: false, lastRefreshedAt: '2026-08-10T12:00:00Z' },
+        }}
+      />,
+    );
+    expect(screen.queryByText(/actualizado/i)).not.toBeInTheDocument();
+  });
+
+  it('due:null tampoco muestra el fallback "Sin actualizaciones" (mismo criterio que FX4: sin dato, sin marca)', () => {
+    render(<FinancialSection client={BASE} />);
+    expect(screen.queryByText(/sin actualizaciones/i)).not.toBeInTheDocument();
+  });
+
+  it('due!=null sin lastRefreshedAt SÍ muestra "Sin actualizaciones" (hay saldo pero nunca se sincronizó)', () => {
+    render(
+      <FinancialSection
+        client={{ ...BASE, balance: { due: 100, currency: 'ARS', isDebtor: true, stale: false, lastRefreshedAt: null } }}
+      />,
+    );
     expect(screen.getByText(/sin actualizaciones/i)).toBeInTheDocument();
+  });
+
+  it('due!=null con lastRefreshedAt SÍ muestra "Actualizado {fecha}"', () => {
+    render(
+      <FinancialSection
+        client={{
+          ...BASE,
+          balance: { due: 100, currency: 'ARS', isDebtor: true, stale: false, lastRefreshedAt: '2026-08-10T12:00:00Z' },
+        }}
+      />,
+    );
+    expect(screen.getByText(/actualizado/i)).toBeInTheDocument();
   });
 });

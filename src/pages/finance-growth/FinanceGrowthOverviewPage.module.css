@@ -47,8 +47,12 @@
 /* FX5 (fix wave combo-balance-honesto) — "reconciliación con error" y "ritmo
    degradado" son señales ORTOGONALES y ahora pueden mostrarse a la vez (antes
    la primera se comía a la segunda). Sin esta separación los dos badges se
-   leen pegados en una sola línea corrida. */
-.syncStatus > span + span {
+   leen pegados en una sola línea corrida.
+   NIT (mini fix wave) — `:not(.syncMeta)`: `.syncMeta` ya arranca con su
+   propio " — " en el texto (línea `{coveredThroughDate}` de la TSX); sin la
+   exclusión este margin-left se sumaba a ese separador y duplicaba el
+   espacio entre el badge de estado y "— cobranza cubierta hasta …". */
+.syncStatus > span + span:not(.syncMeta) {
   margin-left: var(--space-2);
 }
 

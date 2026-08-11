@@ -80,9 +80,17 @@ export function FinancialSection({ client, isRefreshingBalance }: FinancialSecti
       </div>
 
       <div className={styles['fin-meta']}>
-        <span className={styles['fin-lastRefreshed']}>
-          {balance?.lastRefreshedAt ? `Actualizado ${formatDateShort(balance.lastRefreshedAt)}` : 'Sin actualizaciones'}
-        </span>
+        {/* FIX [MEDIUM] (mini fix wave, el hermano de FX4 en InfoTab/BalanceCard):
+            la marca de frescura afirma un dato fresco ("Actualizado {fecha}") o
+            su ausencia ("Sin actualizaciones") — ambas lecturas presuponen que
+            HAY un saldo. Con `due==null` ("Saldo no disponible") no hay nada
+            que pueda estar fresco o viejo; se omite entera, mismo criterio que
+            `relative` en `InfoTab.tsx` (BalanceCard, FX4). */}
+        {balance?.due != null && (
+          <span className={styles['fin-lastRefreshed']}>
+            {balance.lastRefreshedAt ? `Actualizado ${formatDateShort(balance.lastRefreshedAt)}` : 'Sin actualizaciones'}
+          </span>
+        )}
         {isRefreshingBalance && <span className={styles['fin-refreshingPill']}>actualizando…</span>}
       </div>
 

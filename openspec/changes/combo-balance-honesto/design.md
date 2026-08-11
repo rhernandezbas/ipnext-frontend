@@ -81,7 +81,7 @@ Container-presentational: `BalanceCard` sigue siendo un sub-componente presentac
 `data-testid` estable para cada una):
 
 ```
-┌ Saldo deudor ──────────── Actualizado hace 5 min · [⚠ desactualizado] ┐
+┌ Saldo de la cuenta ────── Actualizado hace 5 min · [⚠ desactualizado] ┐
 │  · unknown  →  —  Saldo no disponible                                 │
 │  · credit   →  [A favor]  $ 5.000                                     │
 │  · settled  →  ✓ Sin deuda                                            │
