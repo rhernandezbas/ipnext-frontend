@@ -64,25 +64,36 @@ function SyncControls() {
   const pacingEnabled = status?.pacing.enabled ?? true;
   // ERR-1 — el BE escribe el prefijo "error:" en las 3 ramas de falla del
   // carril de reconcile (abort del guard, abandono del barrido, fallo de
-  // red — SyncGrReceiptsReconcileWindow.ts:209,227). `startsWith` es el
+  // red — SyncGrReceiptsReconcileWindow.ts:209,227). El PREFIJO es el
   // discriminador; NO se parsea el sufijo humano, se muestra completo.
+  // FX10 (fix wave, R1 L9): el match es case-INSENSITIVE. Un `'Error: …'`
+  // (mayúscula) de cualquier rama futura del BE no puede pintar de verde un
+  // carril roto. Sigue siendo prefijo, NO `includes`: un resultado exitoso
+  // como `'sweep ok, 0 errors'` NO es una falla.
   const reconcileLastResult = status?.reconcile?.lastResult ?? null;
-  const reconcileError = reconcileLastResult?.startsWith('error:') ?? false;
+  const reconcileError = reconcileLastResult?.toLowerCase().startsWith('error:') ?? false;
 
   return (
     <div className={styles.syncBox}>
       {status && (
         <span className={styles.syncStatus} aria-live="polite">
           {/* Precedencia por costo de ignorarlo (design §7 Decisión 7): el
-              kill-switch congela TODOS los carriles y va primero; el error
-              del reconcile es una falla del guard de anulaciones, DISTINTA
-              de "ritmo degradado" (backoff por fallas hacia GR) — NUNCA se
-              reusa .syncDegraded para no confundir las dos causas. */}
+              kill-switch congela TODOS los carriles, así que gana sobre todo
+              — con la ingesta apagada el resto de las señales es ruido.
+              FX5 (fix wave, R1 M5 + R2 F2): "reconciliación con error" y
+              "ritmo degradado" NO compiten — miden cosas distintas (falla del
+              guard de anulaciones vs. backoff por fallas hacia GR) y pueden
+              ser verdad a la vez. La cadena anterior (`!reconcileError &&
+              degraded`) hacía que el error SE COMIERA el aviso de degradado y
+              el operador perdía la mitad del diagnóstico. Ahora COEXISTEN;
+              "al día" sólo aparece si NINGUNA de las dos está encendida.
+              Cada una conserva su token propio: .syncDegraded NUNCA se reusa
+              para el error del reconcile. */}
           {!pacingEnabled && <span className={styles.syncDisabled}>● Ingesta apagada</span>}
           {pacingEnabled && reconcileError && (
             <span className={styles.syncLaneError}>● Reconciliación con error — {reconcileLastResult}</span>
           )}
-          {pacingEnabled && !reconcileError && degraded && <span className={styles.syncDegraded}>● Ritmo degradado</span>}
+          {pacingEnabled && degraded && <span className={styles.syncDegraded}>● Ritmo degradado</span>}
           {pacingEnabled && !reconcileError && !degraded && <span className={styles.syncOk}>● Sincronización al día</span>}
           {status.delta.coveredThroughDate && (
             <span className={styles.syncMeta}> — cobranza cubierta hasta {status.delta.coveredThroughDate}</span>

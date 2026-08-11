@@ -496,6 +496,34 @@ describe('FinanceGrowthOverviewPage — RUN-1: reconcile.sweepInProgress cuenta 
     expect(btn).toBeEnabled();
   });
 
+  it('FX9 (R2 F3 / MUT-6): status SIN el bloque reconcile y delta.pendingPages FALSE → el botón queda HABILITADO', () => {
+    // El lado `false` del `?? false` de ERR-2 no estaba pineado: el único
+    // test sin bloque `reconcile` usaba `pendingPages: true`, así que un
+    // default `?? true` (que dejaría el botón muerto para siempre contra un
+    // BE viejo) sobrevivía la suite entera.
+    const status = baseSyncStatus({ pacing: { enabled: true }, delta: { pendingPages: false } });
+    const { reconcile: _reconcile, ...statusWithoutReconcile } = status;
+    vi.mocked(useFinanceSyncStatus).mockReturnValue({
+      data: statusWithoutReconcile as unknown as FinanceSyncStatusResponse,
+      isLoading: false,
+    } as unknown as UseQueryResult<FinanceSyncStatusResponse>);
+    vi.mocked(useFinanceOverview).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as UseQueryResult<FinanceOverviewResponse>);
+
+    render(
+      <MemoryRouter>
+        <FinanceGrowthOverviewPage />
+      </MemoryRouter>,
+    );
+
+    const btn = screen.getByRole('button', { name: /sincronizar ahora/i });
+    expect(btn).toBeEnabled();
+  });
+
   it('el kill-switch (pacing.enabled: false) sigue ganando sobre el estado de carril', () => {
     renderSyncPanel(
       baseSyncStatus({
@@ -552,6 +580,69 @@ describe('FinanceGrowthOverviewPage — ERR-1/ERR-2: falla del carril de reconci
     renderSyncPanel(baseSyncStatus({ reconcile: { lastResult: null } }));
 
     expect(screen.getByText(/sincronizaci[oó]n al d[ií]a/i)).toBeInTheDocument();
+  });
+
+  it('FX10 (R2 F4 / MUT-4): un resultado exitoso que CONTIENE la palabra "error" ("sweep ok, 0 errors") NO pinta el carril como roto', () => {
+    // Pin del PREFIJO: un `.includes("error")` en vez de `startsWith` daría
+    // falso positivo acá y ningún test lo cazaba.
+    renderSyncPanel(baseSyncStatus({ reconcile: { lastResult: 'sweep ok, 0 errors' } }));
+
+    expect(screen.queryByText(/reconciliaci[oó]n con error/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/sincronizaci[oó]n al d[ií]a/i)).toBeInTheDocument();
+  });
+
+  it('FX10 (R1 L9): el prefijo se matchea case-INSENSITIVE — "Error:" con mayúscula NO puede pintar verde un carril roto', () => {
+    renderSyncPanel(
+      baseSyncStatus({ reconcile: { lastResult: 'Error: guard abort [barrido ABANDONADO tras 3 aborts]' } }),
+    );
+
+    expect(screen.getByText(/reconciliaci[oó]n con error/i)).toBeInTheDocument();
+    expect(screen.queryByText(/sincronizaci[oó]n al d[ií]a/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * FX5 (fix wave, R1 M5 + R2 F2 / MUT-5) — "ritmo degradado" (backoff por
+   * fallas hacia GR, mide los TRES carriles) y "reconciliación con error"
+   * (abort del guard de anulaciones) son señales ORTOGONALES: pueden ser
+   * verdad al mismo tiempo y por causas distintas. La cadena original las
+   * hacía competir (`!reconcileError && degraded`), así que el error del
+   * reconcile SE COMÍA el aviso de degradado y el operador perdía la mitad
+   * del diagnóstico. Ahora COEXISTEN; `apagada` sigue ganando sobre todo
+   * (congela los carriles: lo demás es ruido).
+   */
+  it('FX5: degraded:true + error del reconcile → se ven LOS DOS badges (señales ortogonales, no compiten)', () => {
+    renderSyncPanel(
+      baseSyncStatus({
+        pacing: { enabled: true, degraded: true },
+        reconcile: { lastResult: GUARD_ABORT_MSG },
+      }),
+    );
+
+    expect(screen.getByText(/reconciliaci[oó]n con error/i)).toBeInTheDocument();
+    expect(screen.getByText(/ritmo degradado/i)).toBeInTheDocument();
+    // Y "al día" NO aparece: con cualquiera de las dos señales encendidas la
+    // sincronización no está al día.
+    expect(screen.queryByText(/sincronizaci[oó]n al d[ií]a/i)).not.toBeInTheDocument();
+  });
+
+  it('FX5: degraded:true SIN error del reconcile → sigue apareciendo "Ritmo degradado" (no-regresión)', () => {
+    renderSyncPanel(baseSyncStatus({ pacing: { enabled: true, degraded: true }, reconcile: { lastResult: null } }));
+
+    expect(screen.getByText(/ritmo degradado/i)).toBeInTheDocument();
+    expect(screen.queryByText(/reconciliaci[oó]n con error/i)).not.toBeInTheDocument();
+  });
+
+  it('FX5: el kill-switch apagado sigue ganando sobre AMBAS señales a la vez', () => {
+    renderSyncPanel(
+      baseSyncStatus({
+        pacing: { enabled: false, degraded: true },
+        reconcile: { lastResult: GUARD_ABORT_MSG },
+      }),
+    );
+
+    expect(screen.getByText(/ingesta apagada/i)).toBeInTheDocument();
+    expect(screen.queryByText(/ritmo degradado/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/reconciliaci[oó]n con error/i)).not.toBeInTheDocument();
   });
 
   it('precedencia: el kill-switch apagado gana sobre el error del reconcile', () => {

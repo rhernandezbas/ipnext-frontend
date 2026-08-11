@@ -77,8 +77,12 @@ dispara trabajo sobre un carril que ya está corriendo.
 ## Capability: falla del carril de reconcile
 
 ### Requirement: ERR-1 — un ABORT del guard se lee como lo que es, no como "ritmo degradado"
-Cuando `reconcile.lastResult` empieza con `error:` el badge de estado MUST mostrar un
-estado dedicado que **incluya el mensaje** de `lastResult`. El BE escribe ahí tanto el
+Cuando `reconcile.lastResult` empieza con `error:` (comparación **case-insensitive** del
+PREFIJO, nunca `includes`) el badge de estado MUST mostrar un estado dedicado que
+**incluya el mensaje** de `lastResult`. Ese estado MUST NOT suprimir el aviso de "ritmo
+degradado": son señales ortogonales y MUST poder mostrarse simultáneamente. La única
+precedencia que suprime al resto es `pacing.enabled === false` (el kill-switch congela
+los tres carriles, así que lo demás es ruido). El BE escribe ahí tanto el
 abort del guard de anulaciones (`error: … [aborts consecutivos del guard en este barrido:
 N]`) como el abandono del barrido (`error: … [barrido ABANDONADO tras N aborts …]`) y
 cualquier fallo de red (`error: ${err.message}`) —
@@ -98,6 +102,32 @@ cualquier fallo de red (`error: ${err.message}`) —
 - **WHEN** se renderiza el panel
 - **THEN** NO aparece el texto "Ritmo degradado" — son dos condiciones distintas con dos
   causas distintas
+
+#### Scenario: las dos señales COEXISTEN cuando las dos son verdad
+> Enmendado en el fix wave (R1 M5 + R2 F2). La versión original de este scenario fijaba
+> `degraded: false` y por lo tanto sólo probaba el caso degenerado: con `degraded: true`
+> la implementación tapaba el aviso de degradado detrás del error del reconcile
+> (`!reconcileError && degraded`) y el operador perdía la mitad del diagnóstico. Son
+> métricas ORTOGONALES —`degraded` mide el backoff hacia GR de los tres carriles,
+> `reconcile.lastResult` mide el guard de anulaciones— y una NO implica ni excluye a la otra.
+
+- **GIVEN** un status con `pacing.enabled: true`, `pacing.degraded: **true**` **y**
+  `reconcile.lastResult` con prefijo `error:`
+- **WHEN** se renderiza el panel
+- **THEN** se ven **los dos** avisos a la vez (el de reconciliación con error, con su
+  mensaje, y el de "Ritmo degradado"), cada uno con su token propio, y NO se ve
+  "Sincronización al día"
+
+#### Scenario: el prefijo `error:` se reconoce sin importar la caja
+> Agregado en el fix wave (R1 L9). Un `'Error: …'` con mayúscula —forma perfectamente
+> posible en una rama futura del BE— pintaba el carril roto de VERDE ("Sincronización al
+> día"). El discriminador sigue siendo el PREFIJO, no una subcadena: `'sweep ok, 0 errors'`
+> es un resultado exitoso y NO debe disparar el estado de error.
+
+- **GIVEN** un status con `reconcile.lastResult` = `'Error: guard abort …'`
+- **WHEN** se renderiza el panel
+- **THEN** se muestra el estado de error del reconcile
+- **AND** con `reconcile.lastResult` = `'sweep ok, 0 errors'` NO se muestra
 
 #### Scenario: un resultado exitoso no dispara el estado de error
 - **GIVEN** un status con `reconcile.lastResult` = `'page ok @200'`
