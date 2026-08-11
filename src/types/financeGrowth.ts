@@ -211,7 +211,7 @@ export interface FinanceSyncStatusResponse {
     effectiveIntervalMs: number;
     degraded: boolean;
     consecutiveFailures: number;
-    activeLane: 'delta' | 'backfill' | 'idle';
+    activeLane: 'delta' | 'reconcile' | 'backfill' | 'idle';
     /**
      * fix-wave-2 R3 (BE) — kill-switch operativo. `false` = el ingest de
      * recibos está APAGADO a propósito: NINGÚN carril avanza, "hoy" deja de
@@ -236,6 +236,23 @@ export interface FinanceSyncStatusResponse {
     cursorYearMonth: string | null;
     cursorPageOffset: number;
     done: boolean;
+  };
+  /**
+   * gr-receipt-annulment (BE, en prod desde 2026-08-10) — tercer carril:
+   * barrido de anulaciones de recibos. Calco EXACTO de
+   * `application/dto/financeGrowth.dto.ts:87-95`. Campos REQUERIDOS (el BE
+   * ya los emite siempre); las LECTURAS en el componente son defensivas con
+   * `?.` para tolerar un deploy escalonado (design.md §6 Decisión 6) — el
+   * tipo describe el contrato real, el `?.` describe la ventana de deploy.
+   */
+  reconcile: {
+    lastRunAt: string | null;
+    lastResult: string | null;
+    itemsSynced: number;
+    sweepInProgress: boolean;
+    windowFrom: string | null;
+    windowTo: string | null;
+    pageOffset: number;
   };
   debtorBalances: { lastRunAt: string | null; lastResult: string | null; itemsSynced: number };
   snapshotJob: { lastRunAt: string | null; lastResult: string | null; itemsSynced: number };

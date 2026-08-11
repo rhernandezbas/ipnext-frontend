@@ -61,6 +61,15 @@
   color: var(--color-warning-fg);
 }
 
+/* combo-balance-honesto A11Y-1(B) — token PROPIO (NO reusar .syncDegraded:
+   degraded mide backoff por fallas hacia GR, esto mide una falla DISTINTA
+   — el guard de anulaciones del carril de reconcile). --color-danger sobre
+   blanco = 4.53:1 (>=4.5:1, AA) — ver InfoTab.contrast.test.tsx si el fondo
+   del panel cambia. */
+.syncLaneError {
+  color: var(--color-danger);
+}
+
 /* Bloqueante 🔴3 — kill-switch apagado (pacing.enabled === false). Rojo/neutro
    a propósito, NUNCA verde: es un estado que requiere atención de un admin,
    no "todo bien". --color-danger sobre blanco = 4.53:1 (>=4.5:1, AA). */

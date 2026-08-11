@@ -50,7 +50,11 @@ function SyncControls() {
 
   if (!can('finance.sync')) return null;
 
-  const running = status?.delta.pendingPages ?? false;
+  // RUN-1 (combo-balance-honesto, design.md §7) — un barrido de reconcile en
+  // curso cuenta como sincronización activa, igual que páginas pendientes
+  // del delta. ERR-2: `?.` + `?? false` toleran un BE viejo (deploy
+  // escalonado) que todavía no emite el bloque `reconcile`.
+  const running = (status?.delta.pendingPages ?? false) || (status?.reconcile?.sweepInProgress ?? false);
   const degraded = status?.pacing.degraded ?? false;
   // Bloqueante 🔴3 — `pacing.enabled === false` (kill-switch apagado) es un
   // estado DISTINTO de `degraded`: degraded mide backoff por fallas hacia
@@ -58,14 +62,28 @@ function SyncControls() {
   // este campo (regresión de fix-wave-2 R3), el panel sólo miraba `degraded`
   // y pintaba "Sincronización al día" en VERDE con la ingesta apagada.
   const pacingEnabled = status?.pacing.enabled ?? true;
+  // ERR-1 — el BE escribe el prefijo "error:" en las 3 ramas de falla del
+  // carril de reconcile (abort del guard, abandono del barrido, fallo de
+  // red — SyncGrReceiptsReconcileWindow.ts:209,227). `startsWith` es el
+  // discriminador; NO se parsea el sufijo humano, se muestra completo.
+  const reconcileLastResult = status?.reconcile?.lastResult ?? null;
+  const reconcileError = reconcileLastResult?.startsWith('error:') ?? false;
 
   return (
     <div className={styles.syncBox}>
       {status && (
         <span className={styles.syncStatus} aria-live="polite">
+          {/* Precedencia por costo de ignorarlo (design §7 Decisión 7): el
+              kill-switch congela TODOS los carriles y va primero; el error
+              del reconcile es una falla del guard de anulaciones, DISTINTA
+              de "ritmo degradado" (backoff por fallas hacia GR) — NUNCA se
+              reusa .syncDegraded para no confundir las dos causas. */}
           {!pacingEnabled && <span className={styles.syncDisabled}>● Ingesta apagada</span>}
-          {pacingEnabled && degraded && <span className={styles.syncDegraded}>● Ritmo degradado</span>}
-          {pacingEnabled && !degraded && <span className={styles.syncOk}>● Sincronización al día</span>}
+          {pacingEnabled && reconcileError && (
+            <span className={styles.syncLaneError}>● Reconciliación con error — {reconcileLastResult}</span>
+          )}
+          {pacingEnabled && !reconcileError && degraded && <span className={styles.syncDegraded}>● Ritmo degradado</span>}
+          {pacingEnabled && !reconcileError && !degraded && <span className={styles.syncOk}>● Sincronización al día</span>}
           {status.delta.coveredThroughDate && (
             <span className={styles.syncMeta}> — cobranza cubierta hasta {status.delta.coveredThroughDate}</span>
           )}

@@ -262,6 +262,7 @@ describe('useFinanceSyncStatus / useRunFinanceSync', () => {
     },
     delta: { lastRunAt: null, lastResult: null, itemsSynced: 0, pendingPages: false, coveredThroughDate: null },
     backfill: { lastRunAt: null, lastResult: null, itemsSynced: 0, cursorYearMonth: '2026-07', cursorPageOffset: 0, done: false },
+    reconcile: { lastRunAt: null, lastResult: null, itemsSynced: 0, sweepInProgress: false, windowFrom: null, windowTo: null, pageOffset: 0 },
     debtorBalances: { lastRunAt: null, lastResult: null, itemsSynced: 0 },
     snapshotJob: { lastRunAt: null, lastResult: null, itemsSynced: 0 },
   };

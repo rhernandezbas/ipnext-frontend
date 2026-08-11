@@ -302,6 +302,7 @@ describe('FinanceGrowthOverviewPage — 4 estados', () => {
       },
       delta: { lastRunAt: null, lastResult: null, itemsSynced: 0, pendingPages: false, coveredThroughDate: null },
       backfill: { lastRunAt: null, lastResult: null, itemsSynced: 0, cursorYearMonth: null, cursorPageOffset: 0, done: false },
+      reconcile: { lastRunAt: null, lastResult: null, itemsSynced: 0, sweepInProgress: false, windowFrom: null, windowTo: null, pageOffset: 0 },
       debtorBalances: { lastRunAt: null, lastResult: null, itemsSynced: 0 },
       snapshotJob: { lastRunAt: null, lastResult: 'ERROR: connection refused', itemsSynced: 0 },
     };
@@ -393,5 +394,209 @@ describe('FinanceGrowthOverviewPage — 4 estados', () => {
       </MemoryRouter>,
     );
     expect(screen.queryByRole('button', { name: /sincronizar ahora/i })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * combo-balance-honesto FB2 — finance-sync-lane-visibility (RUN-1, ERR-1,
+ * ERR-2). `gr-receipt-annulment` (BE, prod desde 2026-08-10) agregó el
+ * carril `reconcile`: un barrido en curso NO debe leerse como "sistema
+ * quieto", y un ABORT del guard de anulaciones NO debe leerse como "ritmo
+ * degradado" genérico (design.md §7).
+ */
+function baseSyncStatus(overrides: {
+  pacing?: Partial<FinanceSyncStatusResponse['pacing']>;
+  delta?: Partial<FinanceSyncStatusResponse['delta']>;
+  reconcile?: Partial<FinanceSyncStatusResponse['reconcile']>;
+} = {}): FinanceSyncStatusResponse {
+  return {
+    pacing: {
+      requestIntervalMs: 20000,
+      effectiveIntervalMs: 20000,
+      degraded: false,
+      consecutiveFailures: 0,
+      activeLane: 'idle',
+      enabled: true,
+      ...overrides.pacing,
+    },
+    delta: {
+      lastRunAt: null,
+      lastResult: null,
+      itemsSynced: 0,
+      pendingPages: false,
+      coveredThroughDate: null,
+      ...overrides.delta,
+    },
+    backfill: { lastRunAt: null, lastResult: null, itemsSynced: 0, cursorYearMonth: null, cursorPageOffset: 0, done: false },
+    reconcile: {
+      lastRunAt: null,
+      lastResult: null,
+      itemsSynced: 0,
+      sweepInProgress: false,
+      windowFrom: null,
+      windowTo: null,
+      pageOffset: 0,
+      ...overrides.reconcile,
+    },
+    debtorBalances: { lastRunAt: null, lastResult: null, itemsSynced: 0 },
+    snapshotJob: { lastRunAt: null, lastResult: null, itemsSynced: 0 },
+  };
+}
+
+function renderSyncPanel(status: FinanceSyncStatusResponse) {
+  vi.mocked(useFinanceSyncStatus).mockReturnValue({
+    data: status,
+    isLoading: false,
+  } as unknown as UseQueryResult<FinanceSyncStatusResponse>);
+  vi.mocked(useFinanceOverview).mockReturnValue({
+    data: undefined,
+    isLoading: true,
+    isError: false,
+    refetch: vi.fn(),
+  } as unknown as UseQueryResult<FinanceOverviewResponse>);
+
+  render(
+    <MemoryRouter>
+      <FinanceGrowthOverviewPage />
+    </MemoryRouter>,
+  );
+}
+
+describe('FinanceGrowthOverviewPage — RUN-1: reconcile.sweepInProgress cuenta como sincronización activa', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPermissions();
+    mockSyncHooks();
+  });
+
+  it('reconcile.sweepInProgress: true + delta.pendingPages: false → botón "Sincronizando…" deshabilitado', () => {
+    renderSyncPanel(baseSyncStatus({ delta: { pendingPages: false }, reconcile: { sweepInProgress: true } }));
+
+    const btn = screen.getByRole('button', { name: /sincronizando/i });
+    expect(btn).toBeDisabled();
+  });
+
+  it('delta.pendingPages: true (no-regresión) sigue deshabilitando el botón', () => {
+    renderSyncPanel(baseSyncStatus({ delta: { pendingPages: true }, reconcile: { sweepInProgress: false } }));
+
+    const btn = screen.getByRole('button', { name: /sincronizando/i });
+    expect(btn).toBeDisabled();
+  });
+
+  it('sin carriles activos y pacing.enabled: true → "Sincronizar ahora" habilitado', () => {
+    renderSyncPanel(
+      baseSyncStatus({
+        pacing: { enabled: true },
+        delta: { pendingPages: false },
+        reconcile: { sweepInProgress: false },
+      }),
+    );
+
+    const btn = screen.getByRole('button', { name: /sincronizar ahora/i });
+    expect(btn).toBeEnabled();
+  });
+
+  it('el kill-switch (pacing.enabled: false) sigue ganando sobre el estado de carril', () => {
+    renderSyncPanel(
+      baseSyncStatus({
+        pacing: { enabled: false },
+        reconcile: { sweepInProgress: false },
+      }),
+    );
+
+    const btn = screen.getByRole('button', { name: /sincronizar ahora/i });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAttribute('title', expect.stringMatching(/apagada/i));
+  });
+});
+
+describe('FinanceGrowthOverviewPage — ERR-1/ERR-2: falla del carril de reconcile', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPermissions();
+    mockSyncHooks();
+  });
+
+  const GUARD_ABORT_MSG = 'error: guard abort … [aborts consecutivos del guard en este barrido: 2]';
+
+  it('reconcile.lastResult con prefijo "error:" → estado dedicado CON el mensaje, sin "Sincronización al día"', () => {
+    renderSyncPanel(
+      baseSyncStatus({
+        pacing: { enabled: true, degraded: false },
+        reconcile: { lastResult: GUARD_ABORT_MSG },
+      }),
+    );
+
+    expect(screen.getByText(new RegExp(GUARD_ABORT_MSG.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toBeInTheDocument();
+    expect(screen.queryByText(/sincronizaci[oó]n al d[ií]a/i)).not.toBeInTheDocument();
+  });
+
+  it('el estado de error del reconcile NO se confunde con "Ritmo degradado"', () => {
+    renderSyncPanel(
+      baseSyncStatus({
+        pacing: { enabled: true, degraded: false },
+        reconcile: { lastResult: GUARD_ABORT_MSG },
+      }),
+    );
+
+    expect(screen.queryByText(/ritmo degradado/i)).not.toBeInTheDocument();
+  });
+
+  it('un resultado exitoso (sin prefijo "error:") NO dispara el estado de error del reconcile', () => {
+    renderSyncPanel(baseSyncStatus({ reconcile: { lastResult: 'page ok @200' } }));
+
+    expect(screen.getByText(/sincronizaci[oó]n al d[ií]a/i)).toBeInTheDocument();
+  });
+
+  it('reconcile.lastResult: null (nunca corrió) no dispara el estado de error', () => {
+    renderSyncPanel(baseSyncStatus({ reconcile: { lastResult: null } }));
+
+    expect(screen.getByText(/sincronizaci[oó]n al d[ií]a/i)).toBeInTheDocument();
+  });
+
+  it('precedencia: el kill-switch apagado gana sobre el error del reconcile', () => {
+    renderSyncPanel(
+      baseSyncStatus({
+        pacing: { enabled: false },
+        reconcile: { lastResult: GUARD_ABORT_MSG },
+      }),
+    );
+
+    expect(screen.getByText(/ingesta apagada/i)).toBeInTheDocument();
+    expect(screen.queryByText(/sincronizaci[oó]n al d[ií]a/i)).not.toBeInTheDocument();
+  });
+
+  it('el aviso de error del reconcile vive dentro de la región aria-live="polite" existente', () => {
+    renderSyncPanel(baseSyncStatus({ reconcile: { lastResult: GUARD_ABORT_MSG } }));
+
+    const live = document.querySelector('[aria-live="polite"]');
+    expect(live).not.toBeNull();
+    expect(live!.textContent).toMatch(/aborts consecutivos/i);
+  });
+
+  it('ERR-2: status SIN el bloque reconcile no rompe la página — running cae a delta.pendingPages, sin badge de error', () => {
+    const status = baseSyncStatus({ delta: { pendingPages: true } });
+    const { reconcile: _reconcile, ...statusWithoutReconcile } = status;
+    vi.mocked(useFinanceSyncStatus).mockReturnValue({
+      data: statusWithoutReconcile as unknown as FinanceSyncStatusResponse,
+      isLoading: false,
+    } as unknown as UseQueryResult<FinanceSyncStatusResponse>);
+    vi.mocked(useFinanceOverview).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as UseQueryResult<FinanceOverviewResponse>);
+
+    expect(() =>
+      render(
+        <MemoryRouter>
+          <FinanceGrowthOverviewPage />
+        </MemoryRouter>,
+      ),
+    ).not.toThrow();
+
+    expect(screen.getByRole('button', { name: /sincronizando/i })).toBeDisabled();
+    expect(screen.queryByText(/reconciliaci[oó]n con error/i)).not.toBeInTheDocument();
   });
 });
