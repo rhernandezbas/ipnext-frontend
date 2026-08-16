@@ -2,3 +2,22 @@ node_modules/
 .env
 dist/
 build/
+
+# Local tooling
+# OJO: .agents/ NO va aca — las skills de animacion estan VERSIONADAS a proposito
+# (el WORKFLOW las declara innegociables para motion). Lo mismo skills-lock.json.
+.claude/
+.claire/
+.atl/
+
+# Playwright artifacts (local exploration only)
+.playwright-mcp/
+test-results/
+playwright-report/
+
+# Screenshots de verificacion en vivo: caen en la RAIZ del repo y no son codigo.
+# Anclado a la raiz (/) a proposito: un `*.png` global bloquearia assets legitimos en src/.
+/*.png
+
+# Coverage (footgun: untracked-but-not-ignored leaks via broad git add)
+coverage/
