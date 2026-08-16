@@ -21,3 +21,8 @@ playwright-report/
 
 # Coverage (footgun: untracked-but-not-ignored leaks via broad git add)
 coverage/
+
+# Bytecode de los scripts Python de las skills. .agents/ SI se versiona, asi que
+# sin esto el __pycache__ de ui-ux-pro-max entraria en el primer `git add`.
+__pycache__/
+*.pyc
