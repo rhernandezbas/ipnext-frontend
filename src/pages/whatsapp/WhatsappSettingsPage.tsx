@@ -1,6 +1,7 @@
 import { Can } from '@/components/auth/Can';
 import { ChatMediaDownloadCard } from '@/components/settings/ChatMediaDownloadCard';
 import { ChatwootSendPathCard } from '@/components/settings/ChatwootSendPathCard';
+import { ExternalBulkMessagingCard } from '@/components/settings/ExternalBulkMessagingCard';
 import { ChatwootLabelsCard } from '@/components/settings/ChatwootLabelsCard';
 import { NocBroadcastCard } from '@/components/settings/NocBroadcastCard';
 import { TaskStageConfigCard } from '@/components/settings/TaskStageConfigCard';
@@ -48,6 +49,22 @@ export default function WhatsappSettingsPage() {
         </p>
         <Can permission="messaging.read" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
           <ChatwootSendPathCard />
+        </Can>
+      </section>
+
+      {/* external-bulk-messaging (D13, Batch B5) — card del kill-switch
+          `messaging-external-bulk-enabled` + topes de envío de la API
+          Externa de mensajería masiva (validate/send con key dedicada).
+          Mismo gate que la sección "Envío" vecina: `messaging.read` para ver
+          la card, `admin.flags`/`messaging.manage` adentro para cada bloque. */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionHeading}>Envío masivo externo</h2>
+        <p className={styles.sectionDescription}>
+          Kill-switch y topes del envío masivo de WhatsApp disparado por una IA o integración externa
+          (API dedicada, sin sesión de admin).
+        </p>
+        <Can permission="messaging.read" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
+          <ExternalBulkMessagingCard />
         </Can>
       </section>
 

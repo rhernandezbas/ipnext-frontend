@@ -65,6 +65,13 @@ vi.mock('@/components/settings/NocBroadcastCard', () => ({
 vi.mock('@/components/settings/TaskStageConfigCard', () => ({
   TaskStageConfigCard: () => <div>tarjeta mapeo estados de tarea</div>,
 }));
+// external-bulk-messaging (D13, Batch B5) — la card tiene su propio test
+// (`ExternalBulkMessagingCard.test.tsx`, mockea useFeatureFlags +
+// useExternalBulkMessagingConfig). Acá solo importa el WIRING/gating de la
+// sección (gate messaging.read), así que se stubbea.
+vi.mock('@/components/settings/ExternalBulkMessagingCard', () => ({
+  ExternalBulkMessagingCard: () => <div>tarjeta envío masivo externo</div>,
+}));
 
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
 import { useMyPermissions, useCan } from '@/hooks/useMyPermissions';
@@ -158,6 +165,74 @@ describe('WhatsappSettingsPage', () => {
     expect(
       screen.queryByRole('heading', { name: /envío vía chatwoot \(eje central\)/i }),
     ).not.toBeInTheDocument();
+  });
+
+  // ── external-bulk-messaging (D13, Batch B5): card "Envío masivo externo" (gate messaging.read) ─
+  it('renders the "Envío masivo externo" section heading and card content when user has messaging.read', () => {
+    setupHooks(['messaging.read']);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /env[ií]o masivo externo/i })).toBeInTheDocument();
+    expect(screen.getByText(/tarjeta env[ií]o masivo externo/i)).toBeInTheDocument();
+  });
+
+  it('hides ExternalBulkMessagingCard content (fallback instead) without messaging.read', () => {
+    setupHooks([]);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /env[ií]o masivo externo/i })).toBeInTheDocument();
+    expect(screen.queryByText(/tarjeta env[ií]o masivo externo/i)).not.toBeInTheDocument();
+  });
+
+  // Finding 5 (fix wave): the page section already renders an <h2> "Envío
+  // masivo externo" — the CARD's own heading must NOT also be an <h2> (that
+  // was a duplicate h2 under one section). This test un-stubs the REAL card
+  // (every other test here uses the stub above) so the assertion exercises
+  // the actual heading tag, not the fixture text.
+  it('renders exactly one h2 named "Envío masivo externo" — the real card heading is demoted to h3', async () => {
+    vi.doUnmock('@/components/settings/ExternalBulkMessagingCard');
+    vi.doMock('@/hooks/useExternalBulkMessagingConfig', () => ({
+      useExternalBulkMessagingConfig: vi.fn().mockReturnValue({
+        data: { maxPerRequest: 500, maxPerDay: 2000, updatedAt: '2026-09-01T12:00:00.000Z' },
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+      }),
+      useSetExternalBulkMessagingConfig: vi.fn().mockReturnValue({
+        mutate: vi.fn(),
+        isPending: false,
+        isError: false,
+        isSuccess: false,
+        error: undefined,
+        reset: vi.fn(),
+      }),
+    }));
+    vi.resetModules();
+
+    try {
+      setupHooks(['messaging.read', 'messaging.manage', 'admin.flags']);
+      const { default: RealWhatsappSettingsPage } = await import('@/pages/whatsapp/WhatsappSettingsPage');
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={qc}>
+          <MemoryRouter>{children}</MemoryRouter>
+        </QueryClientProvider>
+      );
+      render(<RealWhatsappSettingsPage />, { wrapper });
+
+      const matchingH2s = screen
+        .getAllByRole('heading', { level: 2 })
+        .filter((h) => /env[ií]o masivo externo/i.test(h.textContent ?? ''));
+      expect(matchingH2s).toHaveLength(1);
+
+      const matchingH3s = screen
+        .getAllByRole('heading', { level: 3 })
+        .filter((h) => /env[ií]o masivo externo/i.test(h.textContent ?? ''));
+      expect(matchingH3s.length).toBeGreaterThanOrEqual(1);
+    } finally {
+      vi.doMock('@/components/settings/ExternalBulkMessagingCard', () => ({
+        ExternalBulkMessagingCard: () => <div>tarjeta envío masivo externo</div>,
+      }));
+      vi.resetModules();
+    }
   });
 
   // ── chatwoot-label-config-fe: card "Etiquetas de Chatwoot" (gate messaging.templates) ─
