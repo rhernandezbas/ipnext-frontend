@@ -1,0 +1,338 @@
+/* ──────────────────────────────────────────────────────────────────────────
+ * MessagingRatesCard (twilio-credit-guard FE, D8) — molde EXACTO
+ * ExternalBulkMessagingCard.module.css: mismos tokens, mismos hairlines
+ * crudos (1px/2px, sin token de grosor en el scale), mismo breakpoint
+ * responsive (860px, convención de las páginas de WhatsApp).
+ * ────────────────────────────────────────────────────────────────────────── */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+
+.loadingText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.cardTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+  margin: 0;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 0;
+}
+
+.blockTitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+/* === Balance ============================================================== */
+
+.balanceBlock {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.balanceAmount {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.balanceMeta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.badgeCached {
+  display: inline-flex;
+  align-items: center;
+  padding: calc(var(--space-1) * 0.75) calc(var(--space-1) * 2.5);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background: var(--color-gray-100);
+  color: var(--color-text-secondary);
+}
+
+/* === Read-only note ======================================================== */
+
+.readOnlyNote {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-warning-fg);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+}
+
+/* === Form (5 tarifas) ====================================================== */
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fieldLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.input {
+  min-height: var(--space-11); /* 44px touch target */
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.input:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  background: var(--color-surface-hover);
+}
+
+.inputError {
+  border-color: var(--color-danger);
+}
+
+.fieldHint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.fieldError {
+  font-size: var(--font-size-xs);
+  color: var(--badge-late-fg);
+}
+
+.helperLines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.helperLine {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* Finding 3 (fix wave) — fecha de última actualización de las tarifas. */
+.updatedAtNote {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* === Estimador ============================================================= */
+
+/* Finding 1 (fix wave) — caption + nota de "hay cambios sin guardar". */
+.estimatorCaption {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.estimatorDirtyNote {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-warning-fg);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+}
+
+.estimatorRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+  align-items: end;
+}
+
+.estimatorResult {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+/* Finding 6 (fix wave) — live region chico, invisible, SOLO para el
+   anuncio (monto + veredicto) debounced del estimador. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* === Banners ============================================================== */
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+.bannerError {
+  background: var(--badge-late-bg);
+  color: var(--badge-late-fg);
+  border: 1px solid var(--color-danger);
+}
+
+.bannerSuccess {
+  background: var(--color-success-bg);
+  color: var(--badge-paid-fg);
+  border: 1px solid var(--color-success);
+}
+
+.bannerTitle {
+  font-weight: var(--font-weight-semibold);
+}
+
+.btnRetry {
+  margin-left: auto;
+  flex-shrink: 0;
+  min-height: var(--space-11); /* 44px touch target */
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--color-warning-fg);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btnRetry:hover {
+  background: var(--color-warning-bg);
+}
+
+.btnRetry:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* === Acciones ============================================================= */
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--space-11); /* 44px touch target */
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  background: var(--color-primary);
+  color: var(--color-white);
+  border: 1px solid var(--color-primary);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.btnPrimary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.btnPrimary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* === Responsive (860px, convención WhatsApp) ============================== */
+
+@media (max-width: 860px) {
+  .balanceBlock {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .banner {
+    flex-wrap: wrap;
+  }
+
+  .btnRetry {
+    margin-left: 0;
+  }
+
+  .formGrid,
+  .estimatorRow {
+    grid-template-columns: 1fr;
+  }
+}

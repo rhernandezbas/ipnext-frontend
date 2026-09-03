@@ -2,6 +2,7 @@ import { Can } from '@/components/auth/Can';
 import { ChatMediaDownloadCard } from '@/components/settings/ChatMediaDownloadCard';
 import { ChatwootSendPathCard } from '@/components/settings/ChatwootSendPathCard';
 import { ExternalBulkMessagingCard } from '@/components/settings/ExternalBulkMessagingCard';
+import { MessagingRatesCard } from '@/components/settings/MessagingRatesCard';
 import { ChatwootLabelsCard } from '@/components/settings/ChatwootLabelsCard';
 import { NocBroadcastCard } from '@/components/settings/NocBroadcastCard';
 import { TaskStageConfigCard } from '@/components/settings/TaskStageConfigCard';
@@ -65,6 +66,23 @@ export default function WhatsappSettingsPage() {
         </p>
         <Can permission="messaging.read" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
           <ExternalBulkMessagingCard />
+        </Can>
+      </section>
+
+      {/* twilio-credit-guard (D8) — card "Crédito y tarifas de WhatsApp":
+          saldo Twilio en vivo + las 5 tarifas (moneda + UTILITY/MARKETING/
+          AUTHENTICATION + fee del proveedor) que alimentan el guard de
+          crédito de `SendExternalBulk` en el BE, más un estimador de costo
+          client-side. Mismo gate que la card vecina: `messaging.read` para
+          ver, `messaging.manage` adentro para editar. */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionHeading}>Crédito y tarifas de WhatsApp</h2>
+        <p className={styles.sectionDescription}>
+          Saldo disponible en la cuenta Twilio y tarifas por categoría de template — gobiernan el bloqueo de
+          crédito del envío masivo externo antes de disparar un lote.
+        </p>
+        <Can permission="messaging.read" fallback={<p className={styles.noPermission}>No tenés permiso para ver esta sección.</p>}>
+          <MessagingRatesCard />
         </Can>
       </section>
 

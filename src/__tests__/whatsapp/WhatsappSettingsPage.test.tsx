@@ -10,7 +10,7 @@
  *  2. ChatMediaDownloadCard renders when user has messaging.read
  *  3. Fallback renders when user lacks messaging.read
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -71,6 +71,13 @@ vi.mock('@/components/settings/TaskStageConfigCard', () => ({
 // sección (gate messaging.read), así que se stubbea.
 vi.mock('@/components/settings/ExternalBulkMessagingCard', () => ({
   ExternalBulkMessagingCard: () => <div>tarjeta envío masivo externo</div>,
+}));
+// twilio-credit-guard (D8) — la card tiene su propio test
+// (`MessagingRatesCard.test.tsx`, mockea useMessagingRatesConfig +
+// useMessagingCreditBalance). Acá solo importa el WIRING/gating de la
+// sección (gate messaging.read), así que se stubbea.
+vi.mock('@/components/settings/MessagingRatesCard', () => ({
+  MessagingRatesCard: () => <div>tarjeta crédito y tarifas</div>,
 }));
 
 import { useFeatureFlag, useSetFeatureFlag } from '@/hooks/useFeatureFlags';
@@ -180,6 +187,106 @@ describe('WhatsappSettingsPage', () => {
     renderPage();
     expect(screen.getByRole('heading', { name: /env[ií]o masivo externo/i })).toBeInTheDocument();
     expect(screen.queryByText(/tarjeta env[ií]o masivo externo/i)).not.toBeInTheDocument();
+  });
+
+  // ── twilio-credit-guard (D8): card "Crédito y tarifas de WhatsApp" (gate messaging.read) ─
+  it('renders the "Crédito y tarifas de WhatsApp" section heading and card content when user has messaging.read', () => {
+    setupHooks(['messaging.read']);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /cr[eé]dito y tarifas de whatsapp/i })).toBeInTheDocument();
+    expect(screen.getByText(/tarjeta cr[eé]dito y tarifas/i)).toBeInTheDocument();
+  });
+
+  it('hides MessagingRatesCard content (fallback instead) without messaging.read', () => {
+    setupHooks([]);
+    renderPage();
+    expect(screen.getByRole('heading', { name: /cr[eé]dito y tarifas de whatsapp/i })).toBeInTheDocument();
+    expect(screen.queryByText(/tarjeta cr[eé]dito y tarifas/i)).not.toBeInTheDocument();
+  });
+
+  // Finding 14 (fix wave, twilio-credit-guard): the generic "at least 1
+  // fallback" assertion above doesn't pin WHICH section shows it. This scopes
+  // the assertion to the twilio-credit-guard section's own <section>, so a
+  // regression that silently drops JUST this section's fallback (while some
+  // other section's fallback keeps the aggregate count >= 1) would be caught.
+  it('Crédito y tarifas de WhatsApp — sin messaging.read, el fallback "No tenés permiso" vive DENTRO de esa sección', () => {
+    setupHooks([]);
+    renderPage();
+    const heading = screen.getByRole('heading', { name: /cr[eé]dito y tarifas de whatsapp/i });
+    const section = heading.closest('section');
+    expect(section).not.toBeNull();
+    expect(within(section as HTMLElement).getByText(/no tenés permiso/i)).toBeInTheDocument();
+    expect(within(section as HTMLElement).queryByText(/tarjeta cr[eé]dito y tarifas/i)).not.toBeInTheDocument();
+  });
+
+  // Finding 2 (fix wave, twilio-credit-guard): the page section already
+  // renders an <h2> "Crédito y tarifas de WhatsApp" — the CARD's own heading
+  // must NOT also be an <h2>, and must NOT duplicate the section's exact
+  // text (the fix renamed the card h3 to "Saldo Twilio y tarifas por
+  // mensaje"). This un-stubs the REAL card (every other test here uses the
+  // stub above) so the assertion exercises the actual heading tag/text.
+  it('renders exactly one h2 named "Crédito y tarifas de WhatsApp" — the real card heading is a distinct h3', async () => {
+    vi.doUnmock('@/components/settings/MessagingRatesCard');
+    vi.doMock('@/hooks/useMessagingRatesConfig', () => ({
+      useMessagingRatesConfig: vi.fn().mockReturnValue({
+        data: {
+          currency: 'USD',
+          utilityRate: '0.0120',
+          marketingRate: '0.0618',
+          authenticationRate: '0.0220',
+          providerFee: '0.0050',
+          updatedAt: '2026-09-01T12:00:00.000Z',
+        },
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+      }),
+      useSetMessagingRatesConfig: vi.fn().mockReturnValue({
+        mutate: vi.fn(),
+        isPending: false,
+        isError: false,
+        isSuccess: false,
+        error: undefined,
+        reset: vi.fn(),
+      }),
+      useMessagingCreditBalance: vi.fn().mockReturnValue({
+        data: { available: '17.8940', currency: 'USD', fetchedAt: '2026-09-01T12:00:00.000Z', cached: false },
+        isLoading: false,
+        isError: false,
+        isFetching: false,
+        refetch: vi.fn(),
+      }),
+    }));
+    vi.resetModules();
+
+    try {
+      setupHooks(['messaging.read', 'messaging.manage']);
+      const { default: RealWhatsappSettingsPage } = await import('@/pages/whatsapp/WhatsappSettingsPage');
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={qc}>
+          <MemoryRouter>{children}</MemoryRouter>
+        </QueryClientProvider>
+      );
+      render(<RealWhatsappSettingsPage />, { wrapper });
+
+      const matchingH2s = screen
+        .getAllByRole('heading', { level: 2 })
+        .filter((h) => /cr[eé]dito y tarifas de whatsapp/i.test(h.textContent ?? ''));
+      expect(matchingH2s).toHaveLength(1);
+
+      const duplicateH3s = screen
+        .getAllByRole('heading', { level: 3 })
+        .filter((h) => /^cr[eé]dito y tarifas de whatsapp$/i.test((h.textContent ?? '').trim()));
+      expect(duplicateH3s).toHaveLength(0);
+
+      expect(screen.getByRole('heading', { level: 3, name: /saldo twilio y tarifas por mensaje/i })).toBeInTheDocument();
+    } finally {
+      vi.doMock('@/components/settings/MessagingRatesCard', () => ({
+        MessagingRatesCard: () => <div>tarjeta crédito y tarifas</div>,
+      }));
+      vi.resetModules();
+    }
   });
 
   // Finding 5 (fix wave): the page section already renders an <h2> "Envío
