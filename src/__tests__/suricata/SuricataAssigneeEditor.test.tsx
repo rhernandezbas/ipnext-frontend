@@ -4,11 +4,12 @@
  * unwired to any UI — this is that missing wiring.
  *
  *  AE-1 read-only   → without `suricata.manage`, shows plain text (no editable control)
- *  AE-2 editable    → with `suricata.manage`, shows a `<select>` seeded with RBAC users
- *  AE-3 save        → changing the select calls the PATCH mutation with the new assigneeId
+ *  AE-2 editable    → with `suricata.manage`, shows the repo `Select` (combobox) seeded with RBAC users
+ *  AE-3 save        → picking an option calls the PATCH mutation with the new assigneeId
  *  AE-4 clear       → picking "Sin asignar" sends `assigneeId: null`
  *  AE-5 saving      → shows a saving indicator while the mutation is in flight
  *  AE-6 error       → a failed save shows a visible, non-blocking error
+ *  AE-7 no native   → hard repo rule: NEVER a native `<select>` facing the operator
  */
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -65,20 +66,33 @@ describe('AE-1 read-only', () => {
 });
 
 describe('AE-2 editable', () => {
-  it('shows a select seeded with RBAC users when holding suricata.manage', () => {
+  it('shows the repo Select seeded with RBAC users when holding suricata.manage', async () => {
+    const user = userEvent.setup();
     render(<SuricataAssigneeEditor ticketId="t-1" assigneeId={null} assigneeName={null} />);
-    const select = screen.getByRole('combobox', { name: /asignado a/i });
-    expect(select).toHaveValue('');
+
+    const combobox = screen.getByRole('combobox', { name: /asignado a/i });
+    expect(combobox).toHaveTextContent(/sin asignar/i);
+
+    await user.click(combobox);
     expect(screen.getByRole('option', { name: 'Ronald' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Ana' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /sin asignar/i })).toBeInTheDocument();
+  });
+
+  it('reflects the currently assigned user on the trigger', () => {
+    render(<SuricataAssigneeEditor ticketId="t-1" assigneeId="u-1" assigneeName="Ronald" />);
+    expect(screen.getByRole('combobox', { name: /asignado a/i })).toHaveTextContent('Ronald');
   });
 });
 
 describe('AE-3 save', () => {
-  it('changing the select saves the new assigneeId', async () => {
+  it('picking a user saves the new assigneeId', async () => {
     const user = userEvent.setup();
     render(<SuricataAssigneeEditor ticketId="t-1" assigneeId={null} assigneeName={null} />);
-    await user.selectOptions(screen.getByRole('combobox', { name: /asignado a/i }), 'u-2');
+
+    await user.click(screen.getByRole('combobox', { name: /asignado a/i }));
+    await user.click(screen.getByRole('option', { name: 'Ana' }));
+
     expect(mockMutateAsync).toHaveBeenCalledWith({ ticketId: 't-1', assigneeId: 'u-2' });
   });
 });
@@ -87,8 +101,18 @@ describe('AE-4 clear', () => {
   it('picking "Sin asignar" sends assigneeId: null', async () => {
     const user = userEvent.setup();
     render(<SuricataAssigneeEditor ticketId="t-1" assigneeId="u-1" assigneeName="Ronald" />);
-    await user.selectOptions(screen.getByRole('combobox', { name: /asignado a/i }), '');
+
+    await user.click(screen.getByRole('combobox', { name: /asignado a/i }));
+    await user.click(screen.getByRole('option', { name: /sin asignar/i }));
+
     expect(mockMutateAsync).toHaveBeenCalledWith({ ticketId: 't-1', assigneeId: null });
+  });
+});
+
+describe('AE-7 no native select', () => {
+  it('never renders a native <select> facing the operator (hard repo rule)', () => {
+    render(<SuricataAssigneeEditor ticketId="t-1" assigneeId={null} assigneeName={null} />);
+    expect(document.querySelector('select')).toBeNull();
   });
 });
 
@@ -106,7 +130,10 @@ describe('AE-6 error', () => {
     mockMutateAsync.mockRejectedValueOnce(new Error('network'));
     const user = userEvent.setup();
     render(<SuricataAssigneeEditor ticketId="t-1" assigneeId={null} assigneeName={null} />);
-    await user.selectOptions(screen.getByRole('combobox', { name: /asignado a/i }), 'u-2');
+
+    await user.click(screen.getByRole('combobox', { name: /asignado a/i }));
+    await user.click(screen.getByRole('option', { name: 'Ana' }));
+
     expect(await screen.findByRole('alert')).toHaveTextContent(/no se pudo/i);
   });
 });

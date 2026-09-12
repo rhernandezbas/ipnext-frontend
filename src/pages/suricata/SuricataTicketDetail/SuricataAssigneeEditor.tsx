@@ -1,8 +1,14 @@
 import { useState } from 'react';
 import { useCan } from '@/hooks/useMyPermissions';
 import { useRbacUsers } from '@/hooks/useRbacUsers';
+import { Select } from '@/components/molecules/Select/Select';
 import { useSetSuricataAssignee } from '../hooks/useSuricataTickets';
 import styles from './SuricataAssigneeEditor.module.css';
+
+/** The "no assignee" sentinel. The repo `Select` is a plain string-value
+ *  combobox, so the empty string doubles as a real, selectable option here —
+ *  exactly like the list filters' "Todos" entry. */
+const UNASSIGNED = '';
 
 interface Props {
   ticketId: string;
@@ -15,10 +21,13 @@ interface Props {
  * design D13. `useSetSuricataAssignee` (Fase G) already implements the
  * `PATCH /tickets/:id/assignee` wire contract but was flagged as unwired
  * ("deviation documentada de esa fase") — this component is that wiring.
- * Molde `TicketSidebar`'s assignee `<select>`, simplified to a single-field
- * immediate commit (no draft/Guardar step) since this is the ONLY editable
- * field in this header, unlike `TicketSidebar`'s batched Asignado+
+ * Single-field immediate commit (no draft/Guardar step) since this is the ONLY
+ * editable field in this header, unlike `TicketSidebar`'s batched Asignado+
  * Prioridad+Área form.
+ *
+ * The control is the repo's own `Select` (WAI-ARIA select-only combobox), NEVER
+ * a native `<select>` facing the operator — the same hard repo rule the Fase G
+ * list filters already follow (`SuricataTicketList.tsx`). `AE-7` pins it.
  *
  * Gated by `suricata.manage` (UI-7/UI-8), distinct from the `suricata.read`
  * gate on the rest of the detail page — a read-only user sees the assignee
@@ -36,37 +45,37 @@ export function SuricataAssigneeEditor({ ticketId, assigneeId, assigneeName }: P
     );
   }
 
-  async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const value = e.target.value;
+  async function handleChange(value: string) {
     setError(null);
     try {
       // UI-7 — Prominense-only: this mutation NEVER writes to Suricata,
       // only the local `SuricataTicket.assigneeId` column (design D13).
-      await setAssignee.mutateAsync({ ticketId, assigneeId: value === '' ? null : value });
+      await setAssignee.mutateAsync({
+        ticketId,
+        assigneeId: value === UNASSIGNED ? null : value,
+      });
     } catch {
       setError('No se pudo guardar la asignación. Intentá de nuevo.');
     }
   }
 
+  const options = [
+    { value: UNASSIGNED, label: 'Sin asignar' },
+    ...users.map((u) => ({ value: u.id, label: u.name })),
+  ];
+
   return (
     <div className={styles.editor}>
-      <label className={styles.label} htmlFor="suricata-assignee">
-        Asignado a
-      </label>
-      <select
-        id="suricata-assignee"
-        className={styles.select}
-        value={assigneeId ?? ''}
-        onChange={(e) => void handleChange(e)}
-        disabled={usersLoading || setAssignee.isPending}
-      >
-        <option value="">Sin asignar</option>
-        {users.map((u) => (
-          <option key={u.id} value={u.id}>
-            {u.name}
-          </option>
-        ))}
-      </select>
+      <div className={styles.field}>
+        <Select
+          id="suricata-assignee"
+          label="Asignado a"
+          value={assigneeId ?? UNASSIGNED}
+          onChange={(v) => void handleChange(v)}
+          options={options}
+          disabled={usersLoading || setAssignee.isPending}
+        />
+      </div>
       {setAssignee.isPending && (
         <span className={styles.savingHint} role="status">
           Guardando…
