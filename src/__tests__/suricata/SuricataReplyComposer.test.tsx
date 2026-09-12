@@ -140,6 +140,22 @@ describe('RC-6 success', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByLabelText(/respuesta para el cliente/i)).toHaveValue('');
   });
+
+  // Closing the modal restored focus to whatever opened it — the "Responder al
+  // cliente" button. After a successful send the body is empty, so that button
+  // is `disabled`, and `focus()` on a disabled element is a no-op: focus fell
+  // to <body> and a keyboard/SR user lost their place entirely.
+  it('leaves focus on a real, focusable element after a successful send', async () => {
+    const user = userEvent.setup();
+    render(<SuricataReplyComposer {...PROPS} />);
+    await typeAndOpen(user, 'hola');
+    await user.click(screen.getByRole('button', { name: /sí, enviar ahora/i }));
+
+    await screen.findByRole('status');
+
+    expect(document.activeElement).not.toBe(document.body);
+    expect(screen.getByLabelText(/respuesta para el cliente/i)).toHaveFocus();
+  });
 });
 
 describe('RC-7 error', () => {

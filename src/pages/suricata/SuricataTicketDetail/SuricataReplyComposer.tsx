@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCan } from '@/hooks/useMyPermissions';
 import { Button } from '@/components/atoms/Button/Button';
 import { useReplySuricataTicket } from '../hooks/useSuricataTickets';
@@ -46,6 +46,20 @@ export function SuricataReplyComposer({ ticketId, customerName, customerPhone, t
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [restoreFocus, setRestoreFocus] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // The modal restores focus to whatever opened it. After a SUCCESSFUL send the
+  // body is cleared, so that trigger ("Responder al cliente") is `disabled` and
+  // `focus()` on it does nothing — focus silently fell to <body>. The textarea
+  // is always enabled once the modal is closed and is where the operator would
+  // continue anyway, so the composer claims focus back explicitly. This effect
+  // runs after the modal's unmount cleanup, so it wins the race.
+  useEffect(() => {
+    if (!restoreFocus) return;
+    textareaRef.current?.focus();
+    setRestoreFocus(false);
+  }, [restoreFocus]);
 
   if (!canReply) return null;
 
@@ -68,6 +82,7 @@ export function SuricataReplyComposer({ ticketId, customerName, customerPhone, t
       setModalOpen(false);
       setBody('');
       setFeedback('Respuesta enviada. El intento quedó registrado en la auditoría.');
+      setRestoreFocus(true);
     } catch (err) {
       // REPLY-5 — the modal stays open so the operator sees the failure
       // in the SAME context (recipient/ticket/text still visible), instead
@@ -96,6 +111,7 @@ export function SuricataReplyComposer({ ticketId, customerName, customerPhone, t
         Respuesta para el cliente
       </label>
       <textarea
+        ref={textareaRef}
         id="suricata-reply-body"
         className={styles.textarea}
         value={body}
