@@ -1,0 +1,123 @@
+import { formatDateTime } from '@/utils/formatDate';
+import { getSuricataAttachmentContentUrl } from '../api/suricataClient';
+import type { SuricataAttachmentDto, SuricataMessageDto } from '../api/suricataClient';
+import styles from './SuricataConversationTab.module.css';
+
+interface Props {
+  ticketId: string;
+  /** Ordered oldest → newest, per `SuricataTicketDetailDto`'s contract. */
+  messages: SuricataMessageDto[];
+  attachments: SuricataAttachmentDto[];
+}
+
+type Lane = 'client' | 'staff' | 'system';
+
+/**
+ * suricata-tickets-mirror (Fase H, task H.2, spec UI-3) — the approved mockup
+ * sketches 3 lanes (cliente/bot/staff), but the REAL BE contract
+ * (`SuricataMessageAuthorKind`, `domain/entities/suricata.ts`) only has
+ * `'customer' | 'agent' | 'system' | 'unknown'` — there is no dedicated `bot`
+ * value on the wire. Deviation (flagged in the apply report): lanes are
+ * derived from the 4 real values instead of inventing a `bot` detection that
+ * the DTO does not support — `'system'`/`'unknown'` fall to a neutral lane
+ * rather than guessing whether they came from a human or the bot.
+ */
+function deriveLane(authorKind: SuricataMessageDto['authorKind']): Lane {
+  if (authorKind === 'customer') return 'client';
+  if (authorKind === 'agent') return 'staff';
+  return 'system';
+}
+
+const LANE_LABEL: Record<Lane, string> = {
+  client: 'Mensaje del cliente',
+  staff: 'Respuesta del agente',
+  system: 'Mensaje del sistema',
+};
+
+function AttachmentView({ ticketId, attachment }: { ticketId: string; attachment: SuricataAttachmentDto }) {
+  const isAudio = attachment.mimeType.startsWith('audio/');
+
+  // UI-3 — an audio attachment renders inline and playable, NEVER a bare
+  // download link. A NOT-yet-`stored` attachment has no bytes to proxy yet
+  // (D7.b: migration runs async, can also land in `failed`) — an honest
+  // placeholder beats a broken `<audio>` element with a 404 src.
+  if (isAudio && attachment.status === 'stored') {
+    return (
+      <figure className={styles.audioFigure}>
+        <audio
+          data-testid="suricata-attachment-audio"
+          className={styles.audioPlayer}
+          controls
+          preload="metadata"
+          src={getSuricataAttachmentContentUrl(ticketId, attachment.id)}
+        >
+          Tu navegador no puede reproducir este audio.
+        </audio>
+        <figcaption className={styles.attachmentCaption}>{attachment.fileName}</figcaption>
+      </figure>
+    );
+  }
+
+  if (isAudio) {
+    return (
+      <span className={styles.attachmentPending}>
+        {attachment.fileName} — audio {attachment.status === 'failed' ? 'no disponible' : 'sincronizándose'}
+      </span>
+    );
+  }
+
+  return <span className={styles.attachmentFile}>{attachment.fileName}</span>;
+}
+
+/**
+ * SuricataConversationTab — UI-3: ordered message timeline, mirror-only
+ * (zero live Suricata calls, UI-2). Molde `TicketMessagingThread`/`MessageItem`
+ * (lanes + `role="list"`/`role="listitem"` + accessible names), sin composer
+ * (responder es Fase I).
+ */
+export function SuricataConversationTab({ ticketId, messages, attachments }: Props) {
+  if (messages.length === 0) {
+    return (
+      <div className={styles.emptyState}>
+        <p>Sin mensajes en este ticket todavía.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.timeline} role="list" aria-label="Conversación del ticket">
+      {messages.map((message) => {
+        const lane = deriveLane(message.authorKind);
+        const messageAttachments = attachments.filter((a) => a.messageId === message.id);
+        return (
+          <div
+            key={message.id}
+            data-testid="suricata-message-row"
+            className={`${styles.row} ${styles[lane]}`}
+            role="listitem"
+            aria-label={`${LANE_LABEL[lane]} de ${message.author}`}
+          >
+            <article className={styles.bubble}>
+              <div className={styles.meta}>
+                <span className={styles.sender}>{message.author}</span>
+                <time className={styles.time} dateTime={message.sentAt}>
+                  {formatDateTime(message.sentAt)}
+                </time>
+              </div>
+
+              {message.body && <p className={styles.body}>{message.body}</p>}
+
+              {messageAttachments.length > 0 && (
+                <div className={styles.attachments} role="group" aria-label="Archivos adjuntos">
+                  {messageAttachments.map((att) => (
+                    <AttachmentView key={att.id} ticketId={ticketId} attachment={att} />
+                  ))}
+                </div>
+              )}
+            </article>
+          </div>
+        );
+      })}
+    </div>
+  );
+}

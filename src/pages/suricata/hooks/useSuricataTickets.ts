@@ -3,6 +3,7 @@ import {
   getSuricataTickets,
   getSuricataAreas,
   getSuricataKpis,
+  getSuricataTicketDetail,
   setSuricataAssignee,
   type SuricataTicketsQuery,
 } from '../api/suricataClient';
@@ -32,6 +33,23 @@ export function useSuricataKpis() {
   return useQuery({
     queryKey: ['suricata-kpis'],
     queryFn: getSuricataKpis,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * suricata-tickets-mirror (Fase H, tasks H.1, spec UI-2) — the detail view's
+ * single fetch: every tab (Conversación/Análisis IA/Datos del cliente) reads
+ * from THIS same result, never issuing its own request — that is what makes
+ * "switching tabs triggers zero live Suricata calls" (UI-2) true by
+ * construction rather than by a per-tab no-op guard. `enabled: !!ticketId`
+ * guards the brief render where `useParams()` hasn't resolved `:id` yet.
+ */
+export function useSuricataTicketDetail(ticketId: string | undefined) {
+  return useQuery({
+    queryKey: ['suricata-ticket-detail', ticketId],
+    queryFn: () => getSuricataTicketDetail(ticketId as string),
+    enabled: !!ticketId,
     staleTime: 30_000,
   });
 }

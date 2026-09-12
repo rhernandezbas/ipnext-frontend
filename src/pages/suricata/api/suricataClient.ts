@@ -102,3 +102,92 @@ export async function setSuricataAssignee(
   );
   return response.data;
 }
+
+/**
+ * suricata-tickets-mirror (Fase H, tasks H.1..H.4, design D13) — detail wire
+ * shapes, mirror of `ipnext-backend/src/application/dto/suricata.dto.ts`'s
+ * `SuricataTicketDetailDto` (Fase F/H). Read from the BE worktree's real
+ * DTO/domain files, same criterion as Fase G's list shapes.
+ *
+ * `authorKind` mirrors the BE's real domain enum
+ * (`domain/entities/suricata.ts`'s `SuricataMessageAuthorKind`) —
+ * `'customer' | 'agent' | 'system' | 'unknown'`. There is NO dedicated `'bot'`
+ * value in the real contract (the approved mockup's 3-lane cliente/bot/staff
+ * sketch assumed one that does not exist on the wire) — the Conversation tab
+ * derives its lanes from these 4 real values instead (deviation, see the
+ * apply-phase report).
+ */
+export type SuricataMessageAuthorKind = 'customer' | 'agent' | 'system' | 'unknown';
+export type SuricataAttachmentStatus = 'pending' | 'stored' | 'failed';
+
+export interface SuricataMessageDto {
+  id: string;
+  author: string;
+  authorKind: SuricataMessageAuthorKind;
+  body: string;
+  sentAt: string;
+}
+
+export interface SuricataAttachmentDto {
+  id: string;
+  messageId: string | null;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number | null;
+  status: SuricataAttachmentStatus;
+}
+
+/** D9 — `stale` is a DERIVED field (ticket content changed since this verdict). */
+export interface SuricataVerdictDto {
+  id: string;
+  resuelto: boolean;
+  analisis: string;
+  motivo: string | null;
+  respuestaSugerida: string | null;
+  createdAt: string;
+  stale: boolean;
+}
+
+/** GET /api/suricata/tickets/:id (UI-2..UI-5) — mirror-only, zero live Suricata calls. */
+export interface SuricataTicketDetailDto {
+  id: string;
+  externalId: string;
+  subject: string;
+  status: string;
+  priority: string | null;
+  areaId: string | null;
+  areaName: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  externalClientRef: string | null;
+  clientId: string | null;
+  botState: SuricataBotState;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  openedAt: string | null;
+  lastMessageAt: string | null;
+  syncedAt: string;
+  /** Ordered oldest → newest (Conversation tab timeline, UI-3). */
+  messages: SuricataMessageDto[];
+  attachments: SuricataAttachmentDto[];
+  /** Ordered newest → oldest — `verdicts[0]` is the current one (UI-4). */
+  verdicts: SuricataVerdictDto[];
+}
+
+export async function getSuricataTicketDetail(ticketId: string): Promise<SuricataTicketDetailDto> {
+  const response = await axiosClient.get<SuricataTicketDetailDto>(`/suricata/tickets/${ticketId}`);
+  return response.data;
+}
+
+/**
+ * D7.c (internal mirror, Fase H gap fix in the BE worktree) — same-origin
+ * BE-proxy for an attachment's binary content, gated by session +
+ * `suricata.read`. Never a signed URL: `axiosClient`'s `baseURL: '/api'` is
+ * same-origin, so the browser sends the session cookie automatically for a
+ * plain `<audio src>`/`<a href>`, same convention as
+ * `TicketMessageAttachmentView`'s BE-proxied media.
+ */
+export function getSuricataAttachmentContentUrl(ticketId: string, attachmentId: string): string {
+  return `/api/suricata/tickets/${ticketId}/attachments/${attachmentId}/content`;
+}
