@@ -17,7 +17,7 @@
  *                   honest message, the modal stays open, and no success text
  *                   ever appears (REPLY-5 — no silent/false success)
  */
-import { render, screen, within } from '@testing-library/react';
+import { createEvent, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
@@ -126,6 +126,30 @@ describe('RC-5 busy', () => {
     const confirmBtn = within(dialog).getByRole('button', { name: /enviando \(playwright\)/i });
     expect(confirmBtn).toBeDisabled();
     expect(within(dialog).getByRole('button', { name: /cancelar/i })).toBeDisabled();
+  });
+
+  // `busy` was meant to block CLOSING the dialog (Escape/backdrop). It also
+  // short-circuited the Tab handler, so during a send — which can take seconds
+  // — Tab walked straight out of the dialog into the page behind it. The two
+  // guards are independent: closing stays blocked, the trap stays armed.
+  it('keeps trapping Tab while the send is in flight, and still refuses to close', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<SuricataReplyComposer {...PROPS} />);
+    await typeAndOpen(user);
+
+    mockReplyMutation({ isPending: true });
+    rerender(<SuricataReplyComposer {...PROPS} />);
+
+    const tab = createEvent.keyDown(document, { key: 'Tab' });
+    fireEvent(document, tab);
+    expect(tab.defaultPrevented).toBe(true);
+
+    const shiftTab = createEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    fireEvent(document, shiftTab);
+    expect(shiftTab.defaultPrevented).toBe(true);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });
 

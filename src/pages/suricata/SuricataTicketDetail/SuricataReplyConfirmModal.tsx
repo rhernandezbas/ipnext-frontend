@@ -47,7 +47,9 @@ interface Props {
  * real" per the task brief, not just a repeated Yes/No.
  *
  * A11y: portal + `role="dialog"`/`aria-modal`, Escape cancels (unless busy),
- * backdrop click cancels (unless busy), Tab/Shift+Tab trap focus inside,
+ * backdrop click cancels (unless busy), Tab/Shift+Tab trap focus inside for as
+ * long as the dialog is open — INCLUDING while busy, since `busy` gates closing
+ * and not the trap,
  * initial focus goes to Cancelar (irreversible/high-risk action — same "safe
  * default" criterion `ConfirmModal` uses for `tone="danger"`), focus restores
  * to the trigger on close.
@@ -85,9 +87,12 @@ export function SuricataReplyConfirmModal({
     document.body.style.overflow = 'hidden';
 
     function onKey(e: KeyboardEvent) {
-      if (busy) return;
+      // `busy` blocks CLOSING only. The focus trap must stay armed for as long
+      // as the dialog is open: a send can take seconds, and letting Tab escape
+      // to the page behind an open modal is exactly what a trap exists to
+      // prevent. These two guards are deliberately separate.
       if (e.key === 'Escape') {
-        onCancel();
+        if (!busy) onCancel();
         return;
       }
       if (e.key !== 'Tab') return;
