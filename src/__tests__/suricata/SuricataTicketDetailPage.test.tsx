@@ -29,6 +29,11 @@ vi.mock('@/pages/suricata/SuricataTicketDetail/SuricataAiAnalysisTab', () => ({
 vi.mock('@/pages/suricata/SuricataTicketDetail/SuricataClientDataTab', () => ({
   SuricataClientDataTab: () => <div data-testid="client-data-tab-stub" />,
 }));
+vi.mock('@/pages/suricata/SuricataTicketDetail/SuricataAssigneeEditor', () => ({
+  SuricataAssigneeEditor: ({ assigneeName }: { assigneeName: string | null }) => (
+    <div data-testid="assignee-editor-stub" data-assignee-name={assigneeName ?? ''} />
+  ),
+}));
 
 import SuricataTicketDetailPage from '@/pages/suricata/SuricataTicketDetailPage';
 import { useSuricataTicketDetail } from '@/pages/suricata/hooks/useSuricataTickets';
@@ -129,7 +134,9 @@ describe('DET-4 success', () => {
 
     expect(screen.getByRole('heading', { name: /maría gómez/i })).toBeInTheDocument();
     expect(screen.getByText(/18742/)).toBeInTheDocument();
-    expect(screen.getByText(/sin asignar/i)).toBeInTheDocument();
+    // Fase I — the "Asignado a" display is now owned by `SuricataAssigneeEditor`
+    // (stubbed above); this page only wires `assigneeId`/`assigneeName` through.
+    expect(screen.getByTestId('assignee-editor-stub')).toHaveAttribute('data-assignee-name', '');
     expect(screen.getByRole('tab', { name: /conversación/i })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('conversation-tab-stub')).toBeInTheDocument();
   });

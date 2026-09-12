@@ -1,6 +1,7 @@
 import { formatDateTime } from '@/utils/formatDate';
 import { getSuricataAttachmentContentUrl } from '../api/suricataClient';
 import type { SuricataAttachmentDto, SuricataMessageDto } from '../api/suricataClient';
+import { SuricataReplyComposer } from './SuricataReplyComposer';
 import styles from './SuricataConversationTab.module.css';
 
 interface Props {
@@ -8,6 +9,12 @@ interface Props {
   /** Ordered oldest → newest, per `SuricataTicketDetailDto`'s contract. */
   messages: SuricataMessageDto[];
   attachments: SuricataAttachmentDto[];
+  /** Fase I — recipient/ticket context the reply composer's confirm modal
+   *  shows verbatim (design D10: "mostrando el texto final" + destinatario). */
+  customerName: string | null;
+  customerPhone: string | null;
+  ticketSubject: string;
+  ticketExternalId: string;
 }
 
 type Lane = 'client' | 'staff' | 'system';
@@ -72,52 +79,70 @@ function AttachmentView({ ticketId, attachment }: { ticketId: string; attachment
 /**
  * SuricataConversationTab — UI-3: ordered message timeline, mirror-only
  * (zero live Suricata calls, UI-2). Molde `TicketMessagingThread`/`MessageItem`
- * (lanes + `role="list"`/`role="listitem"` + accessible names), sin composer
- * (responder es Fase I).
+ * (lanes + `role="list"`/`role="listitem"` + accessible names). Fase I adds
+ * `SuricataReplyComposer` at the FOOT of this tab (design D13.a) — rendered
+ * unconditionally so it survives regardless of whether the ticket has any
+ * mirrored messages yet.
  */
-export function SuricataConversationTab({ ticketId, messages, attachments }: Props) {
-  if (messages.length === 0) {
-    return (
-      <div className={styles.emptyState}>
-        <p>Sin mensajes en este ticket todavía.</p>
-      </div>
-    );
-  }
-
+export function SuricataConversationTab({
+  ticketId,
+  messages,
+  attachments,
+  customerName,
+  customerPhone,
+  ticketSubject,
+  ticketExternalId,
+}: Props) {
   return (
-    <div className={styles.timeline} role="list" aria-label="Conversación del ticket">
-      {messages.map((message) => {
-        const lane = deriveLane(message.authorKind);
-        const messageAttachments = attachments.filter((a) => a.messageId === message.id);
-        return (
-          <div
-            key={message.id}
-            data-testid="suricata-message-row"
-            className={`${styles.row} ${styles[lane]}`}
-            role="listitem"
-            aria-label={`${LANE_LABEL[lane]} de ${message.author}`}
-          >
-            <article className={styles.bubble}>
-              <div className={styles.meta}>
-                <span className={styles.sender}>{message.author}</span>
-                <time className={styles.time} dateTime={message.sentAt}>
-                  {formatDateTime(message.sentAt)}
-                </time>
+    <div className={styles.tab}>
+      {messages.length === 0 ? (
+        <div className={styles.emptyState}>
+          <p>Sin mensajes en este ticket todavía.</p>
+        </div>
+      ) : (
+        <div className={styles.timeline} role="list" aria-label="Conversación del ticket">
+          {messages.map((message) => {
+            const lane = deriveLane(message.authorKind);
+            const messageAttachments = attachments.filter((a) => a.messageId === message.id);
+            return (
+              <div
+                key={message.id}
+                data-testid="suricata-message-row"
+                className={`${styles.row} ${styles[lane]}`}
+                role="listitem"
+                aria-label={`${LANE_LABEL[lane]} de ${message.author}`}
+              >
+                <article className={styles.bubble}>
+                  <div className={styles.meta}>
+                    <span className={styles.sender}>{message.author}</span>
+                    <time className={styles.time} dateTime={message.sentAt}>
+                      {formatDateTime(message.sentAt)}
+                    </time>
+                  </div>
+
+                  {message.body && <p className={styles.body}>{message.body}</p>}
+
+                  {messageAttachments.length > 0 && (
+                    <div className={styles.attachments} role="group" aria-label="Archivos adjuntos">
+                      {messageAttachments.map((att) => (
+                        <AttachmentView key={att.id} ticketId={ticketId} attachment={att} />
+                      ))}
+                    </div>
+                  )}
+                </article>
               </div>
+            );
+          })}
+        </div>
+      )}
 
-              {message.body && <p className={styles.body}>{message.body}</p>}
-
-              {messageAttachments.length > 0 && (
-                <div className={styles.attachments} role="group" aria-label="Archivos adjuntos">
-                  {messageAttachments.map((att) => (
-                    <AttachmentView key={att.id} ticketId={ticketId} attachment={att} />
-                  ))}
-                </div>
-              )}
-            </article>
-          </div>
-        );
-      })}
+      <SuricataReplyComposer
+        ticketId={ticketId}
+        customerName={customerName}
+        customerPhone={customerPhone}
+        ticketSubject={ticketSubject}
+        ticketExternalId={ticketExternalId}
+      />
     </div>
   );
 }

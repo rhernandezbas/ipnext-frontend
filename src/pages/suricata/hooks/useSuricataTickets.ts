@@ -5,6 +5,7 @@ import {
   getSuricataKpis,
   getSuricataTicketDetail,
   setSuricataAssignee,
+  replyToSuricataTicket,
   type SuricataTicketsQuery,
 } from '../api/suricataClient';
 
@@ -65,8 +66,37 @@ export function useSetSuricataAssignee() {
   return useMutation({
     mutationFn: ({ ticketId, assigneeId }: { ticketId: string; assigneeId: string | null }) =>
       setSuricataAssignee(ticketId, assigneeId),
-    onSuccess: () => {
+    // Fase I, task I.2 — extended to ALSO invalidate the detail query: the
+    // detail header's `SuricataAssigneeEditor` (Fase I) reads `assigneeName`
+    // from `useSuricataTicketDetail`, and the PATCH response only carries
+    // `{id, assigneeId}` (no name) — refetching the detail is what resolves
+    // the display name after a save, same criterion as the list invalidation
+    // Fase G already had for the list's own assignee column.
+    onSuccess: (_data, { ticketId }) => {
       qc.invalidateQueries({ queryKey: ['suricata-tickets'] });
+      qc.invalidateQueries({ queryKey: ['suricata-ticket-detail', ticketId] });
+    },
+  });
+}
+
+/**
+ * suricata-tickets-mirror (Fase I, task I.1, spec REPLY-1..6, design D10) —
+ * `POST /tickets/:id/reply`. Scoped to ONE ticket (molde
+ * `useSendStaffTicketReply(ticketId)`) since the composer always lives
+ * inside that ticket's Conversation tab. On success, invalidates the
+ * detail query — NOT because a reply inserts a mirrored `SuricataMessage`
+ * row today (it doesn't; that only happens on the next sync run), but so any
+ * future detail change (e.g. an eventual "last reply" field) is picked up
+ * without a manual reload, same defensive criterion as the assignee mutation
+ * above.
+ */
+export function useReplySuricataTicket(ticketId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ body, confirm }: { body: string; confirm: string }) =>
+      replyToSuricataTicket(ticketId, body, confirm),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['suricata-ticket-detail', ticketId] });
     },
   });
 }

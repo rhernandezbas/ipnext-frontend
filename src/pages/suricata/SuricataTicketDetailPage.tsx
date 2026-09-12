@@ -6,6 +6,7 @@ import { useSuricataTicketDetail } from './hooks/useSuricataTickets';
 import { SuricataConversationTab } from './SuricataTicketDetail/SuricataConversationTab';
 import { SuricataAiAnalysisTab } from './SuricataTicketDetail/SuricataAiAnalysisTab';
 import { SuricataClientDataTab } from './SuricataTicketDetail/SuricataClientDataTab';
+import { SuricataAssigneeEditor } from './SuricataTicketDetail/SuricataAssigneeEditor';
 import type { SuricataBotState } from './api/suricataClient';
 import styles from './SuricataTicketDetailPage.module.css';
 
@@ -78,7 +79,15 @@ export default function SuricataTicketDetailPage() {
       id: TAB_IDS.conversacion,
       label: 'Conversación',
       content: (
-        <SuricataConversationTab ticketId={ticket.id} messages={ticket.messages} attachments={ticket.attachments} />
+        <SuricataConversationTab
+          ticketId={ticket.id}
+          messages={ticket.messages}
+          attachments={ticket.attachments}
+          customerName={ticket.customerName}
+          customerPhone={ticket.customerPhone}
+          ticketSubject={ticket.subject}
+          ticketExternalId={ticket.externalId}
+        />
       ),
     },
     {
@@ -111,9 +120,11 @@ export default function SuricataTicketDetailPage() {
             {BOT_STATE_LABEL[ticket.botState]}
           </span>
         </div>
-        <p className={styles.assignee}>
-          {ticket.assigneeName ? `Asignado: ${ticket.assigneeName}` : 'Sin asignar'}
-        </p>
+        <SuricataAssigneeEditor
+          ticketId={ticket.id}
+          assigneeId={ticket.assigneeId}
+          assigneeName={ticket.assigneeName}
+        />
       </header>
 
       <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} mountMode="all" />

@@ -191,3 +191,33 @@ export async function getSuricataTicketDetail(ticketId: string): Promise<Suricat
 export function getSuricataAttachmentContentUrl(ticketId: string, attachmentId: string): string {
   return `/api/suricata/tickets/${ticketId}/attachments/${attachmentId}/content`;
 }
+
+/**
+ * suricata-tickets-mirror (Fase I, task I.1, spec `suricata-ticket-reply`
+ * REPLY-1..6, design D10) — `POST /tickets/:id/reply` wire shape, mirror of
+ * `ipnext-backend/src/application/use-cases/suricata/ReplyToSuricataTicket.ts`'s
+ * `ReplyToSuricataTicketResult` (a 202 only ever carries `replyAuditId` — the
+ * `SuricataReplySendFailedError` failure path ALSO carries `replyAuditId`,
+ * but inside the error response body, mapped by `mapSuricataReplyError`, not
+ * this success DTO).
+ */
+export interface SuricataReplyResultDto {
+  replyAuditId: string;
+}
+
+/**
+ * `confirm` is `computeSuricataReplyConfirmation(body)` (Web Crypto sha256
+ * hex, `../utils/suricataReplyConfirmation.ts`) — the BE recomputes and
+ * compares it (REPLY-2); a mismatch never reaches the Suricata session.
+ */
+export async function replyToSuricataTicket(
+  ticketId: string,
+  body: string,
+  confirm: string,
+): Promise<SuricataReplyResultDto> {
+  const response = await axiosClient.post<SuricataReplyResultDto>(
+    `/suricata/tickets/${ticketId}/reply`,
+    { body, confirm },
+  );
+  return response.data;
+}

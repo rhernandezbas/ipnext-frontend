@@ -1,16 +1,51 @@
 /**
- * SuricataConversationTab (Fase H, task H.2, spec `suricata-tickets-ui` UI-3).
+ * SuricataConversationTab (Fase H, task H.2, spec `suricata-tickets-ui` UI-3;
+ * Fase I adds the reply composer at the foot, task I.1).
  *
- *  CNV-1 empty    → explicit empty state when there are no messages yet
- *  CNV-2 lanes    → 'customer'/'agent'/'system' render as distinguishable, labeled lanes
- *  CNV-3 order    → messages render in the order the DTO already provides (oldest → newest)
- *  CNV-4 audio    → a `stored` audio attachment renders an inline, playable `<audio>` — never a bare link
- *  CNV-5 pending  → a NOT-yet-stored audio attachment is an honest placeholder, never a broken/bare link
+ *  CNV-1 empty     → explicit empty state when there are no messages yet
+ *  CNV-2 lanes     → 'customer'/'agent'/'system' render as distinguishable, labeled lanes
+ *  CNV-3 order     → messages render in the order the DTO already provides (oldest → newest)
+ *  CNV-4 audio     → a `stored` audio attachment renders an inline, playable `<audio>` — never a bare link
+ *  CNV-5 pending   → a NOT-yet-stored audio attachment is an honest placeholder, never a broken/bare link
+ *  CNV-6 composer  → the reply composer renders at the foot with the recipient/ticket props wired
+ *                    through (own full behavior is covered by `SuricataReplyComposer.test.tsx`)
  */
 import { render, screen, within } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { SuricataConversationTab } from '@/pages/suricata/SuricataTicketDetail/SuricataConversationTab';
 import type { SuricataAttachmentDto, SuricataMessageDto } from '@/pages/suricata/api/suricataClient';
+
+vi.mock('@/pages/suricata/SuricataTicketDetail/SuricataReplyComposer', () => ({
+  SuricataReplyComposer: ({
+    ticketId,
+    customerName,
+    customerPhone,
+    ticketSubject,
+    ticketExternalId,
+  }: {
+    ticketId: string;
+    customerName: string | null;
+    customerPhone: string | null;
+    ticketSubject: string;
+    ticketExternalId: string;
+  }) => (
+    <div
+      data-testid="reply-composer-stub"
+      data-ticket-id={ticketId}
+      data-customer-name={customerName ?? ''}
+      data-customer-phone={customerPhone ?? ''}
+      data-ticket-subject={ticketSubject}
+      data-ticket-external-id={ticketExternalId}
+    />
+  ),
+}));
+
+const REPLY_PROPS = {
+  customerName: 'María Gómez',
+  customerPhone: '+549232455511',
+  ticketSubject: 'Sin Servicio',
+  ticketExternalId: '18742',
+};
 
 function makeMessage(overrides: Partial<SuricataMessageDto> = {}): SuricataMessageDto {
   return {
@@ -37,7 +72,7 @@ function makeAttachment(overrides: Partial<SuricataAttachmentDto> = {}): Suricat
 
 describe('CNV-1 empty', () => {
   it('shows an explicit empty state with zero messages', () => {
-    render(<SuricataConversationTab ticketId="t-1" messages={[]} attachments={[]} />);
+    render(<SuricataConversationTab ticketId="t-1" messages={[]} attachments={[]} {...REPLY_PROPS} />);
     expect(screen.getByText(/sin mensajes/i)).toBeInTheDocument();
   });
 });
@@ -52,6 +87,7 @@ describe('CNV-2 lanes', () => {
           makeMessage({ id: 'm-2', authorKind: 'agent', author: 'Ronald', body: 'Ya lo reviso' }),
         ]}
         attachments={[]}
+        {...REPLY_PROPS}
       />,
     );
     const list = screen.getByRole('list', { name: /conversación/i });
@@ -72,6 +108,7 @@ describe('CNV-3 order', () => {
           makeMessage({ id: 'm-2', body: 'Segundo' }),
         ]}
         attachments={[]}
+        {...REPLY_PROPS}
       />,
     );
     const list = screen.getByRole('list', { name: /conversación/i });
@@ -88,6 +125,7 @@ describe('CNV-4 audio', () => {
         ticketId="t-1"
         messages={[makeMessage({ id: 'm-1' })]}
         attachments={[makeAttachment({ messageId: 'm-1', status: 'stored' })]}
+        {...REPLY_PROPS}
       />,
     );
     const audio = screen.getByTestId('suricata-attachment-audio');
@@ -105,10 +143,35 @@ describe('CNV-5 pending', () => {
         ticketId="t-1"
         messages={[makeMessage({ id: 'm-1' })]}
         attachments={[makeAttachment({ messageId: 'm-1', status: 'pending' })]}
+        {...REPLY_PROPS}
       />,
     );
     expect(screen.queryByTestId('suricata-attachment-audio')).not.toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(screen.getByText(/sincronizándose/i)).toBeInTheDocument();
+  });
+});
+
+describe('CNV-6 composer', () => {
+  it('renders the reply composer at the foot, wired with the recipient/ticket props', () => {
+    render(<SuricataConversationTab ticketId="t-1" messages={[]} attachments={[]} {...REPLY_PROPS} />);
+    const composer = screen.getByTestId('reply-composer-stub');
+    expect(composer).toHaveAttribute('data-ticket-id', 't-1');
+    expect(composer).toHaveAttribute('data-customer-name', 'María Gómez');
+    expect(composer).toHaveAttribute('data-customer-phone', '+549232455511');
+    expect(composer).toHaveAttribute('data-ticket-subject', 'Sin Servicio');
+    expect(composer).toHaveAttribute('data-ticket-external-id', '18742');
+  });
+
+  it('still renders the composer when there ARE messages (not just the empty-state branch)', () => {
+    render(
+      <SuricataConversationTab
+        ticketId="t-1"
+        messages={[makeMessage({ id: 'm-1' })]}
+        attachments={[]}
+        {...REPLY_PROPS}
+      />,
+    );
+    expect(screen.getByTestId('reply-composer-stub')).toBeInTheDocument();
   });
 });
