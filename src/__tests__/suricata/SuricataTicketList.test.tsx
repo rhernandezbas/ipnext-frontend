@@ -7,6 +7,8 @@
  *  LST-4 success   → una fila por ticket, badges (estado/área/bot) + asignado visible
  *  LST-5 filtros   → estado/prioridad/área/bot vía el `Select` propio (combobox), nunca `<select>` nativo
  *  LST-6 navegación → click en una fila navega a /admin/suricata-tickets/:id
+ *  LST-7 paginación → la lista pide page/limit explícitos, dice cuántos de cuántos está
+ *                     mostrando, y navega entre páginas con el `Pagination` del repo
  */
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -210,6 +212,68 @@ describe('LST-5 filters', () => {
 
     expect(useSuricataTickets).toHaveBeenLastCalledWith(
       expect.objectContaining({ botState: 'requiere_humano' }),
+    );
+  });
+});
+
+describe('LST-7 pagination', () => {
+  function manyTickets(n: number) {
+    return Array.from({ length: n }, (_, i) => makeTicket({ id: `t-${i}`, externalId: `${1000 + i}` }));
+  }
+
+  it('requests an explicit page/limit instead of riding the BE default', () => {
+    mockList({ data: { data: manyTickets(25), total: 60, page: 1, limit: 25 }, isLoading: false, isError: false });
+    renderList();
+
+    expect(useSuricataTickets).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, limit: expect.any(Number) }),
+    );
+  });
+
+  it('tells the operator how many of the total are on screen', () => {
+    mockList({ data: { data: manyTickets(25), total: 60, page: 1, limit: 25 }, isLoading: false, isError: false });
+    renderList();
+
+    expect(screen.getByText(/Mostrando 1–25 de 60/)).toBeInTheDocument();
+  });
+
+  it('counts from the server-reported page, not from a local guess', () => {
+    mockList({ data: { data: manyTickets(10), total: 60, page: 3, limit: 25 }, isLoading: false, isError: false });
+    renderList();
+
+    expect(screen.getByText(/Mostrando 51–60 de 60/)).toBeInTheDocument();
+  });
+
+  it('moves to the next page through the repo Pagination control', async () => {
+    mockList({ data: { data: manyTickets(25), total: 60, page: 1, limit: 25 }, isLoading: false, isError: false });
+    renderList();
+
+    await userEvent.click(within(screen.getByRole('navigation', { name: /paginación/i })).getByRole('button', { name: 'Siguiente' }));
+
+    expect(useSuricataTickets).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
+  });
+
+  it('still reports the count when everything fits on one page, with no pager', () => {
+    mockList({ data: { data: manyTickets(3), total: 3, page: 1, limit: 25 }, isLoading: false, isError: false });
+    renderList();
+
+    expect(screen.getByText(/Mostrando 1–3 de 3/)).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: /paginación/i })).not.toBeInTheDocument();
+  });
+
+  it('returns to page 1 when a filter changes, so page 3 of the old filter is never requested', async () => {
+    mockList({ data: { data: manyTickets(25), total: 60, page: 1, limit: 25 }, isLoading: false, isError: false });
+    renderList();
+
+    await userEvent.click(within(screen.getByRole('navigation', { name: /paginación/i })).getByRole('button', { name: 'Siguiente' }));
+    expect(useSuricataTickets).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
+
+    const botSelect = screen.getByRole('combobox', { name: /bot/i });
+    await userEvent.click(botSelect);
+    await userEvent.click(screen.getByRole('option', { name: /necesit[oó] humano|no pudo/i }));
+
+    expect(useSuricataTickets).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, botState: 'requiere_humano' }),
     );
   });
 });
