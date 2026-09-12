@@ -29,3 +29,14 @@
   color: var(--color-status-late);
   font-weight: 500;
 }
+
+.inlineRetry {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--color-status-late);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}

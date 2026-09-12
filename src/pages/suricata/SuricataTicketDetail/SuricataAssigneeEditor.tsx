@@ -35,7 +35,14 @@ interface Props {
  */
 export function SuricataAssigneeEditor({ ticketId, assigneeId, assigneeName }: Props) {
   const canManage = useCan('suricata.manage');
-  const { data: users = [], isLoading: usersLoading } = useRbacUsers(canManage);
+  // A failed users fetch used to be indistinguishable from "there is nobody to
+  // assign": the control rendered with only "Sin asignar" and no warning.
+  const {
+    data: users = [],
+    isLoading: usersLoading,
+    isError: usersError,
+    refetch: refetchUsers,
+  } = useRbacUsers(canManage);
   const setAssignee = useSetSuricataAssignee();
   const [error, setError] = useState<string | null>(null);
 
@@ -73,9 +80,19 @@ export function SuricataAssigneeEditor({ ticketId, assigneeId, assigneeName }: P
           value={assigneeId ?? UNASSIGNED}
           onChange={(v) => void handleChange(v)}
           options={options}
-          disabled={usersLoading || setAssignee.isPending}
+          disabled={usersLoading || usersError || setAssignee.isPending}
+          aria-invalid={usersError || undefined}
         />
       </div>
+
+      {usersError && (
+        <span className={styles.error} role="alert">
+          No pudimos cargar la lista de usuarios.{' '}
+          <button type="button" className={styles.inlineRetry} onClick={() => void refetchUsers()}>
+            Reintentar
+          </button>
+        </span>
+      )}
       {setAssignee.isPending && (
         <span className={styles.savingHint} role="status">
           Guardando…

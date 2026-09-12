@@ -103,6 +103,34 @@ describe('LST-2 error', () => {
   });
 });
 
+describe('LST-2b areas error', () => {
+  // A failed areas fetch used to be indistinguishable from "this install has no
+  // areas": the Área filter just rendered with only "Todas" and said nothing,
+  // so the operator could filter believing the catalog was complete.
+  it('says so when the area catalog fails to load, with a retry', async () => {
+    const refetchAreas = vi.fn();
+    vi.mocked(useSuricataAreas).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: refetchAreas,
+    } as unknown as ReturnType<typeof useSuricataAreas>);
+    mockList({ data: { data: [], total: 0, page: 1, limit: 25 }, isLoading: false, isError: false });
+    renderList();
+
+    expect(screen.getByText(/no pudimos cargar las áreas/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /reintentar áreas/i }));
+    expect(refetchAreas).toHaveBeenCalledTimes(1);
+  });
+
+  it('says nothing about areas when the catalog loads fine', () => {
+    mockList({ data: { data: [], total: 0, page: 1, limit: 25 }, isLoading: false, isError: false });
+    renderList();
+    expect(screen.queryByText(/no pudimos cargar las áreas/i)).not.toBeInTheDocument();
+  });
+});
+
 describe('LST-3 empty', () => {
   it('shows an explanatory empty state with no tickets at all', () => {
     mockList({ data: { data: [], total: 0, page: 1, limit: 25 }, isLoading: false, isError: false });

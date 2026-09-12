@@ -105,7 +105,11 @@ export function SuricataTicketList() {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
 
-  const { data: areas = [] } = useSuricataAreas();
+  // The areas catalog has its OWN failure mode. Swallowing it made a failed
+  // fetch look exactly like "this install has no areas": the filter rendered
+  // with just "Todas" and the operator filtered on a catalog they could not
+  // know was missing.
+  const { data: areas = [], isError: areasError, refetch: refetchAreas } = useSuricataAreas();
   const { data, isLoading, isError, refetch } = useSuricataTickets({
     status: filters.status || undefined,
     priority: filters.priority || undefined,
@@ -164,7 +168,17 @@ export function SuricataTicketList() {
             value={filters.areaId}
             onChange={(v) => updateFilters({ areaId: v })}
             options={[{ value: '', label: 'Todas' }, ...areas.map((a) => ({ value: a.id, label: a.name }))]}
+            disabled={areasError}
+            aria-invalid={areasError || undefined}
           />
+          {areasError && (
+            <p className={styles.fieldError} role="alert">
+              No pudimos cargar las áreas.{' '}
+              <button type="button" className={styles.inlineRetry} onClick={() => void refetchAreas()}>
+                Reintentar áreas
+              </button>
+            </p>
+          )}
         </div>
         <div className={styles.filterField}>
           <Select

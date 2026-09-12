@@ -149,3 +149,21 @@
   justify-content: center;
   padding: var(--space-3) var(--space-4);
 }
+
+.fieldError {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-status-late);
+  font-weight: 500;
+}
+
+.inlineRetry {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--color-status-late);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}

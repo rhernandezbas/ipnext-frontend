@@ -109,6 +109,33 @@ describe('AE-4 clear', () => {
   });
 });
 
+describe('AE-8 users error', () => {
+  // A failed RBAC users fetch used to look exactly like "there is nobody to
+  // assign": the combobox rendered with only "Sin asignar" and no warning.
+  it('shows a visible error with a retry when the user list fails to load', async () => {
+    const refetch = vi.fn();
+    vi.mocked(useRbacUsersModule.useRbacUsers).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch,
+    } as unknown as ReturnType<typeof useRbacUsersModule.useRbacUsers>);
+
+    const user = userEvent.setup();
+    render(<SuricataAssigneeEditor ticketId="t-1" assigneeId={null} assigneeName={null} />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/no pudimos cargar/i);
+
+    await user.click(screen.getByRole('button', { name: /reintentar/i }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows no such error when the user list loads fine', () => {
+    render(<SuricataAssigneeEditor ticketId="t-1" assigneeId={null} assigneeName={null} />);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+
 describe('AE-7 no native select', () => {
   it('never renders a native <select> facing the operator (hard repo rule)', () => {
     render(<SuricataAssigneeEditor ticketId="t-1" assigneeId={null} assigneeName={null} />);
