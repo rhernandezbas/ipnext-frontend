@@ -47,10 +47,19 @@
   outline-offset: 1px;
 }
 
+/* Feedback de exito del envio. Antes usaba --color-status-active (#0d6efd):
+   4.22:1 sobre blanco, por debajo del minimo 4.5:1 de WCAG AA para texto
+   normal, y ademas azul ("activo"), no verde. Los tokens --badge-paid-*
+   son el verde accesible que el repo ya usa para exito
+   (#166534 sobre #dcfce7 = 7.4:1). */
 .success {
   margin: 0;
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--badge-paid-bg);
   font-size: var(--font-size-sm);
-  color: var(--color-status-active, #16a34a);
+  color: var(--badge-paid-fg);
   font-weight: 500;
 }
 
