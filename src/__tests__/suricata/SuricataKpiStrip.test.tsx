@@ -99,9 +99,42 @@ describe('KPI-4 success', () => {
 });
 
 describe('KPI-5 accessibility', () => {
-  it('exposes an aria-live region so refreshed KPI values are announced', () => {
-    mockKpis({ data: makeKpis() });
+  // A live region only announces CHANGES to a region that was already in the
+  // DOM. Mounting the container together with its content (the old shape:
+  // aria-live existed only on the success branch) announces nothing at all —
+  // and the old assertion, "some [aria-live] exists once data is there",
+  // passed happily against exactly that broken arrangement.
+  it('mounts the live region BEFORE the data, while still loading', () => {
+    mockKpis({ isLoading: true, data: undefined });
     render(<SuricataKpiStrip />);
-    expect(document.querySelector('[aria-live]')).not.toBeNull();
+    expect(screen.getByTestId('suricata-kpi-live')).toHaveAttribute('aria-live', 'polite');
+  });
+
+  it('keeps the same live region node across states so an update is announced', () => {
+    mockKpis({ isLoading: true, data: undefined });
+    const { rerender } = render(<SuricataKpiStrip />);
+
+    const liveRegion = screen.getByTestId('suricata-kpi-live');
+    expect(liveRegion).not.toHaveTextContent('62%');
+
+    mockKpis({ isLoading: false, data: makeKpis() });
+    rerender(<SuricataKpiStrip />);
+
+    // Same node, new content — that is what actually triggers an announcement.
+    expect(screen.getByTestId('suricata-kpi-live')).toBe(liveRegion);
+    expect(liveRegion).toHaveTextContent('62%');
+  });
+
+  it('announces a refreshed value when the KPIs change', () => {
+    mockKpis({ data: makeKpis({ resueltoBotPct: 62 }) });
+    const { rerender } = render(<SuricataKpiStrip />);
+    const liveRegion = screen.getByTestId('suricata-kpi-live');
+
+    mockKpis({ data: makeKpis({ resueltoBotPct: 80 }) });
+    rerender(<SuricataKpiStrip />);
+
+    expect(screen.getByTestId('suricata-kpi-live')).toBe(liveRegion);
+    expect(liveRegion).toHaveTextContent('80%');
+    expect(liveRegion).not.toHaveTextContent('62%');
   });
 });
