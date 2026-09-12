@@ -71,7 +71,11 @@ function TicketRow({ ticket, onOpen }: { ticket: SuricataTicketListItemDto; onOp
         <div className={styles.meta}>
           <span className={`${styles.badge} ${styles.badgeStatus}`}>{ticket.status}</span>
           {ticket.areaName && <span className={`${styles.badge} ${styles.badgeArea}`}>{ticket.areaName}</span>}
-          <span className={styles.badge} data-bot={ticket.botState}>
+          {/* `.badgeBot` is NOT decoration: the per-state colour rules are
+              written as `.badgeBot[data-bot=...]`, so dropping it (as this row
+              used to) renders all four bot states identically colourless.
+              Same pairing the detail header uses. */}
+          <span className={`${styles.badge} ${styles.badgeBot}`} data-bot={ticket.botState}>
             {BOT_STATE_LABEL[ticket.botState]}
           </span>
         </div>

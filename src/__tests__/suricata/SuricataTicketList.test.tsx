@@ -164,6 +164,28 @@ describe('LST-4 success', () => {
     const list = screen.getByRole('list', { name: /tickets suricata/i });
     expect(within(list).getByText(/necesit[oó] humano|no pudo/i)).toBeInTheDocument();
   });
+
+  // The bot badge carries its per-state COLOR through `.badgeBot[data-bot=...]`
+  // in the stylesheet. Carrying only `.badge` (as this list did) left every bot
+  // state rendering identically colourless: the CSS was alive, the class that
+  // selects it was never emitted. This pins the class the rules hang off, so
+  // the colour can never silently detach from the markup again.
+  it.each(['sin_analizar', 'resuelto_bot', 'requiere_humano', 'stale'] as const)(
+    'gives the %s bot badge the badgeBot class its colour rules select on',
+    (botState) => {
+      mockList({
+        data: { data: [makeTicket({ botState })], total: 1, page: 1, limit: 25 },
+        isLoading: false,
+        isError: false,
+      });
+      renderList();
+
+      const list = screen.getByRole('list', { name: /tickets suricata/i });
+      const badge = within(list).getByText(new RegExp(`^Bot: `, 'i'));
+      expect(badge.className).toContain('badgeBot');
+      expect(badge).toHaveAttribute('data-bot', botState);
+    },
+  );
 });
 
 describe('LST-5 filters', () => {
