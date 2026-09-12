@@ -64,9 +64,10 @@ function TicketRow({ ticket, onOpen }: { ticket: SuricataTicketListItemDto; onOp
     <li>
       <button type="button" className={styles.row} onClick={() => onOpen(ticket.id)}>
         <div className={styles.rowTop}>
-          <span className={styles.subject}>{ticket.subject}</span>
+          <span className={styles.subject}>{ticket.customerName ?? ticket.subject}</span>
           <span className={styles.externalId}>#{ticket.externalId}</span>
         </div>
+        {ticket.customerName && <span className={styles.externalId}>{ticket.subject}</span>}
         <div className={styles.meta}>
           <span className={`${styles.badge} ${styles.badgeStatus}`}>{ticket.status}</span>
           {ticket.areaName && <span className={`${styles.badge} ${styles.badgeArea}`}>{ticket.areaName}</span>}

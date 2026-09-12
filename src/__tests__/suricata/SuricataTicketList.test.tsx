@@ -37,6 +37,8 @@ function makeTicket(overrides: Partial<SuricataTicketListItemDto> = {}): Suricat
     priority: 'alta',
     areaId: 'area-1',
     areaName: 'Soporte',
+    customerName: 'María Gómez',
+    customerPhone: '+549232455511',
     botState: 'sin_analizar',
     assigneeId: null,
     assigneeName: null,
@@ -123,10 +125,11 @@ describe('LST-4 success', () => {
     mockList({
       data: {
         data: [
-          makeTicket({ id: 't-1', subject: 'Sin Servicio', assigneeName: null }),
+          makeTicket({ id: 't-1', subject: 'Sin Servicio', customerName: 'María Gómez', assigneeName: null }),
           makeTicket({
             id: 't-2',
             subject: 'Cortes Intermitentes',
+            customerName: 'Carlos Pérez',
             assigneeName: 'Ronald',
             botState: 'resuelto_bot',
             areaName: 'Facturación',
@@ -142,6 +145,8 @@ describe('LST-4 success', () => {
     renderList();
 
     const list = screen.getByRole('list', { name: /tickets suricata/i });
+    expect(within(list).getByText('María Gómez')).toBeInTheDocument();
+    expect(within(list).getByText('Carlos Pérez')).toBeInTheDocument();
     expect(within(list).getByText('Sin Servicio')).toBeInTheDocument();
     expect(within(list).getByText('Cortes Intermitentes')).toBeInTheDocument();
     expect(within(list).getByText(/sin asignar/i)).toBeInTheDocument();
