@@ -33,6 +33,10 @@ const TicketsArchivePage = lazy(() => import('@/pages/tickets/TicketsArchivePage
 const TicketsArchivedPage = lazy(() => import('@/pages/tickets/TicketsArchivedPage'));
 const TicketCreatePage = lazy(() => import('@/pages/tickets/CreateTicketPage'));
 const TicketDetailPage = lazy(() => import('@/pages/tickets/TicketDetailPage'));
+// suricata-tickets-mirror, Fase G — panel de tickets Suricata (lista + filtros + KPIs), gated suricata.read.
+const SuricataTicketsPage = lazy(() => import('@/pages/suricata/SuricataTicketsPage'));
+// suricata-tickets-mirror, Fase H — detalle del ticket (Conversación/Análisis IA/Datos del cliente), gated suricata.read.
+const SuricataTicketDetailPage = lazy(() => import('@/pages/suricata/SuricataTicketDetailPage'));
 const AddCustomerPage = lazy(() => import('@/pages/customers/AddCustomerPage'));
 const EditCustomerPage = lazy(() => import('@/pages/customers/EditCustomerPage'));
 
@@ -273,6 +277,11 @@ export function App() {
                 <Route path="statuses" element={<Navigate to="/admin/tickets/settings" replace />} />
                 <Route path="settings" element={<RequirePermission permission="tickets.manage"><TicketsSettingsPage /></RequirePermission>} />
                 <Route path=":id" element={<RequirePermission permission="tickets.read"><TicketDetailPage /></RequirePermission>} />
+              </Route>
+              {/* ── Suricata tickets mirror (suricata.read) — Fase G/H ───────── */}
+              <Route path="suricata-tickets">
+                <Route index element={<RequirePermission permission="suricata.read"><SuricataTicketsPage /></RequirePermission>} />
+                <Route path=":id" element={<RequirePermission permission="suricata.read"><SuricataTicketDetailPage /></RequirePermission>} />
               </Route>
               {/* ── Finance (billing.read) ─────────────────────────────────── */}
               <Route path="finance">

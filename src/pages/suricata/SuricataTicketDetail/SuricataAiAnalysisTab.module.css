@@ -1,0 +1,105 @@
+.emptyState {
+  padding: var(--space-6);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.card {
+  border: 1px solid var(--color-accent);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-4);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-1);
+}
+
+.pill {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  padding: 3px var(--space-3);
+  border-radius: var(--radius-full, 9999px);
+}
+
+.pillOk {
+  background: var(--badge-paid-bg);
+  color: var(--badge-paid-fg);
+}
+
+.pillFail {
+  background: var(--badge-late-bg);
+  color: var(--badge-late-fg);
+}
+
+.currentTag {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.staleTag {
+  font-size: var(--font-size-xs);
+  color: var(--color-warning-fg);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-full, 9999px);
+  padding: 2px var(--space-2);
+}
+
+.timestamp {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-3);
+}
+
+.field {
+  margin-bottom: var(--space-3);
+}
+
+.field:last-child {
+  margin-bottom: 0;
+}
+
+.fieldLabel {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: var(--space-1);
+}
+
+.fieldText {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.failReason {
+  background: var(--color-danger-bg-hover);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.suggested {
+  background: var(--color-warning-bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
