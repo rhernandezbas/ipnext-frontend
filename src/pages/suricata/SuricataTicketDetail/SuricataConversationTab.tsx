@@ -93,6 +93,14 @@ export function SuricataConversationTab({
   ticketSubject,
   ticketExternalId,
 }: Props) {
+  // `SuricataAttachmentDto.messageId` is NULLABLE on the wire: the mirror can
+  // store an attachment it could not tie to a specific thread message. Rendering
+  // only `messageId === message.id` therefore DROPPED those rows entirely — with
+  // no trace that they exist. For audio that is lost evidence (UI-3 treats voice
+  // notes as first-class content), so orphans get their own section instead of
+  // being filtered into nothing.
+  const orphanAttachments = attachments.filter((a) => a.messageId === null);
+
   return (
     <div className={styles.tab}>
       {messages.length === 0 ? (
@@ -134,6 +142,24 @@ export function SuricataConversationTab({
             );
           })}
         </div>
+      )}
+
+      {orphanAttachments.length > 0 && (
+        <section
+          className={styles.orphanSection}
+          role="group"
+          aria-label="Adjuntos sin mensaje asociado"
+        >
+          <h3 className={styles.orphanTitle}>Adjuntos sin mensaje asociado</h3>
+          <p className={styles.orphanHint}>
+            El mirror guardó estos archivos pero no pudo vincularlos a un mensaje puntual del hilo.
+          </p>
+          <div className={styles.attachments}>
+            {orphanAttachments.map((att) => (
+              <AttachmentView key={att.id} ticketId={ticketId} attachment={att} />
+            ))}
+          </div>
+        </section>
       )}
 
       <SuricataReplyComposer

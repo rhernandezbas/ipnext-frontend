@@ -9,6 +9,9 @@
  *  CNV-5 pending   → a NOT-yet-stored audio attachment is an honest placeholder, never a broken/bare link
  *  CNV-6 composer  → the reply composer renders at the foot with the recipient/ticket props wired
  *                    through (own full behavior is covered by `SuricataReplyComposer.test.tsx`)
+ *  CNV-7 orphans   → an attachment with `messageId: null` belongs to no message row, so it MUST
+ *                    still surface in its own section — never disappear silently (UI-3 treats
+ *                    audio as first-class content; a dropped voice note is lost evidence)
  */
 import { render, screen, within } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
@@ -173,5 +176,54 @@ describe('CNV-6 composer', () => {
       />,
     );
     expect(screen.getByTestId('reply-composer-stub')).toBeInTheDocument();
+  });
+});
+
+describe('CNV-7 orphan attachments', () => {
+  it('surfaces a messageId:null audio attachment in its own section, still playable', () => {
+    render(
+      <SuricataConversationTab
+        ticketId="t-1"
+        messages={[makeMessage({ id: 'm-1' })]}
+        attachments={[makeAttachment({ id: 'a-9', messageId: null, fileName: 'audio-suelto.ogg' })]}
+        {...REPLY_PROPS}
+      />,
+    );
+
+    const orphans = screen.getByRole('group', { name: /adjuntos sin mensaje asociado/i });
+    expect(within(orphans).getByText('audio-suelto.ogg')).toBeInTheDocument();
+
+    const audio = within(orphans).getByTestId('suricata-attachment-audio');
+    expect(audio).toHaveAttribute('src', '/api/suricata/tickets/t-1/attachments/a-9/content');
+  });
+
+  it('surfaces a messageId:null non-audio attachment too', () => {
+    render(
+      <SuricataConversationTab
+        ticketId="t-1"
+        messages={[]}
+        attachments={[
+          makeAttachment({ id: 'a-8', messageId: null, fileName: 'captura.png', mimeType: 'image/png' }),
+        ]}
+        {...REPLY_PROPS}
+      />,
+    );
+
+    const orphans = screen.getByRole('group', { name: /adjuntos sin mensaje asociado/i });
+    expect(within(orphans).getByText('captura.png')).toBeInTheDocument();
+  });
+
+  it('never renders an orphan attachment twice, nor the section when every attachment has a message', () => {
+    render(
+      <SuricataConversationTab
+        ticketId="t-1"
+        messages={[makeMessage({ id: 'm-1' })]}
+        attachments={[makeAttachment({ id: 'a-1', messageId: 'm-1', fileName: 'nota.ogg' })]}
+        {...REPLY_PROPS}
+      />,
+    );
+
+    expect(screen.queryByRole('group', { name: /adjuntos sin mensaje asociado/i })).not.toBeInTheDocument();
+    expect(screen.getAllByText('nota.ogg')).toHaveLength(1);
   });
 });

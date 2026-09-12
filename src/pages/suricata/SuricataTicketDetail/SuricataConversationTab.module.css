@@ -119,3 +119,26 @@
   font-size: var(--font-size-xs);
   opacity: 0.9;
 }
+
+/* Adjuntos huérfanos (`messageId: null`) — no pertenecen a ninguna fila del
+   hilo, así que tienen su propia sección al pie en vez de desaparecer. */
+.orphanSection {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-gray-50);
+}
+
+.orphanTitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.orphanHint {
+  margin: 2px 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
