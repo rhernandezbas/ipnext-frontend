@@ -90,6 +90,12 @@ const CRM_ITEMS: NavParentItem[] = [
     ],
   },
   {
+    label: 'Tickets Suricata',
+    to: '/admin/suricata-tickets',
+    matchPaths: ['/admin/suricata-tickets'],
+    requiredPermission: 'suricata.read', // panel de mirror del bot de atención (suricata-tickets-mirror)
+  },
+  {
     label: 'Finanzas',
     // finance-growth-dashboard Fase 5 fix wave — bug: '/admin/finance' (sin
     // barra final) hace match por prefijo de '/admin/finance-growth/*' vía

@@ -210,6 +210,24 @@ export interface SuricataReplyResultDto {
  * hex, `../utils/suricataReplyConfirmation.ts`) — the BE recomputes and
  * compares it (REPLY-2); a mismatch never reaches the Suricata session.
  */
+/**
+ * suricata-tickets-mirror (fix wave, 2026-09-13) — "Sincronizar ahora" manual.
+ * `POST /api/suricata/sync` reusa el MISMO scheduler que corre cada 15 min
+ * (nunca dispara una sesión Playwright aparte). Mirror de
+ * `SuricataSyncRunSummary` (BE `infrastructure/scheduling/SuricataSyncScheduler.ts`).
+ */
+export interface SuricataSyncResultDto {
+  skipped?: boolean;
+  error?: string;
+  outcome?: 'ok' | 'degraded' | 'failed';
+  ticketsUpserted?: number;
+}
+
+export async function triggerSuricataSync(): Promise<SuricataSyncResultDto> {
+  const response = await axiosClient.post<SuricataSyncResultDto>('/suricata/sync');
+  return response.data;
+}
+
 export async function replyToSuricataTicket(
   ticketId: string,
   body: string,

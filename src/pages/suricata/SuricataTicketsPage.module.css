@@ -15,3 +15,45 @@
   color: var(--color-text-primary);
   margin: 0;
 }
+
+.syncAction {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.btnSync {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 200ms ease;
+}
+
+.btnSync:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.btnSync:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.btnSync:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.syncFeedback {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.syncFeedbackError {
+  font-size: 0.875rem;
+  color: var(--color-danger);
+}

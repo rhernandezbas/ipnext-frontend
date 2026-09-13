@@ -13,6 +13,12 @@ vi.mock('@/pages/suricata/SuricataKpiStrip', () => ({
 vi.mock('@/pages/suricata/SuricataTicketList', () => ({
   SuricataTicketList: () => <div data-testid="ticket-list-stub" />,
 }));
+// SyncNowButton's useTriggerSuricataSync is a REAL react-query useMutation
+// (needs useQueryClient) -- safe default, same criterion as useNewsUnreadCount
+// in src/test/setup.ts (a real hook pervasively called by a composed page).
+vi.mock('@/pages/suricata/hooks/useSuricataTickets', () => ({
+  useTriggerSuricataSync: () => ({ mutate: vi.fn(), isPending: false, isError: false, data: undefined }),
+}));
 
 import SuricataTicketsPage from '@/pages/suricata/SuricataTicketsPage';
 

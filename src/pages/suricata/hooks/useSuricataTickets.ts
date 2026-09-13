@@ -6,6 +6,7 @@ import {
   getSuricataTicketDetail,
   setSuricataAssignee,
   replyToSuricataTicket,
+  triggerSuricataSync,
   type SuricataTicketsQuery,
 } from '../api/suricataClient';
 
@@ -35,6 +36,22 @@ export function useSuricataKpis() {
     queryKey: ['suricata-kpis'],
     queryFn: getSuricataKpis,
     staleTime: 30_000,
+  });
+}
+
+/**
+ * suricata-tickets-mirror (fix wave, 2026-09-13) — botón "Sincronizar ahora".
+ * Invalida lista + KPIs para reflejar el resultado sin esperar el próximo
+ * tick automático (15 min).
+ */
+export function useTriggerSuricataSync() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: triggerSuricataSync,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['suricata-tickets'] });
+      qc.invalidateQueries({ queryKey: ['suricata-kpis'] });
+    },
   });
 }
 
